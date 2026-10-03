@@ -401,12 +401,12 @@ public class CaseManagementPrint {
                 }
 
             }
-            ConcatPDF.concatRequired(pdfDocs, os);
+            mergeCompletePdf(pdfDocs, os);
         } catch (IOException | RuntimeException e) {
             // Missing inputs fail before the response stream is written. Propagate assembly failures
             // instead of returning a successful incomplete PDF. The Struts direct-response caller
             // resets an uncommitted response and sends a real error;
-            // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
+            // the REST StreamingOutput caller returns HTTP 500. Mapped to IOException per the method contract.
             logger.error("Chart print generation failed ({})", e.getClass().getSimpleName());
             throw new IOException("Failed to generate complete chart print PDF");
         } finally {
@@ -736,6 +736,21 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException failure) {
             // Keep cleaning every PHI-bearing file and preserve the original print failure.
             logger.warn("Could not close temporary chart print stream ({})", failure.getClass().getSimpleName());
+        }
+    }
+
+    /** Assemble completely before committing either HTTP endpoint's response. */
+    static void mergeCompletePdf(List<Object> inputs, OutputStream response) throws IOException {
+        File complete = PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf");
+        try {
+            try (OutputStream staged = Files.newOutputStream(complete.toPath())) {
+                ConcatPDF.concatRequired(inputs, staged);
+            }
+            Files.copy(complete.toPath(), response);
+        } finally {
+            if (!deleteTempPdf(complete, "completed chart print PDF")) {
+                deleteTempPdf(complete, "completed chart print PDF (retry)");
+            }
         }
     }
 

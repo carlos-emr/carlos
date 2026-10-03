@@ -93,6 +93,11 @@ async function workflow(s) {
       await chart.locator('#notes2print').inputValue() === `${ids.now},${ids.old}`, 'The note printer icons did not queue the two notes');
     await print.openPrintDialog(chart);
     h.assert(await chart.locator('#printopSelected').isChecked(), 'With notes queued the dialog did not preselect "selected notes"');
+    // Simulate stale dialog state; the date picker makes these inputs read-only.
+    await chart.evaluate(() => {
+      document.getElementById('printStartDate').value = 'stale-invalid-date';
+      document.getElementById('printEndDate').value = '31-Feb-2026';
+    });
     const {text} = await print.pressPrint(chart, scratch);
     h.assert(text.includes(token.old) && text.includes(token.now), 'The print is missing a queued note');
     h.assert(!text.includes(token.mid), 'The print carries a note that was never queued');
@@ -136,6 +141,11 @@ async function workflow(s) {
     await print.openPrintDialog(chart);
     await chart.locator('#printopAll').check();
     await print.setFlags(chart, ['printAllergies', 'printPreventions']);
+    // Simulate stale dialog state; the date picker makes these inputs read-only.
+    await chart.evaluate(() => {
+      document.getElementById('printStartDate').value = 'stale-invalid-date';
+      document.getElementById('printEndDate').value = '31-Feb-2026';
+    });
     const {text} = await print.pressPrint(chart, scratch);
     for (const t of Object.values(token)) h.assert(text.includes(t), 'Print all is missing an owned note');
     h.assert(text.includes(`${marker} ALLERGEN`), 'The Allergies section is missing from the print');
@@ -176,7 +186,7 @@ async function workflow(s) {
 
   await s.step('invalid date-range requests return HTTP 400 before generating a PDF', async () => {
     const fields = await chart.evaluate(() => Object.fromEntries(new FormData(document.forms.caseManagementEntryForm)));
-    for (const [start, end] of [['', '03-Oct-2026'], ['invalid', '03-Oct-2026'], ['04-Oct-2026', '03-Oct-2026']]) {
+    for (const [start, end] of [['', '03-Oct-2026'], ['invalid', '03-Oct-2026'], ['31-Feb-2026', '03-Oct-2026'], ['29-Feb-2026', '03-Oct-2026'], ['03-Oct-2026junk', '03-Oct-2026'], ['04-Oct-2026', '03-Oct-2026']]) {
       const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
         form: {...fields, method: 'print', pType: 'dates', pStartDate: start, pEndDate: end},
       });

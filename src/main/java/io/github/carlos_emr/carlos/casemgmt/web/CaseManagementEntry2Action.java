@@ -2991,24 +2991,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pType = request.getParameter("pType");
 
         try {
-            if (pStartDate != null && !pStartDate.isEmpty()) {
-                Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
-                cStartDate = Calendar.getInstance();
-                cStartDate.setTime(startDate);
-            }
-
-            if (pEndDate != null && !pEndDate.isEmpty()) {
-                Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
-                cEndDate = Calendar.getInstance();
-                cEndDate.setTime(endDate);
-            }
             if ("dates".equals(pType)) {
-                if (cStartDate == null || cEndDate == null) {
-                    throw new IllegalArgumentException("Both print date boundaries are required");
-                }
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate);
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate);
                 ChartPrintDateRange.from(cStartDate, cEndDate);
             }
-        } catch (ParseException | IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             response.reset();
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
             return null;

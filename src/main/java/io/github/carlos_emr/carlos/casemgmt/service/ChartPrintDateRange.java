@@ -22,6 +22,14 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import java.time.Instant;
+import java.time.DateTimeException;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.format.SignStyle;
+import java.time.format.TextStyle;
+import java.time.temporal.ChronoField;
+import java.util.GregorianCalendar;
+import java.util.Locale;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Calendar;
@@ -40,6 +48,31 @@ import java.util.Objects;
 // all day-boundary calculations use java.time.
 @SuppressWarnings("java:S2143")
 public record ChartPrintDateRange(Instant startInclusive, Instant endExclusive) {
+    /**
+     * Parses one complete dialog date, accepting the one-digit day emitted by Today.
+     *
+     * @param value date in d-MMM-yyyy or dd-MMM-yyyy format
+     * @return the selected local day
+     * @throws IllegalArgumentException for missing, impossible or partially parsed dates
+     */
+    public static Calendar parseDialogDate(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Print date is required");
+        }
+        var formatter = new DateTimeFormatterBuilder().parseCaseInsensitive()
+                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
+                .appendLiteral('-').appendText(ChronoField.MONTH_OF_YEAR, TextStyle.SHORT)
+                .appendLiteral('-').appendValue(ChronoField.YEAR, 4)
+                .toFormatter(Locale.getDefault(Locale.Category.FORMAT))
+                .withResolverStyle(ResolverStyle.STRICT);
+        try {
+            return GregorianCalendar.from(LocalDate.parse(value, formatter)
+                    .atStartOfDay(ZoneId.systemDefault()));
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Invalid print date", e);
+        }
+    }
+
     /**
      * Builds the interval in the calendars' time zones without mutating either calendar.
      *

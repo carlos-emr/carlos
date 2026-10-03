@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import static org.assertj.core.api.Assertions.*;
 
 /** Whole-day printing boundaries, including both daylight-saving transitions. */
@@ -53,6 +55,20 @@ class ChartPrintDateRangeUnitTest {
         assertThat(range.contains(Date.from(range.endExclusive()))).isFalse();
         assertThat(range.contains(null)).isFalse();
         assertThat(date).isEqualTo(original);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"3-Oct-2026", "03-Oct-2026", "29-Feb-2028"})
+    void shouldParseDialogDates_withValidCalendarDays(String value) {
+        Calendar parsed = ChartPrintDateRange.parseDialogDate(value);
+        assertThat(parsed.get(Calendar.DAY_OF_MONTH)).isEqualTo(Integer.parseInt(value.split("-")[0]));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"31-Feb-2026", "29-Feb-2026", "03-Oct-2026junk", "03-Oct-2026 ", "invalid", " "})
+    void shouldRejectDialogDates_withInvalidOrIncompleteInput(String value) {
+        assertThatIllegalArgumentException().isThrownBy(() -> ChartPrintDateRange.parseDialogDate(value));
     }
 
     @Test

@@ -69,7 +69,7 @@ async function workflow(s) {
 
   // A three-year-old with no vaccinations has a deterministic DTaP-IPV warning.
   sql.execute(`UPDATE demographic SET year_of_birth=YEAR(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)),
-    month_of_birth=MONTH(CURDATE()),date_of_birth=DAY(CURDATE()) WHERE demographic_no=${patient}`);
+    month_of_birth=MONTH(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)),date_of_birth=DAY(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)) WHERE demographic_no=${patient}`);
   let appointment;
   s.cleanup(() => {
     if (appointment) {
