@@ -61,14 +61,21 @@ async function workflow(s) {
         h.assert(await popup.locator('#pasteButton').isHidden(), 'Restricted Paste remained available');
         h.assert(await popup.locator('#demographic_no').inputValue() === patient, 'The copied patient was lost');
     });
-    await s.step('a successful real lock refresh preserves the restriction and writes no booking', async () => {
+    await s.step('the scheduled lock refresh preserves the restriction and writes no booking', async () => {
         const refreshed = popup.waitForResponse(response => response.url().includes('/PageMonitoringService')
             && response.request().method() === 'POST');
         await popup.evaluate(() => {
-            const form = document.forms[0];
-            updatePageLock(5000, form.appointment_date.value, form.start_time.value, form.end_time.value);
+            // The notification is replaced in the refresh callback before visibility is updated.
+            // Mutation observers run after that callback completes, so this observes fresh UI state.
+            window.__testLockRefreshRendered = false;
+            const observer = new MutationObserver(() => {
+                observer.disconnect();
+                window.__testLockRefreshRendered = true;
+            });
+            observer.observe(document.getElementById('lock_notification'), { childList: true });
         });
         const response = await refreshed;
+        await popup.waitForFunction(() => window.__testLockRefreshRendered, null, { timeout: 20000 });
         h.assert(response.ok(), `Lock refresh returned HTTP ${response.status()}`);
         const locks = await response.json();
         h.assert(locks.some(lock => lock.self && lock.locked), 'The refresh did not acquire our own lock');

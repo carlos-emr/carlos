@@ -7,7 +7,9 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/appointment/addappointment.jsp'), 'utf8');
-const source = jsp.match(/function updateBookingButtonVisibility\(locked\) \{[\s\S]*?\n            \}/)[0];
+const match = jsp.match(/^([ \t]*)function updateBookingButtonVisibility\(locked\) \{[\s\S]*?^\1\}/m);
+assert.ok(match, 'Expected updateBookingButtonVisibility in addappointment.jsp');
+const source = match[0];
 function form(ids = ['addButton', 'pasteButton', 'apptRepeatButton']) {
     const buttons = Object.fromEntries(ids.map(id => [id, { style: { display: '' } }]));
     const context = vm.createContext({ document: { getElementById: id => buttons[id] }, haveLock: false, groupBookingRestricted: false });

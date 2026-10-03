@@ -221,7 +221,7 @@ Ontario, Canada
 <html>
     <head>
         <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
-        <script src="<%=request.getContextPath()%>/js/appointmentTypeReason.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentTypeReason.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

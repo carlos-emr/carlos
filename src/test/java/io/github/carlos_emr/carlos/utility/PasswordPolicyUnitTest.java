@@ -33,6 +33,8 @@ import static org.mockito.Mockito.*;
 /** Configuration boundaries and explicit clinic character-set compatibility. */
 @Tag("unit")
 class PasswordPolicyUnitTest {
+    private static final String EIGHT_CHARACTERS_THREE_GROUPS =
+            new String(new char[] {'A', 'b', 'c', 'd', 'e', 'f', 'g', '1'});
     private CarlosProperties properties() {
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
@@ -44,8 +46,9 @@ class PasswordPolicyUnitTest {
     void shouldUseDefaultGroups_whenConfigurationIsInvalid(String value) {
         CarlosProperties properties = properties();
         when(properties.getProperty("password_min_groups")).thenReturn(value);
-        assertThat(PasswordPolicy.validate("lowercaseonly", properties).isValid()).isFalse();
-        assertThat(PasswordPolicy.validate("Valid1!Password", properties).isValid()).isTrue();
+        String twoGroups = new String(new char[] {'A', 'b', 'c', 'd', 'e', 'f', 'g', 'h'});
+        assertThat(PasswordPolicy.validate(twoGroups, properties).isValid()).isFalse();
+        assertThat(PasswordPolicy.validate(EIGHT_CHARACTERS_THREE_GROUPS, properties).isValid()).isTrue();
     }
 
     @ParameterizedTest
@@ -53,10 +56,10 @@ class PasswordPolicyUnitTest {
     void shouldUseDefaultLength_whenConfigurationIsInvalid(String value) {
         CarlosProperties properties = properties();
         when(properties.getProperty("password_min_length")).thenReturn(value);
-        // Synthetic four-character input: exercises length rejection despite all four character groups.
-        String shortCandidate = new String(new char[] {'A', 'b', '1', '!'});
+        // Synthetic boundary input: seven characters must fail despite all four character groups.
+        String shortCandidate = new String(new char[] {'A', 'b', '1', '!', 'x', 'y', 'z'});
         assertThat(PasswordPolicy.validate(shortCandidate, properties).isValid()).isFalse();
-        assertThat(PasswordPolicy.validate("Valid1!Password", properties).isValid()).isTrue();
+        assertThat(PasswordPolicy.validate(EIGHT_CHARACTERS_THREE_GROUPS, properties).isValid()).isTrue();
     }
 
     @Test
