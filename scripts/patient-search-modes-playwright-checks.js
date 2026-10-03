@@ -169,13 +169,14 @@ const MODES = [
     // false one, from an incomplete model.
     //
     // All three are substring matches (the DAO wraps %...% on both branches).
+    // Unknown statuses stay eligible; explicit status filters are applied by the caller.
     // The MERGED exclusion is on the extension branch ONLY; that asymmetry is
     // the DAO's, and reproducing it is the point.
     columns: ['phone'],
     seedValue: (row) => row[0],
     predicate: (alias, value) => `((${alias}.phone LIKE ${sqlString(`%${value}%`)}`
       + ` OR ${alias}.phone2 LIKE ${sqlString(`%${value}%`)})`
-      + ` OR (${alias}.patient_status <> 'MERGED' AND EXISTS (`
+      + ` OR ((${alias}.patient_status IS NULL OR ${alias}.patient_status <> 'MERGED') AND EXISTS (`
       + `SELECT 1 FROM demographicExt dext WHERE dext.demographic_no = ${alias}.demographic_no`
       + ` AND dext.key_val = 'demo_cell' AND dext.value LIKE ${sqlString(`%${value}%`)})))`,
   },

@@ -213,7 +213,7 @@ test('the phone oracle models all three numbers the DAO searches', () => {
   // The MERGED exclusion belongs to the extension branch only. That asymmetry
   // is the DAO's; reproducing it is the point, so it must not migrate to the
   // phone/phone2 half.
-  assert.match(sql, /x\.patient_status <> 'MERGED' AND EXISTS/);
+  assert.match(sql, /\(x\.patient_status IS NULL OR x\.patient_status <> 'MERGED'\) AND EXISTS/);
 });
 
 test('no failure message carries a typed value or a patient identifier', () => {

@@ -38,7 +38,7 @@ class BillingDiagCodeViewModelAssemblerUnitTest {
     private final BillingDiagCodeViewModelAssembler assembler = new BillingDiagCodeViewModelAssembler(dao);
 
     @ParameterizedTest
-    @ValueSource(strings = {"diabetes type 2", "type 1 diabetes", "2 vessel disease", "Cushing's syndrome"})
+    @ValueSource(strings = {"diabetes type 2", "type 1 diabetes", "2 vessel disease", "Cushing's syndrome", "ABC123", "123..4", "12:34"})
     void shouldKeepDescriptionIntact_whenItContainsDigitsOrPunctuation(String term) {
         assembler.assembleSearch("2", term);
         verify(dao).searchText("%" + term + "%");
@@ -46,7 +46,7 @@ class BillingDiagCodeViewModelAssemblerUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"2", "250", "250.1", "V10", "E123.4", "ZR123"})
+    @ValueSource(strings = {"2", "250", "250.1", "V10", "E123.4", "ZR123", "250.", "V10."})
     void shouldSearchCodePrefix_whenTermIsACode(String term) {
         assembler.assembleSearch("", term);
         verify(dao).searchCode(term + "%");
@@ -76,4 +76,12 @@ class BillingDiagCodeViewModelAssemblerUnitTest {
         assertThat(assembler.assembleSearch("", " ").isNoMatch()).isTrue();
         verifyNoInteractions(dao);
     }
+    @Test
+    void shouldSearchWholeDescription_whenLongDigitSequenceHasInvalidSuffix() {
+        String term = "1".repeat(10000) + "x";
+        assembler.assembleSearch("", term);
+        verify(dao).searchText("%" + term + "%");
+        verifyNoMoreInteractions(dao);
+    }
+
 }

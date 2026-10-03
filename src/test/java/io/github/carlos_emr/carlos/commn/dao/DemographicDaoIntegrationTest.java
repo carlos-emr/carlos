@@ -79,6 +79,9 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicMergedDao demographicMergedDao;
 
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager patientEntityManager;
+
     private Demographic demo1, demo2, demo3, demo4;
     private String uniquePrefix;
 
@@ -1298,6 +1301,24 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         void shouldReturnEachPatientOnce_whenPhoneMatchesSeveralFields() {
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo(), inactive.getDemographicNo());
+        }
+
+        @Test
+        void shouldIncludeUnknownStatus_whenAllStatusSearchMatchesOnlyMobile() {
+            first.setPhone("different");
+            first.setPhone2("different");
+            demographicDao.save(first);
+            patientEntityManager.flush();
+            // The mapped getter normalizes null to an empty string, so reproduce a legacy SQL NULL directly.
+            patientEntityManager.createNativeQuery("UPDATE demographic SET patient_status=NULL WHERE demographic_no=:id")
+                    .setParameter("id", first.getDemographicNo()).executeUpdate();
+            patientEntityManager.clear();
+            // Check restricted scope before loading the NULL row into the legacy property-mapped entity.
+            assertThat(search("search_phone", uniquePrefix, List.of("IN"), true, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
             assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
                     .extracting(Demographic::getDemographicNo)
                     .containsExactly(first.getDemographicNo(), second.getDemographicNo(), inactive.getDemographicNo());

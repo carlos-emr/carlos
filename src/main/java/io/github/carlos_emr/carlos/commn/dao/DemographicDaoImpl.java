@@ -589,7 +589,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 parameters.put("phone", "%" + keyword + "%");
                 yield "(d.phone LIKE :phone OR d.phone2 LIKE :phone OR EXISTS"
                         + " (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
-                        + " AND e.key='demo_cell' AND e.value LIKE :phone AND d.patientStatus<>'MERGED'))";
+                        + " AND e.key='demo_cell' AND e.value LIKE :phone AND (d.patientStatus IS NULL OR d.patientStatus<>'MERGED')))";
             }
             case "search_hin" -> {
                 parameters.put("hin", keyword + "%");

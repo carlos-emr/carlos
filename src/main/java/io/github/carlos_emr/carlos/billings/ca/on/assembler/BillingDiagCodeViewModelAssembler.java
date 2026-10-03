@@ -104,7 +104,7 @@ public class BillingDiagCodeViewModelAssembler {
         String term = input.trim();
         if (!term.isEmpty()) {
             // Digits inside a description belong to the description, not a second code-prefix query.
-            boolean codeQuery = term.matches("[a-zA-Z]{0,2}[0-9]+(?:\\.[0-9]*)?");
+            boolean codeQuery = isCodePrefix(term);
             addDistinct(deduped, codeQuery
                     ? diagnosticCodeDao.searchCode(term + "%")
                     : diagnosticCodeDao.searchText("%" + term + "%"));
@@ -225,6 +225,32 @@ public class BillingDiagCodeViewModelAssembler {
             return coderange == null ? "" : coderange;
         }
         return codedesc;
+    }
+
+    /** Recognizes up to two ASCII letters, required digits, and an optional decimal suffix in linear time. */
+    private static boolean isCodePrefix(String term) {
+        int position = 0;
+        while (position < term.length() && position < 2 && isAsciiLetter(term.charAt(position))) {
+            position++;
+        }
+        int digitStart = position;
+        position = skipDigits(term, position);
+        if (position == digitStart) return false;
+        if (position < term.length() && term.charAt(position) == '.') {
+            position = skipDigits(term, position + 1);
+        }
+        return position == term.length();
+    }
+
+    private static boolean isAsciiLetter(char character) {
+        return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z');
+    }
+
+    private static int skipDigits(String term, int position) {
+        while (position < term.length() && term.charAt(position) >= '0' && term.charAt(position) <= '9') {
+            position++;
+        }
+        return position;
     }
 
     private static void addDistinct(Map<String, String> deduped, List<DiagnosticCode> results) {
