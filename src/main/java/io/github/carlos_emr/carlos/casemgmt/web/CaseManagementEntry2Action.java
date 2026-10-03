@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -2989,16 +2991,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
-            cStartDate = Calendar.getInstance();
-            cStartDate.setTime(startDate);
-        }
-
-        if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
-            cEndDate = Calendar.getInstance();
-            cEndDate.setTime(endDate);
+        try {
+            if ("dates".equals(pType)) {
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate, LocaleUtils.resolveBundleLocale(request));
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
+                ChartPrintDateRange.from(cStartDate, cEndDate);
+            }
+        } catch (IllegalArgumentException _) {
+            response.reset();
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
+            return null;
         }
 
         boolean printAllNotes = "ALL_NOTES".equals(ids);

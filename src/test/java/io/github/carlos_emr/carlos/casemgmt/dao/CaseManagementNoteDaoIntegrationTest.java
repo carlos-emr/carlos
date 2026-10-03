@@ -79,6 +79,23 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         assertThat(caseManagementNoteDAO.getNote(note.getId()).getAppointmentNo()).isEqualTo(12345);
     }
 
+    @Test
+    @DisplayName("should include the entire final print day and exclude the following midnight")
+    void shouldSelectWholePrintDay_withExclusiveEndBoundary() {
+        java.time.Instant midnight = java.time.Instant.parse("2026-10-03T00:00:00Z");
+        CaseManagementNote first = createNote("4171", "FAKE midnight note", Date.from(midnight));
+        CaseManagementNote late = createNote("4171", "FAKE late note", Date.from(midnight.plusSeconds(86399)));
+        createNote("4171", "FAKE previous day", Date.from(midnight.minusSeconds(1)));
+        createNote("4171", "FAKE next day", Date.from(midnight.plusSeconds(86400)));
+        createNote("4172", "FAKE different patient", Date.from(midnight.plusSeconds(3600)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(caseManagementNoteDAO.getNotesByDemographicDateRange("4171",
+                Date.from(midnight), Date.from(midnight.plusSeconds(86400))))
+                .extracting(CaseManagementNote::getId).containsExactly(first.getId(), late.getId());
+    }
+
     /** Tests for CRUD operations on CaseManagementNote entities. */
     @Nested
     @DisplayName("CRUD operations")

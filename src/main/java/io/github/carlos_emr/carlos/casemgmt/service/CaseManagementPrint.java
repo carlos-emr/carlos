@@ -167,9 +167,11 @@ public class CaseManagementPrint {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
+
         // Get all or date range noteIds.
         if (printAllNotes && useDateRange) {
-            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), startDate.getTime(), endDate.getTime());
+            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), Date.from(printRange.startInclusive()), Date.from(printRange.endExclusive()));
             noteIds = dateRangeNotes.stream()
                 .map(note -> note.getId().toString())
                 .toArray(String[]::new);
@@ -215,28 +217,10 @@ public class CaseManagementPrint {
             Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
         }
 
-        // Filter notes by date range if specified and not already filtered by caseManagementMgr
-        if (useDateRange && (startDate != null && endDate != null) && !printAllNotes) {
-            logger.debug("Filtering notes by date range - start date: " + startDate + ", end date: " + endDate);
-
+        if (printRange != null && !printAllNotes) {
             notes = notes.stream()
-                .filter(cmn -> {
-                    Date noteDate = cmn.getObservation_date();
-                    if (noteDate == null) {
-                        logger.debug("Note " + cmn.getId() + " has null observation date - excluding");
-                        return false;
-                    }
-
-                    boolean afterStart = !startDate.getTime().after(noteDate);
-                    boolean beforeEnd = !endDate.getTime().before(noteDate);
-                    boolean inRange = afterStart && beforeEnd;
-
-                    logger.debug("Note " + cmn.getId() + " date " + noteDate +
-                        " - after start: " + afterStart + ", before end: " + beforeEnd + ", in range: " + inRange);
-
-                    return inRange;
-                })
-                .collect(Collectors.toList());
+                    .filter(note -> printRange.contains(note.getObservation_date()))
+                    .collect(Collectors.toList());
         }
 
         List<CaseManagementNote> issueNotes;
@@ -268,6 +252,10 @@ public class CaseManagementPrint {
                 }
                 cpp.put(issueCode, issueNotes);
             }
+            // CPP notes already rendered in their sections must not repeat in the notes body.
+            Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
+                    .map(CaseManagementNote::getId).collect(Collectors.toSet());
+            notes.removeIf(note -> printedCppIds.contains(note.getId()));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
@@ -277,9 +265,12 @@ public class CaseManagementPrint {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
                 String[] issueIds = getIssueIds(issues); // new String[issues.size()];
                 othermeds = caseManagementMgr.getNotes(demono, issueIds);
-            } else {
-                othermeds = cpp.get("OMeds");
+                // Rx-only printing renders Other Meds here, so omit those notes from the body.
+                Set<Long> printedMedicationIds = othermeds.stream().map(CaseManagementNote::getId)
+                        .collect(Collectors.toSet());
+                notes.removeIf(note -> printedMedicationIds.contains(note.getId()));
             }
+            // When CPP is selected, it already renders Other Meds; Rx prints prescriptions only.
         }
 
         List<Prevention> preventions = null;
@@ -410,12 +401,12 @@ public class CaseManagementPrint {
                 }
 
             }
-            ConcatPDF.concatRequired(pdfDocs, os);
+            mergeCompletePdf(pdfDocs, os);
         } catch (IOException | RuntimeException e) {
             // Missing inputs fail before the response stream is written. Propagate assembly failures
             // instead of returning a successful incomplete PDF. The Struts direct-response caller
             // resets an uncommitted response and sends a real error;
-            // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
+            // the REST StreamingOutput caller returns HTTP 500. Mapped to IOException per the method contract.
             logger.error("Chart print generation failed ({})", e.getClass().getSimpleName());
             throw new IOException("Failed to generate complete chart print PDF");
         } finally {
@@ -745,6 +736,21 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException failure) {
             // Keep cleaning every PHI-bearing file and preserve the original print failure.
             logger.warn("Could not close temporary chart print stream ({})", failure.getClass().getSimpleName());
+        }
+    }
+
+    /** Assemble completely before committing either HTTP endpoint's response. */
+    static void mergeCompletePdf(List<Object> inputs, OutputStream response) throws IOException {
+        File complete = PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf");
+        try {
+            try (OutputStream staged = Files.newOutputStream(complete.toPath())) {
+                ConcatPDF.concatRequired(inputs, staged);
+            }
+            Files.copy(complete.toPath(), response);
+        } finally {
+            if (!deleteTempPdf(complete, "completed chart print PDF")) {
+                deleteTempPdf(complete, "completed chart print PDF (retry)");
+            }
         }
     }
 
