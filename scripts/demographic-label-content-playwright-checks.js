@@ -33,8 +33,9 @@ async function pdfUrlFor(produced, baseUrl) {
 async function workflow(s) {
   try { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); }
   catch { throw new h.SkipCheck('Label content validation requires Poppler pdftotext'); }
-  const address = "42 O'Neil & Test Lane";
-  s.sql.execute(`UPDATE demographic SET address=${h.sqlString(address)},city='Fixture City',postal='K1A0B1',phone='6135550101' WHERE demographic_no=${s.patient}`);
+  const address = "42 Nguyễn O'Neil & Test Lane";
+  const firstName = 'Łukasz';
+  s.sql.execute(`UPDATE demographic SET first_name=${h.sqlString(firstName)},address=${h.sqlString(address)},city='Fixture City',postal='K1A0B1',phone='6135550101' WHERE demographic_no=${s.patient}`);
   await s.master.reload({ waitUntil: 'domcontentloaded' });
   for (const label of ['PDF Envelope', 'PDF Label', 'PDF Address Label', 'PDF Chart Label', 'Client Lab Label']) {
     await s.step(`${label} contains the selected patient's data`, async () => {
@@ -47,6 +48,7 @@ async function workflow(s) {
         assertIsPdf({ label }, response.status(), response.headers()['content-type'] || '', bytes);
         const text = execFileSync('pdftotext', ['-', '-'], { input: bytes, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
         assertPatientText(text, s.marker, /Envelope|Address/.test(label) ? address : null);
+        h.assert(text.includes(firstName), 'Generated label omitted the Unicode given name');
       } finally { if (produced.page) await produced.page.close(); }
     });
   }

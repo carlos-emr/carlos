@@ -9,11 +9,11 @@
  * Asserts (pdftotext of the downloaded PDF, compared with the stored note text with whitespace ignored): a note
  * with Latin-1 accents, quotes, apostrophes, an ampersand, angle brackets, degree and fraction signs prints as
  * typed; a multi-line note keeps every line in order; a 6 000-character note prints to its last word (more than one
- * page, nothing clipped); the patient header carries the accented first name; and (LAST, fails today when the PDF
- * font lacks the glyphs) notes in Vietnamese, Polish and Turkish letters print their text, because patients and
+ * page, nothing clipped); the patient header carries the Unicode first name; and notes in Vietnamese, Polish and Turkish
+ * letters print their text, because patients and
  * clinicians in Canada write names and findings in them.
  * Fixtures: the owned FAKE-PW patient with SQL-seeded signed notes; cleanup deletes the patient's notes and asserts.
- * Needs pdftotext. Reads only.
+ * Needs pdftotext and pdffonts; all generated fonts must be embedded. Reads only.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -21,7 +21,7 @@ const print = require('./lib/gap-clinical-print');
 const x = require('./lib/export-content-helpers');
 
 const q = h.sqlString;
-const FIRST = 'Zoë Ñandú';
+const FIRST = 'Nguyễn Łukasz İstanbul';
 const WORD = i => `mark${String(i).padStart(3, '0')}x`;
 
 async function workflow(s) {
@@ -71,7 +71,7 @@ async function workflow(s) {
     await print.openPrintDialog(chart);
     await chart.locator('#printopAll').check();
     await print.setFlags(chart, []);
-    const out = await print.pressPrint(chart, scratch);
+    const out = await print.pressPrint(chart, scratch, undefined, x.assertEmbeddedFonts);
     text = out.text;
     file = out;
     h.assert(text.includes(`${marker} LATIN`) && text.includes(`${marker} LONG`), 'The print is missing an owned note');
@@ -134,6 +134,6 @@ async function workflow(s) {
 }
 
 if (require.main === module) {
-  runWorkflow('export-content-chart-print', workflow, { openPatient: true, preflight: () => x.requirePoppler('pdftotext') });
+  runWorkflow('export-content-chart-print', workflow, { openPatient: true, preflight: () => x.requirePoppler('pdftotext', 'pdffonts') });
 }
 module.exports = { workflow };

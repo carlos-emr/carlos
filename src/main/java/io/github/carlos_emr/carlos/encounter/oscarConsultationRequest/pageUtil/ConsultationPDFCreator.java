@@ -14,6 +14,8 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -102,7 +104,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     /**
      * Constructs a ConsultationPDFCreator for generating a consultation request PDF.
      *
-     * <p>Initializes fonts (Helvetica at 10pt and 12pt), loads consultation request data from
+     * <p>Initializes embedded Unicode fonts (10pt and 12pt), loads consultation request data from
      * the {@code reqId} parameter, and resolves the locale-specific resource bundle for
      * localized field labels.</p>
      *
@@ -113,7 +115,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
 
         try {
-            bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
@@ -340,7 +342,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate)));
+        datecell.setPhrase(new Phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -547,13 +549,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         PdfPTable infoTable = new PdfPTable(1);
-        PdfPCell cell = new PdfPCell(new Phrase(letterheadName));
+        PdfPCell cell = new PdfPCell(new Phrase(letterheadName, heading));
         cell.setBorder(0);
         cell.setPadding(0);
         infoTable.addCell(cell);
 
         // add the address details
-        Phrase addressPhrase = new Phrase("");
+        Phrase addressPhrase = new Phrase("", heading);
         if (reqFrm.letterheadAddress != null && reqFrm.letterheadAddress.trim().length() > 0) {
             addressPhrase.add(reqFrm.getLetterheadAddress());
         } else {
@@ -568,7 +570,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         infoTable.addCell(cell);
 
         // add the telecom info
-        Phrase telecomPhrase = new Phrase("");
+        Phrase telecomPhrase = new Phrase("", heading);
         if (reqFrm.letterheadPhone != null && reqFrm.letterheadPhone.trim().length() > 0) {
             telecomPhrase.add(String.format("Phone: %s", reqFrm.getLetterheadPhone()));
         } else {
