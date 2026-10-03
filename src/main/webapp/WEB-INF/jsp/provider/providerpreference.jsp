@@ -1618,33 +1618,18 @@ function isValidAutoSaveResponse(status, body) {
 
 // ── Dx Code Search Modal ─────────────────────────────────────────────
 // Loads billingDigSearch.jsp in an iframe when the modal opens.
-// Overrides the iframe's CodeAttach() so selecting a code writes back
-// to the dxCode input and closes the modal (no popup needed).
+// Register before loading the iframe: a single search result selects during document parsing.
+function selectDefaultDiagnosticCode(file) {
+    if (typeof file !== 'string' || !file) return;
+    document.getElementById('dxCode').value = file.split('|')[0];
+    var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
+    if (modal) modal.hide();
+}
 
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
     var code = document.getElementById('dxCode').value;
-    var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
+    document.getElementById('dxSearchFrame').src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
         + encodeURIComponent(code) + '&search=';
-    frame.onload = function() {
-        try {
-            frame.contentWindow.CodeAttach = function(file) {
-                if (typeof file === 'string' && file.length >= 3) {
-                    document.getElementById('dxCode').value = file.substring(0, 3);
-                } else if (typeof file === 'string' && file.length > 0) {
-                    document.getElementById('dxCode').value = file;
-                }
-                var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
-                if (modal) { modal.hide(); }
-            };
-        } catch(e) {
-            if (e.name === 'SecurityError') {
-                console.warn('Dx code search: cross-origin iframe, code selection may not work automatically.');
-            } else {
-                console.error('Dx code search: failed to attach code handler:', e);
-            }
-        }
-    };
 });
 
 document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {

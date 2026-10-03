@@ -93,6 +93,13 @@ async function workflow(s) {
   const list = opened.page;
   h.assert(h.pathOnly(list.url()).endsWith('/tickler/ViewTicklerMain'), 'The schedule Tickler link did not open the tickler list');
   await waitForTicklerTable(list);
+  // The fixture spans two providers; a previously saved view must not hide either one.
+  await listAfter(list, p => p.get('provider') === '' && p.get('assignee') === '' && p.get('mrp') === '', async () => {
+    for (const selector of ['#providerview', '#assignedTo', '#mrpview']) {
+      await list.locator(selector).selectOption('all');
+    }
+    await list.locator('#formSubmitBtn').click();
+  });
   const search = needle => listAfter(list, p => p.get('search[value]') === needle,
     () => list.locator('#ticklerResults_filter input[type="search"]').fill(needle));
   let json = await search(marker);

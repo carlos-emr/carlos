@@ -60,13 +60,14 @@ public class MessageList extends AbstractModel<Integer> {
     private int remoteLocation;
 
     @Column(name = "destinationFacilityId")
-    private int destinationFacilityId;
+    private Integer destinationFacilityId = 0;
 
     @Column(name = "sourceFacilityId")
-    private int sourceFacilityId;
+    private Integer sourceFacilityId = 0;
 
     public int getDestinationFacilityId() {
-        return destinationFacilityId;
+        // Legacy local messages may have SQL NULL instead of the local-facility sentinel.
+        return destinationFacilityId == null ? 0 : destinationFacilityId;
     }
 
     public void setDestinationFacilityId(int destinationFacilityId) {
@@ -74,7 +75,7 @@ public class MessageList extends AbstractModel<Integer> {
     }
 
     public int getSourceFacilityId() {
-        return sourceFacilityId;
+        return sourceFacilityId == null ? 0 : sourceFacilityId;
     }
 
     public void setSourceFacilityId(int sourceFacilityId) {

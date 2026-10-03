@@ -29,6 +29,8 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicListSearch" %>
+
 <%--
     Displays patient search results for appointment selection and contact pickers.
     Features: search/pagination, recent patients, appointment return, and the
@@ -36,6 +38,8 @@
     Parameters: keyword/search_mode control search; appointment context includes
     provider_no and originalPage. Contact callbacks use formName, elementName,
     and elementId; URI-encoded result names are decoded once for display fields.
+    Search ordering and merged-record exclusion happen before database pagination;
+    one extra matching patient determines whether Next is available.
     Access: requires _search read access. Recent-patient loading excludes missing
     or merged records in the DAO and skips records removed during rendering.
     @since 2026.08 (contact workflow corrections and contract documentation)
@@ -115,6 +119,8 @@
     } catch (NumberFormatException e) {
         limit = 10;
     }
+    limit = Math.clamp(limit, 1, 500);
+    offset = Math.clamp(offset, 0, Integer.MAX_VALUE - limit - 1);
     // Sanitize: replace raw request strings with parsed integer values to prevent XSS
     strLimit1 = String.valueOf(offset);
     strLimit2 = String.valueOf(limit);
@@ -450,6 +456,7 @@
                     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().debug("PSTATUS " + ptstatus);
 
                     int rowCounter = 0;
+                    boolean hasNextPage = false;
                     String bgColor = rowCounter % 2 == 0 ? "#EEEEFF" : "white";
 
                     String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
@@ -467,62 +474,19 @@
                         }
                     } else {
 
-                        if ("".equals(ptstatus)) {
-                            if (searchMode.equals("search_name")) {
-                                demoList = demographicDao.searchDemographicByName(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_phone")) {
-                                demoList = demographicDao.searchDemographicByPhone(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_dob")) {
-                                demoList = demographicDao.searchDemographicByDOB(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_address")) {
-                                demoList = demographicDao.searchDemographicByAddress(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_hin")) {
-                                demoList = demographicDao.searchDemographicByHIN(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_chart_no")) {
-                                demoList = demographicDao.findDemographicByChartNo(keyword, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_demographic_no")) {
-                                demoList = demographicDao.findDemographicByDemographicNo(keyword, limit, offset, providerNo, outOfDomain);
-                            }
-
-                        } else if ("active".equals(ptstatus)) {
-                            if (searchMode.equals("search_name")) {
-                                demoList = demographicDao.searchDemographicByNameAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_phone")) {
-                                demoList = demographicDao.searchDemographicByPhoneAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_dob")) {
-                                demoList = demographicDao.searchDemographicByDOBAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_address")) {
-                                demoList = demographicDao.searchDemographicByAddressAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_hin")) {
-                                demoList = demographicDao.searchDemographicByHINAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_chart_no")) {
-                                demoList = demographicDao.findDemographicByChartNoAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_demographic_no")) {
-                                demoList = demographicDao.findDemographicByDemographicNoAndNotStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            }
-                        } else if ("inactive".equals(ptstatus)) {
-                            if (searchMode.equals("search_name")) {
-                                demoList = demographicDao.searchDemographicByNameAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_phone")) {
-                                demoList = demographicDao.searchDemographicByPhoneAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_dob")) {
-                                demoList = demographicDao.searchDemographicByDOBAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_address")) {
-                                demoList = demographicDao.searchDemographicByAddressAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_hin")) {
-                                demoList = demographicDao.searchDemographicByHINAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_chart_no")) {
-                                demoList = demographicDao.findDemographicByChartNoAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            } else if (searchMode.equals("search_demographic_no")) {
-                                demoList = demographicDao.findDemographicByDemographicNoAndStatus(keyword, stati, limit, offset, providerNo, outOfDomain);
-                            }
-                        }
+                        List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
+                        demoList = demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword,
+                                "last_name", statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
+                        hasNextPage = demoList.size() > limit;
+                        if (hasNextPage) demoList = demoList.subList(0, limit);
                     }
 
                     if (demoList == null) {
                         //out.println("failed!!!");
                     } else {
-                        Collections.sort(demoList, Demographic.LastNameComparator);
+                        if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
+                            Collections.sort(demoList, Demographic.LastNameComparator);
+                        }
 
                         DemographicMerged dmDAO = new DemographicMerged();
 
@@ -674,7 +638,7 @@
                 <%
                     }
 
-                    if (rowCounter == limit) {
+                    if (hasNextPage) {
                 %>
                 <button type="submit" class="btn btn-secondary" id="nextPageButton" name="limit1" value="<%=nNextPage%>"><fmt:message key="demographic.demographicsearch2apptresults.btnNextPage"/></button>
                 <%

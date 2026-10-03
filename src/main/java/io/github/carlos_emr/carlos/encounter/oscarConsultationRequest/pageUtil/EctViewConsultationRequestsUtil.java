@@ -216,7 +216,7 @@ public class EctViewConsultationRequestsUtil {
               if ( date1 == null ) {
             	  apptDateStr = "N/A";
               } else if ( date1 != null && date2 == null ) {
-            	  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1) + " T00:00:00";
+                  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1);
               } else {
             	  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1) + " " +  DateFormatUtils.ISO_TIME_FORMAT.format(date2);
               }

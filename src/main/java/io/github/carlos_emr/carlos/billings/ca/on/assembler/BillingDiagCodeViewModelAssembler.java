@@ -77,9 +77,8 @@ public class BillingDiagCodeViewModelAssembler {
 
     /**
      * Search dispatch for {@code billingDigSearch.jsp}. The legacy JSP's
-     * scriptlet split the input into numeric and text portions to choose
-     * between {@link DiagnosticCodeDao#searchCode} and
-     * {@link DiagnosticCodeDao#searchText}; preserved here.
+     * input is searched as a whole: code prefixes use {@link DiagnosticCodeDao#searchCode},
+     * while descriptions (including their digits) use {@link DiagnosticCodeDao#searchText}.
      *
      * @param coderange numeric-prefix dropdown value (0-9)
      * @param codedesc free-text description input
@@ -101,23 +100,14 @@ public class BillingDiagCodeViewModelAssembler {
      */
     public BillingDiagCodeSearchViewModel assembleSearch(String coderange, String codedesc, String name2) {
         String input = decideInput(coderange, codedesc);
-        SearchClassification c = classify(input);
-
         Map<String, String> deduped = new LinkedHashMap<>();
-        switch (c.searchType) {
-            case "N" -> {
-                List<DiagnosticCode> results = "search_diagnostic_code".equals(c.search)
-                        ? diagnosticCodeDao.searchCode(c.codeName + "%")
-                        : diagnosticCodeDao.searchText(c.codeName + "%");
-                addDistinct(deduped, results);
-            }
-            case "BOTH" -> {
-                addDistinct(deduped, diagnosticCodeDao.searchText(c.codeName + "%"));
-                addDistinct(deduped, diagnosticCodeDao.searchCode(c.codeName2 + "%"));
-            }
-            default -> {
-                // No search performed (empty input fallback).
-            }
+        String term = input.trim();
+        if (!term.isEmpty()) {
+            // Digits inside a description belong to the description, not a second code-prefix query.
+            boolean codeQuery = term.matches("[a-zA-Z]{0,2}[0-9]+(?:\\.[0-9]*)?");
+            addDistinct(deduped, codeQuery
+                    ? diagnosticCodeDao.searchCode(term + "%")
+                    : diagnosticCodeDao.searchText("%" + term + "%"));
         }
 
         List<BillingDiagCodeSearchViewModel.DxRow> rows = new ArrayList<>();
@@ -237,45 +227,6 @@ public class BillingDiagCodeViewModelAssembler {
         return codedesc;
     }
 
-    private static SearchClassification classify(String input) {
-        SearchClassification c = new SearchClassification();
-        if (input == null) {
-            return c;
-        }
-        String numCode = "";
-        String textCode = "";
-        for (int i = 0; i < input.length(); i++) {
-            String ch = input.substring(i, i + 1);
-            int h = ch.hashCode();
-            if (h >= 48 && h <= 58) {
-                numCode += ch;
-            } else {
-                textCode += ch;
-            }
-        }
-        if (numCode.isEmpty()) {
-            if (textCode.isEmpty()) {
-                // Both empty — return empty classification (no search).
-                c.searchType = "";
-            } else {
-                c.codeName = "%" + textCode;
-                c.search = "search_diagnostic_text";
-                c.searchType = "N";
-            }
-        } else {
-            if (textCode.isEmpty()) {
-                c.codeName = numCode;
-                c.search = "search_diagnostic_code";
-                c.searchType = "N";
-            } else {
-                c.codeName = "%" + textCode;
-                c.codeName2 = numCode;
-                c.searchType = "BOTH";
-            }
-        }
-        return c;
-    }
-
     private static void addDistinct(Map<String, String> deduped, List<DiagnosticCode> results) {
         if (results == null) return;
         for (DiagnosticCode r : results) {
@@ -286,11 +237,4 @@ public class BillingDiagCodeViewModelAssembler {
         }
     }
 
-    /** Working state for the search-dispatch decision. */
-    private static class SearchClassification {
-        String codeName = "";
-        String codeName2 = "";
-        String search = "";
-        String searchType = "";
-    }
 }

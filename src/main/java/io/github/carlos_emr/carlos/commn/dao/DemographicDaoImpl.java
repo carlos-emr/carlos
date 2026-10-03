@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DobSearchPattern;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
+import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
@@ -529,6 +530,89 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
             list = q.getResultList();
         return list;
+    }
+
+    @Override
+    // Predicate/order fragments contain fixed identifiers; all patient values are bound.
+    @SuppressWarnings("java:S2077")
+    public List<Demographic> searchForPatientList(DemographicListSearch search, String providerNo, boolean outOfDomain) {
+        if (search.keyword() == null || (!outOfDomain && (providerNo == null || providerNo.isBlank()))) {
+            return List.of();
+        }
+        java.util.Map<String, Object> parameters = new java.util.HashMap<>();
+        String predicate = patientListPredicate(search, parameters);
+        if (predicate == null) return List.of();
+        String queryString = "FROM Demographic d WHERE " + predicate
+                + " AND NOT EXISTS (SELECT merged.id FROM DemographicMerged merged"
+                + " WHERE merged.demographicNo=d.demographicNo AND merged.deleted=0)";
+        if (search.statuses() != null) {
+            if (search.statuses().isEmpty()) {
+                if (!search.excludeStatuses()) return List.of();
+            } else {
+                queryString += search.excludeStatuses() ? " AND d.patientStatus NOT IN (:statuses)"
+                        : " AND d.patientStatus IN (:statuses)";
+                parameters.put("statuses", search.statuses());
+            }
+        }
+        if (!outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
+            parameters.put("providerNo", providerNo);
+        }
+        // Preserve database case/accent collation across pages; ID breaks equal-value ties.
+        queryString += " ORDER BY " + getOrderField(search.orderBy()) + ", d.demographicNo";
+        var query = entityManager().createQuery(queryString, Demographic.class);
+        parameters.forEach(query::setParameter);
+        return query.setFirstResult(search.offset()).setMaxResults(search.limit() + 1).getResultList();
+    }
+
+    private static String patientListPredicate(DemographicListSearch search, java.util.Map<String, Object> parameters) {
+        String keyword = search.keyword().trim();
+        return switch (search.mode()) {
+            case "search_name" -> {
+                String[] names = keyword.split(",", -1);
+                parameters.put("lastName", names[0].trim() + "%");
+                if (names.length == 2) {
+                    parameters.put("firstName", names[1].trim() + "%");
+                    yield "d.lastName LIKE :lastName AND (d.firstName LIKE :firstName OR d.alias LIKE :firstName)";
+                }
+                yield "d.lastName LIKE :lastName";
+            }
+            case "search_dob" -> {
+                var dob = DobSearchPattern.parse(keyword);
+                if (dob.isEmpty()) yield null;
+                parameters.put("year", dob.get().year());
+                parameters.put("month", dob.get().month());
+                parameters.put("day", dob.get().day());
+                yield "d.yearOfBirth LIKE :year AND d.monthOfBirth LIKE :month AND d.dateOfBirth LIKE :day";
+            }
+            case "search_phone" -> {
+                parameters.put("phone", "%" + keyword + "%");
+                yield "(d.phone LIKE :phone OR d.phone2 LIKE :phone OR EXISTS"
+                        + " (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
+                        + " AND e.key='demo_cell' AND e.value LIKE :phone))";
+            }
+            case "search_hin" -> {
+                parameters.put("hin", keyword + "%");
+                yield "d.hin LIKE :hin";
+            }
+            case "search_address" -> {
+                parameters.put("address", "%" + keyword + "%");
+                yield "d.address LIKE :address";
+            }
+            case "search_chart_no" -> {
+                parameters.put("chartNo", keyword + "%");
+                yield "d.chartNo LIKE :chartNo";
+            }
+            case "search_demographic_no" -> {
+                try {
+                    parameters.put("demographicNo", Integer.valueOf(keyword));
+                    yield "d.demographicNo=:demographicNo";
+                } catch (NumberFormatException _) {
+                    yield null;
+                }
+            }
+            default -> null;
+        };
     }
 
     @Override

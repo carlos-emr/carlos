@@ -176,6 +176,34 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
                 consultantId, mrpProviderNo);
     }
 
+    @Test
+    void shouldApplyPrivacyBeforePagination_whenOnlySomeMrpsAndSitesAreVisible() {
+        toSmithForA.setSiteName("Visible");
+        toJonesForA.setSiteName("Hidden");
+        toSmithForB.setSiteName("Visible");
+        toJonesForB.setSiteName("Visible");
+        hibernateTemplate.flush();
+        var allowed = java.util.Set.of(mrpA.getProviderNo());
+        var sites = java.util.Set.of("Visible");
+        var filter = new ConsultationListFilterDto(team, true, null, null, null, null, null,
+                0, 2, null, null, allowed, sites);
+        assertThat(consultationRequestDao.getConsults(filter)).extracting(ConsultationRequest::getId)
+                .containsExactly(toSmithForA.getId());
+        var next = new ConsultationListFilterDto(team, true, null, null, null, null, null,
+                1, 2, null, null, allowed, sites);
+        assertThat(consultationRequestDao.getConsults(next)).isEmpty();
+    }
+
+    @Test
+    void shouldFailClosed_whenPrivacyAllowsNoProvidersOrSites() {
+        for (boolean emptyProviders : new boolean[]{true, false}) {
+            var filter = new ConsultationListFilterDto(team, true, null, null, null, null, null,
+                    0, 100, null, null, emptyProviders ? java.util.Set.of() : null,
+                    emptyProviders ? null : java.util.Set.of());
+            assertThat(consultationRequestDao.getConsults(filter)).isEmpty();
+        }
+    }
+
     @Nested
     @DisplayName("getConsults(ConsultationListFilterDto)")
     class ListFilters {
