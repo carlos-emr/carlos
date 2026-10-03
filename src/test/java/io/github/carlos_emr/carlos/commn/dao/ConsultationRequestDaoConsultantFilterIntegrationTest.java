@@ -178,11 +178,17 @@ class ConsultationRequestDaoConsultantFilterIntegrationTest extends CarlosTestBa
 
     @Test
     void shouldApplyPrivacyBeforePagination_whenOnlySomeMrpsAndSitesAreVisible() {
+        // Default order is referral date descending: put three rejected rows before the sole visible row.
+        toSmithForA.setReferralDate(java.sql.Date.valueOf("2026-03-09"));
         toSmithForA.setSiteName("Visible");
         toJonesForA.setSiteName("Hidden");
         toSmithForB.setSiteName("Visible");
         toJonesForB.setSiteName("Visible");
         hibernateTemplate.flush();
+        var unrestricted = new ConsultationListFilterDto(team, true, null, null, null, null, null,
+                0, 2, null, null);
+        assertThat(consultationRequestDao.getConsults(unrestricted)).extracting(ConsultationRequest::getId)
+                .doesNotContain(toSmithForA.getId());
         var allowed = java.util.Set.of(mrpA.getProviderNo());
         var sites = java.util.Set.of("Visible");
         var filter = new ConsultationListFilterDto(team, true, null, null, null, null, null,

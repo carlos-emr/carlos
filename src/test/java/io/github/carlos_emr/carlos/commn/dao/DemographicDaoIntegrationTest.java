@@ -1304,6 +1304,36 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        void shouldPreserveMobileOnlyStatusRule_whenLegacyPatientIsMarkedMerged() {
+            first.setPatientStatus("MERGED");
+            first.setPhone("different");
+            first.setPhone2("different");
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(second.getDemographicNo(), inactive.getDemographicNo());
+            first.setPhone(uniquePrefix);
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).contains(first.getDemographicNo());
+        }
+
+        @Test
+        void shouldKeepCurrentPatient_whenMergePointerReferencesItself() {
+            DemographicMerged merge = new DemographicMerged();
+            merge.setDemographicNo(first.getDemographicNo());
+            merge.setMergedTo(first.getDemographicNo());
+            merge.setDeleted(0);
+            demographicMergedDao.persist(merge);
+            demographicMergedDao.flush();
+            assertThat(search("search_name", uniquePrefix, null, false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+        }
+
+        @Test
         void shouldApplyStatusFilters_whenSelectingActiveOrInactivePatients() {
             assertThat(search("search_chart_no", uniquePrefix, List.of("IN"), true, 0, 10)).hasSize(2);
             assertThat(search("search_hin", uniquePrefix + "P", List.of("IN"), false, 0, 10))

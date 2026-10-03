@@ -137,20 +137,8 @@ const MODES = [
   {
     name: 'search_hin',
     title: 'health number',
-    // PREFIX, and no merged exclusion. Both halves of this were wrong before,
-    // and the comment asserted the opposite of the code it described.
-    //
-    // demographicsearchresults.jsp:583 calls searchDemographicByHIN(keyword,
-    // limit, offset, orderBy, providerNo, outOfDomain), which funnels into the
-    // implementation that binds `hinStr.trim() + "%"` -- a prefix match. The
-    // exact binding lives on searchDemographicByHIN(String), a different
-    // overload used by HRM report matching, which no browser route reaches.
-    // And that implementation builds `From Demographic d where d.hin like :hin`
-    // plus statuses, program domain and order: its `ignoreMerged` parameter is
-    // accepted and never read, so there is no MERGED clause to model.
-    //
-    // As written before, any health number that is a prefix of another would
-    // have failed the "everything that matches is shown" direction.
+    // The shared patient-list query binds a HIN prefix. Its current-merge
+    // exclusion applies to every mode and is included in seedFor below.
     columns: ['hin'],
     seedValue: (row) => row[0],
     predicate: (alias, value) => `${alias}.hin LIKE ${sqlString(`${value}%`)}`,

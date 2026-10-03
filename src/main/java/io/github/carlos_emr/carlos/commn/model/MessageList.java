@@ -30,6 +30,8 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyFacilityIdConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -59,15 +61,16 @@ public class MessageList extends AbstractModel<Integer> {
 
     private int remoteLocation;
 
+    @Convert(converter = LegacyFacilityIdConverter.class)
     @Column(name = "destinationFacilityId")
-    private Integer destinationFacilityId = 0;
+    private int destinationFacilityId;
 
+    @Convert(converter = LegacyFacilityIdConverter.class)
     @Column(name = "sourceFacilityId")
-    private Integer sourceFacilityId = 0;
+    private int sourceFacilityId;
 
     public int getDestinationFacilityId() {
-        // Legacy local messages may have SQL NULL instead of the local-facility sentinel.
-        return destinationFacilityId == null ? 0 : destinationFacilityId;
+        return destinationFacilityId;
     }
 
     public void setDestinationFacilityId(int destinationFacilityId) {
@@ -75,7 +78,7 @@ public class MessageList extends AbstractModel<Integer> {
     }
 
     public int getSourceFacilityId() {
-        return sourceFacilityId == null ? 0 : sourceFacilityId;
+        return sourceFacilityId;
     }
 
     public void setSourceFacilityId(int sourceFacilityId) {

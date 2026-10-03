@@ -544,7 +544,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         if (predicate == null) return List.of();
         String queryString = "FROM Demographic d WHERE " + predicate
                 + " AND NOT EXISTS (SELECT merged.id FROM DemographicMerged merged"
-                + " WHERE merged.demographicNo=d.demographicNo AND merged.deleted=0)";
+                + " WHERE merged.demographicNo=d.demographicNo AND merged.deleted=0 AND merged.mergedTo<>d.demographicNo)";
         if (search.statuses() != null) {
             if (search.statuses().isEmpty()) {
                 if (!search.excludeStatuses()) return List.of();
@@ -589,7 +589,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 parameters.put("phone", "%" + keyword + "%");
                 yield "(d.phone LIKE :phone OR d.phone2 LIKE :phone OR EXISTS"
                         + " (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
-                        + " AND e.key='demo_cell' AND e.value LIKE :phone))";
+                        + " AND e.key='demo_cell' AND e.value LIKE :phone AND d.patientStatus<>'MERGED'))";
             }
             case "search_hin" -> {
                 parameters.put("hin", keyword + "%");

@@ -13,6 +13,10 @@ const DAO = fs.readFileSync(path.join(
   __dirname, '..', 'src', 'main', 'java', 'io', 'github', 'carlos_emr', 'carlos',
   'commn', 'dao', 'DemographicDaoImpl.java',
 ), 'utf8');
+const QUERY_START = DAO.indexOf('private static String patientListPredicate(');
+const QUERY_END = DAO.indexOf('    @Override', QUERY_START);
+assert.ok(QUERY_START >= 0 && QUERY_END > QUERY_START);
+const LIST_QUERY = DAO.slice(QUERY_START, QUERY_END);
 const RESULTS_JSP = fs.readFileSync(path.join(
   __dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp', 'demographic', 'demographicsearchresults.jsp',
 ), 'utf8');
@@ -44,63 +48,44 @@ test('every mode the form offers is checked, and no mode that it does not', () =
 });
 
 test('the name predicate is a PREFIX match on the surname, as the DAO writes it', () => {
-  assert.match(DAO, /d\.lastName like :lastName/);
-  assert.match(DAO, /setParameter\("lastName", name\[0\]\.trim\(\) \+ "%"\)/);
+  assert.match(LIST_QUERY, /d\.lastName LIKE :lastName/);
+  assert.match(LIST_QUERY, /parameters\.put\("lastName", names\[0\]\.trim\(\) \+ "%"\)/);
   const sql = MODES.find((mode) => mode.name === 'search_name').predicate('d', 'fake-smith,jo');
   assert.match(sql, /d\.last_name LIKE 'fake-smith%'/);
   // The DAO also matches the alias on the given-name half.
-  assert.match(DAO, /d\.firstName like :firstName or d\.alias like :firstName/);
+  assert.match(LIST_QUERY, /d\.firstName LIKE :firstName OR d\.alias LIKE :firstName/);
   assert.match(sql, /d\.alias LIKE 'jo%'/);
 });
 
-test('the HIN predicate matches the overload the SEARCH PAGE calls, not the other one', () => {
-  // DemographicDaoImpl carries two HIN searches and they disagree:
-  //
-  //   searchDemographicByHIN(String)                -> hin like :hin
-  //                                                    + patientStatus != 'MERGED'
-  //                                                    + setParameter("hin", hinStr.trim())      EXACT
-  //   searchDemographicByHIN(String, int, int, ...) -> hin like :hin (+ statuses, program domain)
-  //                                                    + setParameter("hin", trim() + "%")       PREFIX
-  //
-  // demographicsearchresults.jsp:583 calls the SECOND. The first is reached
-  // only by HRM report matching, which no browser route touches.
-  //
-  // This test previously asserted the first one's text, found it in the file,
-  // and passed -- while the oracle modelled the first one's semantics. Both
-  // were self-consistently wrong about which code the browser runs, so pin the
-  // caller as well as the query.
-  assert.match(RESULTS_JSP, /searchDemographicByHIN\(keyword, limit, offset, orderBy, providerNo, outOfDomain\)/);
-  assert.match(DAO, /setParameter\("hin", hinStr\.trim\(\) \+ "%"\)/);
-
+test('the HIN oracle matches the shared list query used by the search page', () => {
+  assert.match(RESULTS_JSP, /searchForPatientList\(new DemographicListSearch\(searchMode, keyword, orderBy,/);
+  assert.match(LIST_QUERY, /parameters\.put\("hin", keyword \+ "%"\)/);
+  assert.match(LIST_QUERY, /d\.hin LIKE :hin/);
   const sql = MODES.find((mode) => mode.name === 'search_hin').predicate('d', '1234567890');
   assert.match(sql, /d\.hin LIKE '1234567890%'/);
-  // Prefix, never substring: a leading wildcard would let the check tolerate an
-  // over-matching search on the most sensitive identifier on the form.
-  assert.ok(!/hin LIKE '%/.test(sql), 'a HIN search must not be turned into a substring match');
-  // And no MERGED clause: the overload the page calls accepts an ignoreMerged
-  // argument and never reads it, so there is nothing there to model.
-  assert.ok(!/MERGED/.test(sql),
-    'the paged HIN overload has no merged exclusion; adding one would hide merged records the page shows');
+  assert.ok(!/hin LIKE '%/.test(sql), 'a HIN search must remain a prefix match');
+  // Merged-record exclusion is common to every mode, outside this field predicate.
+  assert.match(SOURCE, /NOT EXISTS \(SELECT 1 FROM demographic_merged dm/);
 });
 
 test('phone and address are SUBSTRING matches, and phone covers both numbers', () => {
-  assert.match(DAO, /setParameter\("phone", "%" \+ phoneStr\.trim\(\) \+ "%"\)/);
-  assert.match(DAO, /d\.phone like :phone OR d\.phone2 LIKE :phone/);
+  assert.match(LIST_QUERY, /parameters\.put\("phone", "%" \+ keyword \+ "%"\)/);
+  assert.match(LIST_QUERY, /d\.phone LIKE :phone OR d\.phone2 LIKE :phone/);
   const phone = MODES.find((mode) => mode.name === 'search_phone').predicate('d', '5550101');
   assert.match(phone, /d\.phone LIKE '%5550101%'/);
   assert.match(phone, /d\.phone2 LIKE '%5550101%/);
 
-  assert.match(DAO, /setParameter\("address", "%" \+ addressStr\.trim\(\) \+ "%"\)/);
+  assert.match(LIST_QUERY, /parameters\.put\("address", "%" \+ keyword \+ "%"\)/);
   assert.match(MODES.find((mode) => mode.name === 'search_address').predicate('d', 'Main'),
     /d\.address LIKE '%Main%'/);
 });
 
 test('chart number is a prefix match and demographic number is an equality', () => {
-  assert.match(DAO, /setParameter\("chartNo", chartNoStr\.trim\(\) \+ "%"\)/);
+  assert.match(LIST_QUERY, /parameters\.put\("chartNo", keyword \+ "%"\)/);
   assert.match(MODES.find((mode) => mode.name === 'search_chart_no').predicate('d', 'AB1'),
     /d\.chart_no LIKE 'AB1%'/);
 
-  assert.match(DAO, /d\.demographicNo = :demographicNo/);
+  assert.match(LIST_QUERY, /d\.demographicNo=:demographicNo/);
   assert.match(MODES.find((mode) => mode.name === 'search_demographic_no').predicate('d', '42'),
     /d\.demographic_no = 42$/);
 });
@@ -118,9 +103,9 @@ test('the demographic-number predicate refuses anything but digits', () => {
 });
 
 test('date of birth is three LIKE matches on three columns, bound from the parsed keyword', () => {
-  assert.match(DAO, /d\.yearOfBirth like :yearOfBirth AND d\.monthOfBirth like :monthOfBirth AND d\.dateOfBirth like :dateOfBirth/);
+  assert.match(LIST_QUERY, /d\.yearOfBirth LIKE :year AND d\.monthOfBirth LIKE :month AND d\.dateOfBirth LIKE :day/);
   // Issue #3956: the DAO binds DobSearchPattern's segments, not "<segment>%".
-  assert.match(DAO, /setParameter\("monthOfBirth", dob\.get\(\)\.month\(\)\)/);
+  assert.match(LIST_QUERY, /parameters\.put\("month", dob\.get\(\)\.month\(\)\)/);
   const [full, yearMonth, anyMonth] = MODES.filter((mode) => mode.name === 'search_dob');
   assert.ok(full && yearMonth && anyMonth, 'full, year-month and wildcard DOB shapes must all be checked');
 
