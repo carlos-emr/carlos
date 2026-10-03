@@ -97,7 +97,7 @@ public class ImportLogDownload2Action extends ActionSupport {
             
             // Construct the file path within the temp directory
             // the basename is containment-checked by validateExistingPath below, before opening the stream.
-            // nosemgrep: semgrep.carlos.httpservlet-path-traversal
+            // nosemgrep: carlos.httpservlet-path-traversal
             File importLogFile = new File(tempDir, sanitizedFilename);
 
             // Validate using PathValidationUtils to prevent directory traversal
