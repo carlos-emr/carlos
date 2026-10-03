@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -44,6 +46,12 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Authenticated chart print-extension registration endpoint. Only POST requests with
+ * demographic write privilege may register; validation and capacity failures are explicit HTTP errors.
+ *
+ * @since 2019-10-11
+ */
 public class ExtPrintRegistry2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -53,23 +61,45 @@ public class ExtPrintRegistry2Action extends ActionSupport {
 
     private static Logger logger = MiscUtils.getLogger();
 
-    public String execute() {
+    /**
+     * Registers an extension using the authenticated POST contract.
+     *
+     * @return no view; registration is an AJAX operation
+     * @throws IOException if an error response cannot be written
+     */
+    @Override
+    public String execute() throws IOException {
+        return register();
+    }
+
+    /**
+     * Validates and registers an extension, including calls through the legacy method entry point.
+     *
+     * @return no view; malformed registrations receive 400 and a full registry receives 409
+     * @throws IOException if an error response cannot be written
+     */
+    public String register() throws IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
-
-        return register();
-    }
-
-    public String register() {
         String name = request.getParameter("name");
         String bean = request.getParameter("bean");
-
-        ExtPrintRegistry.addEntry(name, bean);
-
+        try {
+            ExtPrintRegistry.addEntry(name, bean);
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print extension registration");
+            return NONE;
+        } catch (IllegalStateException e) {
+            response.sendError(HttpServletResponse.SC_CONFLICT, "Print extension registry is full");
+            return NONE;
+        }
         logger.info("ext print registry added {}:{}", LogSafe.sanitize(name), LogSafe.sanitize(bean)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        return null;
+        return NONE;
     }
-
 }

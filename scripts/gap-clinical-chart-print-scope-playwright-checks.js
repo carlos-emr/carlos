@@ -60,6 +60,13 @@ async function workflow(s) {
     mid: seed(token.mid, "'2022-09-15 10:00:00'"),
     now: seed(token.now, 'NOW()'),
   };
+  const cppToken = `${marker} CPPHISTORY`;
+  const cppNote = seed(cppToken, "'2021-06-15 09:00:00'");
+  const cppIssue = sql.value("SELECT issue_id FROM issue WHERE code='MedHistory' LIMIT 1");
+  h.assert(cppIssue, 'The Medical History CPP issue is missing');
+  sql.execute(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
+    VALUES (${patient},${cppIssue},0,0,0,0,${program},'doctor',NOW());
+    INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (LAST_INSERT_ID(),${cppNote})`);
   sql.execute(`INSERT INTO allergies (demographic_no,entry_date,DESCRIPTION,TYPECODE,reaction,archived,position,lastUpdateDate,providerNo)
     VALUES (${patient},CURDATE(),${q(`${marker} ALLERGEN`)},0,'rash',0,0,NOW(),${q(provider)});
     INSERT INTO preventions (demographic_no,creation_date,prevention_date,provider_no,prevention_type,deleted,refused,never,lastUpdateDate)
@@ -98,6 +105,10 @@ async function workflow(s) {
       for (const id of [ids.old, ids.now]) await chart.locator(`#print${id}`).click();
     }
     h.assert(await chart.locator('#notes2print').inputValue() === '', 'The note printer icons did not unqueue the notes');
+    for (const id of [ids.old, ids.now]) {
+      h.assert((await chart.locator(`#print${id}`).getAttribute('src')).endsWith('/printer.png'),
+        'Clear left a note printer icon selected');
+    }
     await print.openPrintDialog(chart);
     await chart.locator('#printopSelected').check();
     await print.setFlags(chart, []);
@@ -130,6 +141,17 @@ async function workflow(s) {
     const {text} = await print.pressPrint(chart, scratch);
     h.assert(Object.values(token).every(t => text.includes(t)), 'Print all is missing an owned note');
     h.assert(!text.includes(`${marker} ALLERGEN`) && !/MMR/.test(text), 'A section printed although its icon was off');
+    h.assert(text.includes(cppToken), 'A CPP note was omitted even though its separate section was off');
+  });
+
+  await s.step('Print all with CPP enabled prints the CPP note exactly once', async () => {
+    await print.openPrintDialog(chart);
+    await chart.locator('#printopAll').check();
+    await print.setFlags(chart, ['printCPP']);
+    const {text} = await print.pressPrint(chart, scratch);
+    const occurrences = text.replace(/\s+/g, ' ').split(cppToken).length - 1;
+    if (occurrences !== 1) defects.push(`Print all with CPP rendered the CPP note ${occurrences} times, expected once`);
+    h.assert(Object.values(token).every(t => text.includes(t)), 'CPP printing removed an ordinary note');
   });
 
   await s.step('Clear after a Print all empties the print queue', async () => {
@@ -140,6 +162,8 @@ async function workflow(s) {
     await chart.locator('#clearprintOp').click();
     const queue = await chart.locator('#notes2print').inputValue();
     if (queue !== '') defects.push(`Clear after a Print all left "${queue}" in the print queue; the dialog then still counts as having a selection`);
+    h.assert(Object.values(await print.flagState(chart)).every(value => value === 'false'),
+      'Clear left a clinical section selected');
   });
 
   try {

@@ -3702,39 +3702,21 @@ function autoSave() {
     }
 
     function clearAll(e) {
-        var idx;
-        var noteId;
-        var notesDiv;
-        var pos;
-        var imgId;
+        if (e) Event.stop(e);
 
-        Event.stop(e);
-
-        //cycle through container divs for each note
-        for (idx = 1; idx <= maxNcId; ++idx) {
-
-            if ($("nc" + idx) == null) continue;
-
-            notesDiv = $("nc" + idx).down('div');
-            noteId = notesDiv.id.substr(1);  //get note id
-            imgId = "print" + noteId;
-
-            //if print img present, add note to print queue if not already there
-            if ($(imgId) != null) {
-                pos = noteIsQeued(noteId);
-                if (pos >= 0)
-                    removePrintQueue(noteId, pos);
+        // Reset the visible icons independently of paging bounds and queue sentinels.
+        document.querySelectorAll('#encMainDiv img[id^="print"]').forEach(function (icon) {
+            if (/^print[0-9]+$/.test(icon.id)) {
+                icon.src = ctx + "/encounter/graphics/printer.png";
             }
-        }
+        });
+        $("notes2print").value = "";
 
-        if ($F("printCPP") == "true")
-            printInfo("imgPrintCPP", "printCPP");
-
-        if ($F("printRx") == "true")
-            printInfo("imgPrintRx", "printRx");
-
-        if ($F("printAllergies") == "true")
-            printInfo("imgPrintAllergies", "printAllergies");
+        ["CPP", "Rx", "Labs", "Preventions", "Allergies"].forEach(function (section) {
+            if ($F("print" + section) == "true") {
+                printInfo("imgPrint" + section, "print" + section);
+            }
+        });
 
         // Clear date fields
         if ($("printStartDate"))
@@ -3745,8 +3727,10 @@ function autoSave() {
         // Uncheck radio buttons
         if ($("printopDates"))
             $("printopDates").checked = false;
-        if ($("printopAllNotes"))
-            $("printopAllNotes").checked = false;
+        if ($("printopAll"))
+            $("printopAll").checked = false;
+        if ($("printopSelected"))
+            $("printopSelected").checked = true;
 
         return false;
 

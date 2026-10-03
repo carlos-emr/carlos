@@ -30,22 +30,60 @@
 
 package io.github.carlos_emr.carlos.casemgmt.util;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Bounded process-wide registration of chart print extensions. Existing registrations are
+ * never silently evicted; callers receive an explicit failure when capacity is exhausted.
+ *
+ * @since 2019-10-11
+ */
 public class ExtPrintRegistry {
+    static final int MAX_ENTRIES = 128;
+    static final int MAX_NAME_LENGTH = 256;
+    private static final Map<String, String> entries = new LinkedHashMap<>();
 
-    static LinkedHashMap<String, String> entries = new LinkedHashMap<String, String>();
-
-    public static void addEntry(String name, String beanName) {
+    /**
+     * Registers or updates an extension atomically.
+     *
+     * @param name extension display name, nonblank and at most 256 characters
+     * @param beanName Spring bean name, nonblank and at most 256 characters
+     * @throws IllegalArgumentException if either name is absent or too long
+     * @throws IllegalStateException if a new registration would exceed capacity
+     */
+    public static synchronized void addEntry(String name, String beanName) {
+        validateName(name);
+        validateName(beanName);
+        if (!entries.containsKey(name) && entries.size() >= MAX_ENTRIES) {
+            throw new IllegalStateException("Print extension registry is full");
+        }
         entries.put(name, beanName);
     }
 
-    public static Map<String, String> getEntries() {
-        return entries;
+    private static void validateName(String name) {
+        if (name == null || name.isBlank() || name.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("Print extension names must contain 1 to 256 characters");
+        }
     }
 
-    public static String getEntry(String name) {
+    /**
+     * Returns a stable snapshot that cannot bypass registry validation or capacity limits.
+     *
+     * @return immutable registrations in insertion order
+     */
+    public static synchronized Map<String, String> getEntries() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(entries));
+    }
+
+    /**
+     * Looks up a registered extension.
+     *
+     * @param name extension display name
+     * @return bean name, or null when unregistered
+     */
+    public static synchronized String getEntry(String name) {
         return entries.get(name);
     }
 }

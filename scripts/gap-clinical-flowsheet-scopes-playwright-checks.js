@@ -91,6 +91,8 @@ async function workflow(s) {
       await frame.locator('#display_name').fill(names[type]);
       await frame.locator('#add input[name="guideline"]').fill(`${marker} guideline ${type}`);
       await go(() => frame.locator('#FlowSheetCustomActionForm input[type="submit"][value="Save"]').click());
+      h.assert((await frame.locator('body').innerText()).includes(`${marker}(${sheet()})`),
+        'Saving a flowsheet customization lost its display name in the heading');
     };
     await add('WT', null);
     h.assert(JSON.stringify(custom()) === JSON.stringify([['add', '', provider, '0', '0']]),

@@ -167,9 +167,11 @@ public class CaseManagementPrint {
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        ChartPrintDateRange printRange = useDateRange ? ChartPrintDateRange.from(startDate, endDate) : null;
+
         // Get all or date range noteIds.
         if (printAllNotes && useDateRange) {
-            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), startDate.getTime(), endDate.getTime());
+            List<CaseManagementNote> dateRangeNotes = caseManagementMgr.getNotesInDateRange(String.valueOf(demographicNo), Date.from(printRange.startInclusive()), Date.from(printRange.endExclusive()));
             noteIds = dateRangeNotes.stream()
                 .map(note -> note.getId().toString())
                 .toArray(String[]::new);
@@ -215,28 +217,10 @@ public class CaseManagementPrint {
             Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
         }
 
-        // Filter notes by date range if specified and not already filtered by caseManagementMgr
-        if (useDateRange && (startDate != null && endDate != null) && !printAllNotes) {
-            logger.debug("Filtering notes by date range - start date: " + startDate + ", end date: " + endDate);
-
+        if (printRange != null && !printAllNotes) {
             notes = notes.stream()
-                .filter(cmn -> {
-                    Date noteDate = cmn.getObservation_date();
-                    if (noteDate == null) {
-                        logger.debug("Note " + cmn.getId() + " has null observation date - excluding");
-                        return false;
-                    }
-
-                    boolean afterStart = !startDate.getTime().after(noteDate);
-                    boolean beforeEnd = !endDate.getTime().before(noteDate);
-                    boolean inRange = afterStart && beforeEnd;
-
-                    logger.debug("Note " + cmn.getId() + " date " + noteDate +
-                        " - after start: " + afterStart + ", before end: " + beforeEnd + ", in range: " + inRange);
-
-                    return inRange;
-                })
-                .collect(Collectors.toList());
+                    .filter(note -> printRange.contains(note.getObservation_date()))
+                    .collect(Collectors.toList());
         }
 
         List<CaseManagementNote> issueNotes;
@@ -268,6 +252,10 @@ public class CaseManagementPrint {
                 }
                 cpp.put(issueCode, issueNotes);
             }
+            // CPP notes already rendered in their sections must not repeat in the notes body.
+            Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
+                    .map(CaseManagementNote::getId).collect(Collectors.toSet());
+            notes.removeIf(note -> printedCppIds.contains(note.getId()));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
