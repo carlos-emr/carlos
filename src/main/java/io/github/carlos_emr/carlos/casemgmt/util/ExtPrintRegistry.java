@@ -44,6 +44,7 @@ public class ExtPrintRegistry {
     static final int MAX_ENTRIES = 128;
     static final int MAX_NAME_LENGTH = 256;
     private static final Map<String, String> entries = new LinkedHashMap<>();
+    private static final Object LOCK = new Object();
 
     /**
      * Registers or updates an extension atomically.
@@ -53,13 +54,15 @@ public class ExtPrintRegistry {
      * @throws IllegalArgumentException if either name is absent or too long
      * @throws IllegalStateException if a new registration would exceed capacity
      */
-    public static synchronized void addEntry(String name, String beanName) {
+    public static void addEntry(String name, String beanName) {
         validateName(name);
         validateName(beanName);
-        if (!entries.containsKey(name) && entries.size() >= MAX_ENTRIES) {
-            throw new IllegalStateException("Print extension registry is full");
+        synchronized (LOCK) {
+            if (!entries.containsKey(name) && entries.size() >= MAX_ENTRIES) {
+                throw new IllegalStateException("Print extension registry is full");
+            }
+            entries.put(name, beanName);
         }
-        entries.put(name, beanName);
     }
 
     private static void validateName(String name) {
@@ -73,8 +76,10 @@ public class ExtPrintRegistry {
      *
      * @return immutable registrations in insertion order
      */
-    public static synchronized Map<String, String> getEntries() {
-        return Collections.unmodifiableMap(new LinkedHashMap<>(entries));
+    public static Map<String, String> getEntries() {
+        synchronized (LOCK) {
+            return Collections.unmodifiableMap(new LinkedHashMap<>(entries));
+        }
     }
 
     /**
@@ -83,7 +88,9 @@ public class ExtPrintRegistry {
      * @param name extension display name
      * @return bean name, or null when unregistered
      */
-    public static synchronized String getEntry(String name) {
-        return entries.get(name);
+    public static String getEntry(String name) {
+        synchronized (LOCK) {
+            return entries.get(name);
+        }
     }
 }
