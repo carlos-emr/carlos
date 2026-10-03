@@ -253,7 +253,7 @@
 
         function updateDate() {
             var visitType = document.forms[0].xml_visittype.value.split("|")[0].trim();
-            if (${formModel.multisite.rmaEnabled} || (visitType !== "02" && visitType !== "04")) {
+            if (${carlos:forJavaScript(formModel.multisite.rmaEnabled)} || (visitType !== "02" && visitType !== "04")) {
                 document.getElementById("xml_vdate").value = "";  //only nursing homes and hospitals have admission dates
             }
         }

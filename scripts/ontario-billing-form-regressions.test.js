@@ -48,7 +48,7 @@ test('service percent validates live named inputs, including previously empty bo
 test('visit changes preserve hospital and nursing-home admission dates independent of option order', () => {
   const admission = { value: '2026-01-15' };
   const visit = { value: '02| Hospital' };
-  const context = load(form.replaceAll('${formModel.multisite.rmaEnabled}', 'false'), ['updateDate'], {
+  const context = load(form.replaceAll('${carlos:forJavaScript(formModel.multisite.rmaEnabled)}', 'false'), ['updateDate'], {
     document: { forms: [{ xml_visittype: visit }], getElementById: () => admission },
   });
   for (const value of ['02| Hospital', '04| Nursing home']) {
@@ -64,7 +64,7 @@ test('visit changes preserve hospital and nursing-home admission dates independe
 test('RMA clinic numbers never retain a hospital or nursing-home admission date', () => {
   const admission = { value: '' };
   const clinic = { value: '' };
-  const context = load(form.replaceAll('${formModel.multisite.rmaEnabled}', 'true'), ['updateDate'], {
+  const context = load(form.replaceAll('${carlos:forJavaScript(formModel.multisite.rmaEnabled)}', 'true'), ['updateDate'], {
     document: { forms: [{ xml_visittype: clinic }], getElementById: () => admission },
   });
   for (const value of ['02| Clinic A', '04| Clinic B', '01| Clinic C']) {
