@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="label" pageWidth="229" pageHeight="210" columnWidth="200" leftMargin="15" rightMargin="14" topMargin="0" bottomMargin="4">
+    <!-- Match measured line breaks during PDF export so wrapped Unicode names are not clipped. -->
+    <property name="net.sf.jasperreports.export.pdf.force.linebreak.policy" value="true" />
     <parameter name="clinicName" class="java.lang.String" />
     <parameter name="clinicAddress" class="java.lang.String" />
     <parameter name="clinicCity" class="java.lang.String" />

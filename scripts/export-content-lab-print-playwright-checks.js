@@ -8,11 +8,11 @@
  *
  * Asserts (pdftotext): the PDF names the patient and the accession; each result row carries its test name, value,
  * units and reference range as received (including µmol/L and x10^9/L); the abnormal rows are flagged and the normal
- * row is not; the OBX comment and the NTE comment print with their accents (Spécimen hémolysé); and, LAST (fails
- * today when the PDF font lacks the glyphs), a comment containing characters outside Latin-1 (≥, ≤, Ł) prints them.
+ * row is not; the OBX comment and the NTE comment print with their accents (Spécimen hémolysé); and a comment
+ * containing characters outside Latin-1 (≥, ≤, Ł) prints them with embedded fonts.
  * Fixtures: one synthetic PATHL7 ORU^R01 seeded into hl7TextMessage/hl7TextInfo with provider and patient routing for
  * the owned FAKE-PW patient (the lab-line-break fixture shape); cleanup deletes exactly the rows of this run's lab id
- * and asserts it. Needs pdftotext. Nothing leaves the host.
+ * and asserts it. Needs pdftotext and pdffonts. Nothing leaves the host.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
