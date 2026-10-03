@@ -5080,6 +5080,21 @@
       "fixtures": "Throwaway login with its own day sheet plus an owned FAKE- patient; the eight recurring appointments it books belong to the throwaway provider and are deleted (with archive rows) in cleanup."
     },
     {
+      "name": "appointment-group-paste-restriction",
+      "script": "scripts/appointment-group-paste-restriction-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Requires allowMultipleSameDayGroupAppt=no and appointment_locking_timeout>0; verifies restricted Paste and its warning survive a real lock refresh, including absent Add/Repeat controls.",
+      "fixtures": "Owned patient, isolated provider/group/preferences and one copied appointment; appointment/archive rows, group/preferences and owned page locks are removed and verified."
+    },
+    {
       "name": "gap-provider-appointment-type-booking",
       "script": "scripts/gap-provider-appointment-type-booking-playwright-checks.js",
       "tiers": [

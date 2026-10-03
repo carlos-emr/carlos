@@ -28,6 +28,14 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: administer system and uploaded measurement flowsheet definitions.
+    Features: list definitions and their triggers, enable/disable and download definitions,
+    and display escaped upload errors once before removing the session flash message.
+    Parameters: this listing takes no query parameters; its action form submits method/name
+    to ManageFlowsheets. The optional session flashError supplies upload feedback.
+    @since 2026-07-07
+--%>
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>

@@ -325,7 +325,9 @@ Ontario, Canada
                 var determinator = 0;
                 determinator = localStorage.getItem('copyPaste');
                 if (determinator == 1) {  //This means we are moving an appt
-                    pasteAppt(false);
+                    // Use the server-rendered restriction argument for automatic paste too.
+                    var pasteButton = document.getElementById('pasteButton');
+                    if (pasteButton) pasteButton.click();
                     document.forms['ADDAPPT'].displaymode.value = 'Add Appointment';
                     //$("#pasteButton").trigger( "click" );
                     //$("#addButton").trigger( "click" );
@@ -409,6 +411,7 @@ Ontario, Canada
             }
 
             var readOnly = false;
+            var groupBookingRestricted = false;
 
             function checkDateTypeIn(obj) {
                 if (obj.value == '') {
@@ -488,23 +491,16 @@ Ontario, Canada
             <% if(apptObj!=null) { %>
 
             function pasteAppt(multipleSameDayGroupAppt) {
+                groupBookingRestricted = !!multipleSameDayGroupAppt;
 
                 var warnMsgId = document.getElementById("tooManySameDayGroupApptWarning");
 
                 if (multipleSameDayGroupAppt) {
                     warnMsgId.style.display = "block";
-                    if (document.forms[0].groupButton) {
-                        document.forms[0].groupButton.style.display = "none";
-                    }
-                    document.forms[0].addButton.style.display = "none";
-
-                    if (document.forms[0].pasteButton) {
-                        document.forms[0].pasteButton.style.display = "none";
-                    }
-
-                    if (document.forms[0].apptRepeatButton) {
-                        document.forms[0].apptRepeatButton.style.display = "none";
-                    }
+                    ['groupButton', 'addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                        var button = document.getElementById(id);
+                        if (button) button.style.display = 'none';
+                    });
                 } else {
                     warnMsgId.style.display = "none";
                 }
@@ -805,6 +801,14 @@ Ontario, Canada
 
             }
 
+            // A successful lock refresh must not undo a same-day group booking restriction.
+            function updateBookingButtonVisibility(locked) {
+                ['addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                    var button = document.getElementById(id);
+                    if (button) button.style.display = (locked && !haveLock) || groupBookingRestricted ? 'none' : '';
+                });
+            }
+
             function updatePageLock(timeout, apptDate, startTime, endTime) {
 
                 for (var i = 0; i < timers.length; i++) {
@@ -851,10 +855,7 @@ Ontario, Canada
                             ;
 
 
-                            ['addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
-                                var button = document.getElementById(id);
-                                if (button) button.style.display = locked && !haveLock ? 'none' : '';
-                            });
+                            updateBookingButtonVisibility(locked);
                             document.getElementById('searchBtn').removeAttribute('disabled');
                         }
                     }

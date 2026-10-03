@@ -175,7 +175,8 @@
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
         session.setAttribute("casemgmt_oscar_bean", bean);
         session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
+        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
+                (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
         if (request.getParameter("casetoEncounter") == null) {
             if (!response.isCommitted())
                 response.sendRedirect(hrefurl);
