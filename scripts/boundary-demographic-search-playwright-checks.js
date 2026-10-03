@@ -37,6 +37,9 @@ async function workflow(s) {
 
   await s.step('the fixture patients are stored exactly as seeded', async () => {
     b.assertStored(sql, 'demographic', 'last_name', `demographic_no=${apostropheId}`, (tag + 'A' + T.apostrophe).toUpperCase(), 'Fixture surname');
+    b.assertStored(sql, 'demographic', 'first_name', `demographic_no=${apostropheId}`, T.latin.toUpperCase(), 'Fixture accented first name');
+    b.assertStored(sql, 'demographic', 'address', `demographic_no=${apostropheId}`, `12 O'Neil St & "B" René 山田`, 'Fixture quoted Unicode address');
+    b.assertStored(sql, 'demographic', 'last_name', `demographic_no=${cjkId}`, (tag + 'B' + T.cjk).toUpperCase(), 'Fixture CJK surname');
     b.assertStored(sql, 'demographic', 'first_name', `demographic_no=${cjkId}`, T.cjk, 'Fixture CJK first name');
   });
 
