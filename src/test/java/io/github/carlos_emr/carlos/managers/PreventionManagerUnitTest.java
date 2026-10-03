@@ -230,7 +230,7 @@ public class PreventionManagerUnitTest extends PreventionUnitTestBase {
             // When
             try {
                 preventionManager.getPreventionsByDemographicNo(mockLoggedInInfo, TEST_DEMO_NO);
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException _) {
                 // expected
             }
 

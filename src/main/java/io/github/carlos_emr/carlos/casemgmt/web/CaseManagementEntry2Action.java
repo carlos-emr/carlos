@@ -2997,7 +2997,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
                 ChartPrintDateRange.from(cStartDate, cEndDate);
             }
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             response.reset();
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
             return null;

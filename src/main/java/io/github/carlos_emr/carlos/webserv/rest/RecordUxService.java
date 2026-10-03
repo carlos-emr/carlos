@@ -476,7 +476,7 @@ public class RecordUxService extends AbstractServiceImpl {
                 startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start").asText());
                 endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end").asText());
                 ChartPrintDateRange.from(startCal, endCal);
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException _) {
                 throw new BadRequestException("Invalid print date range");
             }
             printAllNotesType = true;

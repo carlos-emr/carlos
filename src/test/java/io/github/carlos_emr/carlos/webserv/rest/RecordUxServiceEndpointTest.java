@@ -149,8 +149,8 @@ class RecordUxServiceEndpointTest extends CarlosRestTestBase {
 
     @Test
     @DisplayName("PDF generation errors produce HTTP failure instead of empty successful downloads")
-    void shouldReturnServerError_whenChartPrintingFails() throws Exception {
-        try (var printers = mockConstruction(
+    void shouldReturnServerError_whenChartPrintingFails() {
+        try (var _ = mockConstruction(
                 CaseManagementPrint.class,
                 (printer, context) -> doThrow(new IOException("synthetic failure"))
                         .when(printer).doPrint(any(), any(), anyBoolean(), any(),
