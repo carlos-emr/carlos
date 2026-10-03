@@ -111,6 +111,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
     @Override
     public List<ConsultationRequest> getConsults(ConsultationListFilterDto filter) {
         Objects.requireNonNull(filter, "filter");
+        if ((filter.visibleProviderNos() != null && filter.visibleProviderNos().isEmpty())
+                || (filter.visibleSiteNames() != null && filter.visibleSiteNames().isEmpty())) {
+            return List.of();
+        }
         String team = filter.team();
         boolean showCompleted = filter.showCompleted();
         Date startDate = filter.startDate();
@@ -131,6 +135,10 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
                     "LEFT JOIN ConsultationRequestExt ext ON cr.id = ext.requestId AND ext.key = 'ereferral_service' " +
 					"LEFT JOIN Demographic d on cr.demographicId = d.demographicNo " +
 					"LEFT JOIN Provider p on d.providerNo = p.providerNo WHERE 1=1 ");
+
+        // Apply visibility before offsets and the lookahead row, matching the list's privacy checks.
+        if (filter.visibleProviderNos() != null) sql.append("and p.providerNo in (:visibleProviders) ");
+        if (filter.visibleSiteNames() != null) sql.append("and cr.siteName in (:visibleSites) ");
 
         if (!showCompleted) {
             sql.append("and cr.status != '4' ");
@@ -192,6 +200,9 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         }
 
 
+        // Equal dates/names must not reshuffle between pages.
+        sql.append(", cr.id");
+
         Query query = entityManager.createQuery(sql.toString());
         if (team != null && !team.isEmpty()) {
             query.setParameter("team", team);
@@ -208,6 +219,8 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         if (filterByMrp) {
             query.setParameter("mrpProviderNo", mrpProviderNo);
         }
+        if (filter.visibleProviderNos() != null) query.setParameter("visibleProviders", filter.visibleProviderNos());
+        if (filter.visibleSiteNames() != null) query.setParameter("visibleSites", filter.visibleSiteNames());
         query.setFirstResult(offset != null ? offset : 0);
 
         //need to never send more than MAX_LIST_RETURN_SIZE

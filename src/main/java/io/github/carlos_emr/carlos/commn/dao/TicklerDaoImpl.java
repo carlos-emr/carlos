@@ -88,8 +88,8 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         Map<String, String> m = new HashMap<>();
         m.put("serviceDate:asc",  " ORDER BY t.serviceDate ASC, t.id DESC");
         m.put("serviceDate:desc", " ORDER BY t.serviceDate DESC, t.id DESC");
-        m.put("priority:asc",     " ORDER BY t.priority ASC, t.id DESC");
-        m.put("priority:desc",    " ORDER BY t.priority DESC, t.id DESC");
+        m.put("priority:asc",     " ORDER BY CASE t.priority WHEN 'High' THEN 0 WHEN 'Normal' THEN 1 WHEN 'Low' THEN 2 ELSE 3 END ASC, t.id DESC");
+        m.put("priority:desc",    " ORDER BY CASE t.priority WHEN 'Low' THEN 0 WHEN 'Normal' THEN 1 WHEN 'High' THEN 2 ELSE 3 END ASC, t.id DESC");
         ORDER_BY_CLAUSES = Collections.unmodifiableMap(m);
     }
 
