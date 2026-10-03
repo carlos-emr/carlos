@@ -171,7 +171,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 bos.flush();
 
                 // only image.length is logged, not image content or request text.
-                // nosemgrep: semgrep.carlos.crlf-injection-logs
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("Streamed eForm signature image to render browser ({} bytes)", image.length);
                 return;
             }
