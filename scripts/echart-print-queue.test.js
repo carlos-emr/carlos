@@ -78,3 +78,59 @@ test('an appended batch initializes an absent or invalid container bound', () =>
     assert.equal(context.maxNcId, 201);
   }
 });
+
+for (const [start, end, expected] of [['03-janv-2026', '04-janv-2026', true],
+  ['04-janv-2026', '03-janv-2026', false], ['invalid', '03-janv-2026', false],
+  ['03-Jan-2026', '04-Jan-2026', true]]) {
+  test(`date range uses the calendar locale and preserves Today compatibility: ${start} / ${end}`, () => {
+    const {context, elements} = setup('');
+    for (const id of ['printStartDate', 'printEndDate']) {
+      elements[id]._flatpickr = {l10n: {months: {shorthand:
+        ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc']}}};
+    }
+    elements.printStartDate.value = start;
+    elements.printEndDate.value = end;
+    const alerts = [];
+    context.alert = value => alerts.push(value);
+    context.printDateMsg = 'invalid';
+    context.printDateOrderMsg = 'reversed';
+    vm.runInContext(functions('printDateRange', 'printSetup'), context);
+    assert.equal(context.printDateRange(), expected);
+    assert.equal(alerts.length, expected ? 0 : 1);
+  });
+}
+
+test('date range queues notes whose observation dates use the chart locale', () => {
+  const {context, elements} = setup('', 1);
+  for (const id of ['printStartDate', 'printEndDate']) {
+    elements[id].value = '15-juin-2021';
+    elements[id]._flatpickr = {l10n: {months: {shorthand:
+      ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc']}}};
+  }
+  elements.nc1 = {down: () => ({id: 'n11'})};
+  elements.obs11 = {innerHTML: '15-juin-2021 12:00'};
+  const queued = [];
+  context.noteIsQeued = () => -1;
+  context.addPrintQueue = id => queued.push(id);
+  context.alert = () => assert.fail('A valid French range must not alert');
+  vm.runInContext(functions('printDateRange', 'printSetup'), context);
+  assert.equal(context.printDateRange(), true);
+  assert.deepEqual(queued, ['11']);
+});
+
+test('Today formats the server day through both localized calendars', () => {
+  const {context, elements} = setup('');
+  elements.serverDate = {value: 'irrelevant localized server text', getAttribute: () => '2026-01-03'};
+  const calls = [];
+  for (const id of ['printStartDate', 'printEndDate']) {
+    elements[id]._flatpickr = {setDate: (...args) => calls.push([id, ...args])};
+  }
+  let printed = false;
+  context.printNotes = () => { printed = true; };
+  vm.runInContext(functions('printToday', 'clearAll'), context);
+  context.printToday({});
+  assert.deepEqual(calls, [['printStartDate', '2026-01-03', false, 'Y-m-d'],
+    ['printEndDate', '2026-01-03', false, 'Y-m-d']]);
+  assert.equal(elements.printopDates.checked, true);
+  assert.equal(printed, true);
+});

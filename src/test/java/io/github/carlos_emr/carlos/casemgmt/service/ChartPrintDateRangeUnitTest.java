@@ -60,15 +60,38 @@ class ChartPrintDateRangeUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"3-Oct-2026", "03-Oct-2026", "29-Feb-2028"})
     void shouldParseDialogDates_withValidCalendarDays(String value) {
-        Calendar parsed = ChartPrintDateRange.parseDialogDate(value);
+        Calendar parsed = ChartPrintDateRange.parseDialogDate(value, java.util.Locale.ENGLISH);
         assertThat(parsed.get(Calendar.DAY_OF_MONTH)).isEqualTo(Integer.parseInt(value.split("-")[0]));
     }
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {"31-Feb-2026", "29-Feb-2026", "03-Oct-2026junk", "03-Oct-2026 ", "invalid", " "})
+    @ValueSource(strings = {"31-Feb-2026", "29-Feb-2026", "03-Oct-2026junk", "03-Oct-2026 ", "03.-Oct-2026", "03-Oct-2026.", "03-Oct..-2026", "invalid", " "})
     void shouldRejectDialogDates_withInvalidOrIncompleteInput(String value) {
-        assertThatIllegalArgumentException().isThrownBy(() -> ChartPrintDateRange.parseDialogDate(value));
+        assertThatIllegalArgumentException().isThrownBy(() -> ChartPrintDateRange.parseDialogDate(value, java.util.Locale.ENGLISH));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"fr,03-janv-2026,1", "fr,03-janv.-2026,1", "fr,03-févr-2026,2",
+            "fr,03-août-2026,8", "pt-BR,03-Out-2026,10", "es,03-Ene-2026,1", "pl,03-Paź-2026,10", "es,03-Sep-2026,9", "fr,03-sept-2026,9",
+            "en-GB,03-Sep-2026,9", "en-GB,03-Sept-2026,9"})
+    void shouldParseLocalizedMonths_withTheResolvedChartLocale(String language, String value, int month) {
+        Calendar parsed = ChartPrintDateRange.parseDialogDate(value, java.util.Locale.forLanguageTag(language));
+        assertThat(parsed.get(Calendar.MONTH) + 1).isEqualTo(month);
+        assertThat(parsed.get(Calendar.DAY_OF_MONTH)).isEqualTo(3);
+        assertThat(parsed.get(Calendar.YEAR)).isEqualTo(2026);
+    }
+
+    @Test
+    void shouldAcceptServerTodayFormat_whenChartLanguageDiffers() {
+        java.util.Locale serverLocale = java.util.Locale.getDefault(java.util.Locale.Category.FORMAT);
+        java.util.Locale pageLocale = "fr".equals(serverLocale.getLanguage())
+                ? java.util.Locale.ENGLISH : java.util.Locale.FRENCH;
+        String value = LocalDate.of(2026, java.time.Month.JANUARY, 3)
+                .format(java.time.format.DateTimeFormatter.ofPattern("d-MMM-uuuu", serverLocale));
+        Calendar parsed = ChartPrintDateRange.parseDialogDate(value, pageLocale);
+        assertThat(parsed.get(Calendar.MONTH)).isEqualTo(Calendar.JANUARY);
+        assertThat(parsed.get(Calendar.DAY_OF_MONTH)).isEqualTo(3);
     }
 
     @Test

@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import java.time.Instant;
+import java.time.Month;
+import java.util.HashMap;
+import java.util.Map;
 import java.time.DateTimeException;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.ResolverStyle;
@@ -52,25 +55,46 @@ public record ChartPrintDateRange(Instant startInclusive, Instant endExclusive) 
      * Parses one complete dialog date, accepting the one-digit day emitted by Today.
      *
      * @param value date in d-MMM-yyyy or dd-MMM-yyyy format
+     * @param locale resolved chart locale (the calendar month language)
      * @return the selected local day
      * @throws IllegalArgumentException for missing, impossible or partially parsed dates
      */
-    public static Calendar parseDialogDate(String value) {
+    public static Calendar parseDialogDate(String value, Locale locale) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("Print date is required");
         }
+        // Flatpickr omits the terminal dot used by CLDR for French/Portuguese months.
+        String[] parts = value.split("-", -1);
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("Invalid print date");
+        }
+        String month = parts[1].replaceFirst("\\.$", "").replaceAll("(?i)^sept$", "sep");
+        String normalized = parts[0] + "-" + month + "-" + parts[2];
+        try {
+            return parseLocalizedDialogDate(normalized, locale);
+        } catch (DateTimeException _) {
+            // Today is supplied by ChartNotes.jsp in the JVM format locale. Preserve that
+            // existing wire format when it differs from the negotiated calendar language.
+            try {
+                return parseLocalizedDialogDate(normalized, Locale.getDefault(Locale.Category.FORMAT));
+            } catch (DateTimeException second) {
+                throw new IllegalArgumentException("Invalid print date", second);
+            }
+        }
+    }
+
+    private static Calendar parseLocalizedDialogDate(String value, Locale locale) {
+        Map<Long, String> months = new HashMap<>();
+        for (Month month : Month.values()) {
+            months.put((long) month.getValue(), month.getDisplayName(TextStyle.SHORT, locale).replace(".", "").replaceAll("(?i)^sept$", "sep"));
+        }
         var formatter = new DateTimeFormatterBuilder().parseCaseInsensitive()
                 .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NOT_NEGATIVE)
-                .appendLiteral('-').appendText(ChronoField.MONTH_OF_YEAR, TextStyle.SHORT)
+                .appendLiteral('-').appendText(ChronoField.MONTH_OF_YEAR, months)
                 .appendLiteral('-').appendValue(ChronoField.YEAR, 4)
-                .toFormatter(Locale.getDefault(Locale.Category.FORMAT))
-                .withResolverStyle(ResolverStyle.STRICT);
-        try {
-            return GregorianCalendar.from(LocalDate.parse(value, formatter)
-                    .atStartOfDay(ZoneId.systemDefault()));
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException("Invalid print date", e);
-        }
+                .toFormatter(locale).withResolverStyle(ResolverStyle.STRICT);
+        return GregorianCalendar.from(LocalDate.parse(value, formatter)
+                .atStartOfDay(ZoneId.systemDefault()));
     }
 
     /**

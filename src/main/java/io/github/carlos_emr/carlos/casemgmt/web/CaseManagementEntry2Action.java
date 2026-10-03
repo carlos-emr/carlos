@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -2992,8 +2993,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         try {
             if ("dates".equals(pType)) {
-                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate);
-                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate);
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate, LocaleUtils.resolveBundleLocale(request));
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
                 ChartPrintDateRange.from(cStartDate, cEndDate);
             }
         } catch (IllegalArgumentException e) {

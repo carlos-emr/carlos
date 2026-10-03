@@ -3577,13 +3577,28 @@ function autoSave() {
             return false;
         }
 
-        var tmp = sdate.split("-");
-        var formatdate = tmp[1] + " " + tmp[0] + ", " + tmp[2];
-        var msbeg = Date.parse(formatdate);
-
-        tmp = edate.split("-");
-        formatdate = tmp[1] + " " + tmp[0] + ", " + tmp[2];
-        var msend = Date.parse(formatdate);
+        // Resolve abbreviated months from the date picker's own locale. Today retains
+        // the server's legacy date string, so keep its existing Date.parse fallback.
+        function printDateMillis(input, value) {
+            var parts = value.split("-");
+            if (parts.length !== 3) return NaN;
+            var calendar = $(input)._flatpickr;
+            var names = calendar && calendar.l10n.months.shorthand;
+            if (names) {
+                var monthName = parts[1].replace(/\.$/, "").toLowerCase();
+                for (var i = 0; i < names.length; ++i) {
+                    if (names[i].replace(/\.$/, "").toLowerCase() === monthName)
+                        return new Date(Number(parts[2]), i, Number(parts[0])).getTime();
+                }
+            }
+            return Date.parse(parts[1] + " " + parts[0] + ", " + parts[2]);
+        }
+        var msbeg = printDateMillis("printStartDate", sdate);
+        var msend = printDateMillis("printEndDate", edate);
+        if (!isFinite(msbeg) || !isFinite(msend)) {
+            alert(printDateMsg);
+            return false;
+        }
 
         if (msbeg > msend) {
             alert(printDateOrderMsg);
@@ -3621,9 +3636,7 @@ function autoSave() {
             if (noteDate != null) {
                 //grab date and splice off time and format for js date object
                 noteDate = noteDate.substr(0, noteDate.indexOf(" "));
-                tmp = noteDate.split("-");
-                formatdate = tmp[1] + " " + tmp[0] + ", " + tmp[2];
-                msnote = Date.parse(formatdate);
+                msnote = printDateMillis("printStartDate", noteDate);
                 pos = noteIsQeued(noteId);
 
                 if (msnote >= msbeg && msnote <= msend) {
@@ -3692,9 +3705,19 @@ function autoSave() {
     function printToday(e) {
         clearAll(e);
 
-        var today = $F("serverDate").split(" ");
-        $("printStartDate").value = today[1].substr(0, today[1].indexOf(",")) + "-" + today[0] + "-" + today[2];
-        $("printEndDate").value = $F("printStartDate");
+        var isoToday = $("serverDate").getAttribute("data-print-date");
+        var startCalendar = $("printStartDate")._flatpickr;
+        var endCalendar = $("printEndDate")._flatpickr;
+        if (isoToday && startCalendar && endCalendar) {
+            // Keep server-day semantics while formatting both fields in the chart's locale.
+            startCalendar.setDate(isoToday, false, "Y-m-d");
+            endCalendar.setDate(isoToday, false, "Y-m-d");
+        } else {
+            // Compatibility for a cached notes fragment without the ISO server date.
+            var today = $F("serverDate").split(" ");
+            $("printStartDate").value = today[1].substr(0, today[1].indexOf(",")) + "-" + today[0] + "-" + today[2];
+            $("printEndDate").value = $F("printStartDate");
+        }
         $("printopDates").checked = true;
 
         printNotes();

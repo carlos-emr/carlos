@@ -51,8 +51,10 @@ class CaseManagementPrintAssemblyUnitTest {
                  if ("createSecureTempFile".equals(invocation.getMethod().getName())) {
                      File file = (File) result;
                      stagedFile.set(file);
-                     assertThat(Files.getPosixFilePermissions(file.toPath())).containsExactlyInAnyOrder(
-                             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+                     if (Files.getFileStore(file.toPath()).supportsFileAttributeView("posix")) {
+                         assertThat(Files.getPosixFilePermissions(file.toPath())).containsExactlyInAnyOrder(
+                                 PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+                     }
                  }
                  return result;
              });

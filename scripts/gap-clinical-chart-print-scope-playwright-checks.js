@@ -194,6 +194,40 @@ async function workflow(s) {
     }
   });
 
+  await s.step('French calendar dates and Today preserve the requested note scope', async () => {
+    await chart.close();
+    await s.context.setExtraHTTPHeaders({'Accept-Language': 'fr-FR,fr;q=0.9'});
+    try {
+      chart = await s.chart();
+      h.assert((await chart.locator('html').getAttribute('lang')).startsWith('fr'),
+        'The date-range regression did not open a French chart');
+      await chart.locator(`#print${ids.old}`).waitFor({state: 'attached', timeout: 20000});
+      await print.openPrintDialog(chart);
+      await print.setFlags(chart, []);
+      await chart.locator('#printopDates').check();
+      await chart.evaluate(() => {
+        for (const id of ['printStartDate', 'printEndDate']) {
+          document.getElementById(id)._flatpickr.setDate('2021-06-15', false, 'Y-m-d');
+        }
+      });
+      h.assert((await chart.locator('#printStartDate').inputValue()).includes('juin'),
+        'The browser did not submit a localized French month');
+      const {text} = await print.pressPrint(chart, scratch);
+      h.assert(text.includes(token.old) && !text.includes(token.mid) && !text.includes(token.now),
+        'French date-range printing did not preserve the selected calendar day');
+      await print.openPrintDialog(chart);
+      const today = await print.pressPrint(chart, scratch,
+        () => chart.locator('#printOps a[onclick*="printToday"]').click());
+      h.assert(today.text.includes(token.now) && !today.text.includes(token.old) && !today.text.includes(token.mid),
+        'Today did not preserve its scope on the French chart');
+    } finally {
+      await chart.close();
+      await s.context.setExtraHTTPHeaders({});
+      chart = await s.chart();
+      await chart.locator(`#print${ids.now}`).waitFor({state: 'attached', timeout: 20000});
+    }
+  });
+
   await s.step('print registration accepts configured extensions and rejects arbitrary aliases', async () => {
     const fields = await chart.evaluate(() => Object.fromEntries(new FormData(document.forms.caseManagementEntryForm)));
     const url = h.appUrl(s.config.baseUrl, '/casemgmt/ExtPrintRegistry');
