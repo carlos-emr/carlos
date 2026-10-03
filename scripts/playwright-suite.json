@@ -6645,7 +6645,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Three FAKE- eform rows inserted by SQL (plain name, accented/quoted name, a name with a slash); cleanup deletes only those rows and asserts them gone. Reads only.",
-      "notes": "Fails at its LAST step on 2026.08 (HTML byte-for-byte, eform.properties name/subject/creator/date/flags for the plain and the accented/quoted form all PASS): (1) Export of a form named like \"Well Baby 0/6 months\" answers HTTP 500 and no zip (EFormExportZip.java:84 validatePathComponent rejects the slash); (2) the attachment name has the numeric form id spliced in place of each space (\"Export99Plain.zip\", ManageEForm2Action.java:79)."
+      "notes": "Validates exact exported HTML and original eform.properties metadata, safe ZIP paths for slash-containing display names, UTF-8 Content-Disposition filenames, and browser download names without form-id substitution (issue #4175)."
     },
     {
       "name": "export-content-rbt-columns",
