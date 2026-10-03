@@ -1172,6 +1172,14 @@
     "integrity" : "sha512:fbSBPzgP/SPMqqcjPB+SwLc+33uqga7++bI3OIXQPMyJVy0IjtQwCopPMrPVgiQAOlxTsDV8iiF7+XR+oThwnw=="
   }, {
     "groupId" : "net.sf.jasperreports",
+    "artifactId" : "jasperreports-fonts",
+    "version" : "7.0.8",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:xa+wt3fEiSvCskKDJJThFPUWryBEGDvgHL7pNKaynEG0nL/C8zUTt5tpjQ1xAK6Bmgnar/NuCIP6zlKUUfWxCw=="
+  }, {
+    "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-jdt",
     "version" : "7.0.8",
     "scope" : "compile",

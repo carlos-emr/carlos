@@ -375,7 +375,7 @@ public class UtilMisc {
         ArrayList rows = new ArrayList();
         ArrayList cols = new ArrayList();
         for (int i = 0; i < columns; i++) {  // for each column in result set
-            cols.add(rsmd.getColumnName(i + 1));
+            cols.add(rsmd.getColumnLabel(i + 1));
         }
         rows.add(cols);
         rs.first();

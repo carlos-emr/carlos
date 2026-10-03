@@ -29,16 +29,14 @@
 package io.github.carlos_emr.carlos.dashboard.admin;
 
 import java.io.IOException;
-import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -49,11 +47,10 @@ public class ExportResults2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
+    private DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
 
-    public String execute() {
+    public String execute() throws IOException {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -63,7 +60,6 @@ public class ExportResults2Action extends ActionSupport {
 
         String indicatorId = request.getParameter("indicatorId");
         String indicatorName = request.getParameter("indicatorName");
-        OutputStream outputStream = null;
 
         String providerNo = dashboardManager.getRequestedProviderNo(loggedInInfo);
         String csvFile;
@@ -80,38 +76,26 @@ public class ExportResults2Action extends ActionSupport {
             indicatorName = baseName + "-" + System.currentTimeMillis() + ".csv";
         }
 
-        if (csvFile != null) {
-
-            response.setContentType("text/csv");
-            response.setHeader("Content-Disposition", "attachment; filename=\"" + indicatorName + "\"");
-            response.setContentLength(csvFile.length());
-
-            try {
-                outputStream = response.getOutputStream();
-                outputStream.write(csvFile.getBytes());
-                response.setStatus(HttpServletResponse.SC_OK);
-            } catch (IOException e) {
-                logger.error("Failed to export CSV file: " + indicatorName, e);
-            } finally {
-                if (outputStream != null) {
-                    try {
-                        outputStream.flush();
-                        outputStream.close();
-                    } catch (IOException e) {
-                        logger.error("Failed to close output stream", e);
-                    }
-                }
-            }
+        if (csvFile == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
         }
 
-        return null;
+        byte[] bytes = csvFile.getBytes(StandardCharsets.UTF_8);
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + indicatorName + "\"");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setContentLength(bytes.length);
+        response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- UTF-8 CSV attachment with nosniff; not an HTML response
+
+        return NONE;
     }
 
     /**
      * Sanitizes a value to be used in an HTTP header to prevent response splitting attacks.
      * Removes all control characters including carriage return and line feed.
      * 
-     * @param value The value to sanitize
+     * @param filename The value to sanitize
      * @return The sanitized header value safe for use in HTTP headers
      */
     private String sanitizeBaseFilename(String filename) {
