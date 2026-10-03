@@ -63,8 +63,8 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Palliative Care</title>
-        <link rel="stylesheet" type="text/css" href="palliativeCareStyles.css"/>
-        <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/palliativeCareStyles.css"/>
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css"/>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
         <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>"> <%-- NOSONAR --%>
     </head>
