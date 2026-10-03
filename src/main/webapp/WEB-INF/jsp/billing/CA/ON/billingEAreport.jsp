@@ -21,8 +21,13 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingEAreport in the Ontario billing workflow.
-  Features: renders parsed MOH batch acknowledgement records using the Ontario billing stylesheet.
+  Purpose: Display parsed Ontario MOH return-file reports.
+  Features: claim-error details and record counts, batch acknowledgements, report messages,
+    OBEC eligibility records and skipped-update reasons; printable with Ontario billing styles.
+  Parameters (request attributes): ReportName is the heading; claimsErrors supplies claim-error
+    records; batchAcks supplies batchAcknowledgementRecords; messages supplies text messages;
+    outputSpecs supplies edtObecOutputSpecificationRecords; obecApplyResult supplies applied/
+    skipped counts and reasons. Empty optional attributes omit their respective report sections.
   @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

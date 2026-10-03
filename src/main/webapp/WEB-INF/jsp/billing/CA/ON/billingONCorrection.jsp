@@ -21,9 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingONCorrection in the Ontario billing workflow.
-  Expected request model data includes: correctionModel.
-  Parameters: billing_no or claim_no selects a bill; admin/adminSubmit presence preserves Administration navigation.
+  Purpose: Look up and correct existing Ontario billing claims.
+  Features: invoice/claim lookup, service and status edits, Rebill, Settle and Reprint actions.
+  Parameters: correctionModel request attribute supplies the claim and lookup/save feedback;
+    billing_no or claim_no selects a bill; admin/adminSubmit presence preserves Administration navigation.
   @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

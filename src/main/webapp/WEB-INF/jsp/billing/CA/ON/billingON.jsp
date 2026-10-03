@@ -21,9 +21,11 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingON in the Ontario billing workflow.
-  Expected request model data includes: formModel.
-  Features: validates entered percent values and retains admission dates for visit types 02/04.
+  Purpose: Enter Ontario billing claims before reviewing calculated fees.
+  Features: provider and payer selection, service codes/units/percent, visit and referral details,
+    input validation, and admission-date retention for hospital/nursing-home visits outside RMA.
+  Parameters: formModel request attribute supplies patient, provider, visit, service, payer and
+    multisite state; named form fields carry the entered claim to the review action.
   @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.

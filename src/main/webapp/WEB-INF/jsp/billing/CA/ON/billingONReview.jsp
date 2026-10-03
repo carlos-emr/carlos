@@ -21,10 +21,11 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: This page provides an opportunity to review
-  and potentially print bills specified in billingON.jsp
-  Expected request model data includes: reviewModel.
-  Features: invalid reviews allow Back to Edit; public bills do not require private-payment total fields.
+  Purpose: Review calculated Ontario claims before saving or printing.
+  Features: fee edits, totals and validation feedback, Back to Edit, and payer-specific save/print
+    actions; failed calculations block saving while preserving the entered bill for correction.
+  Parameters: reviewModel request attribute supplies calculated lines, totals, validation flags,
+    payer/payment options and original request fields; billingAction selects the submitted operation.
   @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
