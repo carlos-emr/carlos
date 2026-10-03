@@ -14,9 +14,8 @@
  * owned measurement type) is stored exactly as uploaded (Flowsheet row: name, content, enabled,
  * not external) with its measurement type created, listed as a Custom, enabled flowsheet; Disable and
  * Enable flip the stored flag and the list; GET against the upload route is refused and stores nothing.
- * The refusal assertions are collected and asserted together as the last step: validateFlowsheet accepts
- * any well-formed XML (a NULL-named Flowsheet row is stored) and manageFlowsheets.jsp never renders the
- * flashError the upload action sets, so a refused upload looks like a successful one that added nothing.
+ * Refusal assertions run after the upload redirect completes and are collected at the last step,
+ * so valid upload, enable/disable and method controls are exercised even if a refusal regresses.
  * Fixtures: one flowsheet definition and one measurement type, both named with the run marker's hex
  * tail; cleanup deletes only those rows and asserts they are gone. The upload loaded the flowsheet and its
  * measurement type into two in-memory registries (MeasurementTemplateFlowSheetConfig, MeasurementTypes), so
@@ -80,7 +79,8 @@ async function body(s, state) {
     await frame.locator('input[name="flowsheet_file"]').setInputFiles(file);
     state.uploaded = true;
     state.token = await frame.locator('form[action$="/admin/ManageFlowsheetsUpload"] input[name="CSRF-TOKEN"]').first().inputValue().catch(() => '') || state.token;
-    const [answer] = await Promise.all([
+    const [, answer] = await Promise.all([
+      frame.waitForNavigation({ waitUntil: 'domcontentloaded' }),
       admin.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/admin/ManageFlowsheetsUpload')),
       frame.locator('form[action$="/admin/ManageFlowsheetsUpload"] input[type="submit"]').click(),
     ]);

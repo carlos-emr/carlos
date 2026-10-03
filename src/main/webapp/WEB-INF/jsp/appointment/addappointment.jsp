@@ -220,6 +220,8 @@ Ontario, Canada
 
 <html>
     <head>
+        <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentTypeReason.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -323,7 +325,9 @@ Ontario, Canada
                 var determinator = 0;
                 determinator = localStorage.getItem('copyPaste');
                 if (determinator == 1) {  //This means we are moving an appt
-                    pasteAppt(false);
+                    // Use the server-rendered restriction argument for automatic paste too.
+                    var pasteButton = document.getElementById('pasteButton');
+                    if (pasteButton) pasteButton.click();
                     document.forms['ADDAPPT'].displaymode.value = 'Add Appointment';
                     //$("#pasteButton").trigger( "click" );
                     //$("#addButton").trigger( "click" );
@@ -407,6 +411,7 @@ Ontario, Canada
             }
 
             var readOnly = false;
+            var groupBookingRestricted = false;
 
             function checkDateTypeIn(obj) {
                 if (obj.value == '') {
@@ -486,23 +491,16 @@ Ontario, Canada
             <% if(apptObj!=null) { %>
 
             function pasteAppt(multipleSameDayGroupAppt) {
+                groupBookingRestricted = !!multipleSameDayGroupAppt;
 
                 var warnMsgId = document.getElementById("tooManySameDayGroupApptWarning");
 
                 if (multipleSameDayGroupAppt) {
                     warnMsgId.style.display = "block";
-                    if (document.forms[0].groupButton) {
-                        document.forms[0].groupButton.style.display = "none";
-                    }
-                    document.forms[0].addButton.style.display = "none";
-
-                    if (document.forms[0].pasteButton) {
-                        document.forms[0].pasteButton.style.display = "none";
-                    }
-
-                    if (document.forms[0].apptRepeatButton) {
-                        document.forms[0].apptRepeatButton.style.display = "none";
-                    }
+                    ['groupButton', 'addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                        var button = document.getElementById(id);
+                        if (button) button.style.display = 'none';
+                    });
                 } else {
                     warnMsgId.style.display = "none";
                 }
@@ -520,6 +518,8 @@ Ontario, Canada
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.forms[0].resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
+                document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms[0].type.dataset.previousType = document.forms[0].type.value;
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
@@ -553,6 +553,8 @@ Ontario, Canada
 
             function setType(typeSel, reasonSel, locSel, durSel, notesSel, resSel) {
                 document.forms['ADDAPPT'].type.value = typeSel;
+                document.forms['ADDAPPT'].type.dataset.previousReason = document.forms['ADDAPPT'].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms['ADDAPPT'].type.dataset.previousType = document.forms['ADDAPPT'].type.value;
                 document.forms['ADDAPPT'].reason.value = reasonSel;
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].notes.value = notesSel;
@@ -664,15 +666,25 @@ Ontario, Canada
                     }
                 });
 
+                // Track the previous autofill separately from text entered by the user.
+                document.getElementById('type').dataset.previousReason = $('#type option:selected').attr('data-reason') || '';
+                document.getElementById('type').dataset.previousType = $('#type').val();
                 // render custom selectmenu
                 $('#type').myselectmenu({
                     change: function (event, data) {
                         label = data.item.value;
                         origReason = $("textarea[name='reason']").val();
                         reason = data.item.element.attr("data-reason");
-                        if (origReason.length > 0) {
-                            reason = reason.concat(" -- ".concat(origReason));
+                        var nextTypeReason = reason || '';
+                        try {
+                            reason = appointmentTypeReason(origReason, this.dataset.previousReason || '', nextTypeReason);
+                        } catch (error) {
+                            if (!(error instanceof RangeError)) throw error;
+                            $(this).val(this.dataset.previousType).myselectmenu('refresh');
+                            alert("<carlos:encode value="${typeReasonLengthError}" context="javaScriptBlock"/>");
+                            return;
                         }
+                        this.dataset.previousReason = nextTypeReason;
                         loc = data.item.element.attr("data-loc");
                         dur = data.item.element.attr("data-dur");
                         notes = data.item.element.attr("data-notes");
@@ -789,6 +801,14 @@ Ontario, Canada
 
             }
 
+            // A successful lock refresh must not undo a same-day group booking restriction.
+            function updateBookingButtonVisibility(locked) {
+                ['addButton', 'pasteButton', 'apptRepeatButton', 'groupButton'].forEach(function (id) {
+                    var button = document.getElementById(id);
+                    if (button) button.style.display = (locked && !haveLock) || groupBookingRestricted ? 'none' : '';
+                });
+            }
+
             function updatePageLock(timeout, apptDate, startTime, endTime) {
 
                 for (var i = 0; i < timers.length; i++) {
@@ -835,19 +855,7 @@ Ontario, Canada
                             ;
 
 
-                            if (haveLock == true) { //i have the lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
-                            } else if (locked && !haveLock) { //someone else has lock.
-                                document.getElementById('addButton').style.display = 'none';
-                                document.getElementById('pasteButton').style.display = 'none';
-                                document.getElementById('apptRepeatButton').style.display = 'none';
-                            } else { //no lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
-                            }
+                            updateBookingButtonVisibility(locked);
                             document.getElementById('searchBtn').removeAttribute('disabled');
                         }
                     }
@@ -1501,7 +1509,7 @@ Ontario, Canada
                            onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">
                     <% }%>
 
-                    <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <% if (!(bDnb || bMultipleSameDayGroupAppt) && !props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <fmt:message key="appointment.addappointment.btnRepeat" var="btnRepeatMsg"/>
                     <input type="button" id="apptRepeatButton" class="btn btn-primary"
                            value="${carlos:forHtmlAttribute(btnRepeatMsg)}"

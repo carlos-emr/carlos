@@ -269,6 +269,22 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public List<Date> findDoNotBookDates(Appointment template, List<Date> dates) {
+        if (dates.isEmpty()) return java.util.Collections.emptyList();
+        return entityManager.createQuery("SELECT DISTINCT a.appointmentDate FROM Appointment a "
+                        + "WHERE a.providerNo = :provider AND a.programId = :program "
+                        + "AND a.appointmentDate IN :dates AND LOWER(a.name) = 'do_not_book' "
+                        + "AND (a.status IS NULL OR a.status NOT IN ('C', 'D')) "
+                        + "AND a.startTime <= :endTime AND a.endTime >= :startTime", Date.class)
+                .setParameter("provider", template.getProviderNo())
+                .setParameter("program", template.getProgramId())
+                .setParameter("dates", dates)
+                .setParameter("startTime", template.getStartTime())
+                .setParameter("endTime", template.getEndTime())
+                .getResultList();
+    }
+
+    @Override
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.appointmentDate >=?1 and a.appointmentDate < ?2 and a.providerNo = ?3";
 

@@ -84,6 +84,17 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public List<Appointment> findByDateRange(Date startTime, Date endTime);
 
+    /**
+     * Finds requested dates blocked by an overlapping Do Not Book slot for the template's
+     * provider and program. Start/end times are inclusive; C and D slots are inactive,
+     * matching the Add Appointment popup. Only dates, not appointment entities, are loaded.
+     *
+     * @param template requested provider, program and time interval
+     * @param dates candidate dates (recurrence callers supply at most 366)
+     * @return distinct blocked dates, or an empty list for no candidates or conflicts
+     */
+    List<Date> findDoNotBookDates(Appointment template, List<Date> dates);
+
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo);
 
     public List<Appointment> getByProviderAndDay(Date date, String providerNo);

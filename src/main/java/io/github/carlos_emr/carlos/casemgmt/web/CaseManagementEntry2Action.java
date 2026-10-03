@@ -227,8 +227,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return edit();
     }
 
-    public String setUpMainEncounter() {
+    static Integer parseEncounterMessageId(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new NumberFormatException("Message ID must be positive");
+        return id;
+    }
+
+    /**
+     * Prepares the chart page, loading a nonblank msgId for the current demographic into
+     * the encounterMessage request attribute after access/link checks.
+     * @return chart layout result, or NONE after a controlled invalid/missing-message response
+     * @throws java.io.IOException if sending an error response fails
+     */
+    public String setUpMainEncounter() throws java.io.IOException {
         String demono = getDemographicNo(request);
+        Integer messageId;
+        try {
+            messageId = parseEncounterMessageId(request.getParameter("msgId"));
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter message ID");
+            return NONE;
+        }
+        if (messageId != null) {
+            try {
+                String text = SpringUtils.getBean(io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.class)
+                        .load(LoggedInInfo.getLoggedInInfoFromSession(request), messageId, Integer.parseInt(demono));
+                request.setAttribute("encounterMessage", text);
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Encounter message no longer exists");
+                return NONE;
+            }
+        }
         logger.debug("client Image?");
 
         //get client image

@@ -973,8 +973,12 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
     document.forms["caseManagementEntryForm"].noteId.value = "<%=savedId%>";
 
-    if (<%= hasOscarMsg %>) {
-        document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= oscarMsg %>' context="javaScript"/>";
+    // Empty means absent or already consumed in this chart; only legacy layouts use the shared bean.
+    var encounterMessage = typeof pendingEncounterMessage === 'string'
+        ? pendingEncounterMessage : "<carlos:encode value='<%= oscarMsg %>' context="javaScriptBlock"/>";
+    if (encounterMessage && document.getElementById(caseNote)) {
+        document.getElementById(caseNote).value += "\n\n" + encounterMessage;
+        if (typeof pendingEncounterMessage === 'string') pendingEncounterMessage = '';
     }
 <% if (noteBody != null) { %>
     document.getElementById(caseNote).value += "\n\n<carlos:encode value='<%= noteBody %>' context="javaScript"/>";
