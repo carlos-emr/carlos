@@ -668,6 +668,8 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         if (dependents != null) {
             for (Integer l : dependents) {
+                // programId is LogSafe-sanitized and the client ID is an Integer.
+                // nosemgrep: semgrep.carlos.crlf-injection-logs
                 logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), l);
                 programQueueManager.rejectQueue(programId, l.toString(), notes, rejectionReason);
             }

@@ -219,6 +219,8 @@ async function workflow(s) {
     context.on('page', page => { page.on('framenavigated', frame => { if (frame === page.mainFrame()) chartUrls.push(page.url()); }); });
     const gate = await ui.clickOpensPopup(fresh, fresh.locator('input[value*="E-Chart"]').first(), { context, recorder, label: 'patient-link-chart', timeout: TIMEOUT });
     await gate.waitForLoadState('domcontentloaded').catch(() => {});
+    // runWorkflow validates the owned patient ID as digits before this callback.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     const chartPattern = new RegExp(`CaseManagementEntry[^\\s]*demographicNo=${patient}(&|$)`);
     for (let waited = 0; waited < TIMEOUT && !chartUrls.concat(gate.isClosed() ? [] : [gate.url()]).some(url => chartPattern.test(url)); waited += 500) await gate.waitForTimeout(500).catch(() => {});
     h.assert(chartUrls.concat(gate.isClosed() ? [] : [gate.url()]).some(url => chartPattern.test(url)),

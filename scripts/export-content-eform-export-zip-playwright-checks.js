@@ -110,6 +110,8 @@ async function workflow(s) {
     h.assert(JSON.stringify(names) === JSON.stringify([`${folder}/${marker}-${label}.html`, `${folder}/eform.properties`].sort()),
       `${label}: the archive entries are not <form>/eform.properties and <form>/<file>`);
     const stored = sql.value(`SELECT DATE_FORMAT(form_date,'%Y-%m-%d') FROM eform WHERE fid=${form.fid}`);
+    // compares exported bytes with fixed fixture HTML; no browser insertion.
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     h.assert(entries[`${folder}/${marker}-${label}.html`].toString('utf8') === html, `${label}: the exported HTML differs from the stored form_html`);
     const props = loadProperties(entries[`${folder}/eform.properties`]);
     h.assert(props['form.name'] === form.name, `${label}: eform.properties lost the form name`);

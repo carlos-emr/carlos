@@ -145,6 +145,8 @@ async function login(page) {
   // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
   // baseUrl comes from validateBaseUrl(): protocol allow-listed, credentials refused, host local
   // unless ALLOW_NON_LOCAL_BASE_URL is set deliberately.
+  // operator-configured test URL passes validateBaseUrl; no application request controls it.
+  // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection
   await page.goto(`${baseUrl}/`, { waitUntil: 'domcontentloaded' });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);

@@ -58,6 +58,8 @@ async function workflow(s) {
   /** The owned notes the pane shows, in display order, as numbers (NOTE07 -> 7). */
   const shown = chart => chart.evaluate(m => {
     const text = document.getElementById('encMainDiv').innerText;
+    // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     return (text.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).map(x => Number(x.slice(-2)));
   }, marker);
   const range = (from, to) => Array.from({length: to - from + 1}, (_, i) => from + i);
@@ -65,6 +67,8 @@ async function workflow(s) {
 
   let chart = await s.chart();
   await s.step('the first render shows exactly the 20 newest notes, oldest-to-newest', async () => {
+    // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     await chart.waitForFunction(m => (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= 20,
       marker, {timeout: 20000});
     await chart.waitForTimeout(2500);
@@ -76,6 +80,8 @@ async function workflow(s) {
   await s.step('scrolling to the top pages the older notes in until all 45 are present once, in date order', async () => {
     await chart.waitForFunction(({m, total}) => {
       document.getElementById('encMainDivWrapper').scrollTop = 0;
+      // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
       return (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= total;
     }, {m: marker, total: TOTAL}, {timeout: 40000, polling: 1000})
       .catch(() => { throw new Error('Scrolling to the top did not page in all 45 notes within 40 s'); });
@@ -98,9 +104,13 @@ async function workflow(s) {
   await s.step('on a fresh chart Load All Notes shows all 45 once each, in order', async () => {
     await chart.close();
     chart = await s.chart();
+    // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     await chart.waitForFunction(m => (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= 20,
       marker, {timeout: 20000});
     await chart.locator('#note-control-panel button', {hasText: /load all/i}).click();
+    // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     await chart.waitForFunction(({m, total}) => (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= total,
       {m: marker, total: TOTAL}, {timeout: 30000})
       .catch(() => { throw new Error('Load All Notes did not show all 45 notes within 30 s'); });

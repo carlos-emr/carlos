@@ -90,6 +90,8 @@ public final class EFormRendererRequestAuthorization {
      * render browser is a local process connecting straight to Tomcat, so it never sets any of
      * these headers, while a request that carries one demonstrably came from somewhere else.</p>
      */
+    // FindSecBugs SERVLET_HEADER: header presence only rejects a grant; the opaque capability cookie is independently checked.
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "header presence only rejects a grant; an independent opaque capability cookie is required")
     static boolean wasForwarded(HttpServletRequest request) {
         for (String header : FORWARDING_HEADERS) {
             String value = request.getHeader(header);

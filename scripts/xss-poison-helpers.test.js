@@ -23,6 +23,8 @@ test.after(() => fs.rmSync(LEDGER_DIR, { recursive: true, force: true }));
  * query names a key only when the whole key appears, so `id=5` is not matched by `id=50` or `tickler_id=5`.
  */
 const KEY_COLUMNS = { demographic: 'demographic_no', tickler: 'tickler_no', queue: 'id' };
+// key is regex-escaped before interpolation; this helper inspects fixture SQL.
+// nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
 const names = (query, key) => new RegExp(`(^|[^\\w])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(query);
 
 function fakeSql(rows = []) {

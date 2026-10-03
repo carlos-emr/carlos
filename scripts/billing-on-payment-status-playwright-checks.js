@@ -119,6 +119,8 @@ async function workflow(s) {
     await form.locator('input[name="day"]').fill('30');
     const spec = await s.popup(form, form.locator('input[name="buttonDay"]'), 'billing-history-spec');
     await spec.locator('form[name="titlesearch"]').waitFor({ state: 'visible' });
+    // seedOwnedBill validates both fixture header IDs as digits before returning them.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     const specRow = id => spec.locator('tbody tr').filter({ has: spec.locator('td', { hasText: new RegExp(`^\\s*${id}\\s*$`) }) });
     h.assert(await specRow(pat.headerId).count() === 1 && await specRow(hcp.headerId).count() === 1,
       'The bill form history did not list both owned bills');

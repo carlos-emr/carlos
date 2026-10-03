@@ -246,6 +246,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp);
         }
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: semgrep.carlos.crlf-injection-logs
         logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
 
         return null;

@@ -110,7 +110,10 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 // Validate the uploaded temp file is from an allowed source
                 File validatedTemplateFile = PathValidationUtils.validateUpload(templateFile);
 
-                // Read the file content
+                // CodeQL #27453: withUploadedFiles supplies the interceptor-owned temp file;
+                // setTemplateFile is not a Struts parameter target. Read the canonical validated file.
+                // This per-alert exception does not make validateUpload(File) a general path sanitizer.
+                // See docs/static-analysis-workflows.md (CodeQL exceptions).
                 byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
                 if (xml.isBlank()) {

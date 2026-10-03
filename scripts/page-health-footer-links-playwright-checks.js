@@ -28,6 +28,8 @@ const { beginEntry, createLedger, entryFailures, startSession } = require('./lib
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 async function openHub(session, masterPage, name, timeout) {
+  // callers supply only the fixed Manage Contacts and Preventions labels.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const entry = masterPage.locator('a').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).first();
   h.assert(await entry.count() > 0, `The Master Record offers no "${name}" link`);
   const { page } = await ui.clickOpensPopupOrNavigates(masterPage, entry, {
@@ -38,6 +40,8 @@ async function openHub(session, masterPage, name, timeout) {
 
 /** Click one footer link and require a healthy popup; returns the findings. */
 async function footerLink(session, page, text, timeout, reported) {
+  // callers supply only the fixed About and License labels.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const link = page.locator('a[href^="javascript:"]').filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
   if (await link.count() === 0) return [`no "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
   const problems = [];

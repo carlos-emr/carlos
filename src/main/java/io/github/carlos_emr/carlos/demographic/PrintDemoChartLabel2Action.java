@@ -208,6 +208,8 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         InputStream ins = null;
 
         try {
+            // labelFile comes only from the two-entry map of fixed XML names; unknown labels are rejected.
+            // nosemgrep: semgrep.carlos.httpservlet-path-traversal
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
         } catch (FileNotFoundException | SecurityException ex) {
             logger.debug("Chart label override absent; using bundled template");

@@ -442,7 +442,11 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         if (log.isDebugEnabled()) {
+            // File.canRead() returns a boolean.
+            // nosemgrep: semgrep.carlos.crlf-injection-logs
             log.debug("File is Readable: {}", f.canRead());
+            // File.exists() returns a boolean.
+            // nosemgrep: semgrep.carlos.crlf-injection-logs
             log.debug("File exists: {}", f.exists());
             log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
         }
@@ -566,6 +570,8 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.checkElig(phn, dateofbirthyyyy, dateofbirthmm, dateofbirthdd, dateofserviceyyyy, dateofservicemm, dateofservicedd, patientvisitcharge, lasteyeexam, patientrestriction);
         log.debug("{}", LogSafe.sanitize(tr.getResult()));
+        // isSuccess() returns a boolean, not raw response text.
+        // nosemgrep: semgrep.carlos.crlf-injection-logs
         log.debug("isSuccess: {}", tr.isSuccess());
         log.debug("{}", LogSafe.sanitize(tr.toString()));
         request.setAttribute("Result", tr.getResult());

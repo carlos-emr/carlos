@@ -283,6 +283,8 @@ async function workflow(s) {
     const totals = (await eoy.locator('tr[bgcolor="#99FF66"]').innerText()).replace(/\s+/g, ' ');
     const invoiced = statement.reduce((sum, b) => sum + Number(b.total), 0).toFixed(2);
     const paid = statement.reduce((sum, b) => sum + Number(b.paid), 0).toFixed(2);
+    // statement.length is a numeric count, not untrusted regex syntax.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     h.assert(new RegExp(`Count: ${statement.length}\\b`).test(totals) && totals.includes(invoiced) && totals.includes(paid),
       'The statement count and invoiced/paid totals are wrong');
     h.assert(await eoy.locator('input[type="submit"][value="Print PDF"]').isEnabled(), 'Print PDF is not offered');

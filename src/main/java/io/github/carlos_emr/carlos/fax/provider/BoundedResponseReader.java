@@ -209,8 +209,12 @@ final class BoundedResponseReader {
                 if (total > maxBytes) {
                     throw new IOException(overLimitMessage("more than " + maxBytes + " bytes", maxBytes));
                 }
+                // buffer is a size-bounded ByteArrayOutputStream of an upstream response, not an HTML sink.
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
                 buffer.write(chunk, 0, n);
             }
+            // buffer is a size-bounded ByteArrayOutputStream of an upstream response, not an HTML sink.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             return buffer.toString(charset);
         }
     }

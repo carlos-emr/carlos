@@ -54,16 +54,16 @@ async function workflow(s) {
   for (const [name, independent] of [[patientForm, 0], [independentForm, 1]]) {
     const fid = s.sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,
       status,form_html,showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
-      VALUES(${h.sqlString(name)},'','eForm restore fixture',CURDATE(),CURTIME(),${h.sqlString(s.provider)},
-      1,${h.sqlString(TEMPLATE_HTML)},0,${independent},'',0,1); SELECT LAST_INSERT_ID()`);
+      VALUES(${h.sqlString(name) /* nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed eForm fixture HTML; text fields are SQL-quoted and IDs are owned numeric fixtures. */},'','eForm restore fixture',CURDATE(),CURTIME(),${h.sqlString(s.provider)},
+      1,${h.sqlString(TEMPLATE_HTML) /* nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed eForm fixture HTML; text fields are SQL-quoted and IDs are owned numeric fixtures. */},0,${independent},'',0,1); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(fid), 'eForm template fixture was not created');
     fids.push(fid);
   }
   const [patientFid, independentFid] = fids;
   const seedIndependent = (text, current) => s.sql.value(`INSERT INTO eform_data(fid,form_name,subject,demographic_no,
     status,form_date,form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
-    VALUES(${independentFid},${h.sqlString(independentForm)},${h.sqlString(text)},${s.patient},${current},
-    CURDATE(),CURTIME(),${h.sqlString(s.provider)},${h.sqlString(TEMPLATE_HTML)},0,1,''); SELECT LAST_INSERT_ID()`);
+    VALUES(${independentFid /* nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed eForm fixture HTML; text fields are SQL-quoted and IDs are owned numeric fixtures. */},${h.sqlString(independentForm)},${h.sqlString(text)},${s.patient},${current},
+    CURDATE(),CURTIME(),${h.sqlString(s.provider) /* nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- fixed eForm fixture HTML; text fields are SQL-quoted and IDs are owned numeric fixtures. */},${h.sqlString(TEMPLATE_HTML)},0,1,''); SELECT LAST_INSERT_ID()`);
   const independentFdid = seedIndependent(independentSubject, 1);
   const removedFdid = seedIndependent(removedSubject, 0);
   h.assert(/^[1-9]\d*$/.test(independentFdid) && /^[1-9]\d*$/.test(removedFdid), 'Independent eForm instance fixtures were not created');

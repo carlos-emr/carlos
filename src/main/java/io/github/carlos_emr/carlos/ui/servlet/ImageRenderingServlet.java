@@ -251,6 +251,8 @@ public final class ImageRenderingServlet extends HttpServlet {
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
 
                 // Use PathValidationUtils to validate the temp file path
+                // getTempFilePath validates the generated child; allowed-temp and validateUpload checks precede the read.
+                // nosemgrep: semgrep.carlos.httpservlet-path-traversal
                 File targetFile = new File(tempFilePath);
                 if (!PathValidationUtils.isInAllowedTempDirectory(targetFile)) {
                     logger.warn("SECURITY WARNING: Attempt to access file outside temp directory: {}", LogSafe.sanitize(tempFilePath));

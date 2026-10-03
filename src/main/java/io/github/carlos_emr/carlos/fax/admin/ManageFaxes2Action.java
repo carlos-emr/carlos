@@ -154,6 +154,8 @@ public class ManageFaxes2Action extends Fax2Action {
         log.info("Cancel requested for fax row id {} (provider job id {})", faxJob.getId(), faxJob.getJobId());
 
         if (faxConfig == null) {
+            // FaxJob.getId() returns an Integer, not request text.
+            // nosemgrep: semgrep.carlos.crlf-injection-logs
             log.error("Could not find faxConfig while processing fax id: {} Has the fax number changed?", faxJob.getId());
         } else if (faxConfig.isActive()) {
 
@@ -182,6 +184,8 @@ public class ManageFaxes2Action extends Fax2Action {
                 } catch (FaxProviderException e) {
                     // Even credential-scrubbed transport errors can contain clinical filenames
                     // or provider response text. Do not expose them in the admin response/log.
+                    // only numeric IDs/status and an exception class name are logged, not its message.
+                    // nosemgrep: semgrep.carlos.crlf-injection-logs
                     log.error("Provider cancel could not be confirmed for fax row id {} (HTTP {}, type={})",
                             faxJob.getId(), e.getHttpStatus(), e.getClass().getSimpleName());
                     result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");

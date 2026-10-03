@@ -104,6 +104,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                 // The grant's provider is NOT read here: the composer needs no provider (it splices
                 // the stored signature), and provider-scoped resolution happens downstream from
                 // grant.providerNo() in EFormApCacheForPdfGenerationServlet.
+                // formDataId is parsed as an Integer before this log statement.
+                // nosemgrep: semgrep.carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized browser-render via render grant: fdid={}", formDataId);
             } else {
                 LoggedInInfo loggedInInfo = authorizedEformReadRequest(request, formDataId);
@@ -123,6 +125,8 @@ public final class EFormBrowserRenderPageServlet extends HttpServlet {
                     response.sendError(HttpServletResponse.SC_FORBIDDEN, "Renderer request requires a matching provider session");
                     return;
                 }
+                // formDataId is parsed as an Integer before this log statement.
+                // nosemgrep: semgrep.carlos.crlf-injection-logs
                 logger.debug("EFormBrowserRenderPageServlet authorized via _eform session: fdid={}", formDataId);
             }
 

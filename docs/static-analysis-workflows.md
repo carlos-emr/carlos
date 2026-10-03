@@ -47,6 +47,56 @@ Semgrep honors `nosemgrep` by treating those findings as ignored, but still incl
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
 
+### Reviewed 2026.08 exceptions
+
+The October 2026 review covered 111 alert IDs: 105 false positives and six
+intentional regression-fixture exceptions. Source changes are matched to
+`release/2026.08`; the original alerts were reported on `main`. These are counts
+of reviewed alerts, including duplicate reports at the same source location,
+not a promise about the result count of a future scan.
+
+The 92 Semgrep reports use exact-rule comments at the reported expression, or
+remove misleading SQL examples from comments. The test SQL template literals
+keep their suppression comments **inside JavaScript interpolations**, so the
+comments do not become SQL or alter the fixture data. The existing SARIF filter
+removes only results marked suppressed by Semgrep. No file or rule is globally
+excluded.
+
+The 14 SpotBugs reports are addressed by method-scoped, justified annotations
+for domain comparisons and the renderer header rejection gate, by naming the
+blank PNG byte array as image data, and by comparing the same SHA-256 lab-content
+digests with `MessageDigest.isEqual`. The note-save annotation belongs on
+`noteSave`, not its appointment-binding helper. These changes preserve file
+validation, authorization, logging, fixture assertions and exception handling.
+
+The six deliberate fixtures are the ECB receiver tests (27421, 27422), MD5
+protocol tests (27427, 27428, 27440), and the 0755-to-0700 directory regression
+(27443). Their exceptions do not apply to production cryptography or permissions.
+
+### CodeQL exceptions
+
+This repository uses GitHub's CodeQL default setup. Source comments such as
+`# codeql[...]` or `// codeql[...]` do **not** suppress its findings. Keep the
+analysis enabled and use GitHub's
+[per-alert dismissal with a recorded reason](https://docs.github.com/en/code-security/code-scanning/managing-code-scanning-alerts/resolving-code-scanning-alerts)
+for the following reviewed exceptions. The source comments document the
+reasoning; the dismissal is GitHub state, not a directive activated by merging
+this file. Do not exclude the entire test module or turn off these queries.
+
+| Alert | Disposition | Evidence and scope |
+| --- | --- | --- |
+| [27453](https://github.com/carlos-emr/carlos/security/code-scanning/27453) | False positive | `UploadTemplates2Action` gets the file from `UploadedFilesAware`; its setter is unannotated and Struts 7.1.1 requires parameter annotations. The read uses the canonical `validateUpload` result. This does not justify treating the one-argument helper as a general sanitizer for client-selected paths. |
+| [27430](https://github.com/carlos-emr/carlos/security/code-scanning/27430) | False positive | `TempEnv.write_conf` writes placeholder credentials and generated test keys in a temporary fixture tree, not live secrets. |
+| [27431](https://github.com/carlos-emr/carlos/security/code-scanning/27431) | False positive | The sessionless OSCAR regression removes those placeholder credentials from its temporary configuration. |
+| [27421](https://github.com/carlos-emr/carlos/security/code-scanning/27421) | Used in tests | The envelope regression intentionally reproduces the legacy receiver's ECB decryption using generated keys and synthetic messages. |
+| [27422](https://github.com/carlos-emr/carlos/security/code-scanning/27422) | Used in tests | The fake receiver intentionally implements the same legacy ECB protocol; production crypto findings remain in scope. |
+
+Re-review an exception when its input source or security boundary changes;
+reopen the corresponding CodeQL alert if its justification no longer holds.
+Source suppressions take effect only on branches that contain them and have
+been rescanned; release fixes must follow the normal forward-merge/promotion
+process to affect `main`.
+
 ---
 
 ## PMD

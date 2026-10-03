@@ -121,7 +121,7 @@ function modalFrame(page) {
  * reintroduce the staleness this guard exists to remove.
  */
 async function modalVisibleText(page, randomId) {
-  const text = await page.evaluate((id) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- the id is passed as an argument, never interpolated into the page script
+  const text = await page.evaluate((id) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the id is passed as an argument, never interpolated into the page script
     const frame = document.getElementById('xmaskframe');
     const doc = frame && frame.contentDocument;
     if (!doc || !doc.body) return '';

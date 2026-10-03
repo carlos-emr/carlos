@@ -124,6 +124,8 @@ async function workflow(s) {
     const expected = [[1 / 6, 1, 0], [2 / 6, 0.5, 0.5], [1 / 6, 0, 1], [1 / 6, 1, 0], [1 / 6, 0, 1]];
     rows.forEach((row, index) => {
       expected[index].forEach((share, column) => {
+        // parses a percentage as a number for an assertion; not HTML escaping.
+        // nosemgrep: javascript.lang.security.audit.incomplete-sanitization.incomplete-sanitization
         const shown = Number(row[column + 1].replace('%', ''));
         h.assert(Math.abs(shown - share * 100) < 0.01, `Age group ${row[0]} column ${column + 1} shows ${row[column + 1]}, not ${(share * 100).toFixed(2)}%`);
       });
