@@ -5430,8 +5430,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Two synthetic patients inserted by SQL (surname = run tag plus an apostrophe name / a CJK first name); cleanup deletes them and asserts none remain.",
-      "notes": "Expected to FAIL at the last step 'searches by an apostrophe surname, an accented first name, a CJK first name and an apostrophe address find the patient' until demographicsearchresults.jsp stops passing the keyword through SafeEncode.forJava."
+      "fixtures": "Two synthetic patients with apostrophe/CJK surnames, accented/CJK first names and an address containing quotes and Unicode; cleanup deletes them and asserts none remain.",
+      "notes": "Verifies literal special-character searches and sort postbacks, rejection of SQL-shaped over-matching, and safe HTML rendering of a markup-shaped search term."
     },
     {
       "name": "boundary-appointment-text",

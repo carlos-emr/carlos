@@ -109,7 +109,6 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -143,10 +142,8 @@
 
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
-    String keyword = null;
-    if (request.getParameter("keyword") != null) {
-        keyword = SafeEncode.forJava(request.getParameter("keyword"));
-    }
+    // Search terms are bound as data by the DAO. Apply output encoding only when rendering them.
+    String keyword = request.getParameter("keyword");
     String orderBy = request.getParameter("orderby");
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
