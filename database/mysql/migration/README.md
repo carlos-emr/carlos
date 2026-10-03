@@ -26,6 +26,7 @@ migration/
            V1.0.20__widen_fax_destination_for_international_numbers.sql
            V1.0.21__serialize_missing_lab_routing_creation.sql
            V1.0.22__add_lab_routing_lock_audit_columns.sql
+           V1.0.23.1__widen_email_config.sql
            V1.0.29__rename_placeholder_demo_clinic.sql
            V1.0.30__add_ocean_setting.sql
            V1.0.32__add_nrtf_tuning_fork_measurement_type.sql
@@ -39,6 +40,7 @@ migration/
            V1.0.45__consultation_request_indexes.sql
            V1.0.46__field_note_report_privilege.sql
            V1.0.47__align_measurements_deleted_columns.sql
+           V1.0.52__enforce_provider_signature_identity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -54,31 +56,86 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.47`.
-The next unallocated number for ANY location — shared or province — is `V1.0.48`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.52`.
+`V1.0.48`–`V1.0.51` are claimed by open pull requests; the next unallocated number for ANY
+location — shared or province — is `V1.0.53`.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
-The V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
+The V1.0.31/V1.0.35/V1.0.37/V1.0.38 gaps are intentional. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — including `common/V1.0.45` on either province after this change. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.45`) but would silently
+run — including `common/V1.0.52` on either province after this change. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.52`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
-other province.
+other province. Check every active branch inventory (release and develop) before allocating a
+version, never renumber a published migration, and do not silently enable out-of-order migration
+during promotion. See [the release process](../../../docs/release-process.md) for branch promotion
+rules.
 
-**Reserved `V1.0.31` (release 2026.08).** #3746 (Ocean setting) merged as `common/V1.0.30`; #3694
-(provider signature identity), still open, can take `V1.0.31`. The OMD conformance migrations
-(#3900) were numbered `V1.0.32`–`V1.0.34` ahead of both for that reason. This assumes #3694 merges
-before any database, whether a dev container, a CI fixture or a packaged snapshot, has migrated to
-`V1.0.32` or later. Otherwise the rule above applies: a PR merged after that point must renumber
-above the high-water mark.
+### Provider signature identity repair (V1.0.52)
 
-**`V1.0.44` is claimed by open PR #3694** (provider signature identity), so the consultation
-request indexes (#3976) were numbered `common/V1.0.45` rather than colliding with it. The same rule
-applies again: if any database has migrated to `V1.0.45` before #3694 merges, #3694 must renumber
-above the high-water mark instead of landing below it.
+Stop all application nodes and take a database backup before upgrade. The migration
+copies signatures into a temporary table with a unique provider key before changing
+`providerExt`. Exact byte-for-byte duplicates for an assigned provider collapse;
+distinct text for that provider, including case, trailing-space
+or a NULL versus text value, produces a duplicate-key failure with the source untouched.
+Confirm the intended text with the affected provider and resolve the conflicting rows
+from the backup; do not pick an arbitrary signature.
+The same duplicate-key failure, with the source untouched, also occurs when two provider
+numbers differ in bytes but compare equal under the column collation (for example `T099`,
+`t099` and `T099 `), even when their signatures match. The rows are not merged, because they
+may belong to different providers. Compare each value byte for byte with the provider record,
+for example `SELECT provider_no FROM provider WHERE BINARY provider_no = BINARY '<value>'`; a plain
+comparison uses the same collation and would match every variant. In the shipped schema
+`provider.provider_no` is the primary key under that same collation, so at most one variant can
+match a provider byte for byte. Keep that row, correct the others to the exact provider number
+or remove them, and then retry; if their signatures then differ, resolve them as a conflicting
+signature above. If no variant matches, find the intended provider with the site before
+changing anything. If several variants match distinct provider records, the site's `provider`
+table uses a collation that distinguishes them while `providerExt` does not, so those
+providers cannot share this identity rule as installed: stop and resolve the schema mismatch
+with the site rather than editing rows. For the DEB deployment, inspect
+`sudo carlos-ctl db-info` and the migration error. Once the data conflict is resolved and
+all published migration files are unchanged, run `sudo carlos-ctl db-repair`, then
+`sudo carlos-ctl db-migrate` and `sudo carlos-ctl db-validate`. Do not use repair to accept
+a checksum mismatch or conceal an unrelated migration failure. Successful application preserves signature text
+and enforces one row per non-NULL provider identifier, matching the Hibernate entity ID.
+Every legacy unassigned NULL-provider row is preserved, including identical rows
+and rows with a NULL signature. These rows are outside the provider identity rule.
+
+The repair rewrites rows through `provider_no` and `signature` only. If an adopted
+`providerExt` has any other column, the migration stops before changing anything with an
+unknown-column error naming `providerExt_has_unexpected_columns_resolve_before_signature_repair`.
+Values in such a column would otherwise be replaced by defaults. MySQL's invisible generated
+`my_row_id` primary key carries no data and is not counted. Decide with the site whether
+the extra column is still needed, move or drop it from a backed-up database, and then use the
+same repair-and-retry steps.
+
+The final step names its unique index `providerExt_provider_no_uq`. If an adopted
+`providerExt` already has an index with that name that is not a full-column unique index on
+`provider_no` alone, the migration stops before changing anything with an unknown-column error
+naming `providerExt_provider_no_uq_name_taken_resolve_before_signature_repair`. Otherwise the
+index creation would fail only after the repaired rows were committed. Rename or drop that site
+index on a backed-up database, then use the same repair-and-retry steps.
+
+The executable isolated-database regression is
+`python3 scripts/test-provider-signature-migration.py` from the repository root, using a
+disposable local MariaDB/MySQL server and a CREATE/DROP DATABASE-capable account. The
+client reads its usual option file or `MYSQL_PWD`; `MYSQL_HOST` must be local and
+`MYSQL_USER` defaults to root. The test removes only its randomly named databases.
+Both province CI jobs run it before their full Flyway migration/upgrade checks.
+
+**Provider signature identity numbered `V1.0.52` (release 2026.08).** `V1.0.31` was reserved
+for PR #3694, but `V1.0.32`–`V1.0.34` and `V1.0.36` merged first, so databases on this line may
+already have run past `V1.0.31` and Flyway (no `outOfOrder`) would never apply it there. Per the
+rule above, PR #3694 was renumbered above the high-water mark, first to `V1.0.40` and then to
+`V1.0.44` after release 2026.08 shipped `V1.0.40`–`V1.0.43`. Release 2026.08 then merged
+`common/V1.0.45` (consultation request indexes, #3976) and `common/V1.0.46` (field-note report
+privilege), so databases on this line may already have run past `V1.0.44`. With `V1.0.47`–`V1.0.51`
+then claimed by open pull requests (`V1.0.47` has since merged), PR #3694 now uses `V1.0.52`.
+`V1.0.31` and `V1.0.44`, like the other gaps, stay unused.
 
 A database applies **`common` + exactly one province** location, selected by `flyway.locations`:
 
@@ -144,14 +201,17 @@ province-specific ones — named `V1.0.N__short_description.sql` (next free numb
 fresh `flyway migrate` applies `V1` then your delta; existing databases apply only the new delta.
 See `docs/database-schema-management.md` for the model and CI verification (`db-schema-verify.yml`).
 
-Messenger membership coordination (#3964) adds
+Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Automatic MRP routing adds
 `common/V1.0.39__track_automatic_mrp_routing.sql`. Full lab labels add
 `common/V1.0.40__widen_lab_labels.sql`. The Rich Text Letter signature-stamp inputs reach
 upgraded installs through `common/V1.0.41__rtl_provider_stamp_fields.sql`. Tickler and
 consultation/eForm attachment sources add `common/V1.0.42` and `common/V1.0.43`. The
-Consultations list filter indexes (#3976) add `common/V1.0.45` (`V1.0.44` is claimed by open
-PR #3694). The next unallocated version is `V1.0.46`. Apply/merge these forward migrations in version order; if their merge
+Consultations list filter indexes (#3976) add `common/V1.0.45`, and the field-note report privilege
+adds `common/V1.0.46`. `common/V1.0.47` aligns the `measurementsDeleted` columns with
+`measurements`. Provider signature identity is enforced by
+`common/V1.0.52__enforce_provider_signature_identity.sql`. The next unallocated version is
+`V1.0.53`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
