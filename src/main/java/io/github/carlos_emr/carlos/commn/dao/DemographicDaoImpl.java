@@ -108,6 +108,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String PARAM_LAST_NAME_LIKE = "lnLike";
     private static final String PARAM_DAY_OF_BIRTH = "dayob";
     private static final String PARAM_KEYWORD = "keyword";
+    private static final String PARAM_ADDRESS = "address";
+    private static final String PARAM_CHART_NO = "chartNo";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -545,14 +547,13 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         String queryString = "FROM Demographic d WHERE " + predicate
                 + " AND NOT EXISTS (SELECT merged.id FROM DemographicMerged merged"
                 + " WHERE merged.demographicNo=d.demographicNo AND merged.deleted=0 AND merged.mergedTo<>d.demographicNo)";
-        if (search.statuses() != null) {
-            if (search.statuses().isEmpty()) {
-                if (!search.excludeStatuses()) return List.of();
-            } else {
-                queryString += search.excludeStatuses() ? " AND d.patientStatus NOT IN (:statuses)"
-                        : " AND d.patientStatus IN (:statuses)";
-                parameters.put("statuses", search.statuses());
-            }
+        if (search.statuses() != null && search.statuses().isEmpty() && !search.excludeStatuses()) {
+            return List.of();
+        }
+        if (search.statuses() != null && !search.statuses().isEmpty()) {
+            queryString += search.excludeStatuses() ? " AND d.patientStatus NOT IN (:statuses)"
+                    : " AND d.patientStatus IN (:statuses)";
+            parameters.put("statuses", search.statuses());
         }
         if (!outOfDomain) {
             queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
@@ -596,11 +597,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 yield "d.hin LIKE :hin";
             }
             case "search_address" -> {
-                parameters.put("address", "%" + keyword + "%");
+                parameters.put(PARAM_ADDRESS, "%" + keyword + "%");
                 yield "d.address LIKE :address";
             }
             case "search_chart_no" -> {
-                parameters.put("chartNo", keyword + "%");
+                parameters.put(PARAM_CHART_NO, keyword + "%");
                 yield "d.chartNo LIKE :chartNo";
             }
             case "search_demographic_no" -> {
@@ -672,7 +673,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 yield "d.hin LIKE :hin";
             }
             case "search_address" -> {
-                parameters.put("address", (search.merged() ? "" : "%") + keyword + "%");
+                parameters.put(PARAM_ADDRESS, (search.merged() ? "" : "%") + keyword + "%");
                 yield "d.address LIKE :address";
             }
             default -> throw new IllegalArgumentException("Invalid patient search mode");
@@ -1383,7 +1384,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("address", "%" + addressStr.trim() + "%");
+            q.setParameter(PARAM_ADDRESS, "%" + addressStr.trim() + "%");
 
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -1517,7 +1518,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("address", addressStr.trim() + "%");
+            q.setParameter(PARAM_ADDRESS, addressStr.trim() + "%");
 
             if (providerNo != null && !outOfDomain) {
                 q.setParameter("providerNo", providerNo);
@@ -1593,7 +1594,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("chartNo", chartNoStr.trim() + "%");
+            q.setParameter(PARAM_CHART_NO, chartNoStr.trim() + "%");
 
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -2083,7 +2084,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (bean.getChartNo() != null && bean.getChartNo().length() > 0) {
             hql += " AND d.chartNo like :chartNo";
-            params.put("chartNo", "%" + bean.getChartNo() + "%");
+            params.put(PARAM_CHART_NO, "%" + bean.getChartNo() + "%");
         }
 
         if (firstName.length() > 0) {
@@ -2192,7 +2193,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (bean.getChartNo() != null && bean.getChartNo().length() > 0) {
             sql += " AND d.chart_no like :chartNo";
-            params.put("chartNo", "%" + bean.getChartNo() + "%");
+            params.put(PARAM_CHART_NO, "%" + bean.getChartNo() + "%");
         }
 
         if (firstName.length() > 0) {

@@ -75,13 +75,15 @@ test('phone and address are SUBSTRING matches, and phone covers both numbers', (
   assert.match(phone, /d\.phone LIKE '%5550101%'/);
   assert.match(phone, /d\.phone2 LIKE '%5550101%/);
 
-  assert.match(LIST_QUERY, /parameters\.put\("address", "%" \+ keyword \+ "%"\)/);
+  assert.match(DAO, /PARAM_ADDRESS = "address"/);
+  assert.match(LIST_QUERY, /parameters\.put\(PARAM_ADDRESS, "%" \+ keyword \+ "%"\)/);
   assert.match(MODES.find((mode) => mode.name === 'search_address').predicate('d', 'Main'),
     /d\.address LIKE '%Main%'/);
 });
 
 test('chart number is a prefix match and demographic number is an equality', () => {
-  assert.match(LIST_QUERY, /parameters\.put\("chartNo", keyword \+ "%"\)/);
+  assert.match(DAO, /PARAM_CHART_NO = "chartNo"/);
+  assert.match(LIST_QUERY, /parameters\.put\(PARAM_CHART_NO, keyword \+ "%"\)/);
   assert.match(MODES.find((mode) => mode.name === 'search_chart_no').predicate('d', 'AB1'),
     /d\.chart_no LIKE 'AB1%'/);
 
