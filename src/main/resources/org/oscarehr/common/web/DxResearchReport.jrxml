@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="DxResearchReport" columnCount="1" printOrder="Vertical" orientation="Portrait" pageWidth="595" pageHeight="842" columnWidth="535" columnSpacing="0" leftMargin="0" rightMargin="0" topMargin="20" bottomMargin="20" whenNoDataType="NoPages">
+	<property name="net.sf.jasperreports.print.keep.full.text" value="true" />
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
 	<import value="java.util.*" />

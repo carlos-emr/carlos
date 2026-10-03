@@ -111,7 +111,7 @@ async function workflow(s) {
     csvBytes = file.bytes;
     h.assert(file.name === 'carlos_invoices.csv', 'The CSV download is not named carlos_invoices.csv');
     csv = x.parseCsv(file.bytes.toString('utf8').replace(/^﻿/, ''));
-    h.assert(JSON.stringify(csv[0]) === JSON.stringify(table.head), 'The CSV header row is not the report header row');
+    h.assert(JSON.stringify(csv[0]) === JSON.stringify(table.head.map(flat)), 'The CSV header row is not the report header row');
     const body = csv.slice(1).filter(r => r.some(c => c !== ''));
     h.assert(body.length === table.rows.length, `The CSV has ${body.length} data rows, the report lists ${table.rows.length}`);
     const mine = body.filter(r => ids.includes(r[col('INVOICE #')]));
