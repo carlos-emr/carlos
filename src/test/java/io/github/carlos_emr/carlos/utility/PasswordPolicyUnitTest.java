@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.CarlosProperties;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.*;
 
 /** Configuration boundaries and explicit clinic character-set compatibility. */
 @Tag("unit")
-class PasswordPolicyUnitTest {
+class PasswordPolicyUnitTest extends CarlosUnitTestBase {
     private static final String EIGHT_CHARACTERS_THREE_GROUPS =
             new String(new char[] {'A', 'b', 'c', 'd', 'e', 'f', 'g', '1'});
     private CarlosProperties properties() {

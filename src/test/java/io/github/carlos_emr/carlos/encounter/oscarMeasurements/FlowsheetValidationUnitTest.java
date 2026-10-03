@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ImportMeasurementTypes;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -33,7 +34,7 @@ import static org.mockito.Mockito.mockConstruction;
 
 /** Upload validation must reject unrelated XML before importing measurement types. */
 @Tag("unit")
-class FlowsheetValidationUnitTest {
+class FlowsheetValidationUnitTest extends CarlosUnitTestBase {
     private MeasurementTemplateFlowSheetConfig configuration;
 
     @BeforeEach

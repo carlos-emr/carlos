@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.messenger.service;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
 import io.github.carlos_emr.carlos.commn.dao.MsgDemoMapDao;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
@@ -35,7 +36,7 @@ import static org.mockito.Mockito.*;
 
 /** Guards chart-local message loading without relying on the shared encounter bean. */
 @Tag("unit")
-class MessageEncounterServiceUnitTest {
+class MessageEncounterServiceUnitTest extends CarlosUnitTestBase {
     private final MessageTblDao messages = mock(MessageTblDao.class);
     private final MsgDemoMapDao links = mock(MsgDemoMapDao.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);

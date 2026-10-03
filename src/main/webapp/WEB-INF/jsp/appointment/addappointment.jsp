@@ -803,7 +803,7 @@ Ontario, Canada
 
             // A successful lock refresh must not undo a same-day group booking restriction.
             function updateBookingButtonVisibility(locked) {
-                ['addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                ['addButton', 'pasteButton', 'apptRepeatButton', 'groupButton'].forEach(function (id) {
                     var button = document.getElementById(id);
                     if (button) button.style.display = (locked && !haveLock) || groupBookingRestricted ? 'none' : '';
                 });
