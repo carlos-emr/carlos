@@ -37,7 +37,9 @@ import java.io.UnsupportedEncodingException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 import jakarta.persistence.Query;
 
@@ -304,7 +306,6 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         }
 
         String dateSql = "";
-        SimpleDateFormat dateSqlFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
         //Checks if the startDate is null, if it isn't then creates the dateSQL for the startDate
         if (startDate != null) {
@@ -318,9 +319,9 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         //Checks if the endDate is null, if it isn't then creates the dateSQL for the endDate
         if (endDate != null) {
             if (dateSearchType.equals("receivedCreated")) {
-                dateSql += " AND message.created <= :endDate";
+                dateSql += " AND message.created < :endDate";
             } else {
-                dateSql += " AND info.obr_date <= :endDate";
+                dateSql += " AND info.obr_date < :endDate";
             }
         }
 
@@ -508,9 +509,12 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
         Query query = entityManager.createNativeQuery(sql);
 
+        // Inbox bounds are calendar dates. Date-only ISO bounds also match legacy date-only
+        // obr_date values; an exclusive next-day bound includes every time on the end day.
+        // Calendar arithmetic avoids assuming every local day lasts 24 hours.
         // Setting parameters for the query based on the presence of placeholders in the SQL string
-        if (startDate != null && sql.contains(":startDate")) query.setParameter("startDate", dateSqlFormatter.format(startDate));
-        if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", dateSqlFormatter.format(endDate));
+        if (startDate != null && sql.contains(":startDate")) query.setParameter("startDate", inboxCalendarDate(startDate).toString());
+        if (endDate != null && sql.contains(":endDate")) query.setParameter("endDate", inboxCalendarDate(endDate).plusDays(1).toString());
         if (providerNo != null && sql.contains(":providerNo")) query.setParameter("providerNo", providerNo);
         if (status != null && sql.contains(":status")) query.setParameter("status", status);
         if (demographicNo != null && sql.contains(":demographicNo")) query.setParameter("demographicNo", demographicNo);
@@ -538,4 +542,10 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return query.getResultList();
 
     }
+
+    /** Converts legacy Date (including java.sql.Date) to the clinic's local calendar date. */
+    private static LocalDate inboxCalendarDate(Date date) {
+        return Instant.ofEpochMilli(date.getTime()).atZone(ZoneId.systemDefault()).toLocalDate();
+    }
+
 }

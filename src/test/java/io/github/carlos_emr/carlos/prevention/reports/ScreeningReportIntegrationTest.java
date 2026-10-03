@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.prevention.reports;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,20 +74,53 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
                 .containsEntry("BillCode", bill);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "Flu,2026-10-14,Up to date,Y", "Flu,2026-10-15,Up to date,Y", "Flu,2026-10-16,No Info,N",
+        "MAM,2026-10-14,Up to date,Y", "MAM,2026-10-15,Up to date,Y", "MAM,2026-10-16,No Info,N",
+        "PAP,2026-10-14,Up to date,Y", "PAP,2026-10-15,Up to date,Y", "PAP,2026-10-16,No Info,N",
+        "FOBT,2026-10-14,Up to date,Y", "FOBT,2026-10-15,Up to date,Y", "FOBT,2026-10-16,No Info,N"
+    })
+    void shouldIncludeAsOfDayInStateAndTotals_whenPreventionIsOnDateBoundary(
+            String type, String date, String state, String bonus) throws Exception {
+        Hashtable report = report(type, new ArrayList<>(List.of(history(date, "0"))), "normal", "2026-10-15");
+        PreventionReportDisplay row = (PreventionReportDisplay) ((List<?>) report.get("returnReport")).get(0);
+        assertThat(row.state).isEqualTo(state);
+        assertThat(row.bonusStatus).isEqualTo(bonus);
+        assertThat(report).containsEntry("up2date", bonus.equals("Y") ? "1" : "0");
+    }
+
     private Map<String, Object> history(String date, String refused) {
         return Map.of("id", "880001", "prevention_date", date, "refused", refused);
     }
 
     private Hashtable report(String type, ArrayList<Map<String, Object>> history, String result) throws Exception {
+        return report(type, history, result, "2026-09-19");
+    }
+
+    private Hashtable report(String type, ArrayList<Map<String, Object>> history, String result, String asOf) throws Exception {
+        Demographic demographic = new Demographic();
+        demographic.setYearOfBirth("1940");
+        demographic.setMonthOfBirth("01");
+        demographic.setDateOfBirth("01");
         try (MockedStatic<PreventionData> data = mockStatic(PreventionData.class);
+             var _ = mockConstruction(DemographicData.class,
+                     (mock, context) -> when(mock.getDemographic(info, "770001")).thenReturn(demographic));
              MockedConstruction<EctMeasurementsDataBeanHandler> measurements = mockConstruction(
                      EctMeasurementsDataBeanHandler.class,
                      (mock, context) -> when(mock.getMeasurementsDataVector()).thenReturn(List.of()))) {
             data.when(() -> PreventionData.getPreventionData(info, type, 770001)).thenReturn(history);
             data.when(() -> PreventionData.getExtValue("880001", "result")).thenReturn(result);
-            PreventionReport report = type.equals("MAM") ? new MammogramReport() : new PapReport();
+            data.when(() -> PreventionData.getPreventionData(info, "COLONOSCOPY", 770001)).thenReturn(new ArrayList<>());
+            PreventionReport report = switch (type) {
+                case "MAM" -> new MammogramReport();
+                case "PAP" -> new PapReport();
+                case "Flu" -> new FluReport();
+                case "FOBT" -> new FOBTReport();
+                default -> throw new IllegalArgumentException(type);
+            };
             Hashtable output = report.runReport(info, new ArrayList<>(List.of(new ArrayList<>(List.of("770001")))),
-                    new SimpleDateFormat("yyyy-MM-dd").parse("2026-09-19"));
+                    new SimpleDateFormat("yyyy-MM-dd").parse(asOf));
             data.verify(() -> PreventionData.getPreventionData(info, type, 770001));
             return output;
         }

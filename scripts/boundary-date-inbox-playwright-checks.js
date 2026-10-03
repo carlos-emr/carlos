@@ -5,9 +5,9 @@
  * User path: Schedule > Inbox (#inboxLink) > Inbox Hub list mode > New status, patient surname > Start Date /
  * End Date > Search.
  * Asserts, for documents (service/observation date) and HL7 lab results (observation timestamp) dated exactly
- * on the Start Date, at 14:30 and 23:59:59 on the End Date, and one second past it: everything dated on the
+ * on the Start Date (date-only and timestamp), at 14:30 and 23:59:59 on the End Date, and one second past it: everything dated on the
  * Start Date through the whole End Date is listed and nothing dated before the Start Date or after the End Date.
- * Fixtures: two documents with ctl_document links and routing rows for the owned patient; five labs (hl7TextMessage
+ * Fixtures: five documents with ctl_document links and routing rows for the owned patient; six labs (hl7TextMessage
  * + hl7TextInfo + providerLabRouting) carrying the run marker as patient surname; cleanup removes every row by id
  * and asserts none remain. The inbox date preference must be the default service/observation date (absent, NULL or empty
  * count as that default); on an install set to another mode the check SKIPs unless INBOX_DATE_EXCLUSIVE=1 is given under
@@ -85,7 +85,7 @@ async function workflow(s) {
       INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (${q(provider)},${docs[name]},'DOC','N')`);
   }
   const labStamps = {
-    labStart: `${START} 00:00:00`, labEndMid: `${END} 14:30:00`, labEndLast: `${END} 23:59:59`, labBefore: '2026-03-02 23:59:59', labAfter: '2026-03-06 00:00:00',
+    labStart: `${START} 00:00:00`, labEndMid: `${END} 14:30:00`, labEndLast: `${END} 23:59:59`, labStartDateOnly: START, labBefore: '2026-03-02 23:59:59', labAfter: '2026-03-06 00:00:00',
   };
   for (const [name, stamp] of Object.entries(labStamps)) {
     const id = sql.value(`INSERT INTO hl7TextMessage (fileUploadCheck_id,message,type,serviceName,created)
@@ -95,6 +95,8 @@ async function workflow(s) {
     sql.execute(`INSERT INTO hl7TextInfo (lab_no,sex,health_no,result_status,final_result_count,obr_date,priority,requesting_client,discipline,last_name,first_name,report_status,accessionNum,label)
       VALUES (${id},'F','',NULL,1,${q(stamp)},'R','','BOUNDARY',${q(marker.slice(0, 30))},'Boundary','F',${q(`${marker}-${name}`)},${q(name)});
       INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (${q(provider)},${id},'HL7','N')`);
+    h.assert(sql.value(`SELECT obr_date FROM hl7TextInfo WHERE lab_no=${id}`) === stamp,
+      `Lab fixture ${name} did not preserve its observation date`);
   }
 
   const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink'),
@@ -126,10 +128,9 @@ async function workflow(s) {
   await s.step('labs observed on the Start Date and at any time on the End Date are listed; the day before and the day after are not', async () => {
     const listed = Object.entries(labs).filter(([, id]) => rows.some(row => row.endsWith(`:${id}`) && row.startsWith('HL7'))).map(([name]) => name).sort();
     h.assert(listed.length > 0, 'No lab fixture was listed by an unfiltered-by-time search; the fixture is not reachable, so the date boundary cannot be judged');
-    const want = ['labEndLast', 'labEndMid', 'labStart'];
+    const want = ['labEndLast', 'labEndMid', 'labStart', 'labStartDateOnly'];
     h.assert(JSON.stringify(listed) === JSON.stringify(want),
-      `Labs listed for ${START}..${END}: [${listed.join(', ')}], expected [${want.join(', ')}]. A lab observed later in the day on the End Date is dropped: `
-      + 'LabDataController.convertDate turns the End Date into 00:00:00 and Hl7TextInfoDaoImpl compares the text observation time (info.obr_date <= :endDate)');
+      `Labs listed for ${START}..${END}: [${listed.join(', ')}], expected [${want.join(', ')}], including date-only observations and the last second but excluding the next day`);
   });
 }
 

@@ -5622,7 +5622,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Five documents (ctl_document + routing) and five HL7 labs (hl7TextMessage + hl7TextInfo + providerLabRouting) for the owned patient dated 2026-03-02 .. 2026-03-06; the owned patient's HIN is set to '' (NULL HIN is ISSUES L207). Cleanup removes every row by id and asserts none remain. The clinic-wide inbox date preference is not changed on the default mode (absent, NULL, empty or serviceObservation); on an install set to another mode the check SKIPs unless INBOX_DATE_EXCLUSIVE=1 is given under the EXCLUSIVE=1 wrapper, when it snapshots, switches and restores it.",
-      "notes": "Expected to FAIL at the last step 'labs observed on the Start Date and at any time on the End Date are listed': labs observed later in the day on the End Date are dropped (LabDataController.convertDate / Hl7TextInfoDaoImpl info.obr_date <= :endDate)."
+      "notes": "Checks inclusive calendar start/end dates for documents and labs, including date-only observations and the final second of the end day, while excluding the preceding and following days."
     },
     {
       "name": "boundary-date-prevention-report",
@@ -5640,8 +5640,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Three synthetic patients over 65 with one Flu prevention each (day before / on / after the as-of date) and one saved patient query naming them; cleanup removes preventions, query and patients and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: a flu shot dated ON the as-of date is classified 'No Info' (FluReport.removeFutureItems keeps prevDate.before(asOfDate))."
+      "fixtures": "Three owned patients with Flu, MAM, PAP and FOBT preventions and one saved patient query; all fixture rows are removed and cleanup verified.",
+      "notes": "Verifies Flu, Mammogram, Pap and FOBT report states and up-to-date totals for prevention dates before/on/after the as-of date."
     },
     {
       "name": "boundary-age-report",
@@ -5660,7 +5660,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Nineteen synthetic patients (surname = run marker + index; birthdays today, 5..90 years ago, and tomorrow) with an isolated join date; cleanup removes them and their reportagesex cache rows and asserts none remain. The Age-Sex Report regeneration rewrites the reportagesex cache for every patient.",
-      "notes": "Expected to FAIL at the last step: ReportAgeSexDaoImpl.populateAll computes FLOOR(DATEDIFF/365.25), one year short on the birthday itself, so buckets 0-4, 10-14, 30-34, 50-54, ... are off."
+      "notes": "Verifies birthday ages 5 through 90 in five-year buckets against owned fixture deltas and the database report cache, including the day before a birthday."
     },
     {
       "name": "boundary-age-search-results",
@@ -5679,7 +5679,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Four synthetic patients (birthday tomorrow / today / yesterday, 29 Feb 2000) inserted by SQL; nothing is booked; cleanup deletes them and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: the Age column of the booking-popup search shows 24 for a patient whose 25th birthday is today (Demographic.getAge -> Utility.calcAge tests curDay > birthDay)."
+      "notes": "Verifies booking-search ages before/on/after a birthday and for a leap-day birth date against calendar ages."
     },
     {
       "name": "gap-clinical-cpp-boxes",
