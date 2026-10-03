@@ -36,6 +36,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -1361,6 +1363,41 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                     .extracting(Demographic::getDemographicNo).containsExactly(inactive.getDemographicNo());
             assertThat(search("search_name", uniquePrefix, List.of(), false, 0, 10)).isEmpty();
             assertThat(search("search_name", uniquePrefix, List.of(), true, 0, 10)).hasSize(3);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"O'Brien", "René", "山田", "A\"B", "A&B", "<b>literal</b>", "' OR 1=1 --"})
+        @DisplayName("should match literal name and address characters through bound search parameters")
+        void shouldFindLiteralPatientText_whenNamesAndAddressesContainSpecialCharacters(String text) {
+            first.setLastName(uniquePrefix + text);
+            first.setFirstName(text);
+            first.setAddress(uniquePrefix + " " + text);
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+
+            assertThat(search("search_name", uniquePrefix + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_name", uniquePrefix + "," + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_address", uniquePrefix + " " + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+
+        @Test
+        @DisplayName("should retain Unicode and apostrophes across patient-search pages")
+        void shouldPreserveLiteralKeyword_whenPagingMatchingPatients() {
+            String keyword = uniquePrefix + "O'Brien-René-山田";
+            for (Demographic row : List.of(first, second)) {
+                row.setLastName(keyword);
+                demographicDao.save(row);
+            }
+            hibernateTemplate.flush();
+
+            assertThat(search("search_name", keyword, List.of("AC"), false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+            assertThat(search("search_name", keyword, List.of("AC"), false, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
         }
 
         @Test
