@@ -56,6 +56,18 @@ class ExportResults2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPropagateWriteFailure_whenWritingCsvBytes() throws Exception {
+        var response = mock(HttpServletResponse.class);
+        var stream = mock(jakarta.servlet.ServletOutputStream.class);
+        when(response.getOutputStream()).thenReturn(stream);
+        doThrow(new IOException("write failed")).when(stream).write(any(byte[].class));
+        String csv = "Name\nZoë\n";
+        var action = action(csv, response);
+        assertThatThrownBy(action::execute).isInstanceOf(IOException.class).hasMessage("write failed");
+        verify(stream).write(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
     void shouldReturnForbidden_whenManagerDeniesExport() throws Exception {
         var response = new MockHttpServletResponse();
         assertThat(action(null, response).execute()).isEqualTo("none");
