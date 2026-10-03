@@ -805,6 +805,7 @@
                         Report Manager (HRM) Status</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/prevention/ViewVaccineCatalogue');return false;"><fmt:message key="admin.admin.UpdateVaccineCatalogue"/></a></li>
                 </ul>
             </div>
         </security:oscarSec>
