@@ -36,6 +36,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import ca.uhn.hl7v2.HL7Exception;
+import ca.uhn.hl7v2.model.Segment;
+import ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION;
 import ca.uhn.hl7v2.model.v23.message.ORU_R01;
 import ca.uhn.hl7v2.model.v23.segment.OBX;
 import ca.uhn.hl7v2.parser.Parser;
@@ -76,6 +78,25 @@ public class EpsilonHandler extends DefaultGenericHandler {
         Parser p = new PipeParser();
         p.setValidationContext(new NoValidation());
         msg = (ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
+
+        // This class never calls super.init(), and its private typed msg hides the superclass field.
+        // The inherited accessors (getOBRCount, getOBXCount, getOBXField, getOBXSegment, ...) read the
+        // superclass terser and obrGroups, so without these an Epsilon lab reports 0 OBRs and the
+        // OBX accessors throw NullPointerException (#4124).
+        super.msg = msg;
+        terser = new Terser(msg);
+
+        // One list of OBX segments per OBR, in message order, taken from the typed structure so the
+        // indices agree with the msg-based overrides above (getOBXResult, getHeaders, ...).
+        obrGroups = new ArrayList<ArrayList<Segment>>();
+        for (int i = 0; i < msg.getRESPONSE().getORDER_OBSERVATIONReps(); i++) {
+            ORU_R01_ORDER_OBSERVATION order = msg.getRESPONSE().getORDER_OBSERVATION(i);
+            ArrayList<Segment> obxSegs = new ArrayList<Segment>();
+            for (int j = 0; j < order.getOBSERVATIONReps(); j++) {
+                obxSegs.add(order.getOBSERVATION(j).getOBX());
+            }
+            obrGroups.add(obxSegs);
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
