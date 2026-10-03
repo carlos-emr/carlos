@@ -80,19 +80,22 @@ async function workflow(s) {
   });
 
   let text;
+  let contentOrderText;
   await s.step('Print downloads the lab PDF', async () => {
     const button = lab.locator('input[type="button"][value*="Print"]').first();
     const file = await x.saveDownload(lab, scratch, () => button.click(), { route: /\/lab\/CA\/ALL\/PrintPDF$/ });
     h.assert(file.status === 200, `Print answered HTTP ${file.status}`);
     text = x.pdfText(file.file, { layout: true });
+    contentOrderText = x.pdfText(file.file, { raw: true });
     x.assertEmbeddedFonts(file.file);
   });
   const sq = value => x.squash(value);
 
   await s.step('the PDF names the patient and the accession and lists every result row with its units and range', async () => {
-    // The long synthetic surname wraps inside the narrow Patient Name cell, so look for its two halves and the first name.
-    h.assert(text.includes(marker.slice(0, 5)) && text.includes(marker.slice(5)) && text.includes('Zo\u00eb'), 'The PDF does not name the patient');
-    h.assert(sq(text).includes(sq(accession)), 'The PDF does not carry the accession number');
+    // Content order keeps wrapped table cells together and preserves identifier hyphens.
+    // Layout order can interleave the neighboring column between two accession lines.
+    h.assert(sq(contentOrderText).includes(sq(marker)) && contentOrderText.includes('Zoë'), 'The PDF does not name the patient');
+    h.assert(sq(contentOrderText).includes(sq(accession)), 'The PDF does not carry the accession number');
     const rows = [['Glucose', '5.2', 'mmol/L', '3.3-7.7'], ['Hemoglobin', '98', 'g/L', '120-160'], ['Platelets', '450', '10*9/L', '150-400'],
       ['Creatinine', '88', 'µmol/L', '45-90']];
     const lines = text.split('\n');
@@ -115,8 +118,8 @@ async function workflow(s) {
   });
 
   await s.step('the result comment and the NTE comment print with their accents', async () => {
-    h.assert(sq(text).includes(sq('Spécimen hémolysé')), 'The OBX comment lost its accents in the PDF');
-    h.assert(sq(text).includes(sq('Résultat à confirmer pour Renée')), 'The NTE comment lost its accents in the PDF');
+    h.assert(sq(contentOrderText).includes(sq('Spécimen hémolysé')), 'The OBX comment lost its accents in the PDF');
+    h.assert(sq(contentOrderText).includes(sq('Résultat à confirmer pour Renée')), 'The NTE comment lost its accents in the PDF');
   });
 
   await s.step('a comment with characters outside Latin-1 prints them', async () => {

@@ -260,12 +260,12 @@ function requirePoppler(...tools) {
   }
 }
 
-/** Text of a PDF file, in reading order (`layout` keeps the columns); asserts it is a complete PDF first. */
-function pdfText(file, { layout = false } = {}) {
+/** Text of a complete PDF: reading order by default, layout for columns, or raw content order for wrapped cells. */
+function pdfText(file, { layout = false, raw = false } = {}) {
   const bytes = fs.readFileSync(file);
   h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The response is not a PDF');
   h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The PDF is truncated (no %%EOF in its last KiB)');
-  return execFileSync('pdftotext', [...(layout ? ['-layout'] : []), '-enc', 'UTF-8', file, '-'],
+  return execFileSync('pdftotext', [...(raw ? ['-raw'] : layout ? ['-layout'] : []), '-enc', 'UTF-8', file, '-'],
     { encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024 });
 }
 
