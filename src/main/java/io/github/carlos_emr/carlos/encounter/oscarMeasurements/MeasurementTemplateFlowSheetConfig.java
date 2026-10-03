@@ -1055,9 +1055,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             d.setItemHeirarchy(aItems);
 
             // Extract flowsheet-level attributes
-            if (root.getAttribute("name") != null) {
-                d.setName(root.getAttribute("name").getValue());
-            }
+            d.setName(root.getAttributeValue("name"));
             if (root.getAttribute("display_name") != null) {
                 d.setDisplayName(root.getAttribute("display_name").getValue());
             }
