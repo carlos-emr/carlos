@@ -3275,7 +3275,8 @@
         "CONSULT_PREVIEW_SEARCH",
         "CONSULT_PREVIEW_DEMOGRAPHIC_NO",
         "CONSULT_PREVIEW_TIMEOUT_MS"
-      ]
+      ],
+      "notes": "Print preview preserves unsaved consultation text, including Vietnamese, Polish and Turkish names and mathematical comparisons (#4173), without changing the stored referral."
     },
     {
       "name": "cpp-note-extension-archive",
@@ -4226,7 +4227,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
-      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files and their rows; all removed."
+      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
     },
     {
       "name": "demographic-relations-pdf-labels",
@@ -6617,8 +6618,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient (accented first name) with six SQL-seeded signed notes (Latin-1 punctuation, multi-line, 3 500-character, Vietnamese, Polish, Turkish); cleanup deletes the patient's notes and asserts them gone. Needs pdftotext.",
-      "notes": "Fails at its LAST step on 2026.08 (Latin-1 note, multi-line note, long note, patient header all PASS from the downloaded PDF): the chart print silently drops every letter outside Windows-1252 (U+1EC5 U+1ECB U+01B0 U+01A1 U+0111 U+1EA7 / U+0141 U+017B U+0142 U+0107 U+0105 U+0119 U+015B U+0144 / U+0130 U+015F U+011F U+0131) because CaseManagementPrintPdf.java:166 uses a non-embedded Helvetica CP1252 BaseFont; the same font setup is in LabPDFCreator, ConsultationPDFCreator, FrmCustomedPDFServlet and others."
+      "fixtures": "Owned FAKE-PW patient (accented first name) with six SQL-seeded signed notes (Latin-1 punctuation, multi-line, 3 500-character, Vietnamese, Polish, Turkish); cleanup deletes the patient's notes and asserts them gone. Needs pdftotext and pdffonts.",
+      "notes": "Regression for #4173: generated PDF preserves Latin-1 punctuation, Vietnamese, Polish and Turkish text, multiline and long notes, and the patient header. Every font must be embedded."
     },
     {
       "name": "export-content-chart-print-sections",
@@ -6707,8 +6708,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext. Nothing leaves the host.",
-      "notes": "Fails at its LAST step on 2026.08 (Inbox row opens the lab, Print downloads a PDF, patient/accession, every result row with value/units/range, L/H/N flags, accented OBX and NTE comments all PASS): a result comment containing characters outside Latin-1 (>=, <=, a Polish L-stroke) loses them in the lab PDF (LabPDFCreator.java:166,209 CP1252 BaseFont)."
+      "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext and pdffonts. Nothing leaves the host.",
+      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, ≥ and ≤ comparisons, and Polish Ł. Every font must be embedded."
     },
     {
       "name": "export-content-dashboard-csv",

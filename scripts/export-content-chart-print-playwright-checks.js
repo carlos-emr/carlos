@@ -21,7 +21,7 @@ const print = require('./lib/gap-clinical-print');
 const x = require('./lib/export-content-helpers');
 
 const q = h.sqlString;
-const FIRST = 'Zoë Ñandú';
+const FIRST = 'Nguyễn Łukasz İstanbul';
 const WORD = i => `mark${String(i).padStart(3, '0')}x`;
 
 async function workflow(s) {
@@ -71,7 +71,7 @@ async function workflow(s) {
     await print.openPrintDialog(chart);
     await chart.locator('#printopAll').check();
     await print.setFlags(chart, []);
-    const out = await print.pressPrint(chart, scratch);
+    const out = await print.pressPrint(chart, scratch, undefined, x.assertEmbeddedFonts);
     text = out.text;
     file = out;
     h.assert(text.includes(`${marker} LATIN`) && text.includes(`${marker} LONG`), 'The print is missing an owned note');
@@ -134,6 +134,6 @@ async function workflow(s) {
 }
 
 if (require.main === module) {
-  runWorkflow('export-content-chart-print', workflow, { openPatient: true, preflight: () => x.requirePoppler('pdftotext') });
+  runWorkflow('export-content-chart-print', workflow, { openPatient: true, preflight: () => x.requirePoppler('pdftotext', 'pdffonts') });
 }
 module.exports = { workflow };

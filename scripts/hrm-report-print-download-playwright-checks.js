@@ -112,7 +112,7 @@ async function workflow(s) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-hrm-print-'));
   const lockedName = `${marker}-LOCKED`;
   const reports = [
-    { key: 'text', text: `${marker} HRM text report body` },
+    { key: 'text', text: `${marker} HRM text Nguyễn Łukasz İstanbul ≥ 5 ≤ 9` },
     { key: 'pdf', pdf: onePagePdf(`${marker} HRM attachment`) },
     { key: 'locked', pdf: onePagePdf(`${marker} HRM locked attachment`) },
   ];

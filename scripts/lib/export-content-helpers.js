@@ -269,9 +269,29 @@ function pdfText(file, { layout = false } = {}) {
     { encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024 });
 }
 
+/** Reads rendered PDF text, including CID/ToUnicode fonts, directly from response bytes. */
+function pdfTextBuffer(bytes) {
+  h.assert(bytes.subarray(0, 5).toString('latin1') === '%PDF-', 'The response is not a PDF');
+  h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The PDF is truncated (missing %%EOF)');
+  return execFileSync('pdftotext', ['-enc', 'UTF-8', '-', '-'], {
+    input: bytes, encoding: 'utf8', timeout: TOOL_TIMEOUT, maxBuffer: 8 * 1024 * 1024,
+  });
+}
+
+/** Requires every font in a generated PDF to be embedded, so recipients need no installed fonts. */
+function assertEmbeddedFonts(file) {
+  const output = execFileSync('pdffonts', [file], { encoding: 'utf8', timeout: TOOL_TIMEOUT });
+  const rows = output.trim().split(/\r?\n/).slice(2);
+  h.assert(rows.length > 0, 'The PDF has no text fonts');
+  for (const row of rows) {
+    const flags = row.match(/\s+(yes|no)\s+(yes|no)\s+(yes|no)\s+\d+\s+\d+\s*$/);
+    h.assert(flags && flags[1] === 'yes', `The PDF contains an unembedded or unreadable font: ${row}`);
+  }
+}
+
 /** Whitespace-free, NFC form: PDF text extraction reflows lines, so compare without spacing. */
 function squash(value) {
   return String(value).normalize('NFC').replace(/\s+/g, '');
 }
 
-module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsCells, requirePoppler, pdfText, squash };
+module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsCells, requirePoppler, pdfText, pdfTextBuffer, assertEmbeddedFonts, squash };

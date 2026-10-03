@@ -413,7 +413,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
         io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
                 new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
-        pharmacy.setName("Main St Pharmacy");
+        pharmacy.setName("Łukasz Nguyễn Pharmacy");
         // The no-phone case also drops the street line, so the skip of an absent field is exercised.
         pharmacy.setAddress(expectedTelLine == null ? null : "1 Main St");
         pharmacy.setCity(expectedTelLine == null ? null : "Toronto");
@@ -485,7 +485,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                     protected void processTextPosition(org.apache.pdfbox.text.TextPosition text) {
                         if (text.getDir() == 0) {
                             assertThat(text.getXDirAdj() + text.getWidthDirAdj())
-                                    .as("pharmacy glyph stays inside the right page margin")
+                                    .as("glyph %s at y=%s stays inside the right page margin", text.getUnicode(), text.getYDirAdj())
                                     .isLessThanOrEqualTo(pdf.getPage(0).getMediaBox().getWidth() - 12f);
                         }
                         super.processTextPosition(text);
@@ -503,8 +503,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             }
             if ("fr".equals(language)) assertThat(pdfText).doesNotContain("Tel:");
             assertThat(pdfText).doesNotContain("Toronto,", ", ,");
-            assertThat(pdfText).contains("ATTENTION:").contains("Main St Pharmacy").contains("4165551212");
+            assertThat(pdfText).contains("ATTENTION:").contains("Łukasz Nguyễn Pharmacy").contains("4165551212");
             assertThat(pdfText).doesNotContainIgnoringCase("null");
+            String disclaimer = CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
+            assertThat(pdfText.replaceAll("\\s+", " "))
+                    .contains(disclaimer.replaceAll("\\s+", " "));
             // The prescriber heading carries its own "Tel: <clinic phone>" line, so the pharmacy
             // assertions are on the pharmacy's numbers and on a dangling label, not on "Tel:" itself.
             assertThat(pdfText.lines().map(String::strip)).noneMatch("Tel:"::equals);
@@ -536,7 +539,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Path faxDir = Files.createDirectory(tempDir.resolve("fax"));
         io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
                 new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
-        pharmacy.setName("Main St Pharmacy");
+        pharmacy.setName("Łukasz Nguyễn Pharmacy");
         pharmacy.setAddress("1 Main St");
         pharmacy.setCity("Toronto");
         pharmacy.setProvince("ON");

@@ -85,6 +85,7 @@ async function workflow(s) {
     const file = await x.saveDownload(lab, scratch, () => button.click(), { route: /\/lab\/CA\/ALL\/PrintPDF$/ });
     h.assert(file.status === 200, `Print answered HTTP ${file.status}`);
     text = x.pdfText(file.file, { layout: true });
+    x.assertEmbeddedFonts(file.file);
   });
   const sq = value => x.squash(value);
 
@@ -125,6 +126,6 @@ async function workflow(s) {
 }
 
 if (require.main === module) {
-  runWorkflow('export-content-lab-print', workflow, { openPatient: true, openMaster: false, preflight: () => x.requirePoppler('pdftotext') });
+  runWorkflow('export-content-lab-print', workflow, { openPatient: true, openMaster: false, preflight: () => x.requirePoppler('pdftotext', 'pdffonts') });
 }
 module.exports = { workflow };

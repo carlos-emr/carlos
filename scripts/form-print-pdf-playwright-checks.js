@@ -121,42 +121,9 @@ const STAMP_FIELD = 'aci';
  */
 const CLIENT_REFERENCE = /Client Reference No\.\s*:\s*(\d+)/;
 
-/**
- * The literal text drawn inside a PDF, as far as a regression check needs to read it.
- *
- * Not a PDF parser and not trying to be one. iText writes page content into Flate-compressed
- * streams and shows text with `(...)Tj` / `[...]TJ`, so inflating every stream and pulling the
- * string literals out is enough to answer the only question asked here: did this text reach the
- * page? Streams that do not inflate (images, fonts, anything not Flate) are skipped rather than
- * failed -- they hold no drawn text to miss.
- */
+/** Reads rendered text using the PDF font's Unicode mapping, rather than raw stream bytes. */
 function pdfText(buffer) {
-  const zlib = require('zlib');
-  const out = [];
-  const haystack = buffer.toString('latin1');
-  // NOT PRECEDED BY "end". The closing keyword is "endstream", which contains "stream" --
-  // without the lookbehind the walk matches inside it, treats the gap to the NEXT endstream as
-  // a stream, fails to inflate that, and so reads only the first content stream of the file.
-  const stream = /(?<!end)stream\r?\n/g;
-  const CLOSE = 'endstream';
-  let match;
-  while ((match = stream.exec(haystack)) !== null) {
-    const start = match.index + match[0].length;
-    const end = haystack.indexOf(CLOSE, start);
-    if (end < 0) break;
-    // Resume past the closing keyword whatever happens below, so a stream that does not inflate
-    // costs only itself.
-    stream.lastIndex = end + CLOSE.length;
-    let text;
-    try {
-      text = zlib.inflateSync(Buffer.from(haystack.slice(start, end), 'latin1')).toString('latin1');
-    } catch { continue; }
-    // \( and \) are escaped parentheses inside a PDF string, not its delimiters.
-    for (const literal of text.matchAll(/\((?:\\.|[^\\()])*\)/g)) {
-      out.push(literal[0].slice(1, -1).replace(/\\([()\\])/g, '$1'));
-    }
-  }
-  return out.join('\n');
+  return require('./lib/export-content-helpers').pdfTextBuffer(buffer);
 }
 
 const fixture = {
@@ -298,6 +265,7 @@ async function printAndRead(context, config, url, { timeout, posts, pdfBodies })
 }
 
 async function main() {
+  require('./lib/export-content-helpers').requirePoppler('pdftotext');
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.FORM_PRINT_SEARCH || 'FAKE-';
   const preferredDemographicNo = process.env.FORM_PRINT_DEMOGRAPHIC_NO || '2';

@@ -79,7 +79,7 @@ const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require(
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const zlib = require('zlib');
+const pdf = require('./lib/export-content-helpers');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { browserErrorClass } = require('./browser-error-class');
 const {
@@ -247,63 +247,9 @@ function safeUrl(rawUrl) {
 
 // --- PDF text runs --------------------------------------------------------------
 
-/**
- * Every string shown by a `Tj` / `TJ` operator in every content stream of the PDF, in stream order.
- * OpenPDF (the servlet's writer) positions each rendered line with `Tm` and shows it with one `Tj`,
- * so one rendered line is one run. Handles FlateDecode streams and the ()-string escapes; that is
- * all this writer emits. Not a general PDF text extractor and not meant to be one.
- */
+/** Rendered text lines, decoded with each embedded font's Unicode mapping. */
 function pdfTextRuns(buf) {
-  const runs = [];
-  const text = buf.toString('latin1');
-  const streamRe = /(<<(?:(?!<<)[\s\S]){0,400}?>>)\s*stream\r?\n/g;
-  let m;
-  while ((m = streamRe.exec(text))) {
-    const dict = m[1];
-    const start = m.index + m[0].length;
-    const end = text.indexOf('endstream', start);
-    if (end < 0) break;
-    let data = buf.subarray(start, end);
-    if (/FlateDecode/.test(dict)) {
-      let inflated = null;
-      // The stream may carry a trailing EOL before `endstream`; try the exact length first.
-      for (const cut of [0, 1, 2]) {
-        try { inflated = zlib.inflateSync(buf.subarray(start, end - cut)); break; } catch (error) { /* try shorter */ }
-      }
-      if (!inflated) continue;
-      data = inflated;
-    }
-    const content = data.toString('latin1');
-    if (!/\bT[jJ]\b/.test(content)) continue;
-    // The TJ array alternative keeps its two repeated branches DISJOINT: a string branch that
-    // consumes "(...)" and a filler branch that may consume anything except "]" and "(". Letting the
-    // filler also eat "(" gave the engine two ways to match every parenthesis and made a "[" with
-    // many "()" and no closing "] TJ" backtrack exponentially (CodeQL js/redos).
-    const opRe = /\((?:\\.|[^\\)])*\)\s*Tj|\[(?:\((?:\\.|[^\\)])*\)|[^\]\(])*\]\s*TJ/g;
-    let op;
-    while ((op = opRe.exec(content))) {
-      const parts = [];
-      const strRe = /\(((?:\\.|[^\\)])*)\)/g;
-      let s;
-      while ((s = strRe.exec(op[0]))) {
-        // PDF literal-string escapes (ISO 32000 7.3.4.2): \n \r \t \b \f, the three delimiters,
-        // and \ddd octal. Decoding them here keeps a run's text equal to what was rendered.
-        parts.push(s[1].replace(/\\(\d{1,3}|[nrtbf()\\])/g, (_, esc) => {
-          switch (esc) {
-            case 'n': return '\n';
-            case 'r': return '\r';
-            case 't': return '\t';
-            case 'b': return '\b';
-            case 'f': return '\f';
-            case '(': case ')': case '\\': return esc;
-            default: return String.fromCharCode(parseInt(esc, 8));
-          }
-        }));
-      }
-      runs.push(parts.join(''));
-    }
-  }
-  return runs;
+  return pdf.pdfTextBuffer(buf).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 }
 
 /** The servlet's PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
@@ -1127,6 +1073,7 @@ async function runChecks(context, cancellation) {
   let browser;
   let exitCode = 0;
   try {
+    pdf.requirePoppler('pdftotext');
     browser = await chromium.launch({
       ...getLaunchOptions(process.env.CHROME_PATH || ''),
       handleSIGINT: false,

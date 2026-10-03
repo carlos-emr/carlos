@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.commn.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.Date;
@@ -186,7 +188,7 @@ public class PdfRecordPrinter {
      */
     public void start() throws DocumentException, IOException {
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
         boldFont = new Font(bf, FONTSIZE, Font.BOLD);
 

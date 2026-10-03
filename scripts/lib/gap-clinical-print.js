@@ -41,7 +41,7 @@ async function setFlags(chart, wanted) {
 }
 
 /** Presses Print (or runs `trigger`, e.g. the dialog's Today link, which prints at once) and returns {response, text, bytes} for the PDF the browser downloads. */
-async function pressPrint(chart, scratch, trigger = () => chart.locator('#printOp').click()) {
+async function pressPrint(chart, scratch, trigger = () => chart.locator('#printOp').click(), verifyPdf = () => {}) {
   const printResponse = chart.waitForResponse(
     r => /\/CaseManagementEntry$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'
       && /(?:^|&)method=print(?:&|$)/.test(r.request().postData() || ''), { timeout: 40000 });
@@ -59,6 +59,7 @@ async function pressPrint(chart, scratch, trigger = () => chart.locator('#printO
   // trailer must be complete before the text is trusted.
   h.assert(/%%EOF\s*$/.test(bytes.subarray(-1024).toString('latin1')), 'The print is a truncated PDF (no %%EOF in the final 1 KiB)');
   const text = pdfText(file);
+  verifyPdf(file);
   fs.rmSync(file, { force: true });
   // printNotes() holds the note lock for 3 s after the submit; let the page settle before the next click.
   await chart.waitForTimeout(3200);

@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 
 import java.awt.Color;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -163,7 +165,7 @@ public class CaseManagementPrintPdf {
         document.open();
 
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
 
 
@@ -218,10 +220,11 @@ public class CaseManagementPrintPdf {
 
         upperYcoord = document.top() - (font.getCalculatedLeading(LINESPACING) * 2f);
 
+        Font headerFont = new Font(bf, 12, Font.NORMAL);
         ColumnText ct = new ColumnText(cb);
-        Paragraph p = new Paragraph();
+        Paragraph p = new Paragraph("", headerFont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        Phrase phrase = new Phrase();
+        Phrase phrase = new Phrase("", headerFont);
 
         float rowCount = Math.max(info.length, clinic.length);
         // Calculates header height based on the leading line space * rowCount
@@ -241,13 +244,13 @@ public class CaseManagementPrintPdf {
         // Create and fill a dummy phrase with only new lines to keep the left column the
         // appropriate size in relation to the right column in the event the right column is larger.
         // rowCount has + 1 to account for the blank line created by the getCalculatedLeading above.
-        List dummyphrase = Collections.nCopies((int) rowCount + 1, new Phrase("\n"));
+        List dummyphrase = Collections.nCopies((int) rowCount + 1, new Phrase("\n", headerFont));
         p.addAll(dummyphrase);
         document.add(p);
 
         //add patient info
-        phrase = new Phrase();
-        p = new Paragraph();
+        phrase = new Phrase("", headerFont);
+        p = new Paragraph("", headerFont);
         p.setAlignment(Paragraph.ALIGN_RIGHT);
         for (int idx = 0; idx < info.length; ++idx) {
             phrase.add(info[idx]);

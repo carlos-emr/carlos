@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -687,7 +689,7 @@ public class EFormPDFServlet extends HttpServlet {
                 encoding = BaseFont.CP1252;
             }
 
-            BaseFont bf = BaseFont.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
+            BaseFont bf = PdfFonts.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
             String propValue = props.getProperty(temp.toString());
             //if not in regular config then check measurements
             if (propValue == null) {
