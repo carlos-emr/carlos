@@ -39,6 +39,7 @@
         "&demographicNo=" + (request.getParameter("demographicNo") != null ? URLEncoder.encode(request.getParameter("demographicNo"), StandardCharsets.UTF_8) : "") +
         "&providerNo=" + (request.getParameter("providerNo") != null ? URLEncoder.encode(request.getParameter("providerNo"), StandardCharsets.UTF_8) : "") +
         "&reason=" + (request.getParameter("reason") != null ? URLEncoder.encode(request.getParameter("reason"), StandardCharsets.UTF_8) : "") +
+        (request.getParameter("msgId") != null && !request.getParameter("msgId").isEmpty() ? "&msgId=" + URLEncoder.encode(request.getParameter("msgId"), StandardCharsets.UTF_8) : "") +
         "&reasonCode=" + (request.getParameter("reasonCode") != null ? URLEncoder.encode(request.getParameter("reasonCode"), StandardCharsets.UTF_8) : "") +
         "&appointmentNo=" + (request.getParameter("appointmentNo") != null ? URLEncoder.encode(request.getParameter("appointmentNo"), StandardCharsets.UTF_8) : "") +
         "&appointmentDate=" + (request.getParameter("appointmentDate") != null ? URLEncoder.encode(request.getParameter("appointmentDate"), StandardCharsets.UTF_8) : "") +

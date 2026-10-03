@@ -48,6 +48,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -100,6 +101,10 @@
     </head>
 
     <body>
+    <c:if test="${not empty sessionScope.flashError}">
+        <div class="alert alert-danger" role="alert"><c:out value="${sessionScope.flashError}"/></div>
+        <c:remove var="flashError" scope="session"/>
+    </c:if>
 
 <form id="flowsheetActionForm" method="post" action="${pageContext.request.contextPath}/admin/ManageFlowsheets" style="display:none;">
 	<input type="hidden" name="method" value=""/>

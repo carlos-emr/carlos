@@ -227,6 +227,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     public String setUpMainEncounter() {
         String demono = getDemographicNo(request);
+        String messageId = request.getParameter("msgId");
+        if (StringUtils.isNotBlank(messageId)) {
+            String text = SpringUtils.getBean(io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.class)
+                    .load(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(messageId), Integer.parseInt(demono));
+            request.setAttribute("encounterMessage", text);
+        }
         logger.debug("client Image?");
 
         //get client image

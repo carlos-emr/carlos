@@ -1166,7 +1166,7 @@
                 <%
                     origDate = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createDate");
                     String lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getUpdateDateTime()) : request.getParameter("updatedatetime");
-                    if (lastDateTime == null) {
+                    if (StringUtils.isBlank(lastDateTime)) {
                         lastDateTime = bFirstDisp ? ConversionUtils.toTimestampString(appt.getCreateDateTime()) : request.getParameter("createdatetime");
                     }
 
@@ -1180,13 +1180,13 @@
                     }
                     // Convert String to Java LocalDateTime
                     DateTimeFormatter pattern1 = DateTimeFormatter.ofPattern("yyyy-M-d H:m:s");
-                    LocalDateTime origDT = LocalDateTime.parse(origDate, pattern1);
-                    LocalDateTime lastDT = LocalDateTime.parse(lastDateTime, pattern1);
+                    LocalDateTime origDT = StringUtils.isBlank(origDate) ? null : LocalDateTime.parse(origDate, pattern1);
+                    LocalDateTime lastDT = StringUtils.isBlank(lastDateTime) ? null : LocalDateTime.parse(lastDateTime, pattern1);
                     //LocalDateTime strDT = LocalDateTime.parse(strDateTime,pattern1);
                     // Get localized pattern for UI
                     DateTimeFormatter pattern2 = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(request.getLocale()).withZone(ZoneId.systemDefault());
-                    String dateString1 = pattern2.format(origDT);
-                    String dateString2 = pattern2.format(lastDT);
+                    String dateString1 = origDT == null ? "" : pattern2.format(origDT);
+                    String dateString2 = lastDT == null ? "" : pattern2.format(lastDT);
                     //String dateString3 = pattern2.format(strDT); watch for non padded seconds etc
 
                 %>

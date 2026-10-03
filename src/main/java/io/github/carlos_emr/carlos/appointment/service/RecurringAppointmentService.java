@@ -98,6 +98,7 @@ public class RecurringAppointmentService {
             if (!existingDates.contains(date)) missing.add(date);
         }
         if (adding) {
+            rejectBlockedDates(identity, missing);
             for (LocalDate date : missing) {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
@@ -123,6 +124,24 @@ public class RecurringAppointmentService {
             }
         }
         return existing.size();
+    }
+
+    /** Preflights every new occurrence before writing any member of the series. */
+    private void rejectBlockedDates(Appointment template, List<LocalDate> dates) {
+        if (dates.isEmpty()) return;
+        Set<LocalDate> requestedDates = new java.util.HashSet<>(dates);
+        for (Appointment block : appointments.findByDateRangeAndProvider(Date.valueOf(dates.getFirst()),
+                Date.valueOf(dates.getLast().plusDays(1)), template.getProviderNo())) {
+            if (!"Do_Not_Book".equalsIgnoreCase(block.getName())
+                    || !Objects.equals(block.getProgramId(), template.getProgramId())
+                    || "C".equals(block.getStatus()) || "D".equals(block.getStatus())) continue;
+            LocalDate blockDate = new Date(block.getAppointmentDate().getTime()).toLocalDate();
+            if (requestedDates.contains(blockDate) && block.getStartTime() != null && block.getEndTime() != null
+                    && !block.getStartTime().after(template.getEndTime())
+                    && !block.getEndTime().before(template.getStartTime())) {
+                throw new IllegalArgumentException("A recurring appointment overlaps a Do Not Book slot. Choose another time.");
+            }
+        }
     }
 
     private static Appointment template(Map<String, String> v, int programId, String creator) {

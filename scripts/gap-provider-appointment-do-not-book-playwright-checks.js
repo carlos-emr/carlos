@@ -77,6 +77,23 @@ async function workflow(s) {
     const warning = popup.locator('.alert-danger', { hasText: /cannot book an appointment on this time slot/i });
     h.assert(await warning.count() === 1 && await warning.isVisible(), 'The blocked slot does not say it cannot be booked');
     h.assert(await popup.locator('.alert-danger:visible', { hasText: /double.?book/i }).count() === 1, 'The blocked slot shows no double-booking alert');
+    const token = await popup.locator('form[name="ADDAPPT"] input[name="CSRF-TOKEN"]').first().inputValue();
+    h.assert(token, 'The blocked appointment form has no CSRF token');
+    const [date, start, end] = sql.rows(`SELECT appointment_date,start_time,end_time FROM appointment WHERE appointment_no=${blockId}`)[0];
+    const [year, month, day] = date.split('-');
+    const denied = await context.request.post(`${config.baseUrl}/appointment/appointmenteditrepeatbooking`, {
+      headers: { 'CSRF-TOKEN': token }, form: { 'CSRF-TOKEN': token,
+        groupappt: 'Add Group Appointment', provider_no: fixture.providerNo, appointment_date: date,
+        start_time: start, end_time: end, demographic_no: '0', keyword: `${marker} blocked probe`,
+        reason: marker, notes: marker, status: 't', reasonCode: '-1',
+        everyNum: '1', everyUnit: 'day', endDate: `${day}/${month}/${year}` },
+    });
+    h.assert(denied.status() < 500, `Blocked-repeat POST answered HTTP ${denied.status()}`);
+    if (Number(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner} AND appointment_no<>${blockId}`)) > 0) {
+      defects.push('a direct repeat-booking POST created an appointment on the Do Not Book slot');
+    } else {
+      h.assert(/Do Not Book/.test(await denied.text()), 'The blocked-repeat POST did not explain its refusal');
+    }
     const present = await buttons(popup);
     h.assert(present.add === 0 && present.group === 0, `The blocked slot still offers booking buttons: ${JSON.stringify(present)}`);
     if (present.repeat !== 0) {

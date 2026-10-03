@@ -16,10 +16,8 @@
  * the MsgWriteToEncounter2Action row for that patient; Sign & Save stores a signed casemgmt_note for
  * the patient whose text is the pasted message; the message itself is untouched (still delivered,
  * still linked, not duplicated).
- * Known state on the packaged install: the click is answered HTTP 403 (the form ViewMessage builds
- * at click time carries no CSRF token), which is where this check fails; behind that, the chart the
- * redirect opens (encounter/IncomingEncounter ▸ CaseManagementEntry) starts with only the
- * "[date .: messenger]" header, so the message text assertions would fail next.
+ * Regressions include a missing CSRF token, a lost message ID across chart redirects and sidebar
+ * requests rebuilding the shared encounter bean before the note fragment renders.
  * Fixtures: an owned FAKE- patient (runWorkflow) and one FAKE-PW message delivered to the test
  * provider by SQL and linked by msgDemoMap. Cleanup deletes the message rows, the notes written on
  * the owned patient (+ issue/ext/link rows) and the chart rows, and asserts they are gone.
@@ -116,14 +114,14 @@ async function workflow(s) {
   });
 
   await s.step('Sign & Save stores the pasted message as a signed note for the linked patient', async () => {
-    const editor = chart.locator('#encMainDiv textarea[name="caseNote_note"]').first();
+    await chart.waitForFunction(() => window.carlosNavbarLoadState?.pending === 0, null, { timeout: TIMEOUT });
     const closed = chart.waitForEvent('close', { timeout: 30000 });
     await chart.locator('#signSaveImg').first().click();
     await closed;
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND signed=1
       AND note LIKE ${h.sqlString(`%Subject: ${subject}%`)} AND note LIKE ${h.sqlString(`%${marker} line one%`)}`, '1',
     'The signed note does not hold the pasted message for the linked patient');
-    h.assert(await editor.count() === 0 || chart.isClosed(), 'The chart stayed open after Sign & Save');
+    h.assert(chart.isClosed(), 'The chart stayed open after Sign & Save');
   });
 
   await s.step('the message itself is unchanged and still linked', async () => {

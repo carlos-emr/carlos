@@ -5032,7 +5032,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "fixtures": "Throwaway login whose security row's expiry columns are changed to 5 days, 30 days and yesterday; the expired attempt is a failed login, so run it with the live wrapper's EXCLUSIVE=1 (the lockout counter is address-keyed unless login_lock=true). The fixture and an extra cleanup remove the throwaway's rows including the 'expired' audit row."
+      "fixtures": "Throwaway login whose security row's expiry columns are changed to 5 days, 30 days and yesterday; the expired attempt is a failed login, so run it with the live wrapper's EXCLUSIVE=1 (the lockout counter is address-keyed unless login_lock=true). The fixture and an extra cleanup remove the throwaway's rows including the 'expired' audit row. Uses the receptionist role and owned provider-specific _appointment/_msg read grants; cleanup removes those grants. No _provider grant is added.",
+      "notes": "Checks that the expiring-account button opens an editable password form for a receptionist without provider-admin access, alongside the 30-day and expired-account controls."
     },
     {
       "name": "gap-provider-appointment-do-not-book",
@@ -5046,7 +5047,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Add Appointment popup of a Do Not Book slot hides Add and Group Appt but still offers Repeat, and Repeat creates a booking on the blocked slot (addappointment.jsp renders apptRepeatButton outside the !(bDnb || bMultipleSameDayGroupAppt) guard; RecurringAppointmentService has no block check).",
+      "notes": "Checks the hidden Repeat control and a direct recurrence POST against a Do Not Book slot, plus normal block, delete and adjacent-slot controls.",
       "fixtures": "Throwaway login; the blocking and any wrongly created appointments belong to the throwaway provider and are deleted (with archive rows) in cleanup."
     },
     {
@@ -5061,7 +5062,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: opening an appointment whose updatedatetime (or createdatetime) is NULL answers HTTP 500 (editappointment.jsp:1183-1184 LocalDateTime.parse of the empty string); the demo dataset has three such appointments.",
+      "notes": "Checks edit popups with missing creation/update timestamps and the normal timestamp control.",
       "fixtures": "Throwaway login plus an owned FAKE- patient and two SQL-seeded appointments with NULL timestamps; deleted in cleanup."
     },
     {
@@ -5090,7 +5091,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: choosing Type A then Type B in the Add Appointment popup leaves the reason as 'B -- A' (addappointment.jsp type change appends the earlier autofill instead of replacing it).",
+      "notes": "Checks that changing types replaces the preceding autofill while preserving manual reason text and normal booking/edit behavior.",
       "fixtures": "Throwaway login plus an owned FAKE- patient; reads two SEEDED appointment types without modifying them (the Type menu reads a 30-minute cache, so SQL-seeded types are not offered). Owned appointment/archive rows are deleted in cleanup."
     },
     {
@@ -5105,7 +5106,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Flowsheets ▸ Upload stores any well-formed XML as a flowsheet (a NULL-named row; ManageFlowsheetsUpload2Action ▸ MeasurementTemplateFlowSheetConfig.validateFlowsheet accepts it) and a refused upload shows no message (manageFlowsheets.jsp never renders the flashError the action sets).",
+      "notes": "Checks rejection of unrelated XML before persistence/import, visible escaped refusal feedback after the upload redirect, valid measurement import, enable/disable and GET refusal.",
       "fixtures": "One owned FAKE-named flowsheet definition (dx trigger on a code no patient has, not universal) and its measurement type, plus the not-a-flowsheet file's row if the upload wrongly keeps it; all deleted in cleanup. The in-memory flowsheet registry is refreshed by the next flowsheet admin action."
     },
     {
@@ -5120,7 +5121,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its step 2 on 2026.08: Write to Encounter answers HTTP 403 because ViewMessage builds the WriteToEncounter form at click time without a CSRF token (L141); behind it, the chart the redirect opens carries no message text, so the note-text and Sign & Save assertions would fail next.",
+      "notes": "Checks the CSRF-protected Write to Encounter handoff, complete formatted message in the linked chart, signed-note persistence and unchanged message delivery/link rows.",
       "fixtures": "Owned FAKE- patient, one owned message delivered to the test provider and linked by msgDemoMap; cleanup deletes the message rows, the owned patient's notes and chart rows and the audit rows."
     },
     {
@@ -5163,7 +5164,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the per-provider reason toggle '*' is never rendered while TOGGLE_REASON_BY_PROVIDER is unset (the JSP's defaultVal=\"yes\" is ignored by CarlosPropertiesCheck, which only honours \"true\").",
+      "notes": "With SHOW_APPT_REASON, SHOW_APPT_REASON_TOOLTIP and TOGGLE_REASON_BY_PROVIDER unset, checks default reason hiding, popup details and the provider toggle in both directions. The separate tooltip disclosure regression (L329) remains asserted; that failure does not mask toggle validation.",
       "fixtures": "Throwaway login plus an owned FAKE- patient and one appointment on the throwaway's own schedule; deleted in cleanup."
     },
     {
@@ -5178,7 +5179,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a login POSTed with a weak password that does not match its confirmation is created (SecurityAddSecurityHelper has no server-side password policy or confirmation check).",
+      "notes": "Checks browser validation and independent direct POST refusals for a weak matching password, a strong mismatched confirmation and an empty password. Refusals must not create a login or creation audit record.",
       "fixtures": "One owned FAKE- provider row (target of the weak-password probe) and the user names the run attempts; the attempted refusals create no row, the probe's row is deleted in cleanup."
     },
     {

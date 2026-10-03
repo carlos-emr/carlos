@@ -220,6 +220,7 @@ Ontario, Canada
 
 <html>
     <head>
+        <script src="<%=request.getContextPath()%>/js/appointmentTypeReason.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -664,15 +665,17 @@ Ontario, Canada
                     }
                 });
 
+                // Track the previous autofill separately from text entered by the user.
+                var previousTypeReason = $('#type option:selected').attr('data-reason') || '';
                 // render custom selectmenu
                 $('#type').myselectmenu({
                     change: function (event, data) {
                         label = data.item.value;
                         origReason = $("textarea[name='reason']").val();
                         reason = data.item.element.attr("data-reason");
-                        if (origReason.length > 0) {
-                            reason = reason.concat(" -- ".concat(origReason));
-                        }
+                        var nextTypeReason = reason || '';
+                        reason = appointmentTypeReason(origReason, previousTypeReason, nextTypeReason);
+                        previousTypeReason = nextTypeReason;
                         loc = data.item.element.attr("data-loc");
                         dur = data.item.element.attr("data-dur");
                         notes = data.item.element.attr("data-notes");
@@ -835,19 +838,10 @@ Ontario, Canada
                             ;
 
 
-                            if (haveLock == true) { //i have the lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
-                            } else if (locked && !haveLock) { //someone else has lock.
-                                document.getElementById('addButton').style.display = 'none';
-                                document.getElementById('pasteButton').style.display = 'none';
-                                document.getElementById('apptRepeatButton').style.display = 'none';
-                            } else { //no lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
-                            }
+                            ['addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                                var button = document.getElementById(id);
+                                if (button) button.style.display = locked && !haveLock ? 'none' : '';
+                            });
                             document.getElementById('searchBtn').removeAttribute('disabled');
                         }
                     }
@@ -1501,7 +1495,7 @@ Ontario, Canada
                            onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">
                     <% }%>
 
-                    <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <% if (!(bDnb || bMultipleSameDayGroupAppt) && !props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <fmt:message key="appointment.addappointment.btnRepeat" var="btnRepeatMsg"/>
                     <input type="button" id="apptRepeatButton" class="btn btn-primary"
                            value="${carlos:forHtmlAttribute(btnRepeatMsg)}"

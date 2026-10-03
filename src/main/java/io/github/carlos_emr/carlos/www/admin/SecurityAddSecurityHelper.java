@@ -29,6 +29,8 @@
 package io.github.carlos_emr.carlos.www.admin;
 
 import java.util.Date;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.PasswordPolicy;
 
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.jsp.PageContext;
@@ -73,11 +75,21 @@ public class SecurityAddSecurityHelper {
     private String process(PageContext pageContext) {
         ServletRequest request = pageContext.getRequest();
 
-		String digestedPassword = this.securityManager.encodePassword(request.getParameter("password"));
 
         String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
         if (!userName.matches(USER_NAME_PATTERN)) {
             return "admin.securityaddsecurity.msgUserNameInvalid";
+        }
+
+        String password = request.getParameter("password");
+        if (password == null || password.isEmpty()) {
+            return "admin.securityaddsecurity.msgPasswordInvalid";
+        }
+        if (!password.equals(request.getParameter("conPassword"))) {
+            return "admin.securityrecord.msgPasswordNotConfirmed";
+        }
+        if (!PasswordPolicy.validate(password, CarlosProperties.getInstance()).isValid()) {
+            return "admin.securityaddsecurity.msgPasswordInvalid";
         }
 
         boolean isUserRecordAlreadyCreatedForProvider = !securityDao.findByProviderNo(request.getParameter("provider_no")).isEmpty();
@@ -86,6 +98,7 @@ public class SecurityAddSecurityHelper {
         boolean isUserAlreadyExists = !securityDao.findByUserName(userName).isEmpty();
         if (isUserAlreadyExists) return "admin.securityaddsecurity.msgAdditionFailureDuplicate";
 
+        String digestedPassword = securityManager.encodePassword(password);
         Security s = new Security();
         s.setUserName(userName);
         s.setPassword(digestedPassword);

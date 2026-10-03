@@ -191,6 +191,9 @@
             });
 
 
+            // Keep the draft in this chart, independent of sidebar requests rebuilding the session bean.
+            var pendingEncounterMessage = "<carlos:encode value='<%= request.getAttribute("encounterMessage") == null ? "" : (String) request.getAttribute("encounterMessage") %>' context="javaScriptBlock"/>";
+
             function assembleMainChartParams(displayFullChart) {
 
                 var params = "method=edit&ajaxview=ajaxView&fullChart=" + displayFullChart;

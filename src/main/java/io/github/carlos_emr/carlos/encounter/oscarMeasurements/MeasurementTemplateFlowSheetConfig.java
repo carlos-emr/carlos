@@ -1008,6 +1008,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      *         cannot be parsed or contains structural errors
      */
     public MeasurementFlowSheet validateFlowsheet(String data) {
+        if (data == null || data.isBlank()) return null;
         InputStream is = null;
         try {
             is = new ByteArrayInputStream(data.getBytes("UTF-8"));
@@ -1022,6 +1023,10 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
+            // Reject unrelated XML before importing any measurement types or modifying registries.
+            String name = root.getAttributeValue("name");
+            if (!"flowsheet".equals(root.getName()) || name == null || name.isBlank()) return null;
+
 
             XMLOutputter outp = new XMLOutputter();
 
