@@ -5707,8 +5707,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient with three SQL-seeded signed notes (2021, 2022, now), one allergy and one MMR prevention; all removed and asserted gone. Needs pdftotext.",
-      "notes": "Fails at its LAST assertion on 2026.08 with up to three findings joined: (1) Clear in the print dialog leaves the queued notes selected once the older-notes fetch has run (ChartNotesAjax.jsp:856 sets maxNcId=0); (2) Clear after Print all leaves ALL_NOTES queued; (3) the dialog's Today / date-range print answers HTTP 500 (SQLGrammarException: Column 'provider_no' not found in the mostRecentDateRange native query)."
+      "fixtures": "Owned FAKE-PW patient with three signed clinical notes, Medical History and Other Meds CPP notes, one allergy and one MMR prevention; all removed and asserted gone. Needs pdftotext.",
+      "notes": "Verifies selected/all/Today scope, Clear queue and icons, standard section flags, CPP and Other Meds deduplication, and HTTP 400 for invalid date ranges (#4171)."
     },
     {
       "name": "gap-clinical-chart-notes-pagination",
@@ -5723,7 +5723,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart (one multi-line); notes and eChart rows removed and asserted gone.",
-      "notes": "Fails at its last step on 2026.08: after the final empty paging batch maxNcId is reset to 0 (ChartNotesAjax.jsp:856), so every nc1..maxNcId loop in the chart (print dialog Clear) finds no notes. Paging, Load All and Collapse/Expand pass."
+      "notes": "Verifies paging, Load All, Collapse/Expand and preserved container bounds after the final empty batch (#4171)."
     },
     {
       "name": "gap-clinical-calculators-conversions",
@@ -5738,7 +5738,7 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "Owned FAKE-PW patient (chart only); nothing is saved.",
-      "notes": "Passes on 2026.08."
+      "notes": "Verifies clinic/provider customization layers, patient display and saved flowsheet headings after customization (#4171)."
     },
     {
       "name": "gap-clinical-calculators-coronary",
@@ -5797,8 +5797,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "No rows created. Changes the clinic-wide hide_prevention_stop_signs property (snapshot and restore in cleanup), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails at its final assertion on 2026.08 (collected after every round-trip step has passed): with no setting row the appointment screen shows stop signs (PreventionManager.isDisabled() is false) but Administration > Prevention Notification Settings reads Disabled (PreventionManager.jsp falls back to SHOW_PREVENTION_STOP_SIGNS=false)."
+      "fixtures": "Owned FAKE-PW child and appointment, removed after the check. Changes the clinic-wide hide_prevention_stop_signs property (snapshot and restore), so run exclusively (EXCLUSIVE=1).",
+      "notes": "Verifies absent-setting and saved Enabled/Disabled states on both the settings page and an actual day-sheet prevention warning, plus custom per-prevention settings (#4171)."
     },
     {
       "name": "gap-billing-bill-form-options",

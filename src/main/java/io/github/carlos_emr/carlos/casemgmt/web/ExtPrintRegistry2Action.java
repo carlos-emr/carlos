@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrintRegistry;
+import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -90,6 +91,14 @@ public class ExtPrintRegistry2Action extends ActionSupport {
         }
         String name = request.getParameter("name");
         String bean = request.getParameter("bean");
+        // The print renderer resolves extPrint + name. Only configured extensions may consume
+        // global registry slots; arbitrary aliases must not exhaust the shared capacity.
+        if (name == null || name.isBlank() || name.length() > 256 || !("extPrint" + name).equals(bean)
+                || !SpringUtils.getBeanFactory().containsBean(bean)
+                || !SpringUtils.getBeanFactory().isTypeMatch(bean, ExtPrint.class)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Unknown print extension");
+            return NONE;
+        }
         try {
             ExtPrintRegistry.addEntry(name, bean);
         } catch (IllegalArgumentException e) {

@@ -24,7 +24,10 @@ function setup(queue, maxNcId = 0) {
     $: id => typeof id === 'string' ? elements[id] || null : id,
     $F: id => elements[id].value,
     Event: {stop() {}},
-    document: {querySelectorAll: () => [elements.print11, elements.print12]},
+    document: {querySelectorAll: selector => {
+      assert.equal(selector, '#encMainDiv img[id^="print"]');
+      return [elements.print11, elements.print12];
+    }},
   });
   vm.runInContext(functions('printInfo', 'togglePrint')
     + functions('removePrintQueue', 'printDateRange')
@@ -63,4 +66,15 @@ test('paging retains loaded container IDs through an empty final batch and reset
   assert.equal(context.maxNcId, 2020);
   batch(0, 3);
   assert.equal(context.maxNcId, 3);
+});
+
+test('an appended batch initializes an absent or invalid container bound', () => {
+  const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotesAjax.jsp'), 'utf8');
+  const assignment = jsp.match(/maxNcId = .*;/)[0]
+    .replaceAll('<%=offset%>', '20').replaceAll('<%=maxId%>', '201');
+  for (const state of [{}, {maxNcId: undefined}, {maxNcId: NaN}, {maxNcId: Infinity}]) {
+    const context = vm.createContext(state);
+    vm.runInContext(assignment, context);
+    assert.equal(context.maxNcId, 201);
+  }
 });

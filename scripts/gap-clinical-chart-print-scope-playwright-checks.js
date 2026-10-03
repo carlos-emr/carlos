@@ -17,7 +17,8 @@
  * no section raises the "nothing to print" alert and posts nothing; Clear empties the queue.
  *
  * Fixtures: the owned FAKE-PW patient (runWorkflow) with three SQL-seeded signed notes (observed
- * 2021-06-15, 2022-09-15 and now), one allergy and one prevention carrying the marker. Cleanup
+ * 2021-06-15, 2022-09-15 and now), Medical History and Other Meds CPP notes, one allergy
+ * and one prevention carrying the marker. Cleanup
  * deletes every note/allergy/prevention row of that patient and asserts them gone.
  * Coverage plan §2.5 chart-print (gap-clinical). Needs pdftotext.
  */
@@ -62,6 +63,13 @@ async function workflow(s) {
   };
   const cppToken = `${marker} CPPHISTORY`;
   const cppNote = seed(cppToken, "'2021-06-15 09:00:00'");
+  const medicationToken = `${marker} CPPMEDICATION`;
+  const medicationNote = seed(medicationToken, "'2021-06-15 09:00:00'");
+  const medicationIssue = sql.value("SELECT issue_id FROM issue WHERE code='OMeds' LIMIT 1");
+  h.assert(medicationIssue, 'The Other Meds CPP issue is missing');
+  sql.execute(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
+    VALUES (${patient},${medicationIssue},0,0,0,0,${program},'doctor',NOW());
+    INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (LAST_INSERT_ID(),${medicationNote})`);
   const cppIssue = sql.value("SELECT issue_id FROM issue WHERE code='MedHistory' LIMIT 1");
   h.assert(cppIssue, 'The Medical History CPP issue is missing');
   sql.execute(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)
@@ -152,6 +160,43 @@ async function workflow(s) {
     const occurrences = text.replace(/\s+/g, ' ').split(cppToken).length - 1;
     if (occurrences !== 1) defects.push(`Print all with CPP rendered the CPP note ${occurrences} times, expected once`);
     h.assert(Object.values(token).every(t => text.includes(t)), 'CPP printing removed an ordinary note');
+  });
+
+  for (const sections of [['printRx'], ['printCPP', 'printRx']]) {
+    await s.step(`Other Meds prints once with ${sections.join(' + ')}`, async () => {
+      await print.openPrintDialog(chart);
+      await chart.locator('#printopAll').check();
+      await print.setFlags(chart, sections);
+      const {text} = await print.pressPrint(chart, scratch);
+      h.assert(text.replace(/\s+/g, ' ').split(medicationToken).length - 1 === 1,
+        'Other Meds was omitted or repeated across print sections');
+      h.assert(Object.values(token).every(t => text.includes(t)), 'Rx printing removed an ordinary note');
+    });
+  }
+
+  await s.step('invalid date-range requests return HTTP 400 before generating a PDF', async () => {
+    const fields = await chart.evaluate(() => Object.fromEntries(new FormData(document.forms.caseManagementEntryForm)));
+    for (const [start, end] of [['', '03-Oct-2026'], ['invalid', '03-Oct-2026'], ['04-Oct-2026', '03-Oct-2026']]) {
+      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'), {
+        form: {...fields, method: 'print', pType: 'dates', pStartDate: start, pEndDate: end},
+      });
+      h.assert(response.status() === 400, `Invalid print date range answered HTTP ${response.status()}`);
+    }
+  });
+
+  await s.step('print registration accepts configured extensions and rejects arbitrary aliases', async () => {
+    const fields = await chart.evaluate(() => Object.fromEntries(new FormData(document.forms.caseManagementEntryForm)));
+    const url = h.appUrl(s.config.baseUrl, '/casemgmt/ExtPrintRegistry');
+    const registered = await s.context.request.post(url, {
+      form: {...fields, method: 'register', name: 'Measurements', bean: 'extPrintMeasurements'},
+    });
+    h.assert(registered.status() === 200, `Configured extension registration answered HTTP ${registered.status()}`);
+    const rejected = await s.context.request.post(url, {
+      form: {...fields, method: 'register', name: 'UnconfiguredAlias', bean: 'extPrintMeasurements'},
+    });
+    h.assert(rejected.status() === 400, 'An arbitrary alias could consume a registry slot');
+    const readOnly = await s.context.request.get(url);
+    h.assert(readOnly.status() === 405, 'GET could register a print extension');
   });
 
   await s.step('Clear after a Print all empties the print queue', async () => {

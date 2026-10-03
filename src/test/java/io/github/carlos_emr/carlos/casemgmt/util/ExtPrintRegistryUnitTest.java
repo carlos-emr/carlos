@@ -35,7 +35,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Capacity, snapshot isolation and concurrent registration contracts. */
 @Tag("unit")
-class ExtPrintRegistryTest {
+class ExtPrintRegistryUnitTest {
     @BeforeEach
     @AfterEach
     void clearRegistry() throws Exception {

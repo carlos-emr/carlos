@@ -35,13 +35,17 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Whole-day printing boundaries, including both daylight-saving transitions. */
 @Tag("unit")
-class ChartPrintDateRangeTest {
+class ChartPrintDateRangeUnitTest {
     @ParameterizedTest
     @CsvSource({"2026-10-03,24", "2026-03-08,23", "2026-11-01,25", "2028-02-29,24"})
     void shouldIncludeEntireDay_withLocalClockChanges(String day, long hours) {
         Calendar date = GregorianCalendar.from(LocalDate.parse(day).atStartOfDay(ZoneId.of("America/Toronto")));
         Calendar original = (Calendar) date.clone();
         ChartPrintDateRange range = ChartPrintDateRange.from(date, date);
+        assertThat(range.startInclusive()).isEqualTo(LocalDate.parse(day)
+                .atStartOfDay(ZoneId.of("America/Toronto")).toInstant());
+        assertThat(range.endExclusive()).isEqualTo(LocalDate.parse(day).plusDays(1)
+                .atStartOfDay(ZoneId.of("America/Toronto")).toInstant());
         assertThat(Duration.between(range.startInclusive(), range.endExclusive()).toHours()).isEqualTo(hours);
         assertThat(range.contains(Date.from(range.startInclusive()))).isTrue();
         assertThat(range.contains(Date.from(range.endExclusive().minusMillis(1)))).isTrue();

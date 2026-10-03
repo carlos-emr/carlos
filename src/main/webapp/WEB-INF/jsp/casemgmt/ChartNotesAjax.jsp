@@ -854,7 +854,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 <script type="text/javascript">
     // Appended batches must not discard the bounds of notes already rendered.
-    maxNcId = <%=offset%> > 0 ? Math.max(maxNcId, <%=maxId%>) : <%=maxId%>;
+    maxNcId = <%=offset%> > 0 ? Math.max(typeof maxNcId === "number" && isFinite(maxNcId) ? maxNcId : 0, <%=maxId%>) : <%=maxId%>;
     // Batch size for notesLoader() in newCaseManagementView.js.jsp. It is the only way the
     // client can tell an exhausted chart from a full batch: this fragment always emits these
     // bootstrap scripts, so even a zero-note response has a non-empty body. Without it the

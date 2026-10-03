@@ -40,6 +40,7 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -52,9 +53,9 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.StreamingOutput;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -432,6 +433,16 @@ public class RecordUxService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Streams the selected chart sections as a PDF. Date fields apply only to the dates print
+     * mode, which requires both bounds; selected/all modes ignore optional stale date fields.
+     *
+     * @param demographicNo patient identifier
+     * @param jsonString JSON print options including printType, selectedList and section flags
+     * @param request authenticated servlet request used for chart headers
+     * @return PDF stream; generation failures propagate as HTTP errors
+     * @throws BadRequestException if dates mode has missing, invalid or reversed bounds
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
@@ -457,19 +468,18 @@ public class RecordUxService extends AbstractServiceImpl {
         Calendar startCal = null;
         Calendar endCal = null;
         if (printDateRangeNotes) {
-            if (jsonobject.has("dates")) {
-                ObjectNode datesJson = (ObjectNode) jsonobject.get("dates");
-                if (datesJson.has("start")) {
-                    startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start") != null ? datesJson.get("start").asText() : null);
-                }
-                if (datesJson.has("end")) {
-                    endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end") != null ? datesJson.get("end").asText() : null);
-                }
+            if (!(jsonobject.get("dates") instanceof ObjectNode datesJson)
+                    || !datesJson.hasNonNull("start") || !datesJson.hasNonNull("end")) {
+                throw new BadRequestException("Both print date boundaries are required");
             }
-            if (startCal != null && endCal != null) {
-                printAllNotesType = true;
+            try {
+                startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start").asText());
+                endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end").asText());
+                ChartPrintDateRange.from(startCal, endCal);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Invalid print date range");
             }
-
+            printAllNotesType = true;
         }
         final Calendar startCalf = startCal;
         final Calendar endCalf = endCal;
@@ -482,7 +492,7 @@ public class RecordUxService extends AbstractServiceImpl {
         final boolean printLabs = getBoolean(jsonobject, "labs");
         final boolean printPreventions = getBoolean(jsonobject, "preventions");
         final boolean printAllergies = getBoolean(jsonobject, "allergies");
-        final boolean useDates = jsonobject.has("dates");
+        final boolean useDates = printDateRangeNotes;
 
         final ArrayNode keyArray = (ArrayNode) jsonobject.get("selectedList");
         final String[] noteIds = new String[keyArray.size()];
@@ -499,9 +509,8 @@ public class RecordUxService extends AbstractServiceImpl {
                     CaseManagementPrint cmp = new CaseManagementPrint();
                     cmp.doPrint(loggedInInfo, demographicNof, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, useDates, startCalf, endCalf, requestf, os);
                 } catch (Exception e) {
-                    logger.error("error streaming", e);
-                } finally {
-                    IOUtils.closeQuietly(os);
+                    logger.error("Chart print failed ({})", e.getClass().getSimpleName());
+                    throw new WebApplicationException("Unable to generate the chart print", e, 500);
                 }
 
             }

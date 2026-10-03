@@ -265,9 +265,12 @@ public class CaseManagementPrint {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, "OMeds");
                 String[] issueIds = getIssueIds(issues); // new String[issues.size()];
                 othermeds = caseManagementMgr.getNotes(demono, issueIds);
-            } else {
-                othermeds = cpp.get("OMeds");
+                // Rx-only printing renders Other Meds here, so omit those notes from the body.
+                Set<Long> printedMedicationIds = othermeds.stream().map(CaseManagementNote::getId)
+                        .collect(Collectors.toSet());
+                notes.removeIf(note -> printedMedicationIds.contains(note.getId()));
             }
+            // When CPP is selected, it already renders Other Meds; Rx prints prescriptions only.
         }
 
         List<Prevention> preventions = null;

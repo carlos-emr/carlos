@@ -24,6 +24,10 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrintRegistry;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
@@ -31,7 +35,45 @@ import static org.mockito.Mockito.*;
 
 /** HTTP error and privilege contracts for chart print registration. */
 @Tag("integration")
-class ExtPrintRegistry2ActionTest extends CarlosWebTestBase {
+class ExtPrintRegistry2ActionIntegrationTest extends CarlosWebTestBase {
+    @BeforeEach
+    void registerConfiguredPrinter() {
+        ((DefaultListableBeanFactory) applicationContext.getAutowireCapableBeanFactory())
+                .registerSingleton("extPrintIssue4171Test", mock(ExtPrint.class));
+    }
+
+    @AfterEach
+    void removeConfiguredPrinter() {
+        ((DefaultListableBeanFactory) applicationContext.getAutowireCapableBeanFactory())
+                .destroySingleton("extPrintIssue4171Test");
+    }
+
+    @Test
+    void shouldRejectArbitraryAlias_forConfiguredPrinter() throws Exception {
+        mockRequest.setMethod("POST");
+        allowPrivilege("_demographic", "w");
+        addRequestParameter("name", "arbitraryAlias");
+        addRequestParameter("bean", "extPrintIssue4171Test");
+        try (MockedStatic<ExtPrintRegistry> registry = mockStatic(ExtPrintRegistry.class)) {
+            executeAction(new ExtPrintRegistry2Action());
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            registry.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void shouldRejectUnconfiguredPrinter_beforeConsumingCapacity() throws Exception {
+        mockRequest.setMethod("POST");
+        allowPrivilege("_demographic", "w");
+        addRequestParameter("name", "Issue4171Missing");
+        addRequestParameter("bean", "extPrintIssue4171Missing");
+        try (MockedStatic<ExtPrintRegistry> registry = mockStatic(ExtPrintRegistry.class)) {
+            executeAction(new ExtPrintRegistry2Action());
+            assertThat(mockResponse.getStatus()).isEqualTo(400);
+            registry.verifyNoInteractions();
+        }
+    }
+
     @Test
     void shouldRejectGet_beforeRegistration() throws Exception {
         mockRequest.setMethod("GET");
@@ -54,7 +96,7 @@ class ExtPrintRegistry2ActionTest extends CarlosWebTestBase {
     void shouldReturnBadRequest_withMissingName() throws Exception {
         mockRequest.setMethod("POST");
         allowPrivilege("_demographic", "w");
-        addRequestParameter("bean", "testBean");
+        addRequestParameter("bean", "extPrintIssue4171Test");
         executeAction(new ExtPrintRegistry2Action());
         assertThat(mockResponse.getStatus()).isEqualTo(400);
     }
@@ -63,10 +105,10 @@ class ExtPrintRegistry2ActionTest extends CarlosWebTestBase {
     void shouldReturnConflict_whenRegistryIsFull() throws Exception {
         mockRequest.setMethod("POST");
         allowPrivilege("_demographic", "w");
-        addRequestParameter("name", "testExtension");
-        addRequestParameter("bean", "testBean");
+        addRequestParameter("name", "Issue4171Test");
+        addRequestParameter("bean", "extPrintIssue4171Test");
         try (MockedStatic<ExtPrintRegistry> registry = mockStatic(ExtPrintRegistry.class)) {
-            registry.when(() -> ExtPrintRegistry.addEntry("testExtension", "testBean"))
+            registry.when(() -> ExtPrintRegistry.addEntry("Issue4171Test", "extPrintIssue4171Test"))
                     .thenThrow(new IllegalStateException("full"));
             executeAction(new ExtPrintRegistry2Action());
             assertThat(mockResponse.getStatus()).isEqualTo(409);
@@ -77,12 +119,12 @@ class ExtPrintRegistry2ActionTest extends CarlosWebTestBase {
     void shouldRegisterExtension_withAuthorizedPost() throws Exception {
         mockRequest.setMethod("POST");
         allowPrivilege("_demographic", "w");
-        addRequestParameter("name", "testExtension");
-        addRequestParameter("bean", "testBean");
+        addRequestParameter("name", "Issue4171Test");
+        addRequestParameter("bean", "extPrintIssue4171Test");
         try (MockedStatic<ExtPrintRegistry> registry = mockStatic(ExtPrintRegistry.class)) {
             executeAction(new ExtPrintRegistry2Action());
             assertThat(mockResponse.getStatus()).isEqualTo(200);
-            registry.verify(() -> ExtPrintRegistry.addEntry("testExtension", "testBean"));
+            registry.verify(() -> ExtPrintRegistry.addEntry("Issue4171Test", "extPrintIssue4171Test"));
         }
     }
 }
