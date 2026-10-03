@@ -3,17 +3,17 @@
 /*
  * Provider Service Report ▸ Export (CSV): the file's numbers against the notes that were written.
  * User path: Schedule ▸ Administration ▸ Reports ▸ Provider Service Report ▸ Start / End month ▸ Export
- * (oscarReport/ViewProviderServiceReportExport answers provider_service_<agency>_<from>_<to>.csv).
+ * (oscarReport/ViewProviderServiceReportExport answers provider_service_<from>_<to>.csv).
  * Nothing opened this download: it is the clinic's per-program encounter statistic, built from casemgmt_note.
  *
  * Asserts: the first line is the documented eleven-column header; for each owned SERVICE program the CSV has one
  * row per month plus one range row, in the order the form's dates describe; the face-to-face, telephone and
  * no-client counts and the unique-client counts equal the doctor notes the check wrote (two clients, two months);
  * a program name with an accent, a quote and a comma is quoted and survives as UTF-8; the file's name is a valid
- * attachment name. LAST (fails today): the range row is labelled with the INCLUSIVE end month the form was given,
+ * attachment name. Also verifies: the range row is labelled with the INCLUSIVE end month the form was given,
  * the filename carries no "/", and a note that was archived (removed from the chart) or re-saved as a second
  * revision of the same note uuid is not counted as another encounter.
- * Fixtures: two FAKE- Service programs (the default OSCAR program is a Bed program, which the report skips), one
+ * Fixtures: two FAKE- Service programs and one FAKE- Bed program, one
  * more owned patient, doctor-role notes dated in February/March 2003; every assertion is scoped to the owned programs (rows of
  * other programs, or other notes in the window, are ignored); cleanup deletes only those rows and asserts them gone.
  */
@@ -54,12 +54,12 @@ async function workflow(s) {
     patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
     VALUES (${q(marker)},'SecondClient','1975','03','04','M','AC',${q(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
   const second = owned.second;
-  const newProgram = suffix => {
+  const newProgram = (suffix, type = 'Service') => {
     const name = `${marker} Café "Svc", Ünit ${suffix}`;
     const id = sql.value(`INSERT INTO program (facilityId,name,type,maxAllowed,holdingTank,allowBatchAdmission,allowBatchDischarge,hic,
         programStatus,transgender,firstNation,bedProgramAffiliated,alcohol,physicalHealth,mentalHealth,housing,exclusiveView,
         ageMin,ageMax,userDefined,lastUpdateDate)
-      SELECT facilityId,${q(name)},'Service',99999,0,0,0,0,'active',0,0,0,0,0,0,0,'no',1,200,1,NOW() FROM program WHERE name='OSCAR' LIMIT 1;
+      SELECT facilityId,${q(name)},${q(type)},99999,0,0,0,0,'active',0,0,0,0,0,0,0,'no',1,200,1,NOW() FROM program WHERE name='OSCAR' LIMIT 1;
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'The Service program fixture was not created');
     owned.programs.push(id);
@@ -67,6 +67,7 @@ async function workflow(s) {
   };
   const clean = newProgram('A');
   const dirty = newProgram('B');
+  const bed = newProgram('Bed', 'Bed');
   const note = (program, demo, type, when, { archived = 0, uuid = null, updated = null } = {}) => sql.execute(`INSERT INTO casemgmt_note
       (update_date,observation_date,demographic_no,provider_no,note,signed,signing_provider_no,encounter_type,program_no,
        reporter_caisi_role,history,uuid,locked,archived)
@@ -75,6 +76,7 @@ async function workflow(s) {
   // Clean program: February 2003 has two face-to-face notes for the owned patient and one telephone note for the second
   // client; March 2003 has one e-mail note for the second client (no CSV column for it, but a unique client).
   note(clean.id, patient, F2F, '2003-02-03 09:00:00');
+  note(bed.id, patient, F2F, '2003-02-03 09:00:00');
   note(clean.id, patient, F2F, '2003-02-10 09:00:00');
   note(clean.id, second, TEL, '2003-02-12 09:00:00');
   note(clean.id, second, EMAIL, '2003-03-04 09:00:00');
@@ -149,6 +151,8 @@ async function workflow(s) {
 
   await s.step('the range label, the attachment name and the encounter counts follow what the form and the chart say', async () => {
     const problems = [];
+    const bedRow = rows.find(r => r[1] === bed.name && r[3] === '2003-02');
+    if (!bedRow || bedRow[4] !== '1') problems.push('active Bed program encounters are missing');
     const range = programRows(clean).find(r => /to/.test(r[3]));
     if (range[3] !== '2003-02 to 2003-03') problems.push(`the range row is labelled "${range[3]}" for an inclusive end month of 2003-03`);
     const disposition = file.headers['content-disposition'] || '';
@@ -158,6 +162,16 @@ async function workflow(s) {
     if (dirtyFeb[4] !== '2') problems.push(`an archived note and a second revision of a note are counted as encounters (${dirtyFeb[4]} face-to-face for 2 real notes)`);
     h.assert(!problems.length, `The provider service CSV is wrong: ${problems.join('; ')}`);
   });
+  await s.step('malformed and reversed date ranges fail explicitly without downloading another month', async () => {
+    for (const [startDate, endDate] of [['13/2003', '03/2003'], ['02/2003extra', '03/2003'], ['04/2003', '03/2003']]) {
+      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/oscarReport/ViewProviderServiceReportExport'), {
+        params: { startDate, endDate }, maxRedirects: 0,
+      });
+      h.assert(response.status() === 400, `Invalid date range ${startDate} to ${endDate} answered HTTP ${response.status()}`);
+      h.assert(!response.headers()['content-disposition'], 'An invalid range produced a downloadable report');
+    }
+  });
+
 }
 
 if (require.main === module) runWorkflow('export-content-provider-service-csv', workflow, { openMaster: false });

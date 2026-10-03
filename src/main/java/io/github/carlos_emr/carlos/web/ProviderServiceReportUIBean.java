@@ -92,8 +92,8 @@ public class ProviderServiceReportUIBean {
         ArrayList<DataRow> results = new ArrayList<DataRow>();
 
         for (Program program : activePrograms) {
-            // we only want service programs (bed programs have been removed)
-            if (!Program.SERVICE_TYPE.equals(program.getType()))
+            // The report covers active bed and service programs.
+            if (!Program.SERVICE_TYPE.equals(program.getType()) && !"Bed".equals(program.getType()))
                 continue;
 
             results.addAll(getProgramNumbers(startCal, endCal, doctorRole, program));
@@ -129,7 +129,7 @@ public class ProviderServiceReportUIBean {
         DataRow dataRow = new DataRow();
         dataRow.programName = "all programs";
         dataRow.programType = "all program types";
-        dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endCal.getTime());
+        dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endDate);
         dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(null,
                 doctorRole.getId().intValue(), startCal.getTime(),
                 endCal.getTime());
@@ -164,7 +164,7 @@ public class ProviderServiceReportUIBean {
         DataRow dataRow = new DataRow();
         dataRow.programName = program.getName();
         dataRow.programType = program.getType();
-        dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endCal.getTime());
+        dataRow.date = dateFormatter.format(startCal.getTime()) + " to " + dateFormatter.format(endDate);
         dataRow.encounterCounts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(
                 program.getId(),
                 doctorRole.getId().intValue(), startCal.getTime(),

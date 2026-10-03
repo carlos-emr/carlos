@@ -10,7 +10,7 @@
  * Asserts (pdftotext of each label PDF): the surname, first name, HIN with version, sex, birth date, phone, chart
  * number, street address, city and postal code appear on the labels that are meant to carry them, with the accent in
  * the name intact; no label prints the literal word "null"; a patient with a middle name that has a letter outside
- * Latin-1 gets it printed; the chart label's age is a whole number; and (LAST, fails today) a patient with NO middle name
+ * Latin-1 gets it printed; the chart label's age is a whole number; and (last) a patient with NO middle name
  * (NULL, as imports and the REST API create them) does not get "null" printed after the first name.
  * Fixtures: two FAKE- patients with realistic (short) names and fields, written by SQL; the runWorkflow patient is
  * only the owner of the session. Cleanup deletes the two patients and asserts it. Needs pdftotext.

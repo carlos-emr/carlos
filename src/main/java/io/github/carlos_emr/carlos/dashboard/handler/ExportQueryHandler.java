@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.text.StringEscapeUtils;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -82,6 +84,7 @@ public class ExportQueryHandler extends AbstractQueryHandler {
     private void setCsvFile(List<?> results) {
         if (columnNames == null) {
             this.csvFile = "";
+            return;
         }
 
         StringBuilder stringBuilder = new StringBuilder();
@@ -102,36 +105,13 @@ public class ExportQueryHandler extends AbstractQueryHandler {
         this.csvFile = stringBuilder.toString();
     }
 
-    private static String writeLine(Object[] line) {
-
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (Object value : line) {
-
-            String stringValue = value + "";
-            stringBuilder.append(filterSeparators(filterQuotes(stringValue)));
-            stringBuilder.append(SEPARATOR);
+    /** Serializes one CSV record, preserving embedded delimiters and representing SQL NULL as empty. */
+    static String writeLine(Object[] line) {
+        StringBuilder record = new StringBuilder();
+        for (int i = 0; i < line.length; i++) {
+            if (i > 0) record.append(SEPARATOR);
+            record.append(StringEscapeUtils.escapeCsv(line[i] == null ? "" : line[i].toString()));
         }
-
-        stringBuilder.deleteCharAt(stringBuilder.length() - 1);
-        stringBuilder.append("\n");
-
-        return stringBuilder.toString();
+        return record.append("\n").toString();
     }
-
-    private static String filterQuotes(String value) {
-
-        if (value.contains("\"")) {
-            value = value.replace("\"", "\"\"");
-        }
-        return value;
-    }
-
-    private static String filterSeparators(String value) {
-        if (value.contains(SEPARATOR + "")) {
-            value = "\"" + value + "\"";
-        }
-        return value;
-    }
-
 }

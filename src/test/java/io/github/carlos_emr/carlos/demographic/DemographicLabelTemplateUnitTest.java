@@ -28,6 +28,7 @@ class DemographicLabelTemplateUnitTest {
                 row.put(field.getName(), field.getValueClass() == Integer.class ? Integer.valueOf(123) : "123");
             }
             row.put("first_name", "TestGiven");
+            row.put("middle_name", name.equals("label.xml") ? null : "Łukasz");
             row.put("last_name", "TestFamily");
             row.put("year_of_birth", "2000");
             row.put("month_of_birth", "01");
@@ -37,7 +38,10 @@ class DemographicLabelTemplateUnitTest {
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
             try (PdfReader reader = new PdfReader(pdf)) {
                 assertThat(reader.getNumberOfPages()).isEqualTo(1);
-                assertThat(new PdfTextExtractor(reader).getTextFromPage(1)).contains("TestGiven", "TestFamily");
+                String text = new PdfTextExtractor(reader).getTextFromPage(1);
+                assertThat(text).contains("TestGiven", "TestFamily");
+                if (name.equals("label.xml")) assertThat(text).doesNotContain("null");
+                if (name.equals("Chartlabel.xml")) assertThat(text).contains("Łukasz");
             }
         }
     }

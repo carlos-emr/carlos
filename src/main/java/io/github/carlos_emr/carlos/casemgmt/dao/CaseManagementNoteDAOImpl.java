@@ -785,8 +785,14 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         // Broken down by encounter type
         String breakdownSql = String.join(" ",
                 "select encounter_type, count(demographic_no), count(distinct demographic_no)",
-                "from casemgmt_note",
+                "from casemgmt_note n",
                 "where reporter_caisi_role = :roleId",
+                "and archived = false",
+                // Select the latest revision before date/role/program filtering, so an older
+                // revision cannot reappear after the current note is moved or archived.
+                "and (n.uuid is null or n.uuid = '' or not exists (",
+                "select 1 from casemgmt_note newer where newer.uuid = n.uuid",
+                "and newer.demographic_no = n.demographic_no and newer.note_id > n.note_id))",
                 "and observation_date >= :startDate",
                 "and observation_date < :endDate",
                 (programId == null ? "" : "and program_no = :programId"),
@@ -810,8 +816,14 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         // Total unique count (not broken down)
         String totalSql = String.join(" ",
                 "select count(distinct demographic_no)",
-                "from casemgmt_note",
+                "from casemgmt_note n",
                 "where reporter_caisi_role = :roleId",
+                "and archived = false",
+                // Select the latest revision before date/role/program filtering, so an older
+                // revision cannot reappear after the current note is moved or archived.
+                "and (n.uuid is null or n.uuid = '' or not exists (",
+                "select 1 from casemgmt_note newer where newer.uuid = n.uuid",
+                "and newer.demographic_no = n.demographic_no and newer.note_id > n.note_id))",
                 "and observation_date >= :startDate",
                 "and observation_date < :endDate",
                 (programId == null ? "" : "and program_no = :programId"));

@@ -110,6 +110,7 @@ async function workflow(s) {
       await report.locator('#provider_no').selectOption(provider);
       await report.getByLabel(radio, { exact: true }).check();
       await submit(report.getByRole('button', { name: 'Search', exact: true }));
+      h.assert(await report.locator('#provider_no').inputValue() === provider, `${label}: Search reset the selected provider`);
       const onScreen = await screenRows();
       h.assert(onScreen.length === owned(status).length,
         `${label}: the on-screen list has ${onScreen.length} owned rows (${onScreen.map(c => `${c[7]}/${c[10]}`).join(',')}), the database ${owned(status).length}`);

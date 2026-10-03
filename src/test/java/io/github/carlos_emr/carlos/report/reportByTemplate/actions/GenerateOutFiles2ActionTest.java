@@ -178,4 +178,20 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         verify(failingResponse).reset();
         verify(failingResponse).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
+    @Test
+    void shouldPreserveTextExactly_whenExportingNumericLookingIdentifiers() throws Exception {
+        request.setParameter("getXLS", "Export to XLS");
+        request.setParameter("csv", "chart,reference,amount,formula\n00123,12345678901234567,-12.50,=1+1\n");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
+                new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var row = workbook.getSheetAt(0).getRow(1);
+            String[] expected = {"00123", "12345678901234567", "-12.50", "=1+1"};
+            for (int column = 0; column < expected.length; column++) {
+                assertThat(row.getCell(column).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+                assertThat(row.getCell(column).getStringCellValue()).isEqualTo(expected[column]);
+            }
+        }
+    }
+
 }

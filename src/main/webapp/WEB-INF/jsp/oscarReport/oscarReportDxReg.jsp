@@ -20,6 +20,9 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%-- Disease Registry report and spreadsheet export controls. Preserves the selected
+     provider_no (provider, group or *) after searches and status changes.
+     @since 2026-10-02 --%>
 <%--
   Page role: Renders `oscarReportDxReg.jsp` for the reporting workflow.
   Keep request setup in the paired action and use CARLOS encoding helpers
@@ -131,7 +134,10 @@
     <%
         ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
         String curUser_no = (String) session.getAttribute("user");
-        String mygroupno = providerPreference.getMyGroupNo();
+        String mygroupno = request.getParameter("provider_no");
+        boolean useProviderPreference = mygroupno == null;
+        if (useProviderPreference && providerPreference != null) mygroupno = providerPreference.getMyGroupNo();
+        if (mygroupno == null) mygroupno = "*";
         pageContext.setAttribute("mygroupno", mygroupno);
         String radiostatus = (String) session.getAttribute("radiovaluestatus");
         if (radiostatus == null || radiostatus.isEmpty()) {
@@ -234,7 +240,7 @@
 
 
                 <select id="provider_no" name="provider_no" class="sel">
-                    <option value="*"><fmt:message key="report.reportindex.formAllProviders"/></option>
+                    <option value="*" <%= "*".equals(mygroupno) ? "selected" : "" %>><fmt:message key="report.reportindex.formAllProviders"/></option>
 
                     <option disabled>___________</option>
 
@@ -257,7 +263,8 @@
                             for (MyGroup g : myGroupDao.searchmygroupno()) {
 
                         %>
-                        <option value="<%="_grp_"+g.getId().getMyGroupNo()%>" <%=mygroupno.equals(g.getId().getMyGroupNo()) ? "selected" : ""%>><%=g.getId().getMyGroupNo()%>
+                        <option value="<%="_grp_"+g.getId().getMyGroupNo()%>" <%=(mygroupno.equals("_grp_" + g.getId().getMyGroupNo())
+                                || (useProviderPreference && mygroupno.equals(g.getId().getMyGroupNo()))) ? "selected" : ""%>><%=g.getId().getMyGroupNo()%>
                         </option>
                         <%
                             }

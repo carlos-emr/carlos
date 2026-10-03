@@ -27,6 +27,9 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- Exports monthly and inclusive-range encounter counts as UTF-8 CSV.
+     Parameters: startDate and endDate (MM/yyyy); invalid ranges return HTTP 400.
+     @since 2026-10-02 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -58,23 +61,25 @@
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
     SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy");
-    Date startDate = new Date();
-    Date endDate = new Date();
-
+    dateFormatter.setLenient(false);
+    Date startDate;
+    Date endDate;
     try {
+        if (startDateString == null || endDateString == null
+                || !startDateString.matches("[0-9]{2}/[0-9]{4}")
+                || !endDateString.matches("[0-9]{2}/[0-9]{4}")) throw new ParseException("Invalid report month", 0);
         startDate = dateFormatter.parse(startDateString);
-    } catch (Exception e) {
-        // do nothing, bad input
-    }
-
-    try {
         endDate = dateFormatter.parse(endDateString);
-    } catch (Exception e) {
-        // do nothing, bad input
+        if (startDate.after(endDate)) throw new ParseException("Reversed report range", 0);
+    } catch (ParseException e) {
+        response.sendError(400, "Select a valid start and end month");
+        return;
     }
 
-    response.setContentType("application/x-download");
-    response.setHeader("Content-Disposition", "attachment; filename=provider_service_" + agencyName + "_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".csv");
+    response.setContentType("text/csv;charset=UTF-8");
+    String filename = "provider_service_" + new SimpleDateFormat("yyyy-MM").format(startDate)
+            + "_" + new SimpleDateFormat("yyyy-MM").format(endDate) + ".csv";
+    response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 
     // print header
     {

@@ -100,7 +100,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
                     rList.add(new DxRegistedPTInfo(demo.getFirstName(), demo.getLastName(), demo.getSex(),
                             demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth(),
                             demo.getPhone(), demo.getHin(), dxres.getCodingSystem(), dxres.getDxresearchCode(),
-                            dxres.getStartDate().toString(), dxres.getUpdateDate().toString(),
+                            new java.text.SimpleDateFormat("yyyy-MM-dd").format(dxres.getStartDate()),
+                            new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dxres.getUpdateDate()),
                             dxres.getStatus().toString()));
             }
         }

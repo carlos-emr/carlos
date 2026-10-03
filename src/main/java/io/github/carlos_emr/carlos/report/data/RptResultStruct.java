@@ -323,7 +323,7 @@ CSS:
         sb.append("<table id=\"report2\" class=\"reportTable display compact\">");
         sb.append("<thead><tr>");
         for (int i = 0; i < columns; i++) {  // for each column in result set
-            columnNames[i] = rsmd.getColumnName(i + 1);
+            columnNames[i] = rsmd.getColumnLabel(i + 1);
             // put names in array
             // use i+1 or else you're going to get an exception
             //  insert headings for table
@@ -341,7 +341,8 @@ CSS:
                 sb.append("<tr>");
                 for (int j = 0; j < columns; j++) {
                     sb.append("<td>");
-                    sb.append(Encode.forHtml(Misc.getString(rs, columnNames[j])));
+                    String value = rs.getString(j + 1);
+                    sb.append(Encode.forHtml(value == null ? "" : value));
                     sb.append(CELL_END);
 
                 }

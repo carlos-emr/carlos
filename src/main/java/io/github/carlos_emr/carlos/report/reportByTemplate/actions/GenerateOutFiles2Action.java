@@ -141,14 +141,11 @@ public class GenerateOutFiles2Action extends ActionSupport {
             try (HSSFWorkbook wb = new HSSFWorkbook()) {
                 HSSFSheet sheet = wb.createSheet("OSCAR_Report");
                 for (int x = 0; x < data.length; x++) {
-                    HSSFRow row = sheet.createRow((short) x);
+                    HSSFRow row = sheet.createRow(x);
                     for (int y = 0; y < data[x].length; y++) {
-                        try {
-                            double d = Double.parseDouble(data[x][y]);
-                            row.createCell((short) y).setCellValue(d);
-                        } catch (Exception e) {
-                            row.createCell((short) y).setCellValue(data[x][y]);
-                        }
+                        // CSV contains no SQL type information. Guessing numeric types corrupts
+                        // identifiers, leading zeros and values beyond Excel's numeric precision.
+                        row.createCell(y).setCellValue(data[x][y]);
                     }
                 }
                 wb.write(response.getOutputStream());
