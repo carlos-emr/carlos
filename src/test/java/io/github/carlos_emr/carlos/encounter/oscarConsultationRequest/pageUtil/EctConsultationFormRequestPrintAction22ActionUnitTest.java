@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -30,7 +32,6 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -46,10 +47,12 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.struts2.ActionSupport;
 
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -123,6 +126,11 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, consultationManager);
         registerMock(FaxManager.class, faxManager);
+        ConsultationRequestDao consultationRequestDao = mock(ConsultationRequestDao.class);
+        ConsultationRequest consultationRequest = new ConsultationRequest();
+        consultationRequest.setDemographicId(1);
+        when(consultationRequestDao.find(42)).thenReturn(consultationRequest);
+        registerMock(ConsultationRequestDao.class, consultationRequestDao);
         // CommonLabResultData resolves these DAOs in its static initializer; register them so the
         // class can initialize when Mockito instruments it for mocked construction below.
         registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
@@ -155,6 +163,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class);
 
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), any(String.class))).thenReturn(true);
 
         action = new EctConsultationFormRequestPrintAction22Action();
         // faxManager is a STATIC field resolved once at class load; capture the original and
@@ -185,6 +194,21 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should refuse to print a consult for a patient the provider is restricted from, before reading attachments")
+    void shouldRefusePrint_whenPatientIsRestricted() {
+        // General consult read is granted; the restriction is on this consult's own patient.
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        eDocUtilMock.verifyNoInteractions();
+        verifyNoInteractions(consultationManager, faxManager);
+        assertThat(response.getContentAsByteArray()).isEmpty();
     }
 
     @Test
@@ -282,7 +306,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(result).isEqualTo("error");
             assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
             assertThat(transportConstruction.constructed()).hasSize(1);
-            verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
+            org.mockito.Mockito.verify(transportConstruction.constructed().get(0)).setDemographicNo("2");
             // The FORM leg wraps identically to the EFORM leg: attachment named, reason preserved.
             assertThat(logCapture.events())
                     .anySatisfy(event -> {

@@ -266,11 +266,11 @@ public class EctConsultationFormRequestUtil {
 		
 		if (cr != null) {
 			fdid = cr.getFdid();
-			pwb = ConversionUtils.toBoolString(cr.isPatientWillBook());
-			urgency = cr.getUrgency();
-			providerNo = cr.getProviderNo();
-			referalDate = ConversionUtils.toDateString(cr.getReferralDate());
-			service = "" + cr.getServiceId();
+			pwb = StringUtils.noNull(ConversionUtils.toBoolString(cr.isPatientWillBook()));
+			urgency = StringUtils.noNull(cr.getUrgency());
+			providerNo = StringUtils.noNull(cr.getProviderNo());
+			referalDate = StringUtils.noNull(ConversionUtils.toDateString(cr.getReferralDate()));
+			service = cr.getServiceId() != null ? String.valueOf(cr.getServiceId()) : "";
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
@@ -328,13 +328,13 @@ public class EctConsultationFormRequestUtil {
 
 
 			Date appointmentTime = cr.getAppointmentTime();
-			reasonForConsultation = cr.getReasonForReferral();
-			clinicalInformation = cr.getClinicalInfo();
-			concurrentProblems = cr.getConcurrentProblems();
-			currentMedications = cr.getCurrentMeds();
-			allergies = cr.getAllergies();
-			sendTo = cr.getSendTo();
-			status = cr.getStatus();
+			reasonForConsultation = StringUtils.noNull(cr.getReasonForReferral());
+			clinicalInformation = StringUtils.noNull(cr.getClinicalInfo());
+			concurrentProblems = StringUtils.noNull(cr.getConcurrentProblems());
+			currentMedications = StringUtils.noNull(cr.getCurrentMeds());
+			allergies = StringUtils.noNull(cr.getAllergies());
+			sendTo = StringUtils.noNull(cr.getSendTo());
+			status = StringUtils.noNull(cr.getStatus());
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
@@ -349,7 +349,7 @@ public class EctConsultationFormRequestUtil {
             letterheadPhone = letterheadPhone == null ? "" : letterheadPhone;
             letterheadFax = letterheadFax == null ? "" : letterheadFax;
 
-            signatureImg = cr.getSignatureImg();
+            signatureImg = StringUtils.noNull(cr.getSignatureImg());
 
             appointmentNotes = cr.getStatusText();
             if (appointmentNotes == null || appointmentNotes.equals("null")) {
@@ -814,7 +814,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSendTo() {
-        return sendTo;
+        return StringUtils.noNull(sendTo);
     }
 
     public void setSendTo(String sendTo) {
@@ -926,7 +926,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSignatureImg() {
-        return signatureImg;
+        return StringUtils.noNull(signatureImg);
     }
 
     public void setSignatureImg(String signatureImg) {
