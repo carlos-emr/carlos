@@ -1090,7 +1090,7 @@ async function runChecks(context, cancellation) {
   } catch (error) {
     if (error instanceof SkipCheck) {
       exitCode = 2;
-      skipped = error.message;
+      skipped = 'Poppler pdftotext is unavailable';
     } else if (!cancellation.isCancellation(error)) {
       findings.push({ label: 'run', type: 'exception', text: browserErrorClass(error) });
     }

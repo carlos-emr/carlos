@@ -9,7 +9,7 @@ const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 
 for (const [error, expectedCode, expectedStatus] of [
-  [new SkipCheck('Poppler pdftotext is unavailable'), 2, 'SKIP:'],
+  [new SkipCheck('FAKE-PATIENT diagnostic must not be logged'), 2, 'SKIP:'],
   [new Error('preflight failure'), 1, 'FAIL:'],
 ]) {
   test(`Rx PDF preflight reports ${expectedStatus} and cleans up without starting a browser`, async () => {
@@ -34,8 +34,9 @@ for (const [error, expectedCode, expectedStatus] of [
     assert.equal(cleaned, true);
     assert.ok(output.some(line => line.startsWith(expectedStatus)));
     assert.ok(output.every(line => !line.startsWith('PASS:')));
+    assert.ok(output.every(line => !line.includes('FAKE-PATIENT')));
     assert.equal(summary.findings.length, expectedCode === 2 ? 0 : 1);
-    assert.equal(summary.skipped, expectedCode === 2 ? error.message : undefined);
+    assert.equal(summary.skipped, expectedCode === 2 ? 'Poppler pdftotext is unavailable' : undefined);
     assert.equal(signalProcess.listenerCount('SIGTERM'), 0);
   });
 }
