@@ -293,7 +293,11 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
                 "2026-03-05 14:30:00", "2026-03-05 23:59:59", "2026-03-06", "2026-03-06 00:00:00");
         for (int i = 0; i < timestamps.size(); i++) {
             String timestamp = timestamps.get(i);
-            LocalDateTime received = LocalDateTime.parse((timestamp.length() == 10 ? timestamp + " 00:00:00" : timestamp).replace(' ', 'T'));
+            // Offset receipt dates so selecting the wrong date column changes the returned lab IDs.
+            int receivedIndex = (i + 3) % timestamps.size();
+            String receivedTimestamp = timestamps.get(receivedIndex);
+            LocalDateTime received = LocalDateTime.parse((receivedTimestamp.length() == 10
+                    ? receivedTimestamp + " 00:00:00" : receivedTimestamp).replace(' ', 'T'));
             Hl7TextMessage message = new Hl7TextMessage();
             ReflectionTestUtils.setField(message, "created", Timestamp.valueOf(received));
             entityManager.persist(message);
@@ -309,7 +313,8 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
             routing.setProviderNo("999998");
             routing.setStatus("N");
             entityManager.persist(routing);
-            if (i >= 1 && i <= 4) expected.add(labNo);
+            int filteredIndex = "serviceObservation".equals(mode) ? i : receivedIndex;
+            if (filteredIndex >= 1 && filteredIndex <= 4) expected.add(labNo);
         }
         entityManager.flush();
         var rows = hl7TextInfoDao.findLabAndDocsViaMagic("999998", null, "Boundary", "Endday", "",
