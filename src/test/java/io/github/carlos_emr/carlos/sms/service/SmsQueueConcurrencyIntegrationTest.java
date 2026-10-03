@@ -43,19 +43,20 @@ class SmsQueueConcurrencyIntegrationTest extends CarlosTestBase {
             id = queued.getId();
         }
         CountDownLatch firstClaimed = new CountDownLatch(1);
-        CountDownLatch secondStarted = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> claim(firstClaimed, releaseFirst));
             assertThat(firstClaimed.await(10, TimeUnit.SECONDS)).isTrue();
-            var second = executor.submit(() -> {
-                secondStarted.countDown();
-                return claim(null, null);
-            });
-            assertThat(secondStarted.await(10, TimeUnit.SECONDS)).isTrue();
+            // The first claim still holds its row lock. SKIP LOCKED lets the second return at once with
+            // nothing claimed instead of waiting on that lock, which could deadlock on MariaDB (#3913).
+            var second = executor.submit(() -> claim(null, null));
+            assertThat(second.get(10, TimeUnit.SECONDS)).isZero();
             releaseFirst.countDown();
             assertThat(first.get(10, TimeUnit.SECONDS)).isEqualTo(1);
-            assertThat(second.get(10, TimeUnit.SECONDS)).isZero();
+            // The lock is gone now. A third claim finds nothing only because the first one marked the row
+            // as claimed, which is what makes the claim exclusive rather than the lock alone.
+            var third = executor.submit(() -> claim(null, null));
+            assertThat(third.get(10, TimeUnit.SECONDS)).isZero();
         } finally {
             releaseFirst.countDown();
             try (EntityManager cleanup = entityManagerFactory.createEntityManager()) {
