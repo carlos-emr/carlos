@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -99,6 +100,33 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(patient);
         entityManager.flush();
         return patient.getDemographicNo();
+    }
+
+    @Test
+    @DisplayName("should sort persisted recent patients with NULL and blank providers without dropping rows")
+    void shouldSortRecentPatients_whenProviderIsMissing() throws Exception {
+        int assigned = createRecentPatient();
+        int missing = createRecentPatient();
+        int blank = createRecentPatient();
+        entityManager.find(Demographic.class, assigned).setProviderNo("999998");
+        entityManager.find(Demographic.class, missing).setProviderNo(null);
+        entityManager.find(Demographic.class, blank).setProviderNo("");
+        entityManager.flush();
+        createOscarLog(assigned, "recent", "read", "demographic", "assigned", new Date(3000));
+        createOscarLog(missing, "recent", "read", "demographic", "missing", new Date(2000));
+        createOscarLog(blank, "recent", "read", "demographic", "blank", new Date(1000));
+        entityManager.clear();
+
+        List<Demographic> patients = new ArrayList<>();
+        for (Integer id : dao.getRecentDemographicsAccessedByProvider("recent", 0, 3)) {
+            patients.add(entityManager.find(Demographic.class, id));
+        }
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(assigned, missing, blank);
+        assertThat(patients).extracting(Demographic::getProviderNo).containsExactly("999998", null, "");
+
+        patients.sort(Demographic.ProviderNoComparator);
+
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(missing, blank, assigned);
     }
 
     @Test
