@@ -804,14 +804,12 @@ public class Utility {
     }
 
     /**
-     * Calculates age on the current date in the system time zone, incrementing on the birthday.
-     * Components are parsed only as needed by the month/day comparison; this legacy method
-     * does not validate that they form a real calendar date.
-     *
-     * @param year_of_birth birth year as a decimal integer
-     * @param month_of_birth birth month as a decimal integer, normally 1 through 12
-     * @param date_of_birth day of birth as a decimal integer, normally 1 through 31
-     * @return completed years, or -1 if a component that is parsed is not an integer
+     * Applies the {@link io.github.carlos_emr.carlos.util.UtilDateUtilities#calcAge(String, String, String) shared age contract}
+     * with legacy error handling: an unparseable component returns -1 instead of throwing.
+     * @param year_of_birth decimal birth year
+     * @param month_of_birth decimal birth month (normally 1–12)
+     * @param date_of_birth decimal birth day (normally 1–31)
+     * @return completed years on the current local date, or -1 for an unparseable component
      */
     public static int calcAge(String year_of_birth, String month_of_birth, String date_of_birth) {
         try {
