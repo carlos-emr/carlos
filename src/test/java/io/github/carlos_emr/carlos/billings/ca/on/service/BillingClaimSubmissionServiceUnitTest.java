@@ -42,9 +42,11 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -513,4 +515,22 @@ class BillingClaimSubmissionServiceUnitTest extends CarlosUnitTestBase {
         request.setParameter("discount", "");
         return request;
     }
+    @Test
+    void shouldKeepClaimPayeeSeparate_fromThirdPartyPaymentMethod() {
+        for (String billType : List.of("PAT", "IFH", "CPP", "STD", "OCF", "ODS")) {
+            var request = standardBillingRequest(billType, "Save");
+            request.setParameter("totalItem", "0");
+            request.setParameter("payMethod", "123");
+            assertThat(service.getSubmission(request).header().getPayee()).as(billType).isEqualTo("P");
+            when(mockPersister.add3rdBillExt(anyMap(), eq(1234))).thenReturn(true);
+            assertThat(service.addPrivateBillExtRecord(request, 1234)).isTrue();
+        }
+        verify(mockPersister, times(6)).add3rdBillExt(
+                argThat(values -> "123".equals(values.get("payMethod"))), eq(1234));
+        var request = hospitalBillingRequest();
+        request.setParameter("totalItem", "0");
+        request.setParameter("payMethod", "123");
+        assertThat(service.getHospitalSubmission(request, "2026-04-28", "0.00", List.of()).header().getPayee()).isEqualTo("P");
+    }
+
 }

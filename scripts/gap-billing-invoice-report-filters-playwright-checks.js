@@ -14,10 +14,10 @@
  * program and the RA-derived paid amount, adjustment and error code; the footer counts, billed,
  * paid and adjustment totals equal the rows; each filter (bill type, service code, dx, visit type,
  * visit location, RA code) narrows the list to exactly the matching owned claims;
- * Export to CSV downloads the listed invoices; Claim No narrows to its claim. The LAST step fails
- * today on two defects: emptying the Serv. Code box (it arrives holding "%") makes the report take
- * the legacy query that inner-joins billing_on_payment, so every claim without a payment record
- * disappears; and the LOCATION header sort answers HTTP 500 when a claim has no visit location.
+ * Export to CSV downloads the listed invoices; Claim No narrows to its claim. LOCATION sorting
+ * retains configured and missing locations in both directions. The last step separately checks
+ * #4153: emptying the Serv. Code box (initially "%") must not hide unpaid claims through the
+ * legacy query that inner-joins billing_on_payment.
  *
  * Fixtures: createBillingFixture (owned provider, HIN) with three submitted claims (two OHIP, one
  * WSIB; different codes, dx, visit type and location) and two owned radetail rows under an owned
@@ -191,24 +191,21 @@ async function workflow(s) {
     h.assert(invoices(rows) === wanted([one]), 'Claim No did not narrow the list to the claim of that RA claim number');
   });
 
-  // Last: both fail today (a legacy query path and a null visit location in the sort comparator).
-  await s.step('emptying the Serv. Code box keeps the unpaid claims and the LOCATION header sorts them', async () => {
-    const problems = [];
-    const rows = await report({ serviceCode: '' });
-    if (invoices(rows) !== wanted([one, two, three])) {
-      problems.push('clearing the Serv. Code box hides every claim without a payment record (the report then joins billing_on_payment)');
-    }
+  await s.step('LOCATION sorts claims with missing visit locations in both directions', async () => {
     await report();
-    try {
-      const asc = await sortBy('LOCATION');
-      const desc = await sortBy('LOCATION');
-      if (asc.length !== 3 || asc.map(c => c[12]).join(',') !== desc.map(c => c[12]).reverse().join(',')) {
-        problems.push('the LOCATION sort is not reversed by a second click');
-      }
-    } catch (error) {
-      problems.push('sorting by the LOCATION header failed (the page answers HTTP 500 when a claim has no visit location)');
-    }
-    h.assert(!problems.length, problems.join('; '));
+    const asc = await sortBy('LOCATION');
+    const desc = await sortBy('LOCATION');
+    h.assert(asc[asc.length - 1][12] === two.id && desc[0][12] === two.id,
+      `The configured location must follow missing locations ascending and precede them descending: asc=${names(asc)}, desc=${names(desc)}, expected=${two.id}`);
+    h.assert(asc.length === 3 && asc.map(c => c[12]).join(',') === desc.map(c => c[12]).reverse().join(','),
+      'The LOCATION sort did not preserve all rows and reverse on the second click');
+  });
+
+  // Separate regression L270 (#4153): keep the empty-filter path independently observable.
+  await s.step('emptying the Serv. Code box keeps the unpaid claims', async () => {
+    const rows = await report({ serviceCode: '' });
+    h.assert(invoices(rows) === wanted([one, two, three]),
+      'Clearing the Serv. Code box hides claims without a payment record');
   });
 }
 

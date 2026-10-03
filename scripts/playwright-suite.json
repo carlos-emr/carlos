@@ -5813,7 +5813,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Referral Doctor search popup lists the owned specialist but picking a row throws 'Invalid or unexpected token' (handler JavaScript-encoded twice, ISSUES L214), so the referral number never reaches the bill form. The four earlier steps (header options, typed codes with units and percent, review, Save) pass.",
+      "notes": "Admission dates survive hospital/nursing-home visit changes and clear for outpatient visits. Header options, typed codes with units/percent, review totals and Save pass. The last step retains the separate referral-picker failure (ISSUES L214): selecting the owned specialist throws Invalid or unexpected token and does not fill the referral number.",
       "fixtures": "createBillingFixture (owned billing provider with OHIP/group numbers in the operator's sites, synthetic HIN on the owned FAKE- patient), an owned professionalSpecialists row (last name = marker), two owned appointments today; claim rows the browser writes are removed by id and asserted gone."
     },
     {
@@ -5828,7 +5828,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Passes on 2026.08 (seven bill types: Do Not Bill, IFH, CPP, STD/LTD, OCF, ODS, Bill Patient with a private code).",
+      "notes": "Verifies all seven bill types, MOH payee P, and independent payment-method persistence: Do Not Bill, IFH, CPP, STD/LTD, OCF, ODS, and Bill Patient with a private code.",
       "fixtures": "createBillingFixture, seven owned appointments today (one per bill type); claim, ext and transaction rows written by the browser removed by id and asserted gone."
     },
     {
@@ -5858,7 +5858,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Settle All settles the bill without writing its billing_on_payment record (oldStatus is read after the header was already updated), a Save from the Administration entry lands the frame on close.html because the GET search form drops ?admin, and an OHIP claim number typed alone cannot be searched (the invoice-number field is required). Lookup, unknown invoice, Rebill OHIP and Reprint pass.",
+      "notes": "Lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup pass. The final separate #4152 assertion checks that Settle All writes a billing_on_payment record; the baseline settles the header without that payment.",
       "fixtures": "Two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page lists, with the operator's missing site memberships added and removed) and an owned raheader/radetail pair (claim number); all removed and asserted gone."
     },
     {
@@ -5891,7 +5891,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: emptying the Serv. Code box (it arrives holding '%') makes Invoice Reports take a legacy query that inner-joins billing_on_payment, so every claim without a payment record disappears; and the LOCATION column sort answers HTTP 500 when a claim has no visit location (NPE in VISIT_LOCATION_COMPARATOR). Report rows, RA columns, footer totals, bill type / service code / dx / visit type / location / RA code / claim number filters and the CSV export pass.",
+      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. The last separate #4153 assertion retains the empty-service-code filter failure, which hides claims without payment records.",
       "fixtures": "createBillingFixture with three submitted claims (OHIP x2, WSIB) and two owned radetail rows under an owned raheader; all removed and asserted gone."
     },
     {
@@ -5939,7 +5939,7 @@
         "RA_DOCUMENT_DIR",
         "RA_EDT_INBOX"
       ],
-      "notes": "Fails on 2026.08 in its single step after proving the R (batch eligibility) upload, the ## version flag and the repeat upload: the patient alert starts with a literal 'null' line (the empty alert is concatenated), and the Batch Acknowledgement (B) report answers HTTP 500 (billingEAreport.jsp reads batchAcks.batchAckReportBeanVector, which the parser does not have; ISSUES L137 'likely' now confirmed). Every report page also links a missing /billing.css.",
+      "notes": "Verifies R eligibility upload, version flag, repeat upload, patient alerts without a null prefix, B batch acknowledgement rendering, and working report stylesheets. Uses only owned return files; sends nothing to MOH.",
       "fixtures": "createBillingFixture, an owned demographiccust row, the uploaded R and B files in DOCUMENT_DIR and the MOH inbox; all removed and asserted gone. Nothing is sent to MOH/MCEDT."
     },
     {
@@ -5954,8 +5954,23 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a malformed percent (abc) is not stopped by the form's decimal-number alert (its check selects ids the percent boxes lack) and Next answers HTTP 500 (BillingReviewLoader NumberFormatException); the review page of an unknown or duplicated code and a fee edited on an OHIP review page also throw script errors (total / gst elements missing). The empty-form alert, empty-Dx confirm, unknown/duplicate-code warnings with no Save, and the fee override saved to the item pass.",
+      "notes": "Checks form warnings, invalid/duplicate review navigation, OHIP fee override persistence, malformed-percent client validation, and direct POST rejection of malformed, oversized and exponent-notation multipliers without a Save action or written claim.",
       "fixtures": "createBillingFixture and three owned appointments today; claims written by the browser removed by id and asserted gone."
+    },
+    {
+      "name": "billing-review-failed-calculation",
+      "script": "scripts/billing-review-failed-calculation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "A malformed configured private fee displays a warning, blocks every Save/Print/Settle action, permits Back to Edit with the code preserved, and writes no claim.",
+      "fixtures": "Owned provider, patient, appointment and unique malformed billingservice fee; all removed by the workflow cleanup."
     },
     {
       "name": "gap-records-demographic-add-fields",

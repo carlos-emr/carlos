@@ -176,4 +176,43 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
                 .setParameter("billingNo", billingNo)
                 .getSingleResult();
     }
+    @Test
+    @Transactional
+    void shouldPersistClaimPayeeAndPaymentMethod_inSeparateColumns() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.getSession().setAttribute("user", "999998");
+        Map<String, String> inputs = Map.ofEntries(
+                Map.entry("xml_billtype", "PAT"), Map.entry("demographic_no", "700001"),
+                Map.entry("demographic_name", "Fixture,Patient"), Map.entry("demographic_dob", "1980-01-01"),
+                Map.entry("hin", "1234567890"), Map.entry("ver", "ZZ"), Map.entry("hc_type", "ON"),
+                Map.entry("xml_provider", "999998|123456"), Map.entry("xml_location", "0001|Clinic"),
+                Map.entry("xml_visittype", "00|Clinic"), Map.entry("service_date", "2026-05-01"),
+                Map.entry("total", "0.00"), Map.entry("total_payment", "0.00"),
+                Map.entry("totalItem", "0"), Map.entry("payMethod", "123"), Map.entry("submit", "Save"),
+                Map.entry("apptProvider_no", "999998"), Map.entry("site", ""));
+        inputs.forEach(request::setParameter);
+        var submissionService = new BillingClaimSubmissionService(persister,
+                org.mockito.Mockito.mock(BillingOnLookupService.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class));
+        var submission = submissionService.getSubmission(request);
+        int id = persister.addOneClaimHeaderRecord(submission.header());
+        var values = new HashMap<String, String>();
+        values.put("demographic_no", "700001");
+        values.put("payMethod", "123");
+        values.put("total_payment", "0.00");
+        values.put("total_discount", "0.00");
+        var envelope = new ArrayList<Object>();
+        envelope.add(submission.header().withId(String.valueOf(id)));
+        envelope.add(List.of());
+        assertThat(persister.add3rdBillExt(values, id, envelope)).isTrue();
+        hibernateTemplate.flush();
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.find(BillingONCHeader1.class, id).getPayee()).isEqualTo("P");
+        assertThat(entityManager.createQuery("SELECT p.paymentTypeId FROM BillingONPayment p WHERE p.billingNo=:id", Integer.class)
+                .setParameter("id", id).getSingleResult()).isEqualTo(123);
+        assertThat(entityManager.createQuery("SELECT e.value FROM BillingONExt e WHERE e.billingNo=:id AND e.keyVal='payMethod'", String.class)
+                .setParameter("id", id).getSingleResult()).isEqualTo("123");
+    }
+
 }

@@ -61,7 +61,6 @@ async function workflow(s) {
   const fee = g.scheduleFee(sql, 'A007A');
   const privateFee = g.scheduleFee(sql, '_OMA_A007');
   let minute = 0;
-  const paymentIds = sql.rows('SELECT id FROM billing_payment_type').map(row => row[0]);
 
   const appointments = TYPES.map(() => {
     const clock = 15 * 60 + minute;
@@ -91,6 +90,8 @@ async function workflow(s) {
         h.assert(await form.locator('#billTo').count() === 1, `The review page of bill type ${prefix} offers no bill-to`);
         await form.locator('#billTo').fill(billTo);
       }
+      const paymentMethod = thirdParty
+        ? await form.locator('input[name="payMethod"]:checked').inputValue() : null;
       await Promise.all([
         form.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/billing/CA/ON/BillingONSave'),
           { timeout: 30000 }),
@@ -100,8 +101,8 @@ async function workflow(s) {
         WHERE demographic_no=${patient} AND appointment_no=${appointment}`);
       h.assert(rows.length === 1, `Bill type ${prefix} did not save exactly one claim`);
       const [id, program, headerStatus, payee, total] = rows[0];
-      // Third-party bills keep the chosen payment-method id in the one-character payee column.
-      const payeeOk = thirdParty ? paymentIds.includes(payee) : payee === 'P';
+      // Payment-method IDs must never replace the one-character claim payee code.
+      const payeeOk = payee === 'P';
       h.assert(program === payProgram && headerStatus === status && payeeOk,
         `Bill type ${prefix} saved pay program ${program}, status ${headerStatus} and payee ${payee}`);
       const items = g.itemsOf(sql, id);
@@ -112,6 +113,10 @@ async function workflow(s) {
         const ext = sql.rows(`SELECT key_val, value FROM billing_on_ext WHERE billing_no=${id}`);
         h.assert(ext.some(([key, value]) => key === 'billTo' && value === billTo),
           `Bill type ${prefix} did not write its billTo row with the typed bill-to`);
+        h.assert(ext.some(([key, value]) => key === 'payMethod' && value === paymentMethod),
+          `Bill type ${prefix} lost its selected payment method`);
+        h.assert(sql.value(`SELECT paymentTypeId FROM billing_on_payment WHERE billing_no=${id}`) === paymentMethod,
+          `Bill type ${prefix} stored the wrong payment method on its payment record`);
       } else {
         h.assert(Number(trans) > 0, `Bill type ${prefix} did not write its transaction row`);
       }

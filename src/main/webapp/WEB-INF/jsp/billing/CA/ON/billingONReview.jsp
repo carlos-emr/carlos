@@ -21,9 +21,12 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: This page provides an opportunity to review
-  and potentially print bills specified in billingON.jsp
-  Expected request model data includes: reviewModel.
+  Purpose: Review calculated Ontario claims before saving or printing.
+  Features: fee edits, totals and validation feedback, Back to Edit, and payer-specific save/print
+    actions; failed calculations block saving while preserving the entered bill for correction.
+  Parameters: reviewModel request attribute supplies calculated lines, totals, validation flags,
+    payer/payment options and original request fields; billingAction selects the submitted operation.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -110,7 +113,9 @@
             if (el != null) {
                 document.getElementById('payMethod_0').checked = true;
             }
-            var subtotal = document.getElementById("total").value;
+            var totalField = document.getElementById("total");
+            if (!totalField) return;
+            var subtotal = totalField.value;
             var element = document.getElementById("stotal");
             if (element != null)
                 element.value = subtotal;
@@ -163,11 +168,15 @@
         }
 
         function updateElement(eId, data) {
-            document.getElementById(eId).value = data;
+            var element = document.getElementById(eId);
+            if (element) element.value = data;
         }
 
         function checkTotal() {
-            var totValue = document.getElementById("total").value;
+            var totalField = document.getElementById("total");
+            // Invalid/duplicate reviews offer only Back to Edit and no total field.
+            if (!totalField) return !bClick;
+            var totValue = totalField.value;
             if (isNaN(totValue)) {
                 alert("${carlos:forJavaScript(msgEnterValidFee)}");
                 return false;
@@ -756,6 +765,7 @@
     </tr>
     <tr>
         <td colspan='2' align='center' bgcolor="silver">
+            <c:if test="${not reviewModel.totalsParseFailed and not reviewModel.dupServiceCode}">
             <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
                    style="width: 150px;"
                    onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
@@ -763,6 +773,7 @@
                    value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
                    style="width: 160px;"
                    onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
+            </c:if>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
             <input type="hidden" name="refund" id="refund" value="0.00"/>
@@ -822,9 +833,9 @@
                 total = total.toFixed(2);
             }
         });
-        document.getElementById("total").value = total;
-        document.getElementById("gstBilledTotal").value = total;
-        document.getElementById("stotal").value = total;
+        updateElement("total", total);
+        updateElement("gstBilledTotal", total);
+        updateElement("stotal", total);
     }
 
     function onTotalChanged() {
@@ -837,8 +848,8 @@
         }
 
         var total = document.getElementById("total").value;
-        document.getElementById("gstBilledTotal").value = total;
-        document.getElementById("stotal").value = total;
+        updateElement("gstBilledTotal", total);
+        updateElement("stotal", total);
     }
 
     function addToDiseaseRegistry() {
