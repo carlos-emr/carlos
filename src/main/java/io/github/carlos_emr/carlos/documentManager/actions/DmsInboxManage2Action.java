@@ -64,6 +64,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.*;
 
 import org.apache.struts2.ActionSupport;
@@ -358,10 +359,9 @@ public class DmsInboxManage2Action extends ActionSupport {
         try {
             endDate = sdf.parse(endDateStr);
             // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
-            Calendar nextDay = Calendar.getInstance();
-            nextDay.setTime(endDate);
-            nextDay.add(Calendar.DAY_OF_MONTH, 1);
-            endDate = new Date(nextDay.getTimeInMillis() - 1);
+            ZoneId clinicZone = ZoneId.systemDefault();
+            endDate = Date.from(endDate.toInstant().atZone(clinicZone).toLocalDate()
+                    .plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
         } catch (Exception e) {
             endDate = null;
         }

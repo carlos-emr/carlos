@@ -29,6 +29,7 @@ import java.util.function.ToIntFunction;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -70,4 +71,15 @@ class BirthdayAgeUnitTest {
         assertThat(calculator.applyAsInt(leapBirthday)).as(name + " leap birthday")
                 .isEqualTo((int) ChronoUnit.YEARS.between(leapBirthday, today));
     }
+    @Test
+    void shouldPreserveLegacyErrorContracts_whenBirthComponentsAreUnparseable() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> UtilDateUtilities.calcAge("2000", "invalid", "1"))
+                .isInstanceOf(NumberFormatException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities.calcAge("2000", "invalid", "1"))
+                .isInstanceOf(NumberFormatException.class);
+        assertThat(io.github.carlos_emr.carlos.PMmodule.utility.Utility.calcAge("2000", "invalid", "1"))
+                .isEqualTo(-1);
+    }
+
 }

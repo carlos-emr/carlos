@@ -164,23 +164,9 @@ public class UtilDateUtilities {
      * @throws NumberFormatException if a component that is parsed is not an integer
      */
     public static int calcAge(String year_of_birth, String month_of_birth, String date_of_birth) {
-        GregorianCalendar now = new GregorianCalendar();
-        int curYear = now.get(Calendar.YEAR);
-        int curMonth = (now.get(Calendar.MONTH) + 1);
-        int curDay = now.get(Calendar.DAY_OF_MONTH);
-        int age = 0;
-
-        if (curMonth > Integer.parseInt(month_of_birth)) {
-            age = curYear - Integer.parseInt(year_of_birth);
-        } else {
-            if (curMonth == Integer.parseInt(month_of_birth) && curDay >= Integer.parseInt(date_of_birth)) {
-                age = curYear - Integer.parseInt(year_of_birth);
-            } else {
-                age = curYear - Integer.parseInt(year_of_birth) - 1;
-            }
-        }
-        return age;
+        return io.github.carlos_emr.carlos.util.UtilDateUtilities.calcAge(year_of_birth, month_of_birth, date_of_birth);
     }
+
 
     private static String defaultPattern = "yyyy-MM-dd";
     //    private static String dateTimePattern = "yyyy-MM-dd HH:mm:ss"; timeStampPattern = "yyyyMMddHHmmss";
