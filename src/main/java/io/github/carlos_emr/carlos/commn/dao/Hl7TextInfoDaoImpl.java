@@ -510,7 +510,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         Query query = entityManager.createNativeQuery(sql);
 
         // Inbox bounds are calendar dates. Date-only ISO bounds also match legacy date-only
-        // obr_date values; an exclusive next-day bound includes fractional seconds on the end day.
+        // obr_date values; an exclusive next-day bound includes every time on the end day.
         // Calendar arithmetic avoids assuming every local day lasts 24 hours.
         // Setting parameters for the query based on the presence of placeholders in the SQL string
         if (startDate != null && sql.contains(":startDate")) query.setParameter("startDate", inboxCalendarDate(startDate).toString());

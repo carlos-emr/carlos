@@ -357,7 +357,11 @@ public class DmsInboxManage2Action extends ActionSupport {
         //Tries to convert the end date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
         try {
             endDate = sdf.parse(endDateStr);
-            endDate.setTime(endDate.getTime() + ((1000 * 3600 * 24) - 1));
+            // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
+            Calendar nextDay = Calendar.getInstance();
+            nextDay.setTime(endDate);
+            nextDay.add(Calendar.DAY_OF_MONTH, 1);
+            endDate = new Date(nextDay.getTimeInMillis() - 1);
         } catch (Exception e) {
             endDate = null;
         }

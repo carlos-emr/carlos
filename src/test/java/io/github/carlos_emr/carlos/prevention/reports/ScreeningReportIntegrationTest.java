@@ -104,7 +104,7 @@ class ScreeningReportIntegrationTest extends CarlosTestBase {
         demographic.setMonthOfBirth("01");
         demographic.setDateOfBirth("01");
         try (MockedStatic<PreventionData> data = mockStatic(PreventionData.class);
-             MockedConstruction<DemographicData> demographics = mockConstruction(DemographicData.class,
+             MockedConstruction<DemographicData> _ = mockConstruction(DemographicData.class,
                      (mock, context) -> when(mock.getDemographic(info, "770001")).thenReturn(demographic));
              MockedConstruction<EctMeasurementsDataBeanHandler> measurements = mockConstruction(
                      EctMeasurementsDataBeanHandler.class,

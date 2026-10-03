@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.util;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.temporal.ChronoUnit;
 import java.util.function.ToIntFunction;
 import java.util.stream.Stream;
@@ -65,7 +66,7 @@ class BirthdayAgeUnitTest {
         assertThat(calculator.applyAsInt(birthday)).as(name + " on birthday").isEqualTo(24);
         assertThat(calculator.applyAsInt(birthday.minusDays(1))).as(name + " after birthday").isEqualTo(24);
         assertThat(calculator.applyAsInt(today.minusYears(65))).as(name + " 65th birthday").isEqualTo(65);
-        LocalDate leapBirthday = LocalDate.of(2000, 2, 29);
+        LocalDate leapBirthday = LocalDate.of(2000, Month.FEBRUARY, 29);
         assertThat(calculator.applyAsInt(leapBirthday)).as(name + " leap birthday")
                 .isEqualTo((int) ChronoUnit.YEARS.between(leapBirthday, today));
     }

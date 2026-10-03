@@ -65,6 +65,7 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         query.executeUpdate();
     }
 
+    /** {@inheritDoc} */
     @NativeSql("reportagesex")
     @Override
     public void populateAll(String yearOfBirth) {

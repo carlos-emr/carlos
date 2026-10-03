@@ -5621,7 +5621,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Five documents (ctl_document + routing) and five HL7 labs (hl7TextMessage + hl7TextInfo + providerLabRouting) for the owned patient dated 2026-03-02 .. 2026-03-06; the owned patient's HIN is set to '' (NULL HIN is ISSUES L207). Cleanup removes every row by id and asserts none remain. The clinic-wide inbox date preference is not changed on the default mode (absent, NULL, empty or serviceObservation); on an install set to another mode the check SKIPs unless INBOX_DATE_EXCLUSIVE=1 is given under the EXCLUSIVE=1 wrapper, when it snapshots, switches and restores it.",
-      "notes": "Checks inclusive calendar start/end dates for documents and labs, including the final fractional second of the end day, while excluding the preceding and following days."
+      "notes": "Checks inclusive calendar start/end dates for documents and labs, including date-only observations and the final second of the end day, while excluding the preceding and following days."
     },
     {
       "name": "boundary-date-prevention-report",

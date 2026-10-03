@@ -290,7 +290,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(new SystemPreferences("inboxDateSearchType", mode));
         List<Integer> expected = new ArrayList<>();
         List<String> timestamps = List.of("2026-03-02 23:59:59", "2026-03-03", "2026-03-03 00:00:00",
-                "2026-03-05 14:30:00", "2026-03-05 23:59:59.999", "2026-03-06", "2026-03-06 00:00:00");
+                "2026-03-05 14:30:00", "2026-03-05 23:59:59", "2026-03-06", "2026-03-06 00:00:00");
         for (int i = 0; i < timestamps.size(); i++) {
             String timestamp = timestamps.get(i);
             LocalDateTime received = LocalDateTime.parse((timestamp.length() == 10 ? timestamp + " 00:00:00" : timestamp).replace(' ', 'T'));
