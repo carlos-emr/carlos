@@ -46,16 +46,17 @@ class CaseManagementPrintAssemblyUnitTest {
         var response = new ByteArrayOutputStream();
         List<Object> inputs = List.of("synthetic.pdf");
         byte[] pdf = "%PDF-synthetic-completed-document".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-        try (var paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+        try (var paths = mockStatic(PathValidationUtils.class, invocation -> {
+                 Object result = invocation.callRealMethod();
+                 if ("createSecureTempFile".equals(invocation.getMethod().getName())) {
+                     File file = (File) result;
+                     stagedFile.set(file);
+                     assertThat(Files.getPosixFilePermissions(file.toPath())).containsExactlyInAnyOrder(
+                             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+                 }
+                 return result;
+             });
              var merger = mockStatic(ConcatPDF.class)) {
-            paths.when(() -> PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf"))
-                    .thenAnswer(invocation -> {
-                        File file = (File) invocation.callRealMethod();
-                        stagedFile.set(file);
-                        assertThat(Files.getPosixFilePermissions(file.toPath())).containsExactlyInAnyOrder(
-                                PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
-                        return file;
-                    });
             merger.when(() -> ConcatPDF.concatRequired(eq(inputs), any(OutputStream.class)))
                     .thenAnswer(invocation -> {
                         OutputStream output = invocation.getArgument(1);
@@ -73,6 +74,7 @@ class CaseManagementPrintAssemblyUnitTest {
                 assertThat(response.toByteArray()).isEqualTo(pdf);
             }
             assertThat(stagedFile.get()).isNotNull().doesNotExist();
+            paths.verify(() -> PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf"));
             merger.verify(() -> ConcatPDF.concatRequired(eq(inputs), any(OutputStream.class)));
         }
     }
