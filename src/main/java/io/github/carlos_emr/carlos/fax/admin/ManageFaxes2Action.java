@@ -155,7 +155,7 @@ public class ManageFaxes2Action extends Fax2Action {
 
         if (faxConfig == null) {
             // FaxJob.getId() returns an Integer, not request text.
-            // nosemgrep: semgrep.carlos.crlf-injection-logs
+            // nosemgrep: carlos.crlf-injection-logs
             log.error("Could not find faxConfig while processing fax id: {} Has the fax number changed?", faxJob.getId());
         } else if (faxConfig.isActive()) {
 
