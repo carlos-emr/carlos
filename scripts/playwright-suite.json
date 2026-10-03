@@ -6630,7 +6630,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Two FAKE- Service programs and one FAKE- Bed program (the default OSCAR program is a Bed program, which the report skips), one more owned patient, doctor-role notes dated February/March 2003; precondition: no notes dated Jan-Apr 2003 exist. Cleanup deletes only those programs/notes/patient and asserts them gone. The page's known oscarMonth TypeError (ISSUES L112) is set aside so the file can be read; any other page error still fails the step.",
-      "notes": "Regression coverage for #4174: verifies inclusive month labels, safe filenames, active Bed and Service programs, unarchived current-note counts, UTF-8 quoting, and explicit HTTP 400 responses for malformed or reversed date ranges."
+      "notes": "Regression coverage for #4174: verifies inclusive month labels, safe filenames, active Bed and Service programs, unarchived current-note counts, UTF-8 quoting, and explicit HTTP 400 responses for malformed or reversed date ranges. A revised note changes month and encounter type; only its latest bucket may be counted."
     },
     {
       "name": "export-content-eform-export-zip",
@@ -6660,7 +6660,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned FAKE-PW patient (accented first name, multi-line address) and one marker-titled reportTemplates row (a no-parameter SELECT with aliases, two columns named last_name, NULL, DATE, DATETIME, DECIMAL, a leading-zero text and a 17-digit text); cleanup deletes only the marker template and asserts it gone.",
-      "notes": "Regression coverage for #4174: verifies SQL aliases, duplicate-named columns by position, CSV/XLS values, and text preservation for leading-zero and long identifiers."
+      "notes": "Regression coverage for #4174: verifies SQL aliases, duplicate-named columns by position, CSV/XLS values, and text preservation for leading-zero and long identifiers. Ordinary fees and counts must remain numeric for spreadsheet calculations."
     },
     {
       "name": "export-content-patient-labels",
@@ -6675,7 +6675,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Two FAKE- patients with realistic short names written by SQL (one with a middle name starting with a non-Latin-1 letter, one with a NULL middle name); the runWorkflow patient only owns the session. Cleanup deletes the two patients (and their chart-lock/ext/archive rows) and asserts it. Needs pdftotext.",
-      "notes": "Regression coverage for #4174: reads the generated PDF text and verifies patient identity, Unicode middle names, whole-year ages and absent-middle-name handling."
+      "notes": "Regression coverage for #4174: reads the generated PDF text and verifies patient identity, Unicode middle names, whole-year ages and absent-middle-name handling. Database-backed PDF checks cover incomplete birth dates and birthdays today versus tomorrow."
     },
     {
       "name": "export-content-lab-print",

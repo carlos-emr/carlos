@@ -22,6 +22,7 @@
 --%>
 <%-- Disease Registry report and spreadsheet export controls. Preserves the selected
      provider_no (provider, group or *) after searches and status changes.
+     Parameters: provider_no selects a provider, a group (_grp_ prefix), or all providers (*).
      @since 2026-10-02 --%>
 <%--
   Page role: Renders `oscarReportDxReg.jsp` for the reporting workflow.
@@ -135,9 +136,9 @@
         ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
         String curUser_no = (String) session.getAttribute("user");
         String mygroupno = request.getParameter("provider_no");
-        boolean useProviderPreference = mygroupno == null;
+        boolean useProviderPreference = mygroupno == null || mygroupno.isBlank();
         if (useProviderPreference && providerPreference != null) mygroupno = providerPreference.getMyGroupNo();
-        if (mygroupno == null) mygroupno = "*";
+        if (mygroupno == null || mygroupno.isBlank()) mygroupno = "*";
         pageContext.setAttribute("mygroupno", mygroupno);
         String radiostatus = (String) session.getAttribute("radiovaluestatus");
         if (radiostatus == null || radiostatus.isEmpty()) {

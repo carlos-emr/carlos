@@ -36,6 +36,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 import java.util.Map;
 
 import jakarta.persistence.Query;
@@ -71,6 +73,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
     public List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList) {
 
         List<DxRegistedPTInfo> rList = new ArrayList<DxRegistedPTInfo>();
+        SimpleDateFormat startDateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+        SimpleDateFormat updateDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
 
 
         Iterator<Dxresearch> i = dList.listIterator();
@@ -100,8 +104,8 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
                     rList.add(new DxRegistedPTInfo(demo.getFirstName(), demo.getLastName(), demo.getSex(),
                             demo.getYearOfBirth() + "-" + demo.getMonthOfBirth() + "-" + demo.getDateOfBirth(),
                             demo.getPhone(), demo.getHin(), dxres.getCodingSystem(), dxres.getDxresearchCode(),
-                            new java.text.SimpleDateFormat("yyyy-MM-dd").format(dxres.getStartDate()),
-                            new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(dxres.getUpdateDate()),
+                            startDateFormat.format(dxres.getStartDate()),
+                            updateDateFormat.format(dxres.getUpdateDate()),
                             dxres.getStatus().toString()));
             }
         }

@@ -32,6 +32,7 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
@@ -55,7 +56,7 @@ public class ProviderServiceReportUIBean {
 
     private Date startDate = null;
     private Date endDate = null;
-    private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM");
+    private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM", Locale.ROOT);
 
     public ProviderServiceReportUIBean(Date startDate, Date endDate) {
         this.startDate = startDate;

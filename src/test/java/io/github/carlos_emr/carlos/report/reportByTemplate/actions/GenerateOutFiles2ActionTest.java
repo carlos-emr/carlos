@@ -181,15 +181,32 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveTextExactly_whenExportingNumericLookingIdentifiers() throws Exception {
         request.setParameter("getXLS", "Export to XLS");
-        request.setParameter("csv", "chart,reference,amount,formula\n00123,12345678901234567,-12.50,=1+1\n");
+        request.setParameter("csv", "chart,reference,precision,formula,negativeId,exponent,negativeZero,sixteenDigits\n00123,12345678901234567,1.23456789012345678,=1+1,-001,1e20,-0,1234567890123456\n");
         assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
         try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
                 new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
             var row = workbook.getSheetAt(0).getRow(1);
-            String[] expected = {"00123", "12345678901234567", "-12.50", "=1+1"};
+            String[] expected = {"00123", "12345678901234567", "1.23456789012345678", "=1+1", "-001", "1e20", "-0", "1234567890123456"};
             for (int column = 0; column < expected.length; column++) {
                 assertThat(row.getCell(column).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
                 assertThat(row.getCell(column).getStringCellValue()).isEqualTo(expected[column]);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepSafeNumbersNumeric_whenExportingCountsAndAmounts() throws Exception {
+        request.setParameter("getXLS", "Export to XLS");
+        request.setParameter("csv", "2026,amount,zero,maximum\n42,-12.50,0,999999999999999\n");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
+                new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
+            assertThat(workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue()).isEqualTo("2026");
+            double[] expected = {42, -12.5, 0, 999999999999999d};
+            var row = workbook.getSheetAt(0).getRow(1);
+            for (int column = 0; column < expected.length; column++) {
+                assertThat(row.getCell(column).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.NUMERIC);
+                assertThat(row.getCell(column).getNumericCellValue()).isEqualTo(expected[column]);
             }
         }
     }

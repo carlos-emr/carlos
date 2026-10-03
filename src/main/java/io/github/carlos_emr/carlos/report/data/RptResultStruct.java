@@ -37,7 +37,6 @@
 
 package io.github.carlos_emr.carlos.report.data;
 
-import io.github.carlos_emr.Misc;
 import org.owasp.encoder.Encode;
 
 import java.io.IOException;

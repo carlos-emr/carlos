@@ -61,7 +61,7 @@ async function workflow(s) {
         ageMin,ageMax,userDefined,lastUpdateDate)
       SELECT facilityId,${q(name)},${q(type)},99999,0,0,0,0,'active',0,0,0,0,0,0,0,'no',1,200,1,NOW() FROM program WHERE name='OSCAR' LIMIT 1;
       SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(id), 'The Service program fixture was not created');
+    h.assert(/^[1-9]\d*$/.test(id), `The ${type} program fixture was not created`);
     owned.programs.push(id);
     return { id, name };
   };
@@ -85,7 +85,7 @@ async function workflow(s) {
   note(dirty.id, patient, F2F, '2003-02-05 09:00:00');
   note(dirty.id, patient, F2F, '2003-02-06 09:00:00', { archived: 1 });
   note(dirty.id, second, F2F, '2003-02-07 09:00:00', { uuid, updated: '2003-02-07 09:00:00' });
-  note(dirty.id, second, F2F, '2003-02-07 09:00:00', { uuid, updated: '2003-02-08 10:00:00' });
+  note(dirty.id, second, TEL, '2003-03-07 09:00:00', { uuid, updated: '2003-03-08 10:00:00' });
 
   const { page: admin } = await require('./lib/playwright-ui').clickOpensPopupOrNavigates(s.schedule,
     s.schedule.locator('#admin-panel,#admin2').first(), { context: s.context, recorder: s.recorder, label: 'psr-administration', timeout: 20000 });
@@ -158,8 +158,11 @@ async function workflow(s) {
     const disposition = file.headers['content-disposition'] || '';
     if (/filename="?[^";]*\//.test(disposition)) problems.push('the Content-Disposition filename contains "/" (the month format MM/yyyy is used in the name)');
     const dirtyFeb = programRows(dirty).find(r => r[3] === '2003-02');
-    // One live note by the owned patient + one by the second client (two revisions of one note) = 2 encounters, 2 unique clients.
-    if (dirtyFeb[4] !== '2') problems.push(`an archived note and a second revision of a note are counted as encounters (${dirtyFeb[4]} face-to-face for 2 real notes)`);
+    // The revised note moved from February/F2F to March/telephone; only its latest bucket counts.
+    const dirtyMar = programRows(dirty).find(r => r[3] === '2003-03');
+    if (dirtyFeb[4] !== '1' || dirtyFeb[10] !== '1' || dirtyMar[4] !== '0' || dirtyMar[5] !== '1' || dirtyMar[10] !== '1') {
+      problems.push('archived or superseded notes were counted, or the latest revision is in the wrong month/type bucket');
+    }
     h.assert(!problems.length, `The provider service CSV is wrong: ${problems.join('; ')}`);
   });
   await s.step('malformed and reversed date ranges fail explicitly without downloading another month', async () => {

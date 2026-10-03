@@ -24,4 +24,16 @@ class ExportQueryHandlerUnitTest {
     void shouldWriteEmptyRecord_whenNoColumnsExist() {
         assertThat(ExportQueryHandler.writeLine(new Object[0])).isEqualTo("\n");
     }
+    @Test
+    void shouldNeutralizeFormulas_whenExportingUntrustedCellText() throws Exception {
+        Object[] values = {"=1+1", "+cmd", "-cmd", "@SUM(A1)", "  =1+1", "\tname", "\rname", "\nname", -12.5};
+        String csv = ExportQueryHandler.writeLine(values);
+        assertThat(csv).startsWith("\"\t=1+1\"");
+        try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
+            var row = parser.getRecords().getFirst();
+            for (int i = 0; i < values.length - 1; i++) assertThat(row.get(i)).isEqualTo("\t" + values[i]);
+            assertThat(row.get(values.length - 1)).isEqualTo("-12.5");
+        }
+    }
+
 }

@@ -84,8 +84,9 @@ public class ExportResults2Action extends ActionSupport {
         byte[] bytes = csvFile.getBytes(StandardCharsets.UTF_8);
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + indicatorName + "\"");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setContentLength(bytes.length);
-        response.getOutputStream().write(bytes);
+        response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- UTF-8 CSV attachment with nosniff; not an HTML response
 
         return NONE;
     }

@@ -43,4 +43,35 @@ class ProviderServiceCountsIntegrationTest extends CaseManagementNoteDaoBaseInte
         assertThat(agency.nonUniqueCounts.get(EncounterType.FACE_TO_FACE_WITH_CLIENT)).isEqualTo(6);
         assertThat(agency.totalUniqueCount).isEqualTo(4);
     }
+    @Test
+    void shouldFollowGlobalUuidHistory_whenNoteMovesToAnotherPatient() {
+        Date start = createDate(2003, 2, 1);
+        Date end = createDate(2003, 3, 1);
+        encounter("41748", "transferred-archived", false, start);
+        encounter("41749", "transferred-archived", true, start);
+        encounter("41750", "transferred-role", false, start);
+        encounter("41751", "transferred-role", false, start).setReporter_caisi_role("4175");
+        entityManager.flush();
+        var counts = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(4174, 4174, start, end);
+        assertThat(counts.totalUniqueCount).isZero();
+        assertThat(counts.nonUniqueCounts.get(EncounterType.FACE_TO_FACE_WITH_CLIENT)).isZero();
+    }
+
+    @Test
+    void shouldUseLatestBucket_whenRevisionChangesMonthAndEncounterType() {
+        Date february = createDate(2003, 2, 1);
+        Date march = createDate(2003, 3, 1);
+        Date april = createDate(2003, 4, 1);
+        encounter("41752", "changed-bucket", false, february);
+        encounter("41752", "changed-bucket", false, march)
+                .setEncounter_type(EncounterType.TELEPHONE_WITH_CLIENT.getOldDbValue());
+        entityManager.flush();
+        var old = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(4174, 4174, february, march);
+        var current = caseManagementNoteDAO.getDemographicEncounterCountsByProgramAndRoleId(4174, 4174, march, april);
+        assertThat(old.totalUniqueCount).isZero();
+        assertThat(current.totalUniqueCount).isEqualTo(1);
+        assertThat(current.nonUniqueCounts.get(EncounterType.FACE_TO_FACE_WITH_CLIENT)).isZero();
+        assertThat(current.nonUniqueCounts.get(EncounterType.TELEPHONE_WITH_CLIENT)).isEqualTo(1);
+    }
+
 }

@@ -8,6 +8,7 @@ import java.util.Map;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.openpdf.text.pdf.PdfReader;
@@ -45,4 +46,22 @@ class DemographicLabelTemplateUnitTest {
             }
         }
     }
+    @Test
+    void shouldRenderBlankAge_whenBirthDateFieldsAreEmpty() throws Exception {
+        try (InputStream template = getClass().getResourceAsStream("/oscar/oscarDemographic/Chartlabel.xml")) {
+            JasperReport report = JasperCompileManager.compileReport(template);
+            Map<String, Object> row = new HashMap<>();
+            for (JRField field : report.getFields()) row.put(field.getName(), "");
+            row.put("first_name", "Anne");
+            row.put("last_name", "FAKE Partial");
+            JasperPrint print = JasperFillManager.fillReport(report, new HashMap<>(),
+                    new JRMapCollectionDataSource(List.of(row)));
+            try (PdfReader reader = new PdfReader(JasperExportManager.exportReportToPdf(print))) {
+                String text = new PdfTextExtractor(reader).getTextFromPage(1);
+                assertThat(text).contains("Anne", "AGE:").doesNotContain("null");
+                assertThat(text).doesNotContainPattern("AGE:\\s*\\d");
+            }
+        }
+    }
+
 }

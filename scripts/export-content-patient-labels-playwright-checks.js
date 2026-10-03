@@ -52,12 +52,14 @@ async function workflow(s) {
   const full = make({ last: `FAKE-Dubois${tag}`, first: 'Zoë-Marie', middle: 'Łukasz', hin: '9876543217', chart: 'CH-0042' });
   const bare = make({ last: `FAKE-Tremblay${tag}`, first: 'Anne', middle: null, hin: '9876543225', chart: 'CH-0043' });
 
-  async function labelTexts(patient) {
+  async function labelTexts(patient, labels = LABELS) {
     const { masterPage, searchPage } = await openMasterRecord(context, s.schedule, recorder, { searchTerm: patient.last, preferredDemographicNo: patient.id, timeout: 20000 });
     h.assert(new URL(masterPage.url()).searchParams.get('demographic_no') === patient.id, 'The Master Record is not the owned label patient');
     const texts = {};
-    for (const label of LABELS) {
+    for (const label of labels) {
       const menu = await openPrintMenu(masterPage, 20000);
+      const failuresBefore = recorder.requestFailures.length;
+      let pdfVerified = false;
       const produced = await ui.clickDownloadsOrOpens(masterPage, menu.getByRole('link', { name: label, exact: true }),
         { context, recorder, label: 'owned-label', timeout: 30000 });
       try {
@@ -68,7 +70,22 @@ async function workflow(s) {
         const file = require('node:path').join(scratch, `${patient.id}-${label.replace(/\W/g, '_')}.pdf`);
         require('node:fs').writeFileSync(file, await response.body());
         texts[label] = x.pdfText(file);
-      } finally { if (produced.page) await produced.page.close(); }
+        pdfVerified = true;
+      } finally {
+        if (produced.page) await produced.page.close();
+        // Closing Chromium's built-in PDF viewer can abort its extension UI request.
+        // The application PDF was independently fetched (HTTP 200) and parsed above.
+        if (pdfVerified) {
+          for (let i = recorder.requestFailures.length - 1; i >= failuresBefore; i--) {
+            const failure = recorder.requestFailures[i];
+            if (failure.label === 'owned-label' && failure.resourceType === 'other'
+                && failure.errorText === 'net::ERR_ABORTED'
+                && failure.url.startsWith('chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/')) {
+              recorder.requestFailures.splice(i, 1);
+            }
+          }
+        }
+      }
     }
     await masterPage.close();
     // The search window is reused by name: close it so the next search opens a fresh one.
@@ -130,6 +147,27 @@ async function workflow(s) {
     if (dirty.length) problems.push(`${dirty.join(', ')} print(s) the literal word "null" after the first name of a patient whose middle name is NULL (label.xml concatenates $F{middle_name})`);
     h.assert(!problems.length, `The patient labels are wrong: ${problems.join('; ')}`);
   });
+  await s.step('Chart Label leaves age blank when the birth date is incomplete', async () => {
+    const partial = make({ last: `FAKE-Partial${tag}`, first: 'Anne', middle: null, hin: '9876543233', chart: 'CH-0044' });
+    sql.execute(`UPDATE demographic SET month_of_birth=NULL WHERE demographic_no=${partial.id}`);
+    const text = (await labelTexts(partial, ['PDF Chart Label']))['PDF Chart Label'];
+    // Match horizontal whitespace only: the next PDF line can begin with a street number.
+    h.assert(text.includes('AGE:') && !/AGE:[ \t]*(?:null|\d)/i.test(text),
+      `An incomplete birth date produced a nonempty or null age: ${JSON.stringify(text.match(/AGE:[^\r\n]*/)?.[0])}`);
+    h.assert(!/\bnull\b/i.test(text), 'The partial birth date printed a literal null on Chart Label');
+  });
+
+  await s.step('Chart Label calculates whole years on either side of a birthday', async () => {
+    for (const daysUntilBirthday of [0, 1]) {
+      const birthday = `DATE_SUB(DATE_ADD(CURDATE(), INTERVAL ${daysUntilBirthday} DAY), INTERVAL 40 YEAR)`;
+      sql.execute(`UPDATE demographic SET year_of_birth=DATE_FORMAT(${birthday},'%Y'),
+        month_of_birth=DATE_FORMAT(${birthday},'%m'),date_of_birth=DATE_FORMAT(${birthday},'%d') WHERE demographic_no=${bare.id}`);
+      const text = (await labelTexts(bare, ['PDF Chart Label']))['PDF Chart Label'];
+      const age = /AGE:\s*(\d+)/.exec(text);
+      h.assert(age && Number(age[1]) === 40 - daysUntilBirthday, `Chart Label has the wrong age for a birthday ${daysUntilBirthday} day(s) away`);
+    }
+  });
+
 }
 
 if (require.main === module) {

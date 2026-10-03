@@ -792,7 +792,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 // revision cannot reappear after the current note is moved or archived.
                 "and (n.uuid is null or n.uuid = '' or not exists (",
                 "select 1 from casemgmt_note newer where newer.uuid = n.uuid",
-                "and newer.demographic_no = n.demographic_no and newer.note_id > n.note_id))",
+                "and newer.note_id > n.note_id))",
                 "and observation_date >= :startDate",
                 "and observation_date < :endDate",
                 (programId == null ? "" : "and program_no = :programId"),
@@ -823,7 +823,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
                 // revision cannot reappear after the current note is moved or archived.
                 "and (n.uuid is null or n.uuid = '' or not exists (",
                 "select 1 from casemgmt_note newer where newer.uuid = n.uuid",
-                "and newer.demographic_no = n.demographic_no and newer.note_id > n.note_id))",
+                "and newer.note_id > n.note_id))",
                 "and observation_date >= :startDate",
                 "and observation_date < :endDate",
                 (programId == null ? "" : "and program_no = :programId"));

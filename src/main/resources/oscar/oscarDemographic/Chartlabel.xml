@@ -9,8 +9,8 @@
 			CONCAT(IFNULL(d.address,''),' ') AS address, CONCAT(IFNULL(d.city,''),' ') AS city,
 			CONCAT(IFNULL(d.province,''), ' ') AS province, CONCAT(IFNULL(d.postal,''),' ') AS postal,
 			IFNULL(d.phone,'') AS phone, IFNULL(d.phone2,'') AS phone2,
-			d.year_of_birth, d.month_of_birth, d.date_of_birth,
-			TIMESTAMPDIFF(YEAR, CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), CURDATE()) AS age,
+			IFNULL(d.year_of_birth,'') AS year_of_birth, IFNULL(d.month_of_birth,'') AS month_of_birth, IFNULL(d.date_of_birth,'') AS date_of_birth,
+			IFNULL(TIMESTAMPDIFF(YEAR, CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), CURDATE()), '') AS age,
 			CONCAT(IFNULL(d.hin,''),' ') AS hin, CONCAT(IFNULL(d.ver,''),' ') AS ver, d.sex,
 			IFNULL(CONCAT(p.last_name, CONCAT(', ',p.first_name)),'') AS doc_name
 			from demographic d left outer join provider p on d.provider_no = p.provider_no
@@ -34,12 +34,6 @@
 	<field name="ver" class="java.lang.String" />
 	<field name="sex" class="java.lang.String" />
 	<field name="doc_name" class="java.lang.String" />
-	<variable name="nowyear" class="java.lang.Integer" resetType="None">
-		<expression><![CDATA[new java.lang.Integer( 1900 +  (new java.util.Date().getYear()) )]]></expression>
-	</variable>
-	<variable name="useryear" class="java.lang.Integer" resetType="None">
-		<expression><![CDATA[new java.lang.Integer($F{year_of_birth})]]></expression>
-	</variable>
 	<title height="60" splitType="Stretch">
 		<element fontName="DejaVu Sans" kind="textField" x="17" y="45" width="330" height="14">
 			<expression><![CDATA[$F{last_name} + "," + $F{first_name} + " " + ($F{middle_name} == null ? "" : $F{middle_name}) + "   " + "CHART#:" + $F{chart_no}]]></expression>

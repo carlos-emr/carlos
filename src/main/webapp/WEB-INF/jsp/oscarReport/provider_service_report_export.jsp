@@ -31,6 +31,7 @@
      Parameters: startDate and endDate (MM/yyyy); invalid ranges return HTTP 400.
      @since 2026-10-02 --%>
 
+<%@ page pageEncoding="UTF-8" contentType="text/csv; charset=UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -60,7 +61,7 @@
     String agencyName = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("db_name", "");
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
-    SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy");
+    SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy", Locale.ROOT);
     dateFormatter.setLenient(false);
     Date startDate;
     Date endDate;
@@ -76,9 +77,8 @@
         return;
     }
 
-    response.setContentType("text/csv;charset=UTF-8");
-    String filename = "provider_service_" + new SimpleDateFormat("yyyy-MM").format(startDate)
-            + "_" + new SimpleDateFormat("yyyy-MM").format(endDate) + ".csv";
+    String filename = "provider_service_" + new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(startDate)
+            + "_" + new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(endDate) + ".csv";
     response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 
     // print header
