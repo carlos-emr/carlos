@@ -6474,8 +6474,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Five synthetic patients inserted by SQL (surname starts with the run tag; one with no provider, chart number or phone); cleanup relabels them to the marker, removes them and asserts none remain.",
-      "notes": "Expected to FAIL at the last step 'every header ordered the owned patients correctly': the Name header orders case-sensitively (a lower-case surname sorts after Z) and the Doctor header answers HTTP 500 (NullPointerException in ProviderNoComparator) when a patient has no provider."
+      "fixtures": "Five synthetic patients (including NULL and blank providers), a disposable login and three owned recent-patient audit entries; cleanup removes owned patients, login and history and verifies no fixtures remain.",
+      "notes": "Verifies every ordinary search header, grouping of missing providers, and repeated Doctor sorting of the recent-patient list (NULL, blank, assigned). Requires a recent-patient limit of at least three; database search ordering is covered separately from the Java comparator used for recents."
     },
     {
       "name": "search-sort-patient-pages",
