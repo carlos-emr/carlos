@@ -294,15 +294,31 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private void writeToResponse(HttpServletResponse response, String content, String safeRequestUri)
             throws IOException {
         // Clear only the response body buffer, preserving status code, headers, and cookies
-        // set by downstream components. resetBuffer() is safer than reset() which would
-        // wipe Set-Cookie, security headers, CSP, and non-200 status codes.
-        try {
-            response.resetBuffer();
-        } catch (IllegalStateException e) {
-            LOGGER.warn("writeToResponse: response buffer was already committed before "
-                    + "CSRF-adjusted replay; writing captured content without reset: uri={}, "
-                    + "contentType={}, committed={}",
-                    safeRequestUri, response.getContentType(), response.isCommitted(), e);
+        // set by downstream components. resetBuffer() is invalid after commit, so skip it there
+        // rather than throw. A commit at this point is itself the anomaly: Tomcat suspends a
+        // forwarded response unless the context sets suspendWrappedResponseAfterForward="false"
+        // (#3434), and a suspended response discards what is written next, so the page may
+        // arrive blank. Log what is needed to recognise that case.
+        if (response.isCommitted()) {
+            LOGGER.warn("writeToResponse: response already committed before CSRF-adjusted replay; "
+                    + "writing captured content without buffer reset, but the container may discard "
+                    + "it (see #3434, suspendWrappedResponseAfterForward): uri={}, status={}, "
+                    + "contentType={}, capturedChars={}",
+                    safeRequestUri, response.getStatus(), response.getContentType(), content.length());
+        } else {
+            try {
+                response.resetBuffer();
+            } catch (IllegalStateException e) {
+                // Nothing commits concurrently: a wrapper can report uncommitted while the response
+                // beneath it is committed, as CaptureResponseWrapper does in writer-capture mode
+                // during nested forwards (#3434). Keep the exception's message, not its stack.
+                LOGGER.warn("writeToResponse: resetBuffer() rejected although the response reported "
+                        + "uncommitted (a wrapper may hide the underlying commit); writing captured "
+                        + "content without buffer reset: uri={}, status={}, contentType={}, "
+                        + "committed={}, reason={}",
+                        safeRequestUri, response.getStatus(), response.getContentType(),
+                        response.isCommitted(), LogSafe.sanitize(e.getMessage()));
+            }
         }
         String encoding = response.getCharacterEncoding();
         if (encoding == null || encoding.isEmpty()) {
