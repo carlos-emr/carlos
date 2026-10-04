@@ -488,9 +488,9 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         // Build query
         StringBuilder sqlCommand = new StringBuilder("select h from ").append(BillingONCHeader1.class.getSimpleName()).append(" h WHERE ");
         sqlCommand.append("h.providerNo = ?").append(counter++).append(" AND h.status IN (?").append(counter++).append(") ");
-        // Set date range lower/upper bounds (if date range is provided)
+        // Simulation and claim-file service dates include both bounds; null bounds stay open.
         if (dateRange.getFrom() != null) {
-            sqlCommand.append(" AND h.billingDate > ?").append(counter++);
+            sqlCommand.append(" AND h.billingDate >= ?").append(counter++);
         }
         if (dateRange.getTo() != null) {
             sqlCommand.append(" AND h.billingDate <= ?").append(counter++);

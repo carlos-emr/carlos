@@ -368,8 +368,10 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
-    void shouldCreateGoldenSimulation_forSingleHcpClaim() throws Exception {
+    void shouldCreateGoldenSimulation_forSingleHcpClaimOnSingleDayRange() throws Exception {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        DateRange serviceDay = new DateRange(
+                BillingDates.parseIsoDate("2026-04-02"), BillingDates.parseIsoDate("2026-04-02"));
         BillingONCHeader1 header = hcpHeader();
         BillingONItem item = hcpItem();
         Demographic demographic = mock(Demographic.class);
@@ -379,16 +381,14 @@ class OhipClaimFileServiceUnitTest {
         when(demographicManager.getDemographic(loggedInInfo, "123")).thenReturn(demographic);
         when(lookupService.getPatientCurBillingDemo(loggedInInfo, "123"))
                 .thenReturn(List.of("DOE", "JANE", "19800101", "1234567890", "AB", "ON", "F"));
-        when(cheaderDao.findByProviderStatusAndDateRange(eq("999998"), eq(List.of("O")), any(DateRange.class)))
+        when(cheaderDao.findByProviderStatusAndDateRange("999998", List.of("O"), serviceDay))
                 .thenReturn(List.of(header));
         when(itemDao.findByCh1IdsExcludingDeletedAndSettled(List.of(12345678)))
                 .thenReturn(List.of(item));
         when(billingServiceDao.codeRequiresSLI("A001A")).thenReturn(false);
 
         service.setProviderNo("999998");
-        service.setDateRange(new DateRange(
-                BillingDates.parseIsoDate("2026-04-01"),
-                BillingDates.parseIsoDate("2026-04-30")));
+        service.setDateRange(serviceDay);
         service.setEFlag("0");
         service.setContextPath("");
 

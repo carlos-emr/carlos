@@ -271,7 +271,8 @@
         "GROUP_DISK_SERVICE_DATE",
         "GROUP_DISK_TEMPLATE_PROVIDER",
         "OHIP_DISK_DIR"
-      ]
+      ],
+      "notes": "Generates actual claim files in a single-day service-date window, asserting downloaded service dates, zero/paid claim items and billed state; also verifies regeneration, locking and owned-file cleanup."
     },
     {
       "name": "billing-on-submit",
@@ -5582,7 +5583,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Billing fixture of billing-on-ohip-simulation-report (throwaway billing provider with own OHIP and group numbers in the operator's sites, the owned patient given a synthetic HIN) and seven open claims dated 2004-02-28 .. 2004-03-13; cleanup removes claims and provider and asserts them gone. The simulation writes nothing; no claim file is generated or sent.",
-      "notes": "Expected to FAIL at 'OHIP simulation previews a claim dated exactly on the Service Date Start' (BillingONCHeader1DaoImpl.findByProviderStatusAndDateRange uses billingDate > from); the Invoice Reports steps before it pass."
+      "notes": "Verifies inclusive start/end and leap-day single-day windows in invoice reports and OHIP simulation, with out-of-window claims excluded."
     },
     {
       "name": "boundary-date-audit-log",
