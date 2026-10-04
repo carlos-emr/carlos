@@ -393,6 +393,10 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
         try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
             System.setProperty("user.home", tempDir.toString());
+            // Key-generation test, so give Startup real deployment config to find: packaged defaults no
+            // longer count, so without a config file it aborts on the missing-config path
+            // (shouldAbortStartup_whenNoConfigFileExists) long before reaching key generation.
+            writeDeploymentConfig(tempDir, "carlos");
             // A blank key forces Startup into the generate-and-persist branch.
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
             keySpecField.set(null, null);
@@ -401,10 +405,17 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
             // Generation failure must abort startup rather than booting with no key. The
             // IllegalStateException is re-wrapped by contextInitialized's outer catch, so it is
-            // reachable only as the cause of the propagated RuntimeException.
+            // reachable only as the cause of the propagated RuntimeException. Pin the
+            // generation-specific wording: the missing-config abort raises the same exception types,
+            // so the types alone cannot tell the two failures apart.
             assertThatThrownBy(() -> new Startup().contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(IllegalStateException.class);
+                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Unable to generate and persist a new encryption key at startup");
+
+            // The abort above is only meaningful if generation was actually attempted; without this
+            // the test would still pass if Startup bailed out before ever calling it.
+            encryption.verify(EncryptionUtils::generateSecretKey);
         } finally {
             restoreUserHome(originalUserHome);
             restoreProperty(props, originalProp);
@@ -905,13 +916,20 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
         try {
             System.setProperty("user.home", tempDir.toString());
+            // Key-validation test, so give Startup real deployment config to find: packaged defaults no
+            // longer count, so without a config file it aborts on the missing-config path
+            // (shouldAbortStartup_whenNoConfigFileExists) long before reaching key validation.
+            writeDeploymentConfig(tempDir, "carlos");
             props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, invalidKey);
             keySpecField.set(null, null);
 
+            // Pin the key-specific wording. Both the missing-config abort and this one are an
+            // IllegalStateException whose message contains "refusing to start", so asserting only that
+            // phrase cannot tell them apart and passes on the wrong failure.
             assertThatThrownBy(() -> new Startup().contextInitialized(event))
                     .isInstanceOf(RuntimeException.class)
                     .hasCauseInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("refusing to start");
+                    .hasMessageContaining("Configured encryption key is invalid");
 
             // The stored key is left untouched (no rotation) and no usable spec is established.
             assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(invalidKey);
