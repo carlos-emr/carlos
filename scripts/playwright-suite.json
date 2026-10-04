@@ -5379,7 +5379,7 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Owns the synthetic patient and the labs filed (unique DS<hex> accessions); cleanup removes every owned lab's routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.",
-      "notes": "Fails at its final assertion on 2026.08: reloading the Submit-to-EMR result page files a second lab under the same accession. SubmitLabByForm2Action.java:222 FileUploadCheck.storeIfNew only dedups by content checksum of the HL7 it regenerates on every submit, which evidently differs on replay (live: second hl7TextInfo row); CreateLab.jsp:233 has no guard and the result is rendered directly (struts-lab.xml:89-90, no redirect). dblclick/Enter/slow re-click are safe."
+      "notes": "Checks dblclick, two clicks, Enter, delayed response and result-page reload. Completed submissions use HTTP 303 to the GET form; each accession retains one lab/message/checksum, reloading sends no POST, and the submission notice appears only once. The delayed-response route includes SubmitLab's query string."
     },
     {
       "name": "double-submit-admin-adds",

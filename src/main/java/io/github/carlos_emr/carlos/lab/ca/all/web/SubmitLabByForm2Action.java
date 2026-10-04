@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.web;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -61,8 +62,12 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 public class SubmitLabByForm2Action extends ActionSupport {
+    private static final int STORAGE_NOT_STARTED = -1;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -85,9 +90,13 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
-     * @return the Struts result name "manage"
+     * Storage and handler exceptions are logged and reported according to transaction completion.
+     *
+     * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
+     *         or after rejecting a non-POST request with HTTP 405;
+     *         or "manage" with errors when storage was rejected, rolled back or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
-     * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
+     * @throws Exception for form-field parsing or file I/O errors before storage begins
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
@@ -95,11 +104,16 @@ public class SubmitLabByForm2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.info("in save lab from form");
         String labName = request.getParameter("labname");
@@ -213,10 +227,23 @@ public class SubmitLabByForm2Action extends ActionSupport {
             addActionError(getText("oscarMDS.createLab.submitError"));
             return manage();
         }
+        FileUploadCheck.StoreOutcome outcome;
+        AtomicInteger storageCompletion = new AtomicInteger(STORAGE_NOT_STARTED);
         try {
             // The generated HL7 file is removed unless the stored lab may reference it.
-            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
+            outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
                     file.getName(), providerNo, checksumId -> {
+                        // Observe the owned storage transaction before any lab writes. Exception
+                        // types alone cannot distinguish rollback from a lost commit acknowledgement.
+                        storageCompletion.set(TransactionSynchronization.STATUS_UNKNOWN);
+                        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                @Override
+                                public void afterCompletion(int status) {
+                                    storageCompletion.set(status);
+                                }
+                            });
+                        }
                         String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                                 file.getPath(), checksumId, ipAddr);
                         Integer labNo = msgHandler.getLastLabNo();
@@ -226,19 +253,41 @@ public class SubmitLabByForm2Action extends ActionSupport {
                         new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
                         return true;
                     });
-            if (outcome == FileUploadCheck.StoreOutcome.STORED) {
-                addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
-            } else if (outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
-                addActionError(getText("oscarMDS.createLab.submitDuplicate"));
-            } else {
-                addActionError(getText("oscarMDS.createLab.submitError"));
-            }
         } catch (Exception e) {
-            logger.error("Lab submission failed: {}", LogSafe.exceptionTrace(e));
-            addActionError(getText("oscarMDS.createLab.submitError"));
+            logger.error("Lab submission storage raised an exception: {}", LogSafe.exceptionTrace(e));
+            int completion = storageCompletion.get();
+            if (completion == STORAGE_NOT_STARTED || completion == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                addActionError(getText("oscarMDS.createLab.submitError"));
+                return manage();
+            }
+            // A commit acknowledgement can fail after the lab was stored. A refresh of this
+            // POST would generate different HL7 and could duplicate it, just as on success.
+            return redirectToForm(completion == TransactionSynchronization.STATUS_COMMITTED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.UNKNOWN);
         }
 
+        if (outcome == FileUploadCheck.StoreOutcome.STORED
+                || outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+            // A reloaded POST regenerates timestamped HL7 and evades checksum deduplication.
+            // Redirect only after storage/commit completes, carrying a notice without PHI.
+            return redirectToForm(outcome == FileUploadCheck.StoreOutcome.STORED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.ALREADY_RECORDED);
+        }
+        addActionError(getText("oscarMDS.createLab.submitError"));
         return manage();
+    }
+
+    /** Redirects a completed storage attempt without putting clinical data or session IDs in the URL. */
+    // FindSecBugs UNVALIDATED_REDIRECT: The container supplies the context path. The route is fixed
+    // and the UUID is server-generated. No request parameter controls the destination.
+    // See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Container context path, fixed application route and server-generated UUID; no request parameter controls the destination")
+    private String redirectToForm(ManualLabSubmissionReceipt.Outcome outcome) {
+        String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
+        response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+        response.setHeader("Location", request.getContextPath()
+                + "/oscarMDS/ViewCreateLab?submission=" + receipt);
+        return NONE;
     }
 
 	/**
