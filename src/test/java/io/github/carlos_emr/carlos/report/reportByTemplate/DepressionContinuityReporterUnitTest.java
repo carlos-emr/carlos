@@ -150,6 +150,33 @@ class DepressionContinuityReporterUnitTest extends CarlosUnitTestBase {
         assertThat((String) request.getAttribute("csv")).contains(",A007A," + expected + ",Prescriber\n");
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {4, 7, 8})
+    void shouldRenderStoredMedicationAndProviderNamesAsText_whenNamesContainMarkup(int nameColumn) {
+        when(billingDao.findDemographicsAndBillingsByDxAndServiceDates(anyList(), any(), any()))
+                .thenReturn(Collections.singletonList(diagnosis(42)));
+        String name = "<img src=x onerror=alert(1)> & medication";
+        String provider = "<b>Doctor & colleague</b>";
+        Object[] visit = appointment(42, Date.valueOf("2026-03-04"));
+        visit[4] = null;
+        visit[nameColumn] = name;
+        visit[1] = provider;
+        visit[2] = provider;
+        visit[5] = provider;
+        when(appointmentDao.findAppointmentsByDemographicIds(anySet(), any(), any()))
+                .thenReturn(Collections.singletonList(visit));
+
+        assertThat(new DepressionContinuityReporter().generateReport(request)).isTrue();
+        var table = org.jsoup.Jsoup.parse((String) request.getAttribute("resultsethtml"));
+        var cells = table.select("tbody tr").last().children();
+        assertThat(cells.get(7).text()).isEqualTo(name);
+        assertThat(cells.get(4).text()).isEqualTo(provider);
+        assertThat(cells.get(5).text()).isEqualTo(provider);
+        assertThat(cells.get(8).text()).isEqualTo(provider);
+        assertThat(table.select("img, b, script")).isEmpty();
+        assertThat((String) request.getAttribute("csv")).contains(name, provider);
+    }
+
     @Test
     void shouldReportFailure_whenDatabaseReadFails() {
         when(billingDao.findDemographicsAndBillingsByDxAndServiceDates(anyList(), any(), any()))

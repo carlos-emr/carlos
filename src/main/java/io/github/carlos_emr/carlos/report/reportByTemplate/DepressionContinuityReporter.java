@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
+import org.owasp.encoder.Encode;
+
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
 import java.util.Arrays;
@@ -136,7 +138,7 @@ public class DepressionContinuityReporter implements Reporter {
             html.append("reportRow2\">");
         }
         odd = !odd;
-        html.append("<td>" + demographic_no + "</td><td>" + service_date + "</td><td>" + dx + "</td>");
+        html.append("<td>" + demographic_no + "</td><td>" + service_date + "</td><td>" + Encode.forHtml(dx) + "</td>");
         html.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
         html.append("<td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>");
         html.append("</tr>");
@@ -180,13 +182,14 @@ public class DepressionContinuityReporter implements Reporter {
             }
             odd = !odd;
             rsHtml.append("<td>" + p7 + "</td><td>&nbsp;</td><td>&nbsp;</td>");
-            rsHtml.append("<td>" + p1 + "</td><td>" + p2 + "</td><td>" + p3 + "</td>");
+            rsHtml.append("<td>").append(p1).append("</td><td>").append(Encode.forHtml(p2))
+                    .append("</td><td>").append(Encode.forHtml(p3)).append("</td>");
 
             String rxName = medicationName(p5, p8, p9);
             String rxPrescriber = p6 == null ? " " : p6;
 
-            rsHtml.append("<td>").append(p4).append("</td><td>").append(rxName)
-                    .append("</td><td>").append(rxPrescriber).append("</td>");
+            rsHtml.append("<td>").append(Encode.forHtml(p4)).append("</td><td>").append(Encode.forHtml(rxName))
+                    .append("</td><td>").append(Encode.forHtml(rxPrescriber)).append("</td>");
             rsHtml.append("</tr>");
 
             csv.append(p7 + ",, ");

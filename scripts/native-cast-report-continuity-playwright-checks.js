@@ -42,13 +42,16 @@ function templateXml(title) {
 async function workflow(s) {
   const { sql, marker } = s;
   const title = `${marker} CONT`;
-  const owned = { appointment: null, header: null, item: null };
+  const medication = `${marker}<img src=x onerror=window.cx=1>`;
+  const owned = { appointment: null, header: null, item: null, drug: null };
   s.cleanup(() => {
+    if (owned.drug) sql.execute(`DELETE FROM drugs WHERE drugid=${owned.drug} AND demographic_no=${s.patient}`);
     sql.execute(`DELETE FROM reportTemplates WHERE templatetitle=${h.sqlString(title)}`);
     if (owned.item) sql.execute(`DELETE FROM billing_on_item WHERE id=${owned.item} AND ch1_id=${owned.header}`);
     if (owned.header) sql.execute(`DELETE FROM billing_on_cheader1 WHERE id=${owned.header} AND demographic_name=${h.sqlString(`${marker},Workflow`)}`);
     if (owned.appointment) sql.execute(`DELETE FROM appointment WHERE appointment_no=${owned.appointment} AND name=${h.sqlString(`${marker},Workflow`)}`);
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM reportTemplates WHERE templatetitle=${h.sqlString(title)})
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE drugid=${owned.drug || 0})
+      + (SELECT COUNT(*) FROM reportTemplates WHERE templatetitle=${h.sqlString(title)})
       + (SELECT COUNT(*) FROM billing_on_item WHERE id=${owned.item || 0})
       + (SELECT COUNT(*) FROM billing_on_cheader1 WHERE id=${owned.header || 0})
       + (SELECT COUNT(*) FROM appointment WHERE appointment_no=${owned.appointment || 0})`) === '0', 'Owned fixture rows remain');
@@ -63,7 +66,13 @@ async function workflow(s) {
       ${h.sqlString(VISIT_DATE)},'09:00:00','O',0,0,${h.sqlString(s.provider)},'playwright','NATIVECAST'); SELECT LAST_INSERT_ID()`);
   owned.item = sql.value(`INSERT INTO billing_on_item (ch1_id,service_code,fee,ser_num,service_date,dx,status)
     VALUES (${owned.header},${h.sqlString(SERVICE_CODE)},'0.00','1',${h.sqlString(DIAGNOSIS_DATE)},${h.sqlString(DX)},'O'); SELECT LAST_INSERT_ID()`);
-  h.assert([owned.appointment, owned.header, owned.item].every(id => /^[1-9]\d*$/.test(id)), 'Fixture rows were not inserted');
+  owned.drug = sql.value(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,BN,GN,customName,special,
+      archived,script_no,create_date,lastUpdateDate)
+    VALUES (${h.sqlString(s.provider)},${s.patient},${h.sqlString(VISIT_DATE)},${h.sqlString(VISIT_DATE)},${h.sqlString(VISIT_DATE)},
+      NULL,NULL,${h.sqlString(medication)},${h.sqlString(marker)},0,0,NOW(),NOW()); SELECT LAST_INSERT_ID()`);
+  h.assert(sql.value(`SELECT customName FROM drugs WHERE drugid=${owned.drug} AND demographic_no=${s.patient}`) === medication,
+    'The custom medication fixture was truncated or changed on storage');
+  h.assert([owned.appointment, owned.header, owned.item, owned.drug].every(id => /^[1-9]\d*$/.test(id)), 'Fixture rows were not inserted');
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'continuity-administration', timeout: 20000 });
@@ -147,6 +156,10 @@ async function workflow(s) {
       && visit[0][4] === seen,
       `The report lists ${dxRows.length} Dx row(s) and ${visit.length} visit row(s) for the owned patient, expected 1 and 1: `
       + 'native DATE values must render correctly, using the independently requested diagnosis and visit windows');
+    h.assert(visit[0][7] === medication, `Custom medication name was not rendered as literal text: ${JSON.stringify(visit[0][7])}`);
+    h.assert(await frame.locator('table.reportTable img, table.reportTable script').count() === 0,
+      'A stored medication name became report markup');
+    h.assert(await frame.evaluate(() => window.cx === undefined), 'Stored medication markup executed');
     h.assert(deferred.length === 0, `The result page raised JavaScript problems: ${deferred.join(' | ')}`);
   });
 }
