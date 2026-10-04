@@ -93,7 +93,9 @@ class BillingCorrectionSettlementTransactionIntegrationTest extends CarlosTestBa
                 throw new IllegalStateException("synthetic persistence failure");
             }).when(failing).setExtItem(anyInt(), anyInt(), anyString(), anyString(), any(Date.class), anyChar());
             BillingCorrectionService service = transactionalService(payments, failing);
-            assertThatThrownBy(() -> service.updateInvoice(operator(), request(id)))
+            var loggedInOperator = operator();
+            var settlementRequest = request(id);
+            assertThatThrownBy(() -> service.updateInvoice(loggedInOperator, settlementRequest))
                     .isInstanceOf(IllegalStateException.class).hasMessage("synthetic persistence failure");
             tx.executeWithoutResult(status -> {
                 assertThat(headers.find(id).getStatus()).isEqualTo("O");
