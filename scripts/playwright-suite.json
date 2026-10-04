@@ -5364,7 +5364,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Owns the synthetic patient and one marker eForm template; cleanup deletes the instances (eform_values + eform_data) and the template and asserts them gone.",
-      "notes": "Fails at its final assertion on 2026.08: the floating-toolbar Submit saves TWO eform_data instances on two back-to-back clicks, a slow-response re-click and a POST replay (eform_floating_toolbar.js:92 submitEForm no guard; AddEForm2Action.java ~655 saveEformData persists a NEW instance on every submit)."
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision."
     },
     {
       "name": "double-submit-lab-manual",

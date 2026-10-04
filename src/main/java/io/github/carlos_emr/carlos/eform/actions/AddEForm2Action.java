@@ -54,9 +54,9 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.EFormSubmissionGuard;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
-import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -132,8 +132,6 @@ public class AddEForm2Action extends ActionSupport {
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
         String method = request.getMethod();
@@ -147,6 +145,40 @@ public class AddEForm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        EFormSubmissionGuard.Claim claim = EFormSubmissionGuard.claim(request.getSession(),
+                request.getParameter(EFormSubmissionGuard.PARAMETER),
+                request.getParameter("efmfid"), request.getParameter("efmdemographic_no"));
+        if (claim == null) {
+            return rejectSubmission();
+        }
+        try (claim) {
+            try {
+                return executeSubmission(claim);
+            } catch (RuntimeException e) {
+                if (claim.canRetry()) throw e;
+                // A commit acknowledgement or later clinical side effect may have failed. Never
+                // tell the clinician "not saved" or permit re-running the original submission.
+                logger.error("eForm processing did not finish after storage started ({})", e.getClass().getSimpleName());
+                return rejectSubmission();
+            }
+        }
+    }
+
+    private String rejectSubmission() {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            response.getWriter().print(getText("eform.submitUnavailable"));
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return NONE;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private String executeSubmission(EFormSubmissionGuard.Claim claim) {
         logger.debug("==================SAVING ==============");
         HttpSession se = request.getSession();
 
@@ -208,7 +240,8 @@ public class AddEForm2Action extends ActionSupport {
         String curField = "";
         while (paramNamesE.hasMoreElements()) {
             curField = paramNamesE.nextElement();
-            if (curField.equalsIgnoreCase("parentAjaxId")) {
+            if (curField.equalsIgnoreCase("parentAjaxId")
+                    || curField.equals(EFormSubmissionGuard.PARAMETER)) {
                 continue;
             }
 
@@ -274,267 +307,170 @@ public class AddEForm2Action extends ActionSupport {
 //            return mapping.getInputForward();
 //        }
 
-        // Check if eform same as previous, if same -> not saved.
-        //
-        // Dead in practice: nothing in the repository ever SETS "eform_data_id" — these two lines
-        // are its only references — so prev_fdid is always null and sameform always false. The
-        // entire `else` branch below (including its own eDoc/approval handling) is therefore
-        // unreachable. Left in place rather than deleted because removing it is a behavioural
-        // decision about a duplicate-submission guard that was evidently once wired up.
-        String prev_fdid = (String) se.getAttribute("eform_data_id");
-        se.removeAttribute("eform_data_id");
-        boolean sameform = false;
-        if (StringUtils.filled(prev_fdid)) {
-            EForm prevForm = new EForm(prev_fdid);
-            if (prevForm != null) {
-                sameform = curForm.getFormHtml().equals(prevForm.getFormHtml());
+        /*
+         * Part 2 of "counter hack for a hack" initialized in Javascript file
+         * eform_floating_toolbar.js
+         * Grab the image path placeholders from the form submission and then
+         * feed them into the EForm object.
+         * Doing this ensures the image links get saved correctly into the HTML
+         * of the eform_data database table.
+         */
+        try {
+            curForm.addImagePathPlaceholders(imagePathPlaceHolders);
+        } catch (Exception e) {
+            logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
+        }
+
+        String fdid;
+        try {
+            fdid = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
+                claim.storageStarted();
+                String savedId = Integer.toString(eformDataManager.saveEformData(loggedInInfo, curForm));
+                EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(savedId), Integer.valueOf(fid), Integer.valueOf(demographic_no));
+                attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments,
+                        attachedForms, savedId, demographic_no, providerNo);
+                return savedId;
+            });
+        } catch (IllegalArgumentException e) {
+            if (!claim.canRetry()) throw e;
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, "The eForm was not saved. Reload and confirm the attachment selections.");
+            return ERROR;
+        } catch (SecurityException e) {
+            if (!claim.canRetry()) throw e;
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            request.setAttribute(ERROR_ATTRIBUTE, "true");
+            request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
+                    "The eForm was not saved because you do not have permission to use one or more selected attachments.");
+            return ERROR;
+        }
+
+        //post fdid to {eform_link} attribute
+        if (eform_link != null) {
+            // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
+            // The expected key format is: providerNo_demographicNo_fid_openerName
+            String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
+            if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
+                se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
+            } else {
+                logger.warn("Invalid eform_link rejected");
             }
         }
-        if (!sameform) { //save eform data
 
-            /*
-             * Part 2 of "counter hack for a hack" initialized in Javascript file
-             * eform_floating_toolbar.js
-             * Grab the image path placeholders from the form submission and then
-             * feed them into the EForm object.
-             * Doing this ensures the image links get saved correctly into the HTML
-             * of the eform_data database table.
-             */
+        request.setAttribute("fdid", fdid);
+        request.setAttribute("demographicId", demographic_no);
+
+        // Runs BEFORE the saveAsEdoc block below, and that ordering is the whole point.
+        //
+        // This is the eForm's template write: the CPP and encounter notes (EncounterNote,
+        // SocHistory, FamHistory, MedHistory, OngoingConcerns, RiskFactors, Reminders, OMeds)
+        // plus any template-declared document, prevention, message, tickler or consult request.
+        // It used to sit in the final `else` of the workflow chain below, which the eDoc branch's
+        // approval return jumped straight over — so an eForm saved as an eDoc, refused by the
+        // completeness gate and then approved by the clinician, created the eDoc, reported
+        // success, auto-closed, and left the chart notes permanently unwritten. Nothing re-runs
+        // them: writeEformTemplate assigns a fresh UUID and persists unconditionally, so it is
+        // not idempotent and a later retry would duplicate rather than reconcile.
+        //
+        // The condition reproduces that `else` — fax, download and email each return before
+        // reaching it, and each has its own reason not to write the template. Hoisting this
+        // WITHOUT the condition would run it on those paths too and duplicate every note, which
+        // is a worse defect than the one being fixed here.
+        //
+        // The printControl.js buttons are the exception. Until the alias above, "PDF" and
+        // "Submit & PDF" reached this block as a plain save (their print flag never arrived),
+        // so a generated eForm's chart notes, ticklers, preventions and consults were created.
+        // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
+        // (skipSave=true) skips it, matching what its label promises.
+        if (!fax && !isEmailEForm && (!isDownloadEForm || submitAndPdf)) {
+            //write template message to echart
+            String program_no = new EctProgram(se).getProgram(providerNo);
+            String path = request.getRequestURL().toString();
+            String uri = request.getRequestURI();
+            path = path.substring(0, path.indexOf(uri));
+            path += request.getContextPath();
+
+            EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
+        }
+
+        if (saveAsEdoc) {
             try {
-                curForm.addImagePathPlaceholders(imagePathPlaceHolders);
-            } catch (Exception e) {
-                logger.error("Unable to process eForm image placeholders ({})", e.getClass().getSimpleName());
-            }
-
-            String fdid;
-            try {
-                fdid = new org.springframework.transaction.support.TransactionTemplate(
-                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
-                    String savedId = Integer.toString(eformDataManager.saveEformData(loggedInInfo, curForm));
-                    EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(savedId), Integer.valueOf(fid), Integer.valueOf(demographic_no));
-                    attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments,
-                            attachedForms, savedId, demographic_no, providerNo);
-                    return savedId;
-                });
-            } catch (IllegalArgumentException e) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                request.setAttribute(ERROR_ATTRIBUTE, "true");
-                request.setAttribute(ERROR_MESSAGE_ATTRIBUTE, "The eForm was not saved. Reload and confirm the attachment selections.");
-                return ERROR;
-            } catch (SecurityException e) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                request.setAttribute(ERROR_ATTRIBUTE, "true");
-                request.setAttribute(ERROR_MESSAGE_ATTRIBUTE,
-                        "The eForm was not saved because you do not have permission to use one or more selected attachments.");
-                return ERROR;
-            }
-
-            //post fdid to {eform_link} attribute
-            if (eform_link != null) {
-                // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
-                // The expected key format is: providerNo_demographicNo_fid_openerName
-                String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
-                if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
-                    se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
-                } else {
-                    logger.warn("Invalid eform_link rejected");
+                documentAttachmentManager.saveEFormAsEDoc(request, response);
+            } catch (EformContentUnavailableException e) {
+                // Subclass before superclass, same as the download branch: swallowed by the
+                // general handler this was a dead end with no way to review and proceed.
+                return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
+            } catch (PDFGenerationException e) {
+                if (e.isRetryable()) {
+                    return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
+                            demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
                 }
+                setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
+                return "error";
             }
+        }
+
+        if (fax) {
+            prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
+            return "faxPreparation";
+        } else if (isDownloadEForm) {
+            /*
+             * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
+             */
+            String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographic_no));
+            String pdfBase64 = "";
+            try {
+                EformDataManager.EformPdfRender rendered = documentAttachmentManager
+                        .renderEFormPacketWithCompleteness(request, response, null);
+                pdfBase64 = documentAttachmentManager.convertPDFToBase64(rendered.path());
+                // Advisory conditions deliver the PDF rather than blocking it, so the reader
+                // must still be told the render reported something. Count only: console and
+                // dialog text are form-authored and can carry PHI.
+                request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
+            } catch (EformContentUnavailableException e) {
+                // MUST precede the PDFGenerationException catch below: this is a subclass, and
+                // being swallowed by the general handler is exactly why an incomplete download
+                // was a dead end with no way for the clinician to review the omissions and
+                // decide. Mirrors the fax path.
+                return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf);
+            } catch (PDFGenerationException e) {
+                if (e.isRetryable()) {
+                    return offerSavedRenderCapacity(loggedInInfo, fdid, demographic_no,
+                            EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
+                }
+                setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
+                return "error";
+            }
+
+            request.setAttribute("eFormPDF", pdfBase64);
+            request.setAttribute("eFormPDFName", fileName);
+            request.setAttribute("isDownload", "true");
+            flagSubmissionAutoClose(submitAndPdf);
 
             request.setAttribute("fdid", fdid);
-            request.setAttribute("demographicId", demographic_no);
+            request.setAttribute("parentAjaxId", "eforms");
 
-            // Runs BEFORE the saveAsEdoc block below, and that ordering is the whole point.
-            //
-            // This is the eForm's template write: the CPP and encounter notes (EncounterNote,
-            // SocHistory, FamHistory, MedHistory, OngoingConcerns, RiskFactors, Reminders, OMeds)
-            // plus any template-declared document, prevention, message, tickler or consult request.
-            // It used to sit in the final `else` of the workflow chain below, which the eDoc branch's
-            // approval return jumped straight over — so an eForm saved as an eDoc, refused by the
-            // completeness gate and then approved by the clinician, created the eDoc, reported
-            // success, auto-closed, and left the chart notes permanently unwritten. Nothing re-runs
-            // them: writeEformTemplate assigns a fresh UUID and persists unconditionally, so it is
-            // not idempotent and a later retry would duplicate rather than reconcile.
-            //
-            // The condition reproduces that `else` — fax, download and email each return before
-            // reaching it, and each has its own reason not to write the template. Hoisting this
-            // WITHOUT the condition would run it on those paths too and duplicate every note, which
-            // is a worse defect than the one being fixed here.
-            //
-            // The printControl.js buttons are the exception. Until the alias above, "PDF" and
-            // "Submit & PDF" reached this block as a plain save (their print flag never arrived),
-            // so a generated eForm's chart notes, ticklers, preventions and consults were created.
-            // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
-            // (skipSave=true) skips it, matching what its label promises.
-            if (!fax && !isEmailEForm && (!isDownloadEForm || submitAndPdf)) {
-                //write template message to echart
-                String program_no = new EctProgram(se).getProgram(providerNo);
-                String path = request.getRequestURL().toString();
-                String uri = request.getRequestURI();
-                path = path.substring(0, path.indexOf(uri));
-                path += request.getContextPath();
-
-                EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
-            }
-
-            if (saveAsEdoc) {
-                try {
-                    documentAttachmentManager.saveEFormAsEDoc(request, response);
-                } catch (EformContentUnavailableException e) {
-                    // Subclass before superclass, same as the download branches: swallowed by the
-                    // general handler this was a dead end with no way to review and proceed.
-                    return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
-                } catch (PDFGenerationException e) {
-                    if (e.isRetryable()) {
-                        return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
-                                demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
-                    }
-                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
-                    return "error";
-                }
-            }
-
-            if (fax) {
-                prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return "faxPreparation";
-            } else if (isDownloadEForm) {
-                /*
-                 * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
-                 */
-                String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographic_no));
-                String pdfBase64 = "";
-                try {
-                    EformDataManager.EformPdfRender rendered = documentAttachmentManager
-                            .renderEFormPacketWithCompleteness(request, response, null);
-                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(rendered.path());
-                    // Advisory conditions deliver the PDF rather than blocking it, so the reader
-                    // must still be told the render reported something. Count only: console and
-                    // dialog text are form-authored and can carry PHI.
-                    request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
-                } catch (EformContentUnavailableException e) {
-                    // MUST precede the PDFGenerationException catch below: this is a subclass, and
-                    // being swallowed by the general handler is exactly why an incomplete download
-                    // was a dead end with no way for the clinician to review the omissions and
-                    // decide. Mirrors the fax path.
-                    return offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf);
-                } catch (PDFGenerationException e) {
-                    if (e.isRetryable()) {
-                        return offerSavedRenderCapacity(loggedInInfo, fdid, demographic_no,
-                                EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
-                    }
-                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
-                    return "error";
-                }
-
-                request.setAttribute("eFormPDF", pdfBase64);
-                request.setAttribute("eFormPDFName", fileName);
-                request.setAttribute("isDownload", "true");
-                flagSubmissionAutoClose(submitAndPdf);
-
-                request.setAttribute("fdid", fdid);
-                request.setAttribute("parentAjaxId", "eforms");
-
-                return "download";
-            } else if (isEmailEForm) {
-                EmailAttachmentSettings settings = EmailAttachmentSettings.of(
-                    request,
-                    fdid,
-                    demographic_no,
-                    attachedEForms,
-                    attachedDocuments,
-                    attachedLabs,
-                    attachedHRMDocuments,
-                    attachedForms
-                );
-                addEmailAttachmentsToSession(request, settings);
-                redirectToEmailCompose(fid);
-                return NONE;
-            }
-            // No trailing `else`: the template write it used to hold now runs above, before the
-            // saveAsEdoc block, so no early return can skip it.
-
-        } else {
-            logger.debug("Warning! Form HTML exactly the same, new form data not saved.");
-            request.setAttribute("fdid", prev_fdid);
-            request.setAttribute("demographicId", demographic_no);
-
-            attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments, attachedForms, prev_fdid, demographic_no, providerNo);
-
-            if (fax) {
-                /*
-                 * This form id is sent to the fax action to render it as a faxable PDF.
-                 * A preview is returned to the user once the form is rendered.
-                 */
-                prepareFaxHandoff(prev_fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
-                return "faxPreparation";
-            } else if (isDownloadEForm) {
-                /*
-                 * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
-                 */
-                String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographic_no));
-                String pdfBase64 = "";
-                try {
-                    EformDataManager.EformPdfRender rendered = documentAttachmentManager
-                            .renderEFormPacketWithCompleteness(request, response, null);
-                    pdfBase64 = documentAttachmentManager.convertPDFToBase64(rendered.path());
-                    // Advisory conditions deliver the PDF rather than blocking it, so the reader
-                    // must still be told the render reported something. Count only: console and
-                    // dialog text are form-authored and can carry PHI.
-                    request.setAttribute("advisoryIssues", rendered.completeness().advisoryIssueCount());
-                } catch (EformContentUnavailableException e) {
-                    // Same subclass-before-superclass ordering as the save branch above.
-                    return offerDownloadApproval(loggedInInfo, e, prev_fdid, demographic_no, submitAndPdf);
-                } catch (PDFGenerationException e) {
-                    if (e.isRetryable()) {
-                        return offerSavedRenderCapacity(loggedInInfo, prev_fdid, demographic_no,
-                                EFormRenderApprovalService.Operation.DOWNLOAD, submitAndPdf);
-                    }
-                    setPdfError(PDF_DOWNLOAD_FAILURE_MESSAGE, e);
-                    return "error";
-                }
-
-                request.setAttribute("eFormPDF", pdfBase64);
-                request.setAttribute("eFormPDFName", fileName);
-                request.setAttribute("isDownload", "true");
-                flagSubmissionAutoClose(submitAndPdf);
-
-                request.setAttribute("fdid", prev_fdid);
-                request.setAttribute("parentAjaxId", "eforms");
-
-                return "download";
-            } else if (isEmailEForm) {
-                EmailAttachmentSettings settings = EmailAttachmentSettings.of(
-                    request,
-                    prev_fdid,
-                    demographic_no,
-                    attachedEForms,
-                    attachedDocuments,
-                    attachedLabs,
-                    attachedHRMDocuments,
-                    attachedForms
-                );
-                addEmailAttachmentsToSession(request, settings);
-                redirectToEmailCompose(fid);
-                return NONE;
-            }
-
-            if (saveAsEdoc) {
-                try {
-                    documentAttachmentManager.saveEFormAsEDoc(request, response);
-                } catch (EformContentUnavailableException e) {
-                    // Subclass before superclass, same as the download branches: swallowed by the
-                    // general handler this was a dead end with no way to review and proceed.
-                    return offerEDocApproval(loggedInInfo, e, (String) request.getAttribute("fdid"), demographic_no);
-                } catch (PDFGenerationException e) {
-                    if (e.isRetryable()) {
-                        return offerSavedRenderCapacity(loggedInInfo, (String) request.getAttribute("fdid"),
-                                demographic_no, EFormRenderApprovalService.Operation.EDOC, true);
-                    }
-                    setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
-                    return "error";
-                }
-            }
+            return "download";
+        } else if (isEmailEForm) {
+            EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                request,
+                fdid,
+                demographic_no,
+                attachedEForms,
+                attachedDocuments,
+                attachedLabs,
+                attachedHRMDocuments,
+                attachedForms
+            );
+            addEmailAttachmentsToSession(request, settings);
+            redirectToEmailCompose(fid);
+            return NONE;
         }
+        // No trailing `else`: the template write it used to hold now runs above, before the
+        // saveAsEdoc block, so no early return can skip it.
+
 
         if (demographic_no != null) {
             IMatchManager matchManager = new MatchManager();
@@ -547,7 +483,6 @@ public class AddEForm2Action extends ActionSupport {
             }
 		}
 
-        String fdid = (String) request.getAttribute("fdid");
         return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
@@ -639,8 +574,7 @@ public class AddEForm2Action extends ActionSupport {
      * the saved alert, exactly as the floating toolbar does after a plain Submit.
      * {@code printControl.js} used to do this with a blind 3 s timer that could fire before the
      * server-rendered PDF arrived. The "PDF" preview and the toolbar's own Download PDF keep the
-     * window open, so they pass {@code false}. Both download branches go through here so the two
-     * paths cannot drift apart.</p>
+     * window open, so they pass {@code false}.</p>
      */
     private void flagSubmissionAutoClose(boolean submission) {
         if (submission) {
@@ -652,10 +586,9 @@ public class AddEForm2Action extends ActionSupport {
      * Offers the clinician an exact, one-time approval for a download the completeness gate refused.
      *
      * <p>Mirrors the fax path. The retry deliberately targets {@code eform/downloadEFormPdf} rather
-     * than resubmitting this action: {@code saveEformData} persists a NEW eForm on every submit, so
-     * re-posting to approve a render would duplicate the saved record — and would put every form
-     * field, patient data included, into the approval page as hidden inputs. The eForm is already
-     * saved by this point; only the render failed.</p>
+     * than resubmitting this action: the eForm is already saved and its submission identity is
+     * consumed. Only rendering failed. A render-only retry also avoids placing the clinical form
+     * fields in the approval page as hidden inputs.</p>
      *
      * <p>Every category the report carries is surfaced. The approval digest binds to the complete
      * issue set, so a category the clinician was never shown is one they cannot meaningfully have
@@ -680,10 +613,9 @@ public class AddEForm2Action extends ActionSupport {
      * Offers the clinician an exact, one-time approval for a render the completeness gate refused.
      *
      * <p>Shared by the download and save-as-eDoc paths. The retry always targets a render-only or
-     * archive-only route rather than resubmitting this action: {@code saveEformData} persists a NEW
-     * eForm on every submit, so re-posting to approve a render would duplicate the saved record and
-     * would put every form field, patient data included, into the approval page as hidden inputs.
-     * The eForm is already saved by this point; only rendering failed.</p>
+     * archive-only route rather than resubmitting this action. The eForm is already saved and its
+     * submission identity is consumed; only rendering failed. The approval page therefore does
+     * not need to carry the clinical form fields as hidden inputs.</p>
      *
      * <p>Every category the report carries is published. The approval digest binds to the complete
      * issue set, so a category the clinician was never shown is one they cannot meaningfully have

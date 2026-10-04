@@ -93,8 +93,8 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // introduced dependencies in AddEForm2Action or related code paths.
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
-        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        var transactions = org.mockito.Mockito.spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // execute() resolves EmailManager via SpringUtils; register the declared mock here rather
         // than relying on another test in the suite having registered it first (isolation safety).
@@ -140,6 +140,9 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // Set required request parameters — minimal set for a clean execute() path
         mockRequest.setParameter("efmfid", "1");
         mockRequest.setParameter("efmdemographic_no", "123");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(),
+                        mockRequest.getParameter("efmfid"), "123"));
         // Use faxEForm=true to exit cleanly after the session write (the fax branch returns
         // the narrow POST handoff before the EctProgram DB lookup and MatchManager). print=true used to serve
         // this purpose, but it is now the legacy alias of the save-and-download workflow and renders
@@ -169,6 +172,109 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
         verify(mockEformDataManager, never()).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldRejectReplay_whenCommitAcknowledgementIsLost() {
+        var transactions = (io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager)
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        transactions.failCommit = true;
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReportUncertainty_whenCallbackThrowsAfterCommit() throws Exception {
+        when(mockEformDataManager.saveEformData(any(), any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { throw new IllegalArgumentException("synthetic callback failure"); }
+                    });
+            return 42;
+        });
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getContentAsString()).contains("Check").doesNotContain("not saved");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldPermitCorrectedRetry_whenAttachmentTransactionRollsBack() {
+        doThrow(new IllegalArgumentException("synthetic attachment rejection")).doNothing()
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        assertThat(submissionAction().execute()).isEqualTo("error");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(2)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldPermitRetry_whenTransactionCannotStart() {
+        var transactions = (io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager)
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
+        transactions.failBegin = true;
+        assertThatThrownBy(() -> submissionAction().execute())
+                .isInstanceOf(org.springframework.transaction.CannotCreateTransactionException.class);
+        transactions.failBegin = false;
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+    }
+
+    private AddEForm2Action submissionAction() {
+        AddEForm2Action action = spy(new AddEForm2Action());
+        doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
+        return action;
+    }
+
+    @Test
+    void shouldSaveOnlyOnce_whenSamePostIsReplayed() {
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verify(mockDocumentAttachmentManager, times(1)).attachToEForm(any(),
+                eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectMissingIdentity_beforeSavingOrAttaching() {
+        mockRequest.removeParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER);
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verifyNoInteractions(mockEformDataManager, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    void shouldRejectCrossPatientIdentity_beforeSaving() {
+        mockRequest.setParameter("efmdemographic_no", "456");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verifyNoInteractions(mockEformDataManager, mockDocumentAttachmentManager);
+    }
+
+    @Test
+    void shouldSaveNewRevision_whenPageHasFreshIdentity() {
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(), "1", "123"));
+        assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+        verify(mockEformDataManager, times(2)).saveEformData(any(), any());
+    }
+
+    @Test
+    void shouldRejectReplay_whenEdocFailsAfterClinicalSave() throws Exception {
+        mockRequest.setParameter("saveAsEdoc", "true");
+        doThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("synthetic render failure"))
+                .when(mockDocumentAttachmentManager).saveEFormAsEDoc(any(), any());
+        assertThat(submissionAction().execute()).isEqualTo("error");
+        assertThat(submissionAction().execute()).isEqualTo("none");
+        verify(mockEformDataManager, times(1)).saveEformData(any(), any());
+        verify(mockDocumentAttachmentManager, times(1)).saveEFormAsEDoc(any(), any());
     }
 
     @Test

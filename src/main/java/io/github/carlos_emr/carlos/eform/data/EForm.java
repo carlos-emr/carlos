@@ -294,6 +294,16 @@ public class EForm extends EFormBase {
         this.formHtml = html.toString();
     }
 
+    /** Replaces any old submission identity on the actual save form, including saved-form revisions. */
+    public void setSubmissionToken(String token) {
+        String parameter = io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER;
+        getDocument().select("input[name=" + parameter + "]").remove();
+        Element form = getDocument().selectFirst("form");
+        if (form != null) {
+            form.appendElement("input").attr("type", "hidden").attr("name", parameter).attr("value", token);
+        }
+    }
+
     // ------------------Saving the Form (inserting value= statements)---------------------
     public void setValues(ArrayList<String> names, ArrayList<String> values) {
         if (names.size() != values.size()) return;

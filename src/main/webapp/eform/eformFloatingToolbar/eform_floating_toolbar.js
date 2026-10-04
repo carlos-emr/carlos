@@ -89,6 +89,54 @@ function getEForm() {
 	return ef;
 }
 
+// Guard the actual submission, after template validation has had a chance to cancel it.
+// Do not disable the template's submitter: its name/value may be part of the clinical form.
+const submittingEForms = new WeakSet();
+function markEFormSubmitting(form, submitting) {
+    if (submitting) submittingEForms.add(form);
+    else submittingEForms.delete(form);
+    const button = document.getElementById("remoteSubmitButton");
+    if (button) button.disabled = submitting;
+}
+
+function isGuardedEForm(form) {
+    return form instanceof HTMLFormElement && !!form.querySelector('input[name="carlosEformSubmission"]');
+}
+
+const eformNativeSubmit = HTMLFormElement.prototype.submit;
+HTMLFormElement.prototype.submit = function () {
+    if (!isGuardedEForm(this)) return eformNativeSubmit.apply(this, arguments);
+    if (submittingEForms.has(this)) return;
+    markEFormSubmitting(this, true);
+    try {
+        return eformNativeSubmit.apply(this, arguments);
+    } catch (error) {
+        markEFormSubmitting(this, false);
+        throw error;
+    }
+};
+
+window.addEventListener("submit", function (event) {
+    const form = event.target;
+    if (!isGuardedEForm(form) || event.defaultPrevented) return;
+    if (submittingEForms.has(form)) {
+        event.preventDefault();
+        return;
+    }
+    markEFormSubmitting(form, true);
+    // A later window listener can still cancel the native submit. It must remain editable.
+    queueMicrotask(function () {
+        if (event.defaultPrevented) markEFormSubmitting(form, false);
+    });
+});
+
+window.addEventListener("pageshow", function (event) {
+    if (event.persisted) {
+        const form = getEForm();
+        if (form) markEFormSubmitting(form, false);
+    }
+});
+
 /*
  * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the
  * template, as rendered, has no control that submits newForm. Its controls can change after load
@@ -401,6 +449,7 @@ function eFormValidationBlocked() {
 	 * Triggers the eForm save/submit function
 	 */
 function remoteSave() {
+	if (submittingEForms.has(getEForm())) return false;
 
 	try {
 		// Last line of defense for direct callers (the plain Save button): composite callers

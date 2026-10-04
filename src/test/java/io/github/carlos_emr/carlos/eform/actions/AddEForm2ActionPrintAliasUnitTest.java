@@ -121,8 +121,8 @@ class AddEForm2ActionPrintAliasUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
-        var transactions = createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        var transactions = org.mockito.Mockito.spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EmailManager.class, mockEmailManager);
         // generateFileName() resolves the patient's name for the download filename.
@@ -163,6 +163,9 @@ class AddEForm2ActionPrintAliasUnitTest extends CarlosUnitTestBase {
 
         mockRequest.setParameter("efmfid", "3");
         mockRequest.setParameter("efmdemographic_no", "123");
+        mockRequest.setParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER,
+                io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.issue(mockRequest.getSession(),
+                        mockRequest.getParameter("efmfid"), "123"));
         // What printControl.js's "PDF" button posts, alongside the letter itself.
         mockRequest.setParameter("print", "true");
         mockRequest.setParameter("skipSave", "true");
