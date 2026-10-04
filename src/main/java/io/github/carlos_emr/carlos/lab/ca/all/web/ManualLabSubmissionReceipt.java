@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpSession;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.UUID;
+import org.springframework.web.util.WebUtils;
 
 /**
  * Carries a manual submission's result notice across its POST/redirect/GET.
@@ -44,7 +45,7 @@ public final class ManualLabSubmissionReceipt {
             throw new IllegalArgumentException("A submission receipt requires an outcome");
         }
         String id = UUID.randomUUID().toString();
-        synchronized (session) {
+        synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Outcome> outcomes = copyPending(session);
             if (outcomes.size() >= MAX_PENDING) {
                 outcomes.pollFirstEntry();
@@ -67,7 +68,7 @@ public final class ManualLabSubmissionReceipt {
         if (session == null || id == null) {
             return null;
         }
-        synchronized (session) {
+        synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Outcome> outcomes = copyPending(session);
             Outcome outcome = outcomes.remove(id);
             if (outcome != null) {
@@ -83,7 +84,7 @@ public final class ManualLabSubmissionReceipt {
 
     private static LinkedHashMap<String, Outcome> copyPending(HttpSession session) {
         Object value = session.getAttribute(SESSION_KEY);
-        return value instanceof Pending pending
-                ? new LinkedHashMap<>(pending.outcomes()) : new LinkedHashMap<>();
+        return value instanceof Pending(var outcomes)
+                ? new LinkedHashMap<>(outcomes) : new LinkedHashMap<>();
     }
 }

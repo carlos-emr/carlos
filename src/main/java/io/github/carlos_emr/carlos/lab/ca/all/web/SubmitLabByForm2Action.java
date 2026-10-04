@@ -275,8 +275,9 @@ public class SubmitLabByForm2Action extends ActionSupport {
     }
 
     /** Redirects a completed storage attempt without putting clinical data or session IDs in the URL. */
-    // FindSecBugs UNVALIDATED_REDIRECT: container context path, fixed application route and generated UUID;
-    // no request parameter controls the destination. See docs/static-analysis-workflows.md.
+    // FindSecBugs UNVALIDATED_REDIRECT: The container supplies the context path. The route is fixed
+    // and the UUID is server-generated. No request parameter controls the destination.
+    // See docs/static-analysis-workflows.md.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Container context path, fixed application route and server-generated UUID; no request parameter controls the destination")
     private String redirectToForm(ManualLabSubmissionReceipt.Outcome outcome) {
         String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
