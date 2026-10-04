@@ -6002,7 +6002,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Patients carrying the run marker surname (cleanup removes every row of those patients, not the append-only audit log, and asserts none remain) and one unused synthetic Ontario HIN.",
-      "notes": "Fails at its last step on 2026.08: dates typed into Date Rostered / Effective / Renewal / Date Joined never reach the server (add.jsp:576-578 parseDateField template literal is consumed as JSP EL), so a rostered patient cannot be added (alert 'You must choose a valid Date Rostered') and the other dates are silently dropped. Steps 1-6 pass first."
+      "notes": "Validates complete patient registration and duplicate/HIN guards. Optional dates start and persist blank; typed Effective, Renewal, Joined and End dates and a calendar-picked Rostered date persist; clearing End Date stays blank, and rostering without a date is refused."
     },
     {
       "name": "gap-records-demographic-edit-clinical",

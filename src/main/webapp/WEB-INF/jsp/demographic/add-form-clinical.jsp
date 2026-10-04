@@ -1,3 +1,4 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-clinical.jsp: Care team, roster, consent, programs, submit (from demographicaddarecordhtm.jsp lines 1878-2490) --%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
@@ -235,7 +236,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="roster_date" id="roster_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('roster_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="roster_date_cal">
                                     <input type="hidden" name="roster_date_year">
@@ -316,7 +317,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="date_joined" id="date_joined"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('date_joined');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_joined_cal">
                                     <input type="hidden" name="date_joined_year">
@@ -332,7 +333,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="end_date" id="end_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('end_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="end_date_cal">
                                     <input type="hidden" name="end_date_year">

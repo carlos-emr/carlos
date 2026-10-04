@@ -1,3 +1,4 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-personal.jsp: Name, address, phone, demographics, HIN (from demographicaddarecordhtm.jsp lines 767-1877) --%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
@@ -50,7 +51,6 @@
     String defaultProvince = (String) request.getAttribute("defaultProvince");
     ProvinceNames pNames = (ProvinceNames) request.getAttribute("pNames");
     boolean privateConsentEnabled = Boolean.TRUE.equals(request.getAttribute("privateConsentEnabled"));
-    String today = (String) request.getAttribute("today");
     List<Provider> doctors = (List<Provider>) request.getAttribute("doctors");
     List<Provider> nurses = (List<Provider>) request.getAttribute("nurses");
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
@@ -835,12 +835,12 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="eff_date" id="eff_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('eff_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="eff_date_cal">
                                     <input type="hidden" name="eff_date_year">
-                                    <input type="hidden" name="eff_month">
-                                    <input type="hidden" name="eff">
+                                    <input type="hidden" name="eff_date_month">
+                                    <input type="hidden" name="eff_date_date">
                                 </div>
                             </div>
                         </div>
@@ -939,7 +939,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="hc_renew_date" id="hc_renew_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('hc_renew_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="hc_renew_date_cal">
                                     <input type="hidden" name="hc_renew_date_year">
