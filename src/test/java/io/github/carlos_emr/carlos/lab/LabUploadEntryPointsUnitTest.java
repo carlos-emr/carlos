@@ -225,6 +225,21 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepSessionIdOutOfRedirect_whenContainerSupportsUrlRewriting() throws Exception {
+        response = new MockHttpServletResponse() {
+            @Override
+            public String encodeRedirectURL(String url) {
+                return url.replace("?", ";jsessionid=SYNTHETIC-SESSION?");
+            }
+        };
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        runManualForm(false, "none");
+        assertThat(response.getHeader("Location")).doesNotContain("jsessionid", "SYNTHETIC-SESSION");
+        assertManualRedirect(StoreOutcome.STORED);
+    }
+
+    @Test
     void shouldRedirectWithDuplicateNotice_whenManualFileIsAlreadyRecorded() throws Exception {
         when(dao.findByMd5Sum(anyString())).thenReturn(
                 List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));

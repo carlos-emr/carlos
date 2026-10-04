@@ -245,8 +245,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
             // Redirect only after storage/commit completes, carrying a notice without PHI.
             String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
             response.setStatus(HttpServletResponse.SC_SEE_OTHER);
-            response.setHeader("Location", response.encodeRedirectURL(request.getContextPath()
-                    + "/oscarMDS/ViewCreateLab?submission=" + receipt));
+            response.setHeader("Location", request.getContextPath()
+                    + "/oscarMDS/ViewCreateLab?submission=" + receipt);
             return NONE;
         }
         addActionError(getText("oscarMDS.createLab.submitError"));
