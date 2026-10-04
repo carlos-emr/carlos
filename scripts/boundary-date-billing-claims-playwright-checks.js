@@ -105,8 +105,7 @@ async function workflow(s) {
   });
   await s.step('OHIP simulation previews a claim dated exactly on the Service Date Start, and a single-day window finds its day', async () => {
     const got = await simulate(DAYS.start, DAYS.end);
-    h.assert(got === 'end,start', `Window ${DAYS.start}..${DAYS.end} previewed [${got}], expected [end,start]: the claim dated on the Service Date Start is left out `
-      + '(BillingONCHeader1DaoImpl.findByProviderStatusAndDateRange uses billingDate > from)');
+    h.assert(got === 'end,start', `Window ${DAYS.start}..${DAYS.end} previewed [${got}], expected [end,start]: the Service Date Start claim is missing`);
     const leap = await simulate(DAYS.leap, DAYS.leap);
     h.assert(leap === 'leap', `The single-day window ${DAYS.leap} previewed [${leap}], expected [leap]`);
   });

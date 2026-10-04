@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.*;
 
 import java.nio.charset.StandardCharsets;
@@ -682,7 +684,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         /** Build a wrapping pharmacy block, reserving its height above the drugs on narrow paper. */
         private PdfPTable createPharmacyTable(Rectangle page) throws DocumentException, IOException {
-            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            BaseFont bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             List<String> pharmacy = new ArrayList<>();
             pharmacy.add("ATTENTION:");
             pharmacy.add(pharmacyInfo.getName());
@@ -699,7 +701,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             }
             pharmacy.add(pharmacyInfo.getFax());
             PdfPTable pharmacyTable = new PdfPTable(1);
-            pharmacyTable.setTotalWidth(page.getWidth() < 400f ? 272f : page.getWidth() - 313f);
+            // Narrow paper uses a 15pt left origin; keep the same margin on the right.
+            pharmacyTable.setTotalWidth(page.getWidth() < 400f ? Math.min(272f, page.getWidth() - 30f) : page.getWidth() - 313f);
             for (String pharmacyItem : pharmacy) {
                 // An absent field is skipped rather than handed to showTextAligned as null;
                 // the block moves up a line, it never prints "null".
@@ -719,8 +722,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
          * at its rendered 272-point width, so its height can be measured before it is drawn.
          */
         private PdfPTable createPatientHeadingTable() throws DocumentException, IOException {
-            BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-            BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            BaseFont bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            BaseFont bfBold = PdfFonts.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             String newline = System.getProperty("line.separator");
             boolean showPatientDOB = (this.patientDOB != null && this.patientDOB.length() > 0);
 
@@ -789,7 +792,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             String newline = System.getProperty("line.separator");
 
             try {
-                BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+                BaseFont bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
                  *  Create the special CARLOS Rx logo at the top
@@ -955,7 +958,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 String confidentiality = CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "");
                 ColumnText columnText = new ColumnText(cb);
                 columnText.addText(new Chunk(confidentiality, new Font(bf, 9)));
-                columnText.setSimpleColumn(0, 0, page.getWidth(), 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);
+                columnText.setSimpleColumn(13f, 0, page.getWidth() - 12f, 60, 10, Element.ALIGN_CENTER | Element.ALIGN_TOP);
                 columnText.go();
 
             } catch (Exception e) {
@@ -1791,7 +1794,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         document.newPage();
 
         PdfContentByte cb = writer.getDirectContent();
-        BaseFont bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        BaseFont bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
         cb.setRGBColorStroke(0, 0, 255);
         boolean hasAdditionalNote = (additNotes != null && !additNotes.equals(""));

@@ -251,6 +251,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                 // Storing the lab in PDF format inside a byte stream.
                 try (
+                        // tempLabPDF comes from File.createTempFile and passes the allowed-temp check.
+                        // nosemgrep: carlos.httpservlet-path-traversal
                         FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
                         ByteOutputStream byteOutputStream = new ByteOutputStream();
                 ) {

@@ -1749,7 +1749,7 @@
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"

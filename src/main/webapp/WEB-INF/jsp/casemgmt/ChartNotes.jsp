@@ -237,7 +237,9 @@
         <input type="hidden" name="chain" value="list">
         <input type="hidden" name="method" value="view">
         <input type="hidden" id="check_issue" name="check_issue">
-        <input type="hidden" id="serverDate" value="<%=strToday%>">
+        <%-- Today uses an ISO server day so the print calendars can format it in the chart locale. --%>
+        <input type="hidden" id="serverDate" value="<%=strToday%>"
+               data-print-date="<carlos:encode value='<%=dToday.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()%>' context="htmlAttribute"/>">
         <input type="hidden" id="resetFilter" name="resetFilter" value="false">
 
         <div id="filteredresults">

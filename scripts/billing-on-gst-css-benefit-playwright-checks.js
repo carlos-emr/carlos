@@ -119,6 +119,8 @@ async function workflow(s) {
     h.assert(await providers.locator(`option[value="${bill.provider}"]`).count() === 1, 'The report does not offer the bill\'s provider');
     await providers.selectOption(bill.provider);
     await navigates(admin, frame, frame.locator('form[name="gstform"] input[type="submit"]'));
+    // runWorkflow validates the owned patient ID as digits before this callback.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     const row = frame.locator('table.table tr').filter({ has: frame.locator('td', { hasText: new RegExp(`^\\s*${patient}\\s*$`) }) });
     h.assert(await row.count() === 1, 'The GST report did not list exactly one row for the owned bill');
     const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());

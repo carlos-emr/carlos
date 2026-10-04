@@ -19,7 +19,8 @@
  * (no duplicate row per save). With no row at all the page must show the state the appointment screen
  * actually uses (isDisabled() is false when the row is absent, so the page must read Enabled).
  *
- * Fixtures: none created. The hide_prevention_stop_signs row (global) is snapshotted first and restored
+ * Fixtures: one owned synthetic child and appointment, deleted after the check.
+ * The hide_prevention_stop_signs row (global) is snapshotted first and restored
  * (re-inserted, updated or deleted) in cleanup, so run EXCLUSIVE=1. Coverage plan §3.4 prevention-admin.
  */
 const h = require('./lib/playwright-harness');
@@ -54,7 +55,7 @@ async function openSettings(s) {
 }
 
 async function workflow(s) {
-  const {sql} = s;
+  const {sql, patient, provider, marker} = s;
   const rows = () => sql.rows(`SELECT id, value, provider_no FROM property WHERE name=${h.sqlString(PROP)} ORDER BY id`);
   const snapshot = rows();
   s.cleanup(() => {
@@ -65,6 +66,37 @@ async function workflow(s) {
     }
     h.assert(JSON.stringify(rows().map(r => r[1])) === JSON.stringify(snapshot.map(r => r[1])), 'The prevention stop-sign setting was not restored');
   });
+
+  // A three-year-old with no vaccinations has a deterministic DTaP-IPV warning.
+  sql.execute(`UPDATE demographic SET year_of_birth=YEAR(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)),
+    month_of_birth=MONTH(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)),date_of_birth=DAY(DATE_SUB(CURDATE(), INTERVAL 3 YEAR)) WHERE demographic_no=${patient}`);
+  let appointment;
+  s.cleanup(() => {
+    if (appointment) {
+      sql.execute(`DELETE FROM appointment WHERE appointment_no=${appointment} AND demographic_no=${patient}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${appointment}`) === '0',
+        'The owned prevention appointment was not removed');
+    }
+  });
+  appointment = sql.value(`INSERT INTO appointment (provider_no,appointment_date,start_time,end_time,name,demographic_no,
+    notes,reason,location,resources,type,style,billing,status,createdatetime,updatedatetime,creator,lastupdateuser)
+    VALUES (${h.sqlString(provider)},CURDATE(),'10:00:00','10:15:00',${h.sqlString(marker)},${patient},
+      '','FAKE prevention warning check','','',NULL,'','','t',NOW(),NOW(),${h.sqlString(s.config.testUser)},${h.sqlString(provider)});
+    SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(appointment), 'The prevention appointment was not created');
+  const dayUrl = new URL(s.schedule.url());
+  const dayPath = dayUrl.pathname.slice(s.config.baseUrl.pathname.length) + dayUrl.search;
+  const dayPage = await s.context.newPage();
+  async function assertScheduleWarning(enabled) {
+    await h.gotoApp(dayPage, s.config.baseUrl, dayPath);
+    const link = dayPage.locator(`a.apptLink[onclick*="appointment_no=${appointment}&"]`);
+    await link.waitFor();
+    const warning = dayPage.locator('td.appt').filter({has: link}).locator('img[src$="/images/stop_sign.png"]');
+    h.assert(await warning.count() === (enabled ? 1 : 0),
+      `The day-sheet prevention warning should be ${enabled ? 'visible' : 'hidden'}`);
+    if (enabled) h.assert((await warning.getAttribute('title')).includes('DTaP-IPV'),
+      'The day sheet did not generate the owned patient vaccination warning');
+  }
 
   const opened = await openSettings(s);
   const {admin, reopen} = opened;
@@ -92,6 +124,7 @@ async function workflow(s) {
     sql.execute(`DELETE FROM property WHERE name=${h.sqlString(PROP)}`);
     frame = await reopen();
     h.assert(value().length === 0, 'The setting row was not removed for the starting-state step');
+    await assertScheduleWarning(true);
     // PreventionManager.isDisabled() is false without a row: stop signs ARE shown, so Enabled must be checked.
     if (!await masterRadio('false').isChecked()) {
       defects.push('With no setting row the appointment screen shows stop signs (PreventionManager.isDisabled() is false), '
@@ -112,6 +145,7 @@ async function workflow(s) {
     h.assert(await masterRadio('master').isChecked(), 'The page does not show Disabled after saving it');
     h.assert(await frame.locator('form[name="prevForm"] input[type="radio"][disabled]').count() > 0, 'The per-prevention radios were not disabled');
     h.assert(await frame.locator('form[name="prevForm"] input[type="submit"]').isDisabled(), 'Save Custom stayed enabled while all notifications are off');
+    await assertScheduleWarning(false);
   });
 
   await s.step('Enabled + Save stores "false" in the same row and re-enables the per-prevention controls', async () => {
@@ -119,6 +153,7 @@ async function workflow(s) {
     await submit('masterForm');
     h.assert(JSON.stringify(value()) === JSON.stringify(['false']), `Expected one row "false", found ${JSON.stringify(value())}`);
     h.assert(await frame.locator('form[name="prevForm"] input[type="radio"][disabled]').count() === 0, 'The per-prevention radios stayed disabled');
+    await assertScheduleWarning(true);
   });
 
   let names;
@@ -145,5 +180,5 @@ async function workflow(s) {
   h.assert(defects.length === 0, defects.join(' | '));
 }
 
-if (require.main === module) runWorkflow('gap-clinical-prevention-notifications', workflow, {openPatient: false});
+if (require.main === module) runWorkflow('gap-clinical-prevention-notifications', workflow, {openPatient: true, openMaster: false});
 module.exports = {workflow};

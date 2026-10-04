@@ -37,6 +37,7 @@
 
     Features:
     - Bootstrap 5 responsive table with sortable columns
+    - Fetches one extra match to suppress empty final pages; submitting filters resets the offset
     - Filter by team, date range (referral or appointment date), and completion status
     - Filter by Consultant (type-ahead over specialists referenced by consult requests, served by
       encounter/consultation/searchConsultants) and by Provider (the patient's MRP). Both values
@@ -126,6 +127,9 @@
     } catch (NumberFormatException e) {
         limit = 100;
     }
+    // Leave room for the lookahead row and avoid overflowing next-page offsets.
+    limit = Math.clamp(limit, 1, ConsultationRequestDao.MAX_LIST_RETURN_SIZE - 1);
+    offset = Math.clamp(offset, 0, Integer.MAX_VALUE - limit - 1);
 %>
 <security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r"
                    reverse="false"><%isSiteAccessPrivacy = true; %></security:oscarSec>
@@ -829,7 +833,9 @@
                             theRequests = new EctViewConsultationRequestsUtil();
                             theRequests.estConsultationVecByTeam(LoggedInInfo.getLoggedInInfoFromSession(request),
                                     new ConsultationListFilterDto(team, includeCompleted, startDate, endDate, orderby, desc,
-                                            searchDate, offset, limit, consultantId, filterProviderNo));
+                                            searchDate, offset, limit + 1, consultantId, filterProviderNo,
+                                            restrictToSiteOrTeam ? providerMap.keySet() : null,
+                                            bMultisites && restrictToSiteOrTeam ? new java.util.HashSet<>(mgrSite) : null));
                             boolean overdue;
                             UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
                             String user = (String) session.getAttribute("user");
@@ -841,7 +847,7 @@
                                 timeperiod = up.getValue();
                             }
 
-                            for (int i = 0; i < theRequests.ids.size(); i++) {
+                            for (int i = 0; i < Math.min(limit, theRequests.ids.size()); i++) {
                                 //multisites. skip record if not belong to same site/team
                                 if (restrictToSiteOrTeam) {
                                     if (providerMap.get(theRequests.providerNo.get(i)) == null) continue;
@@ -988,7 +994,7 @@
                         <i class="fas fa-chevron-left me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
-                        if (theRequests.ids.size() == limit) {
+                        if (theRequests.ids.size() > limit) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
                         <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%

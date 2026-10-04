@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -130,7 +132,7 @@ public class GeneratePatientSpreadSheetList2Action extends ActionSupport {
      * @return Paragraph the formatted label in Helvetica 18pt with 22pt leading
      */
     Paragraph getEnvelopeLabel(String text) {
-        Paragraph p = new Paragraph(text, FontFactory.getFont(FontFactory.HELVETICA, 18));
+        Paragraph p = new Paragraph(text, PdfFonts.getFont(FontFactory.HELVETICA, 18));
         p.setLeading(22);
         return p;
     }

@@ -63,6 +63,12 @@ jobs:
               exit 1
             fi
           fi
+      - name: Install Poppler for PDF text regressions
+        run: |
+          if ! command -v pdftotext >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends poppler-utils
+          fi
       - name: Run all script regressions
         run: npm run test:scripts
       # Both checks use only the standard-library Python supplied by the runner.

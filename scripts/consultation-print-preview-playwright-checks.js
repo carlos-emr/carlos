@@ -67,7 +67,7 @@
  *   CONSULT_PREVIEW_TIMEOUT_MS=45000      per-step allowance
  */
 
-const zlib = require('zlib');
+const pdf = require('./lib/export-content-helpers');
 const {
   assert, createRecorder, createSqlRunner, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
@@ -136,32 +136,9 @@ async function cleanup() {
   }
 }
 
-/**
- * The text drawn in a PDF, near enough for an assertion.
- *
- * The consultation PDF is generated text, not a scan: every string is a literal in
- * a Flate-compressed content stream, so inflating the streams and reading the
- * literals is enough to tell one referral's wording from another's. No PDF library
- * is pulled in for this.
- */
+/** Extracts actual rendered Unicode text, reflowing whitespace for preview assertions. */
 function pdfText(pdfBuffer) {
-  const parts = [];
-  const streams = /stream\r?\n/g;
-  let match = streams.exec(pdfBuffer.toString('latin1'));
-  const raw = pdfBuffer.toString('latin1');
-  while (match) {
-    const start = match.index + match[0].length;
-    const end = raw.indexOf('endstream', start);
-    if (end > start) {
-      try {
-        parts.push(zlib.inflateSync(Buffer.from(raw.slice(start, end), 'latin1')).toString('latin1'));
-      } catch {
-        // Not a Flate stream (fonts, images): nothing this check needs is in one.
-      }
-    }
-    match = streams.exec(raw);
-  }
-  return parts.join('\n');
+  return pdf.pdfTextBuffer(pdfBuffer).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -189,6 +166,7 @@ async function chooseService(page, timeout) {
 }
 
 async function main() {
+  pdf.requirePoppler('pdftotext');
   const config = readConfig({ require: ['MYSQL_PASSWORD'] });
   const searchTerm = process.env.CONSULT_PREVIEW_SEARCH || 'FAKE-';
   const preferredDemographicNo = process.env.CONSULT_PREVIEW_DEMOGRAPHIC_NO || '2';
@@ -196,7 +174,7 @@ async function main() {
   const saved = `PW_CONSULT_SAVED_${Date.now()}`;
   // Recorded before anything is created: cleanup can find the referral by this alone.
   fixture.stamp = saved;
-  const typed = `PW_CONSULT_TYPED_${Date.now()}`;
+  const typed = `PW_CONSULT_TYPED_${Date.now()} Nguyễn Łukasz İstanbul ≥ 5 ≤ 9`;
 
   const sql = createSqlRunner(config.mysql);
   fixture.sql = sql;

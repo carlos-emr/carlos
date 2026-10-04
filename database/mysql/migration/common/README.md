@@ -47,14 +47,26 @@ patient; ambiguous legacy rows remain unresolved and require confirmation before
 These unpublished migrations were renumbered from V1.0.37/V1.0.38 after the release reached
 V1.0.41. Apply V1.0.42 and then V1.0.43 with normal Flyway ordering; no `outOfOrder` is needed.
 
+`V1.0.23.1__widen_email_config.sql` widens `emailConfig.configDetails` to `TEXT` to match the
+entity mapping. `V1.0.29__rename_placeholder_demo_clinic.sql` replaces the seeded placeholder
+clinic name.
+`V1.0.52__enforce_provider_signature_identity.sql` repairs exact duplicate provider
+signature rows for assigned providers and enforces the mapped provider identity.
+Every unassigned NULL-provider row is retained, including identical rows. Conflicting signatures,
+provider numbers that differ in bytes but compare equal under the column collation, a
+`providerExt` with columns beyond `provider_no` and `signature`, and a site index already named
+`providerExt_provider_no_uq` that is not the provider identity all fail before source changes.
+See the parent README for preparation and recovery instructions.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.45`.
-The next unallocated version for ANY location is `V1.0.46` (see `../README.md`; `V1.0.44` is
-claimed by open PR #3694).
+next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.52`.
+`V1.0.48`–`V1.0.51` are claimed by open pull requests, so the next unallocated version for ANY
+location is `V1.0.53` (see `../README.md`). Consult every active branch inventory before assigning a
+version. Never edit a published migration or silently enable out-of-order application during promotion.
 
-Messenger membership coordination (#3964) adds
+Messenger membership coordination (PR #3986, issue #3964) adds
 `common/V1.0.36__serialize_messenger_membership_changes.sql`. Apply/merge these forward migrations
 in version order; if their merge order changes after a release, renumber the still-unreleased
 migration before shipping it. The coordination table contains no clinical data and does not

@@ -7,13 +7,10 @@
  * User path: login > Schedule > Administration > Help Link Setting (admin/ResourceBaseUrl,
  * a Toast UI rich-text editor for the Help details).
  *
- * resourcebaseurl.jsp constructs `new toastui.Editor({...})` without `usageStatistics:
- * false`, and the editor then sends a usage-statistics event (with the host name) to
- * https://www.google-analytics.com/collect. CreateMessage.jsp and ViewMessage.jsp both
- * pass usageStatistics:false; this page does not. An EMR admin page must make no request
- * to any host but the application. Every off-host request is ABORTED in the browser
- * (nothing leaves the machine) and recorded; the check asserts the record is empty.
- * FAILS today at the final step.
+ * All Toast UI editor instances must disable usage statistics. This regression opens the
+ * real Help Link Setting editor and waits past the library's beacon timer. Every off-host
+ * request is ABORTED in the browser (nothing leaves the machine) and recorded; the check
+ * asserts that the record is empty and the editor renders without errors.
  *
  * READ-ONLY, no fixtures: the page is opened and closed, nothing is saved.
  *

@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
+import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -124,6 +125,9 @@ public interface DemographicDao {
 
     /** Returns merge-page results with domain filtering and stable ordering before pagination. */
     List<Demographic> searchForMerge(DemographicMergeSearch search, String providerNo, boolean outOfDomain);
+
+    /** Returns current patients in database order, including one possible lookahead row beyond the page limit. */
+    List<Demographic> searchForPatientList(DemographicListSearch search, String providerNo, boolean outOfDomain);
 
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain);

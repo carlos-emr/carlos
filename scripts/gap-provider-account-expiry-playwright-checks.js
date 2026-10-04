@@ -6,8 +6,7 @@
  *
  * User paths, as a THROWAWAY login (lib/throwaway-login-fixture.js):
  *   login with the account expiring in 5 days ▸ the day sheet shows the "account will expire soon;
- *   days remaining" banner ▸ its Change Password button (provider/ViewChangePassword, which shows how an
- *   administrator renews the account);
+ *   days remaining" banner ▸ its Change Password button (provider/ViewProviderChangePassword, which allows the logged-in user to change their password);
  *   login again with the expiry 30 days out ▸ no banner;
  *   login with the expiry yesterday ▸ refused at the front door with the expired-account message.
  * Nothing drove the banner (appointmentprovideradminday.jsp onLoad ▸ showPasswordExpiryWarning), the
@@ -15,11 +14,11 @@
  * refusal (security-record-admin only sets the flag and checks a DELETED login).
  *
  * Asserted: inside the window the banner shows the remaining whole days and the session carries it;
- * its button opens the account-renewal notice (provider/ViewChangePassword) without an error; outside the
+ * its button opens the password form as a receptionist without an error; outside the
  * window there is no banner; an expired account is refused with the expired message, never reaches
  * the schedule, and is audited (log action `expired`); the refused attempt wrote nothing else.
- * Fixtures: the throwaway login only; its security row's expiry columns are the only thing changed
- * and the fixture deletes the row. EXCLUSIVE=1: the expired attempt is a failed login, which the
+ * Fixtures: a throwaway receptionist with owned schedule/message read grants and no provider-admin
+ * grant. Cleanup removes its role, grants, security row and audit records. EXCLUSIVE=1: the expired attempt is a failed login, which the
  * address-keyed lockout counter (login_lock off) or the username counter (login_lock on) records;
  * running alone keeps that count away from other checks' own login assertions.
  * Implements coverage plan §2.2 (authentication, session, authorisation: account expiry).
@@ -33,6 +32,25 @@ async function workflow(s) {
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   fixture.create();
+  // An expiring clerk must reach their own password form without provider-admin permission.
+  sql.execute(`DELETE FROM secUserRole WHERE provider_no=${h.sqlString(fixture.providerNo)};
+    INSERT INTO secUserRole(provider_no,role_name,orgcd,activeyn,lastUpdateDate)
+      VALUES (${h.sqlString(fixture.providerNo)},'receptionist','',1,NOW())`);
+  // This fixture owns its schedule grant; deployments need not seed receptionist privileges.
+  const clerk = h.sqlString(fixture.providerNo);
+  let grantsCreated = false;
+  s.cleanup(() => {
+    if (!grantsCreated) return;
+    sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${clerk} AND provider_no=${clerk}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${clerk}`) === '0',
+      'The owned clerk privilege was not removed');
+  });
+  h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${clerk}`) === '0',
+    'The throwaway provider already has direct privileges');
+  sql.execute(`INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)
+    VALUES (${clerk},'_appointment','|r|',0,${clerk}),
+      (${clerk},'_msg','|r|',0,${clerk})`);
+  grantsCreated = true;
   const user = h.sqlString(fixture.username);
   // The expired refusal is audited as action 'expired', which the fixture's own cleanup does not sweep.
   s.cleanup(() => {
@@ -60,13 +78,12 @@ async function workflow(s) {
     h.assert(/days remaining: 5\b/.test(text), `The banner does not show 5 days remaining: "${text}"`);
     const button = banner.locator('a.btn', { hasText: /change password/i });
     await Promise.all([schedule.waitForNavigation({ waitUntil: 'domcontentloaded' }), button.click()]);
-    h.assert(h.pathOnly(schedule.url()).endsWith('/provider/ViewChangePassword'), 'The banner button did not open the Change Password page');
+    h.assert(h.pathOnly(schedule.url()).endsWith('/provider/ViewProviderChangePassword'), 'The banner button did not open the Change Password page');
     await h.assertNotErrorPage(schedule, 'expiry banner button');
-    // The route (provider/changePassword.jsp) is the renewal notice: an expiring ACCOUNT is renewed by an
-    // administrator on the security record, not by the user's own password change.
-    const notice = (await schedule.locator('body').innerText()).replace(/\s+/g, ' ');
-    h.assert(/will be expired soon, please contact your administrator to renew your account/i.test(notice),
-      'The banner button did not open the account-renewal notice');
+    for (const field of ['oldpassword', 'mypassword', 'confirmpassword']) {
+      h.assert(await schedule.locator(`input[name="${field}"]`).isVisible(),
+        `The expiry button did not open an editable password form (${field} missing)`);
+    }
     await context.close();
   });
 

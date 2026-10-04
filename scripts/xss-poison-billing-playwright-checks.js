@@ -111,6 +111,8 @@ async function workflow(s) {
     await frame.waitForLoadState('networkidle', { timeout: 30000 });
     let since = f.mark();
     await inspect(f, 'invoice report', admin, fields, since, { expect: [provider, invoiceName] });
+    // addClaim validates this owned fixture ID as digits before returning it.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     const invoice = frame.locator(`#bListTable a`, { hasText: new RegExp(`^\\s*${claim.id}\\s*$`) }).first();
     if (await invoice.count()) {
       since = f.mark();

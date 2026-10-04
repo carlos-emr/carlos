@@ -101,6 +101,8 @@ async function workflow(s) {
     }
   }
   // The pages nest their tables, so a row is the parent of the cell holding the code.
+  // callers use generated alphanumeric fixture codes or a fixed alternation of those codes.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const codeRow = (page, code) => page.locator('td', {hasText: new RegExp(`^\\s*(${code})\\s*$`)}).locator('xpath=..');
   async function addLoinc(host, code, expected) {
     const popup = await s.popup(host, host.getByRole('button', {name: 'Add New Loinc Code', exact: true}), 'new-loinc-code');

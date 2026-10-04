@@ -1548,6 +1548,8 @@ class Archive:
                 f"[paths] state directory {d} is owned by uid {st.st_uid}, not the user this "
                 f"tool runs as (uid {os.geteuid()}); it must be a directory dedicated to this tool"
             )
+        # 0700 grants access only to the directory owner; group and other permissions are zero.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(d, 0o700)
 
     def save_inbox(self, run_id: str, data: bytes) -> Path:

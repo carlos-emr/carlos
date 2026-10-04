@@ -417,7 +417,7 @@
                 </tr>
                 <tr>
                     <td align="center"><img style="width: 40%; height: 126px;"
-                                            src="graphics/MMSEpentagons.bmp"/></td>
+                                            src="${pageContext.request.contextPath}/form/graphics/MMSEpentagons.bmp"/></td>
                 </tr>
             </table>
         </td>

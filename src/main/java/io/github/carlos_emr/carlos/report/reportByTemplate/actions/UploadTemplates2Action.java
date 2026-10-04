@@ -110,7 +110,10 @@ public class UploadTemplates2Action extends ActionSupport implements UploadedFil
                 // Validate the uploaded temp file is from an allowed source
                 File validatedTemplateFile = PathValidationUtils.validateUpload(templateFile);
 
-                // Read the file content
+                // The upload interceptor supplies this temporary file (reviewed CodeQL alert 27453).
+                // Struts does not bind request parameters to the unannotated setter.
+                // The read uses the canonical validated file; arbitrary client paths remain untrusted.
+                // See docs/static-analysis-workflows.md (CodeQL exceptions).
                 byte[] bytes = Files.readAllBytes(validatedTemplateFile.toPath());
                 xml = new String(bytes);
                 if (xml.isBlank()) {

@@ -38,6 +38,8 @@ async function openItem(admin, route, ready) {
   await iframe.waitFor();
   const frame = await (await iframe.elementHandle()).contentFrame();
   h.assert(frame, `The ${route} iframe did not load`);
+  // route comes only from the fixed admin route literals in this file.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   await frame.waitForURL(new RegExp(`/admin/${route}`), { timeout: TIMEOUT, waitUntil: 'load' });
   await frame.locator(ready).first().waitFor({ state: 'attached', timeout: TIMEOUT });
   return frame;

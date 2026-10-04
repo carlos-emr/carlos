@@ -2,12 +2,12 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * As-of date inclusivity of the Prevention Report (wave 6, boundary values, Part 2).
- * User path: Schedule > Report > Preventions report (prevention/PreventionReport) > patient set, prevention type Flu,
+ * User path: Schedule > Report > Preventions report (prevention/PreventionReport) > patient set, prevention type,
  * As Of date > Run Report.
- * Asserts: with a fixed as-of date inside the flu season, a flu shot given the day before the as-of date and a flu shot
- * given ON the as-of date are both counted ("Up to date"), and a shot dated the day after is still in the future
+ * Asserts: with a fixed as-of date inside the flu season, a prevention given the day before the as-of date and one
+ * given ON the as-of date are both counted ("Up to date"), and a prevention dated the day after is still in the future
  * ("No Info"). The report is run for that fixed date, not for today, so the result does not depend on when it runs.
- * Fixtures: three synthetic patients aged over 65 (surname = run marker + index) with one Flu prevention each, and one
+ * Fixtures: three synthetic patients aged over 65 (surname = run marker + index) with Flu, MAM, PAP and FOBT preventions each, and one
  * saved patient query naming them; cleanup removes the preventions, the query and the patients and asserts none remain.
  * Implements the wave-6 "boundary values" pattern, Part 2 (prevention reports, end-date inclusivity).
  */
@@ -16,6 +16,8 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const AS_OF = '2026-10-15';
+const TYPES = [{ report: 'Flu', stored: 'Flu' }, { report: 'Mammogram', stored: 'MAM' },
+  { report: 'PAP', stored: 'PAP' }, { report: 'FOBT', stored: 'FOBT' }];
 const DAYS = { before: '2026-10-14', on: AS_OF, after: '2026-10-16' };
 
 async function workflow(s) {
@@ -40,8 +42,10 @@ async function workflow(s) {
       VALUES (${q(`${marker}-P${name}`)},'Prev','1950','06','15','F','AC',${q(provider)},'ON','ON','NR','',NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), `Patient fixture ${name} was not created`);
     ids[name] = id;
-    sql.execute(`INSERT INTO preventions (demographic_no,creation_date,prevention_date,provider_no,provider_name,prevention_type,deleted,refused,never,lastUpdateDate)
-      VALUES (${id},NOW(),${q(`${date} 09:00:00`)},${q(provider)},'Fixture','Flu','0','0','0',NOW())`);
+    for (const type of TYPES) {
+      sql.execute(`INSERT INTO preventions (demographic_no,creation_date,prevention_date,provider_no,provider_name,prevention_type,deleted,refused,never,lastUpdateDate)
+        VALUES (${id},NOW(),${q(`${date} 09:00:00`)},${q(provider)},'Fixture',${q(type.stored)},'0','0','0',NOW())`);
+    }
   }
   sql.execute(`INSERT INTO demographicQueryFavourites (queryName, archived, demoIds, selects)
     VALUES (${q(queryName)}, '1', ${q(Object.values(ids).join(','))}, '<root><item value="demographic_no"/></root>')`);
@@ -55,27 +59,30 @@ async function workflow(s) {
     { context: s.context, recorder: s.recorder, label: 'prevention-report', timeout: 30000 });
   await report.locator('select#patientSet').waitFor({ state: 'visible', timeout: 30000 });
 
-  await s.step(`the Flu report as of ${AS_OF} counts a shot given the day before and a shot given on the as-of date, and not one dated the day after`, async () => {
-    await report.locator('select#patientSet').selectOption(favourite);
-    await report.locator('select#prevention').selectOption('Flu');
-    await report.locator('#asofDate').fill(AS_OF);
-    await Promise.all([
-      report.waitForResponse(r => /\/prevention\/PreventionReport/.test(r.url()) && r.request().method() === 'GET', { timeout: 45000 }),
-      report.locator('input[type="submit"]').first().click(),
-    ]);
-    await report.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
-    await h.assertNotErrorPage(report, 'prevention report');
-    const state = {};
-    for (const [name, id] of Object.entries(ids)) {
-      const row = report.locator('#preventionTable tbody tr').filter({ has: report.locator(`a[onclick*="demographic_no=${id}"]`) }).first();
-      h.assert(await row.count() > 0, `The report did not list the ${name} fixture patient`);
-      state[name] = (await row.locator('span.badge').first().innerText()).trim();
-    }
-    h.assert(state.before === 'Up to date', `A flu shot given the day before the as-of date is "${state.before}", expected "Up to date"`);
-    h.assert(state.after === 'No Info', `A flu shot dated after the as-of date is "${state.after}", expected "No Info"`);
-    h.assert(state.on === 'Up to date', `A flu shot given ON the as-of date is "${state.on}", expected "Up to date" `
-      + '(FluReport.removeFutureItems keeps only prevDate.before(asOfDate); the typed as-of date is midnight, so the shot of that day is dropped as a future item)');
-  });
+  for (const type of TYPES) {
+    await s.step(`the ${type.report} report as of ${AS_OF} includes the before/on dates in its states and total, excluding the next day`, async () => {
+      await report.locator('select#patientSet').selectOption(favourite);
+      await report.locator('select#prevention').selectOption(type.report);
+      await report.locator('#asofDate').fill(AS_OF);
+      await Promise.all([
+        report.waitForNavigation({ waitUntil: 'networkidle', timeout: 45000 }),
+        report.locator('input[type="submit"]').first().click(),
+      ]);
+      await report.waitForLoadState('networkidle', { timeout: 45000 }).catch(() => {});
+      await h.assertNotErrorPage(report, 'prevention report');
+      const state = {};
+      for (const [name, id] of Object.entries(ids)) {
+        const row = report.locator('#preventionTable tbody tr').filter({ has: report.locator(`a[onclick*="demographic_no=${id}"]`) }).first();
+        h.assert(await row.count() > 0, `The report did not list the ${name} fixture patient`);
+        state[name] = (await row.locator('span.badge').first().innerText()).trim();
+      }
+      h.assert(state.before === 'Up to date', `A prevention given the day before the as-of date is "${state.before}", expected "Up to date"`);
+      h.assert(state.after === 'No Info', `A prevention dated after the as-of date is "${state.after}", expected "No Info"`);
+      h.assert(state.on === 'Up to date', `A prevention given ON the as-of date is "${state.on}", expected "Up to date"`);
+      const summary = await report.locator('form[name="frmBatchBill"] > div').first().innerText();
+      h.assert(/Up to Date:\s*2\s*=/.test(summary), `${type.report} must count both before/on records in its up-to-date total`);
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('boundary-date-prevention-report', workflow, { openPatient: false });

@@ -80,6 +80,16 @@ async function workflow(s) {
     await edit.close();
   });
 
+  await s.step('the default provider toggle reveals and hides its appointment reason', async () => {
+    const toggle = schedule.locator(`a.expand-reason-btn[data-provider="${fixture.providerNo}"]`);
+    h.assert(await toggle.count() === 1, 'The default provider reason toggle is missing');
+    const reasonText = schedule.locator(`.reason_${fixture.providerNo}`).filter({ hasText: reason }).first();
+    await toggle.click();
+    h.assert(await reasonText.isVisible(), 'The toggle did not reveal the reason');
+    await toggle.click();
+    h.assert(!await reasonText.isVisible(), 'The toggle did not hide the reason again');
+  });
+
   await s.step('the provider column header offers the "*" reason toggle, and the tooltip keeps the reason and notes out', async () => {
     if (await schedule.locator('a.expand-reason-btn').count() < 1) {
       defects.push('the day sheet column header has no reason toggle "*": TOGGLE_REASON_BY_PROVIDER defaultVal="yes" is not honoured by CarlosPropertiesCheck (only "true" is), so it is hidden while the property is unset');

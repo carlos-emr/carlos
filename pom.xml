@@ -853,6 +853,13 @@
         </dependency>
 
         <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
+        <!-- Embedded Unicode fonts for patient-label PDF output. -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-fonts</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
             <artifactId>jasperreports-jdt</artifactId>
@@ -1532,6 +1539,7 @@
                 <configuration>
                     <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>ttf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>pdf</nonFilteredFileExtension>
                         <nonFilteredFileExtension>jar</nonFilteredFileExtension>
                         <nonFilteredFileExtension>xls</nonFilteredFileExtension>

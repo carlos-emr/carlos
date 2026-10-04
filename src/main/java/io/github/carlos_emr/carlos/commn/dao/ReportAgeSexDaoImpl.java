@@ -65,12 +65,13 @@ public class ReportAgeSexDaoImpl extends AbstractDaoImpl<ReportAgeSex> implement
         query.executeUpdate();
     }
 
+    /** {@inheritDoc} */
     @NativeSql("reportagesex")
     @Override
     public void populateAll(String yearOfBirth) {
         String copyQuery =
                 "INSERT INTO reportagesex(demographic_no, age, roster, sex, provider_no, reportdate, status, date_joined) " +
-                        "SELECT d.demographic_no, FLOOR(DATEDIFF(CURRENT_DATE(), STR_TO_DATE(CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%Y-%m-%d' )) / 365.25), d.roster_status, d.sex, d.provider_no, CURRENT_DATE(), d.patient_status, d.date_joined " +
+                        "SELECT d.demographic_no, TIMESTAMPDIFF(YEAR, STR_TO_DATE(CONCAT(d.year_of_birth,'-',d.month_of_birth,'-',d.date_of_birth), '%Y-%m-%d'), CURRENT_DATE()), d.roster_status, d.sex, d.provider_no, CURRENT_DATE(), d.patient_status, d.date_joined " +
                         "FROM demographic d WHERE d.year_of_birth >= ?1";
         Query query = entityManager.createNativeQuery(copyQuery);
         query.setParameter(1, yearOfBirth);

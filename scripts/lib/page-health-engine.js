@@ -27,8 +27,8 @@
  *             class/exception name.
  *   headers   every same-origin document response carries the front door's security
  *             headers once each (X-Frame-Options, nosniff, a frame-ancestors CSP,
- *             Cache-Control: no-store), no Cross-Origin-Opener-Policy that would sever
- *             window.opener (the popup refresh pattern depends on it), a charset on
+ *             Cache-Control: no-store), the same Cross-Origin-Opener-Policy on every
+ *             route (same-origin preserves same-origin popup openers), a charset on
  *             HTML, no server-version disclosure, and session cookies with the
  *             HttpOnly/Secure/SameSite flags.
  *   off-host  any request to a host other than the application is ABORTED in the
@@ -233,8 +233,8 @@ function headerFindings(entry, { https }) {
       out.push({ kind: 'header-no-charset', detail: `HTML document content-type has no charset ("${entry.contentType}") so accents depend on browser sniffing (${entry.route})` });
     }
     const coop = (headers['cross-origin-opener-policy'] || '').trim().toLowerCase();
-    if (coop && coop !== 'unsafe-none') {
-      out.push({ kind: 'header-coop-severs-opener', detail: `Cross-Origin-Opener-Policy "${coop}" severs window.opener, which the popup refresh pattern relies on (${entry.route})` });
+    if (coop !== 'same-origin') {
+      out.push({ kind: 'header-coop-policy-mismatch', detail: `Cross-Origin-Opener-Policy "${coop || '(absent)'}" differs from the application's same-origin policy and can sever popup openers (${entry.route})` });
     }
   }
   if (headers['x-powered-by']) {
@@ -692,11 +692,8 @@ async function startSession(config) {
     context.on('page', page => h.wireStrictPage(page, 'page-health', recorder));
     const schedulePage = await h.login(context, config, recorder);
     const ledger = createLedger();
-    // Filed already (ISSUES.md L95/L100/L135): the Struts `coop` interceptor sends
-    // Cross-Origin-Opener-Policy: same-origin on every action response, which severs
-    // window.opener app-wide. Counted here so the rule still runs, but not failed again
-    // on all 100+ pages -- one pattern, one issue.
-    ledger.suppress('header-coop-severs-opener', 'Struts coop interceptor, ISSUES.md L100 pattern');
+    // #4141 applies the same policy on every response; missing/mismatched headers
+    // are regressions and must no longer be suppressed as a known Struts defect.
     // The pages BEFORE the crawl: the login redirect and the schedule itself are pages
     // too, and nothing else reads what the browser said about them.
     await judgePage(ledger, probe, 'schedule', schedulePage, {});

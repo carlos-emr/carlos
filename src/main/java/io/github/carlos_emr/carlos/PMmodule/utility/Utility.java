@@ -803,29 +803,21 @@ public class Utility {
         return result;
     }
 
+    /**
+     * Applies the {@link io.github.carlos_emr.carlos.util.UtilDateUtilities#calcAge(String, String, String) shared age contract}
+     * with legacy error handling: returns -1 when the delegate throws {@link NumberFormatException}.
+     * @param year_of_birth decimal birth year
+     * @param month_of_birth decimal birth month (normally 1–12)
+     * @param date_of_birth decimal birth day (normally 1–31)
+     * @return completed years on the current local date, or -1 when parsing performed by the delegate fails
+     */
     public static int calcAge(String year_of_birth, String month_of_birth, String date_of_birth) {
-        GregorianCalendar now = new GregorianCalendar();
-        int curYear = now.get(Calendar.YEAR);
-        int curMonth = (now.get(Calendar.MONTH) + 1);
-        int curDay = now.get(Calendar.DAY_OF_MONTH);
-        int age = 0;
-
         try {
-            if (curMonth > Integer.parseInt(month_of_birth)) {
-                age = curYear - Integer.parseInt(year_of_birth);
-            } else {
-                // >= : a patient is a year older ON the birthday, not the day after it.
-                if (curMonth == Integer.parseInt(month_of_birth) && curDay >= Integer.parseInt(date_of_birth)) {
-                    age = curYear - Integer.parseInt(year_of_birth);
-                } else {
-                    age = curYear - Integer.parseInt(year_of_birth) - 1;
-                }
-            }
-        } catch (NumberFormatException nfe) {//return -1 for unparsable dates
+            return io.github.carlos_emr.carlos.util.UtilDateUtilities.calcAge(year_of_birth, month_of_birth, date_of_birth);
+        } catch (NumberFormatException _) {//return -1 for unparsable dates
             log.warn("Invalid date :" + year_of_birth + ":" + month_of_birth + ":" + date_of_birth);
             return -1;
         }
-        return age;
     }
 
     public static int getNumYears(Date dStart, Date dEnd) {

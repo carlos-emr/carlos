@@ -37,8 +37,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -714,8 +713,7 @@ public class RxWebService extends AbstractServiceImpl {
             @Override
             public void write(java.io.OutputStream os)
                     throws IOException, WebApplicationException {
-                try {
-                    PDDocument document = new PDDocument();
+                try (PDDocument document = new PDDocument()) {
 
                     //Embedding javascript to print dialog
                     if (rxToPrint.isAutoPrint()) {
@@ -727,39 +725,39 @@ public class RxWebService extends AbstractServiceImpl {
                     PDPage page = new PDPage(rect); // PDPage.PAGE_SIZE_A5);
                     document.addPage(page);
 
-                    // Create a new font object selecting one of the PDF base fonts
-                    PDFont font = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+                    PDFont font;
+                    try (var data = RxWebService.class.getResourceAsStream(
+                            "/net/sf/jasperreports/fonts/dejavu/DejaVuSans-Bold.ttf")) {
+                        if (data == null) throw new IOException("Prescription PDF font is unavailable");
+                        font = PDType0Font.load(document, data);
+                    }
 
                     // Start a new content stream which will "hold" the to be created content
-                    PDPageContentStream contentStream = new PDPageContentStream(document, page);
+                    try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                        for (PrintPointTo1 point : rxToPrint.getPrintPoints()) {
+                            contentStream.beginText();
+                            contentStream.setFont(font, point.getFontSize());
+                            contentStream.newLineAtOffset(point.getX(), point.getY());
+                            contentStream.showText(point.getText());
+                            contentStream.endText();
 
-                    for (PrintPointTo1 point : rxToPrint.getPrintPoints()) {
-                        contentStream.beginText();
-                        contentStream.setFont(font, point.getFontSize());
-                        contentStream.newLineAtOffset(point.getX(), point.getY());
-                        contentStream.showText(point.getText());
-                        contentStream.endText();
-
-                    }
-
-                    float[] x = rxToPrint.getxPolygonCoords();
-                    float[] y = rxToPrint.getyPolygonCoords();
-                    if (x != null && y != null && x.length > 1 && y.length > 1) {
-                        contentStream.moveTo(x[0], y[0]);
-                        for (int i = 1; i < x.length; i++) {
-                            contentStream.lineTo(x[i], y[i]);
                         }
-                        contentStream.closePath();
-                        contentStream.stroke();
+
+                        float[] x = rxToPrint.getxPolygonCoords();
+                        float[] y = rxToPrint.getyPolygonCoords();
+                        if (x != null && y != null && x.length > 1 && y.length > 1) {
+                            contentStream.moveTo(x[0], y[0]);
+                            for (int i = 1; i < x.length; i++) {
+                                contentStream.lineTo(x[i], y[i]);
+                            }
+                            contentStream.closePath();
+                            contentStream.stroke();
+                        }
+
                     }
-
-                    contentStream.close();
-
-
                     document.save(os);
-                    document.close();
                 } catch (Exception e) {
-                    logger.error("error streaming", e);
+                    throw new IOException("Prescription PDF could not be generated", e);
                 } finally {
                     IOUtils.closeQuietly(os);
                 }

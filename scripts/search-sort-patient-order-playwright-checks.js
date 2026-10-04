@@ -11,19 +11,21 @@
  * regard to case); and sorting by Doctor with a patient who has no MRP still lists the patients. Defects are collected
  * and asserted together in the last step, so every header is exercised before the check fails.
  * Fixtures: five synthetic patients inserted by SQL whose surname starts with the run tag; cleanup removes them and
- * asserts none remain. Nothing is changed by the searches.
+ * asserts none remain. A disposable login and three owned audit entries also exercise the recently viewed patient
+ * list, whose Doctor sort uses the Java comparator rather than database ordering. Login cleanup removes its history.
  * Implements the wave-7 "search-sort" pattern (sort order by every sortable header, nulls, case, numeric vs text).
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const k = require('./lib/search-sort-helpers');
+const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 async function workflow(s) {
   const tag = k.nameTag(s.marker);
   k.registerPatientCleanup(s, tag);
   const ids = {
     zulu: k.insertPatient(s, { last: `${tag}-Zulu`, first: 'Ann', sex: 'F', chart: 'C30', dob: '1990-03-05', roster: 'RO', status: 'XA', phone: '9055550003' }),
-    vanDyk: k.insertPatient(s, { last: `${tag}-van Dyk`, first: 'Bob', sex: 'M', chart: 'C100', dob: '1980-12-25', roster: 'NR', status: 'BA', phone: '9055550001' }),
+    vanDyk: k.insertPatient(s, { last: `${tag}-van Dyk`, first: 'Bob', sex: 'M', chart: 'C100', dob: '1980-12-25', roster: 'NR', status: 'BA', phone: '9055550001', provider: '' }),
     bravo: k.insertPatient(s, { last: `${tag}-Bravo`, first: 'Cy', sex: 'F', chart: 'C2', dob: '1985-01-15', roster: 'RO', status: 'AC', phone: '9055550002' }),
     aaron: k.insertPatient(s, { last: `${tag}-Aaron`, first: 'Di', sex: 'M', chart: 'C7', dob: '1975-06-30', roster: 'NR', status: 'ZA', phone: '9055550004' }),
     noMrp: k.insertPatient(s, { last: `${tag}-Mulligan`, first: 'Ed', sex: 'F', chart: null, dob: '1999-09-09', roster: 'NR', status: 'MA', phone: null, provider: null }),
@@ -89,12 +91,51 @@ async function workflow(s) {
       defects.push(`Doctor header: the results page failed (${why.join(', ')}) when an owned patient has no provider`);
       return;
     }
-    expectOnce(await read(), 'Doctor header');
+    const rows = await read();
+    if (expectOnce(rows, 'Doctor header')) {
+      const missing = rows.slice(0, 2).map(r => r.id);
+      if (!missing.includes(ids.noMrp) || !missing.includes(ids.vanDyk)) {
+        defects.push('Doctor header: NULL and blank providers were not grouped before assigned providers');
+      }
+    }
   });
 
   await s.step('every header ordered the owned patients correctly', async () => {
     h.assert(defects.length === 0, `Patient search sort defects: ${defects.join('; ')} `
-      + '(demographicsearchresults.jsp:375-394 re-sorts each page with the case-sensitive, null-intolerant comparators of Demographic.java:1714-1777)');
+      + '(patient search must preserve database ordering and include missing providers)');
+  });
+
+  // An isolated account gives this run a deterministic recent-patient list without touching anyone else's history.
+  const login = throwawayLoginFixture({ sql: s.sql, marker: s.marker, provider: s.provider, testUser: s.config.testUser });
+  s.cleanup(() => login.cleanup());
+  login.create();
+  const context = await h.newContext(s.context.browser(), s.config);
+  s.cleanup(() => context.close());
+  context.on('page', page => h.wireStrictPage(page, 'recent-provider-sort', s.recorder));
+  const schedule = await h.login(context, { ...s.config, testUser: login.username }, s.recorder,
+    { label: 'recent-provider-sort-login' });
+  const recent = await k.openSearchPopup({ ...s, schedule, context });
+  for (const id of [ids.zulu, ids.noMrp, ids.vanDyk]) {
+    s.sql.execute(`INSERT INTO log (dateTime,provider_no,action,content,contentId,demographic_no,ip)
+      VALUES (NOW(),${h.sqlString(login.providerNo)},'read','demographic',${h.sqlString(s.marker)},${id},'127.0.0.1')`);
+  }
+
+  await s.step('a blank active search shows the three owned recent patients including NULL and blank providers', async () => {
+    await k.submitSearch(recent, 'search_name', '');
+    const rows = await k.readResultRows(recent);
+    h.assert(rows.length === 3 && k.ownedRows(rows, [ids.zulu, ids.noMrp, ids.vanDyk]).length === 3,
+      'Recent-patient fixtures were not all listed');
+  });
+
+  await s.step('Doctor sorting of recent patients puts NULL then blank then assigned providers without HTTP errors', async () => {
+    await k.clickSort(recent, 'provider_no');
+    const idsInOrder = (await k.readResultRows(recent)).map(row => row.id);
+    h.assert(JSON.stringify(idsInOrder) === JSON.stringify([ids.noMrp, ids.vanDyk, ids.zulu]),
+      `Recent Doctor sorting returned the wrong patients or order: ${idsInOrder.join(', ')}`);
+    // Repeating the real header click also covers already-sorted input and proves no row disappears.
+    await k.clickSort(recent, 'provider_no');
+    h.assert(JSON.stringify((await k.readResultRows(recent)).map(row => row.id)) === JSON.stringify(idsInOrder),
+      'Repeating Doctor sorting changed the recent-patient order');
   });
 }
 

@@ -54,6 +54,7 @@ class SubmitLabByForm2ActionTest extends CarlosWebTestBase {
     void setUp() throws Exception {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         allowPrivilege("_lab", "w");
+        mockRequest.setMethod("POST");
 
         action = new SubmitLabByForm2Action();
 
@@ -101,6 +102,16 @@ class SubmitLabByForm2ActionTest extends CarlosWebTestBase {
         assertThat(action.getActionErrors()).isNotEmpty();
         assertThat(action.getActionErrors().iterator().next())
             .contains("Failed to generate lab result");
+    }
+
+    @Test
+    void shouldRejectMutation_whenRequestUsesGet() throws Exception {
+        mockRequest.setMethod("GET");
+        cmlGeneratorMock = mockStatic(CMLLabHL7Generator.class);
+        assertThat(executeActionMethod(action, "saveManage")).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        cmlGeneratorMock.verifyNoInteractions();
     }
 
     @Test

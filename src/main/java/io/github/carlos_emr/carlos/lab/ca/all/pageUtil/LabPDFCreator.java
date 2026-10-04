@@ -37,6 +37,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -212,7 +214,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             document.open();
 
             //Create the fonts that we are going to use
-            bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            bf = PdfFonts.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 9, Font.NORMAL);
             boldFont = new Font(bf, 10, Font.BOLD);
 
@@ -250,7 +252,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             table.setWidthPercentage(100);
             PdfPCell cell = new PdfPCell();
             cell.setBorder(0);
-            cell.setPhrase(new Phrase("  "));
+            cell.setPhrase(new Phrase("  ", font));
             table.addCell(cell);
             cell.setBorder(15);
             cell.setBackgroundColor(new Color(210, 212, 255));
@@ -388,7 +390,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				
 				// blank filler
 				cell.setPadding(3);
-				cell.setPhrase(new Phrase("  "));				
+				cell.setPhrase(new Phrase("  ", font));
 				cell.setBorder(0);				
 				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(8);
@@ -406,7 +408,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 				table.addCell(cell);
 				
 				// place holder after lab title
-				cell.setPhrase(new Phrase("  "));
+				cell.setPhrase(new Phrase("  ", font));
 				cell.setBorder(0);
 				if (handler.getMsgType().equals("ExcellerisON")) {
 					cell.setColspan(6);
@@ -1173,7 +1175,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
             Rectangle page = document.getPageSize();
             PdfContentByte cb = writer.getDirectContent();
-            BaseFont bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             int pageNum = document.getPageNumber();
             float width = page.getWidth();
             float height = page.getHeight();

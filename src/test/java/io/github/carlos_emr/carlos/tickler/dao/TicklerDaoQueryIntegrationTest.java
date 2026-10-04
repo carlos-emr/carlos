@@ -52,6 +52,28 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("read")
 public class TicklerDaoQueryIntegrationTest extends TicklerDaoBaseIntegrationTest {
 
+    @Test
+    void shouldOrderClinicalPrioritiesInBothDirections_whenPagingTicklers() {
+        for (Tickler.PRIORITY priority : List.of(Tickler.PRIORITY.Low, Tickler.PRIORITY.High, Tickler.PRIORITY.Normal)) {
+            Tickler row = createTickler(1001, "issue4170-priority", Tickler.STATUS.A);
+            row.setPriority(priority);
+        }
+        entityManager.flush();
+        CustomFilter filter = new CustomFilter();
+        filter.setStartDate(null);
+        filter.setEndDate(null);
+        filter.setSearchTerm("issue4170-priority");
+        filter.setSortColumn("priority");
+        filter.setSort_order("asc");
+        assertThat(ticklerDao.getTicklerDTOs(filter, 0, 10)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.High, Tickler.PRIORITY.Normal, Tickler.PRIORITY.Low);
+        assertThat(ticklerDao.getTicklerDTOs(filter, 1, 1)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.Normal);
+        filter.setSort_order("desc");
+        assertThat(ticklerDao.getTicklerDTOs(filter, 0, 10)).extracting(io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO::getPriority)
+                .containsExactly(Tickler.PRIORITY.Low, Tickler.PRIORITY.Normal, Tickler.PRIORITY.High);
+    }
+
     @Nested
     @DisplayName("Date Range Queries")
     class DateRangeQueries {

@@ -49,6 +49,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import org.junit.jupiter.api.parallel.Isolated;
+import io.github.carlos_emr.carlos.commn.dao.InboxResultsDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import java.util.TimeZone;
+import java.util.Date;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
 import java.io.IOException;
 import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
@@ -77,6 +84,7 @@ import static org.mockito.ArgumentMatchers.*;
 /**
  * Unit tests for {@link DmsInboxManage2Action} logout redirect short-circuiting.
  */
+@Isolated("Exercises the legacy inbox in a daylight-saving time zone")
 @ExtendWith(MockitoExtension.class)
 @DisplayName("DmsInboxManage2Action logout redirect")
 @Tag("unit")
@@ -204,6 +212,37 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verifyNoInteractions(secUserRoleDao, queueDocumentLinkDao, queueDao);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2026-03-08,2026-03-09T03:59:59.999Z", "2026-11-01,2026-11-02T04:59:59.999Z",
+            "2026-03-10,2026-03-11T03:59:59.999Z"})
+    void shouldPassCompleteLocalEndDate_whenDaylightSavingChanges(String selectedDate, String expectedInstant) {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+            request.getSession().setAttribute("userrole", "doctor");
+            request.getSession().setAttribute("user", "991820");
+            request.setParameter("view", "documents");
+            request.setParameter("endDate", selectedDate);
+            var inbox = mock(InboxResultsDao.class);
+            registerMock(InboxResultsDao.class, inbox);
+            registerMock(ProviderLabRoutingDao.class,
+                    mock(ProviderLabRoutingDao.class));
+            AtomicReference<Date> capturedEnd = new AtomicReference<>();
+            RuntimeException queryReached = new RuntimeException("Stop after inspecting the query boundary");
+            doAnswer(invocation -> {
+                capturedEnd.set(invocation.getArgument(12));
+                throw queryReached;
+            }).when(inbox).populateDocumentResultsData(anyString(), nullable(String.class),
+                    nullable(String.class), nullable(String.class), nullable(String.class), anyString(),
+                    eq(true), eq(0), eq(20), eq(false), isNull(), isNull(), any(Date.class));
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                    () -> new DmsInboxManage2Action().prepareForContentPage()).isSameAs(queryReached);
+            assertThat(capturedEnd.get().toInstant()).isEqualTo(Instant.parse(expectedInstant));
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     private Document prepareQueueFiling() {

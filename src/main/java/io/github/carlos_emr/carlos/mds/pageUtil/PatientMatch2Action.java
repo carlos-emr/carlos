@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 
 import org.owasp.encoder.Encode;
+import org.springframework.http.MediaType;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -93,6 +94,14 @@ public class PatientMatch2Action extends ActionSupport {
         this.mrpRoutingService = mrpRoutingService;
     }
 
+    /**
+     * Matches a lab to a patient through an authorized POST. Fetch callers explicitly
+     * accepting application/json receive a JSON success response; normal form callers retain the chart redirect.
+     *
+     * @return no Struts view because the HTTP response is completed here
+     * @throws ServletException if servlet processing fails
+     * @throws IOException if the response cannot be written
+     */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
@@ -132,8 +141,27 @@ public class PatientMatch2Action extends ActionSupport {
             return NONE;
         }
 
-        response.sendRedirect(newURL);
+        if (explicitlyAcceptsJson()) {
+            response.setContentType("application/json");
+            response.getWriter().write("{\"success\":true}");
+        } else {
+            response.sendRedirect(newURL);
+        }
         return NONE;
+    }
+
+    /** Recognizes explicit JSON media ranges while preserving ordinary browser/form redirects. */
+    @SuppressFBWarnings(value = "SERVLET_HEADER", justification = "Accept selects response format only; POST and _lab write authorization are independently enforced before matching")
+    private boolean explicitlyAcceptsJson() {
+        try {
+            // MediaType normalizes both tokens with Locale.ROOT during construction.
+            return MediaType.parseMediaTypes(request.getHeader("Accept")).stream()
+                    .anyMatch(type -> "application".equals(type.getType())
+                            && "json".equals(type.getSubtype()) && type.getQualityValue() > 0);
+        } catch (IllegalArgumentException e) {
+            // A malformed preference header must not turn an already saved match into a failure.
+            return false;
+        }
     }
 
 }

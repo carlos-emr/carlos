@@ -14,7 +14,8 @@
  * billing_on_ext and comment1 of the saved claim (status P, paid 0, one transaction); Save & Print
  * opens exactly one invoice popup, for the saved bill, listing the bill-to and the total; Save &
  * Add Another saves a second claim; Settle & Print settles the claim (status S, paid = total, a
- * billing_on_payment row) -- the last step fails while it only saves it unpaid.
+ * billing_on_payment row), both with and without a discount. Payment, item-payment and audit
+ * amounts agree, and each settlement opens exactly one invoice for the saved bill.
  *
  * Fixtures: createBillingFixture (owned billing provider and HIN on the owned patient), one owned
  * appointment today per bill. Cleanup removes the claim rows the browser wrote and every fixture,
@@ -50,7 +51,7 @@ async function workflow(s) {
   g.registerOwnedBillCleanup(s);
   const fee = g.scheduleFee(sql, CODE);
   const total = g.money(fee);
-  const appointments = ['14:00:00', '14:15:00', '14:30:00', '14:45:00'].map(time => g.seedAppointment(s, { time }));
+  const appointments = ['14:00:00', '14:15:00', '14:30:00', '14:45:00', '15:00:00'].map(time => g.seedAppointment(s, { time }));
   await g.showSeededAppointments(s);
   const claim = appointment => sql.rows(`SELECT id, status, paid, total, comment1 FROM billing_on_cheader1
     WHERE demographic_no=${patient} AND appointment_no=${appointment}`);
@@ -126,22 +127,61 @@ async function workflow(s) {
     await form.close();
   });
 
-  await s.step('Settle & Print Invoice settles the claim: status S, paid equal to the total, one payment row', async () => {
-    const form = await privateReview(s, owned, appointments[3]);
-    const invoice = s.context.waitForEvent('page', { timeout: 30000 }).catch(() => null);
-    await Promise.all([
-      form.waitForResponse(SAVE, { timeout: 10000 }).catch(() => null),
-      form.locator('#settlePrintBtn').click(),
-    ]);
-    const popup = await invoice;
-    if (popup) await popup.close().catch(() => {});
-    const rows = claim(appointments[3]);
-    h.assert(rows.length === 1, 'Settle & Print Invoice saved no claim (its button script throws before the form is submitted)');
-    const [id, status, paid] = rows[0];
-    h.assert(status === 'S' && Number(paid) === Number(total)
-      && sql.value(`SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${id}`) === '1',
-    'Settle & Print Invoice did not settle the claim (it should be status S, paid = total, with one payment row)');
-  });
+  for (const [index, discount] of [[3, '0.00'], [4, '5.00']]) {
+    await s.step(`Settle & Print saves matching payment records and one invoice (discount ${discount})`, async () => {
+      const form = await privateReview(s, owned, appointments[index]);
+      // The echoed submit field must remain present: it caused the original method-shadowing bug.
+      h.assert(await form.locator('input[name="submit"]').count() > 0, 'The shadowing request field is missing');
+      await form.locator('#discount_0').fill(discount);
+      await form.locator('textarea[name="comment"]').click();
+      const opened = [];
+      const onPage = page => opened.push(page);
+      s.context.on('page', onPage);
+      let popup;
+      try {
+        const [response, invoice] = await Promise.all([
+          form.waitForResponse(SAVE, { timeout: 30000 }),
+          s.context.waitForEvent('page', { timeout: 30000 }),
+          form.locator('#settlePrintBtn').click(),
+        ]);
+        h.assert(response.status() === 200, `Settle & Print answered HTTP ${response.status()}`);
+        popup = invoice;
+        await popup.waitForURL(/ViewBillingON3rdInv/, { timeout: 20000 });
+        await popup.waitForLoadState('domcontentloaded');
+        await s.schedule.waitForTimeout(1500);
+        h.assert(opened.length === 1, `Settle & Print opened ${opened.length} pages instead of one invoice`);
+        const rows = claim(appointments[index]);
+        h.assert(rows.length === 1, 'Settle & Print did not save exactly one claim');
+        const [id, status, paid, rowTotal] = rows[0];
+        const expectedPaid = Number(total) - Number(discount);
+        h.assert(status === 'S' && Number(paid) === expectedPaid && Number(rowTotal) === Number(total),
+          'The settled claim has an incorrect status, payment or total');
+        h.assert(new URL(popup.url()).searchParams.get('billingNo') === id,
+          'The settlement invoice is not for the saved bill');
+        const balance = await popup.locator('tr').filter({ has: popup.locator('td > b', { hasText: /^Balance:$/ }) })
+          .locator('td').last().innerText();
+        h.assert(balance.trim() === '0.00', 'The settled invoice does not show a zero balance');
+        const payments = sql.rows(`SELECT payment_id, total_payment, total_discount FROM billing_on_payment WHERE billing_no=${id}`);
+        h.assert(payments.length === 1 && Number(payments[0][1]) === expectedPaid && Number(payments[0][2]) === Number(discount),
+          'The settlement payment is missing, duplicated or has incorrect amounts');
+        const itemPayments = sql.rows(`SELECT paid, discount, billing_on_payment_id FROM billing_on_item_payment WHERE ch1_id=${id}`);
+        h.assert(itemPayments.length === 1 && Number(itemPayments[0][0]) === expectedPaid
+          && Number(itemPayments[0][1]) === Number(discount) && itemPayments[0][2] === payments[0][0],
+          'The service payment is not linked to the matching settlement payment');
+        const transactions = sql.rows(`SELECT service_code_paid, service_code_discount, status, payment_id
+          FROM billing_on_transaction WHERE ch1_id=${id}`);
+        h.assert(transactions.length === 1 && Number(transactions[0][0]) === expectedPaid
+          && Number(transactions[0][1]) === Number(discount) && transactions[0][2] === 'S'
+          && transactions[0][3] === payments[0][0], 'The settlement audit does not match the payment');
+        const ext = Object.fromEntries(sql.rows(`SELECT key_val, value FROM billing_on_ext WHERE billing_no=${id}`));
+        h.assert(Number(ext.payment) === expectedPaid && Number(ext.discount) === Number(discount),
+          'Invoice payment and discount totals do not match the settlement');
+      } finally {
+        s.context.off('page', onPage);
+        if (popup) await popup.close();
+      }
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('gap-billing-private-bill-save-actions', workflow, { openPatient: true, openMaster: false });

@@ -30,6 +30,8 @@ const TIMEOUT = 20000;
 async function workflow(s) {
   const { sql, marker } = s;
   const q = h.sqlString;
+  const referrerFirstName = `R O'Neil "Q" & Co`;
+  const professionalFirstName = `P O'Neil "Q" & Co`;
   const chain = documentChain(s.context);
   const ownedPatients = () => [s.patient, second].filter(Boolean).join(',');
   let second;
@@ -56,6 +58,8 @@ async function workflow(s) {
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${s.patient}`) === '0',
     'The owned patient unexpectedly has contact associations');
+  h.assert(await s.master.getByRole('link', { name: 'Manage Contacts', exact: true }).count() > 0,
+    'This workflow requires NEW_CONTACTS_UI=true (the Manage Contacts page tested by #4141)');
   second = assertId(sql.value(`INSERT INTO demographic (last_name,first_name,year_of_birth,month_of_birth,
       date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
     VALUES (${q(marker)},'Relative','1975','03','04','M','AC',${q(s.provider)},'ON','ON','NR',NOW());
@@ -63,18 +67,22 @@ async function workflow(s) {
   contactId = assertId(sql.value(`INSERT INTO Contact (type,lastName,firstName,deleted,updateDate)
     VALUES ('Contact',${q(marker)},'External',0,NOW()); SELECT LAST_INSERT_ID()`), 'The owned contact was not created');
   const proContactId = assertId(sql.value(`INSERT INTO Contact (type,lastName,firstName,systemId,deleted,updateDate)
-    VALUES ('ProfessionalContact',${q(marker)},'Professional','FAKE',0,NOW()); SELECT LAST_INSERT_ID()`),
+    VALUES ('ProfessionalContact',${q(marker)},${q(professionalFirstName)},'FAKE',0,NOW()); SELECT LAST_INSERT_ID()`),
   'The owned professional contact was not created');
   let referralNo;
   do { referralNo = String(randomInt(800000, 899999)); }
   while (sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE referralNo=${q(referralNo)}`) !== '0');
   specialistId = assertId(sql.value(`INSERT INTO professionalSpecialists (fName,lName,referralNo,specType,lastUpdated,
       institutionId,departmentId,hideFromView,deleted)
-    VALUES ('Referrer',${q(marker)},${q(referralNo)},'FAKE',NOW(),0,0,0,0); SELECT LAST_INSERT_ID()`),
+    VALUES (${q(referrerFirstName)},${q(marker)},${q(referralNo)},'FAKE',NOW(),0,0,0,0); SELECT LAST_INSERT_ID()`),
   'The owned specialist was not created');
+  h.assert(sql.value(`SELECT fName FROM professionalSpecialists WHERE specId=${specialistId}`) === referrerFirstName,
+    'The specialist fixture name was truncated or changed by the database');
+  h.assert(sql.value(`SELECT firstName FROM Contact WHERE id=${proContactId}`) === professionalFirstName,
+    'The professional-contact fixture name was truncated or changed by the database');
 
   const master = s.master;
-  const referralName = `${marker},Referrer`;
+  const referralName = `${marker},${referrerFirstName}`;
 
   let contacts;
   // Opens a contact-row picker, searches, picks, and returns null on success or the
@@ -170,12 +178,12 @@ async function workflow(s) {
     await contacts.locator(`[name="${specialistRow}.type"]`).selectOption('3');
     failures.push(await tryPicker('specialist-contact-search',
       contacts.locator(`a[onclick^="doProfessionalSearch('${specialistRow.split('_')[1]}')"]`),
-      'form[name="titlesearch"]', marker, `[onclick*="${specialistId}"]`, specialistRow, { id: specialistId, name: marker }));
+      'form[name="titlesearch"]', marker, `[onclick*="${specialistId}"]`, specialistRow, { id: specialistId, name: referrerFirstName }));
     const proRow = await addRow('procontact');
     await contacts.locator(`[name="${proRow}.type"]`).selectOption('2');
     failures.push(await tryPicker('professional-contact-search',
       contacts.locator(`a[onclick^="doProfessionalSearch('${proRow.split('_')[1]}')"]`),
-      'form[name="titlesearch"]', marker, `[onclick*="${proContactId}"]`, proRow, { id: proContactId, name: marker }));
+      'form[name="titlesearch"]', marker, `[onclick*="${proContactId}"]`, proRow, { id: proContactId, name: professionalFirstName }));
     if (!failures.some(Boolean)) {
       const closed = contacts.waitForEvent('close', { timeout: TIMEOUT }).then(() => true, () => false);
       await contacts.locator('#contactForm input[type="submit"]').click({ noWaitAfter: true });

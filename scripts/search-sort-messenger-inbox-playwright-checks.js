@@ -30,6 +30,9 @@ async function readRows(page) {
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const q = h.sqlString;
+  const tag = k.nameTag(marker);
+  k.registerPatientCleanup(s, tag);
+  const secondPatient = k.insertPatient(s, { last: `${tag}-Linked`, first: 'Fixture' });
   const location = sql.value('SELECT locationId FROM oscarcommlocations WHERE current1=1 LIMIT 1') || '145';
   const subjects = () => sql.rows(`SELECT messageid FROM messagetbl WHERE thesubject LIKE ${q(`${marker}%`)}`).map(r => r[0]);
   s.cleanup(() => {
@@ -54,6 +57,8 @@ async function workflow(s) {
     h.assert(/^[1-9]\d*$/.test(id), 'A message fixture was not created');
     sql.execute(`INSERT INTO messagelisttbl (message,provider_no,status,remoteLocation,destinationFacilityId,sourceFacilityId) VALUES (${id},${q(provider)},'${i % 4 === 0 ? 'read' : 'new'}',${location},0,0)`);
     if (i % 3 === 0) sql.execute(`INSERT INTO msgDemoMap (messageID, demographic_no) VALUES (${id}, ${patient})`);
+    // A message linked to two patients still occupies one inbox row and one paging slot.
+    if (i === 0) sql.execute(`INSERT INTO msgDemoMap (messageID, demographic_no) VALUES (${id}, ${secondPatient})`);
     ids.push({ id, subject: `${marker} ${words[i]}` });
   }
   const defects = [];
@@ -121,6 +126,24 @@ async function workflow(s) {
       const flags = rows.map(r => (r.linked !== '' ? 'L' : 'u'));
       const changes = flags.filter((f, i) => i > 0 && f !== flags[i - 1]).length;
       if (changes > 1) defects.push(`Linked ${dir}: the 9 linked and 18 unlinked messages are not grouped (${flags.join('')})`);
+    }
+  });
+
+  await s.step('legacy rows with NULL facility IDs still render in the inbox', async () => {
+    const before = await readRows(inbox);
+    const legacyId = before[0].id;
+    h.assert(ids.some(row => row.id === legacyId), 'The nullable-facility fixture must be an owned message');
+    sql.execute(`UPDATE messagelisttbl SET destinationFacilityId=NULL,sourceFacilityId=NULL
+      WHERE message=${legacyId} AND provider_no=${q(provider)}`);
+    const {failed, pageErrors, thrown} = await k.collectHttpFailures(s, async () => {
+      await inbox.reload({waitUntil: 'networkidle'});
+    });
+    if (failed.length || pageErrors.length || thrown) {
+      defects.push('a legacy message with NULL facility IDs makes the inbox fail to render');
+    } else {
+      const after = await readRows(inbox);
+      h.assert(after.length === before.length && after.some(row => row.id === legacyId),
+        'The legacy NULL-facility message disappeared from the inbox');
     }
   });
 

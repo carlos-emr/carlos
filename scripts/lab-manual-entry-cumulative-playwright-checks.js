@@ -31,6 +31,8 @@ const TESTS = [
 
 /** Opens the chart's Lab Result menu item ("+" reveals it on hover) as a popup. */
 async function openLabMenuItem(s, chart, name, label) {
+  // callers supply only the fixed Grid Display and Row Display labels.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const item = chart.locator('#menu2 a').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).first();
   await item.waitFor({ state: 'attached', timeout: TIMEOUT });
   if (!await item.isVisible()) {

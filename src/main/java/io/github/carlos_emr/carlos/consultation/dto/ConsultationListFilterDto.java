@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.consultation.dto;
 
 import java.util.Date;
+import java.util.Set;
 
 /**
  * Filter for the Consultations list page ({@code encounter/ViewConsultation}).
@@ -44,6 +45,8 @@ import java.util.Date;
  * @param consultantId  {@code professionalSpecialists.specId} the request was sent to; null means any
  * @param mrpProviderNo provider number of the patient's most responsible provider
  *                      ({@code demographic.provider_no}); null or blank means any
+ * @param visibleProviderNos allowed MRPs for site/team privacy, null means unrestricted, empty means no access
+ * @param visibleSiteNames allowed sites, null means unrestricted, empty means no access
  * @since 2026-09-30
  */
 public record ConsultationListFilterDto(
@@ -57,5 +60,19 @@ public record ConsultationListFilterDto(
         Integer offset,
         Integer limit,
         Integer consultantId,
-        String mrpProviderNo) {
+        String mrpProviderNo,
+        Set<String> visibleProviderNos,
+        Set<String> visibleSiteNames) {
+    public ConsultationListFilterDto {
+        visibleProviderNos = visibleProviderNos == null ? null : Set.copyOf(visibleProviderNos);
+        visibleSiteNames = visibleSiteNames == null ? null : Set.copyOf(visibleSiteNames);
+    }
+
+    /** Retains the existing unrestricted-query contract for callers without site/team privacy filtering. */
+    public ConsultationListFilterDto(String team, boolean showCompleted, Date startDate, Date endDate,
+                                     String orderby, String desc, String searchDate, Integer offset, Integer limit,
+                                     Integer consultantId, String mrpProviderNo) {
+        this(team, showCompleted, startDate, endDate, orderby, desc, searchDate, offset, limit,
+                consultantId, mrpProviderNo, null, null);
+    }
 }

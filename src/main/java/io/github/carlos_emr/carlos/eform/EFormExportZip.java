@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
 import java.io.*;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
@@ -61,9 +62,62 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();
 
+    /**
+     * Converts an eForm display title to one safe generated filename component.
+     * Preserves interior spaces and Unicode; the original title remains in eform.properties.
+     * Stored paths are validated separately; the caller allocates unique archive entry names.
+     *
+     * @param name display title used to generate an export name
+     * @return a validated component of at most 251 UTF-8 bytes, reserving four bytes for .zip
+     * @throws SecurityException when the generated component is invalid or empty
+     */
+    public static String exportNameComponent(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return PathValidationUtils.validatePathComponent(name, "eform export name");
+        }
+        String safeName = name.replaceAll("[/\\\\:\\p{Cc}]", "_").replaceAll("^[ .~]+", "_")
+                .replaceAll("[ .]+$", "_");
+        // Windows device basenames are reserved even with an extension (including COM¹/LPT¹).
+        // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+        if (safeName.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\\..*)?")) {
+            safeName = "_" + safeName;
+        }
+        return PathValidationUtils.validatePathComponent(boundedComponent(safeName, "", 251)
+                .replaceAll("[ .]+$", "_"), "eform export name");
+    }
+
+    /** Bounds UTF-8 bytes without splitting a code point, retaining space for a required suffix. */
+    private static String boundedComponent(String base, String suffix, int limit) {
+        int remaining = limit - suffix.getBytes(StandardCharsets.UTF_8).length;
+        int end = 0;
+        while (end < base.length()) {
+            int codePoint = base.codePointAt(end);
+            int bytes = codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
+            if (bytes > remaining) break;
+            remaining -= bytes;
+            end += Character.charCount(codePoint);
+        }
+        return base.substring(0, end) + suffix;
+    }
+
     public void exportForms(List<EForm> eForms, OutputStream os) throws IOException, Exception {
         ZipOutputStream zos = new ZipOutputStream(os);
         zos.setLevel(9);
+        Set<String> folders = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        Set<String> htmlNames = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        htmlNames.add("eform.properties");
+        Pattern eformImagePattern = Pattern.compile("\\$\\{oscar_image_path\\}.+?[\"|'|>|<]");
+        // HTML and assets share the importer's basename namespace. Reserve asset names
+        // before allocating any generated HTML name, including references in later forms.
+        for (EForm form : eForms) {
+            if (form.getFormHtml() == null) continue;
+            Matcher assets = eformImagePattern.matcher(form.getFormHtml());
+            while (assets.find()) {
+                String reference = assets.group();
+                String assetName = reference.substring("${oscar_image_path}".length(), reference.length() - 1);
+                htmlNames.add(PathValidationUtils.validatePathComponent(assetName, "eform export image name"));
+            }
+        }
 
         for (EForm eForm : eForms) {
             if (eForm.getFormName() == null || eForm.getFormName().equals("")) {
@@ -71,18 +125,24 @@ public class EFormExportZip {
                 throw new Exception("EForm must have a name to export");
             }
             Properties properties = new Properties(); //put all form properties into here
+            String formFolder = exportNameComponent(eForm.getFormName().replaceAll("\\s", "")
+                    .replaceAll("[*?\"<>|]", "_"));
+            String baseFolder = formFolder;
+            int suffix = 2;
+            while (!folders.add(formFolder)) formFolder = boundedComponent(baseFolder, "-" + suffix++, 255);
             String fileName = eForm.getFormFileName();
             _log.debug("before:>" + fileName + "<");
             if (fileName == null || fileName.equals("")) {
-                fileName = eForm.getFormName().replaceAll("\\s", "") + ".html"; //make fileName = formname with all spaces removed
+                fileName = boundedComponent(formFolder, ".html", 255);
             }
             _log.debug("after:>" + fileName + "<");
 
-            // Validate the form name and file name as single path components before they become ZIP
-            // entry names: a formName/formFileName containing "/", "\\" or ".." would otherwise produce
-            // traversal-style entries in the exported archive (ZIP-slip for whoever extracts it).
-            String formFolder = PathValidationUtils.validatePathComponent(eForm.getFormName().replaceAll("\\s", ""), "eform export form name");
+            // Stored file paths remain strict; only names generated from display titles are sanitized.
             fileName = PathValidationUtils.validatePathComponent(fileName, "eform export file name");
+            // The legacy importer matches HTML by basename, not its containing ZIP folder.
+            int fileSuffix = 2;
+            if (fileName.getBytes(StandardCharsets.UTF_8).length > 255) fileName = "export-" + fileSuffix++ + ".html";
+            while (!htmlNames.add(fileName)) fileName = "export-" + fileSuffix++ + ".html";
             String directoryName = formFolder + "/"; //formName with all spaces removed
             String html = eForm.getFormHtml();
             properties.setProperty("form.htmlFilename", fileName);
@@ -115,7 +175,7 @@ public class EFormExportZip {
             zos.closeEntry();
 
             //get Images, must do html search for image name
-            Pattern eformImagePattern = Pattern.compile("\\$\\{oscar_image_path\\}.+?[\"|'|>|<]"); //searches for ${oscar_image_path}xxx...xxx" (terminated by ", ', or >)
+
             Matcher matcher = eformImagePattern.matcher(html);
             int start = 0;
             while (matcher.find(start)) {
