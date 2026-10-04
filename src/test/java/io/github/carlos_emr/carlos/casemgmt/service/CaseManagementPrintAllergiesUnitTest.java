@@ -101,7 +101,7 @@ class CaseManagementPrintAllergiesUnitTest extends CarlosUnitTestBase {
         when(dao.findAllergies(PATIENT)).thenReturn(stored);
         try (var configuration = mockStatic(CarlosProperties.class);
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
-             var merger = mockStatic(ConcatPDF.class)) {
+             var _ = mockStatic(ConcatPDF.class)) {
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             new CaseManagementPrint().doPrint(loggedInInfo, PATIENT, allNotes, new String[0],
                     false, false, false, false, includeAllergies, false, null, null,
