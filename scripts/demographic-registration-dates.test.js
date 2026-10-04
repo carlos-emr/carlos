@@ -30,18 +30,22 @@ const root = path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/demographic');
 const source = fs.readFileSync(path.join(root, 'add.jsp'), 'utf8');
 const dateFields = ['roster_date', 'date_joined', 'end_date', 'hc_renew_date', 'eff_date'];
 function functionSource(name) {
-  const match = source.match(new RegExp('            function ' + name + '\\([^)]*\\) \\{[\\s\\S]*?\\n            \\}'));
+  const functions = [...source.matchAll(/^            function (\w+)\([^)]*\) \{[\s\S]*?^            \}/gm)];
+  const match = functions.find(candidate => candidate[1] === name);
   assert.ok(match, `Missing production function ${name}`);
   return match[0];
+}
+function fieldMarkup(name) {
+  const page = name === 'eff_date' || name === 'hc_renew_date' ? 'add-form-personal.jsp' : 'add-form-clinical.jsp';
+  const jsp = fs.readFileSync(path.join(root, page), 'utf8');
+  const start = jsp.indexOf('name="' + name + '"');
+  assert.ok(start >= 0, `Missing visible input ${name}`);
+  return jsp.slice(start, jsp.indexOf('</div>', start));
 }
 function harness(names = dateFields, functions = ['parseDateField']) {
   // Read the real backing controls rather than assuming their names match the parser.
   const fields = Object.fromEntries(names.flatMap(name => {
-    const page = name === 'eff_date' || name === 'hc_renew_date' ? 'add-form-personal.jsp' : 'add-form-clinical.jsp';
-    const jsp = fs.readFileSync(path.join(root, page), 'utf8');
-    const start = jsp.indexOf('name="' + name + '"');
-    assert.ok(start >= 0, `Missing visible input ${name}`);
-    const block = jsp.slice(start, jsp.indexOf('</div>', start));
+    const block = fieldMarkup(name);
     const hiddenNames = [...block.matchAll(/<input type="hidden" name="([^"]+)"/g)].map(match => match[1]);
     return [name, ...hiddenNames].map(key => [key, { value: '' }]);
   }));
@@ -82,9 +86,7 @@ for (const name of dateFields) {
     assert.deepEqual(parts(fields, name), ['', '', '']);
   });
   test(`${name} starts blank instead of silently assuming today's date`, () => {
-    const page = name === 'eff_date' || name === 'hc_renew_date' ? 'add-form-personal.jsp' : 'add-form-clinical.jsp';
-    const jsp = fs.readFileSync(path.join(root, page), 'utf8');
-    const input = jsp.match(new RegExp('name="' + name + '"[\\s\\S]*?value="([^"]*)"'));
+    const input = fieldMarkup(name).match(/value="([^"]*)"/);
     assert.ok(input, `Missing ${name} input`);
     assert.equal(input[1], '');
   });
