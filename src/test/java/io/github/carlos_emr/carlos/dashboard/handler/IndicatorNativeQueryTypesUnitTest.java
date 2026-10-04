@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.dashboard.handler;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
@@ -34,7 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
-class IndicatorNativeQueryTypesUnitTest {
+class IndicatorNativeQueryTypesUnitTest extends CarlosUnitTestBase {
     static Stream<Arguments> scalars() {
         return Stream.of(Arguments.of(1L, 3L), Arguments.of(1, 3), Arguments.of(BigInteger.ONE, BigInteger.valueOf(3)),
                 Arguments.of(new BigDecimal("0.25"), new BigDecimal("0.75")), Arguments.of(0.25d, 0.75d),
@@ -55,14 +56,17 @@ class IndicatorNativeQueryTypesUnitTest {
         assertThat(plots[0].getDenominator()).isEqualTo(100d);
     }
 
-    @Test
-    void shouldKeepCounts_whenNumberDisplaySelected() {
+    @ParameterizedTest
+    @MethodSource("scalars")
+    void shouldKeepCounts_whenNumberDisplaySelected(Object first, Object second) {
         var row = new LinkedHashMap<String, Object>();
-        row.put("Patients", 3L);
+        row.put("Patients", first);
+        row.put("Other", second);
         var plot = IndicatorQueryHandler.createGraphPlots(List.of(row), true).getFirst()[0];
-        assertThat(plot.getNumerator()).isEqualTo(3d);
+        assertThat(plot.getNumerator()).isEqualTo(new BigDecimal(first.toString()).doubleValue());
         assertThat(plot.getDenominator()).isEqualTo(1d);
-        assertThat(row.get("Patients")).isEqualTo(3L);
+        assertThat(row.get("Patients")).isSameAs(first);
+        assertThat(row.get("Other")).isSameAs(second);
     }
 
     @Test

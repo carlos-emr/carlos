@@ -179,6 +179,9 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
             // in which case it is 1.
             graphPlot.setDenominator(displayNumbers ? 1.0 : 100.0);
 
+            if (value instanceof String) {
+                value = asDecimal(value);
+            }
             if (value instanceof Number) {
                 Number plot = (Number) value;
                 graphPlot.setNumerator(plot.doubleValue());
