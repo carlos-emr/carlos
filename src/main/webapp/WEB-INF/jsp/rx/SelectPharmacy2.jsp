@@ -316,16 +316,25 @@
 
                         // Count pharmacy entries only; an empty list contains placeholder divs.
                         var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + (preferredPharmacies.length + 1);
+                        // The rendered list stays stale until reload: serialize additions
+                        // so repeated clicks cannot duplicate a link or reuse its order.
+                        preferredListReady = false;
+                        $(".pharmacyItem").attr("aria-disabled", "true").css("pointer-events", "none");
+                        function allowSelection() {
+                            preferredListReady = true;
+                            $(".pharmacyItem").attr("aria-disabled", "false").css("pointer-events", "");
+                        }
                         ShowSpin(true);
                         $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=setPreferred"%>", data, function (data) {
-                            if (data.id) {
+                            if (data && data.id) {
                                 $("html, body").animate({scrollTop: 0}, 1000);
                                 window.location.reload(false);
                             } else {
+                                allowSelection();
                                 alert("There was an error setting your preferred Pharmacy");
                                 HideSpin(true);  //hiding the spinner is deliberately only in the "else" case of the callback because reloading is slow.  It's better to leave the spinner in place while the page is reloading.
                             }
-                        }, "json");
+                        }, "json").fail(allowSelection);
                     });
 
                     $(".deletePharm").click(function () {
