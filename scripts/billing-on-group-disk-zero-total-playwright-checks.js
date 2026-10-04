@@ -23,8 +23,9 @@
  * ITEM count instead. On a build without the fix this check fails at the
  * "$0 member" assertions.
  *
- * Journey: generate separate disks for the owned ZERO and PAID providers, then
- * use the rendered R button to regenerate ZERO with legacy empty-member metadata.
+ * Journey: generate separate disks for the owned ZERO and PAID providers using a
+ * single-day service window, then use the rendered R button to regenerate ZERO
+ * with legacy empty-member metadata.
  * EMPTY never contributes an output batch. The combined all-provider group case
  * is covered in BillingOnDiskServiceGroupDiskUnitTest without billing unrelated
  * providers in a shared validation database.
@@ -41,7 +42,7 @@
  *                               demographic with a 10-digit Ontario HIN)
  *   GROUP_DISK_TEMPLATE_PROVIDER billable provider the fixture providers are
  *                               cloned from (default 999998)
- *   GROUP_DISK_SERVICE_DATE     YYYY-MM-DD inside the isolated window (default 2003-02-03)
+ *   GROUP_DISK_SERVICE_DATE     YYYY-MM-DD for both bounds of the isolated window (default 2003-02-03)
  *   GROUP_DISK_PAID_CODE        OHIP code billed by PAID (default A007A)
  */
 
@@ -301,7 +302,8 @@ async function generateProviderDisk(context, config, recorder, window, providerN
 async function main() {
   const config = readConfig();
   const serviceDate = isoDate('GROUP_DISK_SERVICE_DATE', process.env.GROUP_DISK_SERVICE_DATE, '2003-02-03');
-  const window = { serviceDate, start: shiftDays(serviceDate, -2), end: shiftDays(serviceDate, 2) };
+  // A single-day export must include claims exactly on Service Date Start (#4164).
+  const window = { serviceDate, start: serviceDate, end: serviceDate };
   const paidCode = (process.env.GROUP_DISK_PAID_CODE || 'A007A').toUpperCase();
   assert(/^[A-Z]\d{3}[A-Z]$/.test(paidCode), `GROUP_DISK_PAID_CODE must look like A007A, got ${paidCode}`);
   const templateProvider = process.env.GROUP_DISK_TEMPLATE_PROVIDER || '999998';
@@ -362,6 +364,9 @@ async function main() {
       const [diskId, ohipFile] = disks[0];
       member.diskId = Number(diskId);
       const checkDownload = async () => {
+        assert(fs.existsSync(path.join(diskDir, ohipFile)),
+          `Single-day export produced no claim file; claim status is ${db.value(
+            `SELECT status FROM billing_on_cheader1 WHERE id=${Number(member.headerId)}`)}`);
         const link = page.locator(`a[href*="filename=${encodeURIComponent(ohipFile)}"]`).first();
         assert(await link.count() === 1, 'Diskette page is missing the generated download link');
         const response = await context.request.get(new URL(await link.getAttribute('href'), page.url()).toString(), { maxRedirects: 0 });
@@ -372,7 +377,10 @@ async function main() {
         assert(batches.length === 1 && batches[0].includes(member.ohipNo),
           'Selected member batch missing, or unrelated/empty member was emitted');
         assert(records.filter((line) => line.startsWith('HEH')).length === 1, 'Expected one claim header');
-        assert(records.filter((line) => line.startsWith('HET')).length === member.itemCount, 'Incorrect claim item count');
+        const items = records.filter((line) => line.startsWith('HET'));
+        assert(items.length === member.itemCount, 'Incorrect claim item count');
+        assert(items.every(line => line.slice(18, 26) === serviceDate.replaceAll('-', '')),
+          'The single-day claim file contains a different service date');
         const [status, headerId] = db.rows(`SELECT status, header_id FROM billing_on_cheader1 WHERE id=${Number(member.headerId)}`)[0];
         assert(status === 'B', 'Emitted claim was not marked billed');
         assert(db.value(`SELECT COUNT(*) FROM billing_on_header WHERE id=${Number(headerId)} AND disk_id=${Number(diskId)}`) === '1',
