@@ -18,10 +18,9 @@
  * the topic / done-well / work-on / follow-up text of both notes (HTML-encoded, a literal <b> stays
  * text); the download is an attachment named after the resident with the same counts; a date range
  * with no notes lists no resident; Unselect empties the property and brings the "no eForm assigned"
- * notice back. The final step is the one that fails today: the report, its detail and the select page
- * are gated only by _eform read (EFormViewRoutes) although the menu entry needs _admin.fieldnote, and
- * the select page changes the clinic-wide property from a GET, so a clinician without administration
- * rights can open the supervisor report (read-only probe, with a throwaway doctor-only login).
+ * notice back. Detail and download match resident IDs exactly, including case, accents and trailing
+ * spaces. Report access requires _admin.fieldnote; a clinician without it is refused, and selection
+ * changes require POST and write privileges.
  * Fixtures: EXCLUSIVE (clinic-wide property fieldNoteEform is snapshotted and restored). An owned
  * template, two owned eform_data instances (supervisor = the throwaway login, resident = the first demo
  * provider) with their eform_values on the owned patient, and a throwaway login with an owned
@@ -225,6 +224,37 @@ async function workflow(s) {
     const path = await outcome.download.path();
     const body = fs.readFileSync(path, 'utf8').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
     h.assert(body.includes(residentName) && /Total field notes\s*:\s*2\b/.test(body), 'The downloaded report does not carry the counts');
+  });
+
+  await s.step('resident detail and download match IDs exactly despite database collation', async () => {
+    // Temporarily use case/accent/space variants in the two owned notes. A SQL-only
+    // comparison under utf8mb4_unicode_ci also matches the other resident's note.
+    const exact = 'Resident-A';
+    const url = new URL(report.url());
+    url.pathname = url.pathname.replace(/fieldnotereport$/, 'fieldnotereportdetail');
+    url.searchParams.set('residentId', exact);
+    url.searchParams.set('residentName', 'FAKE Exact Resident');
+    try {
+      sql.execute(`UPDATE eform_values SET var_value=${q(exact)} WHERE fdid=${fdids[0]} AND BINARY var_name='residentId'`);
+      for (const variant of ['resident-a', 'Résident-A', 'Resident-A ']) {
+        sql.execute(`UPDATE eform_values SET var_value=${q(variant)} WHERE fdid=${fdids[1]} AND BINARY var_name='residentId'`);
+        h.assert(sql.value(`SELECT HEX(var_value) FROM eform_values WHERE fdid=${fdids[1]} AND BINARY var_name='residentId'`)
+          === Buffer.from(variant).toString('hex').toUpperCase(), 'Resident variant was not stored exactly');
+        for (const method of ['view', 'download']) {
+          url.searchParams.set('method', method);
+          const response = await ctx.request.get(url.toString());
+          try {
+            h.assert(response.status() === 200, 'Exact resident report failed');
+            const body = (await response.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+            h.assert(/Total field notes\s*:\s*1\b/.test(body), `${method} included a collation-equivalent resident`);
+            h.assert(body.includes(`Hypertension ${marker}`) && !body.includes(`Prenatal ${marker}`),
+              `${method} exposed the other resident's note`);
+          } finally { await response.dispose(); }
+        }
+      }
+    } finally {
+      sql.execute(`UPDATE eform_values SET var_value=${q(resident)} WHERE fdid IN (${fdids.join(',')}) AND BINARY var_name='residentId'`);
+    }
   });
 
   await s.step('invalid calendar dates and reversed ranges are rejected consistently', async () => {
