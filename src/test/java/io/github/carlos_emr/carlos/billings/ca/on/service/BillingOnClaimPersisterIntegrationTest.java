@@ -215,4 +215,81 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
                 .setParameter("id", id).getSingleResult()).isEqualTo("123");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0.00", "10.00", "60.00"})
+    @Transactional
+    void shouldPersistConsistentSettlement_whenReviewActionHasDiscount(String firstDiscount) {
+        var codeDao = applicationContext.getBean(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class);
+        for (String code : List.of("_SETTLE_1", "_SETTLE_2")) {
+            var fee = new io.github.carlos_emr.carlos.commn.model.BillingService();
+            fee.setServiceCode(code);
+            fee.setBillingserviceDate(java.sql.Date.valueOf("2026-01-01"));
+            fee.setTerminationDate(java.sql.Date.valueOf("2027-01-01"));
+            codeDao.persist(fee);
+        }
+        hibernateTemplate.flush();
+        entityManager.flush();
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.getSession().setAttribute("user", "999998");
+        Map<String, String> inputs = Map.ofEntries(
+                Map.entry("xml_billtype", "PAT"), Map.entry("demographic_no", "700001"),
+                Map.entry("demographic_name", "Fixture,Patient"), Map.entry("demographic_dob", "1980-01-01"),
+                Map.entry("hin", "1234567890"), Map.entry("ver", "ZZ"), Map.entry("hc_type", "ON"),
+                Map.entry("xml_provider", "999998|123456"), Map.entry("xml_location", "0001|Clinic"),
+                Map.entry("xml_visittype", "00|Clinic"), Map.entry("service_date", "2026-05-01"),
+                Map.entry("total", "100.00"), Map.entry("gstBilledTotal", "100.00"),
+                Map.entry("total_payment", "0.00"), Map.entry("total_discount", "0.00"),
+                Map.entry("totalItem", "2"), Map.entry("payMethod", "123"), Map.entry("submit", "Suivant"),
+                Map.entry("billingAction", "SETTLE_PRINT"), Map.entry("apptProvider_no", "999998"),
+                Map.entry("site", ""), Map.entry("xserviceCode_0", "_SETTLE_1"),
+                Map.entry("percCodeSubtotal_0", "60.00"), Map.entry("discount_0", firstDiscount),
+                Map.entry("xserviceCode_1", "_SETTLE_2"), Map.entry("percCodeSubtotal_1", "40.00"),
+                Map.entry("discount_1", "5.00"));
+        inputs.forEach(request::setParameter);
+        var service = new BillingClaimSubmissionService(persister,
+                org.mockito.Mockito.mock(BillingOnLookupService.class), codeDao);
+        var saved = service.saveBillingWithExtAndPayee(service.getSubmission(request), request, "PAT", "Fixture payee");
+        assertThat(saved.saved()).isTrue();
+        int id = saved.billingId();
+        hibernateTemplate.flush();
+        entityManager.flush();
+        entityManager.clear();
+        BigDecimal discount = new BigDecimal(firstDiscount).add(new BigDecimal("5.00"));
+        BigDecimal paid = new BigDecimal("100.00").subtract(discount);
+        var header = entityManager.find(BillingONCHeader1.class, id);
+        assertThat(header.getStatus()).isEqualTo("S");
+        assertThat(header.getPaid()).isEqualByComparingTo(paid);
+        assertThat(header.getTotal()).isEqualByComparingTo("100.00");
+        var payments = entityManager.createQuery(
+                "SELECT p FROM BillingONPayment p WHERE p.billingNo=:id",
+                io.github.carlos_emr.carlos.commn.model.BillingONPayment.class).setParameter("id", id).getResultList();
+        assertThat(payments).hasSize(1);
+        var payment = payments.getFirst();
+        assertThat(payment.getTotal_payment()).isEqualByComparingTo(paid);
+        assertThat(payment.getTotal_discount()).isEqualByComparingTo(discount);
+        assertThat(payment.getPaymentTypeId()).isEqualTo(123);
+        var items = entityManager.createQuery(
+                "SELECT p FROM BillingOnItemPayment p WHERE p.ch1Id=:id ORDER BY p.billingOnItemId",
+                io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment.class).setParameter("id", id).getResultList();
+        assertThat(items).hasSize(2);
+        assertThat(items.getFirst().getPaid()).isEqualByComparingTo(new BigDecimal("60.00").subtract(new BigDecimal(firstDiscount)));
+        assertThat(items.getLast().getPaid()).isEqualByComparingTo("35.00");
+        assertThat(items).allSatisfy(item -> assertThat(item.getBillingOnPaymentId()).isEqualTo(payment.getId()));
+        assertThat(entityManager.createQuery(
+                "SELECT e.value FROM BillingONExt e WHERE e.billingNo=:id AND e.keyVal='payment'", String.class)
+                .setParameter("id", id).getSingleResult()).isEqualTo(paid.toPlainString());
+        assertThat(entityManager.createQuery(
+                "SELECT e.value FROM BillingONExt e WHERE e.billingNo=:id AND e.keyVal='discount'", String.class)
+                .setParameter("id", id).getSingleResult()).isEqualTo(discount.toPlainString());
+        var transactions = entityManager.createQuery(
+                "SELECT t FROM BillingOnTransaction t WHERE t.ch1Id=:id",
+                io.github.carlos_emr.carlos.commn.model.BillingOnTransaction.class).setParameter("id", id).getResultList();
+        assertThat(transactions).hasSize(2).allSatisfy(t -> {
+            assertThat(t.getStatus()).isEqualTo("S");
+            assertThat(t.getPaymentId()).isEqualTo(payment.getId());
+        });
+        assertThat(transactions.stream().map(t -> t.getServiceCodePaid()).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo(paid);
+    }
+
 }

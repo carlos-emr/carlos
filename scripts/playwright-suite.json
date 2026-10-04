@@ -4914,7 +4914,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last (collected) step on 2026.08: the Manage Contacts professional Specialist search (professionalSpecialistSearch.jsp:182), the professional External contact search (procontactSearch.jsp:252) and the Master Record Referral Doctor 'Search #' picker (searchRefDoc.jsp:128 + ViewSearchRefDoc2Action jsLit) all render their row onclick JavaScript-encoded twice ('\\x27' outside a string), so clicking a result throws 'Invalid or unexpected token' and nothing reaches the parent form (window.opener is live: not a COOP failure). The four working pickers (patient, external contact, provider, and the Submit close+reload) pass first.",
+      "notes": "Regression #4141: contact and referral pickers preserve quoted names through JavaScript argument and HTML attribute encoding; Submit closes and reloads the master record. Requires NEW_CONTACTS_UI=true and NEW_CONTACTS_UI_EXTERNAL_CONTACT=true.",
       "fixtures": "Owns the synthetic patient, a second FAKE- patient, one marker Contact and one marker ProfessionalContact row, one marker professionalSpecialists row with an unused 6-digit referral number; cleanup deletes the DemographicContact rows of both owned patients (and reciprocal rows pointing at them), the owned Contact/specialist rows and the second patient, and asserts they are gone. demographic.family_doctor of the owned patient only."
     },
     {
@@ -4929,8 +4929,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: admin/picker.html is a static file served with no Cross-Origin-Opener-Policy while the administration page carries same-origin, so Chromium opens the picker in a new browsing-context group, window.opener is null, picker.html:40 throws 'Cannot read properties of null (reading TCP)' and no palette renders; Manage Code Styles colours can only be typed.",
-      "fixtures": "Read-only (opens Administration \u25b8 Billing \u25b8 Manage Code Styles; saves nothing)."
+      "notes": "Regression #4141: the static colour picker retains its opener, renders the palette and returns the selected colour to Manage Code Styles.",
+      "fixtures": "Read-only (opens Administration ▸ Billing ▸ Manage Code Styles; saves nothing)."
     },
     {
       "name": "popup-opener-rx-drug-search",
@@ -4974,7 +4974,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: after Save and Exit of a Rourke2017 form started from the E-Chart Forms menu (formRourke2017 row written, popup closed) the chart's Forms module never lists it. Two causes: form/* (ViewForm2Action forwards inside the action) is served with no COOP, so the form opens with window.opener null and the chart's openWindows handle reads .closed at once; and LeftNavBarDisplay.jsp registers no reloadWindows entry for popup-menu items (a control run with the COOP header restored still never refreshed).",
+      "notes": "Regression #4141: Rourke2017 retains its opener, registers Forms menu popup tracking, and Save and Exit refreshes the chart Forms module without a full reload.",
       "fixtures": "Owns the synthetic patient; cleanup deletes its formRourke2017 rows and asserts they are gone."
     },
     {
@@ -4989,8 +4989,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: after Disease Registry \u25b8 Add, Back neither closes the registry nor reloads the chart (window.opener null). dxResearch2Action answers the Add with response.sendRedirect before the Struts COOP PreResultListener runs, so the 302 carries no Cross-Origin-Opener-Policy and Chromium moves the popup to a new browsing-context group. The control step (Back before any Add closes it and reloads the chart) passes.",
-      "fixtures": "Owns the synthetic patient; cleanup deletes its dxresearch rows and asserts they are gone."
+      "notes": "Regression #4141: Back closes Disease Registry and reloads the chart before mutations and after Add, start-date Update and Resolve; verifies persisted diagnoses and dates.",
+      "fixtures": "Owned synthetic patient, dxresearch rows and partial start dates; cleanup verifies removal."
     },
     {
       "name": "popup-opener-day-sheet",
@@ -5394,7 +5394,7 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Owns the synthetic patient and the labs filed (unique DS<hex> accessions); cleanup removes every owned lab's routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.",
-      "notes": "Fails at its final assertion on 2026.08: reloading the Submit-to-EMR result page files a second lab under the same accession. SubmitLabByForm2Action.java:222 FileUploadCheck.storeIfNew only dedups by content checksum of the HL7 it regenerates on every submit, which evidently differs on replay (live: second hl7TextInfo row); CreateLab.jsp:233 has no guard and the result is rendered directly (struts-lab.xml:89-90, no redirect). dblclick/Enter/slow re-click are safe."
+      "notes": "Checks dblclick, two clicks, Enter, delayed response and result-page reload. Completed submissions use HTTP 303 to the GET form; each accession retains one lab/message/checksum, reloading sends no POST, and the submission notice appears only once. The delayed-response route includes SubmitLab's query string."
     },
     {
       "name": "double-submit-admin-adds",
@@ -5875,8 +5875,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Settle & Print Invoice does nothing because its onclick calls document.forms['titlesearch'].submit() and the form holds an input named 'submit' (TypeError: submit is not a function), so no claim is saved or settled. Back to Edit, Save & Print Invoice and Save & Add Another pass.",
-      "fixtures": "createBillingFixture, four owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
+      "notes": "Covers Back to Edit, Save & Print, Save & Add Another and Settle & Print with and without discounts. Asserts one invoice popup for the saved bill and matching claim, payment, item-payment, extension and audit amounts, including the echoed submit-field regression (#4151).",
+      "fixtures": "createBillingFixture, five owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
     },
     {
       "name": "gap-billing-correction-admin-actions",
@@ -5890,7 +5890,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup pass. The final separate #4152 assertion checks that Settle All writes a billing_on_payment record; the baseline settles the header without that payment.",
+      "notes": "Checks lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup. Settlement checks verify the linked payment amount, creator/date, paid balance, repeated-save behavior, status-dropdown settlement after editing the fee, and amounts shown in Payment Received (#4152).",
       "fixtures": "Two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page lists, with the operator's missing site memberships added and removed) and an owned raheader/radetail pair (claim number); all removed and asserted gone."
     },
     {
@@ -5923,7 +5923,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. The last separate #4153 assertion retains the empty-service-code filter failure, which hides claims without payment records.",
+      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. Blank and whitespace service codes preserve the wildcard report's unpaid claims, totals, sort order, and remaining filters (#4153).",
       "fixtures": "createBillingFixture with three submitted claims (OHIP x2, WSIB) and two owned radetail rows under an owned raheader; all removed and asserted gone."
     },
     {
@@ -6017,7 +6017,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Patients carrying the run marker surname (cleanup removes every row of those patients, not the append-only audit log, and asserts none remain) and one unused synthetic Ontario HIN.",
-      "notes": "Fails at its last step on 2026.08: dates typed into Date Rostered / Effective / Renewal / Date Joined never reach the server (add.jsp:576-578 parseDateField template literal is consumed as JSP EL), so a rostered patient cannot be added (alert 'You must choose a valid Date Rostered') and the other dates are silently dropped. Steps 1-6 pass first."
+      "notes": "Validates complete patient registration and duplicate/HIN guards. Optional dates start and persist blank; typed Effective, Renewal, Joined and End dates and a calendar-picked Rostered date persist; clearing End Date stays blank, and rostering without a date is refused."
     },
     {
       "name": "gap-records-demographic-edit-clinical",
@@ -7227,7 +7227,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. The browser aborts the off-host request; nothing leaves the machine.",
-      "notes": "Expected to FAIL today at the final step: Administration > Help Link Setting requests https://www.google-analytics.com/collect (Toast UI editor usage statistics, resourcebaseurl.jsp:212-224 lacks usageStatistics:false)."
+      "notes": "Administration > Help Link Setting renders the real Toast UI editor without off-host requests, script errors, or failed same-origin resources. Waits past the usage-beacon timer and aborts all off-host requests before they leave the browser."
     },
     {
       "name": "concurrency-demographic-edit",
@@ -7645,6 +7645,38 @@
         "FORM_DEMOGRAPHIC_NO",
         "FORM_PROVIDER_NO"
       ]
+    },
+    {
+      "name": "popup-opener-response-policy",
+      "script": "scripts/popup-opener-response-policy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verifies same-origin COOP on actual static, form-forward, missing-page, web-service-error and authentication-redirect responses (#4141).",
+      "fixtures": "Owned synthetic patient used for an unsaved Rourke form; harness cleanup."
+    },
+    {
+      "name": "popup-opener-document-add",
+      "script": "scripts/popup-opener-document-add-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
+      "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
     }
   ]
 }

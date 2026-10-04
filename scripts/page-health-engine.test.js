@@ -72,6 +72,7 @@ const good = {
   headers: {
     'x-frame-options': 'SAMEORIGIN', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store',
     'content-security-policy': "frame-ancestors 'self'; base-uri 'self'; object-src 'none'",
+    'cross-origin-opener-policy': 'same-origin',
   },
 };
 
@@ -85,14 +86,21 @@ test('headerFindings reports missing, duplicated and hazardous headers', () => {
     contentType: 'text/html',
     headers: {
       'x-frame-options': 'SAMEORIGIN\nSAMEORIGIN', 'cache-control': 'max-age=60',
-      'cross-origin-opener-policy': 'same-origin', server: 'Apache-Coyote/1.1',
+      'cross-origin-opener-policy': 'unsafe-none', server: 'Apache-Coyote/1.1',
       'set-cookie': 'JSESSIONID=1; Path=/carlos',
     },
   };
   const found = kinds(headerFindings(bad, { https: true }));
   for (const kind of ['header-duplicated', 'header-missing-nosniff', 'header-csp-frame-ancestors',
-    'header-cache-no-store', 'header-no-charset', 'header-coop-severs-opener', 'header-disclosure', 'cookie-flags']) {
+    'header-cache-no-store', 'header-no-charset', 'header-coop-policy-mismatch', 'header-disclosure', 'cookie-flags']) {
     assert.ok(found.includes(kind), `${kind} should be reported, got ${found.join(',')}`);
+  }
+});
+
+test('headerFindings reports every missing or mismatched popup policy', () => {
+  for (const value of ['', 'unsafe-none', 'same-origin-allow-popups']) {
+    const entry = { ...good, headers: { ...good.headers, 'cross-origin-opener-policy': value } };
+    assert.ok(kinds(headerFindings(entry, { https: true })).includes('header-coop-policy-mismatch'));
   }
 });
 

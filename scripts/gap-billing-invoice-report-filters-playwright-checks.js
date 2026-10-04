@@ -16,8 +16,8 @@
  * visit location, RA code) narrows the list to exactly the matching owned claims;
  * Export to CSV downloads the listed invoices; Claim No narrows to its claim. LOCATION sorting
  * retains configured and missing locations in both directions. The last step separately checks
- * #4153: emptying the Serv. Code box (initially "%") must not hide unpaid claims through the
- * legacy query that inner-joins billing_on_payment.
+ * #4153: blank and whitespace Serv. Code values must preserve the wildcard report's unpaid rows,
+ * footer totals, sort order and remaining filters.
  *
  * Fixtures: createBillingFixture (owned provider, HIN) with three submitted claims (two OHIP, one
  * WSIB; different codes, dx, visit type and location) and two owned radetail rows under an owned
@@ -201,11 +201,27 @@ async function workflow(s) {
       'The LOCATION sort did not preserve all rows and reverse on the second click');
   });
 
-  // Separate regression L270 (#4153): keep the empty-filter path independently observable.
-  await s.step('emptying the Serv. Code box keeps the unpaid claims', async () => {
-    const rows = await report({ serviceCode: '' });
-    h.assert(invoices(rows) === wanted([one, two, three]),
-      'Clearing the Serv. Code box hides claims without a payment record');
+  await s.step('blank service codes preserve unpaid rows, totals, sorting and the remaining filters', async () => {
+    const reference = await report({ serviceCode: '%' });
+    const footer = async () => (await frame.locator('table.table-warning, tr.table-warning').last().innerText())
+      .replace(/\s+/g, ' ');
+    const referenceFooter = await footer();
+    for (const serviceCode of ['', '   ']) {
+      const rows = await report({ serviceCode });
+      h.assert(invoices(rows) === wanted([one, two, three]),
+        'A blank service code hides claims without a payment record');
+      h.assert(rows.map(c => c[12]).join(',') === reference.map(c => c[12]).join(','),
+        'A blank service code changes the selected sort order');
+      h.assert(await footer() === referenceFooter, 'A blank service code changes report counts or totals');
+      h.assert(await frame.locator(`${form} input[name="serviceCode"]`).inputValue() === '%',
+        'The unrestricted service code is not normalized to the wildcard');
+    }
+    const claimRows = await report({ serviceCode: '', claimNo: claimOne });
+    h.assert(invoices(claimRows) === wanted([one]), 'A blank service code drops the Claim No filter');
+    const locationRows = await report({ serviceCode: '', visit: location });
+    h.assert(invoices(locationRows) === wanted([two]), 'A blank service code drops the visit location filter');
+    const typeRows = await report({ serviceCode: '', billTypes: ['WCB'] });
+    h.assert(invoices(typeRows) === wanted([three]), 'A blank service code drops the pay-program filter');
   });
 }
 

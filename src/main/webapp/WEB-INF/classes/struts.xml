@@ -121,11 +121,8 @@
                     <param name="enforcingMode">false</param>
                     <param name="exemptedPaths"/>
                 </interceptor-ref>
-                <interceptor-ref name="coop">
-                    <param name="disabled">false</param>
-                    <param name="exemptedPaths"/>
-                    <param name="mode">same-origin</param>
-                </interceptor-ref>
+                <!-- CrossOriginOpenerPolicyFilter owns COOP for every response, including
+                     static content and actions that redirect/forward without a Struts result. -->
                 <interceptor-ref name="fetchMetadata">
                     <param name="disabled">false</param>
                 </interceptor-ref>

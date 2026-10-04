@@ -25,6 +25,8 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action;
 import io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt.Outcome;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
@@ -53,6 +55,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -204,10 +207,137 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
         when(handler.getLastLabNo()).thenReturn(42);
         SubmitLabByForm2Action action = runManualForm(true);
-        assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
         assertThat(action.getActionMessages()).isEmpty();
         assertThat(transactions.rollbacks).isEqualTo(1);
         assertThat(transactions.commits).isZero();
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualTransactionCannotStart() throws Exception {
+        transactions.failBegin = true;
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualLookupFailsBeforeParsing() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("synthetic lookup failure"));
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualCommitIsRolledBack() throws Exception {
+        transactions.rollBackOnCommit = true;
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "manage", true);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportStoredLab_whenAfterCommitCallbackFails() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    throw new IllegalStateException("synthetic completion failure");
+                }
+            });
+            return "success";
+        });
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldRedirectManualSubmission_whenLabAndRoutingCommit() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none");
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(action.getActionMessages()).isEmpty();
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldKeepSessionIdOutOfRedirect_whenContainerSupportsUrlRewriting() throws Exception {
+        response = new MockHttpServletResponse() {
+            @Override
+            public String encodeRedirectURL(String url) {
+                return url.replace("?", ";jsessionid=SYNTHETIC-SESSION?");
+            }
+        };
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        runManualForm(false, "none");
+        assertThat(response.getHeader("Location")).doesNotContain("jsessionid", "SYNTHETIC-SESSION");
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    @Test
+    void shouldRedirectWithDuplicateNotice_whenManualFileIsAlreadyRecorded() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenReturn(
+                List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
+        SubmitLabByForm2Action action = runManualForm(false, "none", false);
+        verifyNoInteractions(handler);
+        verify(dao, never()).persist(any());
+        assertThat(action.getActionMessages()).isEmpty();
+        assertManualRedirect(Outcome.ALREADY_RECORDED);
+    }
+
+    @Test
+    void shouldRedirectWithUncertainty_whenManualCommitAcknowledgementFails() throws Exception {
+        transactions.failCommit = true;
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.UNKNOWN);
+    }
+
+    @Test
+    void shouldAllowRetry_whenPreviousManualParseWasRejected() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn(null, "success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action rejected = runManualForm(false);
+        assertThat(rejected.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        response.reset();
+        SubmitLabByForm2Action retried = runManualForm(false, "none");
+        assertThat(retried.getActionErrors()).isEmpty();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isEqualTo(1);
+        assertManualRedirect(Outcome.STORED);
+    }
+
+    private void assertManualRedirect(Outcome outcome) {
+        assertThat(response.getStatus()).isEqualTo(303);
+        String location = response.getHeader("Location");
+        assertThat(location).startsWith("/carlos/oscarMDS/ViewCreateLab?submission=");
+        String receipt = java.net.URI.create(location).getQuery().substring("submission=".length());
+        assertThat(ManualLabSubmissionReceipt
+                .consume(request.getSession(), receipt)).isEqualTo(outcome);
     }
 
     /** Runs the signed feed on a saved copy in {@code root} (standing in for DOCUMENT_DIR) and returns that copy. */
@@ -247,7 +377,18 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {
+        return runManualForm(failRouting, "manage", failRouting);
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult) throws Exception {
+        return runManualForm(failRouting, expectedResult, true);
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult, boolean expectRouting)
+            throws Exception {
         Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
+        request.setMethod("POST");
+        request.setContextPath("/carlos");
         request.setParameter("labname", "CML");
         request.setParameter("lab_req_date", "2026-09-25 12:00");
         request.setParameter("dob", "2000-01-01");
@@ -276,8 +417,17 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
             SubmitLabByForm2Action action = new SubmitLabByForm2Action() {
                 @Override public String getText(String key) { return key; }
             };
-            assertThat(action.saveManage()).isEqualTo("manage");
-            if (failRouting) verify(routers.constructed().get(0)).routeMagic(42, "999998", "HL7");
+            assertThat(action.saveManage()).isEqualTo(expectedResult);
+            if ("manage".equals(expectedResult)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                assertThat(response.getHeader("Location")).isNull();
+            }
+            if (expectRouting) {
+                assertThat(routers.constructed()).hasSize(1);
+                verify(routers.constructed().getFirst()).routeMagic(42, "999998", "HL7");
+            } else {
+                assertThat(routers.constructed()).isEmpty();
+            }
             return action;
         }
     }
