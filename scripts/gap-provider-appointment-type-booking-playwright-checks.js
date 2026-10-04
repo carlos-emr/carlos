@@ -53,7 +53,11 @@ async function workflow(s) {
   const field = (popup, name) => popup.locator(`form#addappt [name="${name}"]`);
   const chooseType = async (popup, type) => {
     await popup.locator('#type-button').click();
-    await popup.locator('.ui-selectmenu-menu .ui-menu-item', { hasText: type.name }).first().click();
+    const item = popup.locator('.ui-selectmenu-menu .ui-menu-item', { hasText: type.name }).first();
+    // Move within the item before clicking: jQuery UI caches the last menu pointer position,
+    // so teleporting to identical coordinates on a reopened menu can leave the old item active.
+    await item.hover({ position: { x: 5, y: 5 } });
+    await item.click();
   };
   const minutes = value => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
   let popup;
@@ -86,6 +90,17 @@ async function workflow(s) {
     h.assert(await field(popup, 'type').inputValue() === types[0].name, 'The type field does not hold the chosen type name');
   });
 
+  await s.step('an overlong combined reason is refused without changing the type or losing text', async () => {
+    const manual = 'm'.repeat(80);
+    await field(popup, 'reason').fill(manual);
+    const dialogs = await h.withExpectedDialogs(popup, () => chooseType(popup, types[1]));
+    h.assert(dialogs.length === 1 && /80 characters/i.test(dialogs[0].text), 'The reason overflow was not explained');
+    h.assert(await field(popup, 'type').inputValue() === types[0].name, 'Overflow changed the previous type');
+    h.assert(await field(popup, 'reason').inputValue() === manual, 'Overflow discarded or truncated manual text');
+    h.assert(await field(popup, 'notes').inputValue() === types[0].notes
+      && await field(popup, 'duration').inputValue() === String(types[0].duration), 'Overflow changed dependent fields');
+  });
+
   await s.step('the user\'s own reason text is kept after the type\'s reason when a type is chosen over it', async () => {
     await field(popup, 'reason').fill(USER_TEXT);
     await chooseType(popup, types[1]);
@@ -115,7 +130,20 @@ async function workflow(s) {
     h.assert(await edit.locator('#reason').inputValue() === types[0].reason, 'The edit popup does not show the saved reason');
     h.assert(await edit.locator('[name="type"]').first().inputValue() === types[0].name, 'The edit popup does not show the saved type');
     h.assert(await edit.locator('#duration').inputValue() === String(types[0].duration), 'The edit popup does not show the saved duration');
-    await edit.close();
+    const copied = edit.waitForEvent('close', { timeout: 20000 });
+    await edit.locator('a[onclick*="appointmentcopyrecord"]').click();
+    await copied;
+  });
+
+  await s.step('changing type after a pasted booking replaces the copied autofill', async () => {
+    const pasted = await ui.clickOpensPopup(schedule, schedule.locator(`a.adhour[onclick*="provider_no=${fixture.providerNo}&"]`).nth(12),
+      { context, recorder, label: 'paste-type-appointment', timeout: 20000 });
+    await pasted.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    h.assert(await field(pasted, 'type').inputValue() === types[0].name
+      && await field(pasted, 'reason').inputValue() === types[0].reason, 'The copied type/reason were not pasted');
+    await chooseType(pasted, types[1]);
+    h.assert(await field(pasted, 'reason').inputValue() === types[1].reason, 'The pasted autofill was retained after changing types');
+    await pasted.close();
   });
 
   await s.step('switching type A to type B replaces the first type\'s autofill instead of stacking it', async () => {

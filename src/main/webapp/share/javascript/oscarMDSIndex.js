@@ -26,6 +26,62 @@
 /************init global data methods*****************/
 let oldestLab;
 
+// Shared by standalone lab displays and inline inbox/queue hosts. COOP may sever
+// the matching popup's opener, but same-origin BroadcastChannel still reaches both.
+if (typeof BroadcastChannel !== 'undefined' && typeof contextpath === 'string') {
+    try {
+        const matchChannel = new BroadcastChannel('lab-patient-match-' + contextpath);
+        matchChannel.onmessage = function(event) {
+            const match = event.data;
+            if (match && match.type === 'patient-matched' && match.labType === 'HL7'
+                    && typeof match.labNo === 'string' && /^\d+$/.test(match.labNo)) {
+                const patientPanel = document.getElementById('DemoTable' + match.labNo);
+                if (patientPanel) return refreshMatchedLabPanel(match.labNo, patientPanel);
+            }
+        };
+    } catch (e) {
+        console.warn('Live lab refresh notifications are unavailable; reload the lab view after matching.');
+    }
+}
+
+/**
+ * Refreshes patient-dependent report markup without discarding unsaved acknowledgment fields.
+ * Only the matching patient table and next-appointment label are replaced; the response comes
+ * from the same application's authorized lab view.
+ * @param {string} labNo confirmed HL7 report identifier
+ * @param {HTMLElement} patientPanel currently displayed patient table
+ * @returns {Promise<void>} completion of the best-effort display refresh
+ */
+async function refreshMatchedLabPanel(labNo, patientPanel) {
+    patientPanel.style.backgroundColor = '#FFF';
+    try {
+        const standalone = window.location.pathname.endsWith('/lab/CA/ALL/ViewLabDisplay');
+        const provider = typeof providerNo === 'string' ? providerNo : '';
+        const searchProvider = patientPanel.getAttribute('data-search-provider-no');
+        const url = standalone
+            ? contextpath + '/lab/CA/ALL/ViewLabDisplay' + window.location.search
+            : contextpath + '/lab/CA/ALL/ViewLabDisplayAjax?segmentID=' + encodeURIComponent(labNo)
+                + '&providerNo=' + encodeURIComponent(provider)
+                + (searchProvider === null ? '' : '&searchProviderNo=' + encodeURIComponent(searchProvider));
+        const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+        if (!response.ok) throw new Error('Lab view refresh failed');
+        const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const replacement = parsed.getElementById('DemoTable' + labNo);
+        if (!replacement) throw new Error('Lab view did not return its patient panel');
+        if (document.getElementById('DemoTable' + labNo) !== patientPanel) return;
+        // In inline views the next-appointment label is outside the patient table.
+        const nextAppointment = document.getElementById('labNextAppointment' + labNo);
+        const refreshedAppointment = parsed.getElementById('labNextAppointment' + labNo);
+        if (nextAppointment && refreshedAppointment && !patientPanel.contains(nextAppointment)) {
+            nextAppointment.replaceWith(document.importNode(refreshedAppointment, true));
+        }
+        replacement.style.backgroundColor = '#FFF';
+        patientPanel.replaceWith(document.importNode(replacement, true));
+    } catch (e) {
+        console.warn('Patient match saved; reload the lab view to refresh its patient details.');
+    }
+}
+
 /**
  * Helper function to show an element
  * @param {HTMLElement|string} el - Element or element ID

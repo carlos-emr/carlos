@@ -204,6 +204,24 @@
       ]
     },
     {
+      "name": "appointment-status-editing",
+      "script": "scripts/appointment-status-editing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "APPOINTMENT_DAYS_AHEAD",
+        "APPOINTMENT_DEMOGRAPHIC_NO",
+        "APPOINTMENT_PROVIDER_NO",
+        "APPT_STATUS_EDITING_EXPECT"
+      ]
+    },
+    {
       "name": "appointment-recurrence",
       "script": "scripts/appointment-recurrence-playwright-checks.js",
       "tiers": [
@@ -253,7 +271,8 @@
         "GROUP_DISK_SERVICE_DATE",
         "GROUP_DISK_TEMPLATE_PROVIDER",
         "OHIP_DISK_DIR"
-      ]
+      ],
+      "notes": "Generates actual claim files in a single-day service-date window, asserting downloaded service dates, zero/paid claim items and billed state; also verifies regeneration, locking and owned-file cleanup."
     },
     {
       "name": "billing-on-submit",
@@ -3257,7 +3276,8 @@
         "CONSULT_PREVIEW_SEARCH",
         "CONSULT_PREVIEW_DEMOGRAPHIC_NO",
         "CONSULT_PREVIEW_TIMEOUT_MS"
-      ]
+      ],
+      "notes": "Print preview preserves unsaved consultation text, including Vietnamese, Polish and Turkish names and mathematical comparisons (#4173), without changing the stored referral."
     },
     {
       "name": "cpp-note-extension-archive",
@@ -3736,6 +3756,21 @@
       "fixtures": "Owns a FAKE- patient, a UI-created and a seeded quick list (FAKE<base36>, at most 10 chars), and dx_associations rows whose code starts with the run marker; never saves a bill; removes only owned rows."
     },
     {
+      "name": "flowsheet-editor-height",
+      "script": "scripts/flowsheet-editor-height-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient and two patient flowsheet customizations; all deleted and verified by the shared workflow cleanup.",
+      "notes": "Exercises the served UpdateFlowsheet JSP height assignment and persists warning/target rules. The full flowsheet-patient-customization workflow separately covers tracker and print."
+    },
+    {
       "name": "flowsheet-patient-customization",
       "script": "scripts/flowsheet-patient-customization-playwright-checks.js",
       "tiers": [
@@ -4193,7 +4228,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
-      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files and their rows; all removed."
+      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
     },
     {
       "name": "demographic-relations-pdf-labels",
@@ -4539,8 +4574,23 @@
         "DOCUMENT_DIR",
         "ONEDT_INBOX"
       ],
-      "notes": "Fails on 2026.08: the billing report renders the request headers (including the session cookie) as its column headers; the statement PDF answers 500, the INR update form 405s and the L report renders blank.",
+      "notes": "Regression #4138: correct billed-report headers and cells, complete year-end PDF, ES/OU MOH report rendering with visible invalid-file errors, and INR edit navigation, POST save/opener refresh, and GET mutation refusal.",
       "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
+    },
+    {
+      "name": "billing-on-year-end-statement",
+      "script": "scripts/billing-on-year-end-statement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext.",
+      "fixtures": "Owned workflow patient and six billing invoices/items with statuses and dates at both boundaries; all removed."
     },
     {
       "name": "patient-swipe-card-search",
@@ -4849,8 +4899,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at step 2 on 2026.08: Administration > EForm Report Tool's list (ws/rs/reporting/eformReportTool/list) answers 500 once any report tool exists (ClassCastException Long -> BigInteger at EFormReportToolDaoImpl.getNumRecords:192), so the new tool never shows and its (Remove) cannot be driven; the Remove steps (dismissed and accepted confirm, row deleted by id, ERT_ table dropped) run once that is fixed.",
-      "fixtures": "Creates one EFormReportTool row named FAKEPW<hex> and its ERT_FAKEPW<hex>... table through the UI (for a demo eForm, read-only); cleanup drops any ERT_FAKEPW<hex>% table and deletes the row by name, verified gone."
+      "notes": "Creates an owned eForm and report tool, verifies its numeric record count can be listed, and removes the tool and generated table through the UI.",
+      "fixtures": "Owns an eForm template, report tool and its generated ERT_ table; scoped cleanup verifies removal and deletes the owned template."
     },
     {
       "name": "popup-opener-master-record",
@@ -4864,7 +4914,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last (collected) step on 2026.08: the Manage Contacts professional Specialist search (professionalSpecialistSearch.jsp:182), the professional External contact search (procontactSearch.jsp:252) and the Master Record Referral Doctor 'Search #' picker (searchRefDoc.jsp:128 + ViewSearchRefDoc2Action jsLit) all render their row onclick JavaScript-encoded twice ('\\x27' outside a string), so clicking a result throws 'Invalid or unexpected token' and nothing reaches the parent form (window.opener is live: not a COOP failure). The four working pickers (patient, external contact, provider, and the Submit close+reload) pass first.",
+      "notes": "Regression #4141: contact and referral pickers preserve quoted names through JavaScript argument and HTML attribute encoding; Submit closes and reloads the master record. Requires NEW_CONTACTS_UI=true and NEW_CONTACTS_UI_EXTERNAL_CONTACT=true.",
       "fixtures": "Owns the synthetic patient, a second FAKE- patient, one marker Contact and one marker ProfessionalContact row, one marker professionalSpecialists row with an unused 6-digit referral number; cleanup deletes the DemographicContact rows of both owned patients (and reciprocal rows pointing at them), the owned Contact/specialist rows and the second patient, and asserts they are gone. demographic.family_doctor of the owned patient only."
     },
     {
@@ -4879,7 +4929,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: admin/picker.html is a static file served with no Cross-Origin-Opener-Policy while the administration page carries same-origin, so Chromium opens the picker in a new browsing-context group, window.opener is null, picker.html:40 throws 'Cannot read properties of null (reading TCP)' and no palette renders; Manage Code Styles colours can only be typed.",
+      "notes": "Regression #4141: the static colour picker retains its opener, renders the palette and returns the selected colour to Manage Code Styles.",
       "fixtures": "Read-only (opens Administration ▸ Billing ▸ Manage Code Styles; saves nothing)."
     },
     {
@@ -4924,7 +4974,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: after Save and Exit of a Rourke2017 form started from the E-Chart Forms menu (formRourke2017 row written, popup closed) the chart's Forms module never lists it. Two causes: form/* (ViewForm2Action forwards inside the action) is served with no COOP, so the form opens with window.opener null and the chart's openWindows handle reads .closed at once; and LeftNavBarDisplay.jsp registers no reloadWindows entry for popup-menu items (a control run with the COOP header restored still never refreshed).",
+      "notes": "Regression #4141: Rourke2017 retains its opener, registers Forms menu popup tracking, and Save and Exit refreshes the chart Forms module without a full reload.",
       "fixtures": "Owns the synthetic patient; cleanup deletes its formRourke2017 rows and asserts they are gone."
     },
     {
@@ -4939,8 +4989,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: after Disease Registry ▸ Add, Back neither closes the registry nor reloads the chart (window.opener null). dxResearch2Action answers the Add with response.sendRedirect before the Struts COOP PreResultListener runs, so the 302 carries no Cross-Origin-Opener-Policy and Chromium moves the popup to a new browsing-context group. The control step (Back before any Add closes it and reloads the chart) passes.",
-      "fixtures": "Owns the synthetic patient; cleanup deletes its dxresearch rows and asserts they are gone."
+      "notes": "Regression #4141: Back closes Disease Registry and reloads the chart before mutations and after Add, start-date Update and Resolve; verifies persisted diagnoses and dates.",
+      "fixtures": "Owned synthetic patient, dxresearch rows and partial start dates; cleanup verifies removal."
     },
     {
       "name": "popup-opener-day-sheet",
@@ -4970,7 +5020,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owns a synthetic FAKE- patient, one appointment, one Ontario OHIP claim header and item (dx 311) and one report template titled with the run marker, all created through SQL/UI and deleted (asserted gone) in cleanup; read-only otherwise.",
-      "notes": "Fails at the last step ('The report lists 0 Dx row(s) and 0 visit row(s) for the owned patient') while DepressionContinuityReporter.addAppt():193 casts a native DATE column (LocalDate under Hibernate 7) to java.util.Date and generateReport() swallows the ClassCastException; passes once the cast is fixed."
+      "notes": "Checks that Hibernate 7 native DATE values render diagnosis and visit rows, with independent diagnosis and visit date windows; template upload uses a valid SELECT placeholder."
     },
     {
       "name": "native-cast-inbox-lab-dates",
@@ -4985,7 +5035,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "EXCLUSIVE=1: snapshots and restores the global SystemPreferences row inboxDateSearchType (changes every user's Inbox date mode while it runs). Owns one synthetic HL7 lab (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) routed to a FAKE- patient; cleanup deletes only rows carrying the run's lab number and asserts they are gone.",
-      "notes": "Fails at the last step ('Received-date mode shows the lab date as \"2026-03-04T12:34:56\"') while Hl7textResultsData.java:783 renders message.created (LocalDateTime under Hibernate 7) with String.valueOf; passes once the date is formatted as 'yyyy-MM-dd HH:mm:ss'."
+      "notes": "Checks observed-date and received-date modes. Native LocalDateTime received values must retain the legacy space-separated timestamp display and remain parseable."
     },
     {
       "name": "gap-provider-account-expiry",
@@ -4999,7 +5049,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "fixtures": "Throwaway login whose security row's expiry columns are changed to 5 days, 30 days and yesterday; the expired attempt is a failed login, so run it with the live wrapper's EXCLUSIVE=1 (the lockout counter is address-keyed unless login_lock=true). The fixture and an extra cleanup remove the throwaway's rows including the 'expired' audit row."
+      "fixtures": "Throwaway login whose security row's expiry columns are changed to 5 days, 30 days and yesterday; the expired attempt is a failed login, so run it with the live wrapper's EXCLUSIVE=1 (the lockout counter is address-keyed unless login_lock=true). The fixture and an extra cleanup remove the throwaway's rows including the 'expired' audit row. Uses the receptionist role and owned provider-specific _appointment/_msg read grants; cleanup removes those grants. No _provider grant is added.",
+      "notes": "Checks that the expiring-account button opens an editable password form for a receptionist without provider-admin access, alongside the 30-day and expired-account controls."
     },
     {
       "name": "gap-provider-appointment-do-not-book",
@@ -5013,7 +5064,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Add Appointment popup of a Do Not Book slot hides Add and Group Appt but still offers Repeat, and Repeat creates a booking on the blocked slot (addappointment.jsp renders apptRepeatButton outside the !(bDnb || bMultipleSameDayGroupAppt) guard; RecurringAppointmentService has no block check).",
+      "notes": "Checks the hidden Repeat control and a direct recurrence POST against a Do Not Book slot, plus normal block, delete and adjacent-slot controls.",
       "fixtures": "Throwaway login; the blocking and any wrongly created appointments belong to the throwaway provider and are deleted (with archive rows) in cleanup."
     },
     {
@@ -5028,7 +5079,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: opening an appointment whose updatedatetime (or createdatetime) is NULL answers HTTP 500 (editappointment.jsp:1183-1184 LocalDateTime.parse of the empty string); the demo dataset has three such appointments.",
+      "notes": "Checks edit popups with missing creation/update timestamps and the normal timestamp control.",
       "fixtures": "Throwaway login plus an owned FAKE- patient and two SQL-seeded appointments with NULL timestamps; deleted in cleanup."
     },
     {
@@ -5046,6 +5097,21 @@
       "fixtures": "Throwaway login with its own day sheet plus an owned FAKE- patient; the eight recurring appointments it books belong to the throwaway provider and are deleted (with archive rows) in cleanup."
     },
     {
+      "name": "appointment-group-paste-restriction",
+      "script": "scripts/appointment-group-paste-restriction-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Requires allowMultipleSameDayGroupAppt=no and appointment_locking_timeout>0; verifies restricted Paste and its warning survive a real lock refresh, including absent Add/Repeat controls.",
+      "fixtures": "Owned patient, isolated provider/group/preferences and one copied appointment; appointment/archive rows, group/preferences and owned page locks are removed and verified."
+    },
+    {
       "name": "gap-provider-appointment-type-booking",
       "script": "scripts/gap-provider-appointment-type-booking-playwright-checks.js",
       "tiers": [
@@ -5057,7 +5123,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: choosing Type A then Type B in the Add Appointment popup leaves the reason as 'B -- A' (addappointment.jsp type change appends the earlier autofill instead of replacing it).",
+      "notes": "Checks that changing types replaces the preceding autofill while preserving manual reason text and normal booking/edit behavior.",
       "fixtures": "Throwaway login plus an owned FAKE- patient; reads two SEEDED appointment types without modifying them (the Type menu reads a 30-minute cache, so SQL-seeded types are not offered). Owned appointment/archive rows are deleted in cleanup."
     },
     {
@@ -5072,7 +5138,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Flowsheets ▸ Upload stores any well-formed XML as a flowsheet (a NULL-named row; ManageFlowsheetsUpload2Action ▸ MeasurementTemplateFlowSheetConfig.validateFlowsheet accepts it) and a refused upload shows no message (manageFlowsheets.jsp never renders the flashError the action sets).",
+      "notes": "Checks rejection of unrelated XML before persistence/import, visible escaped refusal feedback after the upload redirect, valid measurement import, enable/disable and GET refusal.",
       "fixtures": "One owned FAKE-named flowsheet definition (dx trigger on a code no patient has, not universal) and its measurement type, plus the not-a-flowsheet file's row if the upload wrongly keeps it; all deleted in cleanup. The in-memory flowsheet registry is refreshed by the next flowsheet admin action."
     },
     {
@@ -5087,7 +5153,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its step 2 on 2026.08: Write to Encounter answers HTTP 403 because ViewMessage builds the WriteToEncounter form at click time without a CSRF token (L141); behind it, the chart the redirect opens carries no message text, so the note-text and Sign & Save assertions would fail next.",
+      "notes": "Checks the CSRF-protected Write to Encounter handoff, complete formatted message in the linked chart, signed-note persistence and unchanged message delivery/link rows.",
       "fixtures": "Owned FAKE- patient, one owned message delivered to the test provider and linked by msgDemoMap; cleanup deletes the message rows, the owned patient's notes and chart rows and the audit rows."
     },
     {
@@ -5130,7 +5196,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the per-provider reason toggle '*' is never rendered while TOGGLE_REASON_BY_PROVIDER is unset (the JSP's defaultVal=\"yes\" is ignored by CarlosPropertiesCheck, which only honours \"true\").",
+      "notes": "With SHOW_APPT_REASON, SHOW_APPT_REASON_TOOLTIP and TOGGLE_REASON_BY_PROVIDER unset, checks default reason hiding, popup details and the provider toggle in both directions. The separate tooltip disclosure regression (L329) remains asserted; that failure does not mask toggle validation.",
       "fixtures": "Throwaway login plus an owned FAKE- patient and one appointment on the throwaway's own schedule; deleted in cleanup."
     },
     {
@@ -5145,7 +5211,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a login POSTed with a weak password that does not match its confirmation is created (SecurityAddSecurityHelper has no server-side password policy or confirmation check).",
+      "notes": "Checks browser validation and independent direct POST refusals for a weak matching password, a strong mismatched confirmation and an empty password. Refusals must not create a login or creation audit record.",
       "fixtures": "One owned FAKE- provider row (target of the weak-password probe) and the user names the run attempts; the attempted refusals create no row, the probe's row is deleted in cleanup."
     },
     {
@@ -5328,7 +5394,7 @@
       "timeoutSec": 600,
       "env": [],
       "fixtures": "Owns the synthetic patient and the labs filed (unique DS<hex> accessions); cleanup removes every owned lab's routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.",
-      "notes": "Fails at its final assertion on 2026.08: reloading the Submit-to-EMR result page files a second lab under the same accession. SubmitLabByForm2Action.java:222 FileUploadCheck.storeIfNew only dedups by content checksum of the HL7 it regenerates on every submit, which evidently differs on replay (live: second hl7TextInfo row); CreateLab.jsp:233 has no guard and the result is rendered directly (struts-lab.xml:89-90, no redirect). dblclick/Enter/slow re-click are safe."
+      "notes": "Checks dblclick, two clicks, Enter, delayed response and result-page reload. Completed submissions use HTTP 303 to the GET form; each accession retains one lab/message/checksum, reloading sends no POST, and the submission notice appears only once. The delayed-response route includes SubmitLab's query string."
     },
     {
       "name": "double-submit-admin-adds",
@@ -5380,8 +5446,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Two synthetic patients inserted by SQL (surname = run tag plus an apostrophe name / a CJK first name); cleanup deletes them and asserts none remain.",
-      "notes": "Expected to FAIL at the last step 'searches by an apostrophe surname, an accented first name, a CJK first name and an apostrophe address find the patient' until demographicsearchresults.jsp stops passing the keyword through SafeEncode.forJava."
+      "fixtures": "Two synthetic patients with apostrophe/CJK surnames, accented/CJK first names and an address containing quotes and Unicode; cleanup deletes them and asserts none remain.",
+      "notes": "Verifies literal special-character searches and sort postbacks, rejection of SQL-shaped over-matching, and safe HTML rendering of a markup-shaped search term."
     },
     {
       "name": "boundary-appointment-text",
@@ -5532,7 +5598,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Billing fixture of billing-on-ohip-simulation-report (throwaway billing provider with own OHIP and group numbers in the operator's sites, the owned patient given a synthetic HIN) and seven open claims dated 2004-02-28 .. 2004-03-13; cleanup removes claims and provider and asserts them gone. The simulation writes nothing; no claim file is generated or sent.",
-      "notes": "Expected to FAIL at 'OHIP simulation previews a claim dated exactly on the Service Date Start' (BillingONCHeader1DaoImpl.findByProviderStatusAndDateRange uses billingDate > from); the Invoice Reports steps before it pass."
+      "notes": "Verifies inclusive start/end and leap-day single-day windows in invoice reports and OHIP simulation, with out-of-window claims excluded."
     },
     {
       "name": "boundary-date-audit-log",
@@ -5588,7 +5654,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Five documents (ctl_document + routing) and five HL7 labs (hl7TextMessage + hl7TextInfo + providerLabRouting) for the owned patient dated 2026-03-02 .. 2026-03-06; the owned patient's HIN is set to '' (NULL HIN is ISSUES L207). Cleanup removes every row by id and asserts none remain. The clinic-wide inbox date preference is not changed on the default mode (absent, NULL, empty or serviceObservation); on an install set to another mode the check SKIPs unless INBOX_DATE_EXCLUSIVE=1 is given under the EXCLUSIVE=1 wrapper, when it snapshots, switches and restores it.",
-      "notes": "Expected to FAIL at the last step 'labs observed on the Start Date and at any time on the End Date are listed': labs observed later in the day on the End Date are dropped (LabDataController.convertDate / Hl7TextInfoDaoImpl info.obr_date <= :endDate)."
+      "notes": "Checks inclusive calendar start/end dates for documents and labs, including date-only observations and the final second of the end day, while excluding the preceding and following days."
     },
     {
       "name": "boundary-date-prevention-report",
@@ -5606,8 +5672,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Three synthetic patients over 65 with one Flu prevention each (day before / on / after the as-of date) and one saved patient query naming them; cleanup removes preventions, query and patients and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: a flu shot dated ON the as-of date is classified 'No Info' (FluReport.removeFutureItems keeps prevDate.before(asOfDate))."
+      "fixtures": "Three owned patients with Flu, MAM, PAP and FOBT preventions and one saved patient query; all fixture rows are removed and cleanup verified.",
+      "notes": "Verifies Flu, Mammogram, Pap and FOBT report states and up-to-date totals for prevention dates before/on/after the as-of date."
     },
     {
       "name": "boundary-age-report",
@@ -5626,7 +5692,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Nineteen synthetic patients (surname = run marker + index; birthdays today, 5..90 years ago, and tomorrow) with an isolated join date; cleanup removes them and their reportagesex cache rows and asserts none remain. The Age-Sex Report regeneration rewrites the reportagesex cache for every patient.",
-      "notes": "Expected to FAIL at the last step: ReportAgeSexDaoImpl.populateAll computes FLOOR(DATEDIFF/365.25), one year short on the birthday itself, so buckets 0-4, 10-14, 30-34, 50-54, ... are off."
+      "notes": "Verifies birthday ages 5 through 90 in five-year buckets against owned fixture deltas and the database report cache, including the day before a birthday."
     },
     {
       "name": "boundary-age-search-results",
@@ -5645,7 +5711,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Four synthetic patients (birthday tomorrow / today / yesterday, 29 Feb 2000) inserted by SQL; nothing is booked; cleanup deletes them and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: the Age column of the booking-popup search shows 24 for a patient whose 25th birthday is today (Demographic.getAge -> Utility.calcAge tests curDay > birthDay)."
+      "notes": "Verifies booking-search ages before/on/after a birthday and for a leap-day birth date against calendar ages."
     },
     {
       "name": "gap-clinical-cpp-boxes",
@@ -5674,8 +5740,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient with three SQL-seeded signed notes (2021, 2022, now), one allergy and one MMR prevention; all removed and asserted gone. Needs pdftotext.",
-      "notes": "Fails at its LAST assertion on 2026.08 with up to three findings joined: (1) Clear in the print dialog leaves the queued notes selected once the older-notes fetch has run (ChartNotesAjax.jsp:856 sets maxNcId=0); (2) Clear after Print all leaves ALL_NOTES queued; (3) the dialog's Today / date-range print answers HTTP 500 (SQLGrammarException: Column 'provider_no' not found in the mostRecentDateRange native query)."
+      "fixtures": "Owned FAKE-PW patient with three signed clinical notes, Medical History and Other Meds CPP notes, one allergy and one MMR prevention; all removed and asserted gone. Needs pdftotext.",
+      "notes": "Verifies selected/all/Today scope, Clear queue and icons, standard section flags, CPP and Other Meds deduplication, and HTTP 400 for invalid date ranges (#4171)."
     },
     {
       "name": "gap-clinical-chart-notes-pagination",
@@ -5690,7 +5756,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart (one multi-line); notes and eChart rows removed and asserted gone.",
-      "notes": "Fails at its last step on 2026.08: after the final empty paging batch maxNcId is reset to 0 (ChartNotesAjax.jsp:856), so every nc1..maxNcId loop in the chart (print dialog Clear) finds no notes. Paging, Load All and Collapse/Expand pass."
+      "notes": "Verifies paging, Load All, Collapse/Expand and preserved container bounds after the final empty batch (#4171)."
     },
     {
       "name": "gap-clinical-calculators-conversions",
@@ -5750,7 +5816,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Owned FAKE-PW patient with one WT reading and one dxresearch row (an unused ICD-9 code chosen at run time); one flowsheet created through Administration > Create New Flowsheet (display name = run marker) with its customization rows; all removed and asserted gone. The application keeps a deleted flowsheet's trigger registered in memory, so the check finds its flowsheet by name.",
-      "notes": "Passes on 2026.08."
+      "notes": "Verifies clinic/provider customization layers, patient display and saved flowsheet headings after customization (#4171)."
     },
     {
       "name": "gap-clinical-prevention-notifications",
@@ -5764,8 +5830,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "No rows created. Changes the clinic-wide hide_prevention_stop_signs property (snapshot and restore in cleanup), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Fails at its final assertion on 2026.08 (collected after every round-trip step has passed): with no setting row the appointment screen shows stop signs (PreventionManager.isDisabled() is false) but Administration > Prevention Notification Settings reads Disabled (PreventionManager.jsp falls back to SHOW_PREVENTION_STOP_SIGNS=false)."
+      "fixtures": "Owned FAKE-PW child and appointment, removed after the check. Changes the clinic-wide hide_prevention_stop_signs property (snapshot and restore), so run exclusively (EXCLUSIVE=1).",
+      "notes": "Verifies absent-setting and saved Enabled/Disabled states on both the settings page and an actual day-sheet prevention warning, plus custom per-prevention settings (#4171)."
     },
     {
       "name": "gap-billing-bill-form-options",
@@ -5779,7 +5845,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Referral Doctor search popup lists the owned specialist but picking a row throws 'Invalid or unexpected token' (handler JavaScript-encoded twice, ISSUES L214), so the referral number never reaches the bill form. The four earlier steps (header options, typed codes with units and percent, review, Save) pass.",
+      "notes": "Admission dates survive hospital/nursing-home visit changes and clear for outpatient visits. Header options, typed codes with units/percent, review totals and Save pass. The last step retains the separate referral-picker failure (ISSUES L214): selecting the owned specialist throws Invalid or unexpected token and does not fill the referral number.",
       "fixtures": "createBillingFixture (owned billing provider with OHIP/group numbers in the operator's sites, synthetic HIN on the owned FAKE- patient), an owned professionalSpecialists row (last name = marker), two owned appointments today; claim rows the browser writes are removed by id and asserted gone."
     },
     {
@@ -5794,7 +5860,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Passes on 2026.08 (seven bill types: Do Not Bill, IFH, CPP, STD/LTD, OCF, ODS, Bill Patient with a private code).",
+      "notes": "Verifies all seven bill types, MOH payee P, and independent payment-method persistence: Do Not Bill, IFH, CPP, STD/LTD, OCF, ODS, and Bill Patient with a private code.",
       "fixtures": "createBillingFixture, seven owned appointments today (one per bill type); claim, ext and transaction rows written by the browser removed by id and asserted gone."
     },
     {
@@ -5809,8 +5875,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Settle & Print Invoice does nothing because its onclick calls document.forms['titlesearch'].submit() and the form holds an input named 'submit' (TypeError: submit is not a function), so no claim is saved or settled. Back to Edit, Save & Print Invoice and Save & Add Another pass.",
-      "fixtures": "createBillingFixture, four owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
+      "notes": "Covers Back to Edit, Save & Print, Save & Add Another and Settle & Print with and without discounts. Asserts one invoice popup for the saved bill and matching claim, payment, item-payment, extension and audit amounts, including the echoed submit-field regression (#4151).",
+      "fixtures": "createBillingFixture, five owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
     },
     {
       "name": "gap-billing-correction-admin-actions",
@@ -5824,7 +5890,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Settle All settles the bill without writing its billing_on_payment record (oldStatus is read after the header was already updated), a Save from the Administration entry lands the frame on close.html because the GET search form drops ?admin, and an OHIP claim number typed alone cannot be searched (the invoice-number field is required). Lookup, unknown invoice, Rebill OHIP and Reprint pass.",
+      "notes": "Checks lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup. Settlement checks verify the linked payment amount, creator/date, paid balance, repeated-save behavior, status-dropdown settlement after editing the fee, and amounts shown in Payment Received (#4152).",
       "fixtures": "Two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page lists, with the operator's missing site memberships added and removed) and an owned raheader/radetail pair (claim number); all removed and asserted gone."
     },
     {
@@ -5857,7 +5923,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: emptying the Serv. Code box (it arrives holding '%') makes Invoice Reports take a legacy query that inner-joins billing_on_payment, so every claim without a payment record disappears; and the LOCATION column sort answers HTTP 500 when a claim has no visit location (NPE in VISIT_LOCATION_COMPARATOR). Report rows, RA columns, footer totals, bill type / service code / dx / visit type / location / RA code / claim number filters and the CSV export pass.",
+      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. Blank and whitespace service codes preserve the wildcard report's unpaid claims, totals, sort order, and remaining filters (#4153).",
       "fixtures": "createBillingFixture with three submitted claims (OHIP x2, WSIB) and two owned radetail rows under an owned raheader; all removed and asserted gone."
     },
     {
@@ -5905,7 +5971,7 @@
         "RA_DOCUMENT_DIR",
         "RA_EDT_INBOX"
       ],
-      "notes": "Fails on 2026.08 in its single step after proving the R (batch eligibility) upload, the ## version flag and the repeat upload: the patient alert starts with a literal 'null' line (the empty alert is concatenated), and the Batch Acknowledgement (B) report answers HTTP 500 (billingEAreport.jsp reads batchAcks.batchAckReportBeanVector, which the parser does not have; ISSUES L137 'likely' now confirmed). Every report page also links a missing /billing.css.",
+      "notes": "Verifies R eligibility upload, version flag, repeat upload, patient alerts without a null prefix, B batch acknowledgement rendering, and working report stylesheets. Uses only owned return files; sends nothing to MOH.",
       "fixtures": "createBillingFixture, an owned demographiccust row, the uploaded R and B files in DOCUMENT_DIR and the MOH inbox; all removed and asserted gone. Nothing is sent to MOH/MCEDT."
     },
     {
@@ -5920,8 +5986,23 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a malformed percent (abc) is not stopped by the form's decimal-number alert (its check selects ids the percent boxes lack) and Next answers HTTP 500 (BillingReviewLoader NumberFormatException); the review page of an unknown or duplicated code and a fee edited on an OHIP review page also throw script errors (total / gst elements missing). The empty-form alert, empty-Dx confirm, unknown/duplicate-code warnings with no Save, and the fee override saved to the item pass.",
+      "notes": "Checks form warnings, invalid/duplicate review navigation, OHIP fee override persistence, malformed-percent client validation, and direct POST rejection of malformed, oversized and exponent-notation multipliers without a Save action or written claim.",
       "fixtures": "createBillingFixture and three owned appointments today; claims written by the browser removed by id and asserted gone."
+    },
+    {
+      "name": "billing-review-failed-calculation",
+      "script": "scripts/billing-review-failed-calculation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "notes": "A malformed configured private fee displays a warning, blocks every Save/Print/Settle action, permits Back to Edit with the code preserved, and writes no claim.",
+      "fixtures": "Owned provider, patient, appointment and unique malformed billingservice fee; all removed by the workflow cleanup."
     },
     {
       "name": "gap-records-demographic-add-fields",
@@ -5936,7 +6017,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Patients carrying the run marker surname (cleanup removes every row of those patients, not the append-only audit log, and asserts none remain) and one unused synthetic Ontario HIN.",
-      "notes": "Fails at its last step on 2026.08: dates typed into Date Rostered / Effective / Renewal / Date Joined never reach the server (add.jsp:576-578 parseDateField template literal is consumed as JSP EL), so a rostered patient cannot be added (alert 'You must choose a valid Date Rostered') and the other dates are silently dropped. Steps 1-6 pass first."
+      "notes": "Validates complete patient registration and duplicate/HIN guards. Optional dates start and persist blank; typed Effective, Renewal, Joined and End dates and a calendar-picked Rostered date persist; clearing End Date stays blank, and rostering without a date is refused."
     },
     {
       "name": "gap-records-demographic-edit-clinical",
@@ -5966,7 +6047,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient only; its demographicArchive rows are removed with it.",
-      "notes": "Fails at its last step on 2026.08: changing Roster Status throws TypeError (edit.jsp:854 updateEnrolledTo calls rosterSelect.getValue(), which a <select> lacks), so the 'enrol to the MRP' confirmation never runs. Every earlier step passes."
+      "notes": "Verifies roster history and native-select enrollment confirmations without script errors (issue #4176)."
     },
     {
       "name": "gap-records-label-print-setting",
@@ -5998,7 +6079,7 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "The runWorkflow FAKE- patient, one marker formRourke2009 row (all checkbox columns set to 0), one marker-named patient set; the run's dataExport row and its zip in DOCUMENT_DIR are found by the marker contact name and deleted and checked gone.",
-      "notes": "Fails at its last step on 2026.08: the previous-reports table prints the typed contact user name as markup (rourkeExport.jsp unencoded getUser/getFile/setName) and its file link points at eRourkeExport?method=getFile, a parameter the action never dispatches on, so no zip is sent."
+      "notes": "Verifies encoded patient-set/contact labels, a persisted one-patient export, and a byte-for-byte matching ZIP download (issue #4176)."
     },
     {
       "name": "gap-records-usage-report",
@@ -6013,7 +6094,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
-      "notes": "Fails at its last step on 2026.08: Scheduled Appts and Encounter Note exclude rows dated on the End Date, and percentages print float noise (16.66666716337204%). Roster size, age/sex shares, Rx count and the form validation pass first."
+      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176)."
     },
     {
       "name": "gap-records-document-annotate-save",
@@ -6045,7 +6126,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient; the one DemographicContact association is deleted in cleanup and checked gone. SKIPs when DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM is off.",
-      "notes": "Fails at its last step on 2026.08: embedded in the Master Record edit form the panel prints '???demographic.manageHealthCareTeam.*???' for its heading, labels, Add/Search buttons and placeholders (manageHealthCareTeam.jsp sets its fmt bundle only inside the detached-view branch). Add and Remove pass first."
+      "notes": "Verifies translated labels in the embedded panel and persisted Add/Remove membership changes (issue #4176)."
     },
     {
       "name": "gap-records-hrm-report-actions",
@@ -6080,6 +6161,21 @@
       "notes": "PASS expected; fails at the criterion step naming the owned patients listed versus the owned patients that match."
     },
     {
+      "name": "gap-records-autocomplete-labels",
+      "script": "scripts/gap-records-autocomplete-labels-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, removed by runWorkflow. Reads the logged-in provider; no flowsheet is saved.",
+      "notes": "Patient and provider suggestions render match spans as HTML and select the expected record on the patient flowsheet and lab provider-selection pages."
+    },
+    {
       "name": "gap-records-lab-patient-link",
       "script": "scripts/gap-records-lab-patient-link-playwright-checks.js",
       "tiers": [
@@ -6094,7 +6190,7 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "fixtures": "The runWorkflow FAKE- patient (NULL HIN set to the empty HIN) and one synthetic CML HL7 lab (unique accession, patient name marker-U); cleanup removes the lab rows and its archived upload file and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: (ISSUES L220) the matching popup is redirected and loses its opener, so the open lab display keeps its unmatched highlight after a patient is chosen; and (N11) PatientMatch answers a fetch() with a redirect to oscarMDS/ViewOpenEChart that the popup then aborts. Upload, popup, search, match and reopen/E-Chart steps pass first. Any other session's NULL-HIN HRM fixture (N9) makes the Inbox list steps answer 500."
+      "notes": "Verifies upload, matching, consumed JSON success without a redirect, cross-window removal of the unmatched highlight, and opening the matched patient chart (issue #4176)."
     },
     {
       "name": "gap-records-hrm-inbox-null-hin",
@@ -6107,9 +6203,11 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
+      "env": [
+        "DOCUMENT_DIR"
+      ],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
-      "notes": "Fails at its only step on 2026.08: the Inbox list answers HTTP 500 (HRMResultsData.java:180 NPE on the NULL health number). Run with EXCLUSIVE=1."
+      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1."
     },
     {
       "name": "authz-read-role-matrix",
@@ -6301,7 +6399,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Run with EXCLUSIVE=1: the clinic-wide property fieldNoteEform is snapshotted, emptied for the run and restored. One marker eForm template, two eform_data instances with eform_values on the owned patient (supervisor = a throwaway login, resident = the first demo provider), the throwaway login and its owned _admin.fieldnote secObjPrivilege grant (by provider number); all removed and asserted.",
-      "notes": "Fails at its last step on 2026.08: a doctor-only login without _admin.fieldnote is served the field-note report (EFormViewRoutes gates the three pages by _eform read only; the menu object _admin.fieldnote is declared nowhere and no role holds it). All earlier steps pass."
+      "notes": "Covers permissions, POST-only changes, report counts, download, date validation and exact resident matching (case, accents and trailing spaces) on the live database. Clinic-wide property restored after the exclusive run."
     },
     {
       "name": "gap-encounter-form-data-import",
@@ -6360,7 +6458,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Two marker-named clinic pharmacies and the owned patient's links to them; cleanup deletes the links and both pharmacies and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: choosing two pharmacies for an empty preferred list stores orders 3 then 2 instead of 1 then 2 (SelectPharmacy2.jsp:306 counts the empty-list placeholder div, so the first pharmacy is stored as order 2 and the next is inserted ahead of it). Every earlier step passes."
+      "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, null/malformed JSON responses, committed writes with unreadable responses, and retry after refresh; stored links and order checked throughout."
     },
     {
       "name": "gap-encounter-rx-drug-info-on-host",
@@ -6408,8 +6506,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Five synthetic patients inserted by SQL (surname starts with the run tag; one with no provider, chart number or phone); cleanup relabels them to the marker, removes them and asserts none remain.",
-      "notes": "Expected to FAIL at the last step 'every header ordered the owned patients correctly': the Name header orders case-sensitively (a lower-case surname sorts after Z) and the Doctor header answers HTTP 500 (NullPointerException in ProviderNoComparator) when a patient has no provider."
+      "fixtures": "Five synthetic patients (including NULL and blank providers), a disposable login and three owned recent-patient audit entries; cleanup removes owned patients, login and history and verifies no fixtures remain.",
+      "notes": "Verifies every ordinary search header, grouping of missing providers, and repeated Doctor sorting of the recent-patient list (NULL, blank, assigned). Requires a recent-patient limit of at least three; database search ordering is covered separately from the Java comparator used for recents."
     },
     {
       "name": "search-sort-patient-pages",
@@ -6538,7 +6636,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owns the runWorkflow FAKE-PW patient (names/DOB/phone/HIN set by SQL), a second FAKE- patient of another provider, and four dxresearch rows with unused ICD-9 codes 036/0369/0360; cleanup deletes only those rows and asserts them gone. Reads only (the report and its Download Excel).",
-      "notes": "Fails at its LAST step on 2026.08 (the three data steps for All/Active/Resolved PASS: the downloaded .xlsx equals the database and the on-screen list): the workbook header cells are clipped to the JRXML static-text box width (\"First \", \"Update \", \"Statu\" instead of First Name / Update Date / Status; DxResearchReport.jrxml:30,66,70) and every Update Date cell carries a fractional-second suffix (\"2024-05-06 07:08:09.0\", DxresearchDAOImpl.java:103 Timestamp.toString())."
+      "notes": "Regression coverage for #4174: compares All/Active/Resolved/Deleted workbooks with SQL and the displayed rows, retains the selected provider, and verifies full headers and second-precision update timestamps."
     },
     {
       "name": "export-content-invoice-csv",
@@ -6553,7 +6651,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "createBillingFixture (owned provider and HIN), three submitted claims for the owned patient, two owned raheader/radetail rows (one paying more than billed so ADJ is negative); no OHIP disk is generated. Cleanup removes them and asserts it.",
-      "notes": "Fails at its LAST step on 2026.08 (the CSV/Excel steps before it PASS: header row, one row per claim, billed/paid/code/date/name equal what was billed): js/table-export.js (a) exports a negative adjustment as a tab-prefixed text cell because the formula-injection guard also hits legitimate numbers, (b) exports the first header cell with the page source's line break and indentation (\"SERVICE\\n   DATE\"), (c) writes the CSV as UTF-8 without a byte-order mark so Excel shows accents as mojibake."
+      "notes": "Regression coverage for #4174: compares CSV/Excel rows to billed and paid amounts, checks normalized headers, numeric negative adjustments, and a UTF-8 BOM for spreadsheet imports."
     },
     {
       "name": "export-content-chart-print",
@@ -6567,8 +6665,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient (accented first name) with six SQL-seeded signed notes (Latin-1 punctuation, multi-line, 3 500-character, Vietnamese, Polish, Turkish); cleanup deletes the patient's notes and asserts them gone. Needs pdftotext.",
-      "notes": "Fails at its LAST step on 2026.08 (Latin-1 note, multi-line note, long note, patient header all PASS from the downloaded PDF): the chart print silently drops every letter outside Windows-1252 (U+1EC5 U+1ECB U+01B0 U+01A1 U+0111 U+1EA7 / U+0141 U+017B U+0142 U+0107 U+0105 U+0119 U+015B U+0144 / U+0130 U+015F U+011F U+0131) because CaseManagementPrintPdf.java:166 uses a non-embedded Helvetica CP1252 BaseFont; the same font setup is in LabPDFCreator, ConsultationPDFCreator, FrmCustomedPDFServlet and others."
+      "fixtures": "Owned FAKE-PW patient (accented first name) with six SQL-seeded signed notes (Latin-1 punctuation, multi-line, 3 500-character, Vietnamese, Polish, Turkish); cleanup deletes the patient's notes and asserts them gone. Needs pdftotext and pdffonts.",
+      "notes": "Regression for #4173: generated PDF preserves Latin-1 punctuation, Vietnamese, Polish and Turkish text, multiline and long notes, and the patient header. Every font must be embedded."
     },
     {
       "name": "export-content-chart-print-sections",
@@ -6597,8 +6695,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Two FAKE- Service programs (the default OSCAR program is a Bed program, which the report skips), one more owned patient, doctor-role notes dated February/March 2003; precondition: no notes dated Jan-Apr 2003 exist. Cleanup deletes only those programs/notes/patient and asserts them gone. The page's known oscarMonth TypeError (ISSUES L112) is set aside so the file can be read; any other page error still fails the step.",
-      "notes": "Fails at its LAST step on 2026.08 (header, per-month and range counts for the clean program, UTF-8/quoting of an accented program name, month order all PASS): (1) the range row is labelled with the exclusive end month (\"2003-02 to 2003-04\" for 02/2003-03/2003; ProviderServiceReportUIBean.java:132,167); (2) the Content-Disposition filename contains \"/\" (MM/yyyy format; provider_service_report_export.jsp:77); (3) archived notes and every stored row of a note uuid are counted as encounters (CaseManagementNoteDAOImpl.java:781-828 has no archived/latest-revision filter)."
+      "fixtures": "Two FAKE- Service programs and one FAKE- Bed program (the default OSCAR program is a Bed program, which the report skips), one more owned patient, doctor-role notes dated February/March 2003; precondition: no notes dated Jan-Apr 2003 exist. Cleanup deletes only those programs/notes/patient and asserts them gone. The page's known oscarMonth TypeError (ISSUES L112) is set aside so the file can be read; any other page error still fails the step.",
+      "notes": "Regression coverage for #4174: verifies inclusive month labels, safe filenames, active Bed and Service programs, unarchived current-note counts, UTF-8 quoting, and explicit HTTP 400 responses for malformed or reversed date ranges. A revised note changes month and encounter type; only its latest bucket may be counted."
     },
     {
       "name": "export-content-eform-export-zip",
@@ -6613,7 +6711,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Three FAKE- eform rows inserted by SQL (plain name, accented/quoted name, a name with a slash); cleanup deletes only those rows and asserts them gone. Reads only.",
-      "notes": "Fails at its LAST step on 2026.08 (HTML byte-for-byte, eform.properties name/subject/creator/date/flags for the plain and the accented/quoted form all PASS): (1) Export of a form named like \"Well Baby 0/6 months\" answers HTTP 500 and no zip (EFormExportZip.java:84 validatePathComponent rejects the slash); (2) the attachment name has the numeric form id spliced in place of each space (\"Export99Plain.zip\", ManageEForm2Action.java:79)."
+      "notes": "Validates exact exported HTML and original eform.properties metadata, safe ZIP paths for slash-containing display names, UTF-8 Content-Disposition filenames, and browser download names without form-id substitution (issue #4175)."
     },
     {
       "name": "export-content-rbt-columns",
@@ -6628,7 +6726,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The owned FAKE-PW patient (accented first name, multi-line address) and one marker-titled reportTemplates row (a no-parameter SELECT with aliases, two columns named last_name, NULL, DATE, DATETIME, DECIMAL, a leading-zero text and a 17-digit text); cleanup deletes only the marker template and asserts it gone.",
-      "notes": "Fails at its LAST step on 2026.08 (aliased headings, every other column of the table, the CSV and the XLS text values PASS): (1) the result table reads cells by column NAME (RptResultStruct.java:344), so the second of two columns named last_name shows the first's value; (2) the XLS export writes every cell that parses as a double as a NUMBER (GenerateOutFiles2Action.java:144-151), so '00123' becomes 123 and a 17-digit id loses digits."
+      "notes": "Regression coverage for #4174: verifies SQL aliases, duplicate-named columns by position, CSV/XLS values, and text preservation for leading-zero and long identifiers. Ordinary fees and counts must remain numeric for spreadsheet calculations."
     },
     {
       "name": "export-content-patient-labels",
@@ -6643,7 +6741,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Two FAKE- patients with realistic short names written by SQL (one with a middle name starting with a non-Latin-1 letter, one with a NULL middle name); the runWorkflow patient only owns the session. Cleanup deletes the two patients (and their chart-lock/ext/archive rows) and asserts it. Needs pdftotext.",
-      "notes": "Fails at its LAST step on 2026.08 (all five label PDFs produced; name/address/city/postal on every label; HIN, version, DOB, phone, chart number on the labels that print them; no \"null\" for the full patient all PASS): (1) PDF Label and PDF Chart Label drop the middle name's Ł (CP1252 font); (2) the Chart Label prints AGE:64.0 (Chartlabel.xml:13 string arithmetic yields a decimal); (3) PDF Label prints the literal word \"null\" after the first name for a patient whose middleNames is NULL (oscarDemographic/label.xml:39)."
+      "notes": "Regression coverage for #4174: reads the generated PDF text and verifies patient identity, Unicode middle names, whole-year ages and absent-middle-name handling. Database-backed PDF checks cover incomplete birth dates and birthdays today versus tomorrow."
     },
     {
       "name": "export-content-lab-print",
@@ -6657,8 +6755,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext. Nothing leaves the host.",
-      "notes": "Fails at its LAST step on 2026.08 (Inbox row opens the lab, Print downloads a PDF, patient/accession, every result row with value/units/range, L/H/N flags, accented OBX and NTE comments all PASS): a result comment containing characters outside Latin-1 (>=, <=, a Polish L-stroke) loses them in the lab PDF (LabPDFCreator.java:166,209 CP1252 BaseFont)."
+      "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext and pdffonts. Nothing leaves the host.",
+      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, ≥ and ≤ comparisons, and Polish Ł. Every font must be embedded."
     },
     {
       "name": "export-content-dashboard-csv",
@@ -6673,7 +6771,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zoë / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
-      "notes": "Fails at its LAST step on 2026.08 (Dashboard menu opens the owned dashboard, Drill Down lists three patients, Export downloads a .csv with the template titles all PASS): (1) the CSV is cut off when any value is non-ASCII because ExportResults2Action.java:87 sets Content-Length from csvFile.length() (characters) but writes getBytes() (bytes); (2) ExportQueryHandler.java:109-134 exports an empty value as the word null, doubles an inner quote without quoting the field, and does not quote a value containing a line break."
+      "notes": "Regression coverage for #4174: validates exact UTF-8 byte length and complete RFC 4180 field round trips, including accents, quotes, line breaks, NULL email values and the last row."
     },
     {
       "name": "audit-log-session",
@@ -7129,7 +7227,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. The browser aborts the off-host request; nothing leaves the machine.",
-      "notes": "Expected to FAIL today at the final step: Administration > Help Link Setting requests https://www.google-analytics.com/collect (Toast UI editor usage statistics, resourcebaseurl.jsp:212-224 lacks usageStatistics:false)."
+      "notes": "Administration > Help Link Setting renders the real Toast UI editor without off-host requests, script errors, or failed same-origin resources. Waits past the usage-beacon timer and aborts all off-host requests before they leave the browser."
     },
     {
       "name": "concurrency-demographic-edit",
@@ -7531,6 +7629,54 @@
         "EXPECT_FRONT_DOOR",
         "MYSQL_PASSWORD"
       ]
+    },
+    {
+      "name": "form-asset-paths",
+      "script": "scripts/form-asset-paths-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "FORM_DEMOGRAPHIC_NO",
+        "FORM_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "popup-opener-response-policy",
+      "script": "scripts/popup-opener-response-policy-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verifies same-origin COOP on actual static, form-forward, missing-page, web-service-error and authentication-redirect responses (#4141).",
+      "fixtures": "Owned synthetic patient used for an unsaved Rourke form; harness cleanup."
+    },
+    {
+      "name": "popup-opener-document-add",
+      "script": "scripts/popup-opener-document-add-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
+      "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
     }
   ]
 }

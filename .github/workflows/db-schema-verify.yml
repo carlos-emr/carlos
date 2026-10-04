@@ -15,6 +15,7 @@ on:
   pull_request:
     paths:
       - 'database/mysql/**'
+      - 'scripts/test-provider-signature-migration.py'
       - 'release/**'
       - 'pom.xml'
       - 'src/main/java/io/github/carlos_emr/carlos/db/FlywaySchemaValidator.java'
@@ -85,6 +86,13 @@ jobs:
             echo "::error::innodb_page_size is ${PAGE_SIZE}, expected 32768 — the CARLOS my.cnf did not apply"
             exit 1
           fi
+
+      - name: Test provider signature migration refusal and preservation
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_USER: root
+          MYSQL_PWD: password
+        run: python3 scripts/test-provider-signature-migration.py
 
       - name: Migrate the V1 baseline and smoke-check the result
         env:

@@ -1689,7 +1689,7 @@ input[id^='acklabel_']{
                                                                     </div>
                                                                 </td>
                                                                 <td style="white-space:nowrap;">
-                                                                    <div class="FieldData">
+                                                                    <div class="FieldData" id="labNextAppointment<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>">
                                                                         <oscar:nextAppt demographicNo="<%=String.valueOf(demoI)%>"/>
                                                                     </div>
                                                                 </td>

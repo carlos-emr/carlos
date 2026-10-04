@@ -363,4 +363,15 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(
                 EctViewConsultationRequestsUtil.formatSpecialistName(last, first)).isEqualTo(expected);
     }
+    @Test
+    void shouldShowDateWithoutInventingTime_whenAppointmentTimeIsAbsent() {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setAppointmentDate(java.sql.Date.valueOf("2097-03-14"));
+        consult.setAppointmentTime(null);
+        stubInboxQuery(consult);
+        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null)).isTrue();
+        assertThat(util.apptDate).containsExactly("2097-03-14");
+    }
+
 }

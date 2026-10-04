@@ -133,7 +133,7 @@ public class ManageFaxes2Action extends Fax2Action {
         if (jobIdParam != null) {
             try {
                 faxJobRowId = Integer.valueOf(jobIdParam.trim());
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // fall through to the bad-request response below
             }
         }
@@ -154,6 +154,8 @@ public class ManageFaxes2Action extends Fax2Action {
         log.info("Cancel requested for fax row id {} (provider job id {})", faxJob.getId(), faxJob.getJobId());
 
         if (faxConfig == null) {
+            // FaxJob.getId() returns an Integer, not request text.
+            // nosemgrep: carlos.crlf-injection-logs
             log.error("Could not find faxConfig while processing fax id: {} Has the fax number changed?", faxJob.getId());
         } else if (faxConfig.isActive()) {
 
@@ -182,6 +184,8 @@ public class ManageFaxes2Action extends Fax2Action {
                 } catch (FaxProviderException e) {
                     // Even credential-scrubbed transport errors can contain clinical filenames
                     // or provider response text. Do not expose them in the admin response/log.
+                    // only numeric IDs/status and an exception class name are logged, not its message.
+                    // nosemgrep: carlos.crlf-injection-logs
                     log.error("Provider cancel could not be confirmed for fax row id {} (HTTP {}, type={})",
                             faxJob.getId(), e.getHttpStatus(), e.getClass().getSimpleName());
                     result.put("message", "Unable to confirm fax cancellation. Check the fax status before retrying.");
@@ -296,7 +300,7 @@ public class ManageFaxes2Action extends Fax2Action {
                 calendar.set(Calendar.MINUTE, 0);
                 calendar.set(Calendar.MILLISECOND, 0);
                 dateBegin = calendar.getTime();
-            } catch (ParseException e) {
+            } catch (ParseException _) {
                 dateBegin = null;
                 MiscUtils.getLogger().error("Unparseable fax status start date");
             }
@@ -310,7 +314,7 @@ public class ManageFaxes2Action extends Fax2Action {
                 calendar.set(Calendar.MILLISECOND, 59);
                 dateEnd = calendar.getTime();
 
-            } catch (ParseException e) {
+            } catch (ParseException _) {
                 dateEnd = null;
                 MiscUtils.getLogger().error("Unparseable fax status end date");
             }
@@ -345,7 +349,7 @@ public class ManageFaxes2Action extends Fax2Action {
         FaxJob faxJob;
         try {
             faxJob = id == null ? null : faxJobDao.find(Integer.parseInt(id.trim()));
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             // Same malformed-input contract as the sibling CancelFax: a non-numeric id is a bad
             // request, not a 500 through the global error page.
             sendErrorQuietly(HttpServletResponse.SC_BAD_REQUEST, "Invalid jobId");

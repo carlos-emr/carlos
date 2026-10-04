@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="label" pageWidth="229" pageHeight="210" columnWidth="200" leftMargin="15" rightMargin="14" topMargin="0" bottomMargin="4">
+    <!-- Match measured line breaks during PDF export so wrapped Unicode names are not clipped. -->
+    <property name="net.sf.jasperreports.export.pdf.force.linebreak.policy" value="true" />
     <parameter name="clinicName" class="java.lang.String" />
     <parameter name="clinicAddress" class="java.lang.String" />
     <parameter name="clinicCity" class="java.lang.String" />
@@ -23,36 +25,36 @@
     <!-- Keep the existing paper size. Wrapped fields move following rows down and
          can continue onto another page instead of clipping identity or booking data. -->
     <title height="190" splitType="Stretch">
-        <element kind="textField" positionType="Float" x="0" y="10" width="200" height="14" fontSize="10.0" bold="true" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="10" width="200" height="14" fontSize="10.0" bold="true" textAdjust="StretchHeight">
             <expression><![CDATA[$P{clinicName}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="24" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="24" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{clinicAddress}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="38" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="38" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{clinicCity} + ", " + $P{clinicProvince} + " " + $P{clinicPostal}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="52" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="52" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA["Phone:" + $P{clinicPhone} + "  Fax:" + $P{clinicFax}]]></expression>
         </element>
         <element kind="line" positionType="Float" x="0" y="69" width="200" height="1" />
-        <element kind="textField" positionType="Float" x="0" y="74" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="74" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.Name} + ": " + $P{apptName}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="88" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="88" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.DOB} + ": " + $P{DOB}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="102" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="102" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.Date} + ": " + $P{apptDate}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="116" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="116" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.Time} + ": " + $P{apptTime}]]></expression>
         </element>
-        <element kind="textField" positionType="Float" x="0" y="130" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="130" width="200" height="14" fontSize="10.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.With} + ": " + $P{providerName}]]></expression>
         </element>
         <element kind="line" positionType="Float" x="0" y="149" width="200" height="1" />
-        <element kind="textField" positionType="Float" x="0" y="154" width="200" height="14" fontSize="8.0" textAdjust="StretchHeight">
+        <element fontName="DejaVu Sans" kind="textField" positionType="Float" x="0" y="154" width="200" height="14" fontSize="8.0" textAdjust="StretchHeight">
             <expression><![CDATA[$P{report.appointmentReceipt.Printed} + " " + $P{printedDateTime} + " #" + $P{apptId}]]></expression>
         </element>
     </title>

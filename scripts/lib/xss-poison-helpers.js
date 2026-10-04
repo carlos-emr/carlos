@@ -751,6 +751,8 @@ module.exports.walkLinks = walkLinks;
 /** Administration menu entry by its visible text; reveals its collapsed menu the way an operator opens it. */
 async function clickAdminItem(admin, text) {
   const { revealAuditLink } = require('./playwright-link-audit');
+  // all callers pass fixed admin menu labels from this test suite.
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
   const link = admin.locator('a', { hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
   await link.waitFor({ state: 'attached', timeout: 20000 });
   await revealAuditLink(admin, link, 20000);

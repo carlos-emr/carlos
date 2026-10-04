@@ -90,6 +90,8 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
+    // Struts creates this action per request; its Spring service is not serialized.
+    @SuppressWarnings("java:S1948")
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
@@ -99,6 +101,7 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
      * are injected via field initialization and ServletActionContext.
      */
     public PrintDemoChartLabel2Action() {
+        // Struts requires a public no-argument constructor; field initializers obtain the services.
     }
 
     /**
@@ -208,8 +211,10 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         InputStream ins = null;
 
         try {
+            // labelFile comes only from the two-entry map of fixed XML names; unknown labels are rejected.
+            // nosemgrep: carlos.httpservlet-path-traversal
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + File.separator + labelFile)));
-        } catch (FileNotFoundException | SecurityException ex) {
+        } catch (FileNotFoundException | SecurityException _) {
             logger.debug("Chart label override absent; using bundled template");
         }
         if (ins == null) {

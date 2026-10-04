@@ -245,6 +245,8 @@ async function main() {
       asyncPluginResponse = null;
     }
   }
+  // serves bundled regression assets only, bound below to 127.0.0.1 on an ephemeral port.
+  // nosemgrep: problem-based-packs.insecure-transport.js-node.using-http-server.using-http-server
   const server = http.createServer((request, response) => {
     if (request.url === '/eform-runtime-compat.js') {
       response.writeHead(200, { 'Content-Type': 'application/javascript' });

@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -225,8 +227,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return edit();
     }
 
-    public String setUpMainEncounter() {
+    static Integer parseEncounterMessageId(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new NumberFormatException("Message ID must be positive");
+        return id;
+    }
+
+    /**
+     * Prepares the chart page, loading a nonblank msgId for the current demographic into
+     * the encounterMessage request attribute after access/link checks.
+     * @return chart layout result, or NONE after a controlled invalid/missing-message response
+     * @throws java.io.IOException if sending an error response fails
+     */
+    public String setUpMainEncounter() throws java.io.IOException {
         String demono = getDemographicNo(request);
+        Integer messageId;
+        try {
+            messageId = parseEncounterMessageId(request.getParameter("msgId"));
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter message ID");
+            return NONE;
+        }
+        if (messageId != null) {
+            try {
+                String text = SpringUtils.getBean(io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.class)
+                        .load(LoggedInInfo.getLoggedInInfoFromSession(request), messageId, Integer.parseInt(demono));
+                request.setAttribute("encounterMessage", text);
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Encounter message no longer exists");
+                return NONE;
+            }
+        }
         logger.debug("client Image?");
 
         //get client image
@@ -1418,8 +1450,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "listCPPNotes";
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
     static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
                                         String sessionAppointmentNo,
@@ -1442,6 +1472,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: compares on/persist/null/empty form flags and sentinels, not provider identities or secrets.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive form flags and null/empty sentinels; provider identities and secrets are not case-folded")
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2958,6 +2990,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
             textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
+            // textStr is SafeEncode.forHtmlContent output followed only by fixed br tags.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             out.println(textStr);
             out.println("<br><br>");
         }
@@ -2989,16 +3023,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
-            cStartDate = Calendar.getInstance();
-            cStartDate.setTime(startDate);
-        }
-
-        if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
-            cEndDate = Calendar.getInstance();
-            cEndDate.setTime(endDate);
+        try {
+            if ("dates".equals(pType)) {
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate, LocaleUtils.resolveBundleLocale(request));
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
+                ChartPrintDateRange.from(cStartDate, cEndDate);
+            }
+        } catch (IllegalArgumentException _) {
+            response.reset();
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
+            return null;
         }
 
         boolean printAllNotes = "ALL_NOTES".equals(ids);

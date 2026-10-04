@@ -29,11 +29,15 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicListSearch" %>
+
 <%--
     Displays the general patient search and recently viewed patient list.
     Features: search result navigation, pagination, and patient selection links.
     Parameters: keyword, search_mode, displaymode, dboperation, ptstatus, orderby,
     limit1 (offset), and limit2 (page size) preserve the current search context.
+    Search ordering and merged-record exclusion happen before database pagination;
+    one extra matching patient determines whether Next is available.
     Access: requires _search read access. Recent-patient loading excludes missing
     or merged records before pagination and skips records removed during rendering;
     audit history is retained. Patient-specific access remains with destination actions.
@@ -105,7 +109,6 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -132,12 +135,15 @@
         limit = 18;
     }
 
+    limit = Math.clamp(limit, 1, 500);
+    offset = Math.clamp(offset, 0, Integer.MAX_VALUE - limit - 1);
+    strOffset = String.valueOf(offset);
+    strLimit = String.valueOf(limit);
+
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
-    String keyword = null;
-    if (request.getParameter("keyword") != null) {
-        keyword = SafeEncode.forJava(request.getParameter("keyword"));
-    }
+    // Search terms are bound as data by the DAO. Apply output encoding only when rendering them.
+    String keyword = request.getParameter("keyword");
     String orderBy = request.getParameter("orderby");
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
@@ -350,6 +356,7 @@
 
 
                     List<Demographic> demoList = null;
+                    boolean hasNextPage = false;
 
                     if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
@@ -363,37 +370,41 @@
 
                     } else {
                         demoList = doSearch(demographicDao, searchMode, ptStatus, keyword, limit, offset, orderBy, providerNo, outOfDomain);
+                        hasNextPage = demoList.size() > limit;
+                        if (hasNextPage) demoList = demoList.subList(0, limit);
                     }
 
                     boolean toggleLine = false;
-                    int nItems = 0;
 
                     if (demoList == null) {
                         out.println("Your Search Returned No Results!!!");
                     } else {
 
-                        if (orderBy.equals("last_name")) {
-                            Collections.sort(demoList, Demographic.LastNameComparator);
-                        } else if (orderBy.equals("last_name, first_name")) {
-                            Collections.sort(demoList, Demographic.LastAndFirstNameComparator);
-                        } else if (orderBy.equals("demographic_no")) {
-                            Collections.sort(demoList, Demographic.DemographicNoComparator);
-                        } else if (orderBy.equals("chart_no")) {
-                            Collections.sort(demoList, Demographic.ChartNoComparator);
-                        } else if (orderBy.equals("sex")) {
-                            Collections.sort(demoList, Demographic.SexComparator);
-                        } else if (orderBy.equals("dob")) {
-                            Collections.sort(demoList, Demographic.DateOfBirthComparator);
-                        } else if (orderBy.equals("provider_no")) {
-                            Collections.sort(demoList, Demographic.ProviderNoComparator);
-                        } else if (orderBy.equals("roster_status")) {
-                            Collections.sort(demoList, Demographic.RosterStatusComparator);
-                        } else if (orderBy.equals("patient_status")) {
-                            Collections.sort(demoList, Demographic.PatientStatusComparator);
-                        } else if (orderBy.equals("phone")) {
-                            Collections.sort(demoList, Demographic.PhoneComparator);
-                        }
+                        if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
+                            if (orderBy.equals("last_name")) {
+                                Collections.sort(demoList, Demographic.LastNameComparator);
+                            } else if (orderBy.equals("last_name, first_name")) {
+                                Collections.sort(demoList, Demographic.LastAndFirstNameComparator);
+                            } else if (orderBy.equals("demographic_no")) {
+                                Collections.sort(demoList, Demographic.DemographicNoComparator);
+                            } else if (orderBy.equals("chart_no")) {
+                                Collections.sort(demoList, Demographic.ChartNoComparator);
+                            } else if (orderBy.equals("sex")) {
+                                Collections.sort(demoList, Demographic.SexComparator);
+                            } else if (orderBy.equals("dob")) {
+                                Collections.sort(demoList, Demographic.DateOfBirthComparator);
+                            } else if (orderBy.equals("provider_no")) {
+                                Collections.sort(demoList, Demographic.ProviderNoComparator);
+                            } else if (orderBy.equals("roster_status")) {
+                                Collections.sort(demoList, Demographic.RosterStatusComparator);
+                            } else if (orderBy.equals("patient_status")) {
+                                Collections.sort(demoList, Demographic.PatientStatusComparator);
+                            } else if (orderBy.equals("phone")) {
+                                Collections.sort(demoList, Demographic.PhoneComparator);
+                            }
 
+
+                        }
 
                     DemographicMerged dmDAO = new DemographicMerged();
 
@@ -405,7 +416,6 @@
 
                         if (head != null && !head.equals(dem_no)) {
                             //skip non head records
-                            nItems++;
                             continue;
                         }
 
@@ -486,7 +496,6 @@
                 <%
 
                             toggleLine = !toggleLine;
-                            nItems++; //to calculate if it is the end of records
                         }
                     }
                 %>
@@ -504,7 +513,7 @@
             <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nLastPage%>">
                 <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></button> <%
             }
-            if (nItems >= Integer.parseInt(strLimit)) {
+            if (hasNextPage) {
                 if (nLastPage >= 0) {
         %> | <% } %>
             <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nNextPage%>">
@@ -540,71 +549,19 @@
 <%!
 
     List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
-        List<Demographic> demoList = null;
         CarlosProperties props = CarlosProperties.getInstance();
         String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
         pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
         List<String> stati = Arrays.asList(pstatus.split(","));
 
 
-        if ("".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByName(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhone(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOB(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddress(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHIN(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNo(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNo(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNo(getDemographicNumberWithBandNumber(keyword), limit, offset, orderBy, providerNo, outOfDomain);
-            }
-        } else if ("active".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByNameAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhoneAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOBAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddressAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHINAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNoAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndNotStatus(getDemographicNumberWithBandNumber(keyword), stati, limit, offset, orderBy, providerNo, outOfDomain);
-            }
-        } else if ("inactive".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByNameAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhoneAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOBAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddressAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHINAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNoAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndStatus(getDemographicNumberWithBandNumber(keyword), stati, limit, offset, orderBy, providerNo, outOfDomain);
-            }
+        if ("search_band_number".equals(searchMode)) {
+            keyword = getDemographicNumberWithBandNumber(keyword);
+            searchMode = "search_demographic_no";
         }
-
-	return new ArrayList<>(new HashSet<>(demoList != null ? demoList : Collections.emptyList()));
-
+        List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
+        return demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword, orderBy,
+                statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
     }
 
     String getDemographicNumberWithBandNumber(String bandNumber) {

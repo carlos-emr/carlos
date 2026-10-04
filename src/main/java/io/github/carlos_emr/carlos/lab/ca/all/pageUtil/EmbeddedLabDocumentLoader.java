@@ -355,6 +355,8 @@ public final class EmbeddedLabDocumentLoader {
                 return;
             }
             if (out != null) {
+                // out is a ByteArrayOutputStream of decoded PDF bytes, not an HTML response.
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
                 out.write(bytes, offset, length);
                 return;
             }
@@ -370,6 +372,8 @@ public final class EmbeddedLabDocumentLoader {
             }
             out = new ByteArrayOutputStream(8192);
             out.write(prefix, 0, prefix.length);
+            // out is a ByteArrayOutputStream of decoded PDF bytes, not an HTML response.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             out.write(bytes, offset + taken, length - taken);
         }
 
@@ -378,6 +382,8 @@ public final class EmbeddedLabDocumentLoader {
                 return;
             }
             if (out != null) {
+                // out is a ByteArrayOutputStream of decoded PDF bytes, not an HTML response.
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
                 out.write(value);
                 return;
             }
@@ -385,6 +391,8 @@ public final class EmbeddedLabDocumentLoader {
             if (prefixLength == prefix.length) {
                 if (isPdf(prefix)) {
                     out = new ByteArrayOutputStream(8192);
+                    // out is a ByteArrayOutputStream of decoded PDF bytes, not an HTML response.
+                    // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
                     out.write(prefix, 0, prefix.length);
                 } else {
                     rejected = true;

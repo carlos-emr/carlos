@@ -284,6 +284,8 @@ async function workflow(s) {
     h.assert(counts.Patient === id, 'Import log summary does not name the imported patient');
     h.assert(counts.Allergy === '1' && counts.Medication === '1' && counts.Clinical === '1',
       'Import log does not count one allergy, one medication and one clinical note');
+    // id is the numeric demographic_no of the single owned imported fixture.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     h.assert(new RegExp(`^${id}\\s+\\|`, 'm').test(text.split(/Errors\/Notes/)[1] || ''),
       'Import log error section does not list the imported patient');
   });

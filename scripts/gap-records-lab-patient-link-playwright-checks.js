@@ -61,6 +61,9 @@ async function workflow(s) {
   const labName = `${marker}-U`;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-link-'));
   s.cleanup(() => {
+    sql.execute(`DELETE FROM appointment WHERE demographic_no=${patient} AND name=${h.sqlString(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE demographic_no=${patient} AND name=${h.sqlString(marker)}`) === '0',
+      'The owned next-appointment fixture was not removed');
     fs.rmSync(workDir, { recursive: true, force: true });
     removeOwnedHl7Labs(sql, sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`).map(row => row[0]));
     // A failed or partial upload can leave its archive (and a checksum row) with no hl7TextInfo row to find them
@@ -73,6 +76,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${h.sqlString(uploadName)}`) === '0', 'The run\'s lab upload checksum row was not removed');
   });
   sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+  sql.execute(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name,
+    demographic_no, status, creator, lastUpdateUser) VALUES (${h.sqlString(s.provider)}, '2099-04-17',
+    '09:00:00', '09:15:00', ${h.sqlString(marker)}, ${patient}, 't', ${h.sqlString(s.provider)}, ${h.sqlString(s.provider)})`);
   const file = path.join(workDir, fileName);
   fs.writeFileSync(file, syntheticCmlLab(accession, labName));
   let inbox;
@@ -123,6 +129,7 @@ async function workflow(s) {
   });
 
   let lab;
+  let inlineLab;
   let matching;
   let openerUpdated = false;
   let demoTableColor = '';
@@ -131,6 +138,38 @@ async function workflow(s) {
     lab = await openLab('#statusNew', 'patient-link-lab');
     demoTableColor = await lab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor);
     h.assert(demoTableColor !== 'rgb(255, 255, 255)', 'The unmatched lab\'s patient box is not highlighted, so the refresh after matching cannot be observed');
+    // Load the same owned lab through the real inline queue host as well. Its client-side
+    // fixture map selects this lab without changing any shared queue membership.
+    inlineLab = await context.newPage();
+    await h.gotoApp(inlineLab, s.config.baseUrl, '/documentManager/inboxManage?method=getDocumentsInQueues');
+    await h.assertNotErrorPage(inlineLab, 'inline queue host');
+    await inlineLab.evaluate(({ id, provider }) => {
+      window.docType[id] = 'HL7';
+      const panel = document.createElement('div');
+      panel.id = 'ownedLabMatchPanel';
+      document.getElementById('docs').appendChild(panel);
+      window.showDocLab(panel.id, id, provider, provider, 'N', '', 0);
+    }, { id: labNo, provider: s.provider });
+    await inlineLab.locator(`#DemoTable${labNo}`).waitFor({ timeout: TIMEOUT });
+    h.assert(await inlineLab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor) !== 'rgb(255, 255, 255)',
+      'The inline unmatched lab is not highlighted before matching');
+    // Keep an owned inline patient panel outside the list's independently refreshed
+    // container to exercise the Inbox Hub host's actual shared listener.
+    await inbox.evaluate(async ({ id, provider }) => {
+      if (window.providerNo !== provider) throw new Error('Inbox Hub provider context is missing');
+      const response = await fetch(window.contextpath + '/lab/CA/ALL/ViewLabDisplayAjax?segmentID=' + id
+        + '&providerNo=' + encodeURIComponent(provider));
+      if (!response.ok) throw new Error('Inbox Hub lab fixture failed');
+      const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+      const panel = document.createElement('div');
+      panel.id = 'ownedInboxLabMatchPanel';
+      for (const key of ['DemoTable', 'labNextAppointment']) {
+        const element = parsed.getElementById(key + id);
+        if (!element) throw new Error('Missing inline lab markup: ' + key);
+        panel.appendChild(document.importNode(element, true));
+      }
+      document.body.appendChild(panel);
+    }, { id: labNo, provider: s.provider });
     matching = await ui.clickOpensPopup(lab, lab.locator('input[value*="E-Chart"]').first(), { context, recorder, label: 'patient-link-match', timeout: TIMEOUT });
     await matching.locator('#keyword').waitFor({ timeout: TIMEOUT });
     h.assert((await matching.locator('#keyword').inputValue()).includes(labName), 'The matching popup is not prefilled with the lab\'s patient name');
@@ -147,13 +186,15 @@ async function workflow(s) {
       matching.waitForResponse(r => r.request().method() === 'POST' && /\/oscarMDS\/PatientMatch/.test(r.url()), { timeout: TIMEOUT }),
       rows.first().click(),
     ]);
-    h.assert(post.status() < 400, `Patient Match answered HTTP ${post.status()}`);
+    h.assert(post.status() === 200, `Patient Match answered HTTP ${post.status()}`);
     await expectValue(sql, `SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=${labNo}`, patient,
       'Picking the patient did not link the lab to the owned patient');
+    for (const view of [lab, inlineLab, inbox]) {
+      await view.locator(`#labNextAppointment${labNo}`).filter({ hasText: '2099-04-17' }).waitFor({ timeout: TIMEOUT });
+    }
     // Read now, before the named lab window is reused below, and asserted in the last step.
     await lab.waitForTimeout(2000);
-    // PatientMatch answers with a redirect to oscarMDS/ViewOpenEChart; the popup's fetch() follows it and the popup's
-    // window.close() then aborts that chart-gate page load (N11, asserted in the last step, not as a harness failure).
+    // A fetch match must complete without following a chart redirect that closing the popup aborts.
     for (let i = recorder.requestFailures.length - 1; i >= 0; i--) {
       const failure = recorder.requestFailures[i];
       if (failure.label === 'patient-link-match' && /\/oscarMDS\/ViewOpenEChart/.test(failure.url) && /ERR_ABORTED/.test(failure.errorText || '')) {
@@ -163,6 +204,11 @@ async function workflow(s) {
     }
     // updateLabDemoStatus() (labDisplay.jsp:443) is what the matching popup calls on its opener: it whitens the patient box.
     openerUpdated = !lab.isClosed() && await lab.locator(`#DemoTable${labNo}`).evaluate(el => getComputedStyle(el).backgroundColor).catch(() => '') === 'rgb(255, 255, 255)';
+    await inlineLab.waitForFunction(id => getComputedStyle(document.getElementById('DemoTable' + id)).backgroundColor === 'rgb(255, 255, 255)', labNo);
+    await inbox.locator('#ownedInboxLabMatchPanel').evaluate(el => el.remove());
+    h.assert(await inlineLab.locator(`#DemoTable${labNo} a[href*="SearchPatient"]`).count() > 0,
+      'Refreshed inline patient panel lost its patient matching link');
+    await inlineLab.close();
     await lab.close();
   });
 
@@ -173,6 +219,8 @@ async function workflow(s) {
     context.on('page', page => { page.on('framenavigated', frame => { if (frame === page.mainFrame()) chartUrls.push(page.url()); }); });
     const gate = await ui.clickOpensPopup(fresh, fresh.locator('input[value*="E-Chart"]').first(), { context, recorder, label: 'patient-link-chart', timeout: TIMEOUT });
     await gate.waitForLoadState('domcontentloaded').catch(() => {});
+    // runWorkflow validates the owned patient ID as digits before this callback.
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
     const chartPattern = new RegExp(`CaseManagementEntry[^\\s]*demographicNo=${patient}(&|$)`);
     for (let waited = 0; waited < TIMEOUT && !chartUrls.concat(gate.isClosed() ? [] : [gate.url()]).some(url => chartPattern.test(url)); waited += 500) await gate.waitForTimeout(500).catch(() => {});
     h.assert(chartUrls.concat(gate.isClosed() ? [] : [gate.url()]).some(url => chartPattern.test(url)),

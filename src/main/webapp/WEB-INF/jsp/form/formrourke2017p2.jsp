@@ -99,7 +99,7 @@
 
 %>
 
-<div style="width:100%;"><img alt="copyright" src="graphics/rourke2017Banner.png" onMouseOver="popLayer('<fmt:message key="encounter.formRourke2009.formCopyRight"/>')"
+<div style="width:100%;"><img alt="copyright" src="${pageContext.request.contextPath}/form/graphics/rourke2017Banner.png" onMouseOver="popLayer('<fmt:message key="encounter.formRourke2009.formCopyRight"/>')"
                               onMouseOut="hideLayer()">
 </div>
 <div id="object1"
@@ -279,7 +279,7 @@
             <table id="ntp21" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top"><fmt:message key="encounter.formRourke2009.formNo"/></td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
@@ -345,7 +345,7 @@
             <table id="ntp22" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top"><fmt:message key="encounter.formRourke2009.formNo"/></td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
@@ -423,7 +423,7 @@
             <table id="ntp23" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top"><fmt:message key="encounter.formRourke2009.formNo"/></td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
@@ -521,19 +521,19 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -858,7 +858,7 @@
             <table id="dt21" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -970,7 +970,7 @@
             <table id="dt22" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -1069,7 +1069,7 @@
             <table id="dt23" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
-                                                                     width="20" src="graphics/Checkmark_L.gif"></td>
+                                                                     width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -1187,7 +1187,7 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -1279,7 +1279,7 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
-                                                                     width="20" src="graphics/Checkmark_L.gif"></td>
+                                                                     width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -1359,7 +1359,7 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15"
-                                                                     width="20" src="graphics/Checkmark_L.gif"></td>
+                                                                     width="20" src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>
@@ -1465,7 +1465,7 @@
                 </tr>
                 <tr>
                     <td style="padding-right: 5pt" valign="top"><img height="15" width="20"
-                                                                     src="graphics/Checkmark_L.gif"></td>
+                                                                     src="${pageContext.request.contextPath}/form/graphics/Checkmark_L.gif"></td>
                     <td class="edcol" valign="top">X</td>
                     <td class="edcol" valign="top" colspan="2"><fmt:message key="encounter.formRourke2009.formNotDiscussed"/></td>
                 </tr>

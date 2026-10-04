@@ -156,6 +156,10 @@ async function workflow(s) {
     if (JSON.stringify(sheetHeader) !== JSON.stringify(header)) {
       problems.push(`the XLS is headed ${JSON.stringify(sheetHeader)} instead of ${JSON.stringify(header)}`);
     }
+    for (const [name, value] of [['fee', 1234.5], ['visits', 1]]) {
+      const cell = xls.row[header.indexOf(name)];
+      if (cell.type !== 'number' || cell.value !== value) problems.push(`the XLS must keep ${name} numeric for calculations`);
+    }
     for (const [name, value] of [['chart_no', '00123'], ['reference_no', '12345678901234567']]) {
       const cell = xls.row[header.indexOf(name)];
       if (cell.type !== 'text' || cell.value !== value) problems.push(`the XLS stores ${name} ${value} as a number, not as the text the query returned (GenerateOutFiles2Action parses every cell with Double.parseDouble: leading zeros and digits beyond 15 are lost)`);

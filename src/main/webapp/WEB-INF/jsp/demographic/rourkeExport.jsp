@@ -30,6 +30,13 @@
 
 --%>
 
+<%--
+    Rourke export administration: selects a patient set, creates an export, and lists downloads.
+    Parameters: patientSet and contact/vendor fields for POST; method=getFile and zipFile for download.
+    Access: administrator read privilege; download authorization is also enforced by the action.
+    All stored contact, set, and file labels are encoded for their output context.
+    @since 2026-10-02
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -149,7 +156,7 @@
                             for (int idx = 0; idx < setsList.size(); ++idx) {
                                 setName = setsList.get(idx);
                         %>
-                        <option value="<%=setName%>"><%=setName%>
+                        <option value="<carlos:encode value='<%=setName%>' context="htmlAttribute"/>"><carlos:encode value='<%=setName%>' context="html"/>
                         </option>
                         <%
                             }
@@ -184,10 +191,10 @@
                 <td><%=DateFormatUtils.format(dataExport.getDaterun().getTime(), DateFormatUtils.ISO_DATETIME_FORMAT.getPattern()) %>
                 </td>
                 <td>
-                    <a href='${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&zipFile=<%=file%>'><%=file %>
+                    <a href='${carlos:forHtmlAttribute(ctx)}/demographic/eRourkeExport?method=getFile&amp;zipFile=<carlos:encode value='<%=file%>' context="uriComponent"/>'><carlos:encode value='<%=file%>' context="html"/>
                     </a></td>
-                <td><%=dataExport.getUser()%>
-                <td><%=dataExport.getType()%>
+                <td><carlos:encode value='<%=dataExport.getUser()%>' context="html"/></td>
+                <td><carlos:encode value='<%=dataExport.getType()%>' context="html"/>
                 </td>
             </tr>
             <%

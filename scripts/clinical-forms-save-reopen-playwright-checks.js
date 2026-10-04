@@ -244,5 +244,7 @@ async function workflow(s) {
     + failed.map(entry => `${entry.form.title}: ${entry.failure}`).join(' | '));
 }
 
-if (require.main === module) runWorkflow(NAME, workflow);
+if (require.main === module) runWorkflow(NAME, workflow, {
+  preflight: () => require('./lib/export-content-helpers').requirePoppler('pdftotext'),
+});
 module.exports = { workflow, FORMS };

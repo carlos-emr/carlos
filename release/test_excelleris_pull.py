@@ -232,7 +232,7 @@ sendmail = /bin/false
 """
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         self.conf.chmod(0o600)
 
 
@@ -310,16 +310,18 @@ class EnvelopeTest(unittest.TestCase):
         # decryptMessage: RSA/ECB/PKCS1Padding unwrap, then Cipher "AES" = ECB/PKCS5
         aes_key = server.decrypt(base64.b64decode(key_b64), padding.PKCS1v15())
         self.assertEqual(len(aes_key), 16)
-        # codeql[py/weak-cryptographic-algorithm]: re-implements the Java receiver on purpose
+        # Intentional legacy receiver regression; CodeQL #27421 is a used-in-tests exception.
         dec = Cipher(
             algorithms.AES(aes_key), modes.ECB()
-        ).decryptor()  # codeql[py/weak-cryptographic-algorithm]
+        ).decryptor()
         padded = dec.update(ciphertext) + dec.finalize()
         unpad = PKCS7(128).unpadder()
         self.assertEqual(unpad.update(padded) + unpad.finalize(), plaintext)
 
         # validateSignature: MD5withRSA over the plaintext with the client public key
         client.public_key().verify(
+            # intentional legacy-wire-protocol regression with generated keys and synthetic messages.
+            # nosemgrep: python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
             base64.b64decode(sig_b64), plaintext, padding.PKCS1v15(), hashes.MD5()
         )
 
@@ -701,7 +703,7 @@ class ArchiveTest(TempEnv):
             f"state_dir = {self.cfg.state_dir}", f"state_dir = {self.tmp}/x/../state"
         )
         assert text != self.conf.read_text()
-        self.conf.write_text(text)  # codeql[py/clear-text-storage-sensitive-data]: fixture
+        self.conf.write_text(text)  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         with self.assertRaisesRegex(ep.ConfigError, "without '.' or '..'"):
             ep.load_config(self.conf)
 
@@ -752,6 +754,8 @@ class ArchiveTest(TempEnv):
 
     def test_own_state_directory_is_accepted_and_tightened(self):
         self.cfg.state_dir.mkdir(mode=0o755, exist_ok=True)
+        # intentional 0755 regression fixture; the next assertion requires Archive to tighten it to 0700.
+        # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         os.chmod(self.cfg.state_dir, 0o755)
         ep.Archive(self.cfg)
         for d in (self.cfg.state_dir, self.cfg.inbox_dir, self.cfg.done_dir, self.cfg.failed_dir):
@@ -961,6 +965,8 @@ class CarlosSessionTest(TempEnv):
             base64.b64decode(parts["signature"].get_payload()),
             PULL_WITH_RESULTS,
             padding.PKCS1v15(),
+            # intentional legacy-wire-protocol regression with generated keys and synthetic messages.
+            # nosemgrep: python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
             hashes.MD5(),
         )
         self.assertEqual(t.calls[3][1], "https://emr.example.test/carlos/logout")
@@ -1603,16 +1609,18 @@ class FakeCarlosHandler(_QuietHandler):
                 aes_key = srv.server_key.decrypt(
                     base64.b64decode(parts["key"].get_payload()), _pad.PKCS1v15()
                 )
-                # codeql[py/weak-cryptographic-algorithm]: the fake EMR decrypts as the real one does
+                # Intentional legacy fake receiver; CodeQL #27422 is a used-in-tests exception.
                 dec = Cipher(
                     algorithms.AES(aes_key), modes.ECB()
-                ).decryptor()  # codeql[py/weak-cryptographic-algorithm]
+                ).decryptor()
                 unpad = PKCS7(128).unpadder()
                 plaintext = unpad.update(dec.update(ciphertext) + dec.finalize()) + unpad.finalize()
                 srv.client_pub.verify(
                     base64.b64decode(parts["signature"].get_payload()),
                     plaintext,
                     _pad.PKCS1v15(),
+                    # intentional legacy-wire-protocol regression with generated keys and synthetic messages.
+                    # nosemgrep: python.cryptography.security.insecure-hash-algorithms-md5.insecure-hash-algorithm-md5
                     hashes.MD5(),
                 )
             except Exception:  # noqa: BLE001 - this is the server's rejection path
@@ -2364,6 +2372,7 @@ class LiveOscar19SessionlessTest(LiveOscar19Test):
         for key in (f"username = {EMR_USER}", f"password = {EMR_PASSWORD}", f"pin = {EMR_PIN}"):
             assert key in text, key
             text = text.replace(key, key.split(" =")[0] + " =")
+        # CodeQL #27431: removes placeholder credentials from this test's temporary configuration.
         self.conf.write_text(text)
         self.cfg = ep.load_config(self.conf)
 
@@ -2493,7 +2502,7 @@ class LiveRedirectTest(TempEnv):
         )
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         self.cfg = ep.load_config(self.conf)
 
     def tearDown(self):
@@ -2584,7 +2593,7 @@ class ShellScriptWireParityTest(TempEnv):
         )
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         cfg = ep.load_config(self.conf)
         with ep.ClientCertificate.from_config(cfg) as cert:
             transport = ep.default_transport(
@@ -2913,7 +2922,7 @@ class RetryClassificationTest(_OrchestrationBase):
         text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nmax_upload_attempts = 3\n", 1)
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         cfg = ep.load_config(self.conf)
         rc = ep.run(cfg, ep.RunOptions(), self.factory)
         self.assertEqual(rc, ep.EXIT_FAILED)
@@ -2932,7 +2941,7 @@ class RetryClassificationTest(_OrchestrationBase):
         text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nmax_upload_attempts = 2\n", 1)
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         cfg = ep.load_config(self.conf)
         self.script["POST /carlos/lab/newLabUpload"] = ep.TransportError("connection reset")
         self.assertEqual(ep.run(cfg, ep.RunOptions(), self.factory), ep.EXIT_FAILED)
@@ -3015,7 +3024,7 @@ class Oscar19DuplicateAfterFailureTest(_OrchestrationBase):
         text = self.conf.read_text().replace("[carlos]\n", "[carlos]\nflavour = oscar19\n", 1)
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         self.cfg = ep.load_config(self.conf)
         self.script["POST /carlos/login.do"] = ok('{"success":true}')
         self.script["GET /carlos/logout.jsp"] = ok("")
@@ -3344,7 +3353,7 @@ class AlertHeaderTest(TempEnv):
         assert "Bcc" in text
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         with self.assertRaisesRegex(ep.ConfigError, "control characters"):
             ep.load_config(self.conf)
 
@@ -3385,7 +3394,7 @@ class TrustAnchorTest(TempEnv):
         text = self.conf.read_text().replace("[carlos]\n", f"[carlos]\nca_file = {ca}\n", 1)
         self.conf.write_text(
             text
-        )  # codeql[py/clear-text-storage-sensitive-data]: fixture placeholders
+        )  # Synthetic temporary fixture configuration; see docs/static-analysis-workflows.md.
         with self.assertRaisesRegex(ep.ConfigError, "writable by group/other"):
             ep.load_config(self.conf)
         ca.chmod(0o644)  # world-readable is fine for a trust anchor

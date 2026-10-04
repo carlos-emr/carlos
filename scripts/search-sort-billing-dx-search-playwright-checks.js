@@ -7,7 +7,7 @@
  * Asserts, with two owned codes whose descriptions carry a letters-only run word, one of them with a digit in it
  * ("... diabetes type 2 review"): the 200-299 range lists exactly the codes starting with 2; the run word lists both owned
  * codes; the run word plus "asthma" lists only the asthma code, selects it into the Default Dx box and raises no script error;
- * "Cushing" (a shipped description) lists a row that reads as text; and the run word plus "diabetes type 2" lists the owned
+ * "syndrome" includes the shipped Cushing description as readable text; and the run word plus "diabetes type 2" lists the owned
  * diabetes code and nothing that does not match what was typed. Defects are collected and asserted together in the last step.
  * Fixtures: two diagnosticcode rows inserted by SQL (descriptions start with the run word); cleanup deletes them and asserts
  * none remain. The Default Dx box is only typed into, never saved.
@@ -28,6 +28,11 @@ async function dxFrame(prefs) {
 
 /** Submit the Dx search form in the iframe and wait for the iframe to reload. */
 async function dxSearch(prefs, { range, text }) {
+  if (!await prefs.locator('#dxSearchModal').evaluate(element => element.classList.contains('show'))) {
+    await prefs.locator('#dxCode').fill('');
+    await prefs.locator('button[data-bs-target="#dxSearchModal"]').click();
+    await prefs.locator('#dxSearchModal.show').waitFor({ timeout: 30000 });
+  }
   const frame = await dxFrame(prefs);
   await frame.locator('form#codesearch').waitFor({ state: 'visible', timeout: 30000 });
   if (range !== undefined) await frame.locator('select[name="coderange"]').selectOption(range);
@@ -51,7 +56,7 @@ async function dxRows(frame) {
 async function workflow(s) {
   const { sql, marker } = s;
   const q = h.sqlString;
-  // A letters-only token: digits in a search are read as a code prefix, so the run word must not carry any.
+  // Keep a letters-only marker so the separate mixed-digit regression supplies the digit deliberately.
   const word = 'Qz' + marker.slice(-8).replace(/./g, c => 'abcdefghijklmnop'[parseInt(c, 16)]);
   const codeA = 'ZQ' + String(parseInt(marker.slice(-3), 16) % 1000).padStart(3, '0');
   const codeB = 'ZR' + codeA.slice(2);
@@ -64,9 +69,7 @@ async function workflow(s) {
   sql.execute(`INSERT INTO diagnosticcode (diagnostic_code, description, status, region) VALUES
     (${q(codeA)}, ${q(`${word} diabetes type 2 review`)}, 'A', 'ON'), (${q(codeB)}, ${q(`${word} asthma review`)}, 'A', 'ON')`);
   const defects = [];
-  // CSRFGuard's client throws on result inputs named with numeric dx codes (known, scratchpad L173 / finding 112): that
-  // error is consumed here so it is not blamed on every search; anything else the search raises is kept.
-  // Every search drains the strict recorder, so each caller must look at the errors it gets back: this reports them as defects.
+  // Every search reports all browser and HTTP errors.
   const reportErrors = (label, errors) => {
     if (errors.length) defects.push(`${label} raised ${errors.join(' / ')} in the Dx search window`);
   };
@@ -77,7 +80,7 @@ async function workflow(s) {
       await prefs.waitForTimeout(400);
     });
     if (thrown) throw thrown;
-    return { frame, errors: [...failed, ...pageErrors.filter(e => !/csrfguard/.test(e) && !/reading 'name'/.test(e))] };
+    return { frame, errors: [...failed, ...pageErrors] };
   };
 
   const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
@@ -98,37 +101,34 @@ async function workflow(s) {
 
   await s.step('the run word lists both owned codes; the run word plus "asthma" lists only the asthma code', async () => {
     const first = await search(prefs, { text: word });
-    let frame = first.frame;
+    const frame = first.frame;
     reportErrors('the run word search', first.errors);
     const both = (await dxRows(frame)).map(r => r.code).sort();
     h.assert(JSON.stringify(both) === JSON.stringify([codeA, codeB].sort()), `The run word listed ${both.join(', ')}, not the two owned codes`);
     const single = await search(prefs, { text: `${word} asthma` });
-    frame = single.frame;
     if (single.errors.length) {
       defects.push(`a search with exactly one match raised ${single.errors.join(' / ')} in the Dx search window (the single result is selected before the modal's handler is attached)`);
     }
-    const rows = await dxRows(frame);
-    h.assert(rows.length === 1 && rows[0].code === codeB, `The run word plus "asthma" listed ${rows.map(r => r.code).join(', ') || 'nothing'}, not only the asthma code`);
+    await prefs.locator('#dxSearchModal').waitFor({ state: 'hidden', timeout: 30000 });
     const box = await prefs.locator('#dxCode').inputValue();
-    if (box !== codeB.slice(0, 3) && box !== codeB) defects.push(`the single matching code was not selected into the Default Dx box (it reads "${box}")`);
+    h.assert(box === codeB, `The single matching code was not selected intact (got "${box}")`);
   });
 
   await s.step('a shipped description with an apostrophe reads as text', async () => {
-    const { frame, errors } = await search(prefs, { text: 'Cushing' });
-    reportErrors('the "Cushing" search', errors);
+    const { frame, errors } = await search(prefs, { text: 'syndrome' });
+    reportErrors('the syndrome search', errors);
     const rows = await dxRows(frame);
-    h.assert(rows.length >= 1, 'The search for "Cushing" found nothing');
+    h.assert(rows.some(row => /Cushing/i.test(row.text)), 'The syndrome search omitted the shipped Cushing description');
     const raw = rows.filter(r => /&#\d+;|&[a-z]+;/i.test(r.text));
     if (raw.length) defects.push(`description of dx code ${raw[0].code} is shown as "${raw[0].text.slice(0, 60)}" with a literal HTML entity (the reference data stores &#146; for an apostrophe)`);
   });
 
   await s.step('a description with a digit lists the matching code and nothing that does not match', async () => {
-    const { frame, errors } = await search(prefs, { text: `${word} diabetes type 2` });
+    const { errors } = await search(prefs, { text: `${word} diabetes type 2` });
     reportErrors('the mixed-digit search', errors);
-    const rows = await dxRows(frame);
-    h.assert(rows.some(r => r.code === codeA), 'The owned diabetes code was not found by its own description');
-    const stray = rows.filter(r => r.code !== codeA);
-    if (stray.length) defects.push(`typing "... diabetes type 2" also lists ${stray.length} codes that do not match (every code starting with 2 is added)`);
+    await prefs.locator('#dxSearchModal').waitFor({ state: 'hidden', timeout: 30000 });
+    h.assert(await prefs.locator('#dxCode').inputValue() === codeA,
+      'The description containing a digit did not select its single matching code');
   });
 
   await s.step('every Dx search result equalled the codes matching what was typed', async () => {

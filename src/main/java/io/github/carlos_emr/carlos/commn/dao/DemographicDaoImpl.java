@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DobSearchPattern;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
+import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
@@ -107,6 +108,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String PARAM_LAST_NAME_LIKE = "lnLike";
     private static final String PARAM_DAY_OF_BIRTH = "dayob";
     private static final String PARAM_KEYWORD = "keyword";
+    private static final String PARAM_ADDRESS = "address";
+    private static final String PARAM_CHART_NO = "chartNo";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -532,6 +535,88 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     @Override
+    // Predicate/order fragments contain fixed identifiers; all patient values are bound.
+    @SuppressWarnings("java:S2077")
+    public List<Demographic> searchForPatientList(DemographicListSearch search, String providerNo, boolean outOfDomain) {
+        if (search.keyword() == null || (!outOfDomain && (providerNo == null || providerNo.isBlank()))) {
+            return List.of();
+        }
+        java.util.Map<String, Object> parameters = new java.util.HashMap<>();
+        String predicate = patientListPredicate(search, parameters);
+        if (predicate == null) return List.of();
+        String queryString = "FROM Demographic d WHERE " + predicate
+                + " AND NOT EXISTS (SELECT merged.id FROM DemographicMerged merged"
+                + " WHERE merged.demographicNo=d.demographicNo AND merged.deleted=0 AND merged.mergedTo<>d.demographicNo)";
+        if (search.statuses() != null && search.statuses().isEmpty() && !search.excludeStatuses()) {
+            return List.of();
+        }
+        if (search.statuses() != null && !search.statuses().isEmpty()) {
+            queryString += search.excludeStatuses() ? " AND d.patientStatus NOT IN (:statuses)"
+                    : " AND d.patientStatus IN (:statuses)";
+            parameters.put("statuses", search.statuses());
+        }
+        if (!outOfDomain) {
+            queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
+            parameters.put("providerNo", providerNo);
+        }
+        // Preserve database case/accent collation across pages; ID breaks equal-value ties.
+        queryString += " ORDER BY " + getOrderField(search.orderBy()) + ", d.demographicNo";
+        var query = entityManager().createQuery(queryString, Demographic.class);
+        parameters.forEach(query::setParameter);
+        return query.setFirstResult(search.offset()).setMaxResults(search.limit() + 1).getResultList();
+    }
+
+    private static String patientListPredicate(DemographicListSearch search, java.util.Map<String, Object> parameters) {
+        String keyword = search.keyword().trim();
+        return switch (search.mode()) {
+            case "search_name" -> {
+                String[] names = keyword.split(",", -1);
+                parameters.put("lastName", names[0].trim() + "%");
+                if (names.length == 2) {
+                    parameters.put("firstName", names[1].trim() + "%");
+                    yield "d.lastName LIKE :lastName AND (d.firstName LIKE :firstName OR d.alias LIKE :firstName)";
+                }
+                yield "d.lastName LIKE :lastName";
+            }
+            case "search_dob" -> {
+                var dob = DobSearchPattern.parse(keyword);
+                if (dob.isEmpty()) yield null;
+                parameters.put("year", dob.get().year());
+                parameters.put("month", dob.get().month());
+                parameters.put("day", dob.get().day());
+                yield "d.yearOfBirth LIKE :year AND d.monthOfBirth LIKE :month AND d.dateOfBirth LIKE :day";
+            }
+            case "search_phone" -> {
+                parameters.put("phone", "%" + keyword + "%");
+                yield "(d.phone LIKE :phone OR d.phone2 LIKE :phone OR EXISTS"
+                        + " (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
+                        + " AND e.key='demo_cell' AND e.value LIKE :phone AND (d.patientStatus IS NULL OR d.patientStatus<>'MERGED')))";
+            }
+            case "search_hin" -> {
+                parameters.put("hin", keyword + "%");
+                yield "d.hin LIKE :hin";
+            }
+            case "search_address" -> {
+                parameters.put(PARAM_ADDRESS, "%" + keyword + "%");
+                yield "d.address LIKE :address";
+            }
+            case "search_chart_no" -> {
+                parameters.put(PARAM_CHART_NO, keyword + "%");
+                yield "d.chartNo LIKE :chartNo";
+            }
+            case "search_demographic_no" -> {
+                try {
+                    parameters.put("demographicNo", Integer.valueOf(keyword));
+                    yield "d.demographicNo=:demographicNo";
+                } catch (NumberFormatException _) {
+                    yield null;
+                }
+            }
+            default -> null;
+        };
+    }
+
+    @Override
     // S2077: predicate/order helpers return only fixed literals; the domain subquery is constant.
     // Keyword and provider values enter exclusively through setParameter, never query text.
     // Integration tests exercise injection-shaped values across all modes and domain filtering.
@@ -588,7 +673,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 yield "d.hin LIKE :hin";
             }
             case "search_address" -> {
-                parameters.put("address", (search.merged() ? "" : "%") + keyword + "%");
+                parameters.put(PARAM_ADDRESS, (search.merged() ? "" : "%") + keyword + "%");
                 yield "d.address LIKE :address";
             }
             default -> throw new IllegalArgumentException("Invalid patient search mode");
@@ -1299,7 +1384,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("address", "%" + addressStr.trim() + "%");
+            q.setParameter(PARAM_ADDRESS, "%" + addressStr.trim() + "%");
 
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -1433,7 +1518,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("address", addressStr.trim() + "%");
+            q.setParameter(PARAM_ADDRESS, addressStr.trim() + "%");
 
             if (providerNo != null && !outOfDomain) {
                 q.setParameter("providerNo", providerNo);
@@ -1509,7 +1594,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
-            q.setParameter("chartNo", chartNoStr.trim() + "%");
+            q.setParameter(PARAM_CHART_NO, chartNoStr.trim() + "%");
 
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -1999,7 +2084,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (bean.getChartNo() != null && bean.getChartNo().length() > 0) {
             hql += " AND d.chartNo like :chartNo";
-            params.put("chartNo", "%" + bean.getChartNo() + "%");
+            params.put(PARAM_CHART_NO, "%" + bean.getChartNo() + "%");
         }
 
         if (firstName.length() > 0) {
@@ -2108,7 +2193,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
         if (bean.getChartNo() != null && bean.getChartNo().length() > 0) {
             sql += " AND d.chart_no like :chartNo";
-            params.put("chartNo", "%" + bean.getChartNo() + "%");
+            params.put(PARAM_CHART_NO, "%" + bean.getChartNo() + "%");
         }
 
         if (firstName.length() > 0) {

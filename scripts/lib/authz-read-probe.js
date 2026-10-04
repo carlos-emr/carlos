@@ -48,6 +48,8 @@ async function probe(context, url, { method = 'GET', needles = [] } = {}) {
       fromApp: Object.prototype.hasOwnProperty.call(headers, APPLICATION_HEADER),
       lead: (title || plain).replace(/\s+/g, ' ').trim().slice(0, 60),
       found: needles.filter(needle => text.includes(needle)),
+      // diagnostic response fingerprint only; not used for authentication or integrity decisions.
+      // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
       hash: crypto.createHash('sha1').update(body).digest('hex').slice(0, 10),
     };
   } catch (error) {

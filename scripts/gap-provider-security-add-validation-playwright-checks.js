@@ -11,11 +11,9 @@
  * name (the form's own alerts, nothing posted); then a user name with an underscore, and the user name
  * of an existing login (the server's refusals, with the reasons on the result page).
  * Asserted: every refusal writes no security row and no audit row for the attempted user name; the
- * browser refusals post nothing; the server refusals show their message; and — last, because
- * SecurityAddSecurityHelper checks neither the password policy nor the confirmation — a login record
- * POSTed with a weak password (what a script, or a browser with its form check bypassed, sends) is NOT
- * created. The probe posts only for an owned FAKE- provider and an owned user name, and its row (if the
- * server accepts it) is removed by cleanup.
+ * browser refusals post nothing; the server refusals show their message. Separate direct POSTs
+ * check a weak matching password, a strong mismatched confirmation and an empty password.
+ * Each probe uses an owned FAKE- provider and user name; cleanup removes any wrongly accepted row.
  * Fixtures: one FAKE- provider row (the probe's target) and the user names this run attempts; cleanup
  * deletes only security/log/provider rows carrying them and asserts they are gone.
  */
@@ -147,16 +145,23 @@ async function workflow(s) {
     await frame.locator('form[name="searchprovider"] input[name="CSRF-TOKEN"]').first().waitFor({ state: 'attached' });
     await frame.waitForFunction(() => document.querySelector('form[name="searchprovider"] input[name="CSRF-TOKEN"]')?.value);
     const token = await frame.locator('form[name="searchprovider"] input[name="CSRF-TOKEN"]').first().inputValue();
-    const answer = await s.context.request.post(`${config.baseUrl}/admin/SecurityAddSecurity`, {
-      headers: { 'CSRF-TOKEN': token },
-      form: { 'CSRF-TOKEN': token, user_name: probeName, password: 'ab1', conPassword: 'zzz', provider_no: probeProvider,
-        pin: '', conPin: '', b_ExpireSet: '0', date_ExpireDate: '2100-01-01', forcePasswordReset: '0' },
-      maxRedirects: 0,
-    });
-    const created = sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${h.sqlString(probeName)}`);
-    h.assert(answer.status() < 500, `The weak-password POST answered HTTP ${answer.status()}`);
-    h.assert(created === '0',
-      'Add a Login Record created a login for a password that violates the policy (and does not match its confirmation): SecurityAddSecurityHelper enforces neither server-side, so the browser check is the only guard');
+    for (const [label, password, confirmation, messageKey] of [
+      ['weak confirmed password', 'ab1', 'ab1', 'admin.securityaddsecurity.msgPasswordInvalid'],
+      ['mismatched strong password', GOOD, `${GOOD}x`, 'admin.securityrecord.msgPasswordNotConfirmed'],
+      ['missing password', '', '', 'admin.securityaddsecurity.msgPasswordInvalid'],
+    ]) {
+      const answer = await s.context.request.post(`${config.baseUrl}/admin/SecurityAddSecurity`, {
+        headers: { 'CSRF-TOKEN': token },
+        form: { 'CSRF-TOKEN': token, user_name: probeName, password, conPassword: confirmation, provider_no: probeProvider,
+          pin: '', conPin: '', b_ExpireSet: '0', date_ExpireDate: '2100-01-01', forcePasswordReset: '0' },
+        maxRedirects: 0,
+      });
+      h.assert(answer.status() === 200, `${label} POST answered HTTP ${answer.status()}`);
+      h.assert((await answer.text()).includes(message(messageKey, messageKey)),
+        `${label} POST did not reach the expected password validation refusal`);
+      h.assert(securityRows() === '0', `Add a Login Record accepted a ${label}`);
+      h.assert(auditRows() === '0', `The refused ${label} wrote a creation audit row`);
+    }
   });
 }
 

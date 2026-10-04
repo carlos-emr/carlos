@@ -116,6 +116,8 @@ public class PreventionReport2Action extends ActionSupport {
         // least one provider filter is specified.
         ArrayList<ArrayList<String>> list = demoQ.buildQuery(loggedInInfo, frm);
 
+        // only a collection size is logged; it cannot contain control characters.
+        // nosemgrep: carlos.crlf-injection-logs
         log.debug("set size " + list.size());
 
         if (asDate == null) {
@@ -150,7 +152,7 @@ public class PreventionReport2Action extends ActionSupport {
     private static boolean hasValidPatientSet(String patientSet) {
         try {
             return Integer.parseInt(patientSet) > 0;
-        } catch (NumberFormatException ignored) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }

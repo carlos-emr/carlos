@@ -11,8 +11,9 @@
  * the demographicExt keys (cell, phone extensions, comment, aboriginal, PHU), the demographiccust
  * nurse/resident, one archive row, one current program admission and one "add" audit row; the new Master Record
  * shows what was typed; the duplicate-name confirmation, when dismissed, stores nothing; a second patient
- * with the same health number is refused ("duplicate") and stores nothing; and, last, dates typed into
- * Effective / Renewal / Date Joined / Date Rostered reach the database (they do not: see the final step).
+ * with the same health number is refused ("duplicate") and stores nothing. Optional dates start and persist blank;
+ * typed Effective / Renewal / Joined / End dates and a calendar-picked Rostered date reach the database;
+ * clearing an entered date removes its hidden parts, and rostering without a date is still refused.
  * Fixtures: patients carrying the run marker surname and one unused synthetic Ontario HIN. Cleanup removes
  * every row of those patients (not the append-only audit log) and asserts none remain.
  */
@@ -52,6 +53,9 @@ async function workflow(s) {
   await s.step('the add form is reached from Search ▸ Create Demographic and refuses an empty submit', async () => {
     add = await openAddForm(s, marker);
     const url = add.url();
+    for (const name of ['roster_date', 'date_joined', 'end_date', 'hc_renew_date', 'eff_date']) {
+      h.assert(await add.locator(`input[name="${name}"]`).inputValue() === '', `${name} unexpectedly defaults to a date`);
+    }
     await add.locator('input[type="submit"][value="Add Record"]').first().click();
     await add.waitForTimeout(500);
     h.assert(add.url() === url && await add.locator('form[name="adddemographic"] :invalid').count() > 0,
@@ -130,6 +134,9 @@ async function workflow(s) {
     h.assert(d[27].includes(`<rd>${typed.doc}</rd>`) && d[27].includes(`<rdohip>${typed.ohip}</rdohip>`),
       'The referral doctor and OHIP number were not stored');
     const id = sql.value(`SELECT demographic_no FROM ${row}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}
+      AND date_joined IS NULL AND end_date IS NULL AND eff_date IS NULL AND hc_renew_date IS NULL AND roster_date IS NULL`) === '1',
+      'An untouched optional date was silently stored');
     const ext = Object.fromEntries(sql.rows(`SELECT key_val, value FROM demographicExt WHERE demographic_no=${id}`));
     h.assert(ext.demo_cell === typed.cell && ext.hPhoneExt === typed.ext && ext.wPhoneExt === typed.wext
       && ext.phoneComment === typed.comment && ext.aboriginal === 'No', 'The extension keys (cell, extensions, comment, aboriginal) were not stored');
@@ -187,15 +194,20 @@ async function workflow(s) {
     await add.close();
   });
 
-  await s.step('dates typed into the date boxes (roster, effective, renewal, joined) reach the database', async () => {
-    // add.jsp parseDateField() builds its selectors from a JS template literal whose ${fieldId} the JSP
-    // consumes as EL (add.jsp:576-578), so the hidden year/month/day parts of every date box stay empty.
+  await s.step('typed and calendar-picked dates persist, clearing a date stays blank, and rostering requires a date', async () => {
     const problems = [];
     add = await openAddForm(s, marker);
     let form = add.locator('form[name="adddemographic"]');
     const fill = async (name, value) => {
       const box = form.locator(`input[name="${name}"]`);
-      await box.click(); await box.press('Control+a'); await box.pressSequentially(value); await box.press('Tab');
+      await box.click(); await box.press('Control+a');
+      if (value) await box.pressSequentially(value); else await box.fill('');
+      await box.press('Tab');
+      const visible = await box.inputValue();
+      const submittedParts = await Promise.all(['year', 'month', 'date'].map(part =>
+        form.locator(`input[name="${name}_${part}"]`).inputValue()));
+      h.assert(visible === value && submittedParts.join('-') === (value || '--'),
+        `${name} did not retain the typed date: visible=${visible}, submitted=${submittedParts.join('-')}`);
     };
     await form.locator('input[name="last_name"]').fill(marker);
     await form.locator('input[name="first_name"]').fill('Dates');
@@ -205,6 +217,8 @@ async function workflow(s) {
     await fill('eff_date', '2024-01-02');
     await fill('hc_renew_date', '2027-01-02');
     await fill('date_joined', '2024-02-03');
+    await fill('end_date', '2028-04-06');
+    await fill('end_date', '');
     await h.withExpectedDialogs(add, () => add.locator('input[type="submit"][value="Add Record"]').first().click(), { accept: true });
     await add.getByText(/Successful Addition of a Demographic Record/i).waitFor({ timeout: TIMEOUT });
     const [dates] = sql.rows(`SELECT IFNULL(DATE(eff_date),''), IFNULL(DATE(hc_renew_date),''), IFNULL(DATE(date_joined),''), end_date IS NULL
@@ -212,7 +226,7 @@ async function workflow(s) {
     if (dates[0] !== '2024-01-02') problems.push('Effective Date');
     if (dates[1] !== '2027-01-02') problems.push('Renewal Date');
     if (dates[2] !== '2024-02-03') problems.push('Date Joined');
-    if (dates[3] !== '1') problems.push('End Date (stored although it was never typed)');
+    if (dates[3] !== '1') problems.push('End Date (stored after it was cleared)');
     await add.close();
     add = await openAddForm(s, marker);
     form = add.locator('form[name="adddemographic"]');
@@ -223,13 +237,28 @@ async function workflow(s) {
     await form.locator('input[name="postal"]').fill(typed.postal);
     await form.locator('select[name="roster_status"]').selectOption('RO');
     await form.locator('select[name="roster_enrolled_to"]').selectOption(provider);
+    const missingDateDialogs = await h.withExpectedDialogs(add,
+      () => add.locator('input[type="submit"][value="Add Record"]').first().click(), { accept: true });
+    h.assert(missingDateDialogs.length === 1 && /valid Date Rostered/.test(missingDateDialogs[0].text),
+      'Rostering without a date must be refused');
+    h.assert(sql.value(`SELECT COUNT(*) FROM ${row} AND first_name='Rostered'`) === '0',
+      'Missing roster date still stored a patient');
     await fill('roster_date', '2024-03-05');
+    // The Flatpickr adapter hides the legacy icon; the visible date input opens its picker.
+    await form.locator('input[name="roster_date"]').click();
+    await add.locator('.flatpickr-calendar.open .flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)')
+      .filter({ hasText: /^6$/ }).click();
+    h.assert(await form.locator('input[name="roster_date"]').inputValue() === '2024-03-06',
+      'The calendar did not select the expected roster date');
+    await fill('end_date', '2028-04-06');
     const dialogs = await h.withExpectedDialogs(add,
       () => add.locator('input[type="submit"][value="Add Record"]').first().click(), { accept: true });
     if (dialogs.length) problems.push(`rostering a new patient (Add Record said: "${dialogs[0].text}")`);
     else {
       await add.getByText(/Successful Addition of a Demographic Record/i).waitFor({ timeout: TIMEOUT });
-      if (sql.value(`SELECT IFNULL(DATE(roster_date),'') FROM ${row} AND first_name='Rostered'`) !== '2024-03-05') problems.push('Date Rostered');
+      if (sql.value(`SELECT IFNULL(DATE(roster_date),'') FROM ${row} AND first_name='Rostered'`) !== '2024-03-06') problems.push('Date Rostered');
+      if (sql.value(`SELECT IFNULL(DATE(end_date),'') FROM ${row} AND first_name='Rostered'`) !== '2028-04-06') problems.push('End Date');
+      if (sql.value(`SELECT roster_enrolled_to FROM ${row} AND first_name='Rostered'`) !== provider) problems.push('Roster enrolled provider');
     }
     await add.close();
     h.assert(problems.length === 0, `Typed dates were lost or refused: ${problems.join('; ')} (the date boxes do not fill their hidden year/month/day parts)`);

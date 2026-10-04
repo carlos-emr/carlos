@@ -9,9 +9,8 @@
  * entry is byte-for-byte the stored form_html (accents, a non-Latin-1 letter, CRLF newlines, quotes, script tags);
  * eform.properties, read as Java properties, carries the stored name, subject (accent, quote, comma, ampersand),
  * creator, date and the two flags; the same holds for a form whose name has an accent, a quote and a letter outside
- * Latin-1. LAST (fails today): a form named like clinics name them, "Well Baby 0/6 months", exports a zip (its name
- * is rejected as a path component and the click answers an error page); and the attachment is named after the form
- * (the code splices the numeric form id in place of every space in the name, and the header is not RFC 6266 safe).
+ * Latin-1. Slash-containing clinic names export with a safe generated folder and attachment name;
+ * the original title remains in metadata and Unicode download names use an RFC 5987 header.
  * Fixtures: three FAKE- eform rows (status 1) inserted by SQL; cleanup deletes only those fids and asserts them gone.
  */
 const h = require('./lib/playwright-harness');
@@ -66,9 +65,13 @@ async function workflow(s) {
     + '<p>Zoë "Zed" O\'Neil &amp; fils — ½ dose…</p><script>var a = "<b>x</b>";</script>\r\n</form></body></html>\r\n';
   h.assert(html.length > 0, 'The form HTML fixture is empty');
   const forms = {
-    plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł' },
-    accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject' },
-    slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash' },
+    plain: { name: `${marker} Export Plain`, subject: 'Dépistage, "annuel" & Ł',
+      folder: `${marker}ExportPlain`, download: `${marker} Export Plain.zip` },
+    accent: { name: `${marker} Ça "va" Łódź`, subject: 'Subject',
+      folder: `${marker}Ça_va_Łódź`, download: `${marker} Ça "va" Łódź.zip`,
+      browserDownload: `${marker} Ça _va_ Łódź.zip` },
+    slash: { name: `${marker} Well Baby 0/6 months`, subject: 'Slash',
+      folder: `${marker}WellBaby0_6months`, download: `${marker} Well Baby 0_6 months.zip` },
   };
   for (const [key, form] of Object.entries(forms)) {
     form.fid = sql.value(`INSERT INTO eform (form_name,file_name,subject,form_date,form_time,form_creator,status,form_html,
@@ -92,12 +95,23 @@ async function workflow(s) {
   const check = async (form, label) => {
     const file = await x.saveDownload(admin, scratch, () => exportLink(form).click(), { route: /\/eform\/manageEForm$/ });
     h.assert(file.status === 200 && /zip/.test(file.headers['content-type'] || ''), `${label}: Export did not answer a zip`);
+    const header = file.headers['content-disposition'] || '';
+    h.assert(dispositionProblem(header) === null, `${label}: invalid download filename: ${dispositionProblem(header)}`);
+    const extended = /;\s*filename\*=UTF-8''([^;]+)/i.exec(header);
+    let decodedName = null;
+    try { decodedName = extended ? decodeURIComponent(extended[1]) : null; } catch (error) { /* assertion below reports invalid UTF-8 */ }
+    h.assert(decodedName === form.download,
+      `${label}: download header lost or mangled the form name`);
+    // Chromium replaces quotes in suggested filenames, independently of RFC 5987 decoding.
+    h.assert(file.name === (form.browserDownload ?? form.download), `${label}: browser download name differs: ${JSON.stringify(file.name)}`);
     const entries = x.unzip(file.bytes);
-    const folder = form.name.replace(/\s/g, '');
+    const folder = form.folder;
     const names = Object.keys(entries).sort();
     h.assert(JSON.stringify(names) === JSON.stringify([`${folder}/${marker}-${label}.html`, `${folder}/eform.properties`].sort()),
       `${label}: the archive entries are not <form>/eform.properties and <form>/<file>`);
     const stored = sql.value(`SELECT DATE_FORMAT(form_date,'%Y-%m-%d') FROM eform WHERE fid=${form.fid}`);
+    // compares exported bytes with fixed fixture HTML; no browser insertion.
+    // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
     h.assert(entries[`${folder}/${marker}-${label}.html`].toString('utf8') === html, `${label}: the exported HTML differs from the stored form_html`);
     const props = loadProperties(entries[`${folder}/eform.properties`]);
     h.assert(props['form.name'] === form.name, `${label}: eform.properties lost the form name`);
@@ -107,48 +121,11 @@ async function workflow(s) {
     h.assert(props['form.showLatestFormOnly'] === 'true' && props['form.patientIndependent'] === undefined, `${label}: eform.properties flags differ from the row`);
     return file;
   };
-  let plainFile;
-  await s.step('the plain form exports its HTML and properties exactly as stored', async () => {
-    plainFile = await check({ ...forms.plain }, 'plain');
-  });
-  let accentFile;
-  await s.step('a form named with an accent, a quote and a non-Latin-1 letter exports the same content', async () => {
-    accentFile = await check({ ...forms.accent }, 'accent');
-  });
-
-  await s.step('a slash in the name still exports, and the attachment is named after the form', async () => {
-    const problems = [];
-    const nameOf = file => file.headers['content-disposition'] || '';
-    const fidSplice = new RegExp(`Export${forms.plain.fid}Plain`);
-    if (fidSplice.test(nameOf(plainFile))) {
-      problems.push(`the attachment name splices the form id into the name ("${nameOf(plainFile).replace(marker, 'M')}")`);
-    }
-    const accentName = nameOf(accentFile);
-    const accentProblem = dispositionProblem(accentName);
-    if (accentProblem) problems.push(`the attachment name of an accented, quoted form is not a valid Content-Disposition value: ${accentProblem}`);
-    const responding = admin.waitForResponse(r => /\/eform\/manageEForm$/.test(new URL(r.url()).pathname), { timeout: 20000 });
-    responding.catch(() => {});
-    let file = null;
-    try {
-      file = await x.saveDownload(admin, scratch, () => exportLink(forms.slash).click(), { route: /\/eform\/manageEForm$/, timeout: 15000 });
-    } catch (error) { /* reported below with the HTTP status */ }
-    if (!file) {
-      const response = await responding.catch(() => null);
-      problems.push(`Export of "Well Baby 0/6 months" sent no zip (HTTP ${response ? response.status() : 'none'}): a "/" in the form name is rejected as a path component by EFormExportZip`);
-    } else {
-      // A download event alone is not a zip: the attachment headers are set before the name is validated.
-      let archive = null;
-      try { archive = x.unzip(file.bytes); } catch (error) { /* reported below */ }
-      const names = archive ? Object.keys(archive) : [];
-      const htmlName = names.find(name => name.endsWith(`/${marker}-slash.html`));
-      const properties = names.find(name => name.endsWith('/eform.properties'));
-      if (file.status !== 200 || !/zip/.test(file.headers['content-type'] || '') || !archive || !htmlName || !properties
-        || archive[htmlName].toString('utf8') !== html) {
-        problems.push(`Export of "Well Baby 0/6 months" downloaded something that is not the form's zip (HTTP ${file.status}, ${file.headers['content-type'] || 'no content type'}, ${names.length} entries)`);
-      }
-    }
-    h.assert(!problems.length, `eForm export problems: ${problems.join('; ')}`);
-  });
+  for (const [label, form] of Object.entries(forms)) {
+    await s.step(`${label} form downloads with a safe filename and original HTML/properties`, async () => {
+      await check(form, label);
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('export-content-eform-export-zip', workflow, { openPatient: false, openMaster: false });

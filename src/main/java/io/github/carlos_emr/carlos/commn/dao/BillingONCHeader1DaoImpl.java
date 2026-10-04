@@ -488,9 +488,9 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         // Build query
         StringBuilder sqlCommand = new StringBuilder("select h from ").append(BillingONCHeader1.class.getSimpleName()).append(" h WHERE ");
         sqlCommand.append("h.providerNo = ?").append(counter++).append(" AND h.status IN (?").append(counter++).append(") ");
-        // Set date range lower/upper bounds (if date range is provided)
+        // Simulation and claim-file service dates include both bounds; null bounds stay open.
         if (dateRange.getFrom() != null) {
-            sqlCommand.append(" AND h.billingDate > ?").append(counter++);
+            sqlCommand.append(" AND h.billingDate >= ?").append(counter++);
         }
         if (dateRange.getTo() != null) {
             sqlCommand.append(" AND h.billingDate <= ?").append(counter++);
@@ -690,6 +690,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         app.and("bch.demographicNo = d.demographicNo");
         app.and("bch.demographicNo = :demoNo", "demoNo", demoNo);
         app.and("bch.payProgram = :payProgram", "payProgram", payProgram);
+        app.and("(bch.status IS NULL OR bch.status <> 'D')");
         app.and("bch.billingDate >= :fromDate", "fromDate", (new SimpleDateFormat("yyyy-MM-dd")).format(fromDate));
         app.and("bch.billingDate <= :toDate", "toDate", (new SimpleDateFormat("yyyy-MM-dd")).format(toDate));
         app.addOrder("bch.id");

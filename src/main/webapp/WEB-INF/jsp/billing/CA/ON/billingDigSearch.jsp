@@ -48,7 +48,16 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script>
             function CodeAttach(File2) {
-                if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
+                // The parent callback exists before this document's single-result auto-selection runs.
+                if (self.parent !== self && typeof self.parent.selectDefaultDiagnosticCode === 'function') {
+                    self.parent.selectDefaultDiagnosticCode(File2);
+                    return;
+                }
+                if (!self.opener || self.opener.closed) {
+                    alert("Unable to transfer diagnostic code: the calling window is unavailable.");
+                    return;
+                }
+                if (typeof self.opener.callChangeCodeDesc === 'function') self.opener.callChangeCodeDesc();
 
                 <c:choose>
                     <c:when test="${digSearchModel.hasTargetElement}">

@@ -196,6 +196,8 @@ async function workflow(s) {
     }
     const frequency = (kind, times) => {
       if (!text.includes(line)) return null;
+      // line is regex-escaped; kind and times come from fixed test calls.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
       const match = new RegExp(`${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+(?:\\.\\d+)?)/(\\d+(?:\\.\\d+)?) \\([^)]*\\) of patients has done the test for ${kind} ${times} times`).exec(text);
       return match ? [Number(match[1]), Number(match[2])] : null;
     };

@@ -33,7 +33,7 @@ class AppointmentReceiptTemplateUnitTest {
         values.put("clinicPostal", "A1A 1A1");
         values.put("clinicPhone", "555-010-1234");
         values.put("clinicFax", "555-010-5678");
-        values.put("apptName", "FAKE-APP0123456789abcdef,Appointment");
+        values.put("apptName", "FAKE-APP0123456789abcdef,Nguyễn Łukasz İstanbul");
         values.put("providerName", "O'Neil-MacDonald Marie Alexandra");
         values.put("apptDate", "2027-10-31");
         values.put("apptTime", "09:15");
@@ -65,6 +65,9 @@ class AppointmentReceiptTemplateUnitTest {
                     text.setEndPage(page);
                     text.setSortByPosition(true);
                     allText.append(text.getText(pdf));
+                    for (var fontName : pdf.getPage(page - 1).getResources().getFontNames()) {
+                        assertThat(pdf.getPage(page - 1).getResources().getFont(fontName).isEmbedded()).isTrue();
+                    }
                     var box = pdf.getPage(page - 1).getMediaBox();
                     assertThat(box.getWidth()).isEqualTo(229f);
                     assertThat(box.getHeight()).isEqualTo(210f);

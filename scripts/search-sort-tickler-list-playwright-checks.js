@@ -49,6 +49,20 @@ async function countLine(page) {
   return { from: Number(m[1]), to: Number(m[2]), of: Number(m[3]), text };
 }
 
+/** Clear saved provider filters; a multisite assignee select may be empty until a clinic is selected. */
+async function resetProviderFilters(list) {
+  for (const selector of ['#providerview', '#assignedTo', '#mrpview']) {
+    const select = list.locator(selector);
+    if (await select.locator('option[value="all"]').count()) {
+      await select.selectOption('all');
+    } else {
+      // Multisite starts with an empty assignee select until a clinic is chosen.
+      h.assert(selector === '#assignedTo' && await select.inputValue() === '',
+        'A saved filter cannot be cleared because its all-providers option is missing');
+    }
+  }
+}
+
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const tag = k.nameTag(marker);
@@ -93,6 +107,11 @@ async function workflow(s) {
   const list = opened.page;
   h.assert(h.pathOnly(list.url()).endsWith('/tickler/ViewTicklerMain'), 'The schedule Tickler link did not open the tickler list');
   await waitForTicklerTable(list);
+  // The fixture spans two providers; a previously saved view must not hide either one.
+  await listAfter(list, p => p.get('provider') === '' && p.get('assignee') === '' && p.get('mrp') === '', async () => {
+    await resetProviderFilters(list);
+    await list.locator('#formSubmitBtn').click();
+  });
   const search = needle => listAfter(list, p => p.get('search[value]') === needle,
     () => list.locator('#ticklerResults_filter input[type="search"]').fill(needle));
   let json = await search(marker);
@@ -192,4 +211,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('search-sort-tickler-list', workflow, { openPatient: true, openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, resetProviderFilters };

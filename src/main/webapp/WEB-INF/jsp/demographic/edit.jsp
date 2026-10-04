@@ -842,12 +842,12 @@
 
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
-                if (rosterSelect.getValue() == "RO") {
+                if (rosterSelect.value == "RO") {
                     if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.value))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }

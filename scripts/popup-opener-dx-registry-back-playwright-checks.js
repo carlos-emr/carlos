@@ -8,17 +8,12 @@
  * (oscarResearch/oscarDxResearch/setupDxResearch popup) ▸ Back; then ▸ code 401 ▸ Add
  * (oscarResearch/oscarDxResearch/dxResearch, which answers with response.sendRedirect
  * back to setupDxResearch) ▸ Back.
- * dxResearch.jsp handleBackNavigation() reloads window.opener (the chart) and closes
- * the popup; with no opener it falls back to history.back(). The Add redirect is a
- * 302 sent before Struts' COOP PreResultListener runs, so it carries no
- * Cross-Origin-Opener-Policy; Chromium enforces COOP on redirects and the popup
- * leaves the chart's browsing-context group, losing window.opener for good.
- * Asserts: Back on a fresh registry closes it and reloads the chart (control: the
- * contract works while the opener lives); Add writes one active dxresearch row and
- * lists it; Back after the Add closes the popup and reloads the chart, whose Disease
- * Registry module then lists the code.
- * Fixtures: the owned FAKE- patient; cleanup deletes its dxresearch rows and asserts
- * they are gone.
+ * dxResearch.jsp reloads window.opener and closes the popup. The former Struts
+ * result interceptor omitted COOP from Add/Update/Resolve redirects, severing the
+ * opener. The common response filter now preserves it throughout those hops.
+ * Asserts each mutation persists, Back closes the popup and reloads the chart,
+ * and the chart lists the newly added diagnosis. Cleanup removes the owned
+ * dxresearch rows and their partial start dates.
  */
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, markOpener } = require('./lib/playwright-ui');
@@ -31,7 +26,9 @@ async function workflow(s) {
   const { sql, patient } = s;
   const chain = documentChain(s.context);
   s.cleanup(() => {
-    sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${patient}`);
+    sql.execute(`DELETE FROM partial_date WHERE table_name=3 AND field_name=4
+      AND table_id IN (SELECT dxresearch_no FROM dxresearch WHERE demographic_no=${patient});
+      DELETE FROM dxresearch WHERE demographic_no=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient}`) === '0',
       'Owned dxresearch rows were not removed');
   });
@@ -43,12 +40,19 @@ async function workflow(s) {
   };
   /** Click Back; report whether the popup closed and whether the chart reloaded. */
   const back = async registry => {
+    // Wait for the previous chart refresh to finish before asking Back to reload it
+    // again; otherwise the browser legitimately aborts unfinished sidebar XHRs.
+    await chart.waitForLoadState('networkidle', { timeout: TIMEOUT });
     const sentinel = await markOpener(chart);
     const state = await openerState(registry);
     const failuresBefore = s.recorder.requestFailures.length;
     const closed = registry.waitForEvent('close', { timeout: TIMEOUT }).then(() => true, () => false);
     const reloaded = chart.waitForEvent('load', { timeout: TIMEOUT }).then(() => true, () => false);
-    await registry.locator(`input[type="button"][onclick="handleBackNavigation();"]`).click({ noWaitAfter: true });
+    await registry.locator(`input[type="button"][onclick="handleBackNavigation();"]`).click({ noWaitAfter: true }).catch(error => {
+      // Chromium can report the handler's window.close() before acknowledging
+      // the click. The close event and chart reload are still required below.
+      if (!registry.isClosed() || !/Target page, context or browser has been closed/.test(error.message)) throw error;
+    });
     const result = { state, closed: await closed, reloaded: await reloaded };
     if (result.reloaded) {
       result.reloaded = await chart.evaluate(name => window[name], sentinel.marker).catch(() => undefined) !== sentinel.token;
@@ -81,13 +85,33 @@ async function workflow(s) {
     await registry.locator(`#startdate1st${id}`).waitFor({ state: 'visible' });
   });
 
-  // Last: the opener reload after the Add's COOP-less redirect.
+  // The Add redirect must preserve the chart opener.
   await s.step('Back after the Add closes the registry and reloads the chart, which lists the new diagnosis', async () => {
     const result = await back(registry);
     h.assert(result.closed && result.reloaded,
       `Back after Add did not close the registry and reload the chart (window.opener ${result.state}; `
       + `closed=${result.closed}, reloaded=${result.reloaded}; registry documents: ${chain.describe(registry)})`);
     await chart.locator('#Dx').getByText(/401|hypertension/i).first().waitFor({ state: 'visible', timeout: TIMEOUT });
+  });
+  const id = sql.value(`SELECT dxresearch_no FROM dxresearch WHERE demographic_no=${patient} AND dxresearch_code='401'`);
+  await s.step('Back after a start-date Update closes the registry and reloads the chart', async () => {
+    const updated = await openRegistry('dx-registry-update');
+    await updated.locator(`#startdate1st${id}`).click();
+    await updated.locator(`#startdatenew${id}`).fill('2019-03');
+    const row = updated.locator(`#startdate1st${id}`).locator('xpath=ancestor::tr[1]');
+    await clickAndAwaitReload(updated, row.getByRole('link', { name: 'Update', exact: true }));
+    await expectValue(sql, `SELECT CONCAT(start_date,status) FROM dxresearch WHERE dxresearch_no=${id}`,
+      '2019-03-01A', 'Update did not persist the date on the active diagnosis');
+    const result = await back(updated);
+    h.assert(result.closed && result.reloaded && result.state === 'live', 'Back after Update lost its chart opener');
+  });
+  await s.step('Back after Resolve closes the registry and reloads the chart', async () => {
+    const resolved = await openRegistry('dx-registry-resolve');
+    const row = resolved.locator(`#startdate1st${id}`).locator('xpath=ancestor::tr[1]');
+    await clickAndAwaitReload(resolved, row.getByRole('link', { name: 'Resolve', exact: true }));
+    await expectValue(sql, `SELECT status FROM dxresearch WHERE dxresearch_no=${id}`, 'C', 'Resolve did not persist');
+    const result = await back(resolved);
+    h.assert(result.closed && result.reloaded && result.state === 'live', 'Back after Resolve lost its chart opener');
   });
 }
 

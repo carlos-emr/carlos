@@ -21,7 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingEAreport in the Ontario billing workflow.
+  Purpose: Display parsed Ontario MOH return-file reports.
+  Features: claim-error details and record counts, batch acknowledgements, report messages,
+    OBEC eligibility records and skipped-update reasons; printable with Ontario billing styles.
+  Parameters (request attributes): ReportName is the heading; claimsErrors supplies claim-error
+    records; batchAcks supplies batchAcknowledgementRecords; messages supplies text messages;
+    outputSpecs supplies edtObecOutputSpecificationRecords; obecApplyResult supplies applied/
+    skipped counts and reasons. Empty optional attributes omit their respective report sections.
+  @since 2026-07-07
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
 --%>
@@ -36,7 +43,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
         <title>Billing Reconcilliation</title>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/billing.css">
+        <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/billing/CA/ON/billing.css">
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/extractedFromPages.css"/>
     </head>
 
@@ -192,7 +199,7 @@
             <td class="fieldName" width="12%">Batch Process Date</td>
             <td class="fieldName" width="15%">Reject Reason</td>
         </tr>
-        <c:forEach var="batchAck" items="${batchAcks.batchAckReportBeanVector}">
+        <c:forEach var="batchAck" items="${batchAcks.batchAcknowledgementRecords}">
             <tr>
                 <td class="dataTable" width="5%">${carlos:forHtml(batchAck.batchNumber)}</td>
                 <td class="dataTable" width="5%">${carlos:forHtml(batchAck.operatorNumber)}</td>

@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.DemographicCriterion;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -77,6 +80,9 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DemographicMergedDao demographicMergedDao;
+
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager patientEntityManager;
 
     private Demographic demo1, demo2, demo3, demo4;
     private String uniquePrefix;
@@ -1233,6 +1239,191 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                     "search_phone", uniquePrefix, "demographic_no", 1, 1, false), "999998", false)).isEmpty();
             assertThat(demographicDao.searchDemographicByExtKeyAndValueLike(
                     DemographicExt.DemographicProperty.demo_cell, uniquePrefix, 10, 0, null, "999998", false))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+    }
+
+    @Nested
+    @DisplayName("Current patient search ordering and pagination")
+    class PatientListPages {
+        private Demographic first;
+        private Demographic second;
+        private Demographic inactive;
+
+        @BeforeEach
+        void preparePatients() {
+            first = createDemographic("Same", uniquePrefix, "ON", uniquePrefix + "P1", "AC");
+            second = createDemographic("Same", uniquePrefix, "ON", uniquePrefix + "P2", "AC");
+            inactive = createDemographic("Zulu", uniquePrefix, "ON", uniquePrefix + "P3", "IN");
+            for (Demographic row : List.of(first, second, inactive)) {
+                row.setAddress(uniquePrefix);
+                row.setPhone(uniquePrefix);
+                row.setPhone2(uniquePrefix);
+                row.setChartNo(uniquePrefix);
+                demographicDao.save(row);
+            }
+            createDemographicExt(first.getDemographicNo(), "demo_cell", uniquePrefix);
+            hibernateTemplate.flush();
+        }
+
+        private List<Demographic> search(String mode, String keyword, List<String> statuses,
+                                        boolean exclude, int offset, int limit) {
+            return demographicDao.searchForPatientList(new DemographicListSearch(mode, keyword,
+                    "last_name", statuses, exclude, offset, limit), null, true);
+        }
+
+        @Test
+        void shouldFetchLookaheadWithStableTies_whenPagingExactMultiples() {
+            var page = search("search_name", uniquePrefix, List.of("AC"), false, 0, 1);
+            assertThat(page).extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+            assertThat(search("search_name", uniquePrefix, List.of("AC"), false, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+            assertThat(search("search_name", uniquePrefix, List.of("AC"), false, 2, 1)).isEmpty();
+        }
+
+        @Test
+        void shouldExcludeMergedRowsBeforePaging_whenFirstMatchWasMergedAway() {
+            DemographicMerged merge = new DemographicMerged();
+            merge.setDemographicNo(first.getDemographicNo());
+            merge.setMergedTo(second.getDemographicNo());
+            merge.setDeleted(0);
+            demographicMergedDao.persist(merge);
+            demographicMergedDao.flush();
+            assertThat(search("search_address", uniquePrefix, null, false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(second.getDemographicNo(), inactive.getDemographicNo());
+            merge.setDeleted(1);
+            demographicMergedDao.merge(merge);
+            demographicMergedDao.flush();
+            assertThat(search("search_address", uniquePrefix, null, false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+        }
+
+        @Test
+        void shouldReturnEachPatientOnce_whenPhoneMatchesSeveralFields() {
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo(), inactive.getDemographicNo());
+        }
+
+        @Test
+        void shouldIncludeUnknownStatus_whenAllStatusSearchMatchesOnlyMobile() {
+            first.setPhone("different");
+            first.setPhone2("different");
+            demographicDao.save(first);
+            patientEntityManager.flush();
+            // The mapped getter normalizes null to an empty string, so reproduce a legacy SQL NULL directly.
+            patientEntityManager.createNativeQuery("UPDATE demographic SET patient_status=NULL WHERE demographic_no=:id")
+                    .setParameter("id", first.getDemographicNo()).executeUpdate();
+            patientEntityManager.clear();
+            // Check restricted scope before loading the NULL row into the legacy property-mapped entity.
+            assertThat(search("search_phone", uniquePrefix, List.of("IN"), true, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo(), inactive.getDemographicNo());
+        }
+
+        @Test
+        void shouldPreserveMobileOnlyStatusRule_whenLegacyPatientIsMarkedMerged() {
+            first.setPatientStatus("MERGED");
+            first.setPhone("different");
+            first.setPhone2("different");
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(second.getDemographicNo(), inactive.getDemographicNo());
+            first.setPhone(uniquePrefix);
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            assertThat(search("search_phone", uniquePrefix, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).contains(first.getDemographicNo());
+        }
+
+        @Test
+        void shouldKeepCurrentPatient_whenMergePointerReferencesItself() {
+            DemographicMerged merge = new DemographicMerged();
+            merge.setDemographicNo(first.getDemographicNo());
+            merge.setMergedTo(first.getDemographicNo());
+            merge.setDeleted(0);
+            demographicMergedDao.persist(merge);
+            demographicMergedDao.flush();
+            assertThat(search("search_name", uniquePrefix, null, false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+        }
+
+        @Test
+        void shouldApplyStatusFilters_whenSelectingActiveOrInactivePatients() {
+            assertThat(search("search_chart_no", uniquePrefix, List.of("IN"), true, 0, 10)).hasSize(2);
+            assertThat(search("search_hin", uniquePrefix + "P", List.of("IN"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(inactive.getDemographicNo());
+            assertThat(search("search_name", uniquePrefix, List.of(), false, 0, 10)).isEmpty();
+            assertThat(search("search_name", uniquePrefix, List.of(), true, 0, 10)).hasSize(3);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"O'Brien", "René", "山田", "A\"B", "A&B", "<b>literal</b>", "' OR 1=1 --"})
+        @DisplayName("should match literal name and address characters through bound search parameters")
+        void shouldFindLiteralPatientText_whenNamesAndAddressesContainSpecialCharacters(String text) {
+            first.setLastName(uniquePrefix + text);
+            first.setFirstName(text);
+            first.setAddress(uniquePrefix + " " + text);
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+
+            assertThat(search("search_name", uniquePrefix + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_name", uniquePrefix + "," + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_address", uniquePrefix + " " + text, List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+
+        @Test
+        @DisplayName("should retain Unicode and apostrophes across patient-search pages")
+        void shouldPreserveLiteralKeyword_whenPagingMatchingPatients() {
+            String keyword = uniquePrefix + "O'Brien-René-山田";
+            for (Demographic row : List.of(first, second)) {
+                row.setLastName(keyword);
+                demographicDao.save(row);
+            }
+            hibernateTemplate.flush();
+
+            assertThat(search("search_name", keyword, List.of("AC"), false, 0, 1))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+            assertThat(search("search_name", keyword, List.of("AC"), false, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+        }
+
+        @Test
+        void shouldBindAllSearchValues_whenInputLooksLikeSql() {
+            for (String mode : List.of("search_name", "search_phone", "search_hin", "search_chart_no", "search_address",
+                    "search_dob", "search_demographic_no", "unknown")) {
+                assertThat(search(mode, "' OR 1=1 --", null, false, 0, 10)).as(mode).isEmpty();
+            }
+        }
+
+        @Test
+        void shouldFailClosed_whenDomainProviderIsMissing() {
+            var request = new DemographicListSearch("search_name", uniquePrefix, null, null, false, 0, 10);
+            assertThat(demographicDao.searchForPatientList(request, null, false)).isEmpty();
+            assertThat(demographicDao.searchForPatientList(request, " ", false)).isEmpty();
+            assertThat(demographicDao.searchForPatientList(request, "no-such-provider", false)).isEmpty();
+        }
+
+        @Test
+        void shouldMatchDateAndIdentifier_whenSearchingSpecificPatient() {
+            first.setYearOfBirth("1883");
+            demographicDao.save(first);
+            hibernateTemplate.flush();
+            assertThat(search("search_dob", "1883-01-15", null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_demographic_no", first.getDemographicNo().toString(), null, false, 0, 10))
                     .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
         }
     }
