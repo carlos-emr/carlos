@@ -6666,7 +6666,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Owned FAKE-PW patient with one signed note, two allergies (one archived), three preventions (given, deleted, refused), one prescription row and five drugs (two custom-name rows of the same drug, one discontinued, one expired); cleanup deletes each table's owned rows and asserts them gone. Needs pdftotext.",
-      "notes": "Fails at its LAST step on 2026.08 (print downloads; active allergy with reaction/severity/start date, given/refused/deleted prevention, current/discontinued/expired medications all PASS): (1) the Allergies section prints an ARCHIVED (removed) allergy as an ordinary entry (CaseManagementPrint.java:292 findAllergies includes archived rows, printAllergies filters nothing); (2) a custom-name medication prescribed twice with another drug in between is listed twice in the Rx history (RxPrescriptionData.getUniquePrescriptionsByPatient:505-512 lets the last comparison decide)."
+      "notes": "Checks actual PDF contents: active allergy details, archived-allergy exclusion, entirely archived lists, reactivated allergies, and the Allergies section toggle, alongside prevention and medication contents. A separate final assertion retains the known duplicate-medication failure: an interleaved custom-name prescription is listed twice in Rx history."
     },
     {
       "name": "export-content-provider-service-csv",
