@@ -2,28 +2,28 @@
 <jasperReport name="pdf_rep_rej" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="startDate" class="java.lang.String" isForPrompting="false">
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="startDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="endDate" class="java.lang.String" isForPrompting="false">
+	<parameter name="endDate" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="demNoCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="demNoCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="billMasterCnt" class="java.lang.String" isForPrompting="false">
+	<parameter name="billMasterCnt" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["0"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="insurers" class="java.lang.String" isForPrompting="false">
+	<parameter name="insurers" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<parameter name="account" class="java.lang.String" isForPrompting="false">
+	<parameter name="account" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
 	<field name="providerFirstName" class="java.lang.String" />
@@ -56,10 +56,10 @@
 	<field name="expSum" class="java.lang.String" />
 	<field name="rejectionDate" class="java.lang.String" />
 	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[new Double($F{amount})]]></variableExpression>
+		<expression><![CDATA[new Double($F{amount})]]></expression>
 	</variable>
 	<group name="demoName">
-		<groupExpression><![CDATA[$F{demoName}]]></groupExpression>
+		<expression><![CDATA[$F{demoName}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
@@ -83,14 +83,10 @@
 			<text><![CDATA[Rejection Report]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="41" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="25" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="textField" mode="Transparent" x="0" y="27" width="88" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Middle" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy 'at' h:mm aaa">
 			<paragraph lineSpacing="Single" />
@@ -250,9 +246,7 @@
 			<text><![CDATA[Balance]]></text>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="12" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 	</columnHeader>
 	<detail>
@@ -368,9 +362,7 @@
 				<expression><![CDATA[$F{billingtype}]]></expression>
 			</element>
 			<element kind="line" mode="Opaque" x="0" y="100" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-				<graphicElement fill="Solid">
-					<pen lineWidth="0.5" lineStyle="Solid" />
-				</graphicElement>
+				<pen lineWidth="0.5" lineStyle="Solid" />
 			</element>
 			<element kind="textField" mode="Opaque" x="217" y="27" width="69" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-4" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 				<paragraph lineSpacing="Single" />

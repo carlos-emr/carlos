@@ -54,6 +54,23 @@ import org.xml.sax.SAXException;
 @Tag("fast")
 class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    void shouldServeMohStylesheets_withoutBypassingBillingActions() throws Exception {
+        String exclusion = collectConstants(parseXml(resolveProjectPath(STRUTS_XML)))
+                .get("struts.action.excludePattern");
+        for (String context : List.of("", "/carlos")) {
+            for (String stylesheet : List.of("ES", "OU")) {
+                assertThat((context + "/billing/CA/ON/" + stylesheet + ".xsl").matches(exclusion)).isTrue();
+                assertThat(resolveProjectPath(Path.of("src/main/webapp/billing/CA/ON/" + stylesheet + ".xsl")))
+                        .isRegularFile();
+            }
+            for (String route : List.of("billingLreport", "BillingDocumentErrorReportUpload",
+                    "InrUpdateINRbilling", "DbUpdateINRbilling", "unlisted.xsl")) {
+                assertThat((context + "/billing/CA/ON/" + route).matches(exclusion)).isFalse();
+            }
+        }
+    }
+
     private static final String BASEDIR_PROPERTY = "basedir";
     private static final String EXPECTED_STRUTS_DOCTYPE =
             "<!DOCTYPE struts PUBLIC \"-//Apache Software Foundation//DTD Struts Configuration 6.5//EN\" "

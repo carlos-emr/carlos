@@ -690,6 +690,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         app.and("bch.demographicNo = d.demographicNo");
         app.and("bch.demographicNo = :demoNo", "demoNo", demoNo);
         app.and("bch.payProgram = :payProgram", "payProgram", payProgram);
+        app.and("(bch.status IS NULL OR bch.status <> 'D')");
         app.and("bch.billingDate >= :fromDate", "fromDate", (new SimpleDateFormat("yyyy-MM-dd")).format(fromDate));
         app.and("bch.billingDate <= :toDate", "toDate", (new SimpleDateFormat("yyyy-MM-dd")).format(toDate));
         app.addOrder("bch.id");

@@ -4574,8 +4574,23 @@
         "DOCUMENT_DIR",
         "ONEDT_INBOX"
       ],
-      "notes": "Fails on 2026.08: the billing report renders the request headers (including the session cookie) as its column headers; the statement PDF answers 500, the INR update form 405s and the L report renders blank.",
+      "notes": "Regression #4138: correct billed-report headers and cells, complete year-end PDF, ES/OU MOH report rendering with visible invalid-file errors, and INR edit navigation, POST save/opener refresh, and GET mutation refusal.",
       "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
+    },
+    {
+      "name": "billing-on-year-end-statement",
+      "script": "scripts/billing-on-year-end-statement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Verifies a real PDF download, matching HTML/PDF totals, ISO dates, two-decimal amounts, active/settled invoice services, and deleted/OHIP/out-of-range exclusion. Requires pdftotext.",
+      "fixtures": "Owned workflow patient and six billing invoices/items with statuses and dates at both boundaries; all removed."
     },
     {
       "name": "patient-swipe-card-search",

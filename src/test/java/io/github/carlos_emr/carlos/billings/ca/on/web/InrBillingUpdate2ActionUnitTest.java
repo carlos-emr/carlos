@@ -35,6 +35,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -53,7 +55,7 @@ import static org.mockito.Mockito.never;
 
 /**
  * Unit tests for {@link InrBillingUpdate2Action}. Pins the {@code _billing/w}
- * privilege gate and the POST-only contract on the INR-billing-update view.
+ * privilege gate and read-only GET/HEAD/POST contract on the INR-billing-update view.
  *
  * @since 2026-04-29
  */
@@ -96,8 +98,10 @@ class InrBillingUpdate2ActionUnitTest extends CarlosUnitTestBase {
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
-    @Test
-    void shouldAssembleAndReturnSuccess_whenPrivilegeGranted() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldAssembleAndReturnSuccess_whenPrivilegeGranted(String method) throws Exception {
+        mockRequest.setMethod(method);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
         InrBillingUpdateViewModel vm = InrBillingUpdateViewModel.builder().build();
@@ -145,16 +149,18 @@ class InrBillingUpdate2ActionUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("missing session");
     }
 
-    @Test
-    void shouldReturn405_whenNotPost() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"PUT", "PATCH", "DELETE", "OPTIONS"})
+    void shouldReturn405_whenMethodUnsupported(String method) throws Exception {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
-        mockRequest.setMethod("GET");
+        mockRequest.setMethod(method);
 
         InrBillingUpdate2Action action = new InrBillingUpdate2Action(mockSecurityInfoManager, mockAssembler);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(405);
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("GET, HEAD, POST");
         verify(mockAssembler, never()).assemble(any(HttpServletRequest.class));
     }
 }

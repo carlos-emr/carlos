@@ -10,11 +10,11 @@
  * Asserted (DB + page): one billed-report row per owned open claim in range; INR generation writes
  * one claim (header + item) for the ticked row and stamps it billed; GET on the generator is 405
  * and writes nothing; the statement lists exactly the owned PAT invoices in the window with items
- * and totals. The last four steps assert behaviour the app lacks today: billed-report cells/headers
- * (forEach var "header" renders the request headers, Cookie included), the statement PDF (HTTP 500),
- * the L report render (ES.xsl 404) and the INR update form (405 to its own GET opener).
+ * and totals. Regressions cover the report's own column headers/cells, the complete statement PDF,
+ * both MOH stylesheets, visible malformed-report errors, and the INR edit form's read-only GET
+ * opener. Saving/deleting and batch generation still require POST.
  * Fixtures: runWorkflow FAKE- patient, a FAKE- billable provider + reportprovider row, a billinginr
- * row, four seeded claims, the uploaded L file (DOCUMENT_DIR + ONEDT_INBOX); all removed and
+ * row, four seeded claims, uploaded L files (DOCUMENT_DIR + ONEDT_INBOX); all removed and
  * re-checked in cleanup. Without pdftotext, or without DOCUMENT_DIR and the MOH inbox, only the
  * PDF / L-report step is reported SKIP; the rest still runs and the check then ends SKIP, never PASS.
  * Implements coverage-plan billing-on-reports-inr-eoy.
@@ -94,7 +94,7 @@ async function workflow(s) {
     || (documentDir ? path.join(path.dirname(documentDir), 'onEDTDocs', 'inbox') : '');
   const inboxSkip = documentDir && fs.existsSync(documentDir) && inbox && fs.existsSync(inbox) ? ''
     : 'DOCUMENT_DIR and ONEDT_INBOX (the document and MOH inbox folders) are not set or do not exist';
-  const mohName = `L${marker.replace(/^FAKE-PW/, '')}.xml`;
+  const mohNames = ['ES', 'OU', 'invalid'].map(type => `L1${type}${marker.replace(/^FAKE-PW/, '')}.xml`);
   const skipped = [];
   /** Run a step, or report it as SKIP (never PASS) when its prerequisite is missing. */
   async function optionalStep(label, skipReason, body) {
@@ -106,7 +106,7 @@ async function workflow(s) {
 
   s.cleanup(() => {
     // The upload stores the report in DOCUMENT_DIR and copies it into the MOH inbox.
-    const copies = [inbox, documentDir].filter(Boolean).map(dir => path.join(dir, mohName));
+    const copies = [inbox, documentDir].filter(Boolean).flatMap(dir => mohNames.map(name => path.join(dir, name)));
     for (const copy of copies) fs.rmSync(copy, { force: true });
     h.assert(copies.every(copy => !fs.existsSync(copy)), 'The owned MOH report files were not removed');
     const headers = sql.rows(`SELECT id FROM billing_on_cheader1 WHERE demographic_no=${patient}`).map(r => r[0]);
@@ -173,6 +173,7 @@ async function workflow(s) {
     ({ page: index } = await ui.clickOpensPopupOrNavigates(s.schedule, link,
       { context: s.context, recorder: s.recorder, label: 'report-index', timeout: 20000 }));
     report = await s.popup(index, index.locator('a[href*="/billing/CA/ON/ViewBillingReportCenter"]').first(), 'billing-report');
+    await report.setExtraHTTPHeaders({ 'X-Carlos-Report-Probe': `${marker}-header` });
     await report.locator('form[name="serviceform"]').waitFor();
     await h.assertNotErrorPage(report, 'billing report');
     const offered = await report.locator('select[name="providerview"] option').evaluateAll(o => o.map(x => x.value));
@@ -294,6 +295,8 @@ async function workflow(s) {
     const headers = (await report.locator('#reportTbl thead th').allTextContents()).map(t => t.trim());
     h.assert(JSON.stringify(headers) === JSON.stringify(['SERVICE DATE', 'TIME', 'PATIENT', 'DESCRIPTION', 'ACCOUNT']),
       'The billed report column headers are not the report\'s column names (they render the request headers instead)');
+    h.assert(!(await report.locator('#reportTbl').innerText()).includes(`${marker}-header`),
+      'HTTP request headers leaked into the billing report');
     const rows = await report.locator('#reportTbl tbody tr').evaluateAll(trs => trs.map(tr => [...tr.cells]
       .map(c => c.textContent.replace(/\s+/g, ' ').trim())));
     for (const bill of inRange) {
@@ -329,21 +332,36 @@ async function workflow(s) {
     h.assert(text.includes(invoiced) && text.includes(paid), 'The PDF does not carry the invoiced and paid totals');
   });
 
-  await optionalStep('Upload MOH File ▸ an L (outside use) report opens in billingLreport through its XSL', inboxSkip,
+  await optionalStep('Upload MOH File ▸ ES and OU reports render through their packaged stylesheets', inboxSkip,
     async () => {
-      const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
-      await upload.locator('input[name="file1"]').setInputFiles({ name: mohName, mimeType: 'text/xml', buffer: Buffer.from(
-        `<?xml version="1.0"?><REPORT><REPORT-DTL><REPORT-NAME>${marker} EDT REPORT</REPORT-NAME>`
-        + `<REPORT-ID>${ids.ohip}</REPORT-ID><REPORT-DATE>${today}</REPORT-DATE></REPORT-DTL></REPORT>\n`) });
-      await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
-      h.assert(fs.existsSync(path.join(inbox, mohName)), 'The uploaded L report was not copied into the MOH inbox');
-      const rendered = await upload.locator('#MOHreport').getByText(`${marker} EDT REPORT`)
-        .waitFor({ timeout: 15000 }).then(() => true, () => false);
-      h.assert(rendered, 'billingLreport did not render the uploaded L report (its XSL transform produced nothing)');
-      h.assert((await upload.locator('#MOHreport').innerText()).includes(ids.ohip), 'The rendered L report does not show its report id');
+      for (const [index, type] of ['ES', 'OU'].entries()) {
+        const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
+        const mohName = mohNames[index];
+        await upload.locator('input[name="file1"]').setInputFiles({ name: mohName, mimeType: 'text/xml', buffer: Buffer.from(
+          `<?xml version="1.0"?><REPORT><REPORT-DTL><REPORT-NAME>${marker} ${type} REPORT</REPORT-NAME>`
+          + `<REPORT-ID>${ids.ohip}</REPORT-ID><REPORT-DATE>${today}</REPORT-DATE></REPORT-DTL></REPORT>\n`) });
+        await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
+        h.assert(fs.existsSync(path.join(inbox, mohName)), 'The uploaded L report was not copied into the MOH inbox');
+        const rendered = await upload.locator('#MOHreport').getByText(`${marker} ${type} REPORT`)
+          .waitFor({ timeout: 15000 }).then(() => true, () => false);
+        h.assert(rendered, 'billingLreport did not render the uploaded L report (its XSL transform produced nothing)');
+        h.assert((await upload.locator('#MOHreport').innerText()).includes(ids.ohip), 'The rendered L report does not show its report id');
+        h.assert(await upload.locator('#MOHreportError').isHidden(), 'A valid report displayed an error');
+      }
     });
 
+  await optionalStep('Malformed MOH XML shows an error instead of a blank report', inboxSkip, async () => {
+    const upload = await openAdminFrame(admin, '/billing/CA/ON/BillingONUpload', 'input[type="file"][name="file1"]');
+    await upload.locator('input[name="file1"]').setInputFiles({ name: mohNames[2], mimeType: 'text/xml',
+      buffer: Buffer.from('<REPORT><REPORT-DTL>') });
+    await frameNavigation(admin, upload, () => upload.locator('input[type="submit"][value="Create Report"]').click());
+    await upload.locator('#MOHreportError').waitFor({ state: 'visible' });
+    h.assert((await upload.locator('#MOHreport').innerText()).trim() === '', 'Invalid report left partial content');
+  });
+
+  let inrEditor;
   await s.step('INR row ▸ patient name opens the INR update form for that row', async () => {
+    const before = sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`);
     inr = await openAdminFrame(admin, '/billing/CA/ON/ViewInrReportINR?provider_no=all', 'select[name="provider"]');
     const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
     const [popup, answer] = await Promise.all([
@@ -353,9 +371,44 @@ async function workflow(s) {
       row.locator('a', { hasText: marker }).click(),
     ]);
     await popup.waitForLoadState('domcontentloaded');
+    inrEditor = popup;
     h.assert(answer.status() === 200, `The INR update form answered HTTP ${answer.status()} to its opener's ${answer.request().method()}`);
     h.assert(await popup.locator('input[name="billinginr_no"]').inputValue() === ids.inr
       && await popup.locator('input[name="diag_code"]').inputValue() === INR_DX, 'The INR update form did not load the row');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`)) === JSON.stringify(before),
+      'Opening the INR edit form changed the billing row');
+    const saveUrl = await popup.locator('form[name="serviceform"]').evaluate(form => form.action);
+    h.assert(new URL(saveUrl).pathname.endsWith('/billing/CA/ON/inr/DbUpdateINRbilling'),
+      'The INR edit form points at an unmapped save action');
+    const rejected = await s.context.request.get(saveUrl, {
+      params: { billinginr_no: ids.inr, inraction: 'delete', service_code: INR_CODE, diag_code: INR_DX }, maxRedirects: 0,
+    });
+    h.assert(rejected.status() === 405 && rejected.headers().allow === 'POST', 'GET INR deletion was not refused');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`)) === JSON.stringify(before),
+      'A refused GET changed the INR row');
+  });
+
+  await s.step('INR edit ▸ Update persists the diagnosis through the mapped POST action', async () => {
+    const claimCount = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
+    await inrEditor.locator('input[name="diag_code"]').fill('250');
+    const refreshed = admin.waitForEvent('framenavigated', { predicate: frame => frame === inr, timeout: 30000 });
+    const closed = inrEditor.waitForEvent('close', { timeout: 30000 });
+    refreshed.catch(() => {});
+    closed.catch(() => {});
+    const [response] = await Promise.all([
+      s.context.waitForEvent('response', { timeout: 30000, predicate: r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/ON/inr/DbUpdateINRbilling') }),
+      inrEditor.locator('input[name="inraction"][value="update"]').click(),
+    ]);
+    h.assert(response.status() === 200, `INR update answered HTTP ${response.status()}`);
+    await expectValue(sql, `SELECT CONCAT_WS('|',diagnostic_code,service_code,billing_amount,status) FROM billinginr
+      WHERE billinginr_no=${ids.inr}`, `250|${INR_CODE}|${inrFee}|A`, 'The INR update did not persist the intended values');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === claimCount,
+      'Editing the INR row created a duplicate claim');
+    await Promise.all([refreshed, closed]);
+    await inr.waitForLoadState('domcontentloaded');
+    const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
+    h.assert((await row.innerText()).includes('250'), 'The INR list did not refresh with the saved diagnosis');
   });
 
   // Every other step ran; the outcome must still not read as full coverage.
