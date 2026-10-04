@@ -90,10 +90,12 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
+     * Storage and handler failures are logged and reported according to transaction completion.
+     *
      * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
      *         or "manage" with errors when storage was rejected, rolled back or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
-     * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
+     * @throws Exception for form-field parsing or file I/O errors before storage begins
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
