@@ -210,6 +210,17 @@ public class BillingClaimSubmissionService {
         boolean ret = false;
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
+        if (isSettlePrint(requestData)) {
+            BillingClaimSubmission submission = BillingClaimSubmission.fromLegacy(claimEnvelope);
+            BigDecimal discount = submission.items().stream()
+                    .map(item -> BillingMoney.parseNonNegativeAmount(item.discount(), "discount"))
+                    .reduce(BillingMoney.zeroAmount(), BigDecimal::add);
+            // Use the same derived amounts as the header/items, not the review's
+            // hidden totals (which may still be zero when Settle & Print is clicked).
+            val.put("total_payment", submission.header().paid());
+            val.put("total_discount", BillingMoney.format(discount));
+            val.put("total", submission.header().total());
+        }
         ret = claimPersister.add3rdBillExt(val, billingId, claimEnvelope);
         if (!ret) {
             _logger.error("addPrivateBillExtRecord failed for billingId={} while updating claim envelope",
@@ -299,17 +310,43 @@ public class BillingClaimSubmissionService {
 
     // ret - ArrayList claimheader1data, itemdata
     ArrayList getBillingClaimObj(HttpServletRequest requestData) {
-        ArrayList ret = new ArrayList();
         BillingClaimHeaderDto claim1Header = getClaimHeader1Obj(requestData);
-        ret.add(claim1Header);
         BillingClaimItemDto[] itemData = getItemObj(requestData);
-
-        List aL = new ArrayList();
-        for (int i = 0; i < itemData.length; i++) {
-            aL.add(itemData[i]);
+        BillingClaimSubmission submission = new BillingClaimSubmission(claim1Header, List.of(itemData));
+        if (isSettlePrint(requestData)) {
+            submission = settlePrivateInvoice(submission);
         }
-        ret.add(aL);
-        return ret;
+        return submission.toLegacyArrayList();
+    }
+
+    private boolean isSettlePrint(HttpServletRequest request) {
+        return "SETTLE_PRINT".equals(request.getParameter("billingAction"));
+    }
+
+    /** Derive full settlement from the reviewed item amounts before any writes occur. */
+    private BillingClaimSubmission settlePrivateInvoice(BillingClaimSubmission submission) {
+        if (!submission.header().payProgram().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+            throw new BillingValidationException("Settle & Print requires a private billing program.");
+        }
+        BigDecimal total = BillingMoney.zeroAmount();
+        BigDecimal paid = BillingMoney.zeroAmount();
+        List<BillingClaimItemDto> settledItems = new ArrayList<>();
+        for (BillingClaimItemDto item : submission.items()) {
+            BigDecimal fee = BillingMoney.parseNonNegativeAmount(item.fee(), "fee");
+            BigDecimal discount = BillingMoney.parseNonNegativeAmount(item.discount(), "discount");
+            if (discount.compareTo(fee) > 0) {
+                throw new BillingValidationException("The discount cannot exceed the service fee. Return to edit the bill.");
+            }
+            BigDecimal itemPaid = fee.subtract(discount);
+            total = total.add(fee);
+            paid = paid.add(itemPaid);
+            settledItems.add(item.withPaid(BillingMoney.format(itemPaid)));
+        }
+        if (total.compareTo(BillingMoney.parseNonNegativeAmount(submission.header().total(), "total")) != 0) {
+            throw new BillingValidationException("The invoice total must match the service fees. Return to edit the bill.");
+        }
+        return new BillingClaimSubmission(submission.header().withStatus("S").withPaid(BillingMoney.format(paid)),
+                settledItems);
     }
 
     // ret - ArrayList claimheader1data, itemdata

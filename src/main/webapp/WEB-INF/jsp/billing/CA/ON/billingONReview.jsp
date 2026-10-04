@@ -45,7 +45,6 @@
 <%-- i18n message variables for JavaScript alerts and submit button values --%>
 <fmt:message var="msgEnterNumbers" key="oscar.billing.ca.on.billingON.review.alertEnterNumbers"/>
 <fmt:message var="msgEnterValidFee" key="oscar.billing.ca.on.billingON.review.alertEnterValidFee"/>
-<fmt:message var="msgSelectPaymentMethod" key="oscar.billing.ca.on.billingON.review.alertSelectPaymentMethod"/>
 <fmt:message var="msgNothingSelected" key="oscar.billing.ca.on.billingON.review.alertNothingSelected"/>
 <fmt:message var="msgConfirmAddDxRegistry" key="oscar.billing.ca.on.billingON.review.confirmAddDxRegistry"/>
 <fmt:message var="msgBtnBackToEdit" key="oscar.billing.ca.on.billingON.review.btnBackToEdit"/>
@@ -222,33 +221,6 @@
             }
 
             return displayTotal;
-        }
-
-        function checkPaymentMethod(settle) {
-            var payMethods = document.getElementsByName("payMethod");
-            var checkedMethod = false;
-
-            if (settle != "Settle" && document.forms[0].payment.value == 0) {
-                return true;
-            }
-
-            for (var idx = 0; idx < payMethods.length; ++idx) {
-                if (payMethods[idx].checked) {
-                    checkedMethod = true;
-                    break;
-                }
-            }
-
-            if (!checkedMethod) {
-                alert("${carlos:forJavaScript(msgSelectPaymentMethod)}");
-            } else if (settle == "Settle") {
-                document.forms['titlesearch'].btnPressed.value = 'Settle';
-                document.forms['titlesearch'].submit();
-                popupPage(700, 720, ctx + '/billing/CA/ON/ViewBillingON3rdInv');
-            }
-
-            return checkedMethod;
-
         }
 
         function toggle(id) {
@@ -769,10 +741,12 @@
             <input type="submit" value="<carlos:encode value='${msgBtnSavePrint}' context='htmlAttribute'/>" class="btn btn-secondary"
                    style="width: 150px;"
                    onclick="document.getElementById('billingAction').value='SAVE_PRINT';"/>
-            <input type="button" id="settlePrintBtn" class="btn btn-primary"
+            <%-- Native submission runs onSave even when an echoed field is named submit.
+                 The successful save response opens the invoice using the persisted bill number. --%>
+            <input type="submit" id="settlePrintBtn" class="btn btn-primary"
                    value="<carlos:encode value='${msgBtnSettlePrint}' context='htmlAttribute'/>"
                    style="width: 160px;"
-                   onclick="document.getElementById('billingAction').value='SETTLE_PRINT'; document.forms['titlesearch'].submit(); popupPage(700,720,'${pageContext.request.contextPath}/billing/CA/ON/ViewBillingON3rdInv');"/>
+                   onclick="document.getElementById('billingAction').value='SETTLE_PRINT';"/>
             </c:if>
             <input type="hidden" name="total_payment" id="total_payment" value="0.00"/>
             <input type="hidden" name="total_discount" id="total_discount" value="0.00"/>
