@@ -51,12 +51,7 @@ public final class EFormSubmissionGuard {
         String token = UUID.randomUUID().toString();
         synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Entry> entries = copyEntries(session);
-            if (entries.size() >= MAX_PENDING) {
-                String consumed = entries.entrySet().stream().filter(entry -> entry.getValue().claimed())
-                        .map(Map.Entry::getKey).findFirst().orElse(entries.firstEntry().getKey());
-                entries.remove(consumed);
-            }
-            entries.put(token, new Entry(fid, patient, false));
+            putBounded(entries, token, new Entry(fid, patient, false));
             session.setAttribute(SESSION_KEY, new Pending(entries));
         }
         return token;
@@ -81,8 +76,17 @@ public final class EFormSubmissionGuard {
             }
             entries.put(token, new Entry(fid, patient, true));
             session.setAttribute(SESSION_KEY, new Pending(entries));
-            return new Attempt(new Claim(session, token), false);
+            return new Attempt(new Claim(session, token, entry), false);
         }
+    }
+
+    private static void putBounded(LinkedHashMap<String, Entry> entries, String token, Entry entry) {
+        if (!entries.containsKey(token) && entries.size() >= MAX_PENDING) {
+            String consumed = entries.entrySet().stream().filter(item -> item.getValue().claimed())
+                    .map(Map.Entry::getKey).findFirst().orElse(entries.firstEntry().getKey());
+            entries.remove(consumed);
+        }
+        entries.put(token, entry);
     }
 
     private static LinkedHashMap<String, Entry> copyEntries(HttpSession session) {
@@ -98,11 +102,14 @@ public final class EFormSubmissionGuard {
     public static final class Claim implements AutoCloseable {
         private final HttpSession session;
         private final String token;
+        private final Entry retryEntry;
+        private boolean closed;
         private volatile int completion = -1;
 
-        private Claim(HttpSession session, String token) {
+        private Claim(HttpSession session, String token, Entry retryEntry) {
             this.session = session;
             this.token = token;
+            this.retryEntry = retryEntry;
         }
 
         /** Called first inside the transaction callback, before saving the form or its attachments. */
@@ -124,13 +131,19 @@ public final class EFormSubmissionGuard {
         }
 
         @Override
-        public void close() {
+        public synchronized void close() {
+            // A repeated close must not release a later retry's reservation.
+            if (closed) return;
+            closed = true;
             if (!canRetry()) {
                 return;
             }
             synchronized (WebUtils.getSessionMutex(session)) {
                 LinkedHashMap<String, Entry> entries = copyEntries(session);
-                entries.computeIfPresent(token, (key, entry) -> new Entry(entry.fid(), entry.patient(), false));
+                // Keep the original scope in this request-local claim. Even if new views evicted
+                // its session entry while storage was in flight, a proven rollback can restore
+                // the retry without exceeding the session bound. Never restore an uncertain save.
+                putBounded(entries, token, retryEntry);
                 session.setAttribute(SESSION_KEY, new Pending(entries));
             }
         }

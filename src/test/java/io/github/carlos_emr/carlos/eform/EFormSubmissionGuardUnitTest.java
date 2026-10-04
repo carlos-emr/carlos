@@ -49,6 +49,7 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
         try (var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {
             assertThat(claim).isNotNull();
             claim.storageStarted();
+            for (int i = 0; i < 64; i++) issue();
         }
         assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
     }
@@ -60,6 +61,34 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
             assertThat(claim).isNotNull();
         }
         assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNotNull();
+    }
+
+    @Test
+    void shouldRestoreRetry_whenPreparationClaimIsEvicted() {
+        String token = issue();
+        String oldestNewView;
+        try (var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {
+            assertThat(claim).isNotNull();
+            oldestNewView = issue();
+            for (int i = 0; i < 63; i++) issue();
+            assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
+        }
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNotNull();
+        // Restoring this retry must still respect the bounded set of editing opportunities.
+        assertThat(EFormSubmissionGuard.attempt(session, oldestNewView, "1", "123").claim()).isNull();
+    }
+
+    @Test
+    void shouldNotReleaseNewAttempt_whenAnOldClaimIsClosedAgain() {
+        String token = issue();
+        var first = EFormSubmissionGuard.attempt(session, token, "1", "123").claim();
+        first.close();
+        try (var retry = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {
+            assertThat(retry).isNotNull();
+            first.close();
+            assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
+            retry.storageStarted();
+        }
     }
 
     @Test

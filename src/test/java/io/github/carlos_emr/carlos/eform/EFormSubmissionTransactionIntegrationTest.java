@@ -49,6 +49,7 @@ class EFormSubmissionTransactionIntegrationTest extends CarlosTestBase {
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private EFormDataDao forms;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entities;
+    private boolean evictDuringSave;
     private final MockHttpSession session = new MockHttpSession();
     private final String marker = "submission-" + UUID.randomUUID();
     private final String token = EFormSubmissionGuard.issue(session, "1", "123");
@@ -79,6 +80,9 @@ class EFormSubmissionTransactionIntegrationTest extends CarlosTestBase {
                 row.setRoleType("");
                 forms.persist(row);
                 entities.flush();
+                if (evictDuringSave) {
+                    for (int i = 0; i < 64; i++) EFormSubmissionGuard.issue(session, "1", "123");
+                }
                 if (rollback) tx.setRollbackOnly();
                 if (failAfterCommit) TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                     @Override public void afterCommit() { throw new IllegalStateException("synthetic callback failure"); }
@@ -106,6 +110,25 @@ class EFormSubmissionTransactionIntegrationTest extends CarlosTestBase {
         assertThat(rows()).isZero();
         save(false, false);
         assertThat(rows()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldAllowRollbackRetry_whenNewViewsEvictTheActiveIdentity() {
+        evictDuringSave = true;
+        save(true, false);
+        assertThat(rows()).isZero();
+        evictDuringSave = false;
+        save(false, false);
+        assertThat(rows()).isEqualTo(1);
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
+    }
+
+    @Test
+    void shouldKeepCommittedSaveConsumed_whenNewViewsEvictTheActiveIdentity() {
+        evictDuringSave = true;
+        save(false, false);
+        assertThat(rows()).isEqualTo(1);
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
     }
 
     @Test
