@@ -507,7 +507,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
         try {
             dbf.setAttribute(name, value);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
         }
     }
