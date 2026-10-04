@@ -5860,8 +5860,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Settle & Print Invoice does nothing because its onclick calls document.forms['titlesearch'].submit() and the form holds an input named 'submit' (TypeError: submit is not a function), so no claim is saved or settled. Back to Edit, Save & Print Invoice and Save & Add Another pass.",
-      "fixtures": "createBillingFixture, four owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
+      "notes": "Covers Back to Edit, Save & Print, Save & Add Another and Settle & Print with and without discounts. Asserts one invoice popup for the saved bill and matching claim, payment, item-payment, extension and audit amounts, including the echoed submit-field regression (#4151).",
+      "fixtures": "createBillingFixture, five owned appointments today; claims, ext, payment and audit rows written by the browser removed by id and asserted gone."
     },
     {
       "name": "gap-billing-correction-admin-actions",
