@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -82,7 +83,7 @@ class DepressionContinuityReporterUnitTest extends CarlosUnitTestBase {
     }
 
     static Stream<Object> dates() {
-        return Stream.of(LocalDate.of(2026, 3, 4), Date.valueOf("2026-03-04"));
+        return Stream.of(LocalDate.of(2026, java.time.Month.MARCH, 4), Date.valueOf("2026-03-04"));
     }
 
     @ParameterizedTest
@@ -123,6 +124,30 @@ class DepressionContinuityReporterUnitTest extends CarlosUnitTestBase {
         assertThat(table.select("table.reportTable > thead > tr > th")).hasSize(9);
         assertThat(table.select("table.reportTable > tbody > tr")).isEmpty();
         verifyNoInteractions(appointmentDao);
+    }
+
+    static Stream<Arguments> medicationNames() {
+        return Stream.of(Arguments.of("Brand", "Generic", "Custom", "Brand"),
+                Arguments.of(null, "Generic", "Custom", "Generic"),
+                Arguments.of("null", "NULL", "Custom", "Custom"),
+                Arguments.of("NULL", null, null, ""),
+                Arguments.of("", "Generic", "Custom", ""),
+                Arguments.of("null", "null", "null", "null"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("medicationNames")
+    void shouldKeepDrugNameFallbacks_whenStoredNamesContainLegacyNullMarkers(String brand, String generic, String custom, String expected) {
+        when(billingDao.findDemographicsAndBillingsByDxAndServiceDates(anyList(), any(), any()))
+                .thenReturn(Collections.singletonList(diagnosis(42)));
+        Object[] visit = appointment(42, Date.valueOf("2026-03-04"));
+        visit[4] = brand;
+        visit[7] = generic;
+        visit[8] = custom;
+        when(appointmentDao.findAppointmentsByDemographicIds(anySet(), any(), any()))
+                .thenReturn(Collections.singletonList(visit));
+        assertThat(new DepressionContinuityReporter().generateReport(request)).isTrue();
+        assertThat((String) request.getAttribute("csv")).contains(",A007A," + expected + ",Prescriber\n");
     }
 
     @Test

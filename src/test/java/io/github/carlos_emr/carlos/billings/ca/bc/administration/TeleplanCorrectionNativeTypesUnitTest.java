@@ -36,7 +36,7 @@ class TeleplanCorrectionNativeTypesUnitTest {
     void shouldPreserveWcbDatesFlagsAndDuration_whenNativeOrJdbcValuesReturned(boolean modern, int duration) {
         Object[] row = new Object[61];
         Arrays.fill(row, "");
-        Object date = modern ? LocalDate.of(2026, 3, 4) : java.sql.Date.valueOf("2026-03-04");
+        Object date = modern ? LocalDate.of(2026, java.time.Month.MARCH, 4) : java.sql.Date.valueOf("2026-03-04");
         row[24] = date;
         row[37] = date;
         row[44] = date;

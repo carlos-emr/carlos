@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class MDSNativeQueryTypesUnitTest extends CarlosUnitTestBase {
     private ProviderLabRoutingDao dao;
-    private static final LocalDateTime RECEIVED = LocalDateTime.of(2026, 3, 4, 12, 34, 56);
+    private static final LocalDateTime RECEIVED = LocalDateTime.of(2026, java.time.Month.MARCH, 4, 12, 34, 56);
 
     @BeforeEach
     void setUp() {

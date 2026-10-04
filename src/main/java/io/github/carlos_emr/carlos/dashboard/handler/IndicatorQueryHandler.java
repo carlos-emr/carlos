@@ -111,29 +111,32 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     @SuppressWarnings("unchecked")
     static List<GraphPlot[]> createGraphPlots(List<?> results, boolean displayNumbers) {
         List<GraphPlot[]> graphPlotList = null;
-        if (!displayNumbers) {
-            BigDecimal denominator = BigDecimal.ZERO;
-            for (Object row : results) {
-                for (Object value : ((Map<String, ?>) row).values()) {
-                    denominator = denominator.add(asDecimal(value));
-                }
-            }
-            if (denominator.signum() > 0) {
-                for (Object row : results) {
-                    Map<String, Object> values = (Map<String, Object>) row;
-                    for (Map.Entry<String, Object> entry : values.entrySet()) {
-                        BigDecimal numerator = asDecimal(entry.getValue());
-                        entry.setValue(numerator.multiply(BigDecimal.valueOf(100))
-                                .divide(denominator, MathContext.DECIMAL64));
-                    }
-                }
-            }
-        }
+        if (!displayNumbers) convertCountsToPercentages(results);
         for (Object row : results) {
             if (graphPlotList == null) graphPlotList = new ArrayList<>();
             graphPlotList.add(createGraphPlots((Map<String, ?>) row, displayNumbers));
         }
         return graphPlotList;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void convertCountsToPercentages(List<?> results) {
+        BigDecimal denominator = BigDecimal.ZERO;
+        for (Object row : results) {
+            for (Object value : ((Map<String, ?>) row).values()) {
+                denominator = denominator.add(asDecimal(value));
+            }
+        }
+        if (denominator.signum() > 0) {
+            for (Object row : results) {
+                Map<String, Object> values = (Map<String, Object>) row;
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    BigDecimal numerator = asDecimal(entry.getValue());
+                    entry.setValue(numerator.multiply(BigDecimal.valueOf(100))
+                            .divide(denominator, MathContext.DECIMAL64));
+                }
+            }
+        }
     }
 
     private static BigDecimal asDecimal(Object value) {

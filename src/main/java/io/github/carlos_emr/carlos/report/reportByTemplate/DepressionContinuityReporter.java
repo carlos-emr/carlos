@@ -156,7 +156,6 @@ public class DepressionContinuityReporter implements Reporter {
         Set<String> setDemo = demographics.keySet();
         if (setDemo.isEmpty()) return;
         Set<String> rendered = new HashSet<>();
-        String rxName, rxPrescriber;
         for (Object[] o : dao.findAppointmentsByDemographicIds(setDemo, from, to)) {
 
             String p1 = ConversionUtils.toDateString(NativeQueryValues.asDate(o[0]));    // "a.appointment_date, " +
@@ -183,20 +182,11 @@ public class DepressionContinuityReporter implements Reporter {
             rsHtml.append("<td>" + p7 + "</td><td>&nbsp;</td><td>&nbsp;</td>");
             rsHtml.append("<td>" + p1 + "</td><td>" + p2 + "</td><td>" + p3 + "</td>");
 
-            rxName = p5;
-            if (rxName == null || rxName.equalsIgnoreCase("null")) {
-                rxName = p8;
-                if (rxName == null || rxName.equalsIgnoreCase("null")) {
-                    rxName = p9;
-                }
-            }
-            if (rxName == null) {
-                rxName = "";
-            }
+            String rxName = medicationName(p5, p8, p9);
+            String rxPrescriber = p6 == null ? " " : p6;
 
-            rxPrescriber = p6 == null ? " " : p6;
-
-            rsHtml.append("<td>" + p4 + "</td><td>" + rxName + "</td><td>" + rxPrescriber + "</td>");
+            rsHtml.append("<td>").append(p4).append("</td><td>").append(rxName)
+                    .append("</td><td>").append(rxPrescriber).append("</td>");
             rsHtml.append("</tr>");
 
             csv.append(p7 + ",, ");
@@ -211,6 +201,14 @@ public class DepressionContinuityReporter implements Reporter {
                 csv.append(csvMap.get(demographicNo));
             }
         }
+    }
+
+    /** Select the stored brand, generic or custom drug name using the legacy NULL markers. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison of legacy SQL NULL markers, not an authorization decision")
+    private static String medicationName(String brand, String generic, String custom) {
+        if (brand != null && !brand.equalsIgnoreCase("null")) return brand;
+        if (generic != null && !generic.equalsIgnoreCase("null")) return generic;
+        return custom == null ? "" : custom;
     }
 
     private StringBuilder makeHTMLHeader() {

@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
 /** Tests real DAO row mapping with Hibernate 7 and legacy JDBC scalar types. */
 @Tag("unit")
 class NativeQueryLegacyTypesUnitTest extends CarlosUnitTestBase {
-    private static final LocalDateTime CREATED = LocalDateTime.of(2026, 3, 4, 12, 34, 56);
+    private static final LocalDateTime CREATED = LocalDateTime.of(2026, java.time.Month.MARCH, 4, 12, 34, 56);
 
     private record VacancyCase(String name, Function<WaitlistDaoImpl, List<VacancyDisplayBO>> query,
             Function<Object, Object[]> row) { }

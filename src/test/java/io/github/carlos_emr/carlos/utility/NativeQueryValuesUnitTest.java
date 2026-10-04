@@ -39,7 +39,7 @@ class NativeQueryValuesUnitTest {
         var original = TimeZone.getDefault();
         try {
             TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
-            assertThat(NativeQueryValues.asString(LocalDateTime.of(2026, 3, 8, 2, 30)))
+            assertThat(NativeQueryValues.asString(LocalDateTime.of(2026, java.time.Month.MARCH, 8, 2, 30)))
                     .isEqualTo("2026-03-08 02:30:00.0");
         } finally {
             TimeZone.setDefault(original);
@@ -48,7 +48,7 @@ class NativeQueryValuesUnitTest {
 
     @Test
     void shouldKeepFractionalSeconds_whenReadingNativeOrJdbcTimestamps() {
-        var date = LocalDateTime.of(2026, 3, 4, 12, 34, 56, 123456000);
+        var date = LocalDateTime.of(2026, java.time.Month.MARCH, 4, 12, 34, 56, 123456000);
         assertThat(NativeQueryValues.asString(date)).isEqualTo("2026-03-04 12:34:56.123456");
         assertThat(NativeQueryValues.asString(Timestamp.valueOf(date))).isEqualTo("2026-03-04 12:34:56.123456");
         assertThat(((Timestamp) NativeQueryValues.asDate(date)).getNanos()).isEqualTo(123456000);

@@ -268,7 +268,7 @@ public class MDSResultsData {
             for (Object[] o : searchResult) {
                 // The patient-only query omits providerLabRouting.status.
                 int offset = demographicNo == null ? 1 : 0;
-                Integer MSHsegmentID = ((Number) o[0]).intValue();
+                Integer mshSegmentId = ((Number) o[0]).intValue();
                 String providerLabRoutingStatus = offset == 1 ? NativeQueryValues.asString(o[2]) : null;
                 String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
                 String mdsPIDhealthNumber = NativeQueryValues.asString(o[3 + offset]);
@@ -280,7 +280,7 @@ public class MDSResultsData {
                 String reportFormStatus = NativeQueryValues.asString(o[9 + offset]);
                 String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
-                segmentID.add(Integer.toString(MSHsegmentID));
+                segmentID.add(Integer.toString(mshSegmentId));
                 if (demographicNo == null && !providerNo.equals("0")) {
                     acknowledgedStatus.add(providerLabRoutingStatus);
                 } else {
@@ -438,7 +438,7 @@ public class MDSResultsData {
             boolean hasRoutingStatus = demographicNo == null || (labNo != null && labNo > 0);
             int offset = hasRoutingStatus ? 1 : 0;
             for (Object[] o : searchResult) {
-                Integer MSHsegmentID = ((Number) o[0]).intValue();
+                Integer mshSegmentId = ((Number) o[0]).intValue();
                 String accessionNum = String.valueOf(o[1]);
                 String providerLabRoutingStatus = hasRoutingStatus ? NativeQueryValues.asString(o[2]) : null;
                 String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
@@ -452,7 +452,7 @@ public class MDSResultsData {
                 String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
                 LabResultData lData = new LabResultData(LabResultData.MDS);
-                lData.segmentID = "" + MSHsegmentID;
+                lData.segmentID = "" + mshSegmentId;
                 seqId = lData.segmentID;
 
                 if (demographicNo == null && !providerNo.equals("0")) {

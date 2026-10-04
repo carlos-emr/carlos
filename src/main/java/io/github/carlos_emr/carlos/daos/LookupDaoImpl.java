@@ -234,7 +234,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             Integer programId = null;
             try {
                 programId = Integer.valueOf(pCd);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // Ignore invalid programId format and keep the unfiltered list.
             }
             if (programId != null) {
@@ -980,7 +980,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * Hibernate 7 also returns TINYINT(1)/BIT(1) flags as Boolean.
      */
     private static int parseIntWithZeroPrefix(Object value) {
-        if (value instanceof Boolean flag) return flag ? 1 : 0;
+        if (value instanceof Boolean flag) return flag.booleanValue() ? 1 : 0;
         String s = value == null ? "" : value.toString();
         return Integer.parseInt("0" + s);
     }

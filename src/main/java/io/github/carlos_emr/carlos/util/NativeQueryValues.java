@@ -31,6 +31,8 @@ import java.util.Locale;
 import java.util.Date;
 
 /** Converts native SQL scalars at boundaries that still use legacy JDBC date values. */
+// Legacy DAO/view-model contracts require Date; java.time inputs are adapted only at this boundary.
+@SuppressWarnings("java:S2143")
 public final class NativeQueryValues {
     private static final DateTimeFormatter JDBC_TIMESTAMP = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd HH:mm:ss")

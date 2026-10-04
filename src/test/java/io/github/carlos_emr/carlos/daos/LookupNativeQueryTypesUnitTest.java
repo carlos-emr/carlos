@@ -44,9 +44,9 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class LookupNativeQueryTypesUnitTest extends CarlosUnitTestBase {
     static Stream<Arguments> dates() {
-        return Stream.of(Arguments.of(LocalDate.of(2026, 3, 4), "00:00:00"),
+        return Stream.of(Arguments.of(LocalDate.of(2026, java.time.Month.MARCH, 4), "00:00:00"),
                 Arguments.of(java.sql.Date.valueOf("2026-03-04"), "00:00:00"),
-                Arguments.of(LocalDateTime.of(2026, 3, 4, 12, 34, 56), "12:34:56"),
+                Arguments.of(LocalDateTime.of(2026, java.time.Month.MARCH, 4, 12, 34, 56), "12:34:56"),
                 Arguments.of(Timestamp.valueOf("2026-03-04 12:34:56"), "12:34:56"),
                 Arguments.of("2026-03-04 12:34:56", "12:34:56"), Arguments.of(null, ""));
     }
