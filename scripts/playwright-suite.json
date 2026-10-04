@@ -6442,7 +6442,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Two marker-named clinic pharmacies and the owned patient's links to them; cleanup deletes the links and both pharmacies and asserts them gone.",
-      "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, rejected/malformed responses and successful retry; stored links and order checked throughout."
+      "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, null/malformed JSON responses, committed writes with unreadable responses, and retry after refresh; stored links and order checked throughout."
     },
     {
       "name": "gap-encounter-rx-drug-info-on-host",

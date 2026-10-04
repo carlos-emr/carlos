@@ -69,17 +69,21 @@ test('rapid clicks cannot submit the same or another pharmacy until the list rel
   assert.equal(selection.requests.length, 1);
 });
 
-test('a rejected response restores selection for a retry', () => {
+test('a rejected response reloads before selection can resume', () => {
   const selection = choose([], '11');
   selection.succeed({});
   assert.equal(selection.alerts.length, 1);
+  assert.equal(selection.reloads(), 1);
   selection.click('11');
-  assert.equal(selection.requests.length, 2);
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
 });
 
-test('a transport or JSON failure restores selection for a retry', () => {
+test('a transport or JSON failure reloads before selection can resume', () => {
   const selection = choose([], '11');
   selection.fail();
+  assert.equal(selection.reloads(), 1);
   selection.click('11');
-  assert.equal(selection.requests.length, 2);
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
 });

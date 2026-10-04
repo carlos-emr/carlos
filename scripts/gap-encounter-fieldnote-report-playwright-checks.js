@@ -228,7 +228,7 @@ async function workflow(s) {
 
   await s.step('resident detail and download match IDs exactly despite database collation', async () => {
     // Temporarily use case/accent/space variants in the two owned notes. A SQL-only
-    // comparison under utf8mb4_unicode_ci also matches the other resident's note.
+    // comparison under a case-insensitive table collation also matches the other resident's note.
     const exact = 'Resident-A';
     const url = new URL(report.url());
     url.pathname = url.pathname.replace(/fieldnotereport$/, 'fieldnotereportdetail');
