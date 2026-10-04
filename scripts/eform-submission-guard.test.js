@@ -111,7 +111,7 @@ test('late handler can take over native submission with one explicit form.submit
   assert.equal(s.submitted(), 1);
   assert.equal(s.button.disabled, true);
 });
-test('back-forward restoration unlocks editing while server token still guards replay', () => {
+test('back-forward restoration unlocks editing for another submission attempt', () => {
   const s = setup(); s.form.submit();
   s.listeners.pageshow({ persisted: true });
   assert.equal(s.button.disabled, false);
