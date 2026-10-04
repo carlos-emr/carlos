@@ -4884,8 +4884,8 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at step 2 on 2026.08: Administration > EForm Report Tool's list (ws/rs/reporting/eformReportTool/list) answers 500 once any report tool exists (ClassCastException Long -> BigInteger at EFormReportToolDaoImpl.getNumRecords:192), so the new tool never shows and its (Remove) cannot be driven; the Remove steps (dismissed and accepted confirm, row deleted by id, ERT_ table dropped) run once that is fixed.",
-      "fixtures": "Creates one EFormReportTool row named FAKEPW<hex> and its ERT_FAKEPW<hex>... table through the UI (for a demo eForm, read-only); cleanup drops any ERT_FAKEPW<hex>% table and deletes the row by name, verified gone."
+      "notes": "Creates an owned eForm and report tool, verifies its numeric record count can be listed, and removes the tool and generated table through the UI.",
+      "fixtures": "Owns an eForm template, report tool and its generated ERT_ table; scoped cleanup verifies removal and deletes the owned template."
     },
     {
       "name": "popup-opener-master-record",
@@ -5005,7 +5005,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owns a synthetic FAKE- patient, one appointment, one Ontario OHIP claim header and item (dx 311) and one report template titled with the run marker, all created through SQL/UI and deleted (asserted gone) in cleanup; read-only otherwise.",
-      "notes": "Fails at the last step ('The report lists 0 Dx row(s) and 0 visit row(s) for the owned patient') while DepressionContinuityReporter.addAppt():193 casts a native DATE column (LocalDate under Hibernate 7) to java.util.Date and generateReport() swallows the ClassCastException; passes once the cast is fixed."
+      "notes": "Checks that Hibernate 7 native DATE values render diagnosis and visit rows, with independent diagnosis and visit date windows; template upload uses a valid SELECT placeholder."
     },
     {
       "name": "native-cast-inbox-lab-dates",
@@ -5020,7 +5020,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "EXCLUSIVE=1: snapshots and restores the global SystemPreferences row inboxDateSearchType (changes every user's Inbox date mode while it runs). Owns one synthetic HL7 lab (hl7TextMessage, hl7TextInfo, providerLabRouting, patientLabRouting) routed to a FAKE- patient; cleanup deletes only rows carrying the run's lab number and asserts they are gone.",
-      "notes": "Fails at the last step ('Received-date mode shows the lab date as \"2026-03-04T12:34:56\"') while Hl7textResultsData.java:783 renders message.created (LocalDateTime under Hibernate 7) with String.valueOf; passes once the date is formatted as 'yyyy-MM-dd HH:mm:ss'."
+      "notes": "Checks observed-date and received-date modes. Native LocalDateTime received values must retain the legacy space-separated timestamp display and remain parseable."
     },
     {
       "name": "gap-provider-account-expiry",

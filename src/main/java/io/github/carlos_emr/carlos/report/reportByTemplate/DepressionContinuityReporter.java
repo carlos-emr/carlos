@@ -28,10 +28,13 @@
 
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 
@@ -39,7 +42,6 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -54,8 +56,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DepressionContinuityReporter implements Reporter {
     private StringBuilder rsHtml = new StringBuilder();
     private StringBuilder csv = new StringBuilder();
-    private HashMap<String, StringBuilder> demographics = new HashMap<String, StringBuilder>();
-    private HashMap<String, StringBuilder> csvMap = new HashMap<String, StringBuilder>();
+    private Map<String, StringBuilder> demographics = new LinkedHashMap<>();
+    private Map<String, StringBuilder> csvMap = new LinkedHashMap<>();
 
     /**
      * Creates a new instance of DepressionContinuityReporter
@@ -95,48 +97,27 @@ public class DepressionContinuityReporter implements Reporter {
         try {
             rsHtml = this.makeHTMLHeader();
             csv = this.makeCSVHeader();
-            StringBuilder html = new StringBuilder();
-            StringBuilder csvTmp = new StringBuilder();
-            String curDemo = null;
+            demographics.clear();
+            csvMap.clear();
             for (Object[] o : bDao.findDemographicsAndBillingsByDxAndServiceDates(dxCodes, diag_date_from, diag_date_to)) {
-                // d.demographic_no, bi.service_date, bi.dx
                 Demographic d = (Demographic) o[0];
-                BillingONCHeader1 bc = (BillingONCHeader1) o[1];
                 BillingONItem bi = (BillingONItem) o[2];
-
-                String demographic_no = d.getDemographicNo().toString();
-                String service_date = ConversionUtils.toDateString(bi.getServiceDate());
-                String dx = bi.getDx();
-
-                if (curDemo == null) {
-                    curDemo = demographic_no;
-                }
-
-                if (curDemo.equalsIgnoreCase(demographic_no)) {
-                    html.append(this.addCodeEntry(demographic_no, service_date, dx, odd));
-                    csvTmp.append(this.csvCodeEntry(demographic_no, service_date, dx));
-                }
-
-                if (!curDemo.equalsIgnoreCase(demographic_no)) {
-                    demographics.put(curDemo, html);
-                    csvMap.put(curDemo, csvTmp);
-                    html = this.addCodeEntry(demographic_no, service_date, dx, odd);
-                    csvTmp = new StringBuilder(this.csvCodeEntry(demographic_no, service_date, dx));
-                }
-                curDemo = demographic_no;
+                String demographicNo = d.getDemographicNo().toString();
+                String serviceDate = ConversionUtils.toDateString(bi.getServiceDate());
+                demographics.computeIfAbsent(demographicNo, key -> new StringBuilder())
+                        .append(addCodeEntry(demographicNo, serviceDate, bi.getDx(), odd));
+                csvMap.computeIfAbsent(demographicNo, key -> new StringBuilder())
+                        .append(csvCodeEntry(demographicNo, serviceDate, bi.getDx()));
             }
 
-            if (curDemo != null) {
-                demographics.put(curDemo, html);
-                csvMap.put(curDemo, csvTmp);
-            }
+            addAppt(visit_date_from, visit_date_to, odd);
 
-            this.addAppt(apptSQL, curDemo, diag_date_from, diag_date_to, odd);
-
-            rsHtml.append("</table>");
+            rsHtml.append("</tbody></table>");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-
+            MiscUtils.getLogger().error("Unable to generate continuity report", e);
+            request.setAttribute("errormsg", "Unable to generate the continuity report. Please try again.");
+            request.setAttribute("templateid", templateId);
+            return false;
         }
 
         String sql = cohortSQL + ";\n " + apptSQL;
@@ -170,40 +151,27 @@ public class DepressionContinuityReporter implements Reporter {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private void addAppt(String apptSQL, String curDemo, Date from, Date to, Boolean odd) {
+    private void addAppt(Date from, Date to, Boolean odd) {
         OscarAppointmentDao dao = SpringUtils.getBean(OscarAppointmentDao.class);
-
         Set<String> setDemo = demographics.keySet();
-        Iterator<String> iter = setDemo.iterator();
-        StringBuilder demos = new StringBuilder();
-        while (iter.hasNext()) {
-            demos.append(iter.next());
-            if (iter.hasNext()) {
-                demos.append(",");
-            }
-        }
-
-        String apptSQLwDemo;
-        apptSQLwDemo = apptSQL.replaceAll("\\?", demos.toString());
-        MiscUtils.getLogger().debug(apptSQLwDemo);
-
-        String rxName, rxPrescriber, tmpDemo = "";
+        if (setDemo.isEmpty()) return;
+        Set<String> rendered = new HashSet<>();
+        String rxName, rxPrescriber;
         for (Object[] o : dao.findAppointmentsByDemographicIds(setDemo, from, to)) {
 
-            Date p1 = (Date) o[0];    // "a.appointment_date, " +
+            String p1 = ConversionUtils.toDateString(NativeQueryValues.asDate(o[0]));    // "a.appointment_date, " +
             String p2 = (String) o[1]; //"concat(pAppt.first_name, ' ', pAppt.last_name), " +
             String p3 = (String) o[2]; //"concat(pFam.first_name, ' ', pFam.last_name), " +
             String p4 = (String) o[3]; // "bi.service_code, " +
             String p5 = (String) o[4]; //"drugs.BN, " +
             String p6 = (String) o[5]; //"concat(pDrug.first_name,' ',pDrug.last_name), " +
-            Integer p7 = (Integer) o[6]; //"a.demographic_no, " +
+            String p7 = String.valueOf(o[6]); //"a.demographic_no, " +
             String p8 = (String) o[7]; //"drugs.GN, " +
             String p9 = (String) o[8]; //"drugs.customName " +
 
-            if (!tmpDemo.equals(p7)) {
-                rsHtml.append(demographics.get("" + p7));
-                csv.append(csvMap.get("" + p7));
-                tmpDemo = "" + p7;
+            if (rendered.add(p7)) {
+                rsHtml.append(demographics.get(p7));
+                csv.append(csvMap.get(p7));
             }
             rsHtml.append("<tr class=\"");
             if (odd) {
@@ -231,25 +199,27 @@ public class DepressionContinuityReporter implements Reporter {
             rsHtml.append("<td>" + p4 + "</td><td>" + rxName + "</td><td>" + rxPrescriber + "</td>");
             rsHtml.append("</tr>");
 
-            csv.append(curDemo + ",, ");
+            csv.append(p7 + ",, ");
             csv.append("," + p1 + "," + p2 + "," + p3);
             csv.append("," + p4 + "," + rxName + "," + rxPrescriber + "\n");
 
         }
 
-        if (curDemo != null && tmpDemo.equals("")) {
-            MiscUtils.getLogger().debug(curDemo);
-            rsHtml.append(demographics.get(curDemo));
-            csv.append(csvMap.get(curDemo));
+        for (String demographicNo : setDemo) {
+            if (!rendered.contains(demographicNo)) {
+                rsHtml.append(demographics.get(demographicNo));
+                csv.append(csvMap.get(demographicNo));
+            }
         }
     }
 
     private StringBuilder makeHTMLHeader() {
-        StringBuilder html = new StringBuilder("<table class=\"reportTable\">\n");
+        StringBuilder html = new StringBuilder("<table class=\"reportTable\"><thead><tr>\n");
         html.append("<th class=\"reportHeader\">ID</th><th class=\"reportHeader\">Date of Code</th><th class=\"reportHeader\">Dx Code</th>"
                 + "<th class=\"reportHeader\">Date of Visit</th><th class=\"reportHeader\">Provider Seen</th><th class=\"reportHeader\">MRP</th>"
                 + "<th class=\"reportHeader\">Billing Code</th><th class=\"reportHeader\">Rx Name</th><th class=\"reportHeader\">Prescriber</th>");
 
+        html.append("</tr></thead><tbody>");
         return html;
     }
 

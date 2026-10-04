@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -788,7 +790,7 @@ public class Hl7textResultsData {
             String sex = String.valueOf(i[2]);
             String health_no = String.valueOf(i[3]);
             String result_status = String.valueOf(i[4]);
-            String obr_date = String.valueOf(i[5]);
+            String obr_date = String.valueOf(NativeQueryValues.asString(i[5]));
             String priority = String.valueOf(i[6]);
             String requesting_client = String.valueOf(i[7]);
             String discipline = String.valueOf(i[8]);

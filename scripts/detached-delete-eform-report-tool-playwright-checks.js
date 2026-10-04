@@ -7,16 +7,16 @@
  *   eformReportTool/add); then the row's "(Remove)" > confirm (ws/rs/reporting/eformReportTool/
  *   remove), once dismissed and once accepted.
  * Asserts: Save stores exactly one EFormReportTool row for the chosen eForm and creates its ERT_
- *   report table; the refreshed list shows it (fails on 2026.08: eformReportTool/list answers 500,
- *   ClassCastException Long->BigInteger at EFormReportToolDaoImpl.getNumRecords:192, so the Remove
- *   steps after it cannot run until that is fixed); a dismissed confirm changes nothing; an accepted confirm
+ *   report table; the refreshed list shows its record count (regression for the native COUNT
+ *   Long-to-BigInteger exception in #4140); a dismissed confirm changes nothing; an accepted confirm
  *   asks once, deletes exactly that row, drops exactly that report table, and the list stops
  *   showing it. The manager finds the row and the DAO drops the table and removes the row by id
  *   (remove-by-id, the safe shape of the detached-delete pattern); a regression to removing the
  *   entity the manager found would fail the last step.
- * Fixtures: the report tool row and its ERT_FAKEPW<hex>... table are created through the UI (the
+ * Fixtures: an owned eForm template is seeded, then the report tool row and its ERT_FAKEPW<hex>...
+ *   table are created through the UI (the
  *   name must be [A-Za-z0-9_], so it carries the run's hex rather than the FAKE- marker). Cleanup
- *   drops any table and deletes any row carrying that name and asserts both are gone.
+ *   drops any table and deletes any row carrying that name, removes the owned template, and asserts cleanup.
  */
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -33,6 +33,7 @@ async function workflow(s) {
   const ownedTables = () => sql.rows(`SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()
     AND table_name LIKE ${tablePattern} ORDER BY table_name`).map(row => row[0]);
   const ownedRows = () => sql.rows(`SELECT id, tableName, eformId FROM EFormReportTool WHERE name=${h.sqlString(name)} ORDER BY id`);
+  let ownedEformId;
 
   // A step that times out on the add response does not cancel the request the page already sent:
   // the server can still create the row and its table afterwards. Remember that the add left the
@@ -65,8 +66,19 @@ async function workflow(s) {
       removeOwned();
     }
     h.assert(ownedTables().length === 0 && ownedRows().length === 0, 'Owned report tool rows or tables were not removed');
+    if (ownedEformId) {
+      sql.execute(`DELETE FROM eform WHERE fid=${ownedEformId} AND form_name=${h.sqlString(marker)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE fid=${ownedEformId}`) === '0', 'Owned report-tool eForm was not removed');
+    }
   });
   h.assert(ownedTables().length === 0 && ownedRows().length === 0, 'A report tool with the owned name already exists');
+  // The disposable database need not contain another user's template. Select
+  // a template owned by this run so creation and cleanup are reproducible.
+  ownedEformId = sql.value(`INSERT INTO eform (form_name,file_name,subject,form_date,form_time,form_creator,status,form_html,
+      showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
+    VALUES (${h.sqlString(marker)},'','Report tool fixture',CURDATE(),CURTIME(),${h.sqlString(s.provider)},1,
+      '<html><body><form><input type="text" name="metric"></form></body></html>',0,0,'',0,1); SELECT LAST_INSERT_ID()`);
+  h.assert(/^[1-9]\d*$/.test(ownedEformId), 'The owned report-tool eForm was not created');
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context: s.context, recorder: s.recorder, label: 'eform-report-tool-administration', timeout: TIMEOUT });
@@ -87,7 +99,7 @@ async function workflow(s) {
     await frame.locator('#btnAdd').click();
     const form = frame.locator('#new-report');
     await form.waitFor({ state: 'visible' });
-    const eform = frame.locator('#eformReportToolEformId option').first();
+    const eform = frame.locator(`#eformReportToolEformId option[value="${ownedEformId}"]`);
     await eform.waitFor({ state: 'attached' });
     const eformId = await eform.getAttribute('value');
     h.assert(/^[1-9]\d*$/.test(eformId || ''), 'Choose EForm offers no eForm');

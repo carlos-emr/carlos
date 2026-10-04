@@ -847,6 +847,58 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 orderby_col INT
             )""";
 
+    @Nested
+    @DisplayName("Hibernate 7 native scalar types")
+    class NativeScalarTypes {
+        private LookupTableDefValue definition;
+
+        @BeforeEach
+        void createNativeFixtures() {
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery("CREATE TABLE IF NOT EXISTS lookup_native_types_test "
+                        + "(code VARCHAR(10), recorded_at TIMESTAMP, active BOOLEAN)").executeUpdate();
+                session.createNativeQuery("DELETE FROM lookup_native_types_test").executeUpdate();
+                session.createNativeQuery("INSERT INTO lookup_native_types_test VALUES "
+                        + "('A', TIMESTAMP '2026-03-04 12:34:56', TRUE), "
+                        + "('B', TIMESTAMP '2026-03-05 01:02:03', FALSE), ('C', NULL, NULL)").executeUpdate();
+                return null;
+            });
+            String tableId = nextTableId("NT");
+            insertLookupTableDef(tableId, "lookup_native_types_test");
+            insertField(tableId, "code", 1, 1);
+            insertFieldFull(tableId, "recorded_at", 2, 9, "D", false, "");
+            insertField(tableId, "active", 3, 3);
+            hibernateTemplate.flush();
+            definition = lookupDao.GetLookupTableDef(tableId);
+        }
+
+        @Test
+        void shouldPreserveEditableDate_whenReadingOneCode() {
+            List<FieldDefValue> fields = lookupDao.GetCodeFieldValues(definition, "A");
+            assertThat(fields.get(1).getVal()).isEqualTo("2026/03/04");
+        }
+
+        @Test
+        void shouldPreserveDateTimeAndNull_whenReadingAllCodes() {
+            List<List> rows = lookupDao.GetCodeFieldValues(definition);
+            assertThat(rows).hasSize(3);
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            for (List row : rows) values.put(((FieldDefValue) row.get(0)).getVal(), ((FieldDefValue) row.get(1)).getVal());
+            assertThat(values).containsEntry("A", "2026/03/04 12:34:56")
+                    .containsEntry("B", "2026/03/05 01:02:03").containsEntry("C", "");
+        }
+
+        @Test
+        void shouldPreserveBooleanFlagsAndNullDefaults_whenLoadingCodeList() {
+            List<LookupCodeValue> rows = lookupDao.LoadCodeList(definition.getTableId(), false, "", "");
+            assertThat(rows).hasSize(3);
+            for (LookupCodeValue row : rows) {
+                assertThat(row.isActive()).isEqualTo("A".equals(row.getCode()));
+                assertThat(row.getOrderByIndex()).isZero();
+            }
+        }
+    }
+
     // =========================================================================
     // GetCodeFieldValues tests
     // =========================================================================
