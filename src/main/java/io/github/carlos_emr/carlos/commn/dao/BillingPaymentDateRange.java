@@ -21,23 +21,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.util.DateUtils;
-import java.util.Calendar;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Date;
 
 /**
  * Shared calendar boundaries for selecting payment-report invoices and their payments.
  * @since 2026-10-04
  */
+// The DAO contracts bind java.util.Date; calendar arithmetic uses java.time here.
+@SuppressWarnings("java:S2143")
 final class BillingPaymentDateRange {
     private BillingPaymentDateRange() { }
 
     /** Returns next local midnight for an inclusive End Date without changing the input. */
     static Date endExclusive(Date endDate) {
         if (endDate == null) return null;
-        Calendar end = DateUtils.setToBeginningOfDay(DateUtils.toCalendar(endDate));
-        // Calendar arithmetic also handles 23/25-hour daylight-saving days.
-        end.add(Calendar.DATE, 1);
-        return end.getTime();
+        ZoneId zone = ZoneId.systemDefault();
+        // Epoch milliseconds support java.sql.Date as well as Date and Timestamp.
+        var nextDay = Instant.ofEpochMilli(endDate.getTime()).atZone(zone).toLocalDate().plusDays(1);
+        return Date.from(nextDay.atStartOfDay(zone).toInstant());
     }
 }

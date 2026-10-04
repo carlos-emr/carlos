@@ -31,6 +31,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -44,6 +45,18 @@ import static org.mockito.Mockito.*;
  */
 @Tag("unit")
 class BillingONPaymentDateRangeUnitTest extends CarlosUnitTestBase {
+    @Test
+    void shouldAcceptSqlDates_withoutCallingTheirUnsupportedToInstantMethod() {
+        Date end = java.sql.Date.valueOf("2026-12-31");
+        assertThat(BillingPaymentDateRange.endExclusive(end))
+                .isEqualTo(new Date(java.sql.Date.valueOf("2027-01-01").getTime()));
+    }
+
+    @Test
+    void shouldPreserveNullBoundary_forLegacyCallers() {
+        assertThat(BillingPaymentDateRange.endExclusive(null)).isNull();
+    }
+
     @ParameterizedTest
     @CsvSource({"2026-03-08, 2026-03-09, 23", "2026-11-01, 2026-11-02, 25",
             "2028-02-29, 2028-03-01, 24", "2026-12-31, 2027-01-01, 24"})
