@@ -13,8 +13,8 @@
  * never two equal orders), the preferred list order on the reloaded page, that Move Up on the top
  * pharmacy only alerts and changes nothing, that View More shows the stored name, address, city,
  * postal code, phone, fax, email and notes read-only and changes nothing, and that Remove from List
- * unlinks only the chosen pharmacy. The last step fails today: choosing two pharmacies for an empty
- * list stores orders 2 and 3 in the wrong order (the empty-list placeholder div is counted).
+ * unlinks only the chosen pharmacy. Additions preserve order, ignore rapid repeated clicks while
+ * pending, and reload the list before retry after null or malformed JSON responses.
  * Fixtures: two clinic pharmacies named with the run marker and the owned patient's links to them
  * (cleanup deletes both and asserts them gone). Implements gap-encounter "choose and order the
  * patient's pharmacies".
@@ -65,7 +65,7 @@ async function workflow(s) {
   };
 
   // The patient's two links are seeded first (orders 1 and 2) so the steps below prove ordering on its own;
-  // choosing pharmacies from the clinic list is the last step because it is where the order goes wrong.
+  // subsequent steps verify choosing pharmacies from the clinic list.
   sql.execute(`INSERT INTO demographicPharmacy(pharmacyID,demographic_no,status,addDate,preferredOrder,consentToContact)
     VALUES(${a},${patient},'1',NOW(),1,0),(${b},${patient},'1',NOW(),2,0)`);
   await rx.reload({ waitUntil: 'networkidle' });
@@ -141,8 +141,7 @@ async function workflow(s) {
     h.assert(JSON.stringify(await preferred()) === JSON.stringify([a]), 'The preferred list still shows the removed pharmacy');
   });
 
-  // The page numbers a new link as "(divs in the preferred list) + 1", and the empty list holds a
-  // placeholder div, so the first pharmacy is stored as order 2 and the next one is inserted ahead of it.
+  // The empty-list placeholder must not count toward the new preferred order.
   await s.step('choosing two pharmacies from the clinic list for an empty preferred list stores orders 1 and 2 in the order chosen', async () => {
     await reloaded(() => entry(a).locator('.prefUnlink').click());
     h.assert(await rx.locator('#preferredList div[pharmId]').count() === 0, 'The preferred list is not empty');
@@ -159,6 +158,89 @@ async function workflow(s) {
     h.assert(order(a) === '1' && order(b) === '2',
       `The preferred orders are ${order(a)} then ${order(b)}, not 1 then 2, in the order the pharmacies were chosen`);
     h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'The preferred list is not in the order the pharmacies were chosen');
+  });
+
+  await s.step('rapid additions send one POST and preserve order until the refreshed list is ready', async () => {
+    await reloaded(() => entry(b).locator('.prefUnlink').click());
+    const pattern = '**/rx/managePharmacy?method=setPreferred*';
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    let writes = 0;
+    const countWrites = request => { if (request.url().includes('method=setPreferred')) writes++; };
+    const hold = async route => { await held; await route.continue(); };
+    rx.on('request', countWrites);
+    await rx.route(pattern, hold);
+    try {
+      await Promise.all([
+        rx.waitForRequest(request => request.url().includes('method=setPreferred')),
+        row(b).locator('.pharmacyName').click()
+      ]);
+      // Dispatch synchronously while the actual POST is held to exercise the
+      // handler guard independently of the spinner and pointer-events styling.
+      await row(b).evaluate(el => { el.click(); el.click(); });
+      // A renderer/network round trip ensures queued duplicate requests were observed.
+      await rx.evaluate(() => new Promise(resolve => setTimeout(resolve, 100)));
+      h.assert(writes === 1, `Rapid selection sent ${writes} POSTs instead of one`);
+    } finally {
+      release();
+      await rx.waitForLoadState('networkidle');
+      await rx.unroute(pattern, hold);
+      rx.off('request', countWrites);
+    }
+    await entry(b).waitFor();
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${patient} AND pharmacyID=${b} AND status='1'`) === '1',
+      'Rapid selection left duplicate active links');
+    h.assert(order(a) === '1' && order(b) === '2', 'Rapid selection changed the stored order');
+  });
+
+  await s.step('a committed addition with an unreadable response refreshes before the next selection', async () => {
+    await reloaded(() => entry(b).locator('.prefUnlink').click());
+    await reloaded(() => entry(a).locator('.prefUnlink').click());
+    const pattern = '**/rx/managePharmacy?method=setPreferred*';
+    let committed = 0;
+    const loseResponse = async route => {
+      const response = await route.fetch();
+      try {
+        h.assert(response.status() === 200 && (await response.json()).id,
+          'The fault-injection request did not successfully commit');
+        h.assert(order(a) === '1', 'The fault-injection POST did not persist the first preferred order');
+        committed++;
+        // Forward the real POST exactly once, then corrupt only its response.
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '{invalid-json' });
+      } finally { await response.dispose(); }
+    };
+    await rx.route(pattern, loseResponse);
+    try {
+      const dialogs = await h.withExpectedDialogs(rx, async () => {
+        await Promise.all([rx.waitForEvent('dialog'), row(a).locator('.pharmacyName').click()]);
+        await entry(a).waitFor({ timeout: 10000 });
+        await rx.waitForLoadState('networkidle');
+      });
+      h.assert(committed === 1 && dialogs.length === 1 && dialogs[0].type === 'alert',
+        'An ambiguous response must explain the failure and must not resubmit the write');
+      h.assert(order(a) === '1' && order(b) === 'none', 'The committed first addition was not preserved');
+    } finally { await rx.unroute(pattern, loseResponse); }
+    await reloaded(() => row(b).locator('.pharmacyName').click());
+    h.assert(order(a) === '1' && order(b) === '2', 'Stale list state reversed the next addition');
+    h.assert(JSON.stringify(await preferred()) === JSON.stringify([a, b]), 'Refreshed preferred order is incorrect');
+  });
+
+  await s.step('failed additions refresh the list before allowing a retry', async () => {
+    await reloaded(() => entry(b).locator('.prefUnlink').click());
+    const pattern = '**/rx/managePharmacy?method=setPreferred*';
+    for (const body of ['null', '{invalid-json']) {
+      const refuse = route => route.fulfill({ status: 200, contentType: 'application/json', body });
+      await rx.route(pattern, refuse);
+      try {
+        const dialogs = await h.withExpectedDialogs(rx, async () => {
+          await reloaded(() => row(b).locator('.pharmacyName').click());
+        });
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'Failed addition did not explain the error');
+        h.assert(order(a) === '1' && order(b) === 'none', 'Failed addition changed a stored link');
+      } finally { await rx.unroute(pattern, refuse); }
+    }
+    await reloaded(() => row(b).locator('.pharmacyName').click());
+    h.assert(order(a) === '1' && order(b) === '2', 'Retry failed to append the pharmacy');
   });
 
   await s.step('choosing an already preferred pharmacy changes neither stored order', async () => {

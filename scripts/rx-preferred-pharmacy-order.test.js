@@ -12,20 +12,29 @@ assert.ok(start >= 0 && end > start);
 
 function choose(existing, id, ready = true) {
   const requests = [], alerts = [];
-  const selected = { pharmId: id };
   const entries = existing.map(pharmId => ({ pharmId }));
+  let handler, success, failure, reloads = 0;
+  const row = { click: fn => { handler = fn; }, attr() { return row; }, css() { return row; } };
   function $(selector) {
-    if (selector === '.pharmacyItem') return { click: handler => handler.call(selected) };
+    if (selector === '.pharmacyItem') return row;
+    if (selector === 'html, body') return { animate() {} };
     if (typeof selector === 'object') return { attr: name => selector[name] };
     // The empty list contains presentation divs that must not count as pharmacies.
     const rows = selector === '#preferredList div' ? (entries.length ? entries : [{}, {}]) : entries;
     assert.ok(['#preferredList div', '#preferredList > div[pharmId]'].includes(selector));
-    return { length: rows.length, each(fn) { for (const row of rows) if (fn.call(row) === false) break; } };
+    return { length: rows.length, each(fn) { for (const entry of rows) if (fn.call(entry) === false) break; } };
   }
-  $.post = (url, data) => requests.push(new URLSearchParams(data));
+  $.post = (url, data, callback) => {
+    requests.push(new URLSearchParams(data));
+    success = callback;
+    return { fail(fn) { failure = fn; return this; } };
+  };
   vm.runInNewContext(source.slice(start, end).replace(/<%=.*?%>/g, '/carlos/rx/managePharmacy'),
-    { $, demo: '123', preferredListReady: ready, ShowSpin() {}, alert: msg => alerts.push(msg) });
-  return { requests, alerts };
+    { $, demo: '123', preferredListReady: ready, ShowSpin() {}, HideSpin() {},
+      alert: msg => alerts.push(msg), window: { location: { reload() { reloads++; } } } });
+  const click = pharmId => handler.call({ pharmId });
+  click(id);
+  return { requests, alerts, click, succeed: data => success(data), fail: () => failure?.(), reloads: () => reloads };
 }
 
 test('the first pharmacy has order 1 despite the empty-list placeholder', () => {
@@ -46,4 +55,35 @@ test('selecting an existing pharmacy alerts without changing its order', () => {
 
 test('selection cannot write before the preferred list finishes loading', () => {
   assert.equal(choose([], '22', false).requests.length, 0);
+});
+
+test('rapid clicks cannot submit the same or another pharmacy until the list reloads', () => {
+  const selection = choose([], '11');
+  selection.click('11');
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
+  selection.succeed({ id: 1 });
+  assert.equal(selection.reloads(), 1);
+  selection.click('11');
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
+});
+
+test('a rejected response reloads before selection can resume', () => {
+  const selection = choose([], '11');
+  selection.succeed({});
+  assert.equal(selection.alerts.length, 1);
+  assert.equal(selection.reloads(), 1);
+  selection.click('11');
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
+});
+
+test('a transport or JSON failure reloads before selection can resume', () => {
+  const selection = choose([], '11');
+  selection.fail();
+  assert.equal(selection.reloads(), 1);
+  selection.click('11');
+  selection.click('22');
+  assert.equal(selection.requests.length, 1);
 });

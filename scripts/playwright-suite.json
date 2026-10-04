@@ -6384,7 +6384,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Run with EXCLUSIVE=1: the clinic-wide property fieldNoteEform is snapshotted, emptied for the run and restored. One marker eForm template, two eform_data instances with eform_values on the owned patient (supervisor = a throwaway login, resident = the first demo provider), the throwaway login and its owned _admin.fieldnote secObjPrivilege grant (by provider number); all removed and asserted.",
-      "notes": "Fails at its last step on 2026.08: a doctor-only login without _admin.fieldnote is served the field-note report (EFormViewRoutes gates the three pages by _eform read only; the menu object _admin.fieldnote is declared nowhere and no role holds it). All earlier steps pass."
+      "notes": "Covers permissions, POST-only changes, report counts, download, date validation and exact resident matching (case, accents and trailing spaces) on the live database. Clinic-wide property restored after the exclusive run."
     },
     {
       "name": "gap-encounter-form-data-import",
@@ -6443,7 +6443,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Two marker-named clinic pharmacies and the owned patient's links to them; cleanup deletes the links and both pharmacies and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: choosing two pharmacies for an empty preferred list stores orders 3 then 2 instead of 1 then 2 (SelectPharmacy2.jsp:306 counts the empty-list placeholder div, so the first pharmacy is stored as order 2 and the next is inserted ahead of it). Every earlier step passes."
+      "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, null/malformed JSON responses, committed writes with unreadable responses, and retry after refresh; stored links and order checked throughout."
     },
     {
       "name": "gap-encounter-rx-drug-info-on-host",
