@@ -236,7 +236,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        query.setParameter(3, BillingPaymentDateRange.endExclusive(endDate));
 
         @SuppressWarnings("unchecked")
         List<BillingONPayment> results = query.getResultList();
@@ -254,7 +254,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, billingNos);
         query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        query.setParameter(3, BillingPaymentDateRange.endExclusive(endDate));
 
         @SuppressWarnings("unchecked")
         List<BillingONPayment> results = query.getResultList();
