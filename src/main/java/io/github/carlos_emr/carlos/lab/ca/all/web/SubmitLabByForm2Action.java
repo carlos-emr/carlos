@@ -90,9 +90,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
-     * Storage and handler failures are logged and reported according to transaction completion.
+     * Storage and handler exceptions are logged and reported according to transaction completion.
      *
      * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
+     *         or after rejecting a non-POST request with HTTP 405;
      *         or "manage" with errors when storage was rejected, rolled back or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for form-field parsing or file I/O errors before storage begins
