@@ -181,8 +181,8 @@ public class DepressionContinuityReporter implements Reporter {
                 rsHtml.append("reportRow2\">");
             }
             odd = !odd;
-            rsHtml.append("<td>" + p7 + "</td><td>&nbsp;</td><td>&nbsp;</td>");
-            rsHtml.append("<td>").append(p1).append("</td><td>").append(Encode.forHtml(p2))
+            rsHtml.append("<td>" + Encode.forHtml(p7) + "</td><td>&nbsp;</td><td>&nbsp;</td>");
+            rsHtml.append("<td>").append(Encode.forHtml(p1)).append("</td><td>").append(Encode.forHtml(p2))
                     .append("</td><td>").append(Encode.forHtml(p3)).append("</td>");
 
             String rxName = medicationName(p5, p8, p9);
