@@ -1,5 +1,17 @@
 <%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-clinical.jsp: Care team, roster, consent, programs, submit (from demographicaddarecordhtm.jsp lines 1878-2490) --%>
+<%--
+  Purpose: Clinical section of the demographic registration form included by add.jsp.
+  Features: Care-team selection, roster status and dates, patient status, consent,
+  program and waiting-list controls, and registration submission. Optional roster,
+  joined and end dates start blank; add.jsp synchronizes their hidden date parts.
+  Inputs: DemographicAdd2Action request attributes supply configuration, provincial
+  defaults, provider lists and lookup services. The authenticated session supplies
+  user and role context; search_mode and keyword preserve the originating search.
+  This fragment completes markup opened in add-form-personal.jsp and depends on
+  the parent form and JavaScript in add.jsp.
+  @since 2026-10-04 (date-field submission correction, issue #4155)
+--%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>

@@ -1,5 +1,17 @@
 <%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-personal.jsp: Name, address, phone, demographics, HIN (from demographicaddarecordhtm.jsp lines 767-1877) --%>
+<%--
+  Purpose: Personal-details section of the demographic registration form included by add.jsp.
+  Features: Identity, contact information, birth date, health-card details and
+  optional effective and renewal dates. Hidden date parts use the registration
+  action's parameter names and are synchronized by add.jsp before submission.
+  Inputs: DemographicAdd2Action request attributes supply patient-search defaults,
+  provincial configuration and country/lookup data. The authenticated session
+  supplies user and role context; search_mode and keyword preserve the search.
+  This fragment relies on the parent form and JavaScript in add.jsp and opens
+  the care-team row completed by add-form-clinical.jsp.
+  @since 2026-10-04 (date-field submission correction, issue #4155)
+--%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.util.Date" %>
