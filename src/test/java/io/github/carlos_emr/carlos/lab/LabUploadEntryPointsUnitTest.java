@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action;
 import io.github.carlos_emr.carlos.lab.ca.all.web.SubmitLabByForm2Action;
 import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt;
-import io.github.carlos_emr.carlos.lab.FileUploadCheck.StoreOutcome;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt.Outcome;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
@@ -206,10 +206,11 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
         when(handler.getLastLabNo()).thenReturn(42);
         SubmitLabByForm2Action action = runManualForm(true);
-        assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(action.getActionErrors()).isEmpty();
         assertThat(action.getActionMessages()).isEmpty();
         assertThat(transactions.rollbacks).isEqualTo(1);
         assertThat(transactions.commits).isZero();
+        assertManualRedirect(Outcome.UNKNOWN);
     }
 
     @Test
@@ -221,7 +222,7 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         assertThat(transactions.rollbacks).isZero();
         assertThat(action.getActionErrors()).isEmpty();
         assertThat(action.getActionMessages()).isEmpty();
-        assertManualRedirect(StoreOutcome.STORED);
+        assertManualRedirect(Outcome.STORED);
     }
 
     @Test
@@ -236,29 +237,31 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         when(handler.getLastLabNo()).thenReturn(42);
         runManualForm(false, "none");
         assertThat(response.getHeader("Location")).doesNotContain("jsessionid", "SYNTHETIC-SESSION");
-        assertManualRedirect(StoreOutcome.STORED);
+        assertManualRedirect(Outcome.STORED);
     }
 
     @Test
     void shouldRedirectWithDuplicateNotice_whenManualFileIsAlreadyRecorded() throws Exception {
         when(dao.findByMd5Sum(anyString())).thenReturn(
                 List.of(new io.github.carlos_emr.carlos.commn.model.FileUploadCheck()));
-        SubmitLabByForm2Action action = runManualForm(false, "none");
+        SubmitLabByForm2Action action = runManualForm(false, "none", false);
         verifyNoInteractions(handler);
         verify(dao, never()).persist(any());
         assertThat(action.getActionMessages()).isEmpty();
-        assertManualRedirect(StoreOutcome.ALREADY_RECORDED);
+        assertManualRedirect(Outcome.ALREADY_RECORDED);
     }
 
     @Test
-    void shouldShowErrorWithoutSuccessRedirect_whenManualCommitFails() throws Exception {
+    void shouldRedirectWithUncertainty_whenManualCommitAcknowledgementFails() throws Exception {
         transactions.failCommit = true;
         when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
         when(handler.getLastLabNo()).thenReturn(42);
-        SubmitLabByForm2Action action = runManualForm(false);
-        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
         assertThat(action.getActionMessages()).isEmpty();
         assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.UNKNOWN);
     }
 
     @Test
@@ -272,10 +275,10 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         assertThat(retried.getActionErrors()).isEmpty();
         assertThat(transactions.rollbacks).isEqualTo(1);
         assertThat(transactions.commits).isEqualTo(1);
-        assertManualRedirect(StoreOutcome.STORED);
+        assertManualRedirect(Outcome.STORED);
     }
 
-    private void assertManualRedirect(StoreOutcome outcome) {
+    private void assertManualRedirect(Outcome outcome) {
         assertThat(response.getStatus()).isEqualTo(303);
         String location = response.getHeader("Location");
         assertThat(location).startsWith("/carlos/oscarMDS/ViewCreateLab?submission=");
@@ -321,10 +324,15 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {
-        return runManualForm(failRouting, "manage");
+        return runManualForm(failRouting, failRouting ? "none" : "manage", failRouting);
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult) throws Exception {
+        return runManualForm(failRouting, expectedResult, true);
+    }
+
+    private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult, boolean expectRouting)
+            throws Exception {
         Path file = Files.writeString(root.resolve("synthetic.hl7"), "SYNTHETIC");
         request.setMethod("POST");
         request.setContextPath("/carlos");
@@ -361,7 +369,12 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
                 assertThat(response.getStatus()).isEqualTo(200);
                 assertThat(response.getHeader("Location")).isNull();
             }
-            if (failRouting) verify(routers.constructed().get(0)).routeMagic(42, "999998", "HL7");
+            if (expectRouting) {
+                assertThat(routers.constructed()).hasSize(1);
+                verify(routers.constructed().getFirst()).routeMagic(42, "999998", "HL7");
+            } else {
+                assertThat(routers.constructed()).isEmpty();
+            }
             return action;
         }
     }

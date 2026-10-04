@@ -85,8 +85,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
-     * @return {@link #NONE} after redirecting a completed submission to the read-only form,
-     *         or "manage" with errors when the submission fails
+     * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
+     *         or "manage" with errors when storage was rejected or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
@@ -234,23 +234,33 @@ public class SubmitLabByForm2Action extends ActionSupport {
                         return true;
                     });
         } catch (Exception e) {
-            logger.error("Lab submission failed: {}", LogSafe.exceptionTrace(e));
-            addActionError(getText("oscarMDS.createLab.submitError"));
-            return manage();
+            logger.error("Lab submission outcome could not be confirmed: {}", LogSafe.exceptionTrace(e));
+            // A commit acknowledgement can fail after the lab was stored. A refresh of this
+            // POST would generate different HL7 and could duplicate it, just as on success.
+            return redirectToForm(ManualLabSubmissionReceipt.Outcome.UNKNOWN);
         }
 
         if (outcome == FileUploadCheck.StoreOutcome.STORED
                 || outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
             // A reloaded POST regenerates timestamped HL7 and evades checksum deduplication.
             // Redirect only after storage/commit completes, carrying a notice without PHI.
-            String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
-            response.setStatus(HttpServletResponse.SC_SEE_OTHER);
-            response.setHeader("Location", request.getContextPath()
-                    + "/oscarMDS/ViewCreateLab?submission=" + receipt);
-            return NONE;
+            return redirectToForm(outcome == FileUploadCheck.StoreOutcome.STORED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.ALREADY_RECORDED);
         }
         addActionError(getText("oscarMDS.createLab.submitError"));
         return manage();
+    }
+
+    /** Redirects a completed storage attempt without putting clinical data or session IDs in the URL. */
+    // FindSecBugs UNVALIDATED_REDIRECT: container context path, fixed application route and generated UUID;
+    // no request parameter controls the destination. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Container context path, fixed application route and server-generated UUID; no request parameter controls the destination")
+    private String redirectToForm(ManualLabSubmissionReceipt.Outcome outcome) {
+        String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
+        response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+        response.setHeader("Location", request.getContextPath()
+                + "/oscarMDS/ViewCreateLab?submission=" + receipt);
+        return NONE;
     }
 
 	/**

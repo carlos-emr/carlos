@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.lab.gate;
 
-import io.github.carlos_emr.carlos.lab.FileUploadCheck.StoreOutcome;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt.Outcome;
 import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -46,16 +46,19 @@ class ViewCreateLab2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @EnumSource(value = StoreOutcome.class, names = {"STORED", "ALREADY_RECORDED"})
-    void shouldDisplayRecordedOutcomeOnce_whenFollowingSubmissionRedirect(StoreOutcome outcome) throws Exception {
+    @EnumSource(Outcome.class)
+    void shouldDisplayRecordedOutcomeOnce_whenFollowingSubmissionRedirect(Outcome outcome) throws Exception {
         request.setParameter("submission", ManualLabSubmissionReceipt.save(request.getSession(), outcome));
         ViewCreateLab2Action action = view();
         assertThat(action.execute()).isEqualTo("success");
-        if (outcome == StoreOutcome.STORED) {
+        if (outcome == Outcome.STORED) {
             assertThat(action.getActionMessages()).containsExactly("oscarMDS.createLab.submitSuccess");
             assertThat(action.getActionErrors()).isEmpty();
-        } else {
+        } else if (outcome == Outcome.ALREADY_RECORDED) {
             assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitDuplicate");
+            assertThat(action.getActionMessages()).isEmpty();
+        } else {
+            assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitUnknown");
             assertThat(action.getActionMessages()).isEmpty();
         }
         ViewCreateLab2Action reloaded = view();
@@ -75,24 +78,24 @@ class ViewCreateLab2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepReceiptUndisclosed_whenLabPrivilegeIsDenied() {
-        String id = ManualLabSubmissionReceipt.save(request.getSession(), StoreOutcome.STORED);
+        String id = ManualLabSubmissionReceipt.save(request.getSession(), Outcome.STORED);
         request.setParameter("submission", id);
         when(security.hasPrivilege(any(), eq("_lab"), eq("w"), isNull())).thenReturn(false);
         ViewCreateLab2Action action = view();
         assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
-        assertThat(ManualLabSubmissionReceipt.consume(request.getSession(), id)).isEqualTo(StoreOutcome.STORED);
+        assertThat(ManualLabSubmissionReceipt.consume(request.getSession(), id)).isEqualTo(Outcome.STORED);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"HEAD", "POST"})
     void shouldKeepNoticeForGet_whenOtherMethodVisitsView(String method) throws Exception {
         request.setMethod(method);
-        String id = ManualLabSubmissionReceipt.save(request.getSession(), StoreOutcome.STORED);
+        String id = ManualLabSubmissionReceipt.save(request.getSession(), Outcome.STORED);
         request.setParameter("submission", id);
         ViewCreateLab2Action action = view();
         assertThat(action.execute()).isEqualTo("success");
         assertThat(action.getActionMessages()).isEmpty();
-        assertThat(ManualLabSubmissionReceipt.consume(request.getSession(), id)).isEqualTo(StoreOutcome.STORED);
+        assertThat(ManualLabSubmissionReceipt.consume(request.getSession(), id)).isEqualTo(Outcome.STORED);
     }
 
     private ViewCreateLab2Action view() {

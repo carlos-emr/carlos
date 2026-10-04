@@ -15,8 +15,8 @@ package io.github.carlos_emr.carlos.lab.gate;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.lab.FileUploadCheck.StoreOutcome;
 import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt;
+import io.github.carlos_emr.carlos.lab.ca.all.web.ManualLabSubmissionReceipt.Outcome;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -54,12 +54,14 @@ public final class ViewCreateLab2Action extends ActionSupport {
 
         // HEAD probes and unrelated POSTs must not swallow a redirected GET's notice.
         if ("GET".equals(request.getMethod())) {
-            StoreOutcome outcome = ManualLabSubmissionReceipt.consume(
+            Outcome outcome = ManualLabSubmissionReceipt.consume(
                     request.getSession(false), request.getParameter("submission"));
-            if (outcome == StoreOutcome.STORED) {
+            if (outcome == Outcome.STORED) {
                 addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
-            } else if (outcome == StoreOutcome.ALREADY_RECORDED) {
+            } else if (outcome == Outcome.ALREADY_RECORDED) {
                 addActionError(getText("oscarMDS.createLab.submitDuplicate"));
+            } else if (outcome == Outcome.UNKNOWN) {
+                addActionError(getText("oscarMDS.createLab.submitUnknown"));
             }
         }
         return SUCCESS;

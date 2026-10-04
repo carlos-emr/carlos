@@ -20,8 +20,19 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { removeOwnedHl7Labs } = require('./lab-forwarding-rules-playwright-checks');
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep } = require('./lib/double-submit-helpers');
 
+/** Accept a completed submission or duplicate, while still rejecting generic failure notices. */
+async function assertCompletedNotice(form) {
+  const notice = form.locator('.alert-success, .alert-danger');
+  await notice.first().waitFor({ state: 'visible', timeout: 10000 });
+  h.assert(await notice.count() === 1, 'Completed lab submission must render exactly one notice');
+  const text = (await notice.innerText()).trim();
+  h.assert(text === 'Lab submitted successfully. It will appear in your inbox shortly.'
+    || text === 'This lab file has already been submitted (duplicate detected).',
+    'The result did not report a successful or already-recorded lab');
+}
+
 async function workflow(s) {
-  const { sql, marker } = s;
+  const { sql, marker, provider } = s;
   const accessions = [];
   s.cleanup(() => {
     const labs = [];
@@ -72,7 +83,20 @@ async function workflow(s) {
       form.on('response', recordResponse);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
       const dialogs = await h.withExpectedDialogs(form, async () => {
-        await rapid(mode.key, form.locator('form[name="testForm"] button[type="submit"]'), { textField: form.locator('#accession') });
+        const submit = form.locator('form[name="testForm"] button[type="submit"]');
+        if (mode.key === 'replay') {
+          await submit.click({ noWaitAfter: true });
+          await form.waitForURL((url) => url.pathname.endsWith('/oscarMDS/ViewCreateLab'),
+            { waitUntil: 'domcontentloaded', timeout: 20000 });
+          await assertCompletedNotice(form);
+          await sleep(2500);
+          const firstReload = await form.reload({ waitUntil: 'domcontentloaded' });
+          h.assert(firstReload.request().method() === 'GET', 'First result reload must use GET');
+          h.assert(await form.locator('.alert-success, .alert-danger').count() === 0,
+            'First result reload repeated the consumed submission notice');
+        } else {
+          await rapid(mode.key, submit, { textField: form.locator('#accession') });
+        }
         await sleep(1500);
       });
       const count = await settledCount(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`,
@@ -87,7 +111,7 @@ async function workflow(s) {
       if (mode.key === 'replay') {
         h.assert(posts.seen.length === 1, 'Reload sent another SubmitLab POST');
       } else {
-        await form.locator('.alert-success').waitFor({ state: 'visible', timeout: 10000 });
+        await assertCompletedNotice(form);
       }
       const beforeReload = posts.seen.length;
       const reloaded = await form.reload({ waitUntil: 'domcontentloaded' });
@@ -99,6 +123,10 @@ async function workflow(s) {
         JOIN hl7TextMessage m ON m.lab_id=i.lab_no JOIN fileUploadCheck f ON f.id=m.fileUploadCheck_id
         WHERE i.accessionNum=${h.sqlString(accession)}`) === '1',
         'Reload must retain exactly one lab message and its upload checksum');
+      h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting r
+        JOIN hl7TextInfo i ON i.lab_no=r.lab_no WHERE r.lab_type='HL7'
+        AND r.provider_no=${h.sqlString(provider)} AND i.accessionNum=${h.sqlString(accession)}`) === '1',
+        'The submitted lab must be routed exactly once to the submitting provider');
       posts.stop();
       form.off('response', recordResponse);
       if (!form.isClosed()) await form.close().catch(() => {});
