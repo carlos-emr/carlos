@@ -7212,7 +7212,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only: no fixtures, nothing to clean up, no global settings. The browser aborts the off-host request; nothing leaves the machine.",
-      "notes": "Expected to FAIL today at the final step: Administration > Help Link Setting requests https://www.google-analytics.com/collect (Toast UI editor usage statistics, resourcebaseurl.jsp:212-224 lacks usageStatistics:false)."
+      "notes": "Administration > Help Link Setting renders the real Toast UI editor without off-host requests, script errors, or failed same-origin resources. Waits past the usage-beacon timer and aborts all off-host requests before they leave the browser."
     },
     {
       "name": "concurrency-demographic-edit",
