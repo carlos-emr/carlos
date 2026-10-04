@@ -61,11 +61,9 @@ class AddEFormDownloadApprovalRegressionTest {
                 .as("the save-as-eDoc branch plus its helper declaration")
                 .isEqualTo(2);
         assertThat(source)
-                .as("the saved form must still offer incomplete-eDoc approval")
-                .contains("offerEDocApproval(loggedInInfo, e, (String) request.getAttribute(\"fdid\"), demographic_no)");
-        assertThat(source)
-                .as("the specific catch must guard the refusable renders")
-                .contains("catch (EformContentUnavailableException e)");
+                .as("the saved form must still handle incomplete renders and offer eDoc approval")
+                .contains("offerEDocApproval(loggedInInfo, e, (String) request.getAttribute(\"fdid\"), demographic_no)",
+                        "catch (EformContentUnavailableException e)");
     }
 
     @Test

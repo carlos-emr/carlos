@@ -166,7 +166,8 @@ function getEForm() {
         // unload prompt on the next task; the server identity still rejects any replay.
         window.addEventListener("beforeunload", function (event) {
             setTimeout(function () {
-                if (event.defaultPrevented || event.returnValue) {
+                // S1874: the compatibility path must recognize older handlers that only set returnValue.
+                if (event.defaultPrevented || event.returnValue) { // NOSONAR -- deliberate legacy beforeunload compatibility
                     const form = getEForm();
                     if (form) markEFormSubmitting(form, false);
                 }

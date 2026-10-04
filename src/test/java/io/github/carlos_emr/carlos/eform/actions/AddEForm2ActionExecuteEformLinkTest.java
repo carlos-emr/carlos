@@ -245,8 +245,8 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
             assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
             assertThat(mockRequest.getSession().getAttribute(key)).isNull();
             verify(forms.constructed().get(1)).setOpenerValues(
-                    eq(new java.util.ArrayList<>(java.util.List.of("referral"))),
-                    eq(new java.util.ArrayList<>(java.util.List.of("synthetic incoming value"))));
+                    new java.util.ArrayList<>(java.util.List.of("referral")),
+                    new java.util.ArrayList<>(java.util.List.of("synthetic incoming value")));
         }
     }
 
@@ -422,6 +422,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
                 });
              var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AddEForm2Action.class)) {
             assertThat(new AddEForm2Action().execute()).isEqualTo("faxPreparation");
+            assertThat(forms.constructed()).hasSize(1);
             verify(mockEformDataManager).saveEformData(any(), any());
             assertThat(logs.messages()).anyMatch(message -> message.contains("image placeholders (IllegalArgumentException)"));
             assertThat(logs.messages()).anyMatch(message -> message.contains("Invalid eform_link"));
