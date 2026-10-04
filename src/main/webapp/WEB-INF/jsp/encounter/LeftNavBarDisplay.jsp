@@ -136,7 +136,8 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
            onmouseout='this.style.color="white"'
 <%         NavBarDisplayDAO.PopupConfig popCfg = dao.getPopUpConfig(idx);
            if (popCfg != null) {
-               String popupOnclick = "popupPage(" + popCfg.width() + "," + popCfg.height()
+               String popupOnclick = trackHeadingPopup(dao, popCfg)
+                   + "popupPage(" + popCfg.width() + "," + popCfg.height()
                    + ",'" + SafeEncode.forJavaScriptAttribute(popCfg.windowName())
                    + "','" + SafeEncode.forJavaScriptAttribute(popCfg.url()) + "');";
                if (menuCallback != null) {

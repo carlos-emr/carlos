@@ -2,17 +2,12 @@
 /*
  * Shared helpers for the popup-opener-*-playwright-checks.js family.
  *
- * WHY THESE EXIST. A popup that calls back into window.opener only works while the
- * popup and its opener stay in one browsing-context group. CARLOS sends
- * Cross-Origin-Opener-Policy: same-origin from the Struts `coop` interceptor, and
- * that interceptor sets the header in a PreResultListener: a document that is not
- * the result of a Struts action reaching a result (a static .html, a servlet, a
- * gate that forwards inside the action and returns NONE, any action that answers
- * with response.sendRedirect()) carries no COOP at all. Chromium enforces COOP on
- * every response of a navigation, redirects included, so one COOP-less hop in the
- * popup's history -- or a COOP mismatch between the popup's first document and the
- * opener's top-level document -- severs window.opener for good. The page then
- * throws a TypeError, or silently does nothing, where it should hand a value back.
+ * WHY THESE EXIST. A popup can call its opener only while both remain in one
+ * browsing-context group. CrossOriginOpenerPolicyFilter supplies same-origin on
+ * every response, including static files, forwards, redirects and errors. The
+ * old Struts result interceptor omitted those responses; a policy mismatch cut
+ * window.opener, causing callbacks to throw or silently skip their update.
+ * These checks preserve that contract across the whole navigation chain.
  *
  * documentChain() records every top-level document response per page (status,
  * path, COOP value) so a failing pick can say WHICH hop lost the opener, and

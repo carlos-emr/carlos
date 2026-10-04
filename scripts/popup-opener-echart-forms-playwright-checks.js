@@ -7,15 +7,10 @@
  * User path: Schedule ▸ Search ▸ Master Record ▸ E-Chart ▸ Forms module menu ▸
  * Rourke2017 (form/formrourke2017complete, ViewForm2Action) ▸ Save and Exit
  * (form/formname?submit=exit -> encounter/close.jsp).
- * The chart refreshes a module after a tracked popup closes: popupPage() keeps the
- * window in openWindows[name] and a 1 s timer reloads the module once that window
- * reports .closed. Two things defeat that for a form started from the menu: (1) the
- * form route forwards to its JSP inside the action (ViewForm2Action), so it is served
- * WITHOUT Cross-Origin-Opener-Policy while the chart carries `same-origin`, the form
- * opens in a new browsing-context group, window.opener is null and the chart's handle
- * reads .closed at once, before anything is saved; (2) LeftNavBarDisplay.jsp registers
- * no reloadWindows entry for popup-MENU items at all (a control run with the COOP
- * header restored kept the opener but still never refreshed the module).
+ * The chart refreshes a module after a tracked popup closes. Previously form/*
+ * forwarded without COOP, severing the opener, and menu items registered no
+ * reloadWindows entry. The common response filter and Forms menu tracking must
+ * keep the opener live, register the popup and refresh after a successful save.
  * Asserts the form opens for the owned patient, Save and Exit writes one
  * formRourke2017 row and closes the popup, and the chart's Forms module then lists
  * the saved form without a manual reload.
@@ -53,9 +48,13 @@ async function workflow(s) {
     h.assert(new URL(form.url()).searchParams.get('demographic_no') === patient, 'The form opened for another patient');
     await form.locator('#frmP1').waitFor();
     state = await openerState(form);
+    h.assert(state === 'live', 'The new form must retain its chart opener before saving');
+    const windowName = await form.evaluate(() => window.name);
+    h.assert(await chart.evaluate(name => Boolean(reloadWindows[name]) && reloadWindows[name + 'div'] === 'forms', windowName),
+      'The Forms menu did not register the popup for module refresh');
   });
 
-  // Last: the chart-side refresh the severed opener breaks.
+  // Saving must refresh the chart through its tracked popup handle.
   await s.step('Save and Exit stores the form, closes it, and the chart Forms module lists it without a reload', async () => {
     const closed = form.waitForEvent('close', { timeout: 30000 }).then(() => true, () => false);
     const failuresBefore = s.recorder.requestFailures.length;
