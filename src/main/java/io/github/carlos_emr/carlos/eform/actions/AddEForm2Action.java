@@ -188,9 +188,9 @@ public class AddEForm2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    // Sonar S3776: the existing save workflow was extracted so a single reservation covers
-    // every exit. Preserve the established ordering of clinical side effects in this fix;
-    // refactoring those workflows is separate from submission idempotency.
+    // Sonar S3776: Preserve the established clinical workflow order while guarding submissions.
+    // This method contains the existing save workflow with its clinical side effects.
+    // Refactoring that workflow belongs in a separate change.
     @SuppressWarnings("java:S3776")
     private String executeSubmission(EFormSubmissionGuard.Claim claim) {
         logger.debug("==================SAVING ==============");
