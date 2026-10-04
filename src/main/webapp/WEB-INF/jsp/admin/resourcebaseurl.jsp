@@ -1,6 +1,7 @@
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Modifications by CARLOS Contributors, 2026.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -214,6 +215,7 @@
         el: document.querySelector('#resource_helpHtml_editor'),
         height: '200px',
         initialEditType: 'wysiwyg',
+        usageStatistics: false,
         initialValue: '',
         hideModeSwitch: true,
         toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']],
