@@ -3453,7 +3453,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns one PW<hex> encounter template and the synthetic patient's chart notes; create/edit/delete through Administration > eChart > Insert a Template, inserts it through the chart's Template Search and saves the note.",
-      "notes": "Fails at its last step on 2026.08: Insert a Template \u25b8 Delete throws DetachedObjectException and deletes nothing."
+      "notes": "Fails at its last step on 2026.08: Insert a Template ▸ Delete throws DetachedObjectException and deletes nothing."
     },
     {
       "name": "admin-issue-editor",
@@ -3665,7 +3665,7 @@
       "env": [
         "BILLING_CORRECTION_CODE"
       ],
-      "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record \u25b8 Billing History; owned rows removed.",
+      "fixtures": "Owned bill (header + item, marker in comment1) for an owned patient under a billable provider temporarily added to the operator's sites; corrected, status-changed and unbilled through Master Record ▸ Billing History; owned rows removed.",
       "notes": "Fails at its Unbill step on 2026.08: the history page submits a runtime-built form without a CSRF token (403)."
     },
     {
@@ -4228,7 +4228,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
-      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and \u2265/\u2264) and their rows; all removed."
+      "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
     },
     {
       "name": "demographic-relations-pdf-labels",
@@ -4325,7 +4325,7 @@
         "MYSQL_PASSWORD"
       ],
       "notes": "Fails at its last step on 2026.08: enabling MFA wipes the stored PIN (the disabled PIN field posts no pin), and the security record edit page loads a missing admin/bcArStyle.css.",
-      "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration \u25b8 Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
+      "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
       "name": "measurement-map-admin",
@@ -4403,7 +4403,7 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "notes": "Fails at its last step on 2026.08: Row Display throws ReferenceError (scanDOM) and loads a missing spinner image.",
-      "fixtures": "Owned patient; a two-test lab created through Inbox \u25b8 Create Lab under an owned accession; lab, routing and measurement rows removed."
+      "fixtures": "Owned patient; a two-test lab created through Inbox ▸ Create Lab under an owned accession; lab, routing and measurement rows removed."
     },
     {
       "name": "session-heartbeat-timeout",
@@ -4541,7 +4541,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Fails on 2026.08: Billing Reconciliation \u25b8 Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
+      "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
     },
     {
@@ -4574,7 +4574,7 @@
         "DOCUMENT_DIR",
         "ONEDT_INBOX"
       ],
-      "notes": "The separate year-end-statement workflow covers the repaired PDF and statement totals. This broader workflow still exposes the existing billed-report request-header collision, INR update HTTP 405 and blank L report.",
+      "notes": "Regression #4138: correct billed-report headers and cells, complete year-end PDF, ES/OU MOH report rendering with visible invalid-file errors, and INR edit navigation, POST save/opener refresh, and GET mutation refusal.",
       "fixtures": "Owned patient, owned claims and PAT invoices, and an owned INR billing row; ONEDT_INBOX defaults to <parent of DOCUMENT_DIR>/onEDTDocs/inbox; all rows and files removed."
     },
     {
@@ -4735,7 +4735,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds one marker-named mygroup (test provider + three active demo providers, names copied from provider); uses three more demo providers as add targets; cleanup deletes every row of the marker group and asserts it.",
-      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD\u2026' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
+      "notes": "Expected to FAIL at the last step 'every provider-group mutation refused GET/HEAD…' until providercontrol displaymode=newgroup / ViewProviderNewGroup Delete reject GET and providercontrol stops include()ing an arbitrary displaymodevariable path (today all three write)."
     },
     {
       "name": "get-reject-rourke-form",
@@ -4791,7 +4791,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration \u25b8 Manage eForms; cleanup deletes it and asserts it.",
+      "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration ▸ Manage eForms; cleanup deletes it and asserts it.",
       "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
     },
     {
@@ -4848,7 +4848,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates one marker-named document queue (and its _queue.<id> secObjectName) through Administration \u25b8 Add New Queue; cleanup deletes queue/secObjectName rows carrying the two marker names and asserts it.",
+      "fixtures": "Creates one marker-named document queue (and its _queue.<id> secObjectName) through Administration ▸ Add New Queue; cleanup deletes queue/secObjectName rows carrying the two marker names and asserts it.",
       "notes": "Expected to FAIL at the last step 'queue creation refused GET/HEAD and no queue carries the replayed name' until documentManager/inboxManage method=addNewQueue rejects GET (today a GET creates a queue and security object with _edoc read)."
     },
     {
@@ -4959,7 +4959,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Passes on 2026.08 (E-Chart \u25b8 Measurements \u25b8 Vitals \u25b8 Submit posts the reading into the open note through window.opener.postMessage, chart not reloaded).",
+      "notes": "Passes on 2026.08 (E-Chart ▸ Measurements ▸ Vitals ▸ Submit posts the reading into the open note through window.opener.postMessage, chart not reloaded).",
       "fixtures": "Owns the synthetic patient; cleanup deletes its measurements (and measurementsExt) rows and asserts they are gone."
     },
     {
@@ -6756,7 +6756,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One synthetic PATHL7 ORU^R01 in hl7TextMessage/hl7TextInfo with provider and patient routing for the owned FAKE-PW patient (serviceName CARLOSEXPORT); cleanup deletes exactly this run's lab id and asserts it. Needs pdftotext and pdffonts. Nothing leaves the host.",
-      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, \u2265 and \u2264 comparisons, and Polish \u0141. Every font must be embedded."
+      "notes": "Regression for #4173: generated PDF preserves patient/accession, result values, units, ranges, flags, comments, ≥ and ≤ comparisons, and Polish Ł. Every font must be embedded."
     },
     {
       "name": "export-content-dashboard-csv",
@@ -6770,7 +6770,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zo\u00eb / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
+      "fixtures": "A throwaway login (lib/throwaway-login-fixture.js) with the dashboard grants, three FAKE- patients (first names Zoë / Ro\"b / Plain; Ro\"b has a two-line address and no e-mail), one dashboard and one indicator template carrying the marker; cleanup removes all of it and asserts it. Reads only.",
       "notes": "Regression coverage for #4174: validates exact UTF-8 byte length and complete RFC 4180 field round trips, including accents, quotes, line breaks, NULL email values and the last row."
     },
     {

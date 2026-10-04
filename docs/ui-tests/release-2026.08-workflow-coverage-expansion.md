@@ -134,7 +134,7 @@ Every failing check passes the steps it reaches before the one that hits the def
 | `billing-on-ohip-simulation-report` | §2.7 | ON | PASS |
 | `billing-on-payment-status` | §2.7 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: Payment Received omits payments dated on the End Date (< instead of <=), so today's payments never appear with the default range. |
 | `billing-on-ra-import` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: the claims error report page answers 500 (missing bean property), and Billing Reconciliation Report/Summary/Settle post a runtime-built form without a CSRF token (403). |
-| `billing-on-reports-inr-eoy` | §2.7 | ON | FAIL on confirmed defects. Fails on 2026.08: the billing report renders the request headers (including the session cookie) as its column headers; the statement PDF answers 500, the INR update form 405s and the L report renders blank. |
+| `billing-on-reports-inr-eoy` | §2.7 | ON | PASS on #4138: all 12 steps, including correct report headers/cells, complete statement PDF, ES/OU MOH rendering and malformed-file errors, INR edit GET, POST save, opener refresh and GET mutation refusal. Owned fixtures removed. |
 | `rx-edit-discontinue` | §3.2 | all | PASS |
 | `rx-interactions-renal-luc` | §3.2 | ON | FAIL on confirmed defects. Fails at its last step on 2026.08: no drug-drug interaction marker is shown for a DrugRef major interaction (the interaction calls are commented out of the Rx page). |
 | `rx-print-profile` | §3.2 | all | PASS |

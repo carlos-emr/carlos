@@ -359,6 +359,7 @@ async function workflow(s) {
     h.assert((await upload.locator('#MOHreport').innerText()).trim() === '', 'Invalid report left partial content');
   });
 
+  let inrEditor;
   await s.step('INR row ▸ patient name opens the INR update form for that row', async () => {
     const before = sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`);
     inr = await openAdminFrame(admin, '/billing/CA/ON/ViewInrReportINR?provider_no=all', 'select[name="provider"]');
@@ -370,17 +371,44 @@ async function workflow(s) {
       row.locator('a', { hasText: marker }).click(),
     ]);
     await popup.waitForLoadState('domcontentloaded');
+    inrEditor = popup;
     h.assert(answer.status() === 200, `The INR update form answered HTTP ${answer.status()} to its opener's ${answer.request().method()}`);
     h.assert(await popup.locator('input[name="billinginr_no"]').inputValue() === ids.inr
       && await popup.locator('input[name="diag_code"]').inputValue() === INR_DX, 'The INR update form did not load the row');
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`)) === JSON.stringify(before),
       'Opening the INR edit form changed the billing row');
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/DbUpdateINRbilling'), {
+    const saveUrl = await popup.locator('form[name="serviceform"]').evaluate(form => form.action);
+    h.assert(new URL(saveUrl).pathname.endsWith('/billing/CA/ON/inr/DbUpdateINRbilling'),
+      'The INR edit form points at an unmapped save action');
+    const rejected = await s.context.request.get(saveUrl, {
       params: { billinginr_no: ids.inr, inraction: 'delete', service_code: INR_CODE, diag_code: INR_DX }, maxRedirects: 0,
     });
     h.assert(rejected.status() === 405 && rejected.headers().allow === 'POST', 'GET INR deletion was not refused');
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM billinginr WHERE billinginr_no=${ids.inr}`)) === JSON.stringify(before),
       'A refused GET changed the INR row');
+  });
+
+  await s.step('INR edit ▸ Update persists the diagnosis through the mapped POST action', async () => {
+    const claimCount = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
+    await inrEditor.locator('input[name="diag_code"]').fill('250');
+    const refreshed = admin.waitForEvent('framenavigated', { predicate: frame => frame === inr, timeout: 30000 });
+    const closed = inrEditor.waitForEvent('close', { timeout: 30000 });
+    refreshed.catch(() => {});
+    closed.catch(() => {});
+    const [response] = await Promise.all([
+      s.context.waitForEvent('response', { timeout: 30000, predicate: r => r.request().method() === 'POST'
+        && new URL(r.url()).pathname.endsWith('/billing/CA/ON/inr/DbUpdateINRbilling') }),
+      inrEditor.locator('input[name="inraction"][value="update"]').click(),
+    ]);
+    h.assert(response.status() === 200, `INR update answered HTTP ${response.status()}`);
+    await expectValue(sql, `SELECT CONCAT_WS('|',diagnostic_code,service_code,billing_amount,status) FROM billinginr
+      WHERE billinginr_no=${ids.inr}`, `250|${INR_CODE}|${inrFee}|A`, 'The INR update did not persist the intended values');
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`) === claimCount,
+      'Editing the INR row created a duplicate claim');
+    await Promise.all([refreshed, closed]);
+    await inr.waitForLoadState('domcontentloaded');
+    const row = inr.locator('tr').filter({ has: inr.locator(`input[name="inrbilling${ids.inr}"]`) });
+    h.assert((await row.innerText()).includes('250'), 'The INR list did not refresh with the saved diagnosis');
   });
 
   // Every other step ran; the outcome must still not read as full coverage.
