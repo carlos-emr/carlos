@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.mds.data;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -264,19 +266,21 @@ public class MDSResultsData {
             }
 
             for (Object[] o : searchResult) {
-                Integer MSHsegmentID = (Integer) o[0];
-                String providerLabRoutingStatus = (String) o[2];
-                String mdsPIDpatientName = (String) o[3];
-                String mdsPIDhealthNumber = (String) o[4];
-                String mdsPIDsex = (String) o[5];
-                String abnormalFlag = (String) o[6]; // maxMdsZFR.abnormalFlag
-                Date mdsMSHdateTime = (Date) o[7];
-                String mdsOBRquantityTiming = (String) o[8];
-                String mdsPV1refDoctor = (String) o[9];
-                String reportFormStatus = (String) o[10]; // minMdsZFR.reportFormStatus
-                String mdsZRGreportGroupDesc = (String) o[11];
+                // The patient-only query omits providerLabRouting.status.
+                int offset = demographicNo == null ? 1 : 0;
+                Integer mshSegmentId = ((Number) o[0]).intValue();
+                String providerLabRoutingStatus = offset == 1 ? NativeQueryValues.asString(o[2]) : null;
+                String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
+                String mdsPIDhealthNumber = NativeQueryValues.asString(o[3 + offset]);
+                String mdsPIDsex = NativeQueryValues.asString(o[4 + offset]);
+                String abnormalFlag = NativeQueryValues.asString(o[5 + offset]);
+                Date mdsMSHdateTime = NativeQueryValues.asDate(o[6 + offset]);
+                String mdsOBRquantityTiming = NativeQueryValues.asString(o[7 + offset]);
+                String mdsPV1refDoctor = NativeQueryValues.asString(o[8 + offset]);
+                String reportFormStatus = NativeQueryValues.asString(o[9 + offset]);
+                String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
-                segmentID.add(Integer.toString(MSHsegmentID));
+                segmentID.add(Integer.toString(mshSegmentId));
                 if (demographicNo == null && !providerNo.equals("0")) {
                     acknowledgedStatus.add(providerLabRoutingStatus);
                 } else {
@@ -430,50 +434,25 @@ public class MDSResultsData {
                 }
             }
 
-            Integer MSHsegmentID = null;
-            String accessionNum = null;
-            String providerLabRoutingStatus = null;
-            String mdsPIDpatientName = null;
-            String mdsPIDhealthNumber = null;
-            String mdsPIDsex = null;
-            String abnormalFlag = null; // maxMdsZFR.abnormalFlag
-            Date mdsMSHdateTime = null;
-            String mdsOBRquantityTiming = null;
-            String mdsPV1refDoctor = null;
-            String reportFormStatus = null; // minMdsZFR.reportFormStatus
-            String mdsZRGreportGroupDesc = null;
-
-
+            // Both provider searches and selected-patient-lab queries include routing status.
+            boolean hasRoutingStatus = demographicNo == null || (labNo != null && labNo > 0);
+            int offset = hasRoutingStatus ? 1 : 0;
             for (Object[] o : searchResult) {
-                if (demographicNo == null) {
-                    MSHsegmentID = (Integer) o[0];
-                    accessionNum = String.valueOf(o[1]); // mdsMSH.messageConID
-                    providerLabRoutingStatus = String.valueOf(o[2]);
-                    mdsPIDpatientName = (String) o[3];
-                    mdsPIDhealthNumber = (String) o[4];
-                    mdsPIDsex = (String) o[5];
-                    abnormalFlag = (String) o[6]; // maxMdsZFR.abnormalFlag
-                    mdsMSHdateTime = (Date) o[7];
-                    mdsOBRquantityTiming = (String) o[8];
-                    mdsPV1refDoctor = (String) o[9];
-                    reportFormStatus = (String) o[10]; // minMdsZFR.reportFormStatus
-                    mdsZRGreportGroupDesc = (String) o[11];
-                } else {
-                    MSHsegmentID = (Integer) o[0];
-                    accessionNum = String.valueOf(o[1]); // mdsMSH.messageConID
-                    mdsPIDpatientName = (String) o[2];
-                    mdsPIDhealthNumber = (String) o[3];
-                    mdsPIDsex = (String) o[4];
-                    abnormalFlag = (String) o[5]; // maxMdsZFR.abnormalFlag
-                    mdsMSHdateTime = (Date) o[6];
-                    mdsOBRquantityTiming = (String) o[7];
-                    mdsPV1refDoctor = (String) o[8];
-                    reportFormStatus = (String) o[9]; // minMdsZFR.reportFormStatus
-                    mdsZRGreportGroupDesc = (String) o[10];
-                }
+                Integer mshSegmentId = ((Number) o[0]).intValue();
+                String accessionNum = String.valueOf(o[1]);
+                String providerLabRoutingStatus = hasRoutingStatus ? NativeQueryValues.asString(o[2]) : null;
+                String mdsPIDpatientName = NativeQueryValues.asString(o[2 + offset]);
+                String mdsPIDhealthNumber = NativeQueryValues.asString(o[3 + offset]);
+                String mdsPIDsex = NativeQueryValues.asString(o[4 + offset]);
+                String abnormalFlag = NativeQueryValues.asString(o[5 + offset]);
+                Date mdsMSHdateTime = NativeQueryValues.asDate(o[6 + offset]);
+                String mdsOBRquantityTiming = NativeQueryValues.asString(o[7 + offset]);
+                String mdsPV1refDoctor = NativeQueryValues.asString(o[8 + offset]);
+                String reportFormStatus = NativeQueryValues.asString(o[9 + offset]);
+                String mdsZRGreportGroupDesc = NativeQueryValues.asString(o[10 + offset]);
 
                 LabResultData lData = new LabResultData(LabResultData.MDS);
-                lData.segmentID = "" + MSHsegmentID;
+                lData.segmentID = "" + mshSegmentId;
                 seqId = lData.segmentID;
 
                 if (demographicNo == null && !providerNo.equals("0")) {

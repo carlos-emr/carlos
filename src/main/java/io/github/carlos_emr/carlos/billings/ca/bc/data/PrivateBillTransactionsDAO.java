@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -58,7 +60,7 @@ public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTr
     @SuppressWarnings("unchecked")
     // TODO Annotate with @NativeSql({"billing_private_transactions", "billing_payment_type"}) query when the commit is merged into the main codebase
     public List<PrivateBillTransaction> getPrivateBillTransactions(String billingmaster_no) {
-       Query query = entityManager.createNativeQuery("select bp.id, billingmaster_no, amount_received, creation_date, payment_type_id, bt.payment_type as 'payment_type_desc'" + " from billing_private_transactions bp,billing_payment_type bt where bp.billingmaster_no = :billingmasterNo and bp.payment_type_id = bt.id");
+       Query query = entityManager.createNativeQuery("select bp.id, billingmaster_no, amount_received, creation_date, payment_type_id, bt.payment_type as payment_type_desc" + " from billing_private_transactions bp,billing_payment_type bt where bp.billingmaster_no = :billingmasterNo and bp.payment_type_id = bt.id");
         query.setParameter("billingmasterNo", ConversionUtils.fromIntString(billingmaster_no));
         List<Object[]> resultList = query.getResultList();
         List<PrivateBillTransaction> result = new ArrayList<PrivateBillTransaction>();
@@ -67,7 +69,7 @@ public class PrivateBillTransactionsDAO extends AbstractDaoImpl<BillingPrivateTr
             tx.setId((Integer) res[0]);
             tx.setBillingmaster_no((Integer) res[1]);
             tx.setAmount_received((Double) res[2]);
-            tx.setCreation_date((Date) res[3]);
+            tx.setCreation_date(NativeQueryValues.asDate(res[3]));
             tx.setPayment_type((Integer) res[4]);
             tx.setPayment_type_desc(String.valueOf(res[5]));
             result.add(tx);
