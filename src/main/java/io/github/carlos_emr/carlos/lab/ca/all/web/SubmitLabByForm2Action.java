@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.web;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -61,8 +62,12 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 public class SubmitLabByForm2Action extends ActionSupport {
+    private static final int STORAGE_NOT_STARTED = -1;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,7 +91,7 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
      * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
-     *         or "manage" with errors when storage was rejected or never started
+     *         or "manage" with errors when storage was rejected, rolled back or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
@@ -220,10 +225,22 @@ public class SubmitLabByForm2Action extends ActionSupport {
             return manage();
         }
         FileUploadCheck.StoreOutcome outcome;
+        AtomicInteger storageCompletion = new AtomicInteger(STORAGE_NOT_STARTED);
         try {
             // The generated HL7 file is removed unless the stored lab may reference it.
             outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
                     file.getName(), providerNo, checksumId -> {
+                        // Observe the owned storage transaction before any lab writes. Exception
+                        // types alone cannot distinguish rollback from a lost commit acknowledgement.
+                        storageCompletion.set(TransactionSynchronization.STATUS_UNKNOWN);
+                        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                @Override
+                                public void afterCompletion(int status) {
+                                    storageCompletion.set(status);
+                                }
+                            });
+                        }
                         String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                                 file.getPath(), checksumId, ipAddr);
                         Integer labNo = msgHandler.getLastLabNo();
@@ -234,10 +251,16 @@ public class SubmitLabByForm2Action extends ActionSupport {
                         return true;
                     });
         } catch (Exception e) {
-            logger.error("Lab submission outcome could not be confirmed: {}", LogSafe.exceptionTrace(e));
+            logger.error("Lab submission storage raised an exception: {}", LogSafe.exceptionTrace(e));
+            int completion = storageCompletion.get();
+            if (completion == STORAGE_NOT_STARTED || completion == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                addActionError(getText("oscarMDS.createLab.submitError"));
+                return manage();
+            }
             // A commit acknowledgement can fail after the lab was stored. A refresh of this
             // POST would generate different HL7 and could duplicate it, just as on success.
-            return redirectToForm(ManualLabSubmissionReceipt.Outcome.UNKNOWN);
+            return redirectToForm(completion == TransactionSynchronization.STATUS_COMMITTED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.UNKNOWN);
         }
 
         if (outcome == FileUploadCheck.StoreOutcome.STORED

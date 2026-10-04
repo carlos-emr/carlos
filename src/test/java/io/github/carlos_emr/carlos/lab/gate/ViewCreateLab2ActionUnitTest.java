@@ -42,7 +42,9 @@ class ViewCreateLab2ActionUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() {
-        context.close();
+        if (context != null) {
+            context.close();
+        }
     }
 
     @ParameterizedTest

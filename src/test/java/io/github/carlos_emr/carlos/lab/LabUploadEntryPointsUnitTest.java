@@ -55,6 +55,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionSynchronization;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -206,11 +207,63 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
         when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
         when(handler.getLastLabNo()).thenReturn(42);
         SubmitLabByForm2Action action = runManualForm(true);
-        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
         assertThat(action.getActionMessages()).isEmpty();
         assertThat(transactions.rollbacks).isEqualTo(1);
         assertThat(transactions.commits).isZero();
-        assertManualRedirect(Outcome.UNKNOWN);
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualTransactionCannotStart() throws Exception {
+        transactions.failBegin = true;
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isZero();
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualLookupFailsBeforeParsing() throws Exception {
+        when(dao.findByMd5Sum(anyString())).thenThrow(new IllegalStateException("synthetic lookup failure"));
+        SubmitLabByForm2Action action = runManualForm(false);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        verifyNoInteractions(handler);
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportRetryableError_whenManualCommitIsRolledBack() throws Exception {
+        transactions.rollBackOnCommit = true;
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "manage", true);
+        assertThat(action.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
+        assertThat(action.getActionMessages()).isEmpty();
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportStoredLab_whenAfterCommitCallbackFails() throws Exception {
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    throw new IllegalStateException("synthetic completion failure");
+                }
+            });
+            return "success";
+        });
+        when(handler.getLastLabNo()).thenReturn(42);
+        SubmitLabByForm2Action action = runManualForm(false, "none", true);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(transactions.commits).isEqualTo(1);
+        assertThat(transactions.rollbacks).isZero();
+        assertManualRedirect(Outcome.STORED);
     }
 
     @Test
@@ -266,11 +319,11 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldAllowRetry_whenPreviousManualParseWasRejected() throws Exception {
-        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn("success");
+        when(handler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn(null, "success");
+        when(handler.getLastLabNo()).thenReturn(42);
         SubmitLabByForm2Action rejected = runManualForm(false);
         assertThat(rejected.getActionErrors()).containsExactly("oscarMDS.createLab.submitError");
         response.reset();
-        when(handler.getLastLabNo()).thenReturn(42);
         SubmitLabByForm2Action retried = runManualForm(false, "none");
         assertThat(retried.getActionErrors()).isEmpty();
         assertThat(transactions.rollbacks).isEqualTo(1);
@@ -324,7 +377,7 @@ class LabUploadEntryPointsUnitTest extends CarlosUnitTestBase {
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting) throws Exception {
-        return runManualForm(failRouting, failRouting ? "none" : "manage", failRouting);
+        return runManualForm(failRouting, "manage", failRouting);
     }
 
     private SubmitLabByForm2Action runManualForm(boolean failRouting, String expectedResult) throws Exception {
