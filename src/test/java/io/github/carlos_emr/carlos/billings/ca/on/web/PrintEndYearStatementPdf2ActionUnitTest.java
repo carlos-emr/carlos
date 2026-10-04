@@ -107,7 +107,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldStreamPdfAndReturnNull_whenSummaryIsOnSession() throws Exception {
+    void shouldStreamPdfAndReturnNone_whenSummaryIsOnSession() throws Exception {
         PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
                 .patientName("1")
                 .patientNo("Doe, Jane")
@@ -123,24 +123,25 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
         PrintEndYearStatementPdf2Action action =
                 new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService);
-        // null = bypass result rendering — PDF body already on the wire
-        assertThat(action.execute()).isNull();
+        // NONE terminates direct-response processing after the binary write
+        assertThat(action.execute()).isEqualTo("none");
 
         verify(mockService, times(1)).writePdfResponse(any(), any(), eq(summary), any(), any());
     }
 
     @Test
-    void shouldReturnFailure_whenSessionSummaryIsAbsent() throws Exception {
+    void shouldSendBadRequest_whenSessionSummaryIsAbsent() throws Exception {
         PrintEndYearStatementPdf2Action action = spy(
                 new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService));
         doReturn("error.billingReport.invalidPatientName").when(action).getText(any(String.class));
 
-        assertThat(action.execute()).isEqualTo("failure");
-        assertThat(action.getActionErrors()).isNotEmpty();
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        org.mockito.Mockito.verifyNoInteractions(mockService);
     }
 
     @Test
-    void shouldReturnFailure_whenWritePdfThrows() throws Exception {
+    void shouldSendServerError_whenWritePdfThrows() throws Exception {
         PatientEndYearStatementSummary summary = PatientEndYearStatementSummary.builder()
                 .patientName("1")
                 .patientNo("Doe, Jane")
@@ -162,8 +163,28 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
                 new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService));
         doReturn("errors.billing.ca.on.database").when(action).getText(any(String.class));
 
-        assertThat(action.execute()).isEqualTo("failure");
-        assertThat(action.getActionErrors()).isNotEmpty();
+        mockResponse.setContentType("application/pdf");
+        mockResponse.setHeader("Content-Disposition", "attachment");
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(500);
+        assertThat(mockResponse.getHeader("Content-Disposition")).isNull();
+        assertThat(mockResponse.getContentType()).isNull();
+    }
+
+    @Test
+    void shouldAvoidAppendingAnErrorPage_whenOutputFailureOccursAfterCommit() throws Exception {
+        var summary = PatientEndYearStatementSummary.builder().patientNo("1").build();
+        mockRequest.getSession().setAttribute("summary", summary);
+        mockResponse.getOutputStream().write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        mockResponse.flushBuffer();
+        org.mockito.Mockito.doThrow(new PatientEndYearStatementService.Failure(
+                PatientEndYearStatementService.Reason.IO_ERROR))
+                .when(mockService).writePdfResponse(any(), any(), any(), any(), any());
+
+        var action = new PrintEndYearStatementPdf2Action(mockSecurityInfoManager, mockService);
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getContentAsString()).isEqualTo("%PDF-partial");
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
     }
 
     @Test

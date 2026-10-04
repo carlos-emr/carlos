@@ -3,9 +3,9 @@
 	<property name="net.sf.jasperreports.print.keep.full.text" value="true" />
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
 	<field name="strFirstName" class="java.lang.String" />
 	<field name="strLastName" class="java.lang.String" />
 	<field name="strHIN" class="java.lang.String" />

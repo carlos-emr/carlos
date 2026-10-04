@@ -2,15 +2,15 @@
 <jasperReport name="pdf_rep_msprem" pageWidth="595" pageHeight="842" columnWidth="535" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<import value="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" />
-	<parameter name="payee" class="java.lang.String" isForPrompting="false">
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<import>io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile</import>
+	<parameter name="payee" class="java.lang.String" forPrompting="false">
 		<defaultValueExpression><![CDATA["bays"]]></defaultValueExpression>
 	</parameter>
-	<parameter name="payeeno" class="java.lang.String" isForPrompting="false" />
-	<parameter name="criteria" class="java.lang.String" isForPrompting="false" />
+	<parameter name="payeeno" class="java.lang.String" forPrompting="false" />
+	<parameter name="criteria" class="java.lang.String" forPrompting="false" />
 	<field name="first_name" class="java.lang.String" />
 	<field name="last_name" class="java.lang.String" />
 	<field name="t_practitionerno" class="java.lang.String" />
@@ -30,43 +30,39 @@
 	<field name="t_exp6" class="java.lang.String" />
 	<field name="billing_code" class="java.lang.String" />
 	<variable name="test" class="java.lang.String" resetType="None">
-		<variableExpression><![CDATA["test"]]></variableExpression>
+		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
 	<variable name="amtTotal" class="java.lang.Double" resetType="Group" resetGroup="practitioner_no" calculation="Sum">
-		<variableExpression><![CDATA[new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt}))]]></variableExpression>
+		<expression><![CDATA[new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt}))]]></expression>
 	</variable>
 	<variable name="cnt01" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s01")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt02" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s02")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s02")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt03" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s03")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s03")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt04" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s04")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s04")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<variable name="cnt00" class="java.lang.Double" calculation="Sum">
-		<variableExpression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s00")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></variableExpression>
+		<expression><![CDATA[$F{t_s00type}.equalsIgnoreCase("s00")?new Double(MSPReconcile.convCurValue($F{t_paidamt})):new Double(0)]]></expression>
 	</variable>
 	<group name="practitioner_no">
-		<groupExpression><![CDATA[$F{t_practitionerno}]]></groupExpression>
+		<expression><![CDATA[$F{t_practitionerno}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
 		<groupFooter>
 			<band height="19">
 				<element kind="line" mode="Opaque" x="0" y="17" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-1">
-					<graphicElement fill="Solid">
-						<pen lineWidth="1.0" lineStyle="Solid" />
-					</graphicElement>
+					<pen lineWidth="1.0" lineStyle="Solid" />
 				</element>
 				<element kind="line" mode="Opaque" x="0" y="1" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line-2">
-					<graphicElement fill="Solid">
-						<pen lineWidth="1.0" lineStyle="Solid" />
-					</graphicElement>
+					<pen lineWidth="1.0" lineStyle="Solid" />
 				</element>
 				<element kind="textField" mode="Opaque" x="0" y="3" width="284" height="12" forecolor="#000000" backcolor="#FFFFFF" key="textField-6" hTextAlign="Left" vTextAlign="Top" rotation="None" blankWhenNull="false" pattern="">
 					<paragraph lineSpacing="Single" />
@@ -82,7 +78,7 @@
 		</groupFooter>
 	</group>
 	<group name="type">
-		<groupExpression><![CDATA[$F{t_s00type}]]></groupExpression>
+		<expression><![CDATA[$F{t_s00type}]]></expression>
 		<groupHeader>
 			<band />
 		</groupHeader>
@@ -94,14 +90,10 @@
 		</background>
 	<title height="50" splitType="Stretch">
 		<element kind="line" mode="Opaque" x="0" y="48" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="3" width="534" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Transparent" x="0" y="6" width="412" height="24" forecolor="#000000" backcolor="#FFFFFF" key="staticText" hTextAlign="Left" vTextAlign="Middle" fontSize="14.0" rotation="None">
 			<paragraph lineSpacing="Single" />
@@ -138,19 +130,13 @@
 		</pageHeader>
 	<columnHeader height="20" splitType="Stretch">
 		<element kind="rectangle" mode="Opaque" x="1" y="1" width="534" height="17" forecolor="#000000" backcolor="#999999" key="element-22" radius="0">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="0" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-88" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="19" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="element-89" direction="BottomUp">
-			<graphicElement fill="Solid">
-				<pen lineWidth="0.5" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.5" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Transparent" x="495" y="4" width="23" height="12" forecolor="#FFFFFF" backcolor="#FFFFFF" key="element-90" hTextAlign="Left" vTextAlign="Middle" rotation="None">
 			<paragraph lineSpacing="Single" />
@@ -255,7 +241,7 @@
 	</columnHeader>
 	<detail>
 		<band height="10" splitType="Stretch">
-			<element kind="textField" mode="Transparent" x="31" y="0" width="47" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="31" y="0" width="47" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -265,7 +251,7 @@
 				</box>
 				<expression><![CDATA[$F{t_s00type}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="133" y="0" width="49" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="133" y="0" width="49" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -275,7 +261,7 @@
 				</box>
 				<expression><![CDATA[new SimpleDateFormat("yyyyMMdd").parse($F{t_payment})]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="78" y="0" width="54" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="78" y="0" width="54" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -285,7 +271,7 @@
 				</box>
 				<expression><![CDATA[$F{t_servicedate}.equals("")?null:new SimpleDateFormat("yyyyMMdd").parse($F{t_servicedate})]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="494" y="0" width="41" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="494" y="0" width="41" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -295,7 +281,7 @@
 				</box>
 				<expression><![CDATA[$F{billing_code}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="227" y="0" width="122" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="227" y="0" width="122" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -305,7 +291,7 @@
 				</box>
 				<expression><![CDATA[$F{demographic_name} + "(" + $F{demographic_no} + ")"]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="183" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="183" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -315,7 +301,7 @@
 				</box>
 				<expression><![CDATA[$F{t_datacenter}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="439" y="0" width="55" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="439" y="0" width="55" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -325,7 +311,7 @@
 				</box>
 				<expression><![CDATA[$F{t_dataseq}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="351" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="351" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Right" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -335,7 +321,7 @@
 				</box>
 				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double(io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.convCurValue($F{t_paidamt})))]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="395" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="395" y="0" width="44" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -345,7 +331,7 @@
 				</box>
 				<expression><![CDATA[$F{t_exp1}]]></expression>
 			</element>
-			<element kind="textField" mode="Transparent" x="0" y="0" width="30" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" isPrintWhenDetailOverflows="true">
+			<element kind="textField" mode="Transparent" x="0" y="0" width="30" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-1" hTextAlign="Left" vTextAlign="Top" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />
 				<box>
 					<topPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
@@ -381,9 +367,7 @@
 			<expression><![CDATA["" + $V{PAGE_NUMBER}]]></expression>
 		</element>
 		<element kind="line" mode="Opaque" x="0" y="1" width="535" height="1" forecolor="#000000" backcolor="#FFFFFF" key="line">
-			<graphicElement fill="Solid">
-				<pen lineWidth="2.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="2.0" lineStyle="Solid" />
 		</element>
 		<element kind="staticText" mode="Opaque" x="0" y="3" width="119" height="32" forecolor="#000000" backcolor="#FFFFFF" key="staticText-1" hTextAlign="Left" vTextAlign="Top" rotation="None">
 			<paragraph lineSpacing="Single" />

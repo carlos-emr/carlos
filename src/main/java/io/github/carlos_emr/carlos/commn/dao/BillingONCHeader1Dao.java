@@ -151,6 +151,7 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public List<BillingONCHeader1> findByDemoNoAndDates(Integer demoNo, DateRange dateRange, int iOffSet, int pageSize);
 
+    /** Statement invoices in the inclusive date range; excludes deleted headers and retains settled/legacy-null statuses. */
     public List<Object[]> findBillingsAndDemographicsByDemoIdAndDates(Integer demoNo, String payProgram, Date fromDate,
                                                                       Date toDate);
 
