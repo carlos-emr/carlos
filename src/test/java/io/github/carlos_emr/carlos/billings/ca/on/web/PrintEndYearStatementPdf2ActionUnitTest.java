@@ -49,6 +49,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.spy;
@@ -137,7 +139,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
-        org.mockito.Mockito.verifyNoInteractions(mockService);
+        verifyNoInteractions(mockService);
     }
 
     @Test
@@ -154,7 +156,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
                 .todateParam("0.00")
                 .build();
         mockRequest.getSession(true).setAttribute("summary", summary);
-        org.mockito.Mockito.doThrow(
+        doThrow(
                 new PatientEndYearStatementService.Failure(
                         PatientEndYearStatementService.Reason.IO_ERROR))
                 .when(mockService).writePdfResponse(any(), any(), any(), any(), any());
@@ -177,7 +179,7 @@ class PrintEndYearStatementPdf2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.getSession().setAttribute("summary", summary);
         mockResponse.getOutputStream().write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
         mockResponse.flushBuffer();
-        org.mockito.Mockito.doThrow(new PatientEndYearStatementService.Failure(
+        doThrow(new PatientEndYearStatementService.Failure(
                 PatientEndYearStatementService.Reason.IO_ERROR))
                 .when(mockService).writePdfResponse(any(), any(), any(), any(), any());
 

@@ -88,11 +88,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {
 
+    // These are bundled classpath resources, not configurable external filesystem locations.
+    @SuppressWarnings("java:S1075")
     private static final String JASPER_REPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_report.jrxml";
+    @SuppressWarnings("java:S1075")
     private static final String JASPER_SUBREPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_subreport.jrxml";
     private static final String PAT_BILLING_TYPE = "PAT";
+    private static final String REPORT_ERROR_KEY = "errors.billing.ca.on.database";
 
     private final BillingONCHeader1Dao headerDao;
     private final BillingONItemDao itemDao;
@@ -333,9 +337,9 @@ public class PatientEndYearStatementService {
     public enum Reason {
         PATIENT_NOT_FOUND("error.billingReport.invalidPatientName"),
         PATIENT_NOT_UNIQUE("error.billingReport.notSelectivePatientName"),
-        DATABASE_ERROR("errors.billing.ca.on.database"),
-        IO_ERROR("errors.billing.ca.on.database"),
-        PDF_ERROR("errors.billing.ca.on.database");
+        DATABASE_ERROR(REPORT_ERROR_KEY),
+        IO_ERROR(REPORT_ERROR_KEY),
+        PDF_ERROR(REPORT_ERROR_KEY);
 
         private final String i18nKey;
 

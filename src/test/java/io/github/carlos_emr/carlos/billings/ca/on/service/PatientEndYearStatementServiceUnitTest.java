@@ -33,6 +33,8 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -90,10 +92,10 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
 
     @Test
     void shouldLeaveResponseUntouched_whenRenderingFailsAfterWritingPartialBytes() {
-        var service = org.mockito.Mockito.spy(new PatientEndYearStatementService(
+        var service = spy(new PatientEndYearStatementService(
                 mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             ((java.io.OutputStream) invocation.getArgument(0)).write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
             throw new PatientEndYearStatementService.Failure(PatientEndYearStatementService.Reason.PDF_ERROR);
         }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
@@ -108,10 +110,10 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>"})
     void shouldRejectInvalidRendererOutput_beforeSettingPdfHeaders(String rendered) {
-        var service = org.mockito.Mockito.spy(new PatientEndYearStatementService(
+        var service = spy(new PatientEndYearStatementService(
                 mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        org.mockito.Mockito.doAnswer(invocation -> {
+        doAnswer(invocation -> {
             ((java.io.OutputStream) invocation.getArgument(0)).write(rendered.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
             return null;
         }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
