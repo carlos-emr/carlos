@@ -389,17 +389,23 @@
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 
-                if (update === "true"
-                        && window.opener
-                        && !window.opener.closed
-                        && window.opener.URLs
-                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
-                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
-                } else if (update === "true") {
-                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
-                    // skip silently in the UI but leave a console trace for debugging.
-                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
+                if (update !== "true") return;
+                var parent = window.opener;
+                if (parent && !parent.closed) {
+                    // The current E-Chart exposes reloadNav, not the legacy URLs map.
+                    // This upload callback targets only its Documents module.
+                    if (parentId === "docs" && typeof parent.reloadNav === "function"
+                            && parent.document.getElementById("docs")) {
+                        parent.reloadNav("docs");
+                        return;
+                    }
+                    if (parent.URLs && Object.prototype.hasOwnProperty.call(parent.URLs, parentId)
+                            && typeof parent.popLeftColumn === "function") {
+                        parent.popLeftColumn(parent.URLs[parentId], parentId, parentId);
+                        return;
+                    }
                 }
+                console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
             }
 
             window.closeWindow = function() {
@@ -415,6 +421,7 @@
             }
 
             jQuery(document).ready(function () {
+                setup();
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
                     columnDefs: [{orderable: false, targets: [0, 8]}],

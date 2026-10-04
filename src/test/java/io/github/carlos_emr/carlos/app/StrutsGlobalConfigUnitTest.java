@@ -148,9 +148,14 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
         Map<String, List<String>> stockStacks = describeStacks(strutsDefault);
         Map<String, List<String>> carlosStacks = describeStacks(parent);
         assertThat(carlosStacks.keySet()).containsExactlyInAnyOrder("carlosDefaultStack", "carlosBasicStack");
+        List<String> expectedDefaultStack = withCarlosException(stockStacks.get("defaultStack"));
+        // COOP is set by the servlet filter for actions, static resources, forwards and errors.
+        // Struts' coop interceptor would overwrite it and sever legitimate popup openers.
+        assertThat(expectedDefaultStack).anyMatch(entry -> entry.startsWith("coop "));
+        expectedDefaultStack.removeIf(entry -> entry.startsWith("coop "));
         assertThat(carlosStacks)
-                .as("carlosDefaultStack must be struts-default's defaultStack with carlosException in the exception slot")
-                .containsEntry("carlosDefaultStack", withCarlosException(stockStacks.get("defaultStack")))
+                .as("carlosDefaultStack must replace exception logging and delegate COOP to the servlet filter")
+                .containsEntry("carlosDefaultStack", expectedDefaultStack)
                 .as("carlosBasicStack must be struts-default's basicStack with carlosException in the exception slot")
                 .containsEntry("carlosBasicStack", withCarlosException(stockStacks.get("basicStack")));
 
@@ -502,7 +507,7 @@ class StrutsGlobalConfigUnitTest extends CarlosUnitTestBase {
     private static void setAttributeIfSupported(DocumentBuilderFactory dbf, String name, String value) {
         try {
             dbf.setAttribute(name, value);
-        } catch (IllegalArgumentException ignored) {
+        } catch (IllegalArgumentException _) {
             // Some bundled Xerces implementations do not expose JAXP accessExternal* attributes.
         }
     }
