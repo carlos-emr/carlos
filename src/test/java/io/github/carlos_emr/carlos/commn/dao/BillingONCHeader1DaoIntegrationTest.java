@@ -152,6 +152,31 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
         return item;
     }
 
+    @Test
+    @Tag("query")
+    void shouldIncludeUnpaidItems_whenServiceAndPaymentFiltersAreAbsent() {
+        BillingONCHeader1 first = createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+        BillingONItem firstItem = createAndPersistItem(first.getId(), "A007A", "250", today);
+        BillingONCHeader1 second = createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
+        BillingONItem secondItem = createAndPersistItem(second.getId(), "K030A", "493", today);
+        // An unrelated provider's item must still be excluded.
+        BillingONCHeader1 other = createAndPersist(DEMO_NO, "999002", "B", today);
+        createAndPersistItem(other.getId(), "A007A", "250", today);
+        entityManager.clear();
+
+        List<Object[]> allItems = billingONCHeader1Dao.findByMagic2(List.of("HCP"), "B", PROVIDER_NO,
+                today, today, DEMO_NO, null, null, null, null, null, null);
+        assertThat(allItems).extracting(row -> ((BillingONItem) row[1]).getId())
+                .containsExactlyInAnyOrder(firstItem.getId(), secondItem.getId());
+        assertThat(allItems).allSatisfy(row ->
+                assertThat(((BillingONCHeader1) row[0]).getPaid()).isEqualByComparingTo(BigDecimal.ZERO));
+
+        List<Object[]> filtered = billingONCHeader1Dao.findByMagic2(List.of("HCP"), "B", PROVIDER_NO,
+                today, today, DEMO_NO, List.of("K030A"), null, null, null, null, null);
+        assertThat(filtered).extracting(row -> ((BillingONItem) row[1]).getId())
+                .containsExactly(secondItem.getId());
+    }
+
     // ========================================================================
     // getBillCheader1ByDemographicNo
     // ========================================================================

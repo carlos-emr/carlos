@@ -5908,7 +5908,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. The last separate #4153 assertion retains the empty-service-code filter failure, which hides claims without payment records.",
+      "notes": "Checks report rows, RA columns, totals, individual filters, CSV, and LOCATION order with configured/missing locations in both directions. Blank and whitespace service codes preserve the wildcard report's unpaid claims, totals, sort order, and remaining filters (#4153).",
       "fixtures": "createBillingFixture with three submitted claims (OHIP x2, WSIB) and two owned radetail rows under an owned raheader; all removed and asserted gone."
     },
     {
