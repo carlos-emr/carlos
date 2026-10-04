@@ -1,8 +1,29 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.eform;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.servlet.http.HttpSession;
@@ -31,7 +52,9 @@ public final class EFormSubmissionGuard {
         synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Entry> entries = copyEntries(session);
             if (entries.size() >= MAX_PENDING) {
-                entries.pollFirstEntry();
+                String consumed = entries.entrySet().stream().filter(entry -> entry.getValue().claimed())
+                        .map(Map.Entry::getKey).findFirst().orElse(entries.firstEntry().getKey());
+                entries.remove(consumed);
             }
             entries.put(token, new Entry(fid, patient, false));
             session.setAttribute(SESSION_KEY, new Pending(entries));
@@ -39,21 +62,26 @@ public final class EFormSubmissionGuard {
         return token;
     }
 
+    /** A null claim is a rejection; stale distinguishes unavailable identities from known in-flight/replayed submissions. */
+    public record Attempt(Claim claim, boolean stale) { }
+
     /** Atomically reserves an issued token before any clinical or opener-session mutations. */
-    public static Claim claim(HttpSession session, String token, String fid, String patient) {
+    public static Attempt attempt(HttpSession session, String token, String fid, String patient) {
         if (token == null || token.length() != 36) {
-            return null;
+            return new Attempt(null, true);
         }
         synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Entry> entries = copyEntries(session);
             Entry entry = entries.get(token);
-            if (entry == null || entry.claimed() || !entry.fid().equals(fid)
-                    || !entry.patient().equals(patient)) {
-                return null;
+            if (entry == null || !entry.fid().equals(fid) || !entry.patient().equals(patient)) {
+                return new Attempt(null, true);
+            }
+            if (entry.claimed()) {
+                return new Attempt(null, false);
             }
             entries.put(token, new Entry(fid, patient, true));
             session.setAttribute(SESSION_KEY, new Pending(entries));
-            return new Claim(session, token);
+            return new Attempt(new Claim(session, token), false);
         }
     }
 
@@ -102,11 +130,8 @@ public final class EFormSubmissionGuard {
             }
             synchronized (WebUtils.getSessionMutex(session)) {
                 LinkedHashMap<String, Entry> entries = copyEntries(session);
-                Entry entry = entries.get(token);
-                if (entry != null) {
-                    entries.put(token, new Entry(entry.fid(), entry.patient(), false));
-                    session.setAttribute(SESSION_KEY, new Pending(entries));
-                }
+                entries.computeIfPresent(token, (key, entry) -> new Entry(entry.fid(), entry.patient(), false));
+                session.setAttribute(SESSION_KEY, new Pending(entries));
             }
         }
     }

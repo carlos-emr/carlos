@@ -91,51 +91,93 @@ function getEForm() {
 
 // Guard the actual submission, after template validation has had a chance to cancel it.
 // Do not disable the template's submitter: its name/value may be part of the clinical form.
-const submittingEForms = new WeakSet();
-function markEFormSubmitting(form, submitting) {
-    if (submitting) submittingEForms.add(form);
-    else submittingEForms.delete(form);
-    const button = document.getElementById("remoteSubmitButton");
-    if (button) button.disabled = submitting;
-}
-
-function isGuardedEForm(form) {
-    return form instanceof HTMLFormElement && !!form.querySelector('input[name="carlosEformSubmission"]');
-}
-
-const eformNativeSubmit = HTMLFormElement.prototype.submit;
-HTMLFormElement.prototype.submit = function () {
-    if (!isGuardedEForm(this)) return eformNativeSubmit.apply(this, arguments);
-    if (submittingEForms.has(this)) return;
-    markEFormSubmitting(this, true);
-    try {
-        return eformNativeSubmit.apply(this, arguments);
-    } catch (error) {
-        markEFormSubmitting(this, false);
-        throw error;
+(function () {
+    const submittingEForms = new WeakSet();
+    const pendingEFormSubmits = new WeakMap();
+    function markEFormSubmitting(form, submitting) {
+        if (submitting) submittingEForms.add(form);
+        else {
+            submittingEForms.delete(form);
+            pendingEFormSubmits.delete(form);
+            HideSpin();
+        }
+        const button = document.getElementById("remoteSubmitButton");
+        if (button) button.disabled = submitting;
     }
-};
 
-window.addEventListener("submit", function (event) {
-    const form = event.target;
-    if (!isGuardedEForm(form) || event.defaultPrevented) return;
-    if (submittingEForms.has(form)) {
-        event.preventDefault();
-        return;
+    function isGuardedEForm(form) {
+        return form instanceof HTMLFormElement && !!form.querySelector('input[name="carlosEformSubmission"]');
     }
-    markEFormSubmitting(form, true);
-    // A later window listener can still cancel the native submit. It must remain editable.
-    queueMicrotask(function () {
-        if (event.defaultPrevented) markEFormSubmitting(form, false);
+
+    const eformNativeSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+        if (!isGuardedEForm(this)) return eformNativeSubmit.apply(this, arguments);
+        if (submittingEForms.has(this)) {
+            const pending = pendingEFormSubmits.get(this);
+            if (!pending) return;
+            // A later submit handler can take over with form.submit(). Cancel the native
+            // default, then allow that one explicit navigation without reopening the guard.
+            pending.preventDefault();
+            pendingEFormSubmits.delete(this);
+        }
+        markEFormSubmitting(this, true);
+        try {
+            return eformNativeSubmit.apply(this, arguments);
+        } catch (error) {
+            markEFormSubmitting(this, false);
+            throw error;
+        }
+    };
+
+    window.addEventListener("submit", function (event) {
+        const form = event.target;
+        if (!isGuardedEForm(form)) return;
+        if (submittingEForms.has(form)) {
+            event.preventDefault();
+            return;
+        }
+        pendingEFormSubmits.set(form, event);
+        markEFormSubmitting(form, true);
+        // Browsers can run microtasks between event listeners. Wait for the next task so
+        // every later listener has had a chance to cancel or take over the submission.
+        setTimeout(function () {
+            if (pendingEFormSubmits.get(form) !== event) return;
+            pendingEFormSubmits.delete(form);
+            if (event.defaultPrevented) markEFormSubmitting(form, false);
+        }, 0);
     });
-});
 
-window.addEventListener("pageshow", function (event) {
-    if (event.persisted) {
-        const form = getEForm();
-        if (form) markEFormSubmitting(form, false);
+    window.addEventListener("pageshow", function (event) {
+        if (event.persisted) {
+            const form = getEForm();
+            if (form) markEFormSubmitting(form, false);
+        }
+    });
+
+    // A canceled beforeunload prompt produces navigateerror without a POST. Unlike a
+    // timer alone, this also keeps an accepted, slow navigation guarded.
+    if (window.navigation && typeof window.navigation.addEventListener === "function") {
+        window.navigation.addEventListener("navigateerror", function () {
+            const form = getEForm();
+            if (form) markEFormSubmitting(form, false);
+        });
+    } else {
+        // Older browsers expose no navigation decision event. Recover from a requested
+        // unload prompt on the next task; the server identity still rejects any replay.
+        window.addEventListener("beforeunload", function (event) {
+            setTimeout(function () {
+                if (event.defaultPrevented || event.returnValue) {
+                    const form = getEForm();
+                    if (form) markEFormSubmitting(form, false);
+                }
+            }, 0);
+        });
     }
-});
+
+    window.__carlosEformSubmissionGuard = {
+        isSubmitting: function (form) { return submittingEForms.has(form); }
+    };
+})();
 
 /*
  * The server adds a hidden newForm=true fallback (data-carlos-newform-fallback) when the
@@ -449,7 +491,7 @@ function eFormValidationBlocked() {
 	 * Triggers the eForm save/submit function
 	 */
 function remoteSave() {
-	if (submittingEForms.has(getEForm())) return false;
+	if (window.__carlosEformSubmissionGuard.isSubmitting(getEForm())) return false;
 
 	try {
 		// Last line of defense for direct callers (the plain Save button): composite callers
@@ -494,9 +536,10 @@ function remoteSave() {
 			return true;
 		}
 
-		if (document.getElementsByName("SubmitButton") && document.getElementsByName("SubmitButton")[0]) {
+		const submitButton = document.getElementsByName("SubmitButton")[0];
+		if (submitButton) {
 			try {
-				document.getElementsByName("SubmitButton")[0].click();
+				submitButton.click();
 				return true;
 			} catch (error) {
 				showErrorAlert();

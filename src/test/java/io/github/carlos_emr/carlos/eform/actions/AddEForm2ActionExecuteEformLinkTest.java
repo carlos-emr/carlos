@@ -93,7 +93,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         // introduced dependencies in AddEForm2Action or related code paths.
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
-        var transactions = org.mockito.Mockito.spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        var transactions = spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
         registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         // execute() resolves EmailManager via SpringUtils; register the declared mock here rather
@@ -225,9 +225,70 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         verify(mockEformDataManager, times(1)).saveEformData(any(), any());
     }
 
+    private org.mockito.MockedConstruction<io.github.carlos_emr.carlos.eform.data.EForm> openerForms() {
+        return mockConstruction(io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
+            when(form.getFormFileName()).thenReturn("test.html");
+            when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>(java.util.List.of("referral")));
+        });
+    }
+
+    @Test
+    void shouldRetainOpenerValues_forConfirmedRollbackRetry() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic incoming value");
+        doThrow(new IllegalArgumentException("synthetic rejection")).doNothing()
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("error");
+            assertThat(mockRequest.getSession().getAttribute(key)).isEqualTo("synthetic incoming value");
+            assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+            assertThat(mockRequest.getSession().getAttribute(key)).isNull();
+            verify(forms.constructed().get(1)).setOpenerValues(
+                    eq(new java.util.ArrayList<>(java.util.List.of("referral"))),
+                    eq(new java.util.ArrayList<>(java.util.List.of("synthetic incoming value"))));
+        }
+    }
+
+    @Test
+    void shouldPreserveNewOpenerValue_whenAnotherWindowReplacesItBeforeCommit() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic original");
+        doAnswer(invocation -> { mockRequest.getSession().setAttribute(key, "synthetic replacement"); return null; })
+                .when(mockDocumentAttachmentManager).attachToEForm(any(),
+                        eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("faxPreparation");
+            verify(forms.constructed().getFirst()).setOpenerValues(any(),
+                    eq(new java.util.ArrayList<>(java.util.List.of("synthetic original"))));
+            assertThat(mockRequest.getSession().getAttribute(key)).isEqualTo("synthetic replacement");
+        }
+    }
+
+    @Test
+    void shouldConsumeCommittedOpener_whenAfterCommitCallbackThrows() {
+        String key = "doc1_123_1_referral";
+        mockRequest.getSession().setAttribute(key, "synthetic incoming value");
+        when(mockEformDataManager.saveEformData(any(), any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { throw new IllegalArgumentException("synthetic callback failure"); }
+                    });
+            return 42;
+        });
+        try (var forms = openerForms()) {
+            assertThat(submissionAction().execute()).isEqualTo("none");
+            assertThat(mockResponse.getStatus()).isEqualTo(409);
+            assertThat(mockRequest.getSession().getAttribute(key)).isNull();
+            verify(forms.constructed().getFirst()).setOpenerValues(any(), any());
+        }
+    }
+
     private AddEForm2Action submissionAction() {
         AddEForm2Action action = spy(new AddEForm2Action());
         doReturn("Check the patient eForms before reopening").when(action).getText("eform.submitUnavailable");
+        doReturn("This request was not processed. Copy your changes and check saved eForms.")
+                .when(action).getText("eform.submitStale");
         return action;
     }
 
@@ -242,10 +303,13 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectMissingIdentity_beforeSavingOrAttaching() {
+    void shouldRejectMissingIdentity_beforeSavingOrAttaching() throws Exception {
         mockRequest.removeParameter(io.github.carlos_emr.carlos.eform.EFormSubmissionGuard.PARAMETER);
         assertThat(submissionAction().execute()).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getContentAsString()).contains("This request was not processed", "Copy your changes");
+        assertThat(mockResponse.getContentType()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(mockResponse.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
         verifyNoInteractions(mockEformDataManager, mockDocumentAttachmentManager);
     }
 
@@ -279,14 +343,14 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRollBackClinicalSave_whenLabAttachmentIsRejected() {
-        org.mockito.Mockito.doThrow(new IllegalArgumentException("ambiguous lab source"))
+        doThrow(new IllegalArgumentException("ambiguous lab source"))
                 .when(mockDocumentAttachmentManager).attachToEForm(any(),
                         eq(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.LAB), any(), any(), any(), any());
         assertThat(new AddEForm2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.ERROR);
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         var transactions = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class);
-        org.mockito.Mockito.verify(transactions, org.mockito.Mockito.atLeastOnce()).rollback(any());
-        org.mockito.Mockito.verify(transactions, org.mockito.Mockito.never()).commit(any());
+        verify(transactions, atLeastOnce()).rollback(any());
+        verify(transactions, never()).commit(any());
         assertThat(mockRequest.getAttribute("error")).isEqualTo("true");
         assertThat(mockRequest.getAttribute("errorMessage")).asString().contains("not saved");
     }
@@ -350,7 +414,7 @@ class AddEForm2ActionExecuteEformLinkTest extends CarlosUnitTestBase {
         mockRequest.setParameter("eform_link", "PRIVATE_LINK_VALUE");
         var failure = new IllegalArgumentException("PRIVATE_IMAGE_MESSAGE",
                 new IllegalStateException("PRIVATE_IMAGE_CAUSE"));
-        try (var forms = org.mockito.Mockito.mockConstruction(
+        try (var forms = mockConstruction(
                 io.github.carlos_emr.carlos.eform.data.EForm.class, (form, construction) -> {
                     when(form.getFormFileName()).thenReturn("test.html");
                     when(form.getOpenerNames()).thenReturn(new java.util.ArrayList<>());

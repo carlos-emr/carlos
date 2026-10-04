@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.eform;
 
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -26,31 +46,31 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectReplay_whenStorageOutcomeIsUnknown() {
         String token = issue();
-        try (var claim = EFormSubmissionGuard.claim(session, token, "1", "123")) {
+        try (var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {
             assertThat(claim).isNotNull();
             claim.storageStarted();
         }
-        assertThat(EFormSubmissionGuard.claim(session, token, "1", "123")).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNull();
     }
 
     @Test
     void shouldPermitRetry_whenValidationStopsBeforeStorage() {
         String token = issue();
-        try (var claim = EFormSubmissionGuard.claim(session, token, "1", "123")) {
+        try (var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {
             assertThat(claim).isNotNull();
         }
-        assertThat(EFormSubmissionGuard.claim(session, token, "1", "123")).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNotNull();
     }
 
     @Test
     void shouldRejectForeignOrMissingIdentity_withoutConsumingValidToken() {
         String token = issue();
-        assertThat(EFormSubmissionGuard.claim(session, null, "1", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(session, UUID.randomUUID().toString(), "1", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(session, token, "2", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(session, token, "1", "456")).isNull();
-        assertThat(EFormSubmissionGuard.claim(new MockHttpSession(), token, "1", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(session, token, "1", "123")).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(session, null, "1", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, UUID.randomUUID().toString(), "1", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "2", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "456").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(new MockHttpSession(), token, "1", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNotNull();
     }
 
     @Test
@@ -58,8 +78,8 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
         String first = issue();
         String second = issue();
         assertThat(second).isNotEqualTo(first);
-        assertThat(EFormSubmissionGuard.claim(session, first, "1", "123")).isNotNull();
-        assertThat(EFormSubmissionGuard.claim(session, second, "1", "123")).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(session, first, "1", "123").claim()).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(session, second, "1", "123").claim()).isNotNull();
     }
 
     @Test
@@ -67,8 +87,33 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
         String old = issue();
         String recent = null;
         for (int i = 0; i < 64; i++) recent = issue();
-        assertThat(EFormSubmissionGuard.claim(session, old, "1", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(session, recent, "1", "123")).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(session, old, "1", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(session, recent, "1", "123").claim()).isNotNull();
+    }
+
+    @Test
+    void shouldPreserveOpenDraft_whenConsumedIdentitiesCanBeEvicted() {
+        String draft = issue();
+        String consumed = issue();
+        try (var claim = EFormSubmissionGuard.attempt(session, consumed, "1", "123").claim()) {
+            claim.storageStarted();
+        }
+        for (int i = 0; i < 63; i++) issue();
+        assertThat(EFormSubmissionGuard.attempt(session, draft, "1", "123").claim()).isNotNull();
+        var evicted = EFormSubmissionGuard.attempt(session, consumed, "1", "123");
+        assertThat(evicted.claim()).isNull();
+        // An unknown identity can represent an old completed save. Never claim that no earlier save occurred.
+        assertThat(evicted.stale()).isTrue();
+    }
+
+    @Test
+    void shouldDistinguishUnavailableIdentity_fromKnownReplay() {
+        String token = issue();
+        assertThat(EFormSubmissionGuard.attempt(session, token, "1", "123").claim()).isNotNull();
+        var replay = EFormSubmissionGuard.attempt(session, token, "1", "123");
+        assertThat(replay.claim()).isNull();
+        assertThat(replay.stale()).isFalse();
+        assertThat(EFormSubmissionGuard.attempt(session, null, "1", "123").stale()).isTrue();
     }
 
     @Test
@@ -78,7 +123,7 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
         try (var executor = Executors.newFixedThreadPool(2)) {
             Callable<Boolean> submit = () -> {
                 assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
-                var claim = EFormSubmissionGuard.claim(session, token, "1", "123");
+                var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim();
                 if (claim == null) return false;
                 try (claim) { claim.storageStarted(); }
                 return true;
@@ -95,7 +140,7 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
     void shouldPreserveConsumedState_afterSessionSerialization() throws Exception {
         String consumed = issue();
         String available = issue();
-        try (var claim = EFormSubmissionGuard.claim(session, consumed, "1", "123")) {
+        try (var claim = EFormSubmissionGuard.attempt(session, consumed, "1", "123").claim()) {
             claim.storageStarted();
         }
         var restored = new MockHttpSession();
@@ -106,8 +151,8 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
                 restored.setAttribute(key, input.readObject());
             }
         }
-        assertThat(EFormSubmissionGuard.claim(restored, consumed, "1", "123")).isNull();
-        assertThat(EFormSubmissionGuard.claim(restored, available, "1", "123")).isNotNull();
+        assertThat(EFormSubmissionGuard.attempt(restored, consumed, "1", "123").claim()).isNull();
+        assertThat(EFormSubmissionGuard.attempt(restored, available, "1", "123").claim()).isNotNull();
     }
 
     @Test

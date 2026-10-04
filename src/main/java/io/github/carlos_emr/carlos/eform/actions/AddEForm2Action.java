@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -71,6 +72,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.regex.Pattern;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.util.WebUtils;
+
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -79,6 +84,7 @@ public class AddEForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    private static final String PARENT_AJAX_ID = "parentAjaxId";
     private static final Logger logger = MiscUtils.getLogger();
     private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
     private static final String ERROR_ATTRIBUTE = "error";
@@ -145,11 +151,12 @@ public class AddEForm2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        EFormSubmissionGuard.Claim claim = EFormSubmissionGuard.claim(request.getSession(),
+        EFormSubmissionGuard.Attempt attempt = EFormSubmissionGuard.attempt(request.getSession(),
                 request.getParameter(EFormSubmissionGuard.PARAMETER),
                 request.getParameter("efmfid"), request.getParameter("efmdemographic_no"));
+        EFormSubmissionGuard.Claim claim = attempt.claim();
         if (claim == null) {
-            return rejectSubmission();
+            return rejectSubmission(attempt.stale());
         }
         try (claim) {
             try {
@@ -159,17 +166,20 @@ public class AddEForm2Action extends ActionSupport {
                 // A commit acknowledgement or later clinical side effect may have failed. Never
                 // tell the clinician "not saved" or permit re-running the original submission.
                 logger.error("eForm processing did not finish after storage started ({})", e.getClass().getSimpleName());
-                return rejectSubmission();
+                return rejectSubmission(false);
             }
         }
     }
 
-    private String rejectSubmission() {
+    // FindSecBugs XSS_SERVLET: only fixed resource-bundle messages, served as non-sniffable plain text.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only constant-key localized messages; UTF-8 text/plain and nosniff; no request values are written")
+    private String rejectSubmission(boolean stale) {
         response.setStatus(HttpServletResponse.SC_CONFLICT);
         response.setContentType("text/plain;charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         try {
-            response.getWriter().print(getText("eform.submitUnavailable"));
+            response.getWriter().print(getText(stale ? "eform.submitStale" : "eform.submitUnavailable"));
         } catch (IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
@@ -178,6 +188,10 @@ public class AddEForm2Action extends ActionSupport {
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // Sonar S3776: this is the existing multi-workflow save body, extracted so one reservation
+    // covers every return/exception. Keep fax/PDF/email/eDoc/template ordering intact in this fix;
+    // splitting those established workflows is separate from submission idempotency.
+    @SuppressWarnings("java:S3776")
     private String executeSubmission(EFormSubmissionGuard.Claim claim) {
         logger.debug("==================SAVING ==============");
         HttpSession se = request.getSession();
@@ -240,7 +254,7 @@ public class AddEForm2Action extends ActionSupport {
         String curField = "";
         while (paramNamesE.hasMoreElements()) {
             curField = paramNamesE.nextElement();
-            if (curField.equalsIgnoreCase("parentAjaxId")
+            if (curField.equalsIgnoreCase(PARENT_AJAX_ID)
                     || curField.equals(EFormSubmissionGuard.PARAMETER)) {
                 continue;
             }
@@ -280,6 +294,7 @@ public class AddEForm2Action extends ActionSupport {
         //add eform_link value from session attribute
         ArrayList<String> openerNames = curForm.getOpenerNames();
         ArrayList<String> openerValues = new ArrayList<String>();
+        Map<String, String> usedOpenerValues = new LinkedHashMap<>();
         for (String name : openerNames) {
             String lnk = providerNo + "_" + demographic_no + "_" + fid + "_" + name;
             // Validate constructed key before session access (CWE-501 read-path)
@@ -289,7 +304,7 @@ public class AddEForm2Action extends ActionSupport {
             }
             String val = (String) se.getAttribute(lnk); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- key is validated by validateEformLink()
             openerValues.add(val);
-            if (val != null) se.removeAttribute(lnk); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- session cleanup
+            if (val != null) usedOpenerValues.put(lnk, val);
         }
 
         //----names parsed
@@ -326,6 +341,7 @@ public class AddEForm2Action extends ActionSupport {
             fdid = new org.springframework.transaction.support.TransactionTemplate(
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class)).execute(tx -> {
                 claim.storageStarted();
+                consumeOpenersOnCommit(se, usedOpenerValues);
                 String savedId = Integer.toString(eformDataManager.saveEformData(loggedInInfo, curForm));
                 EFormUtil.addEFormValues(paramNames, paramValues, Integer.valueOf(savedId), Integer.valueOf(fid), Integer.valueOf(demographic_no));
                 attachToEForm(loggedInInfo, attachedEForms, attachedDocuments, attachedLabs, attachedHRMDocuments,
@@ -450,7 +466,7 @@ public class AddEForm2Action extends ActionSupport {
             flagSubmissionAutoClose(submitAndPdf);
 
             request.setAttribute("fdid", fdid);
-            request.setAttribute("parentAjaxId", "eforms");
+            request.setAttribute(PARENT_AJAX_ID, "eforms");
 
             return "download";
         } else if (isEmailEForm) {
@@ -486,6 +502,25 @@ public class AddEForm2Action extends ActionSupport {
         return closeWithPdfPreview(loggedInInfo, demographic_no, fdid);
 	}
 	
+    /** Keeps opener input available after rollback, without deleting a newer value from another window. */
+    private static void consumeOpenersOnCommit(HttpSession session, Map<String, String> usedValues) {
+        if (usedValues.isEmpty()) return;
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) return;
+                synchronized (WebUtils.getSessionMutex(session)) {
+                    for (Map.Entry<String, String> used : usedValues.entrySet()) {
+                        // Keys were validated before capture; only the value actually saved is consumed.
+                        if (Objects.equals(used.getValue(), session.getAttribute(used.getKey()))) {
+                            session.removeAttribute(used.getKey());
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     /** Prepares a narrow POST handoff only after the original protected eForm save. */
     private void prepareFaxHandoff(String fdid, String demographicNo, String recipient, String recipientFaxNumber, String letterheadFax) {
         StringBuilder faxForward = new StringBuilder(request.getContextPath()).append("/fax/faxAction");
@@ -553,7 +588,7 @@ public class AddEForm2Action extends ActionSupport {
         request.setAttribute("eFormPDFName", buildPdfPreviewName(loggedInInfo, demographicNo));
         request.setAttribute("isSuccess_Autoclose", "true");
         request.setAttribute("fdid", fdid);
-        request.setAttribute("parentAjaxId", "eforms");
+        request.setAttribute(PARENT_AJAX_ID, "eforms");
         return "close";
     }
 

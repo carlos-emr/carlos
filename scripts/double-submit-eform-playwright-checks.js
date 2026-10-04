@@ -70,7 +70,15 @@ async function workflow(s) {
       const since = recorderMark(s.recorder);
       const failures = failureMark(s.recorder);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
-      await rapid(mode.key, form.locator('#remoteSubmitButton'), { textField: form.locator('#remoteSubmitButton') });
+      const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
+        { textField: form.locator('#remoteSubmitButton') });
+      if (mode.key === 'slowResubmit') {
+        await form.evaluate(() => window.addEventListener('beforeunload', event => {
+          event.preventDefault(); event.returnValue = '';
+        }, { once: true }));
+        const dialogs = await h.withExpectedDialogs(form, activate);
+        h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
+      } else await activate();
       const count = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
         AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
@@ -134,6 +142,26 @@ async function workflow(s) {
     await sleep(300);
     h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
       'Canceled template submission saved or left the toolbar disabled');
+    // A real trusted click exposes the browser's microtask checkpoint between listeners;
+    // a synthetic dispatch or a Node event stub alone cannot verify this ordering.
+    await form.evaluate(() => window.addEventListener('submit', event => event.preventDefault(), { once: true }));
+    await form.locator('#remoteSubmitButton').click();
+    await sleep(300);
+    h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
+      'Late window cancellation saved or trapped the next attempt');
+    h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Late cancellation left an overlay blocking edits');
+    await form.evaluate(() => window.addEventListener('beforeunload', event => {
+      event.preventDefault(); event.returnValue = '';
+    }, { once: true }));
+    const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
+      form.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'beforeunload' }),
+      form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),
+    ]), { accept: false });
+    await sleep(300);
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected a canceled unsaved-form navigation prompt');
+    h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
+      'Canceled navigation saved or trapped the next attempt');
+    h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Canceled navigation left an overlay blocking edits');
     await form.locator('#remoteSubmitButton').click();
     h.assert(await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
       AND form_name=${q(formName)} AND subject=${q(subject)}`) === 1, 'Corrected form did not save exactly once');

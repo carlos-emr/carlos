@@ -49,26 +49,20 @@ class AddEFormDownloadApprovalRegressionTest {
     void shouldCatchIncompleteRender_beforeItsSuperclass() throws IOException {
         String source = Files.readString(ADD_EFORM_ACTION, StandardCharsets.UTF_8);
 
-        // Both download branches — the new-save path and the update path — must offer the approval.
+        // A submission now has one save path. Replays are rejected before rendering; the
+        // historical prev_fdid branch was unreachable and is no longer part of the action.
         assertThat(source.split("offerDownloadApproval\\(", -1).length - 1)
-                .as("both download branches plus the helper declaration")
-                .isGreaterThanOrEqualTo(3);
-
-        // Ordering itself is enforced by javac: declaring the superclass first makes the subclass
-        // catch unreachable and the build fails. What a future edit CAN silently do is delete the
-        // specific catch entirely, which compiles cleanly and restores the dead end. So assert it is
-        // present on each of the two download branches, next to the render call it guards.
-        for (String fdidVariable : new String[] {"fdid", "prev_fdid"}) {
-            // The trailing flag carries the "Submit & PDF" auto-close intent through the approval page.
-            String branch = "offerDownloadApproval(loggedInInfo, e, " + fdidVariable + ", demographic_no, submitAndPdf)";
-            assertThat(source)
-                    .as("download branch keyed on %s must offer the approval", fdidVariable)
-                    .contains(branch);
-        }
-        // Both save-as-eDoc branches too: that path is refused by the same gate.
+                .as("the save-and-download branch plus its helper declaration")
+                .isEqualTo(2);
+        assertThat(source)
+                .as("the saved form must still offer incomplete-download approval")
+                .contains("offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf)");
         assertThat(source.split("offerEDocApproval\\(", -1).length - 1)
-                .as("both eDoc branches plus the helper declaration")
-                .isGreaterThanOrEqualTo(3);
+                .as("the save-as-eDoc branch plus its helper declaration")
+                .isEqualTo(2);
+        assertThat(source)
+                .as("the saved form must still offer incomplete-eDoc approval")
+                .contains("offerEDocApproval(loggedInInfo, e, (String) request.getAttribute(\"fdid\"), demographic_no)");
         assertThat(source)
                 .as("the specific catch must guard the refusable renders")
                 .contains("catch (EformContentUnavailableException e)");

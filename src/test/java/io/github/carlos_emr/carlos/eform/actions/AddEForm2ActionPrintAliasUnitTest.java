@@ -67,6 +67,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 /**
@@ -121,7 +122,7 @@ class AddEForm2ActionPrintAliasUnitTest extends CarlosUnitTestBase {
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(EformDataManager.class, mockEformDataManager);
-        var transactions = org.mockito.Mockito.spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
+        var transactions = spy(new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager());
         registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
         registerMock(DocumentAttachmentManager.class, mockDocumentAttachmentManager);
         registerMock(EmailManager.class, mockEmailManager);
