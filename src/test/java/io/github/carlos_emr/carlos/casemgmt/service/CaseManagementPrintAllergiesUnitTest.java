@@ -26,7 +26,10 @@ import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
+import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -49,7 +52,7 @@ import static org.mockito.Mockito.when;
 
 /** Exercises the chart-print entry point before the allergy list reaches the PDF renderer. */
 @Tag("unit")
-class CaseManagementPrintAllergiesUnitTest {
+class CaseManagementPrintAllergiesUnitTest extends CarlosUnitTestBase {
     private static final int PATIENT = 900001;
 
     @TempDir
@@ -84,20 +87,21 @@ class CaseManagementPrintAllergiesUnitTest {
 
     private void printAndVerify(List<Allergy> stored, List<Allergy> expected,
                                 boolean includeAllergies, boolean allNotes) throws Exception {
-        AllergyDao dao = mock(AllergyDao.class);
-        CaseManagementManager manager = mock(CaseManagementManager.class);
+        AllergyDao dao = createAndRegisterMock(AllergyDao.class);
+        createAndRegisterMock(CaseManagementManager.class);
+        createAndRegisterMock(NoteService.class);
+        createAndRegisterMock(ProgramManager2.class);
+        createAndRegisterMock(ProgramManager.class);
+        createAndRegisterMock(PreventionManager.class);
         CarlosProperties properties = mock(CarlosProperties.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(properties.getProperty("CMESort", "")).thenReturn("");
         when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documentDirectory.toString());
         when(dao.findAllergies(PATIENT)).thenReturn(stored);
-        try (var spring = mockStatic(SpringUtils.class);
-             var configuration = mockStatic(CarlosProperties.class);
+        try (var configuration = mockStatic(CarlosProperties.class);
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
              var merger = mockStatic(ConcatPDF.class)) {
-            spring.when(() -> SpringUtils.getBean(CaseManagementManager.class)).thenReturn(manager);
-            spring.when(() -> SpringUtils.getBean(AllergyDao.class)).thenReturn(dao);
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             new CaseManagementPrint().doPrint(loggedInInfo, PATIENT, allNotes, new String[0],
                     false, false, false, false, includeAllergies, false, null, null,
