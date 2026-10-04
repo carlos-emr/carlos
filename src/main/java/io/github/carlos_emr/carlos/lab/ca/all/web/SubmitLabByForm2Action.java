@@ -85,7 +85,8 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
-     * @return the Struts result name "manage"
+     * @return {@link #NONE} after redirecting a completed submission to the read-only form,
+     *         or "manage" with errors when the submission fails
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
      * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
      */
@@ -95,11 +96,16 @@ public class SubmitLabByForm2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.info("in save lab from form");
         String labName = request.getParameter("labname");
@@ -213,9 +219,10 @@ public class SubmitLabByForm2Action extends ActionSupport {
             addActionError(getText("oscarMDS.createLab.submitError"));
             return manage();
         }
+        FileUploadCheck.StoreOutcome outcome;
         try {
             // The generated HL7 file is removed unless the stored lab may reference it.
-            FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
+            outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
                     file.getName(), providerNo, checksumId -> {
                         String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
                                 file.getPath(), checksumId, ipAddr);
@@ -226,18 +233,23 @@ public class SubmitLabByForm2Action extends ActionSupport {
                         new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
                         return true;
                     });
-            if (outcome == FileUploadCheck.StoreOutcome.STORED) {
-                addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
-            } else if (outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
-                addActionError(getText("oscarMDS.createLab.submitDuplicate"));
-            } else {
-                addActionError(getText("oscarMDS.createLab.submitError"));
-            }
         } catch (Exception e) {
             logger.error("Lab submission failed: {}", LogSafe.exceptionTrace(e));
             addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
         }
 
+        if (outcome == FileUploadCheck.StoreOutcome.STORED
+                || outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+            // A reloaded POST regenerates timestamped HL7 and evades checksum deduplication.
+            // Redirect only after storage/commit completes, carrying a notice without PHI.
+            String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
+            response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+            response.setHeader("Location", response.encodeRedirectURL(request.getContextPath()
+                    + "/oscarMDS/ViewCreateLab?submission=" + receipt));
+            return NONE;
+        }
+        addActionError(getText("oscarMDS.createLab.submitError"));
         return manage();
     }
 

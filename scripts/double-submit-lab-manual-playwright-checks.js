@@ -6,7 +6,8 @@
  * User path: Schedule > Inbox > Create Lab (oscarMDS/ViewCreateLab) > fill the CML lab with one test > Submit to
  * EMR (confirm()). For each rapid activation (dblclick(), two back-to-back clicks, double Enter in the
  * accession field, slow-response re-click) the check files ONE lab under its own accession number and asserts
- * EXACTLY ONE hl7TextInfo row for that accession.
+ * EXACTLY ONE hl7TextInfo row for that accession. Completed submissions must redirect to the GET form;
+ * refreshing that form must not send another POST, repeat a notice or create another stored message.
  *
  * Fixtures: the owned FAKE- patient and the labs filed (unique accessions); cleanup removes every owned lab's
  * routing, measurement, message and checksum rows and archived file (removeOwnedHl7Labs) and asserts it.
@@ -60,8 +61,15 @@ async function workflow(s) {
       await field('refRangeLow').fill('120');
       await field('refRangeHigh').fill('160');
       await field('flag').selectOption('N');
-      const route = /\/oscarMDS\/SubmitLab$/;
+      const route = /\/oscarMDS\/SubmitLab(?:\?|$)/;
       const posts = watchPosts(form.context(), route);
+      const statuses = [];
+      const recordResponse = (response) => {
+        if (response.request().method() === 'POST' && route.test(new URL(response.url()).pathname)) {
+          statuses.push(response.status());
+        }
+      };
+      form.on('response', recordResponse);
       const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
       const dialogs = await h.withExpectedDialogs(form, async () => {
         await rapid(mode.key, form.locator('form[name="testForm"] button[type="submit"]'), { textField: form.locator('#accession') });
@@ -70,9 +78,29 @@ async function workflow(s) {
       const count = await settledCount(sql, `SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}`,
         { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
-      posts.stop();
       console.log(`    (${dialogs.length} confirm dialog(s); ${posts.seen.length} SubmitLab POST(s))`);
       v.record(mode.label, count, { exactly: 1 });
+      h.assert(new URL(form.url()).pathname.endsWith('/oscarMDS/ViewCreateLab'),
+        'Completed lab submission did not redirect to the read-only form');
+      h.assert(statuses.length > 0 && statuses.every((status) => status === 303),
+        `Completed lab submission must use HTTP 303; received ${statuses.join(', ')}`);
+      if (mode.key === 'replay') {
+        h.assert(posts.seen.length === 1, 'Reload sent another SubmitLab POST');
+      } else {
+        await form.locator('.alert-success').waitFor({ state: 'visible', timeout: 10000 });
+      }
+      const beforeReload = posts.seen.length;
+      const reloaded = await form.reload({ waitUntil: 'domcontentloaded' });
+      h.assert(reloaded.request().method() === 'GET', 'Reload must use GET');
+      h.assert(posts.seen.length === beforeReload, 'Reload repeated the lab submission');
+      h.assert(await form.locator('.alert-success, .alert-danger').count() === 0,
+        'Reload repeated a consumed submission notice');
+      h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextInfo i
+        JOIN hl7TextMessage m ON m.lab_id=i.lab_no JOIN fileUploadCheck f ON f.id=m.fileUploadCheck_id
+        WHERE i.accessionNum=${h.sqlString(accession)}`) === '1',
+        'Reload must retain exactly one lab message and its upload checksum');
+      posts.stop();
+      form.off('response', recordResponse);
       if (!form.isClosed()) await form.close().catch(() => {});
       if (opened && !inbox.isClosed()) await inbox.close().catch(() => {});
       if (!opened) await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
