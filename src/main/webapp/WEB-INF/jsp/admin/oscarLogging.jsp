@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+      Displays CARLOS EMR logging reports for authorized administrators.
+
+    Features:
+      - Selects a report date and report type.
+      - Validates report request parameters server-side.
+      - Reads logging report files only from the configured LOGGING_PATH.
+
+    Parameters:
+      - reportDate: Optional report date in YYYY-MM-DD format.
+      - reportType: Optional report type; supported values are "general" and "mysql".
+
+    @since 2026
+--%>
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -65,6 +80,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
         <fmt:message key="admin.oscarLogging.heading"/>
@@ -74,6 +90,12 @@
 <%
     String reportDate = request.getParameter("reportDate");
     String reportType = request.getParameter("reportType");
+    
+    if (reportDate != null && !reportDate.matches("^\\d{4}-\\d{2}-\\d{2}$")) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid date format");
+        return;
+    }
+
     boolean runReport;
     if (reportDate == null) {
         reportDate = UtilDateUtilities.getToday("yyyy-MM-dd");
@@ -126,19 +148,44 @@
     if (runReport) {
         Properties pr = CarlosProperties.getInstance();
         String path = pr.getProperty("LOGGING_PATH");
-        String suffix = reportDate.replaceAll("-", "");
-        String fileName = "";
-        String contentString = "";
 
-        if (reportType.equals("general")) {
-            fileName = path + "report" + suffix + ".html";
-        } else if (reportType.equals("mysql")) {
-            fileName = path + "reportmysql" + suffix + ".html";
+        if (path == null || path.trim().isEmpty()) {
+            out.write("<div class=\"alert alert-danger\">Logging path is not configured.</div>");
+            return;
         }
 
-        String temp = FileUtils.readFileToString(new File(fileName),
-                "UTF-8");
-        out.write("<pre id=\"log-results\">" + temp + "</pre>");
+        String suffix = reportDate.replaceAll("-", "");
+        String reportFileName = "";
+
+        if (reportType.equals("general")) {
+            reportFileName = "report" + suffix + ".html";
+        } else if (reportType.equals("mysql")) {
+            reportFileName = "reportmysql" + suffix + ".html";
+        } else {
+            out.write("<div class=\"alert alert-danger\">Invalid report type.</div>");
+            return;
+        }
+
+        try {
+            File requestedFile = PathValidationUtils.validateExistingPath(
+                new File(new File(path), reportFileName),
+                new File(path)
+            );
+
+            if (requestedFile.exists() && requestedFile.isFile()) {
+                String temp = FileUtils.readFileToString(requestedFile, "UTF-8");
+                pageContext.setAttribute("logResults", temp);
+%>
+                <pre id="log-results"><carlos:encode value="${logResults}" context="html"/></pre>
+<%
+            }
+        } catch (SecurityException e) {
+            out.write("<div class=\"alert alert-danger\">Invalid file path.</div>");
+            return;
+        } catch (java.io.IOException e) {
+            out.write("<div class=\"alert alert-danger\">Error reading log file.</div>");
+            return;
+        }
     }
 %>
 
