@@ -5875,7 +5875,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup pass. The final separate #4152 assertion checks that Settle All writes a billing_on_payment record; the baseline settles the header without that payment.",
+      "notes": "Checks lookup, unknown invoice, Rebill OHIP, Reprint, Administration context/save banner and claim-only lookup. Settlement checks verify the linked payment amount, creator/date, paid balance, repeated-save behavior, status-dropdown settlement after editing the fee, and amounts shown in Payment Received (#4152).",
       "fixtures": "Two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page lists, with the operator's missing site memberships added and removed) and an owned raheader/radetail pair (claim number); all removed and asserted gone."
     },
     {

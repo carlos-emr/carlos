@@ -15,8 +15,9 @@
  * turns a submitted bill (B) back to O with a header audit snapshot; Settle All
  * turns an open bill to S; Reprint shows the invoice of that
  * bill. A Save from Administration keeps the correction page and saved banner; an OHIP claim
- * number alone finds its bill. The last step separately checks #4152: Settle All must also write
- * the billing_on_payment record.
+ * number alone finds its bill. The final #4152 regressions verify the settlement payment's
+ * invoice link, amount and creator, paid total, repeated saves, and settling an edited fee
+ * through the status dropdown.
  *
  * Fixtures: two owned bills (seedOwnedBill, billed under an active OHIP provider the correction page
  * lists) and an owned raheader/radetail pair giving the first bill its claim number. Cleanup removes
@@ -28,7 +29,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { seedOwnedBill, money, billDate } = require('./billing-on-invoice-third-party-playwright-checks');
-const { openAdministration } = require('./billing-on-ohip-simulation-report-playwright-checks');
+const { openAdministration, openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
 
 const UPDATE = '/billing/CA/ON/UpdateBillingONCorrection';
 
@@ -150,6 +151,10 @@ async function workflow(s) {
     await frame.waitForLoadState('load');
     h.assert(frame.url().includes(`ViewBillingON3rdInv?billingNo=${open.headerId}`), 'Reprint did not open the invoice of the loaded bill');
     h.assert((await frame.locator('body').innerText()).replace(/\s+/g, ' ').includes(money(fee)), 'The reprinted invoice does not show the bill total');
+    const payments = frame.locator('tr').filter({ has: frame.locator('td', { hasText: /^Payments:$/ }) }).locator('td').last();
+    const balance = frame.locator('tr').filter({ has: frame.locator('td', { hasText: /^Balance:$/ }) }).locator('td').last();
+    h.assert((await payments.innerText()).trim() === money(fee), 'The reprinted invoice does not show the settlement payment');
+    h.assert((await balance.innerText()).trim() === '0.00', 'The settled invoice still shows an outstanding balance');
   });
 
   await s.step('a Save keeps the Administration page and its saved banner', async () => {
@@ -165,8 +170,67 @@ async function workflow(s) {
   });
 
   // Separate regression L267 (#4152) runs last so lookup/navigation results remain visible.
-  await s.step('Settle All records a payment', async () => {
+  await s.step('Settle All records the payment amount and paid total without duplicate saves', async () => {
     h.assert(settlePayments === '1', 'Settle All settled the bill without writing its payment record');
+    h.assert(state(open.headerId) === `S|${money(fee)}|${money(fee)}`, 'Settlement did not update the paid total');
+    h.assert(sql.value(`SELECT CONCAT_WS('|', total_payment, creator, paymentTypeId, pay_date IS NOT NULL)
+      FROM billing_on_payment WHERE billing_no=${open.headerId}`) === `${money(fee)}|${s.provider}|0|1`,
+    'Settlement payment is missing its amount, operator, unspecified method or date');
+    await reopen();
+    await search(open.headerId);
+    const [response] = await Promise.all([
+      context.waitForEvent('response', { timeout: 20000, predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(UPDATE) }),
+      frame.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
+      frame.locator('#settleLink').click(),
+    ]);
+    h.assert(response.status() === 200, `Repeated Settle All answered HTTP ${response.status()}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${open.headerId}`) === '1',
+      'Repeated Settle All duplicated the payment');
+    h.assert(state(open.headerId) === `S|${money(fee)}|${money(fee)}`, 'Repeated Settle All changed the paid balance');
+  });
+
+  await s.step('the status dropdown settles the corrected item total', async () => {
+    await reopen();
+    await search(rebill.headerId);
+    const corrected = money(Number(fee) + 5);
+    await frame.locator('input[name="billingamount0"]').fill(corrected);
+    await frame.locator('#status').selectOption('S');
+    const [response] = await Promise.all([
+      context.waitForEvent('response', { timeout: 20000, predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(UPDATE) }),
+      frame.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
+      frame.locator('input[type="submit"][value="Save"]').click(),
+    ]);
+    h.assert(response.status() === 200, `Status settlement answered HTTP ${response.status()}`);
+    h.assert(state(rebill.headerId) === `S|${corrected}|${corrected}`, 'Status settlement used the pre-edit total');
+    h.assert(sql.value(`SELECT CONCAT_WS('|', COUNT(*), SUM(total_payment)) FROM billing_on_payment
+      WHERE billing_no=${rebill.headerId}`) === `1|${corrected}`, 'Status settlement did not record exactly the corrected amount');
+  });
+
+  await s.step('Payment Received lists both settlement payments with their amounts', async () => {
+    const paymentFrame = await openAdminFrame(admin, '/billing/CA/ON/BillingONPayment', 'form[name="billingPaymentForm"]');
+    // The separate #4139 regression covers End Date inclusion. Use a window
+    // containing the payment time here so that defect cannot mask settlement.
+    const today = sql.value('SELECT CURDATE()');
+    const tomorrow = sql.value('SELECT CURDATE() + INTERVAL 1 DAY');
+    for (const bill of [open, rebill]) {
+      await paymentFrame.locator('select[name="providerList"]').selectOption(bill.provider);
+      await paymentFrame.locator('#startDateText').fill(today);
+      await paymentFrame.locator('#endDateText').fill(tomorrow);
+      await paymentFrame.locator('body').click({ position: { x: 4, y: 4 } });
+      const navigated = admin.waitForEvent('framenavigated', { predicate: f => f === paymentFrame, timeout: 30000 });
+      navigated.catch(() => {});
+      await paymentFrame.locator('form[name="billingPaymentForm"] input[type="submit"]').click();
+      await navigated;
+      await paymentFrame.waitForLoadState('networkidle', { timeout: 30000 });
+      const row = paymentFrame.locator('tr').filter({
+        has: paymentFrame.locator(`a[onclick*="billing_no=${bill.headerId}'"]`),
+      });
+      h.assert(await row.count() === 1, 'Payment Received did not list the settled invoice exactly once');
+      const amounts = await row.locator('xpath=following-sibling::tr[1]').locator('td').allInnerTexts();
+      const expected = sql.value(`SELECT paid FROM billing_on_cheader1 WHERE id=${bill.headerId}`);
+      h.assert(amounts[1].trim() === expected && amounts[2].trim() === expected,
+        'Payment Received does not show the settled billed and paid amounts');
+    }
   });
 }
 
