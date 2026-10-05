@@ -77,6 +77,34 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.locator('#today').inputValue(), '29-Sep-2026');
     assert.deepEqual(errors, []);
 
+    // Rourke reserves its read-only field for a double-click shortcut; the separate icon
+    // must still open the picker, and the shortcut must keep the picker's state in sync.
+    const rourke = await browser.newPage();
+    const rourkeErrors = [];
+    rourke.on('pageerror', error => rourkeErrors.push(error.message));
+    await rourke.setContent('<input id="visit" readonly ondblclick="resetDate(this)"><button id="calendar">Calendar</button><input id="other">');
+    await rourke.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
+    await rourke.evaluate(() => {window.Calendar = {_flatpickrReady:true};});
+    await rourke.addScriptTag({path:path.join(web, 'share/calendar/calendar-setup.js')});
+    const jsp = fs.readFileSync(path.join(web, 'WEB-INF/jsp/form/formrourke2017complete.jsp'), 'utf8');
+    const start = jsp.indexOf('function resetDate(textbox)');
+    const end = jsp.indexOf('var ageUnits', start);
+    assert.ok(start >= 0 && end > start, 'Rourke date handler is missing');
+    await rourke.addScriptTag({content:jsp.slice(start, end)});
+    await rourke.evaluate(() => Calendar.setup({inputField:'visit', button:'calendar', ifFormat:'%d/%m/%Y', clickOpens:false}));
+    await rourke.locator('#visit').dblclick();
+    const stamped = await rourke.locator('#visit').inputValue();
+    assert.match(stamped, /^\d{2}\/\d{2}\/\d{4}$/);
+    await rourke.locator('#other').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), stamped);
+    assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
+    await rourke.locator('#visit').dblclick();
+    assert.equal(await rourke.locator('#visit').inputValue(), '');
+    await rourke.locator('#calendar').click();
+    await rourke.locator('.flatpickr-calendar.open .flatpickr-day.today').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), stamped);
+    assert.deepEqual(rourkeErrors, []);
+
     // Production path: flatpickr and the French locale load asynchronously, so the setups are
     // queued and replayed once both have arrived, still without rewriting the fields.
     const queued = await browser.newPage();

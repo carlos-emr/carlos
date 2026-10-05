@@ -160,6 +160,8 @@ Calendar._doSetup = function (params) {
     /* ── Build flatpickr options ─────────────────────────────────────── */
     var fpOpts = {
         allowInput: true,
+        // Forms with their own input shortcut can reserve opening for the calendar button.
+        clickOpens: params.clickOpens !== false,
         dateFormat: Calendar._convertFormat(params.ifFormat || null)
     };
 

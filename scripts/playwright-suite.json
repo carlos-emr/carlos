@@ -7692,6 +7692,19 @@
       ],
       "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
       "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
+    },
+    {
+      "name": "rourke-measurement",
+      "script": "scripts/rourke-measurement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }

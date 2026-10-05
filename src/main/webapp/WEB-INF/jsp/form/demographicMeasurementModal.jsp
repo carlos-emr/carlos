@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Share a measurement dialog between clinical forms.
+    Features: Read existing measurements, save new values, or import a selection into the calling field.
+    Parameters: The caller supplies elementId, measurementType, demographicNo, date of birth and appointmentNo.
+    @since 2026-07-07
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
@@ -229,6 +235,7 @@
                     });
                 }
 
+                // Retain these input nodes: the dialog is detached before its callback runs.
                 showMeasurementDialog(bodyContent, function (save) {
                     if (save && !existingMeasurementUsed) {
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
@@ -236,9 +243,9 @@
                             type: 'POST',
                             url: '<%=request.getContextPath()%>/encounter/MeasurementData?action=saveMeasurement&demographicNo=' + demographicNo + '&appointmentNo=' + appointmentNo + '&type=' + measurementType,
                             data: {
-                                value: document.getElementById("currentMeasurementValue").value,
-                                instruction: document.getElementById('measurementInstruction').textContent,
-                                dateObserved: document.getElementById('currentMeasurementObservationDate').value
+                                value: currentValueInput.value,
+                                instruction: instructionSpan.textContent,
+                                dateObserved: obsDateInput.value
                             },
                             dataType: 'json',
                             async: false,
@@ -253,7 +260,7 @@
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
-                    document.getElementById(elementId).value = document.getElementById("currentMeasurementValue").value;
+                    document.getElementById(elementId).value = currentValueInput.value;
                 });
             }
         });

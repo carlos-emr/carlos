@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Render page 3 of the Rourke Baby Record 2017.
+    Features: Patient information, visit measurements and calendar-button date selection.
+    Parameters: Included by the complete form with frmProperties and frmRecord request attributes.
+    @since 2026-07-07
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -1378,6 +1384,7 @@
 
 <script type="text/javascript">
     Calendar.setup({
+        clickOpens: false,
         inputField: "p3_date9m",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
@@ -1386,6 +1393,7 @@
         step: 1
     });
     Calendar.setup({
+        clickOpens: false,
         inputField: "p3_date12m",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
@@ -1394,6 +1402,7 @@
         step: 1
     });
     Calendar.setup({
+        clickOpens: false,
         inputField: "p3_date15m",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
