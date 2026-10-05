@@ -29,6 +29,12 @@
 
 --%>
 
+<%--
+    Schedule date editor: loads the active generated day or manual override directly
+    for the requested provider and date, including availability, hours and reason.
+    Parameters: provider_no, year, month, day. Saves through schedule/DateSave.
+    Since 2026.08, generated days are visible without requiring a session cache entry.
+--%>
 <%! boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 <%! String[] bgColors; %>
 
@@ -138,7 +144,7 @@
 
                                 %>
                                 <option value="<carlos:encode value='<%= st.getId().getName() %>' context="htmlAttribute"/>"
-                                        <%=strHour.equals(st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
+                                        <%=Objects.equals(strHour, st.getId().getName()) ? "selected" : ""%>><carlos:encode value='<%= st.getId().getName() + " |" + st.getSummary() %>' context="html"/>
                                 </option>
                                 <% }
                                     for (ScheduleTemplate st : scheduleTemplateDao.findByProviderNo(request.getParameter("provider_no"))) {
@@ -183,7 +189,7 @@
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                 <% for (int i = 0; i < siteList.length; i++) { %>
                                 <option value="<carlos:encode value='<%= siteList[i] %>' context="htmlAttribute"/>" <%=(bMultisites ? " style='background-color:" + SafeEncode.forCssString(bgColors[i]) + "'" : "")%>
-                                        <%=strReason.equals(siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
+                                        <%=Objects.equals(strReason, siteList[i]) ? "selected" : ""%>><b><carlos:encode value='<%= siteList[i] %>' context="html"/>
                                 </b></option>
                                 <% } %>
                             </select></td>
