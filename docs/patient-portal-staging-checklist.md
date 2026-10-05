@@ -255,7 +255,8 @@ private key: redact the code in screenshots.
       certificates revoked), and the portal's SMTP and SMS webhook credentials. Production gets
       fresh ones.
 - [ ] Staging test users and the test patient's portal account disabled or deleted at teardown, and
-      any pin or setting changed for a drill restored.
+      any pin or setting changed for a drill restored, except pins the TLS drills retired: after
+      the rotation and standby drills, keep the pins they left in place.
 - [ ] Production verification in section 6 of the TLS runbook done and recorded in the clinic's
       deployment record.
 - [ ] The portal's `REAL_DATA_READINESS.md` record started for the clinic. Real patients are

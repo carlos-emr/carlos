@@ -42,8 +42,9 @@ These rules are fixed in code, and no choice below loosens them.
   email too: CARLOS refuses every encrypted send until the portal is back. Unencrypted email is
   unaffected.
   - To switch it off, set `patient_portal.enabled=false`, restart CARLOS, and confirm the
-    **Patient portal** entry is gone from a patient's record. The switch was added in #3934; a
-    build has it if its `carlos.properties` documents `patient_portal.enabled`.
+    **Patient portal** entry is gone from a patient's record. The switch comes with #3934
+    (re-landed on `develop` by #4306); a build has it only if its `carlos.properties` documents
+    `patient_portal.enabled`.
   - On a build without the switch, remove every `patient_portal.*` setting instead, except
     `patient_portal.email.enabled`. Leave that one: at `true` it keeps encrypted email refused,
     while removing it silently puts encrypted email back on passwords staff enter by hand.
