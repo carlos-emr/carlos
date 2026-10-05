@@ -3476,6 +3476,19 @@
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
+      "name": "security-password-length",
+      "script": "scripts/security-password-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "security-record-admin",
       "script": "scripts/security-record-admin-playwright-checks.js",
       "tiers": [
