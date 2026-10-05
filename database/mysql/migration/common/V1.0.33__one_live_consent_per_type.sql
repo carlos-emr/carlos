@@ -44,6 +44,15 @@ SELECT `id`, 'one_live_consent_per_type', 'null_flag', `explicit`, `optout`, `de
 FROM `Consent`
 WHERE `deleted` IS NULL OR `optout` IS NULL OR `explicit` IS NULL;
 
+-- Keep this ranking in step with step 2's ranking and filter below. It records, before anything
+-- changes, exactly the rows step 2 will retire, and the two are written differently only because
+-- steps 1a-1c run in between: here a NULL `explicit` ranks as 0 (step 1c fills it with 0 first),
+-- and rows with a NULL `optout` are filtered out (step 1b retires the live ones first, so step 2
+-- never sees them; a NULL `deleted` already fails `deleted = 0` in both). Changing one ranking
+-- without the other, or reordering the steps, would let a retired row go without its
+-- duplicate_retired entry, or record a row that stays live.
+-- The OSCAR 19 import ranks the same way: o19etl.CONSENT_LIVE_ORDER, which
+-- debian/assets/carlos_ctl/tests/test_consent_live_replay.py checks against both rankings here.
 INSERT IGNORE INTO `Consent_migration_audit`
     (`consent_id`, `migration`, `reason`, `prior_explicit`, `prior_optout`, `prior_deleted`, `recorded_at`)
 SELECT ranked.`id`, 'one_live_consent_per_type', 'duplicate_retired',
