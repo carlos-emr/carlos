@@ -13,7 +13,7 @@
  */
 
 /*
- * Browser check for issue #3953: HL7 lab text showed a literal "<br />".
+ * Browser check for issues #3953 and #4272: HL7 lab text showed a literal "<br />".
  *
  * The lab handlers turn the HL7 line-break escape \.br\ into a "<br />" marker inside the
  * text they return, and the lab views HTML-encoded that marker, so a clinician read
@@ -229,11 +229,14 @@ async function checkPdf(page, config, labNo) {
   assert(!/<br\s*\/?>/i.test(text), 'lab PDF shows a "<br />" marker as text');
   const lines = text.split('\n');
   const lineOf = (needle) => lines.findIndex((line) => line.includes(needle));
-  for (const [a, b] of [[LINES.commentA, LINES.commentB], [LINES.resultA, LINES.resultB]]) {
+  for (const [a, b] of [[LINES.commentA, LINES.commentB], [LINES.resultA, LINES.resultB],
+    [LINES.rangeA, LINES.rangeB]]) {
     const first = lineOf(a);
     const second = lineOf(b);
     assert(first >= 0 && second > first, `lab PDF did not put "${a}" and "${b}" on separate lines`);
   }
+  assert(text.includes('<script>window.__carlos3953=1</script>'),
+    'lab PDF lost or interpreted the literal script-like result text');
 }
 
 async function main() {
