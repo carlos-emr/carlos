@@ -698,6 +698,8 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
         # a check _run_checks never calls is a check nobody runs
         self.assertIn("check_consent_live(",
                       inspect.getsource(self.mod._run_checks))
+        self.assertIn("check_consent_migration_repair(",
+                      inspect.getsource(self.mod._run_checks))
         cases = self.mod.CONSENT_CASES
         ids = [r[0] for _clause, rows, _arrives in cases for r in rows]
         self.assertEqual(len(ids), len(set(ids)))

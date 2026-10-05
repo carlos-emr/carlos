@@ -91,6 +91,12 @@ ETL's order and session. Findings on MariaDB 11.8.8 (2026-09-29):
   1062. The duplicates check then reads 0; P4's row parity is what sees
   it. The check's key-on control records which of these a server does.
 
+`check_consent_migration_repair` seeds the same clauses into CARLOS's
+own Consent table and runs the migration over them, so its repair (not
+only its DDL) runs on rows: the deleted, optout and explicit values it
+leaves must be the import's, and Consent_migration_audit must name each
+changed row once with the values it held before.
+
 Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 2 = usage or connection error.
 """
@@ -2857,6 +2863,11 @@ CONSENT_CASES = [
     ("two legacy types on one CARLOS type rank",
      [(27, 112, 1, 0, 0, _LATE, 0), (28, 112, 2, 0, 0, _EARLY, 0)],
      {27: (0, 0, 0), 28: (1, 0, 0)}),
+    # the newer row is the NULL one: ranked below 0 it would lose, ranked
+    # as implied it wins on its date
+    ("a NULL explicit ranks as implied",
+     [(29, 113, 3, None, 0, _LATE, 0), (30, 113, 3, 0, 0, _EARLY, 0)],
+     {29: (0, 0, 0), 30: (1, 0, 0)}),
 ]
 
 #: {id: (consent_type_id, edit_date IS NULL)} as stored, for the rows
@@ -2911,6 +2922,139 @@ def _consent_migration() -> Path:
             [p.name for p in found]), file=sys.stderr)
         raise SystemExit(2)
     return found[0]
+
+
+def _consent_repair_seed_sql() -> str:
+    """CONSENT_CASES as rows already in a CARLOS Consent table, before the
+    migration: each legacy type under the CARLOS id it maps to, and an
+    unmapped one under NULL, as the import stores it."""
+    mapped = dict(CONSENT_ID_MAP)
+    out = []
+    for _clause, rows, _arrives in CONSENT_CASES:
+        for rid, patient, ctype, explicit, optout, edited, deleted in rows:
+            out.append("({0})".format(", ".join(_sql_literal(v) for v in (
+                rid, patient, mapped.get(ctype), explicit, optout, "999",
+                _EARLY, None, edited, deleted))))
+    return "INSERT INTO `Consent` VALUES {0};".format(", ".join(out))
+
+
+def _consent_repair_expected_audit() -> Dict[Tuple[str, str], Tuple]:
+    """{(id, reason): (prior explicit, optout, deleted)} the migration must
+    record for the seed: a null_flag entry for every row holding a NULL
+    flag, and a duplicate_retired entry for every row step 2 retires --
+    live, with a recorded decision, and not the record that decides."""
+    want: Dict[Tuple[str, str], Tuple] = {}
+    for _clause, rows, arrives in CONSENT_CASES:
+        for rid, _patient, _ctype, explicit, optout, _edited, deleted in rows:
+            prior = tuple("NULL" if v is None else str(v)
+                          for v in (explicit, optout, deleted))
+            if None in (explicit, optout, deleted):
+                want[(str(rid), "null_flag")] = prior
+            if deleted == 0 and optout is not None and arrives[rid][0] == 1:
+                want[(str(rid), "duplicate_retired")] = prior
+    return want
+
+
+def check_consent_migration_repair(client: Client, db: str) -> List[str]:
+    """The one-live-consent migration's data steps, on rows.
+
+    check_consent_live runs the migration only over an empty table, so it
+    proves the DDL but none of the repair. Here the same CONSENT_CASES are
+    seeded into CARLOS's Consent as it stands before the migration, the
+    migration file runs over them in the packaged server's session
+    (sql_mode=''), and every row must end with the deleted, optout and
+    explicit the import gives it (the two apply one rule).
+    Consent_migration_audit must hold exactly the entries the seed calls
+    for, with the values each row held before. The file then runs a
+    second time over the finished table and must change nothing. A
+    migration that errors on these rows is a failure, not a setup error.
+    """
+    failures: List[str] = []
+    print("\n  one live Consent per patient and type "
+          "(the migration's repair, on seeded rows)")
+    try:
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+                     .format(db))
+        client.setup(CONSENT_DST_DDL + ";", db)
+        # sql_mode='' so the seed can hold its zero dates, as a database
+        # restored from an old dump does
+        rc, _out, err = client.run("SET SESSION sql_mode='';"
+                                   + _consent_repair_seed_sql(), db)
+        if rc:
+            return ["the repair seed did not load: {0}".format(err[:300])]
+        zeros = client.rows(
+            "SELECT COUNT(*) FROM `Consent` WHERE CAST(`edit_date` AS CHAR) "
+            "= '{0}'".format(_ZERO), db)[0][0]
+        if zeros != "2":
+            return ["the repair seed did not hold its 2 zero dates (held {0}), "
+                    "so the undated ranking would go unchecked".format(zeros)]
+        migration = ("SET SESSION sql_mode='';\n"
+                     + _consent_migration().read_text(encoding="utf-8"))
+        rc, _out, err = client.run(migration, db)
+        if rc:
+            print("    {0:<44} NO".format("the migration runs on the seeded rows"))
+            return ["the migration failed on the seeded rows: {0}".format(
+                err[:300])]
+
+        stored = {r[0]: (r[1], r[2], r[3]) for r in client.rows(
+            "SELECT id, deleted, optout, explicit FROM `Consent`", db)}
+        wrong = []
+        for _clause, rows, arrives in CONSENT_CASES:
+            for row in rows:
+                rid = str(row[0])
+                want = tuple(str(v) for v in arrives[row[0]])
+                if stored.get(rid) != want:
+                    wrong.append("{0}: {1} (want {2})".format(
+                        rid, stored.get(rid), want))
+        print("    {0:<44} {1}".format(
+            "rows end as the import leaves them",
+            "ok" if not wrong else "NO ({0})".format("; ".join(wrong))))
+        if wrong:
+            failures.append("after the migration the seeded rows differ from "
+                            "what the import stores: {0}".format(
+                                "; ".join(wrong)))
+
+        def audit():
+            return {(r[0], r[1]): (r[2], r[3], r[4]) for r in client.rows(
+                "SELECT consent_id, reason, IFNULL(prior_explicit, 'NULL'), "
+                "IFNULL(prior_optout, 'NULL'), IFNULL(prior_deleted, 'NULL') "
+                "FROM `Consent_migration_audit` WHERE migration = "
+                "'one_live_consent_per_type'", db)}
+
+        recorded = audit()
+        expected = _consent_repair_expected_audit()
+        ok = recorded == expected
+        print("    {0:<44} {1}".format(
+            "the audit names each changed row, once",
+            "ok" if ok else "NO (missing {0}, extra {1}, differing {2})".format(
+                sorted(set(expected) - set(recorded)),
+                sorted(set(recorded) - set(expected)),
+                sorted(k for k in set(expected) & set(recorded)
+                       if expected[k] != recorded[k]))))
+        if not ok:
+            failures.append("Consent_migration_audit does not match the seed: "
+                            "recorded {0}, expected {1}".format(
+                                sorted(recorded.items()),
+                                sorted(expected.items())))
+
+        rc, _out, err = client.run(migration, db)
+        if rc:
+            print("    {0:<44} NO".format("a second run changes nothing"))
+            failures.append("a second run of the migration failed: {0}".format(
+                err[:300]))
+            return failures
+        again = {r[0]: (r[1], r[2], r[3]) for r in client.rows(
+            "SELECT id, deleted, optout, explicit FROM `Consent`", db)}
+        rerun_ok = again == stored and audit() == recorded
+        print("    {0:<44} {1}".format(
+            "a second run changes nothing", "ok" if rerun_ok else "NO"))
+        if not rerun_ok:
+            failures.append("running the migration again changed the rows or "
+                            "the audit")
+        return failures
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`;".format(db))
 
 
 def check_consent_live(client: Client, src: str, dst: str,
@@ -3216,6 +3360,9 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                                  args.prefix + "_lvd", args.prefix + "_lva")
     if consent:
         failures["one live consent"] = consent
+    repair = check_consent_migration_repair(client, args.prefix + "_lvr")
+    if repair:
+        failures["one live consent repair"] = repair
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
