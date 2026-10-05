@@ -254,7 +254,8 @@
         function reviewed(ths) {
             var thisForm = ths.form;
             if (thisForm.reviewerId.value === '' || thisForm.reviewerId.value === 'null') {
-                thisForm.reviewerId.value = <%=user_no%>;
+                // The action assigns the authenticated reviewer and writes the review audit event.
+                thisForm.reviewerId.value = '';
                 thisForm.reviewDoc.value = true;
             } else {
                 thisForm.extraReviewerId.value = <%=user_no%>;

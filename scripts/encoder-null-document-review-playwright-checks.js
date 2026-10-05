@@ -14,7 +14,8 @@
  * Risk sweep: encoder-null (null-sentinel regressions of the null-safe encoder migration).
  */
 const h = require('./lib/playwright-harness');
-const { runWorkflow } = require('./lib/workflow-session');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { multipartFields } = require('./lib/get-reject-probe');
 const {
   directory, ownedPdfDocuments, seedOwnedPdfDocuments, removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved,
 } = require('./lib/stored-pdf-documents');
@@ -28,7 +29,13 @@ async function workflow(s) {
 
   s.cleanup(() => {
     for (const doc of docs) {
-      if (doc.id) sql.execute(`DELETE FROM DocumentExtraReviewer WHERE documentNo=${Number(doc.id)}`);
+      if (doc.id) {
+        sql.execute(`DELETE FROM DocumentExtraReviewer WHERE documentNo=${Number(doc.id)};
+          DELETE FROM log WHERE action='reviewed' AND content='document' AND contentId=${h.sqlString(doc.id)}
+          AND demographic_no=${patient}`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='reviewed' AND content='document'
+          AND contentId=${h.sqlString(doc.id)} AND demographic_no=${patient}`) === '0', 'Owned review audit rows were not removed');
+      }
     }
     h.assert(docs.every(doc => !doc.id || sql.value(extraRows(doc.id)) === '0'),
       'The extra-reviewer rows of the owned document were not removed');
@@ -81,6 +88,9 @@ async function workflow(s) {
       ]);
     });
     h.assert(post.status() < 400, `The Reviewed POST answered HTTP ${post.status()}`);
+    const submitted = new Map(multipartFields(post.request().postDataBuffer(), post.request().headers()['content-type']));
+    h.assert(submitted.get('reviewerId') === '' && submitted.get('reviewDoc') === 'true',
+      'First review must ask the server to assign the authenticated provider');
     h.assert(await closed, 'The edit popup did not close after Reviewed');
     // Report, don't encode: the first review must land on the document itself. The regression
     // instead raises the debug alert "set extra" and writes a DocumentExtraReviewer row.
@@ -93,6 +103,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT IF(reviewdatetime IS NULL,0,1) FROM document WHERE document_no=${doc.id}`) === '1',
       'Reviewed did not stamp the review time on the document');
     h.assert(sql.value(extraRows(doc.id)) === '0', 'The first review was stored as an extra reviewer');
+    await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='reviewed' AND content='document'
+      AND contentId=${h.sqlString(doc.id)} AND provider_no=${h.sqlString(provider)} AND demographic_no=${patient}`,
+    '1', 'First review did not write its provider/patient/document audit event');
     h.assert(dialogs.length === 0, `Reviewed raised ${dialogs.length} dialog(s): ${dialogs.map(d => d.text).join(' | ')}`);
   });
 

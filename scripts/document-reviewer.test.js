@@ -23,9 +23,9 @@ function review(reviewer) {
   return form;
 }
 for (const value of ['', 'null']) {
-  test(`first review assigns the provider when the rendered reviewer is ${JSON.stringify(value)}`, () => {
+  test(`first review asks the server to assign the provider when the rendered reviewer is ${JSON.stringify(value)}`, () => {
     const form = review(value);
-    assert.equal(String(form.reviewerId.value), '999998');
+    assert.equal(form.reviewerId.value, '');
     assert.equal(String(form.reviewDoc.value), 'true');
     assert.equal(form.extraReviewerId.value, '');
     assert.equal(form.extraReviewDoc.value, 'false');
