@@ -113,6 +113,7 @@
     "test:consultation-lab-attachment-rows-playwright": "node scripts/consultation-lab-attachment-rows-playwright-checks.js",
     "test:billing-on-submit-playwright": "node scripts/billing-on-submit-playwright-checks.js",
     "test:billing-on-group-disk-zero-total-playwright": "node scripts/billing-on-group-disk-zero-total-playwright-checks.js",
+    "test:billing-on-provider-group-validation-playwright": "node scripts/billing-on-provider-group-validation-playwright-checks.js",
     "test:patient-messenger-context-playwright": "node scripts/patient-messenger-context-playwright-checks.js",
     "test:messenger-playwright": "node scripts/messenger-playwright-checks.js",
     "test:messenger-pdf-attachments-server-render-playwright": "node scripts/messenger-pdf-attachments-server-render-playwright-checks.js",
