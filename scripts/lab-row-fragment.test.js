@@ -21,7 +21,7 @@ test('the injected lab row initializes result and test-name tooltips with the sh
   vm.runInContext(fs.readFileSync(path.join(web, 'share/javascript/boxover.js'), 'utf8'), context);
   const jsp = fs.readFileSync(path.join(web, 'WEB-INF/jsp/lab/DisplayLabValue.jsp'), 'utf8');
   // Render the fragment's actual inline script for one result and a deterministic row ID.
-  const script = jsp.match(/<script\b[^>]*>([\s\S]*?)<\/script>/)[1]
+  const script = jsp.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i)[1]
     .replace(/<%=\s*""\+k\+""\+ran\s*%>/g, '00_5')
     .replace(/<%=ran%>/g, '0_5').replace(/<%(?![=!])[\s\S]*?%>/g, '');
   vm.runInContext(script, context);
