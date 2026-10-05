@@ -2,6 +2,10 @@
 package io.github.carlos_emr.carlos.dashboard.admin;
 
 import io.github.carlos_emr.carlos.dashboard.handler.DiseaseRegistryHandler;
+import io.github.carlos_emr.carlos.dashboard.handler.ExcludeDemographicHandler;
+import io.github.carlos_emr.carlos.dashboard.handler.DemographicPatientStatusRosterStatusHandler;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import java.util.List;
 import io.github.carlos_emr.carlos.dashboard.handler.MessageHandler;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -35,6 +39,8 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
     private LoggedInInfo user;
     private DiseaseRegistryHandler registry;
     private MessageHandler messages;
+    private ExcludeDemographicHandler exclusions;
+    private DemographicPatientStatusRosterStatusHandler statuses;
 
     @BeforeEach
     void prepare() {
@@ -53,6 +59,14 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
         // Mockito defaults boxed Integer returns to zero; the real skip result is null.
         when(registry.addToDiseaseRegistry(anyInt(), anyString(), anyString())).thenReturn(null);
         messages = mock(MessageHandler.class);
+        exclusions = mock(ExcludeDemographicHandler.class);
+        statuses = mock(DemographicPatientStatusRosterStatusHandler.class);
+        Provider provider = mock(Provider.class);
+        when(provider.getFormattedName()).thenReturn("Fixture provider");
+        when(provider.getProviderNo()).thenReturn("4245");
+        when(user.getLoggedInProvider()).thenReturn(provider);
+        ReflectionTestUtils.setField(action, "excludeDemographicHandler", exclusions);
+        ReflectionTestUtils.setField(action, "demographicPatientStatusRosterStatusHandler", statuses);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         ReflectionTestUtils.setField(action, "dashboardManager", mock(DashboardManager.class));
         ReflectionTestUtils.setField(action, "diseaseRegistryHandler", registry);
@@ -138,6 +152,46 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
     void shouldNotAuditOrNotify_whenAllDiagnosesAlreadyExist() {
         request.setMethod("POST");
         assertThat(action.addToDiseaseRegistry()).isNull();
+        logActionMock.verifyNoInteractions();
+        verifyNoInteractions(messages);
+    }
+
+    @Test
+    void shouldNotifyOnlyNewExclusions_whenSomePatientsAreAlreadyExcluded() {
+        request.setMethod("POST");
+        request.setParameter("indicatorId", "42");
+        when(exclusions.getDrilldownIdentifier(42)).thenReturn("owned-indicator");
+        when(exclusions.excludeDemoIds(List.of(101, 102), "owned-indicator")).thenReturn(List.of(101));
+        assertThat(action.excludePatients()).isNull();
+        verify(messages).notifyProvider(anyString(), argThat(text -> text.contains("[101]") && !text.contains("102")), eq("4245"), isNull());
+    }
+
+    @Test
+    void shouldNotNotify_whenNoNewExclusionWasInserted() {
+        request.setMethod("POST");
+        request.setParameter("indicatorId", "42");
+        assertThat(action.excludePatients()).isNull();
+        verifyNoInteractions(messages);
+    }
+
+    @Test
+    void shouldReportPartialInactiveFailure_andAuditOnlySuccessfulUpdates() {
+        request.setMethod("POST");
+        when(statuses.setPatientStatusInactive("101")).thenReturn(true);
+        when(statuses.setPatientStatusInactive("102")).thenReturn(false);
+        assertThat(action.setPatientsInactive()).isNull();
+        assertThat(response.getStatus()).isEqualTo(400);
+        logActionMock.verify(() -> LogAction.addLog("4245", LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC,
+                "101", request.getRemoteAddr(), "101", "patient_status: IN"));
+        logActionMock.verifyNoMoreInteractions();
+        verify(messages).notifyProvider(anyString(), argThat(text -> text.contains("[101]") && !text.contains("102")), eq("4245"));
+    }
+
+    @Test
+    void shouldNotClaimInactiveUpdates_whenEveryUpdateFailed() {
+        request.setMethod("POST");
+        assertThat(action.setPatientsInactive()).isNull();
+        assertThat(response.getStatus()).isEqualTo(400);
         logActionMock.verifyNoInteractions();
         verifyNoInteractions(messages);
     }

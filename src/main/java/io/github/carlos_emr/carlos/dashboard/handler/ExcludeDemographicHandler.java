@@ -99,21 +99,25 @@ public class ExcludeDemographicHandler {
         return demoExts;
     }
 
-    public void excludeDemoId(Integer demographicNo, String indicatorName) {
-        if (demographicNo == null || indicatorName == null || indicatorName.isEmpty()) return;
+    public boolean excludeDemoId(Integer demographicNo, String indicatorName) {
+        if (demographicNo == null || indicatorName == null || indicatorName.isEmpty()) return false;
         // Retain historical exclusions while making current exclusions idempotent.
         Date since = new Date(System.currentTimeMillis() - java.util.concurrent.TimeUnit.DAYS.toMillis(365));
         if (demographicExtDao.addKeyIfAbsentSince(getProviderNo(), demographicNo,
                 excludeIndicator, indicatorName, since)) {
             logger.info("demo: {} excluded from indicatorTemplate {}", demographicNo, LogSafe.sanitize(indicatorName));
+            return true;
         }
+        return false;
     }
 
-    public void excludeDemoIds(List<Integer> demographicNos, String indicatorName) {
-        if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return;
-        for (Integer demographicNo : new HashSet<>(demographicNos)) {
-            excludeDemoId(demographicNo, indicatorName);
+    public List<Integer> excludeDemoIds(List<Integer> demographicNos, String indicatorName) {
+        List<Integer> inserted = new ArrayList<>();
+        if (demographicNos == null || demographicNos.isEmpty() || indicatorName == null || indicatorName.isEmpty()) return inserted;
+        for (Integer demographicNo : new java.util.LinkedHashSet<>(demographicNos)) {
+            if (excludeDemoId(demographicNo, indicatorName)) inserted.add(demographicNo);
         }
+        return inserted;
     }
 
     public void unExcludeDemoIds(List<Integer> demographicNos, String indicatorName) {

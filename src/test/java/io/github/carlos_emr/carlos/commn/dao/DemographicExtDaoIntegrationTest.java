@@ -233,4 +233,11 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
         assertThat(demographicExtDao.addKeyIfAbsentSince(null, DEMO_1, "excludeIndicator", "owned", since)).isFalse();
     }
 
+    @Test
+    void shouldSkipMissingPatient_whenAddingACurrentExclusion() {
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", Integer.MAX_VALUE,
+                "excludeIndicator", "owned", new java.util.Date(0))).isFalse();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).isEmpty();
+    }
+
 }

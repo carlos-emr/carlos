@@ -158,6 +158,10 @@ async function workflow(s) {
   const [alpha, bravo, charlie] = patients;
   let dashboard;
   let plotted;
+  let bulkToken;
+  const missingPatient = '2147483647';
+  h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${missingPatient}`) === '0',
+    'The nonexistent-patient test ID is already in use');
 
   // Application defects are asserted in the LAST step so every provable step is proven first.
   const defects = [];
@@ -346,6 +350,7 @@ async function workflow(s) {
   await s.step('Concurrent registry and exclusion requests create one current entry and audit only inserted diagnoses', async () => {
     const token = await dashboard.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     h.assert(token.length > 0, 'The drilldown has no CSRF token for the concurrency check');
+    bulkToken = token;
     const post = async form => {
       const response = await ctx.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/display/BulkPatientAction'),
         {form: {'CSRF-TOKEN': token, ...form}, maxRedirects: 0});
@@ -357,7 +362,7 @@ async function workflow(s) {
       AND coding_system='icd9' AND providerNo=${P}`);
     const audits = `SELECT COUNT(*) FROM log WHERE provider_no=${P} AND action='add' AND content='DX'`;
     const before = Number(sql.value(audits));
-    const diagnosis = {method: 'addToDiseaseRegistry', patientIds: alpha, dxUpdateICD9Code: DX_CODE};
+    const diagnosis = {method: 'addToDiseaseRegistry', patientIds: `${missingPatient},${alpha}`, dxUpdateICD9Code: DX_CODE};
     await Promise.all([post(diagnosis), post(diagnosis)]);
     h.assert(sql.value(dxRows(alpha)) === '1', 'Concurrent requests created duplicate active diagnoses');
     h.assert(await eventually(audits, String(before + 1)), 'The inserted diagnosis has no unique ADD audit entry');
@@ -365,13 +370,17 @@ async function workflow(s) {
     h.assert(sql.value(audits) === String(before + 1), 'Skipping an existing diagnosis created a false ADD audit entry');
     h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${P} AND action='add' AND content='DX' AND contentId='null'`) === '0',
       'A skipped diagnosis was audited with a null content ID');
-    const exclusion = {method: 'excludePatients', patientIds: alpha, indicatorId};
+    const messages = `SELECT COUNT(*) FROM messagelisttbl WHERE provider_no=${P}`;
+    const messagesBefore = Number(sql.value(messages));
+    const exclusion = {method: 'excludePatients', patientIds: `${missingPatient},${alpha}`, indicatorId};
     await Promise.all([post(exclusion), post(exclusion)]);
     await post(exclusion);
     const identifier = `${marker} Patient status|${marker} Owned patients|${marker} Category`;
     h.assert(sql.value(`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${alpha} AND provider_no=${P}
       AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`) === '1',
       'Repeated or concurrent exclusions created duplicate current rows');
+    h.assert(sql.value(messages) === String(messagesBefore + 1),
+      'Skipped exclusions sent a false success notification');
   });
 
   await s.step('the Dashboard button returns to the dashboard with the same counts', async () => {
@@ -379,6 +388,23 @@ async function workflow(s) {
     await dashboard.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();
     h.assert((await dashboard.locator('.dashboardHeading h2').innerText()).trim() === marker, 'Back did not return to the owned dashboard');
     h.assert(await dashboard.locator(`#graphPlots_${indicatorId}`).inputValue() === plotted, 'The reloaded dashboard plots different counts');
+  });
+
+  await s.step('A partial inactive update reports failure and audits only the patient it changed', async () => {
+    const audits = id => `SELECT COUNT(*) FROM log WHERE provider_no=${P} AND action='update'
+      AND demographic_no=${id} AND data='patient_status: IN'`;
+    const before = Number(sql.value(audits(alpha)));
+    const messages = `SELECT COUNT(*) FROM messagelisttbl WHERE provider_no=${P}`;
+    const messagesBefore = Number(sql.value(messages));
+    const response = await ctx.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/display/BulkPatientAction'),
+      {form: {'CSRF-TOKEN': bulkToken, method: 'setPatientsInactive', patientIds: `${missingPatient},${alpha}`}, maxRedirects: 0});
+    h.assert(response.status() === 400, `Partial inactive update answered HTTP ${response.status()}, expected 400`);
+    await response.dispose();
+    h.assert(sql.value(`SELECT patient_status FROM demographic WHERE demographic_no=${alpha}`) === 'IN',
+      'The valid patient after the missing ID was not updated');
+    h.assert(await eventually(audits(alpha), String(before + 1)), 'The successful inactive update has no audit entry');
+    h.assert(sql.value(audits(missingPatient)) === '0', 'The nonexistent patient has a false update audit');
+    h.assert(sql.value(messages) === String(messagesBefore + 1), 'The successful subset was not notified once');
   });
 
   await s.step('AssignTickler refuses a GET save with 405 and writes no tickler', async () => {

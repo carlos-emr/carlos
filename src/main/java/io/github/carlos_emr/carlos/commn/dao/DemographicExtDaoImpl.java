@@ -249,7 +249,7 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
     @Override
     public boolean addKeyIfAbsentSince(String providerNo, Integer demo, String key, String value, Date since) {
         if (entityManager.find(Demographic.class, demo, LockModeType.PESSIMISTIC_WRITE) == null) {
-            throw new IllegalArgumentException("Patient does not exist");
+            return false;
         }
         Query query = entityManager.createQuery("SELECT d FROM DemographicExt d WHERE d.demographicNo=?1"
                 + " AND (d.providerNo=?2 OR (d.providerNo IS NULL AND ?2 IS NULL))"

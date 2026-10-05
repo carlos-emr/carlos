@@ -173,4 +173,10 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
         assertThat(dxDao.findByDemographicNoResearchCodeAndCodingSystem(patient, "250", "icd9")).hasSize(2);
     }
 
+    @Test
+    void shouldSkipMissingPatient_withoutPreventingTheNextValidAddition() {
+        assertThat(diseaseRegistryHandler.addToDiseaseRegistry(Integer.MAX_VALUE, "250", PROVIDER_NO)).isNull();
+        assertThat(diseaseRegistryHandler.addToDiseaseRegistry(demoNos.get(0), "250", PROVIDER_NO)).isPositive();
+    }
+
 }

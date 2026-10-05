@@ -387,7 +387,7 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         // A patient row exists even when no matching diagnosis does. Lock it through
         // the inherited DAO transaction so concurrent dashboard additions serialize.
         if (entityManager.find(Demographic.class, diagnosis.getDemographicNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
-            throw new IllegalArgumentException("Patient does not exist");
+            return null;
         }
         Query query = entityManager.createQuery("select d from Dxresearch d where d.status='A'"
                 + " and d.demographicNo=?1 and d.codingSystem=?2 and d.dxresearchCode=?3");

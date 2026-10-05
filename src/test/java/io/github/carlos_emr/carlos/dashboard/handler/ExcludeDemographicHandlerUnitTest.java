@@ -31,21 +31,19 @@ import static org.mockito.Mockito.when;
 import java.lang.reflect.Field;
 import java.util.Collections;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /**
  * Unit tests for {@link ExcludeDemographicHandler} JSON input validation.
@@ -61,25 +59,21 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 @Tag("dashboard")
 @DisplayName("ExcludeDemographicHandler unit tests")
 @org.junit.jupiter.api.parallel.Isolated
-class ExcludeDemographicHandlerUnitTest {
+class ExcludeDemographicHandlerUnitTest extends CarlosUnitTestBase {
 
-    private static Object originalDao;
+    private Object originalDao;
 
-    private static MockedStatic<SpringUtils> springUtilsMock;
-    private static DemographicExtDao mockDao;
-    private static ExcludeDemographicHandler handler;
+    private DemographicExtDao mockDao;
+    private ExcludeDemographicHandler handler;
 
-    @BeforeAll
-    static void setUpBeforeAll() throws Exception {
+    @BeforeEach
+    void prepareHandler() throws Exception {
         mockDao = mock(DemographicExtDao.class);
         when(mockDao.getDemographicExtByKeyAndValue(anyString(), anyString()))
                 .thenReturn(Collections.emptyList());
 
-        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
-        springUtilsMock.when(() -> SpringUtils.getBean(DemographicExtDao.class))
-                .thenReturn(mockDao);
-        springUtilsMock.when(() -> SpringUtils.getBean(DashboardManager.class))
-                .thenReturn(mock(DashboardManager.class));
+        registerMock(DemographicExtDao.class, mockDao);
+        registerMock(DashboardManager.class, mock(DashboardManager.class));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
         Provider provider = new Provider();
@@ -98,14 +92,11 @@ class ExcludeDemographicHandlerUnitTest {
         daoField.set(null, mockDao);
     }
 
-    @AfterAll
-    static void tearDownAfterAll() throws Exception {
+    @AfterEach
+    void restoreDao() throws Exception {
         Field daoField = ExcludeDemographicHandler.class.getDeclaredField("demographicExtDao");
         daoField.setAccessible(true);
         daoField.set(null, originalDao);
-        if (springUtilsMock != null) {
-            springUtilsMock.close();
-        }
     }
 
     @Nested
