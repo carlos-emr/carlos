@@ -216,13 +216,27 @@ async function workflow(s) {
   await s.step('Both tickler dialogs open history for their patient and note', async () => {
     const message = `${marker} history tickler`;
     let ticklerId;
+    let ownershipConfirmed = false;
+    const ownedTickler = `demographic_no=${patient} AND message=${h.sqlString(message)}`;
     s.cleanup(() => {
-      if (!/^[1-9]\d*$/.test(ticklerId || '')) return;
-      sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id=${ticklerId} AND note_id=${noteId};
-        DELETE FROM tickler WHERE tickler_no=${ticklerId} AND demographic_no=${patient} AND message=${h.sqlString(message)}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${ticklerId}`) === '0',
-        'The owned history tickler was not removed');
+      if (!ownershipConfirmed) return;
+      // Recover a committed insert even when the SQL client never returned its ID.
+      const ids = sql.value(`SELECT GROUP_CONCAT(tickler_no) FROM tickler WHERE ${ownedTickler}`) || '0';
+      h.assert(/^[0-9]+(?:,[0-9]+)*$/.test(ids), 'Invalid owned tickler cleanup identifiers');
+      sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (${ids}) AND note_id=${noteId};
+        DELETE FROM tickler_update WHERE tickler_no IN (${ids});
+        DELETE FROM tickler_comments WHERE tickler_no IN (${ids});
+        DELETE FROM tickler_link WHERE tickler_no IN (${ids});
+        DELETE FROM tickler WHERE tickler_no IN (${ids}) AND ${ownedTickler}`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE ${ownedTickler})
+        + (SELECT COUNT(*) FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_update WHERE tickler_no IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_link WHERE tickler_no IN (${ids}))`) === '0',
+        'The owned history tickler or a child row was not removed');
     });
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE ${ownedTickler}`) === '0', 'The history tickler marker already exists');
+    ownershipConfirmed = true;
     ticklerId = sql.value(`INSERT INTO tickler
       (demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
       VALUES (${patient},${h.sqlString(message)},'A',NOW(),NOW(),${h.sqlString(provider)},'Normal',${h.sqlString(provider)});
