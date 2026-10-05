@@ -46,7 +46,7 @@ patient scope — identifiers only, never clinical content.
 | `DemographicWs` | `getDemographics` | `_demographic r` for **each** requested patient |
 | `DemographicWs` | `searchDemographicByName`, `searchDemographicsByAttributes` | `_demographic r`; results additionally filtered per patient |
 | `DemographicWs` | `getActiveDemographicsAfter`, `getActiveDemographicsAfter2` | `_demographic r`; results additionally filtered per patient |
-| `DemographicWs` | `getAdmittedDemographicIdsByProgramProvider`, `getConsentedDemographicIdsAfter` | `_demographic r` |
+| `DemographicWs` | `getAdmittedDemographicIdsByProgramProvider` | `_demographic r` |
 | `DocumentWs` | `getDocument` | `_edoc r`, then `_edoc r` scoped to the document's patient |
 | `DocumentWs` | `getDocumentsByDemographicIdAfter`, `getDocumentsByProgramProviderDemographicDate` | `_edoc r`, scoped to the requested patient |
 | `DocumentWs` | `getDocumentsUpdateAfterDate` | `_edoc r`; results additionally filtered per patient |
@@ -66,6 +66,19 @@ patient scope — identifiers only, never clinical content.
 | `ProviderWs` | `getLoggedInProviderTransfer` | `_pref r` |
 | `ProviderWs` | `getProviderProperties` | `_pref r` for self-reads; `_admin r` for cross-provider reads |
 | `FacilityWs` | `getAllFacilities` | `_admin r` |
+
+### Switched-off operations
+
+`DemographicWs.getConsentedDemographicIdsAfter` is not published. It is a remnant of OSCAR's 2019
+PHR sharing work: despite its name it returned the ids of every patient whose data-sharing consent
+record was edited after a date, including patients who had opted out, and nothing in CARLOS called
+it. The method carries `@WebMethod(exclude = true)`, so CXF leaves it out of the service and a caller
+gets a SOAP fault; the code stays until [#4090](https://github.com/carlos-emr/carlos/issues/4090)
+removes it. Consent-aware sync uses the per-patient calls, which check the requested patient's
+consent before returning data: `AllergyWs.getAllergiesByDemographicIdAfter`,
+`MeasurementWs.getMeasurementsByDemographicIdAfter`,
+`PrescriptionWs.getPrescriptionsByDemographicIdAfter` and
+`ScheduleWs.getAppointmentsByDemographicIdAfter`.
 
 ### Security objects deliberately not used
 

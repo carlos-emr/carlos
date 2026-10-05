@@ -130,6 +130,31 @@ $SQL carlos < /scripts/demo-hrm-report.sql
 # install does.
 echo 'Enabling digital signatures on the demo facility...'
 $SQL carlos -e "UPDATE Facility SET enableDigitalSignatures = 1 WHERE id = 1;"
+# development.sql truncate-reloads consentType and property with the old
+# snapshot, which has no SMS consent type and no sms_communication property,
+# so every SMS would be blocked as SMS_CONSENT_NOT_CONFIGURED and the consent
+# would be missing from the patient record. Re-apply the migration that seeds
+# them, then the one that turns it on with the approved wording; every statement in
+# both is idempotent. The globs survive a renumbering.
+echo 'Restoring the SMS consent type and sms_communication property...'
+for pattern in add_sms_consent activate_sms_consent; do
+  for f in "${MIG}"/common/V*__${pattern}.sql; do
+    [ -f "$f" ] || { echo "ERROR: no V*__${pattern}.sql under ${MIG}/common" >&2; exit 1; }
+    $SQL carlos < "$f"
+  done
+done
+# The activation switches the type on only while the description is the seeded draft and
+# sms_communication points at the type. If the demo data ever changes either, say so loudly
+# rather than leave developers with SMS blocked.
+SMS_CONSENT_ACTIVE=$($SQL -N carlos -e "SELECT COUNT(*) FROM consentType WHERE type = 'sms_communication_consent' AND active = 1;")
+if [ "${SMS_CONSENT_ACTIVE}" != "1" ]; then
+  echo "WARNING: the SMS consent type is not active after the reload; every patient SMS will be blocked as SMS_CONSENT_NOT_CONFIGURED" >&2
+fi
+# The consent section on the patient add, edit and view pages only renders with both
+# privateConsentEnabled=true and USE_NEW_PATIENT_CONSENT_MODULE=true (the module's
+# block is nested inside the privateConsentEnabled one). The devcontainer's
+# carlos.properties turns both off; flip both there to record or see the consent.
+
 # Administration fixtures for the data-backed Administration screens the demo
 # snapshot leaves empty. admin_test_data.sql is shared with the deb demo load
 # (carlos-ctl demo-data); admin_test_account.sql adds the devcontainer-only

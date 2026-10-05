@@ -26,10 +26,12 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -37,18 +39,26 @@ import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +68,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -230,6 +242,31 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report a definite archive failure when archive creation throws an unchecked exception")
+    void shouldReportDefiniteArchiveFailure_whenArchiveCreationThrowsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(51);
+        doThrow(new IllegalStateException("archive store unavailable"))
+                .when(outboundEmailArchiveService).archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Nothing was dispatched, so this must not fall through to sendWithArchive's
+            // catch-all and be reported as "the transport did not confirm". That wording is
+            // reserved for a fault inside sendPrepared(), where the outcome really is unknown.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).startsWith("Failed to archive outbound email");
+            verify(smtpSenders.constructed().get(0), never()).sendPrepared();
+            verifyNoInteractions(javaMailSender);
+            verify(outboundEmailArchiveService, never()).recordSendOutcome(any(), any(), any());
+        }
+    }
+
+    @Test
     @DisplayName("should archive SMTP email before sending prepared message")
     void shouldArchiveSmtpEmail_beforeSendingPreparedMessage() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
@@ -255,6 +292,272 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                     .archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class));
             archiveBeforeSend.verify(smtpSender).sendPrepared();
             verify(emailLogDao).transitionEmailStatus(45, EmailLog.EmailStatus.PENDING, EmailLog.EmailStatus.SUCCESS, "", emailLog.getTimestamp());
+        }
+    }
+
+    @Test
+    @DisplayName("should advance the archive to accepted when the transport takes the message")
+    void shouldAdvanceArchiveToAccepted_whenTransportTakesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(46);
+        stubArchiveWithId(91);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // ATTEMPTED must be written before the transport runs, so a crash mid-dispatch leaves
+            // an unresolved attempt rather than a row that looks like it was never sent.
+            // EmailLog is authoritative, so its SUCCESS lands before the archive's ACCEPTED: the
+            // archive write takes a row lock and must not hold an accepted send at PENDING.
+            org.mockito.InOrder lifecycle = inOrder(outboundEmailArchiveService,
+                    smtpSenders.constructed().get(0), emailLogDao);
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            lifecycle.verify(smtpSenders.constructed().get(0)).sendPrepared();
+            lifecycle.verify(emailLogDao).transitionEmailStatus(eq(46), eq(EmailLog.EmailStatus.PENDING),
+                    eq(EmailLog.EmailStatus.SUCCESS), any(), any());
+            lifecycle.verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 91, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        }
+    }
+
+    @Test
+    @DisplayName("should still dispatch when the attempt marker cannot be written")
+    void shouldStillDispatch_whenAttemptMarkerCannotBeWritten() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(52);
+        stubArchiveWithId(95);
+        // Bookkeeping ahead of the transport must not become a reason the email never leaves.
+        doThrow(new IllegalStateException("archive row locked"))
+                .when(outboundEmailArchiveService)
+                .recordSendOutcome(loggedInInfo, 95, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            verify(smtpSenders.constructed().get(0)).sendPrepared();
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        }
+    }
+
+    @Test
+    @DisplayName("should record an archive send failure when the transport refuses on authorization")
+    void shouldRecordArchiveSendFailure_whenTransportRefusesOnAuthorization() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(53);
+        stubArchiveWithId(96);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new SecurityException("missing required sec object (_email)"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            EmailData emailData = emailData();
+
+            assertThatThrownBy(() -> emailManager.sendEmail(loggedInInfo, emailData))
+                    .isInstanceOf(SecurityException.class);
+
+            // The privilege check runs before hand-off, so this refusal is a definite failure.
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 96, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the archive at attempted when the transport fails unchecked")
+    void shouldLeaveArchiveAtAttempted_whenTransportFailsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(54);
+        stubArchiveWithId(97);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new IllegalStateException("connection dropped mid-transfer"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // An unclassified fault inside the transport proves nothing either way, so neither
+            // outcome may be asserted: the row keeps ATTEMPTED, which reads as "not known".
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.FAILED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 97, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+        }
+    }
+
+    @Test
+    @DisplayName("should record an archive send failure when the transport refuses the message")
+    void shouldRecordArchiveSendFailure_whenTransportRefusesTheMessage() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(47);
+        stubArchiveWithId(92);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("relay refused the message"))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 92, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should leave the archive at attempted when the delivery outcome is uncertain")
+    void shouldLeaveArchiveAtAttempted_whenDeliveryOutcomeIsUncertain() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(48);
+        stubArchiveWithId(93);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("transport outcome unknown", null, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            emailManager.sendEmail(loggedInInfo, emailData());
+
+            // Recording FAILED here would assert the message never went out -- exactly what an
+            // uncertain outcome cannot establish. The row stays at ATTEMPTED, which reads as
+            // "not known" rather than "not sent".
+            verify(outboundEmailArchiveService)
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.ATTEMPTED);
+            verify(outboundEmailArchiveService, never())
+                    .recordSendOutcome(loggedInInfo, 93, OutboundEmailArchiveService.SendOutcome.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("should still report success when archive lifecycle bookkeeping fails")
+    void shouldStillReportSuccess_whenLifecycleBookkeepingFails() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        stubPersistedEmailLogId(49);
+        stubArchiveWithId(94);
+        // The message is already with the transport by the time ACCEPTED is written. Turning a
+        // bookkeeping fault into a failed send would invite a clinician to send a duplicate.
+        doThrow(new IllegalStateException("archive row locked"))
+                .when(outboundEmailArchiveService)
+                .recordSendOutcome(loggedInInfo, 94, OutboundEmailArchiveService.SendOutcome.ACCEPTED);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> when(smtpSender.prepareArtifactBytes())
+                        .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8)))) {
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData());
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+        }
+    }
+
+    private void stubPersistedEmailLogId(int emailLogId) {
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", emailLogId);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+    }
+
+    private void stubArchiveWithId(int archiveId) throws Exception {
+        OutboundEmailArchive archive = new OutboundEmailArchive();
+        archive.setId(archiveId);
+        when(outboundEmailArchiveService.archive(eq(loggedInInfo), any(OutboundEmailArchiveDto.class)))
+                .thenReturn(archive);
+    }
+
+    @Test
+    @DisplayName("should hand the sender the signed attachment when PDF signing is enabled")
+    void shouldHandSenderSignedAttachment_whenPdfSigningIsEnabled() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        Path source = writeSinglePagePdf("source");
+        Path signed = writeSinglePagePdf("signedPDF_");
+        EmailData emailData = emailDataWithAttachment(source);
+        List<String> pathSeenBySender = new ArrayList<>();
+
+        try (MockedStatic<PDFSigningConfig> config =
+                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> {
+                    // The sender is built with the attachment list itself, so the paths it holds at
+                    // construction are what get archived and dispatched.
+                    for (Object argument : context.arguments()) {
+                        if (argument instanceof List<?> attachments && !attachments.isEmpty()
+                                && attachments.get(0) instanceof EmailAttachment first) {
+                            pathSeenBySender.add(first.getFilePath());
+                        }
+                    }
+                    when(smtpSender.prepareArtifactBytes())
+                            .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                })) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+                    .thenReturn(signed);
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
+            // Signing ran before the sender existed: moving or deleting the signAttachments call
+            // in sendEmailInternal would leave the sender holding the unsigned source.
+            assertThat(pathSeenBySender).hasSize(1);
+            assertThat(pathSeenBySender.get(0)).isNotEqualTo(source.toString());
+            signer.verify(() -> PDFSigningUtil.signPDF(
+                    eq(source.toRealPath()), any(PDFSigningConfig.class), any()));
+            assertThat(source).exists();
+        } finally {
+            Files.deleteIfExists(source);
+            Files.deleteIfExists(signed);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail the send before any sender exists when an attachment cannot be signed")
+    void shouldFailSendBeforeAnySenderExists_whenAttachmentCannotBeSigned() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 71);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        Path source = writeSinglePagePdf("source");
+
+        try (MockedStatic<PDFSigningConfig> config =
+                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+                    .thenThrow(new IOException("Failed to load PDF signing key material"));
+
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailDataWithAttachment(source));
+
+            // Fail closed and definite: nothing was archived or dispatched, and the administrator
+            // is told it was signing rather than the transport.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to sign email PDF attachment");
+            assertThat(smtpSenders.constructed()).isEmpty();
+            verifyNoInteractions(outboundEmailArchiveService, javaMailSender);
+        } finally {
+            Files.deleteIfExists(source);
         }
     }
 
@@ -392,6 +695,148 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
             assertThat(emailLog.getErrorMessage()).doesNotContain(untrustedProviderText);
             assertThat(emailLog.getErrorMessage()).doesNotContain("patient@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should label a refused sender and report the refusal on the result")
+    void shouldReportSenderRefusal_whenServerRefusesMailFrom() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 49);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(49), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+
+        // The shape Angus throws for a non-250 reply to MAIL FROM, as Spring aggregates it.
+        String untrustedProviderText = "550 5.7.1 <clinic@example.test> sender rejected";
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 550, untrustedProviderText, null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getTransportOutcome()).isEqualTo(
+                    io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
+            assertThat(result.isTransportOutcomeRecorded()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+            assertThat(result.getEmailLog().getErrorMessage())
+                    .isEqualTo("Failed to send email (SMTP sender refused)")
+                    .doesNotContain(untrustedProviderText)
+                    .doesNotContain("clinic@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should still report the refusal when the FAILED status cannot be recorded")
+    void shouldReportRefusal_whenFailedStatusCannotBeRecorded() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 52);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IllegalStateException("status write failed"))
+                .when(emailLogDao).transitionEmailStatus(eq(52), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 553, "553 rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isTransportOutcomeRecorded()).isFalse();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+        }
+    }
+
+    @Test
+    @DisplayName("should carry a refused recipient through to the result")
+    void shouldReportRecipientRefusal_whenServerRefusesRcptTo() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 50);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(50), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new jakarta.mail.SendFailedException("Invalid Addresses"));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.RECIPIENT))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.RECIPIENT);
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
+        }
+    }
+
+    @Test
+    @DisplayName("should label a DATA-stage failure neutrally and report no refused address")
+    void shouldLabelMessageTransferFailure_whenServerFailsAfterData() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 51);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                ".", 554, "554 5.7.1 message content rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    // The sender keeps an end-of-data (".") refusal uncertain (#3857); only the label changes.
+                    doThrow(new EmailSendingException("SMTP transport did not confirm whether the message was accepted.",
+                            aggregated, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isDeliveryUnconfirmed()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+            // Neutral: the row stays PENDING, and the message may have been delivered.
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP message transfer failure)");
         }
     }
 
@@ -935,4 +1380,16 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(providerManager.getProvider(loggedInInfo, PROVIDER_NO)).thenReturn(new Provider());
         return providerManager;
     }
+
+    private EmailData emailDataWithAttachment(Path pdf) {
+        EmailData emailData = emailData();
+        emailData.setAttachments(new ArrayList<>(List.of(new EmailAttachment("document.pdf", pdf.toString(), DocumentType.DOC, 1))));
+        return emailData;
+    }
+
+    /** A real one-page PDF in the secure temp directory, where the signer's own output would be. */
+    private static Path writeSinglePagePdf(String prefix) throws IOException {
+        return PdfSigningTestSupport.writeSinglePagePdf(PathValidationUtils.createSecureTempFile(prefix, ".pdf").toPath());
+    }
+
 }
