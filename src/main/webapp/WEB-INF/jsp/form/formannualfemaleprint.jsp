@@ -51,6 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
@@ -92,15 +93,15 @@
     <BODY class="printAnnual" topmargin="0" leftmargin="0" rightmargin="0">
 
     <input type="hidden" name="demographic_no"
-           value="<%= props.getProperty("demographic_no", "0") %>"/>
+           value="<%= Encode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
     <input type="hidden" name="ID"
-           value="<%= props.getProperty("ID", "0") %>"/>
+           value="<%= Encode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
     <input type="hidden" name="provider_no"
            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="formCreated"
-           value="<%= props.getProperty("formCreated", "") %>"/>
+           value="<%= Encode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
     <input type="hidden" name="formEdited"
-           value="<%= props.getProperty("formEdited", "") %>"/>
+           value="<%= Encode.forHtmlAttribute(props.getProperty("formEdited", "")) %>"/>
     <input type="hidden" name="provNo"
            value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
 
@@ -118,12 +119,12 @@
         <tr>
             <td><big><i><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAnnualFemaleHealthReview'/></b></i></big>
             </td>
-            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgName'/>:</b> <%= props.getProperty("pName", "") %>
+            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgName'/>:</b> <%= Encode.forHtml(props.getProperty("pName", "")) %>
             </td>
-            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAge'/>:</b> <%= props.getProperty("age", "") %>
+            <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAge'/>:</b> <%= Encode.forHtml(props.getProperty("age", "")) %>
             </td>
             <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgDate'/></b><small>(yyyy/mm/dd)</small>:
-                <%=props.getProperty("formDate", "") %>
+                <%= Encode.forHtml(props.getProperty("formDate", "")) %>
             </td>
         </tr>
     </table>
@@ -136,7 +137,7 @@
                     </tr>
                     <tr>
                         <td valign="top" width="30%"
-                            style="height: 480px;"><%= props.getProperty("currentConcerns", "") %>
+                            style="height: 480px;"><%= Encode.forHtml(props.getProperty("currentConcerns", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -164,7 +165,7 @@
                         </td>
                         <td align="left" nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgHeadNeck'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("head", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("head", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -174,7 +175,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgResp'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("resp", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("resp", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -184,7 +185,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgCardio'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("cardio", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("cardio", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -194,7 +195,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgGI'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("gi", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("gi", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -204,7 +205,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgGU'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("gu", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("gu", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -214,7 +215,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgSkin'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("skin", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("skin", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -224,7 +225,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.MSK'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("msk", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("msk", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -234,7 +235,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgEndocrin'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("endocrin", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("endocrin", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -244,7 +245,7 @@
                         </td>
                         <td valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgOther'/>:
                         </td>
-                        <td align="left"><%= props.getProperty("other", "") %>
+                        <td align="left"><%= Encode.forHtml(props.getProperty("other", "")) %>
                         </td>
                     </tr>
 
@@ -266,8 +267,8 @@
                         <td>&nbsp;</td>
                         <td>&nbsp;</td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgLMP'/><small>(yyyy/mm/dd)</small>:
-                            <%= props.getProperty("lmp", "") %><br>
-                            <fmt:message key='encounter.formFemaleAnnualPrint.msgMenopause'/>: <%= props.getProperty("menopause", "") %>
+                            <%= Encode.forHtml(props.getProperty("lmp", "")) %><br>
+                            <fmt:message key='encounter.formFemaleAnnualPrint.msgMenopause'/>: <%= Encode.forHtml(props.getProperty("menopause", "")) %>
                             /<fmt:message key='encounter.formFemaleAnnualPrint.msgMenopauseUnit'/></td>
                     </tr>
                     <tr>
@@ -276,7 +277,7 @@
                         <td><%= checkMarks(request.getContextPath(), props.getProperty("papSmearsAbN", "")) %>
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgPreviousPaoSmears'/>:
-                            <%= props.getProperty("papSmears", "") %>
+                            <%= Encode.forHtml(props.getProperty("papSmears", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -343,7 +344,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgSmoking'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("smoking", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("smoking", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -353,7 +354,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgAlcohol'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("alcohol", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("alcohol", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -363,7 +364,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgIllicitDrugs'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("otc", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("otc", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -372,7 +373,7 @@
                         <td><%= checkMarks(request.getContextPath(), props.getProperty("exerciseYes", "")) %>
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgExercise'/></td>
-                        <td align="right"><%= props.getProperty("exercise", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("exercise", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -382,7 +383,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgNutrition'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("nutrition", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("nutrition", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -392,7 +393,7 @@
                         </td>
                         <td><fmt:message key='encounter.formFemaleAnnualPrint.msgDentalHygiene'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("dental", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("dental", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -402,7 +403,7 @@
                         </td>
                         <td valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgRelationshipIssues'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("relationship", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("relationship", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -412,7 +413,7 @@
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgSexualityRisks'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("sexuality", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("sexuality", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -422,7 +423,7 @@
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgOccupationalRisks'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("occupational", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("occupational", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -432,7 +433,7 @@
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgDrivingSafety'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("driving", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("driving", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -442,7 +443,7 @@
                         </td>
                         <td nowrap="true"><fmt:message key='encounter.formFemaleAnnualPrint.msgForeignTravel'/>:
                         </td>
-                        <td align="right"><%= props.getProperty("travel", "") %>
+                        <td align="right"><%= Encode.forHtml(props.getProperty("travel", "")) %>
                         </td>
                     </tr>
                     <tr>
@@ -452,7 +453,7 @@
                         </td>
                         <td nowrap="true" valign="top"><fmt:message key='encounter.formFemaleAnnualPrint.msgOther'/>:
                         </td>
-                        <td rowspan="3" align="right"><%= props.getProperty("otherLifestyle", "") %>
+                        <td rowspan="3" align="right"><%= Encode.forHtml(props.getProperty("otherLifestyle", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -503,13 +504,13 @@
                     <tr>
                         <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleOther1c", "")) %>
                         </td>
-                        <td><%= props.getProperty("femaleOther1", "") %>
+                        <td><%= Encode.forHtml(props.getProperty("femaleOther1", "")) %>
                         </td>
                     </tr>
                     <tr>
                         <td><%= checkMarks(request.getContextPath(), props.getProperty("femaleOther2c", "")) %>
                         </td>
-                        <td><%= props.getProperty("femaleOther2", "") %>
+                        <td><%= Encode.forHtml(props.getProperty("femaleOther2", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -522,27 +523,27 @@
         </tr>
         <tr>
             <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgVitals'/>: </b></td>
-            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= props.getProperty("bprTop", "") %>/
-                <%= props.getProperty("bprBottom", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgR'/></td>
+            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= Encode.forHtml(props.getProperty("bprTop", "")) %>/
+                <%= Encode.forHtml(props.getProperty("bprBottom", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgR'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgPulse'/>:
             </td>
-            <td><%= props.getProperty("pulse", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgPulseUnit'/></td>
+            <td><%= Encode.forHtml(props.getProperty("pulse", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgPulseUnit'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgHeight'/>:
             </td>
-            <td><%= props.getProperty("height", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgHeightUnit'/></td>
-            <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgWeight'/>: <%= props.getProperty("weight", "") %>
+            <td><%= Encode.forHtml(props.getProperty("height", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgHeightUnit'/></td>
+            <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgWeight'/>: <%= Encode.forHtml(props.getProperty("weight", "")) %>
                 <fmt:message key='encounter.formFemaleAnnualPrint.msgWeightUnit'/></td>
         <tr>
             <td>&nbsp;</td>
-            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= props.getProperty("bplTop", "") %>/
-                <%= props.getProperty("bplBottom", "") %> <fmt:message key='encounter.formFemaleAnnualPrint.msgL'/></td>
+            <td><fmt:message key='encounter.formFemaleAnnualPrint.msgBP'/>: <%= Encode.forHtml(props.getProperty("bplTop", "")) %>/
+                <%= Encode.forHtml(props.getProperty("bplBottom", "")) %> <fmt:message key='encounter.formFemaleAnnualPrint.msgL'/></td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgRhythm'/>:
             </td>
-            <td><%= props.getProperty("rhythm", "") %>
+            <td><%= Encode.forHtml(props.getProperty("rhythm", "")) %>
             </td>
             <td align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgUrineDipstick'/>:
             </td>
-            <td><%= props.getProperty("urine", "") %>
+            <td><%= Encode.forHtml(props.getProperty("urine", "")) %>
             </td>
         </tr>
     </table>
@@ -554,7 +555,7 @@
                         <td><b> <fmt:message key='encounter.formFemaleAnnualPrint.msgPhysicalSigns'/>: </b></td>
                     </tr>
                     <tr>
-                        <td class="physicalSigns"><%= props.getProperty("physicalSigns", "") %>
+                        <td class="physicalSigns"><%= Encode.forHtml(props.getProperty("physicalSigns", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -569,7 +570,7 @@
                         <td><b><fmt:message key='encounter.formFemaleAnnualPrint.msgAssessment'/></b></td>
                     </tr>
                     <tr>
-                        <td align="center" class="assessmentPlan"><%= props.getProperty("assessment", "") %>
+                        <td align="center" class="assessmentPlan"><%= Encode.forHtml(props.getProperty("assessment", "")) %>
                         </td>
                     </tr>
                 </table>
@@ -580,14 +581,14 @@
                         <td align="center"><b><fmt:message key='encounter.formFemaleAnnualPrint.msgPlan'/></b></td>
                     </tr>
                     <tr>
-                        <td align="center" class="assessmentPlan"><%= props.getProperty("plan", "") %>
+                        <td align="center" class="assessmentPlan"><%= Encode.forHtml(props.getProperty("plan", "")) %>
                         </td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td colspan="2" align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgSignature'/>: <%= props.getProperty("signature", "") %>
+            <td colspan="2" align="right"><fmt:message key='encounter.formFemaleAnnualPrint.msgSignature'/>: <%= Encode.forHtml(props.getProperty("signature", "")) %>
             </td>
         </tr>
     </table>
