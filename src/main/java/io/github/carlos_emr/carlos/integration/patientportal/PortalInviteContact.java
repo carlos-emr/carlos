@@ -75,13 +75,15 @@ record PortalInviteContact(String email, LocalDate dateOfBirth, String healthCar
                 .filter(character -> character != '-' && character != 0x85 && !Character.isWhitespace(character)
                         && !Character.isSpaceChar(character))
                 .forEach(compactCard::appendCodePoint);
-        String healthCard = compactCard.toString().toUpperCase(Locale.ROOT);
-        if (healthCard.length() < MIN_HEALTH_CARD_LENGTH) {
+        String compact = compactCard.toString();
+        if (compact.length() < MIN_HEALTH_CARD_LENGTH) {
             throw new PortalInviteException(Reason.MISSING_HEALTH_CARD);
         }
-        if (!healthCard.matches("[A-Z0-9]{4,64}")) {
+        // Checked before upper-casing, which turns some non-ASCII letters into ASCII ones (ß to SS, ı to I).
+        if (!compact.matches("[A-Za-z0-9]{4,64}")) {
             throw new PortalInviteException(Reason.INVALID_HEALTH_CARD);
         }
+        String healthCard = compact.toUpperCase(Locale.ROOT);
         return new PortalInviteContact(email, dateOfBirth, healthCard);
     }
 
