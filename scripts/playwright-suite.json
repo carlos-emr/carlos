@@ -4510,6 +4510,20 @@
       "fixtures": "Owned bills (one PAT, one with an owned error-report row) for an owned patient and appointment; all removed."
     },
     {
+      "name": "billing-on-premium-payment-date",
+      "script": "scripts/billing-on-premium-payment-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Verifies inclusive RA premium payment dates for all/selected providers, same-day ranges, inactive/adjacent exclusions, premium/final totals and unchanged database rows; owned fixtures cleaned."
+    },
+    {
       "name": "billing-on-ra-import",
       "script": "scripts/billing-on-ra-import-playwright-checks.js",
       "tiers": [
