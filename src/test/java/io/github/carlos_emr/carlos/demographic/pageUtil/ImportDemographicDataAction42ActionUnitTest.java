@@ -46,6 +46,12 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.ArrayList;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.Mockito.mockConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -193,11 +199,44 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         String result = executeAction(action);
 
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) getMockRequest().getAttribute("warnings");
         assertThat(warnings).contains(NO_VALID_XML_WARNING);
         assertThat(getMockRequest().getAttribute("importlog")).isNotNull();
+    }
+
+    @Test
+    void shouldCountRefusedPatient_withoutReusingPriorIdOrSchedulingContacts() throws Exception {
+        Path xml = tempDir.resolve("duplicate.xml");
+        Files.copy(Path.of("src/test/resources/demographic/cds-import-summary.xml"), xml);
+        action.demographicNo = "123";
+        action.demographic = new Demographic();
+        ReflectionTestUtils.setField(action, "importedPatients", 1);
+        ArrayList<String> warnings = new ArrayList<>();
+        ArrayList<String[]> logs = new ArrayList<>();
+        List<Path> contacts = new ArrayList<>();
+        Method process = ImportDemographicDataAction42Action.class.getDeclaredMethod("processXmlFile",
+                LoggedInInfo.class, Path.class, Path.class, ArrayList.class, ArrayList.class,
+                jakarta.servlet.http.HttpServletRequest.class, int.class, List.class, int.class, List.class);
+        process.setAccessible(true);
+        try (var demographics = mockConstruction(DemographicData.class, (mock, context) ->
+                when(mock.getDemographicWithLastFirstDOB(any(), any(), any(), any()))
+                        .thenReturn(new ArrayList<>(List.of(new Demographic()))))) {
+            process.invoke(action, mockLoggedInInfo, xml, tempDir, warnings, logs, getMockRequest(), 0, null, 0, contacts);
+        }
+        assertThat(ReflectionTestUtils.getField(action, "importedPatients")).isEqualTo(1);
+        assertThat(ReflectionTestUtils.getField(action, "refusedPatients")).isEqualTo(1);
+        assertThat(action.demographicNo).isNull();
+        assertThat(action.demographic).isNull();
+        assertThat(contacts).isEmpty();
+        assertThat(logs).hasSize(1);
+        assertThat(logs.getFirst()[0]).isNull();
+        assertThat(warnings).anyMatch(warning -> warning.contains("already exist! Not imported."));
+        assertThat(warnings).noneMatch(warning -> warning.contains("Demographic no=123"));
     }
 
     @ParameterizedTest

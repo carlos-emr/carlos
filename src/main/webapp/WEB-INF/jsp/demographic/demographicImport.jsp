@@ -129,12 +129,11 @@
                         data: new FormData(formData[0]),
                         processData: false,
                         contentType: false,
-                        dataType: "text",
+                        dataType: "json",
                         success: function (response) {
                             HideSpin();
-                            const jsondata = JSON.parse(response.substring(response.indexOf('{'), response.indexOf('}') + 1));
-                            showResponse(file.name, jsondata.warnings, jsondata.importLog);
-                            resolve(jsondata);
+                            showResponse(file.name, response);
+                            resolve(response);
                         },
                         error: function (error) {
                             HideSpin();
@@ -145,12 +144,24 @@
                 });
             }
 
-            function showResponse(fileName, warnings, importLog) {
+            function importOutcome(imported, refused) {
+                if (!Number.isSafeInteger(imported) || !Number.isSafeInteger(refused) || imported < 0 || refused < 0) {
+                    return {heading: 'Import outcome unavailable', color: 'red'};
+                }
+                if (imported === 0) return {heading: 'No patients imported', color: 'red'};
+                if (refused > 0) return {heading: 'Import completed with refusals', color: '#8a5700'};
+                return {heading: 'Imported Successfully', color: 'green'};
+            }
+
+            function showResponse(fileName, response) {
+                const {warnings, importLog, importedPatients, refusedPatients} = response;
+                const outcome = importOutcome(importedPatients, refusedPatients);
                 const resultDiv = $('<div>');
 
                 resultDiv.append($('<h4>').text('File Name: ' + fileName));
 
-                resultDiv.append($('<h5>').text('Imported Successfully').css('color', 'green'));
+                resultDiv.append($('<h5>').text(outcome.heading).css('color', outcome.color));
+                resultDiv.append($('<p>').text('Patients imported: ' + importedPatients + '; refused: ' + refusedPatients));
 
                 if (warnings && warnings.length > 0) {
                     resultDiv.append($('<h5>').text('Warnings:'));
@@ -172,7 +183,7 @@
 
                 errorDiv.append($('<h4>').text('File Name: ' + fileName));
 
-                errorDiv.append($('<h5>').text('500 Server Error: Invalid file').css('color', 'red'));
+                errorDiv.append($('<h5>').text('Import failed: check the file and try again').css('color', 'red'));
                 errorDiv.append($('<hr>'));
 
                 $('#result').append(errorDiv);
