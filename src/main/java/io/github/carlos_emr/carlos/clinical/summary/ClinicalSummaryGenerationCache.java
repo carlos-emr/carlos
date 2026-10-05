@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,7 +17,14 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
 
 /** Bounded process-memory cache; no chart text, keys or drafts are written to disk or logs. */
 final class ClinicalSummaryGenerationCache {
-    private record Entry(byte[] artifact, long created) { }
+    private record Entry(byte[] artifact, long created) {
+        // Records compare arrays by identity; compare content instead, and never print the artifact.
+        @Override public boolean equals(Object other) {
+            return other instanceof Entry entry && created == entry.created && Arrays.equals(artifact, entry.artifact);
+        }
+        @Override public int hashCode() { return 31 * Arrays.hashCode(artifact) + Long.hashCode(created); }
+        @Override public String toString() { return "Entry[bytes=" + artifact.length + ", created=" + created + "]"; }
+    }
     private final Map<String, Entry> entries = new LinkedHashMap<>(16, 0.75f, true);
     private final int maxEntries;
     private final int maxBytes;

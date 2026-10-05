@@ -67,8 +67,8 @@ final class ClinicalSummaryGenerationPipeline {
             for (ObjectNode part : requests) run(snapshot, part, false, outputs);
         } else {
             // A long chart's passes are independent; run them side by side, assembled in planned order.
-            ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLEL_PASSES, requests.size()));
-            try {
+            // Closing the pool waits for every pass, so nothing is in flight against the cache or agent on return.
+            try (ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLEL_PASSES, requests.size()))) {
                 List<Future<List<JsonNode>>> futures = new ArrayList<>();
                 for (ObjectNode part : requests) {
                     futures.add(pool.submit(() -> {
@@ -86,6 +86,11 @@ final class ClinicalSummaryGenerationPipeline {
                         if (failed == null) outputs.addAll(own);
                     } catch (ExecutionException failure) {
                         if (failed == null) failed = failure;
+                    } catch (InterruptedException interrupted) {
+                        // Ask the remaining passes to stop; closing the pool still waits for them.
+                        pool.shutdownNow();
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Generation interrupted", interrupted);
                     }
                 }
                 if (failed != null) {
@@ -94,11 +99,6 @@ final class ClinicalSummaryGenerationPipeline {
                     if (cause instanceof RuntimeException runtime) throw runtime;
                     throw new IOException("Generation failed", cause);
                 }
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Generation interrupted", interrupted);
-            } finally {
-                pool.shutdownNow();
             }
         }
         return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
