@@ -206,17 +206,25 @@ async function workflow(s) {
   await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
     // Tickler amendments retain the UUID in separate rows, each with cumulative history.
     // Seed two older rows after the original note/document paths have completed.
+    // Copy the persisted metadata too: nullable database defaults are invalid for
+    // primitive model fields such as appointmentNo and locked.
+    const metadata = ['observation_date', 'demographic_no', 'provider_no', 'uuid', 'program_no',
+      'signed', 'include_issue_innote', 'signing_provider_no', 'encounter_type', 'billing_code',
+      'reporter_caisi_role', 'reporter_program_team', 'password', 'locked', 'archived', 'position',
+      'appointmentNo', 'hourOfEncounterTime', 'minuteOfEncounterTime',
+      'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'].join(',');
     for (const index of [0, 1]) {
       const cumulative = texts.slice(0, index + 1).reverse().join('\n----------------History Record----------------\n');
       sql.execute(`INSERT INTO casemgmt_note
-        (update_date, observation_date, demographic_no, provider_no, note, history, uuid, program_no)
-        SELECT DATE_SUB(update_date, INTERVAL ${2 - index} MINUTE), observation_date,
-          demographic_no, provider_no, ${h.sqlString(texts[index])}, ${h.sqlString(cumulative)}, uuid, program_no
+        (update_date, note, history, ${metadata})
+        SELECT DATE_SUB(update_date, INTERVAL ${2 - index} MINUTE),
+          ${h.sqlString(texts[index])}, ${h.sqlString(cumulative)}, ${metadata}
         FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '3',
       'The multiple-row history fixture did not create exactly three saved revisions');
-    await history.reload();
+    const response = await history.reload();
+    h.assert(response.status() === 200, `Multiple-row history answered HTTP ${response.status()}`);
     const stored = history.locator('.note-text-history-content');
     h.assert(await stored.count() === 1, 'Cumulative history is repeated beneath older saved rows');
     const normalize = value => value.replace(/\r\n?/g, '\n').split('\n')
