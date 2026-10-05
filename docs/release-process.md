@@ -174,7 +174,7 @@ Then:
    ```
 
 6. The tag workflow re-runs the full build and tests, creates a clean WAR and
-   CycloneDX SBOM inside a minimal, digest-pinned JDK 21 + Maven image built
+   CycloneDX SBOM inside a minimal, digest-pinned JDK 25 + Maven image built
    from `.github/release-build/Dockerfile` in the tagged source, generates signed
    provenance attestations, attaches and verifies checksums, then publishes
    the verified draft as an immutable GitHub release.
