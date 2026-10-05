@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Edit a patient document and record provider review acknowledgements.
+    Features: Document metadata, primary reviewer and additional reviewer display and sign-off.
+    Parameters: The action supplies formdata; mode identifies the document submitted to addEditDocument.
+    @since 2026-07-07
+--%>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -246,18 +252,15 @@
         }
 
         function reviewed(ths) {
-            if (ths.form.reviewerId.value == 'null') {
-                thisForm = ths.form;
+            var thisForm = ths.form;
+            if (thisForm.reviewerId.value === '' || thisForm.reviewerId.value === 'null') {
                 thisForm.reviewerId.value = <%=user_no%>;
                 thisForm.reviewDoc.value = true;
-                thisForm.submit();
             } else {
-                alert('set extra');
-                thisForm = ths.form;
                 thisForm.extraReviewerId.value = <%=user_no%>;
                 thisForm.extraReviewDoc.value = true;
-                thisForm.submit();
             }
+            thisForm.submit();
         }
 
         var docSubClassList = [

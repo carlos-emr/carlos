@@ -4,17 +4,13 @@
  * Document "Reviewed" sign-off for a document nobody has reviewed yet (NULL reviewer).
  * User path: Schedule > Search > Master Record > Documents (eDoc report popup) > Edit
  * (ViewEditDocument popup) > Reviewed.
- * Why: editDocument.jsp reviewed() decides between "first review" and "extra reviewer" with
- * `reviewerId.value == 'null'`. The hidden reviewerId used to render a NULL reviewer as the
- * literal "null" (Encode/e:forHtmlAttribute); the null-safe <carlos:encode> now renders "", so
- * the first review takes the extra-reviewer branch (a debug alert, a DocumentExtraReviewer row,
- * and the document's own reviewer left NULL).
- * Asserts: the report lists the owned unreviewed PDF; the edit popup offers Reviewed with an
- * empty reviewer; Reviewed posts without a prompt, closes the popup, and records the logged-in
- * provider on document.reviewer/reviewdatetime with no DocumentExtraReviewer row.
- * Fixtures: owned patient (runWorkflow) and one owned PDF (row + file under DOCUMENT_DIR,
- * lib/stored-pdf-documents); cleanup removes the document, its ctl_document link, the file and
- * any DocumentExtraReviewer row for that document id, and asserts each gone.
+ * Asserts: the report lists the owned unreviewed PDF; first review posts without a prompt,
+ * closes the popup, and stores/displays the current provider with no extra-reviewer row.
+ * A second document already reviewed by another provider preserves that primary review while
+ * recording/displaying the current provider as an extra reviewer. Neither flow offers a
+ * duplicate Reviewed action after reopening or raises a debug alert.
+ * Fixtures: owned patient and two owned PDFs (rows + files under DOCUMENT_DIR); cleanup removes
+ * both documents, links, files and extra-reviewer rows, and asserts each gone.
  * Risk sweep: encoder-null (null-sentinel regressions of the null-safe encoder migration).
  */
 const h = require('./lib/playwright-harness');
@@ -26,7 +22,7 @@ const {
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const store = directory('DOCUMENT_DIR', 'DOCUMENT_DIR', 'RX_FAX_DOCUMENT_DIR');
-  const docs = ownedPdfDocuments(store, marker, [{ key: 'R', pages: 1 }]);
+  const docs = ownedPdfDocuments(store, marker, [{ key: 'R', pages: 1 }, { key: 'E', pages: 1 }]);
   const owned = { sql, marker, patient, docs, files: docs.map(doc => doc.file) };
   const extraRows = id => `SELECT COUNT(*) FROM DocumentExtraReviewer WHERE documentNo=${Number(id)}`;
 
@@ -41,7 +37,15 @@ async function workflow(s) {
   });
 
   seedOwnedPdfDocuments({ sql, store, patient, provider, docs });
-  const [doc] = docs;
+  const [doc, extraDoc] = docs;
+  const priorProvider = sql.value(`SELECT provider_no FROM provider WHERE provider_no<>${h.sqlString(provider)}
+    AND status='1' ORDER BY provider_no LIMIT 1`);
+  h.assert(priorProvider, 'A second active provider is required for the extra-review regression');
+  const providerName = sql.value(`SELECT CONCAT(UPPER(last_name), ', ', UPPER(first_name)) FROM provider
+    WHERE provider_no=${h.sqlString(provider)}`);
+  const priorReviewTime = '2026-01-02 03:04:05';
+  sql.execute(`UPDATE document SET reviewer=${h.sqlString(priorProvider)}, reviewdatetime=${h.sqlString(priorReviewTime)}
+    WHERE document_no=${Number(extraDoc.id)}`);
   // The column defaults to '' but every document the application stores unreviewed carries
   // NULL (EDocUtil.editDocument sets it explicitly), which is the value this check is about.
   sql.execute(`UPDATE document SET reviewer=NULL, reviewdatetime=NULL WHERE document_no=${Number(doc.id)}`);
@@ -90,6 +94,47 @@ async function workflow(s) {
       'Reviewed did not stamp the review time on the document');
     h.assert(sql.value(extraRows(doc.id)) === '0', 'The first review was stored as an extra reviewer');
     h.assert(dialogs.length === 0, `Reviewed raised ${dialogs.length} dialog(s): ${dialogs.map(d => d.text).join(' | ')}`);
+  });
+
+  await s.step('reopening the first document displays its reviewer and offers no duplicate Reviewed action', async () => {
+    const row = report.locator('tr', {has:report.locator(`#docNo${doc.id}`)});
+    editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'edoc-reviewed');
+    h.assert(await editor.locator('input[name="reviewerId"]').inputValue() === provider, 'Redisplay lost the primary reviewer');
+    const text = (await editor.locator('body').innerText()).replace(/\s+/g, ' ');
+    h.assert(text.includes(`Reviewed: ${providerName}`), 'Redisplay did not name the primary reviewer');
+    h.assert(await editor.locator('input[type="button"][value="Reviewed"]').count() === 0,
+      'The same provider can submit a duplicate review');
+    await editor.close();
+  });
+
+  await s.step('an extra review keeps the original reviewer and date, records the current provider and shows no debug alert', async () => {
+    const row = report.locator('tr', {has:report.locator(`#docNo${extraDoc.id}`)});
+    editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'edoc-extra-review');
+    h.assert(await editor.locator('input[name="reviewerId"]').inputValue() === priorProvider,
+      'The extra-review fixture did not retain its original reviewer');
+    let post;
+    const closed = editor.waitForEvent('close', {timeout:20000}).then(() => true, () => false);
+    const dialogs = await h.withExpectedDialogs(editor, async () => {
+      [post] = await Promise.all([
+        editor.waitForResponse(response => new URL(response.url()).pathname.endsWith('/documentManager/addEditDocument')
+          && response.request().method() === 'POST', {timeout:20000}),
+        editor.locator('input[type="button"][value="Reviewed"]').click(),
+      ]);
+    });
+    h.assert(post.status() < 400 && await closed, 'Extra review did not complete and close its editor');
+    h.assert(sql.value(`SELECT CONCAT(reviewer,'|',reviewdatetime) FROM document WHERE document_no=${extraDoc.id}`)
+      === `${priorProvider}|${priorReviewTime}`, 'Extra review replaced the original reviewer or review time');
+    h.assert(sql.value(`SELECT COUNT(*) FROM DocumentExtraReviewer WHERE documentNo=${extraDoc.id}
+      AND reviewerProviderNo=${h.sqlString(provider)} AND reviewDateTime IS NOT NULL`) === '1',
+    'Extra review did not record exactly one dated acknowledgement by the current provider');
+    h.assert(sql.value(extraRows(extraDoc.id)) === '1', 'Extra review created another unexpected reviewer row');
+    h.assert(dialogs.length === 0, 'Extra review raised a debug alert');
+    editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'edoc-extra-reviewed');
+    const text = (await editor.locator('body').innerText()).replace(/\s+/g, ' ');
+    h.assert(text.includes(`Reviewed: ${providerName}`), 'Redisplay did not name the extra reviewer');
+    h.assert(await editor.locator('input[type="button"][value="Reviewed"]').count() === 0,
+      'The extra reviewer can submit a duplicate acknowledgement');
+    await editor.close();
   });
 }
 
