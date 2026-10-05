@@ -98,6 +98,21 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldReturnProviderConfigurationGuidance_whenBillingGroupIsInvalid() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        var providers = java.util.List.of("999998", "999997");
+        org.mockito.Mockito.doThrow(
+                new io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException(providers))
+                .when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("ohipInvalidGroupProviders")).isEqualTo(providers);
+    }
+
+    @Test
     void shouldRegenerateDisk_throughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);

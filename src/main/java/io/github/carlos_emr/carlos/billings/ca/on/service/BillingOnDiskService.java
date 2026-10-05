@@ -32,6 +32,7 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -104,11 +105,23 @@ public class BillingOnDiskService {
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
+            // Validate the complete selected group set before even the first solo disk is allocated.
+            // Reuse this snapshot for generation so validation and writing see the same configuration.
+            List<BillingProviderDto> groupProviders = prep.getCurGrpProvider();
+            List<String> invalidProviders = groupProviders.stream()
+                    .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
+                    .filter(member -> !BillingDiskCreationService.isValidGroupNumber(member.getBillingGroupNo()))
+                    .map(BillingProviderDto::getProviderNo)
+                    .distinct()
+                    .toList();
+            if (!invalidProviders.isEmpty()) {
+                throw new InvalidBillingGroupException(invalidProviders);
+            }
             if (!groupReport) {
                 writeSoloDisks(prep, prep.getCurSoloProvider(), loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
-            writeGroupDisks(prep, prep.getCurGrpProvider(), loggedInInfo, request,
+            writeGroupDisks(prep, groupProviders, loggedInInfo, request,
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
             BillingProviderDto soloProvider = prep.getProviderObj(provider);

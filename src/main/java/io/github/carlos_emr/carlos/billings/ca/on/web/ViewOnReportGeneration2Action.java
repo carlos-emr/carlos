@@ -31,6 +31,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -76,7 +77,12 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             return NONE;
         }
 
-        onBillingDiskService.generateNewDisk(request);
+        try {
+            onBillingDiskService.generateNewDisk(request);
+        } catch (InvalidBillingGroupException invalidGroup) {
+            request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
+            return INPUT;
+        }
         return SUCCESS;
     }
 }

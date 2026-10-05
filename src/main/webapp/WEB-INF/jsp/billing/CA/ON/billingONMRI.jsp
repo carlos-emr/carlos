@@ -129,6 +129,19 @@
 <body>
 
 <h3><fmt:message key="admin.admin.btnGenerateOHIPDiskette"/></h3>
+<c:if test="${not empty ohipInvalidGroupProviders}">
+    <div class="alert alert-danger" role="alert" id="ohip-provider-validation">
+        <strong>OHIP file not generated.</strong>
+        <p>Correct the billing group number for the following providers. The number must contain
+            exactly four digits; use 0000 for solo billing.</p>
+        <ul>
+            <c:forEach var="providerNo" items="${ohipInvalidGroupProviders}">
+                <li>Provider <carlos:encode value="${providerNo}" context="html"/></li>
+            </c:forEach>
+        </ul>
+        <p class="mb-0">No files were generated and no billing records were changed.</p>
+    </div>
+</c:if>
 
 <div class="container-fluid">
 

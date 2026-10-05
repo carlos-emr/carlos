@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingDiskNameDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -166,6 +167,9 @@ public class BillingDiskCreationService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int createNewGrpDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
+        if (!isValidGroupNumber(groupNo)) {
+            throw new InvalidBillingGroupException(providerNo);
+        }
         for (int attempt = 1; attempt <= DISK_NAME_INSERT_RETRIES; attempt++) {
             try {
                 return diskNameAllocationTx.execute(status ->
@@ -181,6 +185,10 @@ public class BillingDiskCreationService {
             }
         }
         throw new BillingValidationException("Unable to allocate unique group billing disk name for group " + groupNo);
+    }
+
+    static boolean isValidGroupNumber(String groupNo) {
+        return groupNo != null && groupNo.matches("[0-9]{4}");
     }
 
     private BillingDiskNameDto newSoloDiskName(String providerNo, String creator, String ohipNo) {
@@ -215,7 +223,7 @@ public class BillingDiskCreationService {
         diskName.setMonthCode(temp[0]);
         diskName.setBatchcount(temp[1]);
 
-        String groupno = (groupNo != null && groupNo.length() == 4) ? groupNo : "";
+        String groupno = groupNo;
         diskName.setGroupno(groupno);
         diskName.setOhipfilename(getGrpOhipfilename(groupno, temp[0], temp[1]));
         diskName.setCreator(creator);

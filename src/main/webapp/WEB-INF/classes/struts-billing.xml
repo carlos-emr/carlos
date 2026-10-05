@@ -839,6 +839,7 @@
                  in the action; chains to ViewBillingONMRI. ongenreport.jsp is now
                  an empty stub. -->
             <result name="success" type="chain">billing/CA/ON/ViewBillingONMRI</result>
+            <result name="input" type="chain">billing/CA/ON/ViewBillingONMRI</result>
         </action>
 
         <action name="billing/CA/ON/ViewOnregenreport" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnReportRegeneration2Action">

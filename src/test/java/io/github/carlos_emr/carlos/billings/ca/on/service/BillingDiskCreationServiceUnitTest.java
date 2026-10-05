@@ -247,6 +247,18 @@ class BillingDiskCreationServiceUnitTest {
                 .containsExactly("1", "2");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"123", "12345", "12A4", " 1234", "１２３４"})
+    void shouldRejectInvalidGroup_beforeAllocatingDisk(String groupNo) {
+        assertThatThrownBy(() -> service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator"))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("group");
+
+        org.mockito.Mockito.verifyNoInteractions(claimPersister, diskLoader);
+    }
+
     @Test
     void shouldPropagateRuntimeException_whenMessageOnlyLooksUnique() {
         Properties refreshed = new Properties();

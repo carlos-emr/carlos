@@ -300,6 +300,66 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         when(diskCreationService.getCurGrpProvider()).thenReturn(new ArrayList<>(List.of(providers)));
     }
 
+    @Test
+    void shouldRejectInvalidGroup_beforeAnySoloOrGroupWriteForAllProviders() {
+        BillingProviderDto solo = provider("101");
+        solo.setBillingGroupNo("0000");
+        BillingProviderDto invalid = provider("102");
+        invalid.setBillingGroupNo("123");
+        when(diskCreationService.getCurSoloProvider()).thenReturn(List.of(solo));
+        givenGroupMembers(provider("103"), invalid);
+
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("group");
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldRejectInvalidGroup_beforeWritingSelectedProvider() {
+        BillingProviderDto invalid = provider("102");
+        invalid.setBillingGroupNo("123");
+        givenGroupMembers(invalid);
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>123</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("102")).thenReturn(selected);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "102");
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("group");
+
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
+    void shouldGenerateSelectedProvider_whenAnUnselectedGroupIsInvalid() {
+        BillingProviderDto invalid = provider("102");
+        invalid.setBillingGroupNo("123");
+        givenGroupMembers(provider("101"), invalid);
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>1234</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("101")).thenReturn(selected);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "101");
+        var member = memberWriter("selected-body", BigDecimal.TEN, 1);
+        var output = mock(OhipClaimFileService.class);
+        when(claimFileFactory.getObject()).thenReturn(member, output);
+
+        service.generateNewDisk(request);
+
+        verify(diskCreationService).createNewGrpDiskName(
+                List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
+        verify(output).writeFile("selected-body");
+        verify(transactionService).finalizeGeneratedDisks(
+                eq(List.of(member)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
     private static OhipClaimFileService memberWriter(String body, BigDecimal total, int recordCount) {
         OhipClaimFileService writer = mock(OhipClaimFileService.class);
         when(writer.getValue()).thenReturn(body);
