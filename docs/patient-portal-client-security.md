@@ -7,10 +7,43 @@ run in CARLOS before signing.
 
 ## Authenticating the portal server
 
+The portal is optional and off by default. It is used only when
+`patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
+setting it back to `false` switches the portal off without removing its
+credentials. With the portal off, no portal call is made. The **Patient
+portal** entry on the patient record appears only while the portal is on. A
+portal JSON action that would call the portal (the panel read, invitation
+create, resend, recovery and revoke, account unlock and access) answers 503
+`portal_not_configured`, saying the portal is not switched on; an invitation is
+then neither prepared on the portal nor queued as an email. Requests refused for
+their method, patient, action name, invitation or delivery id, invitation details
+or privileges are refused as before (an account access request's `enabled` and
+`reason` are checked only once the portal is on). An invitation email whose
+delivery has not finished waits while the portal is off: Manage Emails still
+sends staff to the patient's portal page, which reports that the portal is not
+switched on. The email
+recovery page reports the portal as switched off or not set up correctly when a
+recovery is attempted. The rest of CARLOS is unaffected, with two exceptions.
+While `patient_portal.email.enabled=true`, every encrypted email is refused;
+setting it to `false` puts encrypted email back on staff-entered passwords. And
+whatever that setting, an email whose portal password still needs recovery
+cannot be recovered until the portal is switched on again. Case does not matter for
+`patient_portal.enabled` and a blank value counts as off, whereas
+`patient_portal.email.enabled` must be exactly `true` or `false` in lower case;
+for the switch, any value other than `true` or `false`, including one
+followed by a `#` comment on the same line, is a configuration error; only the
+portal's JSON actions name `patient_portal.enabled` in the log. A change takes
+effect when CARLOS restarts.
+
+Upgrading: an install that set up the portal before this switch existed, such as
+a staging server, has no `patient_portal.enabled` line. After the upgrade its
+portal is off, as described above, until `patient_portal.enabled=true` is added
+and CARLOS restarts. If any email is still waiting for its portal password to be
+recovered, add the line before upgrading.
+
 `patient_portal.certificate.pins` is required whenever the integration is
-configured. Missing, empty, or malformed pins prevent client initialization;
-there is no fallback to CA-only trust. Leaving the whole integration unconfigured
-still leaves the rest of CARLOS available. Existing deployments must provision
+enabled. Missing, empty, or malformed pins prevent client initialization;
+there is no fallback to CA-only trust. Existing deployments must provision
 verified pins before deploying this change and restarting CARLOS.
 
 CARLOS requires TLS 1.2/1.3, normal certificate validation, a matching hostname,

@@ -41,9 +41,9 @@ before configuring anything, because the TLS pin and both public URLs depend on 
 - [ ] SMS provider for the portal's MFA codes, reached through the portal's HTTPS SMS webhook.
 - [ ] The clinic ID. It must be identical on both sides: 1 to 20 ASCII letters, digits, dots,
       underscores or hyphens.
-- [ ] Which CARLOS build to deploy. Until #3478 and #3856 merge, that is the head of
-      `feature/3854-portal-invite-workflow`. Record the commit, and whether the build includes the
-      master switch from #3934 (`patient_portal.enabled`); that branch does not.
+- [ ] Which CARLOS build to deploy. Until #3856 merges, that is the head of
+      `feature/3854-portal-invite-workflow`, which already has #3478 and the master switch
+      (`patient_portal.enabled`, #3934, on `develop` through #4306). Record the commit.
 
 ## 1. Portal
 
@@ -100,12 +100,10 @@ Set these in the deployment's override properties, not in the committed `carlos.
       does the package's backup account, which is in the `carlos` group and stores it in the
       encrypted backup. Elsewhere it is owned by the account CARLOS runs as, mode `600`. It is kept
       out of tickets, and out of any backup that others can read.
-- [ ] If the build includes #3934: `patient_portal.enabled=true`, the master switch, which is off
-      by default. The portal stays off, whatever else is set, until this is `true` (in any case);
-      any other value except `false` or blank is a configuration error, including a `#` comment on
-      the same line. Setting it back to `false` later switches the portal off without removing the
-      credentials below. Without #3934 there is no switch: the portal is active whenever it is
-      configured.
+- [ ] `patient_portal.enabled=true`, the master switch, which is off by default. The portal stays
+      off, whatever else is set, until this is `true` (in any case); any other value except `false`
+      or blank is a configuration error, including a `#` comment on the same line. Setting it back
+      to `false` later switches the portal off without removing the credentials below.
 - [ ] `patient_portal.base_url`: the internal API origin, `https://`, with no path, credentials,
       query or fragment. A path is refused the first time the portal is used after a restart (open
       the **Patient portal** page to check), because the portal serves `/internal/carlos/` only at
@@ -170,16 +168,16 @@ private key: redact the code in screenshots.
 **Connection**
 
 - [ ] Open the test patient's record: **Patient portal** appears in the left column. It is absent
-      for a user without portal rights, and when the portal is switched off (without #3934: not
-      configured).
+      for a user without portal rights, and when the portal is switched off.
 - [ ] Open it: it loads in the same window with the patient header, left navigation and panels, and
       shows no portal error.
 - [ ] Temporarily set a wrong but well-formed pin, generated without a key
       (`printf 'sha256/'; openssl rand -base64 32`), and restart CARLOS: the page reports a portal
       failure, the CARLOS log shows `portal transport failed: TLS handshake`, and the portal
       receives nothing. Restore the pins.
-- [ ] If the build includes #3934, set `patient_portal.enabled=false` and restart CARLOS: the
-      **Patient portal** entry disappears from the record, and the rest of CARLOS works as before
+- [ ] Set `patient_portal.enabled=false` and restart CARLOS: the **Patient portal** entry
+      disappears from the record, the portal page opened from Manage Emails or by its address says
+      the portal is not switched on and sends no invitation, and the rest of CARLOS works as before
       (not so if `patient_portal.email.enabled` was set to `true`: encrypted email is then refused).
       Set it back to `true` and restart.
 

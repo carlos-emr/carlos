@@ -32,6 +32,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,6 +58,7 @@ class PortalManage2ActionUnitTest {
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> login;
+    private MockedStatic<PatientPortalSettings> settings;
 
     @BeforeEach
     void setUp() {
@@ -68,10 +70,15 @@ class PortalManage2ActionUnitTest {
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(mock(LoggedInInfo.class));
         when(security.hasPrivilege(any(), eq("_demographic"), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
+        settings = mockStatic(PatientPortalSettings.class);
+        settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
+        if (settings != null) {
+            settings.close();
+        }
         if (login != null) {
             login.close();
         }
@@ -180,6 +187,29 @@ class PortalManage2ActionUnitTest {
         assertThat(request.getAttribute("portalCanInvite")).isEqualTo(true);
         assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(true);
         assertThat(request.getAttribute(PortalManage2Action.CONSENT_STATUS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should offer no portal action, and skip the consent lookup, while the portal is switched off")
+    void shouldOfferNoControls_whenPortalIsSwitchedOff() {
+        settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+        grant("_portal.invite", SecurityInfoManager.READ);
+        grant("_portal.invite", SecurityInfoManager.WRITE);
+        grant("_portal.account", SecurityInfoManager.READ);
+        grant("_portal.account", SecurityInfoManager.WRITE);
+        grant("_portal.account.unlock", SecurityInfoManager.WRITE);
+        when(security.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull())).thenReturn(true);
+
+        assertThat(new PortalManage2Action(security, compose).execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute(PortalManage2Action.DEMOGRAPHIC_ATTRIBUTE)).isEqualTo(123);
+        assertThat(request.getAttribute("portalCanInvite")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanRecover")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanRevoke")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(false);
+        assertThat(request.getAttribute("portalCanUnlock")).isEqualTo(false);
+        verifyNoInteractions(compose);
     }
 
     @Test
