@@ -3477,9 +3477,13 @@
     {
       "name": "security-password-length",
       "script": "scripts/security-password-length-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 300,
       "env": []
     },

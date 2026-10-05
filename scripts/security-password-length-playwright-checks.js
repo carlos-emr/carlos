@@ -10,7 +10,7 @@
 const {randomBytes} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
-const {throwawayLoginFixture, submitLoginForm} = require('./lib/throwaway-login-fixture');
+const {throwawayLoginFixture} = require('./lib/throwaway-login-fixture');
 
 async function workflow(s) {
   const {sql, context, config, recorder} = s;
@@ -50,7 +50,7 @@ async function workflow(s) {
     FROM security WHERE security_no=${account.securityNo}`));
 
   for (const length of [20, 32]) {
-    await s.step(`the full ${length}-character password is saved and signs in; its old 15-character prefix fails`, async () => {
+    await s.step(`the full ${length}-character password is saved and signs in`, async () => {
       await openEdit();
       const value = `Ab1!${randomBytes(16).toString('hex')}`.slice(0, length);
       await fill(value);
@@ -61,12 +61,8 @@ async function workflow(s) {
       fullContext.on('page', p => h.wireStrictPage(p, 'full-password-login', recorder));
       try { await h.login(fullContext, {...config, testUser: account.username, testPassword: value}, recorder); }
       finally { await fullContext.close(); }
-      const prefixContext = await h.newContext(context.browser(), config);
-      prefixContext.on('page', p => h.wireStrictPage(p, 'prefix-password-login', recorder));
-      try {
-        const result = await submitLoginForm(prefixContext, config, {username: account.username, password: value.slice(0, 15), pin: config.testPin});
-        h.assert(result.outcome === 'failed', 'The truncated password prefix was accepted');
-      } finally { await prefixContext.close(); }
+      // The encoder unit tests also reject the old prefix. Avoid failed browser
+      // logins here: some installations key the lockout counter by shared client IP.
     });
   }
 
