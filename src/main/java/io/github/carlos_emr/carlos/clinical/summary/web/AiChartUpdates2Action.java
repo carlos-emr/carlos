@@ -78,7 +78,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
         try { ChartUpdateContext.requireEnabled(); }
         catch (IllegalStateException disabled) { response.sendError(404); return NONE; }
         LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (user == null) throw new SecurityException("Chart-update access unavailable");
+        if (user == null) throw new SecurityException("missing required sec object (_edoc)");
         int document;
         try {
             String id = single(request, "documentId");
@@ -86,7 +86,7 @@ public final class AiChartUpdates2Action extends ActionSupport {
             document = Integer.parseInt(id);
         } catch (IllegalArgumentException invalid) { response.sendError(400); return NONE; }
         var session = request.getSession(false);
-        if (session == null) throw new SecurityException("Session unavailable");
+        if (session == null) throw new SecurityException("missing required sec object (_edoc)");
         // The document list checks this same authorized read boundary before navigating.
         // It receives no source/chart text and never generates proposals or changes review state.
         if (view && "application/json".equals(request.getHeader("Accept"))) {
@@ -146,9 +146,9 @@ public final class AiChartUpdates2Action extends ActionSupport {
                         }
                     }
                 }
-                snapshot = context.load(user, document);
                 if (view) {
-                    render(request, user, snapshot, review);
+                    // Read under the session lock so the rendered fingerprint cannot predate a concurrent approval.
+                    render(request, user, context.load(user, document), review);
                 } else {
                     // Refreshing the result page must never repeat inference or a chart mutation.
                     response.setStatus(HttpServletResponse.SC_SEE_OTHER);

@@ -149,7 +149,8 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         request.setParameter("documentId", "42");
         sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
-        assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(action::generate).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_edoc)");
         verifyNoInteractions(context, generator, writer);
     }
 
@@ -158,7 +159,8 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute(ChartUpdateReview.SESSION_KEY)).isNotSameAs(review);
         assertThat(response.getStatus()).isEqualTo(303);
         assertThat(response.getHeader("Location")).isEqualTo("/documentManager/AiChartUpdates?documentId=42");
-        verify(context, times(3)).load(user, 42);
+        // Before and after generation only: the 303 target performs its own fresh load.
+        verify(context, times(2)).load(user, 42);
         verifyNoInteractions(writer);
     }
 
@@ -186,6 +188,7 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("draft." + other.key() + ".destination", "Concerns");
         request.setParameter("draft." + other.key() + ".confirmed", "true");
         action.dismiss();
+        verify(context, times(1)).load(user, 42);
         request.setMethod("GET");
         action.execute();
         assertThat(review.draft(other.key()).text()).isEqualTo("Clinician history edit");
