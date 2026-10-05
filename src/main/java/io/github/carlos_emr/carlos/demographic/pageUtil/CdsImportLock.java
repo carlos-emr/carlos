@@ -30,7 +30,10 @@ final class CdsImportLock implements AutoCloseable {
     static CdsImportLock acquire(DataSource dataSource) throws SQLException {
         Connection connection = dataSource.getConnection();
         try {
-            int result = query(connection, ACQUIRE_SQL);
+            int result;
+            try (PreparedStatement statement = connection.prepareStatement(ACQUIRE_SQL)) {
+                result = query(statement);
+            }
             if (result == 1) return new CdsImportLock(connection, dataSource);
             if (result != 0) throw new SQLException("Unexpected CDS import lock result");
             connection.close();
@@ -43,9 +46,8 @@ final class CdsImportLock implements AutoCloseable {
         }
     }
 
-    private static int query(Connection connection, String sql) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet result = statement.executeQuery()) {
+    private static int query(PreparedStatement statement) throws SQLException {
+        try (ResultSet result = statement.executeQuery()) {
             if (!result.next()) throw new SQLException("Missing CDS import lock result");
             int value = result.getInt(1);
             if (result.wasNull()) throw new SQLException("CDS import lock operation failed");
@@ -58,8 +60,8 @@ final class CdsImportLock implements AutoCloseable {
         if (closed) return;
         closed = true;
         try (connection) {
-            try {
-                if (query(connection, RELEASE_SQL) != 1) throw new SQLException("CDS import lock was not released");
+            try (PreparedStatement statement = connection.prepareStatement(RELEASE_SQL)) {
+                if (query(statement) != 1) throw new SQLException("CDS import lock was not released");
             } catch (SQLException failure) {
                 // Never return a session with an uncertain advisory lock to the connection pool.
                 discard(dataSource, connection, failure);
