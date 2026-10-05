@@ -279,6 +279,8 @@ async function run() {
     await page.keyboard.press('Escape');
     await modal.waitFor({ state: 'hidden' });
     // A late load from the frame's previous document must not reveal it or cancel the new timeout.
+    // Let close's about:blank navigation finish first, so it cannot race the reopened page.
+    await page.waitForFunction(() => document.getElementById('chart-update-workflow-frame').contentDocument?.URL === 'about:blank');
     assert.deepEqual(await page.evaluate(() => {
       const link = document.querySelector('a.chart-update-workflow-link');
       const workflowFrame = document.getElementById('chart-update-workflow-frame');
