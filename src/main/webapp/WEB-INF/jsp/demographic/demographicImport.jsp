@@ -186,6 +186,16 @@
                 errorDiv.append($('<h4>').text('File Name: ' + fileName));
 
                 errorDiv.append($('<h5>').text('Import failed: check the file and try again').css('color', 'red'));
+                // Interceptor INPUT responses are HTML. Read only validation text; never insert their markup.
+                if (typeof responseText === 'string' && responseText.length > 0) {
+                    const rejected = new window.DOMParser().parseFromString(responseText, 'text/html');
+                    const warnings = rejected.querySelectorAll('#importValidationErrors li');
+                    if (warnings.length) {
+                        const list = $('<ul>');
+                        warnings.forEach(warning => list.append($('<li>').text(warning.textContent.trim())));
+                        errorDiv.append(list);
+                    }
+                }
                 errorDiv.append($('<hr>'));
 
                 $('#result').append(errorDiv);
@@ -206,7 +216,7 @@
      without this block the rejection renders the ordinary form again with no
      explanation, which is indistinguishable from a page refresh. --%>
 <s:if test="hasActionErrors()">
-    <div class="alert alert-danger" role="alert">
+    <div id="importValidationErrors" class="alert alert-danger" role="alert">
         <s:actionerror/>
     </div>
 </s:if>

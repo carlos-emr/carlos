@@ -249,6 +249,37 @@ async function workflow(s) {
     h.assert(importedIds().length === 0, 'The rejected upload created a patient');
   });
 
+  await s.step('A multipart interceptor rejection displays its warning and imports nothing', async () => {
+    await frame.locator('#importFile').setInputFiles(file);
+    await frame.locator('#importFile').evaluate(input => {
+      const oversized = document.createElement('input');
+      oversized.type = 'hidden';
+      oversized.name = 'ownedMultipartLimitProbe';
+      oversized.id = 'ownedMultipartLimitProbe';
+      oversized.value = 'x'.repeat(8192);
+      input.form.appendChild(oversized);
+    });
+    try {
+      const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
+        && r.request().method() === 'POST', {timeout: 120000});
+      await frame.locator('input[type="submit"][name="Submit"]').click();
+      const response = await uploaded;
+      h.assert(response.status() === 200 && (response.headers()['content-type'] || '').includes('text/html'),
+        'The multipart limit did not return the interceptor INPUT page');
+      const messages = await frame.evaluate(text => Array.from(new DOMParser().parseFromString(text, 'text/html')
+        .querySelectorAll('#importValidationErrors li'), node => node.textContent.trim()), await response.text());
+      h.assert(messages.length > 0 && messages.every(Boolean), 'The rejection page contained no validation reason');
+      const result = frame.locator('#result > div').filter({hasText: file.name}).last();
+      await result.locator('li').first().waitFor();
+      h.assert(JSON.stringify(await result.locator('li').allTextContents()) === JSON.stringify(messages),
+        'The result panel hid or changed the interceptor warning');
+      h.assert(await result.locator('a').count() === 0 && importedIds().length === 0,
+        'The rejected multipart request imported a patient or offered a log');
+    } finally {
+      await frame.locator('#ownedMultipartLimitProbe').evaluate(input => input.remove());
+    }
+  });
+
   let importLogHref;
   let id;
   await s.step('importing the CDS file reports success and offers the import event log', async () => {
