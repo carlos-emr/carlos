@@ -18,7 +18,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** Exercises deletion after a photo has entered the shared read cache. */
+/**
+ * Exercises deletion after a photo has entered the shared read cache.
+ *
+ * @since 2026-10-05
+ */
 class ClientImageDeleteUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should invalidate only the selected cached photo without removing a detached entity")
