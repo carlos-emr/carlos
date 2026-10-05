@@ -37,7 +37,7 @@
  * empty parameter, so a stamp-signed script still faxed as "unsigned".
  *
  * Because those bugs live in the page's own JavaScript (sendFax -> onPrint2 ->
- * the scriptId it puts on the createcustomedpdf request), this check drives the
+ * the scriptId it puts on the fax request), this check drives the
  * real controls and asserts on the real DOM and the real network request:
  *
  *   1. Log in through the login form. The login page must NOT disclose the
@@ -49,7 +49,7 @@
  *   3. On that ViewScript2, assert the real #faxButton is ENABLED (not greyed)
  *      with no drawn signature, the signature pad is still offered, the script
  *      persisted a PRESCRIPTION stamp signature, and the preview renders it.
- *   4. Click the real Fax button and capture the createcustomedpdf request: its
+ *   4. Click the real Fax button and capture the fax request: its
  *      scriptId must be the real script number (never "" or "null"), and the
  *      response must not be the unsigned refusal or the old "Signature not
  *      found" alert. A server-side direct POST additionally confirms an
@@ -87,6 +87,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { browserErrorClass } = require('./browser-error-class');
+
+// Every fax goes to the POST-only fax action (issue #3108); printing stays on /form/createcustomedpdf.
+const FAX_REQUEST_URL = /\/rx\/faxPrescription(?:\?|$)/;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -566,11 +569,11 @@ async function runChecks(context) {
       findings.push({ label: 'preview-signature', type: 'not-stored', text: `preview signature is not the stored stamp: ${previewInfo ? previewInfo.src : 'none'}` });
     }
 
-    // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts scriptId on it)
+    // Real control: click Fax. Capture the fax request (the JSP puts scriptId on it)
     // and its response. The fax row it inserts lands on this run's unique faxline and is cleaned up
     // by cleanupFixtures.
-    const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
-    const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
+    const faxRequestPromise = page.waitForRequest((req) => FAX_REQUEST_URL.test(req.url()), { timeout: 30000 });
+    const faxResponsePromise = page.waitForResponse((res) => FAX_REQUEST_URL.test(res.url()), { timeout: 30000 });
 
     let faxRequest = null;
     let faxBody = '';
@@ -650,9 +653,9 @@ async function runChecks(context) {
       return { status: resp.status, hadToken: token.length > 0, body: body.slice(0, 400) };
     }, {
       tokenUrl: appUrl('/csrfguard'),
-      postUrl: appUrl('/form/createcustomedpdf'),
+      postUrl: appUrl('/rx/faxPrescription'),
       params: {
-        __title: 'Rx', __method: 'oscarRxFax', scriptId: throwawayUnsignedScriptId,
+        __title: 'Rx', scriptId: throwawayUnsignedScriptId,
         pdfId: 'rxfaxstamp', pharmaFax: '4165551212', clinicFax: faxNumber, pharmaName: 'P',
         demographic_no: demographicNo, rxPageSize: 'PageSize.Letter', rx: 'x', rxDate: '2026-01-01',
       },

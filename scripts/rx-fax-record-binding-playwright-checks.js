@@ -96,7 +96,9 @@ const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
 const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
 const notesSaveDelayMs = Number(process.env.RX_FAX_NOTES_SAVE_DELAY_MS || '2500');
-// How long one Fax click may take to produce its createcustomedpdf request and response. The
+// Every fax goes to the POST-only fax action (issue #3108); printing stays on /form/createcustomedpdf.
+const FAX_REQUEST_URL = /\/rx\/faxPrescription(?:\?|$)/;
+// How long one Fax click may take to produce its fax request and response. The
 // default is generous for a warm server; a freshly restarted Tomcat compiling the Rx JSPs on
 // first hit can need more, so the deb-install runbook raises it rather than lowering the bar.
 const faxRoundTripTimeoutMs = Number(process.env.RX_FAX_ROUND_TRIP_TIMEOUT_MS || '45000');
@@ -525,7 +527,7 @@ async function assertFailedNotesSaveBlocksFax(page, modalFrame) {
   let faxRequests = 0;
   let dialogSeen = false;
   const faxRequestListener = (request) => {
-    if (/form\/createcustomedpdf/.test(request.url()) && /__method=oscarRxFax/.test(request.url())) {
+    if (FAX_REQUEST_URL.test(request.url())) {
       faxRequests += 1;
     }
   };
@@ -776,8 +778,8 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   await modalFrame.locator('#additionalNotes').waitFor({ state: 'visible', timeout: 30000 });
   await modalFrame.locator('#additionalNotes').fill(noteText);
 
-  const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: faxRoundTripTimeoutMs });
-  const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: faxRoundTripTimeoutMs });
+  const faxRequestPromise = page.waitForRequest((req) => FAX_REQUEST_URL.test(req.url()), { timeout: faxRoundTripTimeoutMs });
+  const faxResponsePromise = page.waitForResponse((res) => FAX_REQUEST_URL.test(res.url()), { timeout: faxRoundTripTimeoutMs });
   const roundTrip = settleOperations([faxRequestPromise, faxResponsePromise]);
   // Attach immediately: a click/locator failure must not leave these observers
   // unhandled. They are still awaited below before fixture cleanup can begin.
@@ -878,11 +880,10 @@ async function faxWithForgedIdentity(page, scriptId) {
     const body = await resp.text().catch(() => '');
     return { status: resp.status, body: body.slice(0, 400) };
   }, {
-    postUrl: appUrl(baseUrl, '/form/createcustomedpdf'),
+    postUrl: appUrl(baseUrl, '/rx/faxPrescription'),
     token,
     params: {
       __title: 'Rx',
-      __method: 'oscarRxFax',
       scriptId,
       pdfId,
       pharmaFax: pharmacyFaxNumber,

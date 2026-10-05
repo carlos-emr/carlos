@@ -724,7 +724,7 @@
                                 strRxNoNewLines.append(rx.getFullOutLine().replaceAll(";", " ") + "\n");
                             }
                             /*
-                             * ";" is the stash's internal line separator; FrmCustomedPDFServlet splits the
+                             * ";" is the stash's internal line separator; PrescriptionPdfComposer splits the
                              * posted rx parameter on the platform line separator (";;" -> blank line between
                              * scripts). This must be computed here in the scriptlet: writing the replaceAll
                              * with a "\\\n" literal inline in the <carlos:encode> value attribute goes through

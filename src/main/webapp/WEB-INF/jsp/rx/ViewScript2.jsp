@@ -401,7 +401,12 @@
                 }
                 <%}
             }%>
-                let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                let requestParams = "__title=Rx&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
+                // A fax is a POST-only action of its own (issue #3108); print and preview stay on the
+                // read-only PDF servlet, which refuses fax requests.
+                let action = method === "oscarRxFax"
+                        ? "<%= request.getContextPath() %>/rx/faxPrescription?" + requestParams
+                        : "<%= request.getContextPath() %>/form/createcustomedpdf?__method=" + method + "&" + requestParams;
                 var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
