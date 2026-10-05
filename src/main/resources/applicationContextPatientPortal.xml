@@ -36,7 +36,7 @@
 
       EVERY BEAN HERE IS lazy-init. This is the load-bearing detail, not a tuning choice.
 
-      PatientPortalSettings.fromCarlosProperties() throws when the portal is unconfigured, which is
+      PatientPortalSettings.fromCarlosProperties() throws when the portal is off or unconfigured, which is
       correct at a call site — a portal call must never silently become a no-op a clinic would
       misread as "the invitation was sent". But an eager bean whose factory throws fails the whole
       Spring context refresh, so that same fail-closed rule would stop CARLOS starting at all for

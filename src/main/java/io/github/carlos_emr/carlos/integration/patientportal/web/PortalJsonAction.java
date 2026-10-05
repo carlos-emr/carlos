@@ -278,8 +278,8 @@ public abstract class PortalJsonAction extends ActionSupport {
             "This action must be requested with POST.";
     private static final String NOT_CONFIGURED =
             """
-            The patient portal is not configured on this CARLOS server. An administrator needs to \
-            set the portal connection before these actions can be used.""";
+            The patient portal is not switched on for this CARLOS server. An administrator can turn \
+            it on with the patient_portal.enabled setting.""";
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -288,17 +288,17 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     /**
-     * Resolves the portal client, or {@code null} when this deployment has no portal.
+     * Resolves the portal client, or {@code null} when this deployment has the portal switched off.
      *
-     * <p>Resolved here rather than in a constructor so an unconfigured portal is answerable. The
-     * bean is lazy and its factory throws when the portal is unconfigured, so a constructor lookup
+     * <p>Resolved here rather than in a constructor so a switched-off portal is answerable. The
+     * bean is lazy and its factory throws when the portal is off, so a constructor lookup
      * would blow up while Struts was still instantiating the action — producing a stack trace where
      * a sentence would do, and giving the action no chance to say what is actually wrong.
      *
-     * <p>Absence is checked before construction is attempted. "No portal on this server" is the
+     * <p>The switch is checked before construction is attempted. "Portal off on this server" is the
      * normal state for most CARLOS deployments and must not be reported as a fault; a portal that
-     * <em>is</em> configured but invalid still throws, because a half-configured portal must not
-     * look like an absent one.
+     * <em>is</em> switched on but misconfigured still throws, because a half-configured portal must
+     * not look like an absent one.
      */
     PatientPortalService portalService() {
         if (injectedService != null) {

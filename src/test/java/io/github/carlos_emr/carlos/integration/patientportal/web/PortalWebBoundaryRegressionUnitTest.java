@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -46,6 +47,8 @@ import java.util.Set;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -90,6 +93,88 @@ class PortalWebBoundaryRegressionUnitTest {
             assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("configuration failed"));
             assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("59000"));
         }
+    }
+
+    /** The three struts-demographic.xml routes, each valid up to the point it needs the portal client. */
+    @ParameterizedTest
+    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel"})
+    void shouldAnswerPortalNotConfigured_whenPortalIsSwitchedOff(String route) throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var resolver = mock(PortalStaffContextResolver.class);
+        var session = mock(LoggedInInfo.class);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        request.setMethod("portalPanel".equals(route) ? "GET" : "POST");
+        request.setParameter("demographicNo", "123");
+        if ("portalInvite".equals(route)) {
+            // create and resend answer "not available yet" before the switch is consulted.
+            request.setParameter("method", PortalInvite2Action.METHOD_REVOKE);
+            request.setParameter("inviteId", "7");
+        } else if ("portalAccount".equals(route)) {
+            request.setParameter("method", PortalAccount2Action.METHOD_UNLOCK);
+        }
+        when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var login = mockStatic(LoggedInInfo.class);
+             var settings = mockStatic(PatientPortalSettings.class);
+             var spring = mockStatic(SpringUtils.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+            PortalJsonAction action = switch (route) {
+                case "portalInvite" -> new PortalInvite2Action(security, null, resolver);
+                case "portalAccount" -> new PortalAccount2Action(security, null, resolver);
+                default -> new PortalPanel2Action(security, null, resolver);
+            };
+            action.execute();
+            spring.verify(() -> SpringUtils.getBean(PatientPortalService.class), never());
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("\"portal_not_configured\"");
+        verifyNoInteractions(resolver);
+    }
+
+    /**
+     * Privileges are checked before the switch, so a user without them gets the same refusal
+     * whether the portal is on or off and cannot learn which.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel"})
+    void shouldRefuseBeforeConsultingTheSwitch_whenPrivilegeIsDenied(String route) throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var resolver = mock(PortalStaffContextResolver.class);
+        var session = mock(LoggedInInfo.class);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        request.setMethod("portalPanel".equals(route) ? "GET" : "POST");
+        request.setParameter("demographicNo", "123");
+        if ("portalInvite".equals(route)) {
+            request.setParameter("method", PortalInvite2Action.METHOD_REVOKE);
+            request.setParameter("inviteId", "7");
+        } else if ("portalAccount".equals(route)) {
+            request.setParameter("method", PortalAccount2Action.METHOD_UNLOCK);
+        }
+        when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(false);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var login = mockStatic(LoggedInInfo.class);
+             var settings = mockStatic(PatientPortalSettings.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+            PortalJsonAction action = switch (route) {
+                case "portalInvite" -> new PortalInvite2Action(security, null, resolver);
+                case "portalAccount" -> new PortalAccount2Action(security, null, resolver);
+                default -> new PortalPanel2Action(security, null, resolver);
+            };
+            action.execute();
+            settings.verify(PatientPortalSettings::isConfigured, never());
+        }
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).doesNotContain("portal_not_configured");
     }
 
     @Test
