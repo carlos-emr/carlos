@@ -22,6 +22,14 @@
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
+import io.github.carlos_emr.carlos.commn.model.CssStyle;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import org.mockito.ArgumentCaptor;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -59,6 +67,7 @@ import static org.mockito.Mockito.when;
 @Tag("billing")
 class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
 
+    private CSSStylesDAO stylesDao;
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private SecurityInfoManager mockSecurity;
@@ -72,7 +81,9 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         mockResponse = new MockHttpServletResponse();
         mockSecurity = mock(SecurityInfoManager.class);
         registerMock(SecurityInfoManager.class, mockSecurity);
-        registerMock(CSSStylesDAO.class, mock(CSSStylesDAO.class));
+        stylesDao = mock(CSSStylesDAO.class);
+        registerMock(CSSStylesDAO.class, stylesDao);
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>());
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -177,4 +188,151 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
     }
+    private ManageCss2Action writableAction() {
+        mockRequest.setMethod("POST");
+        when(mockSecurity.hasPrivilege(any(LoggedInInfo.class), eq("_admin"), eq("w"), isNull())).thenReturn(true);
+        // Translation is exercised through the installed JSP; action tests pin the error keys.
+        ManageCss2Action action = new ManageCss2Action() {
+            @Override public String getText(String key) { return key; }
+        };
+        action.setStyleName("Owned style");
+        return action;
+    }
+
+    @Test
+    void shouldPersistEveryTypedDeclaration_withoutUsingTheLegacyIdentityAsNewText() {
+        ManageCss2Action action = writableAction();
+        String typed = " color:ReBeccaPurple; background-color:#abc; text-decoration:underline ";
+        action.setStyleText(typed);
+        action.setEditStyle("color:black;");
+        assertThat(action.save()).isEqualTo("init");
+        ArgumentCaptor<CssStyle> captor = ArgumentCaptor.forClass(CssStyle.class);
+        verify(stylesDao).persist(captor.capture());
+        assertThat(captor.getValue().getStyle()).isEqualTo(typed);
+        assertThat(captor.getValue().getName()).isEqualTo("Owned style");
+        assertThat(captor.getValue().getStatus()).isEqualTo(CssStyle.ACTIVE);
+        assertThat(mockRequest.getAttribute("success")).isEqualTo("true");
+    }
+
+    @Test
+    void shouldEditTheSameRow_usingOriginalIdentityAndNewTextSeparately() {
+        CssStyle saved = new CssStyle();
+        saved.setId(27);
+        saved.setStyle("color:red;");
+        saved.setName("Original");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle(saved.getId().toString());
+        action.setEditStyle(saved.getStyle());
+        action.setStyleText("color:#abcdef;text-decoration:underline;");
+        assertThat(action.save()).isEqualTo("init");
+        verify(stylesDao).merge(saved);
+        verify(stylesDao, never()).persist(any(CssStyle.class));
+        assertThat(saved.getId()).isEqualTo(27);
+        assertThat(saved.getStyle()).isEqualTo("color:#abcdef;text-decoration:underline;");
+        assertThat(action.getStyleText()).isEmpty();
+        assertThat(action.getSelectedStyle()).isEqualTo("-1");
+        assertThat(saved.getName()).isEqualTo("Owned style");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"color:red;position:fixed;", "color:not-a-colour;", "background-color:url(https://example.invalid);",
+            "font-weight:expression(alert(1));", "font-size:huge;", "color:#12345;", "color:red;broken", ""})
+    void shouldRejectUnsupportedInput_withoutPersistingAnyPartialStyle(String typed) {
+        ManageCss2Action action = writableAction();
+        action.setStyleText(typed);
+        assertThat(action.save()).isEqualTo("init");
+        assertThat(action.getActionErrors()).contains("admin.manageCodeStyles.invalidDeclarations");
+        assertThat(action.getStyleText()).isEqualTo(typed);
+        verify(stylesDao, never()).persist(any(CssStyle.class));
+        verify(stylesDao, never()).merge(any(CssStyle.class));
+        assertThat(mockRequest.getAttribute("success")).isNull();
+    }
+
+    @Test
+    void shouldRejectAnInvalidEdit_withoutChangingTheExistingRecord() {
+        CssStyle saved = new CssStyle();
+        saved.setStyle("color:red;");
+        saved.setName("Original");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle(saved.getId().toString());
+        action.setEditStyle(saved.getStyle());
+        action.setStyleText("color:blue;position:fixed;");
+        action.save();
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(saved.getStyle()).isEqualTo("color:red;");
+        assertThat(saved.getName()).isEqualTo("Original");
+        verify(stylesDao, never()).merge(any(CssStyle.class));
+    }
+
+    @Test
+    void shouldRejectNames_whenMissingOrOverlong() {
+        for (String name : new String[] {null, "  ", "x".repeat(256)}) {
+            ManageCss2Action action = writableAction();
+            action.setStyleName(name);
+            action.setStyleText("color:red;");
+            action.save();
+            assertThat(action.getActionErrors()).contains("admin.manageCodeStyles.invalidName");
+        }
+        verify(stylesDao, never()).persist(any(CssStyle.class));
+    }
+
+    @Test
+    void shouldEditOnlyTheSelectedRow_whenTwoStylesHaveIdenticalDeclarations() {
+        CssStyle first = new CssStyle();
+        first.setId(27);
+        first.setName("First");
+        first.setStyle("color:red;");
+        CssStyle selected = new CssStyle();
+        selected.setId(28);
+        selected.setName("Selected");
+        selected.setStyle("color:red;");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(first, selected)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle("28");
+        action.setEditStyle("color:red;");
+        action.setStyleText("color:blue;");
+        action.save();
+        assertThat(first.getName()).isEqualTo("First");
+        assertThat(first.getStyle()).isEqualTo("color:red;");
+        assertThat(selected.getStyle()).isEqualTo("color:blue;");
+        verify(stylesDao).merge(selected);
+        verify(stylesDao, never()).merge(first);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"color:red;", "-2", "27 OR 1=1", "missing"})
+    void shouldRejectAnUnknownIdentity_withoutChangingAnyRow(String identity) {
+        CssStyle saved = new CssStyle();
+        saved.setId(27);
+        saved.setStyle("color:red;");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle(identity);
+        action.setEditStyle("color:red;");
+        action.setStyleText("color:blue;");
+        assertThat(action.save()).isEqualTo("init");
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(saved.getStyle()).isEqualTo("color:red;");
+        verify(stylesDao, never()).merge(any(CssStyle.class));
+        verify(stylesDao, never()).persist(any(CssStyle.class));
+    }
+
+    @Test
+    void shouldDeleteBySelectedId_ignoringTheLegacyTextIdentity() {
+        var deletion = mock(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class, deletion);
+        when(deletion.deleteByStyleId("28")).thenReturn(true);
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle("28");
+        action.setEditStyle("27");
+        assertThat(action.delete()).isEqualTo("init");
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(mockRequest.getAttribute("success")).isEqualTo("true");
+        verify(deletion).deleteByStyleId("28");
+        verify(deletion, never()).deleteByStyleId("27");
+    }
+
 }
