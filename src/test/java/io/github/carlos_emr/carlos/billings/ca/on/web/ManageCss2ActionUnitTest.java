@@ -329,6 +329,8 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         action.setSelectedStyle("28");
         action.setEditStyle("27");
         assertThat(action.delete()).isEqualTo("init");
+        assertThat(action.hasActionErrors()).isFalse();
+        assertThat(mockRequest.getAttribute("success")).isEqualTo("true");
         verify(deletion).deleteByStyleId("28");
         verify(deletion, never()).deleteByStyleId("27");
     }
