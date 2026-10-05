@@ -293,7 +293,12 @@ async function workflow(s) {
     notes.push(id);
   }
 
-  async function refusesInvalidMonths(page) {
+  async function closeMonthPicker(page, mobile) {
+    const heading = page.locator('#psrForm h4');
+    if (mobile) await heading.tap(); else await heading.click();
+    await page.locator('.flatpickr-calendar.open').waitFor({state: 'detached', timeout: 5000});
+  }
+  async function refusesInvalidMonths(page, mobile) {
     const exports = [];
     const record = request => {
       if (new URL(request.url()).pathname.endsWith('/oscarReport/ViewProviderServiceReportExport')) exports.push(request.url());
@@ -303,7 +308,7 @@ async function workflow(s) {
       for (const value of ['', '13/1953', '02/53', '02/0000', 'invalid']) {
         for (const name of ['startDate', 'endDate']) {
           await page.locator(`#${name}`).fill(value);
-          await page.locator('#psrForm h4').click();
+          await closeMonthPicker(page, mobile);
         }
         await page.locator('#psrForm button[type="submit"]').click();
         await page.locator('#startDateError').waitFor({state: 'visible'});
@@ -348,11 +353,11 @@ async function workflow(s) {
             input._flatpickr.config.disableMobile && !input._flatpickr.isMobile),
           'The report replaced its month picker with an incompatible native date input');
         }
-        if (endMonth === SERVICE_MONTH) await refusesInvalidMonths(reportPage);
+        if (endMonth === SERVICE_MONTH) await refusesInvalidMonths(reportPage, Boolean(mobileContext));
         for (const [field, value] of [['#startDate', SERVICE_MONTH], ['#endDate', endMonth]]) {
           await reportPage.locator(`#psrForm ${field}`).fill(value);
           // Click away, as a reader does, so the month picker closes before the next control.
-          await reportPage.locator('#psrForm h4').click();
+          await closeMonthPicker(reportPage, Boolean(mobileContext));
           const picked = await reportPage.locator(`#psrForm ${field}`).evaluate(input => {
             const date = input._flatpickr.selectedDates[0];
             return date && `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
