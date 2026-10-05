@@ -260,11 +260,10 @@ class OscarResourcesBundleParseUnitTest {
         }
     }
 
-    private static final String[] ICD9_DECIMAL_KEYS = {
-            "oscarResearch.oscarDxResearch.icd9NoDecimalHint",
-            "oscarResearch.oscarDxResearch.error.icd9WithDecimal",
-            "oscarResearch.oscarDxResearch.error.icd9DidYouMean"
-    };
+    private static final String ICD9_HINT_KEY = "oscarResearch.oscarDxResearch.icd9NoDecimalHint";
+    private static final String ICD9_WITH_DECIMAL_KEY = "oscarResearch.oscarDxResearch.error.icd9WithDecimal";
+    private static final String ICD9_DID_YOU_MEAN_KEY = "oscarResearch.oscarDxResearch.error.icd9DidYouMean";
+    private static final String[] ICD9_DECIMAL_KEYS = {ICD9_HINT_KEY, ICD9_WITH_DECIMAL_KEY, ICD9_DID_YOU_MEAN_KEY};
 
     @Test
     @DisplayName("should translate the ICD-9 decimal-point hint and errors in every locale")
@@ -282,11 +281,15 @@ class OscarResourcesBundleParseUnitTest {
                 }
             }
             // The hint goes through fmt:message without arguments, which prints a doubled apostrophe as is.
-            assertThat(bundle.getProperty("oscarResearch.oscarDxResearch.icd9NoDecimalHint"))
-                    .as("hint in %s", locale).doesNotContain("''");
+            assertThat(bundle.getProperty(ICD9_HINT_KEY)).as("hint in %s", locale).doesNotContain("''");
             // The errors go through Struts' MessageFormat: a lone apostrophe would swallow text, so each must
-            // format to its pattern with the doubled apostrophes undone and the arguments filled in.
-            for (String key : new String[]{ICD9_DECIMAL_KEYS[1], ICD9_DECIMAL_KEYS[2]}) {
+            // format to its pattern with the doubled apostrophes undone and the arguments filled in. Both show
+            // the code as typed ({0}); the suggestion also shows the code without the point ({1}).
+            assertThat(bundle.getProperty(ICD9_WITH_DECIMAL_KEY)).as("%s in %s", ICD9_WITH_DECIMAL_KEY, locale)
+                    .contains("{0}");
+            assertThat(bundle.getProperty(ICD9_DID_YOU_MEAN_KEY)).as("%s in %s", ICD9_DID_YOU_MEAN_KEY, locale)
+                    .contains("{0}", "{1}");
+            for (String key : new String[]{ICD9_WITH_DECIMAL_KEY, ICD9_DID_YOU_MEAN_KEY}) {
                 String pattern = bundle.getProperty(key);
                 assertThat(new MessageFormat(pattern).format(new Object[]{"151.9", "1519"}))
                         .as("formatted %s in %s", key, locale)

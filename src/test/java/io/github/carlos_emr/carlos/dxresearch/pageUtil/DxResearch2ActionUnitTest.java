@@ -189,7 +189,7 @@ class DxResearch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should explain the decimal point without a lookup when the ICD-9 code is only a point")
+    @DisplayName("should explain the decimal point, and not look up an empty code, when the code is only a point")
     void shouldExplainDecimalPoint_whenIcd9CodeIsOnlyAPoint() throws Exception {
         dxResearch2Action keyed = actionShowingMessageKeys("icd9", ".");
 

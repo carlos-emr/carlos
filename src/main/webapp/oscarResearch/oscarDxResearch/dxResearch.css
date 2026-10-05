@@ -81,8 +81,8 @@ table td#codeSelectorTable {
     padding-right: 15px;
 }
 
-/* The ICD-9 decimal-point hint (issue #3759) wraps to the code column's width instead of widening it;
-   translations are up to 25% longer than English. */
+/* The ICD-9 decimal-point hint (issue #3759) wraps to the code column's width instead of widening it,
+   whatever the length of its translation. */
 #icd9NoDecimalHint {
     width: 0;
     min-width: 100%;
