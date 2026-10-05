@@ -2707,11 +2707,10 @@ function updateQty(element){
          function getCost(divId, randomId, din, qty) {
             var url = ctx + "/rx/ViewDrugPrice";
             var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
-            new CarlosAjax.Updater(divId, url, {
+            // Replace the previous amount when the quantity changes.
+            CarlosAjax.updater(divId, url, {
                 method: 'get',
-                parameters: params,
-                insertion: Insertion.Bottom,
-                asynchronous: true
+                parameters: params
             });
         }  
 

@@ -8,10 +8,9 @@
  * rx/ViewDrugPrice and fills the card's cost line).
  * Asserts that typing a quantity and leaving the box raises no script error, sends a GET to
  * rx/ViewDrugPrice carrying the quantity and the card's random id and is answered without error, and
- * that the quantity is kept on the card. It fails today at the first of those: getCost builds its Ajax
- * request with Insertion.Bottom, a Prototype global the page no longer loads (SearchDrug3.jsp), so every
- * quantity entry throws "Insertion is not defined" and no price request is ever sent; the route
- * rx/ViewDrugPrice is therefore unreachable. The strict recorder reports the error; nothing is consumed.
+ * that the quantity is kept on the card. Repeating the edit must send the new quantity as well.
+ * The real endpoint handles the custom drug's unavailable price; native-helper Node regressions also
+ * verify that returned prices replace earlier amounts and an unavailable price clears stale content.
  * Fixtures: the owned synthetic patient and one session-only custom drug card named with the run marker.
  * Implements gap-encounter "drug price on the prescription card" (rx/ViewDrugPrice had no check).
  */
@@ -22,10 +21,6 @@ const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-che
 async function workflow(s) {
   const chart = await s.chart();
   const rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-page');
-  const priceRequests = [];
-  rx.on('request', request => {
-    if (/\/rx\/ViewDrugPrice/.test(request.url())) priceRequests.push(request);
-  });
   let key;
 
   await s.step('Custom Drug stages a card with a Qty/Mitte box', async () => {
@@ -33,22 +28,21 @@ async function workflow(s) {
     h.assert(await rx.locator(`#quantity_${key}`).count() === 1, 'The staged card has no Qty/Mitte box');
   });
 
-  await s.step('typing a quantity and leaving the box requests the price without a script error', async () => {
-    await rx.locator(`#quantity_${key}`).fill('30');
-    await rx.locator(`#quantity_${key}`).blur();
-    const deadline = Date.now() + 8000;
-    while (priceRequests.length === 0 && Date.now() < deadline) await rx.waitForTimeout(150);
-    // The strict recorder reports "Insertion is not defined" when this step ends; the assertions below
-    // state the correct behaviour for the case where it does not.
-    h.assert(priceRequests.length >= 1, 'Leaving the Qty box sent no rx/ViewDrugPrice request');
-    const request = priceRequests[0];
-    const url = new URL(request.url());
-    h.assert(request.method() === 'GET' && url.searchParams.get('qty') === '30' && url.searchParams.get('randomId') === key,
-      'The price request does not carry the quantity and the card id');
-    const response = await request.response();
-    h.assert(response && response.status() < 400, 'The price request was refused');
-    h.assert(await rx.locator(`#quantity_${key}`).inputValue() === '30', 'The card lost the typed quantity');
-  });
+  for (const quantity of ['30', '60']) {
+    await s.step(`leaving the Qty box requests price for ${quantity} without a script error`, async () => {
+      await rx.locator(`#quantity_${key}`).fill(quantity);
+      const responsePromise = rx.waitForResponse(response => {
+        const url = new URL(response.url());
+        return url.pathname.endsWith('/rx/ViewDrugPrice') && url.searchParams.get('randomId') === key
+          && url.searchParams.get('qty') === quantity;
+      }, { timeout: 10000 });
+      const [response] = await Promise.all([responsePromise, rx.locator(`#quantity_${key}`).blur()]);
+      h.assert(response.request().method() === 'GET', 'The price lookup did not use GET');
+      h.assert(response.status() === 200, 'The price request was refused');
+      h.assert(await response.finished() === null, 'The price response did not finish');
+      h.assert(await rx.locator(`#quantity_${key}`).inputValue() === quantity, 'The card lost the typed quantity');
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('gap-encounter-rx-quantity-price', workflow, { openPatient: true });
