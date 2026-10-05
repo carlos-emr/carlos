@@ -50,6 +50,7 @@ import org.mockito.MockedStatic;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationGTINDao;
@@ -202,6 +203,29 @@ class CanadianVaccineCatalogueManagerUnitTest {
         List<CVCImmunization> found = manager.query("vaccine", true, true, false, false, null);
 
         assertThat(found).extracting(CVCImmunization::getSnomedConceptId).containsExactly("7121000087107");
+    }
+
+    @Test
+    @DisplayName("should treat the catalogue as on once one is loaded, or when cvc.url is set, and off otherwise")
+    void shouldReportCatalogueOn_whenLoadedOrCvcUrlSet() {
+        String savedUrl = CarlosProperties.getInstance().getProperty("cvc.url");
+        try {
+            CarlosProperties.getInstance().remove("cvc.url");
+            assertThat(manager.isCatalogueOn()).isFalse();
+            CarlosProperties.getInstance().setProperty("cvc.url", "  ");
+            assertThat(manager.isCatalogueOn()).isFalse();
+            CarlosProperties.getInstance().setProperty("cvc.url", "https://example.test/cvc");
+            assertThat(manager.isCatalogueOn()).isTrue();
+            CarlosProperties.getInstance().remove("cvc.url");
+            when(manager.userPropertyDao.getProp("cvc.updated")).thenReturn(new UserProperty());
+            assertThat(manager.isCatalogueOn()).isTrue();
+        } finally {
+            if (savedUrl == null) {
+                CarlosProperties.getInstance().remove("cvc.url");
+            } else {
+                CarlosProperties.getInstance().setProperty("cvc.url", savedUrl);
+            }
+        }
     }
 
     @Test

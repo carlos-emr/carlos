@@ -51,6 +51,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
@@ -202,6 +203,15 @@ public class CanadianVaccineCatalogueManager {
      */
     public boolean hasCatalogue() {
         return userPropertyDao.getProp(CVC_UPDATED_PROP) != null;
+    }
+
+    /**
+     * Whether the prevention page searches the vaccine catalogue: a catalogue has been loaded, or the
+     * old {@code cvc.url} setting is non-empty.
+     */
+    public boolean isCatalogueOn() {
+        String cvcUrl = CarlosProperties.getInstance().getProperty("cvc.url");
+        return (cvcUrl != null && !cvcUrl.isBlank()) || hasCatalogue();
     }
 
     private void setUpdatedInPropertyTable() {

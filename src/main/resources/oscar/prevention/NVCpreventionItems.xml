@@ -24,88 +24,140 @@
     Document   : NVCpreventionItems.xml
     Created on : Sept 14, 2024, 3:06 PM
     Author     : Peter Hutten-Czapski
-    Source     : src/main/resources/oscar/oscarPrevention/NVCpreventionItems.xml
-    Updated on : September 14, 2024 by Peter Hutten-Czapski
+    Source     : src/main/resources/oscar/prevention/NVCpreventionItems.xml
+    Updated on : October 5, 2026: brought into line with PreventionItems.xml
     Description:
         Xml configuration used in the Prevention Module to set up the types of preventions available.
         Legacy immunizations have been removed from this list as are supplanted with the NVC
+        vaccine catalogue. Every other item is copied unchanged from PreventionItems.xml, in the
+        same order; keep the two in step (PreventionDisplayConfigCatalogueUnitTest checks this).
+        CARLOS uses this list only when PREVENTION_ITEMS=classpath:oscar/prevention/NVCpreventionItems.xml
+        is set. Existing records of the removed immunization types then stop showing and cannot be
+        edited; see carlos.properties and docs/prevention-vaccine-catalogue.md before turning it on.
 -->
 
 <preventions>
-
-	<!--Screenings-->
-
-	<item
-			resultDesc=""
-			desc="TB=Tuberculosis Mantoux " 
-            name="Tuberculosis"
-			headingName="Screenings" link="" 
-            layout="injection"
-			atc="J07AN01" showIfMinRecordNum="1" />
+	<!-- ============================================================ -->
+	<!-- SCREENINGS                                                    -->
+	<!-- ============================================================ -->
 
 	<item
 			resultDesc=""
-			desc="Women from ages 25 to 70 are recommended to receive a PAP" name="PAP"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
-			maxAge="70" sex="F" showIfMinRecordNum="1" />
+			desc="Tuberculosis=Tuberculosis Mantoux test"
+			name="Tuberculosis"
+			headingName="Screenings"
+			link=""
+			layout="injection"
+			atc="J07AN01" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Women from ages 25 to 74" name="HPV-CERVIX"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
-			maxAge="74" sex="F" showIfMinRecordNum="1" />
+			desc="PAP=Cervical cytology (Pap smear) - women ages 25 to 70"
+			name="PAP"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" 
+      minAge="25"
+			maxAge="70" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Mammogram" name="MAM"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="40"
-			maxAge="70" sex="F" showIfMinRecordNum="1" />
+			desc="HPV-CERVIX=HPV primary cervical cancer screening every 5 years - women ages 25 to 69"
+			name="HPV-CERVIX"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" 
+      minAge="25"
+			maxAge="69" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="PSA" name="PSA"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="50"
-			maxAge="70" sex="M" showIfMinRecordNum="1" />
+			desc="MAM=Mammogram breast cancer screening every 2 years - women ages 40 to 74"
+			name="MAM"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="40"
+			maxAge="74" 
+      sex="F" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			displayName="FIT or FOBT"
-			desc="Fecal Immunochemical Test or Fecal Occult Blood Test" name="FOBT"
-			headingName="Screenings" link="" layout="PAPMAM"
-			minAge="49" maxAge="80" showIfMinRecordNum="1" />
+			desc="PSA=Prostate Specific Antigen screening"
+			name="PSA"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" 
+      minAge="50"
+			maxAge="70" 
+      sex="M" 
+      showIfMinRecordNum="1" />
+
+	<item
+			resultDesc="FOBT=Fecal Occult Blood Test"
+			displayName="FIT/FOBT"
+			desc="FOBT=Fecal Occult Blood Test / Fecal Immunochemical Test (FIT) every 2 years ages 50-74"
+			name="FOBT"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
+			minAge="50" 
+      maxAge="74" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			displayName="Abdominal U/S"
-			desc="One-time screening with ultrasound for abdominal aortic aneurysm" name="AAA"
-			headingName="Screenings" link="" layout="PAPMAM"
-			minAge="65" maxAge="80" sex="M" showIfMinRecordNum="1" />
+			desc="AAA=Abdominal Aortic Aneurysm ultrasound screening - once for men ages 65-80"
+			name="AAA"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="65"
+			maxAge="80" 
+      sex="M" 
+      showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			displayName="Chest CT"
-			desc="Low Dose chest CT for 30 pack year smokers up to three times" name="CTC"
-			headingName="Screenings" link="" layout="PAPMAM"
-			minAge="55" maxAge="74" showIfMinRecordNum="1" />
-
-	<item
-			resultDesc=""
-			desc="Colonoscopy" name="COLONOSCOPY"
-			headingName="Screenings" link="" layout="PAPMAM"
+			desc="COLONOSCOPY=Colonoscopy for colorectal cancer screening every 10 years"
+			name="COLONOSCOPY"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Bone Mineral Density" name="BMD"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="65"
+			displayName="LDCT Lung Cancer"
+			desc="LDCT=Low-Dose Computed Tomography for lung cancer screening - annual x3 for high-risk smokers ages 55-74 (Canada CTFPHC: 20+ pack-years)"
+			name="LDCT"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
+			minAge="55" 
+      maxAge="74"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="HIV = all pregnant women, opt out routine screening of all adults"
+			desc="BMD=Bone Mineral Density screening"
+			name="BMD"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" 
+      minAge="65"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HIV=HIV serology - all pregnant women, opt-out routine screening of all adults"
 			name="HIV"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="13"
 			maxAge="75"
@@ -113,10 +165,10 @@
 
 	<item
 			resultDesc=""
-			desc="HepB screen= Hepatitis B serology (hep B sAg + anti-HBc or anti-HBs) in those with multiple sex partners, MSM, and injection drug users"
+			desc="HepB screen=Hepatitis B serology (HBsAg + anti-HBc or anti-HBs) in those with multiple sex partners, MSM, and injection drug users"
 			name="HepB screen"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="15"
 			maxAge="24"
@@ -124,21 +176,20 @@
 
 	<item
 			resultDesc=""
-			desc="HepC screen = Hep C Ab serology in contacts of multiple sex partners, traumatic anal intercourse with infected person, IVDU"
+			desc="HepC screen=Hepatitis C Ab serology in those with multiple sex partners, traumatic anal intercourse with infected person, IVDU; also recommended for 1945-1975 birth cohort"
 			name="HepC screen"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="15"
-			maxAge="24"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="VDRL = VDRL screening for syphillis; pregnant women at the first prenatal visit (and 3rd trimester and delivery high-risk groups), all sex workers, in correctional facilities, diagnosed with another STD, MSM with high-risk behaviors"
+			desc="VDRL=VDRL syphilis serology; pregnant women at first prenatal visit, all sex workers, correctional facilities, MSM with high-risk behaviors"
 			name="VDRL"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="15"
 			maxAge="25"
@@ -146,10 +197,10 @@
 
 	<item
 			resultDesc=""
-			desc="Chlamydia = chlamydia urine PCR; sexually active women age 25 years or younger (including pregnant women), women older than 25 years with: new sex partner in prior 60 days, more than one sex partner, inconsistent condom use, unmarried, or history of STD; men: asymptomatic screening may or may not benefit "
+			desc="chlamydia=Chlamydia urine PCR; sexually active women age 25 years or younger, women older than 25 with new sex partner or risk factors"
 			name="chlamydia"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="12"
 			maxAge="25"
@@ -157,10 +208,10 @@
 
 	<item
 			resultDesc=""
-			desc= "ghonorrhea = ghonorrhea urine PCR in men with symptoms or asymptomatic women: Sexually active younger than 25 years, pregnancy, inconsistent condom use, multiple partners, partner with multiple contacts, sexual contact with partner with culture-proven STD, repeated episodes of STD, Sex work or drug use"
+			desc="ghonorrhea PCR=Gonorrhea NAAT/PCR in symptomatic men or asymptomatic women with risk factors"
 			name="ghonorrhea PCR"
 			headingName="Screenings"
-			link="https://www.cdc.gov/std/treatment/"
+			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="12"
 			maxAge="25"
@@ -168,7 +219,7 @@
 
 	<item
 			resultDesc=""
-			desc= "Periodic Health Visit"
+			desc="PHV=Periodic Health Visit annual wellness check"
 			name="PHV"
 			headingName="Screenings"
 			layout="history"
@@ -176,19 +227,21 @@
 
 	<item
 			resultDesc=""
-			desc= "Smoking history"
+			desc="Smoking=Tobacco use history assessment"
 			name="Smoking"
 			layout="history"
 			headingName="Screenings"
 			minAge="13"
 			showIfMinRecordNum="1" />
 
-	<!-- Other -->
+	<!-- ============================================================ -->
+	<!-- OTHER                                                         -->
+	<!-- ============================================================ -->
 
 	<item
 			resultDesc=""
-			desc="Other Layout A" 
-            name="OtherA"
+			desc="OtherA=Other immunization or injection (catch-all for non-standard types)"
+			name="OtherA"
 			headingName="Other"
 			healthCanadaType=""
             link="" layout="injection"
@@ -196,11 +249,10 @@
 
 	<item
 			resultDesc=""
-			desc="Other Layout B" 
-            name="OtherB"
-			headingName="Other" 
+			desc="OtherB=Other screening or preventive procedure (catch-all for non-standard types)"
+			name="OtherB"
+			headingName="Other"
             link="" layout="PAPMAM"
 			showIfMinRecordNum="1" />
-
 
 </preventions>

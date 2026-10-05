@@ -850,8 +850,7 @@
                     <% } %>
 
                     <%-- Catalogue search once a catalogue is loaded; a non-empty cvc.url (the old CVC V1 address) still turns it on. --%>
-                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))
-                            || SpringUtils.getBean(io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager.class).hasCatalogue()) { %>
+                    <%if (SpringUtils.getBean(io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager.class).isCatalogueOn()) { %>
                                 <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
@@ -1123,10 +1122,9 @@
                                     <%
                                         for (int i = 0; i < prevs.length; i++) {
                                             HashMap<String, String> h = pdc.getPrevention(prevs[i]);
-                                    %>
-                                    if(h == null) { //this happens with private entries
-                                    continue;
-                                    }
+                                            if (h == null) { // a config-set type that is not in the loaded prevention list
+                                                continue;
+                                            }
                                     %>
                                     <div class="preventionSection">
                                         <div class="headPrevention">
