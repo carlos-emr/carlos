@@ -4,8 +4,8 @@
  * Role and privilege administration: coverage plan §2.2 admin-misc / role-privilege-matrix.
  * User path: Schedule ▸ Administration ▸ System Management ▸ Add A Role, Assign Role/Rights to Object;
  * User Management ▸ Assign Role to Provider (fixture step; assign-role covers it); Schedule Management
- * ▸ Access Control; Data Management ▸ Fix notes with invalid role (opened only: its submit is an
- * unscoped bulk UPDATE). Asserted: the role is created once (secRole + audit); the editor grants it
+ * ▸ Access Control; Data Management ▸ Fix notes with invalid role (its submit is an
+ * unscoped bulk UPDATE, exercised only with an isolated owned invalid-role note). Asserted: the role is created once (secRole + audit); the editor grants it
  * _admin.userAdmin read (secObjPrivilege + audit); a throwaway doctor given the role opens Add A Role
  * from its own menu while the write-only editor stays hidden and 403; deleting the grant (recyclebin
  * copy) refuses Add A Role again; unassigning removes secUserRole; Access Control hides an owned group
@@ -56,6 +56,7 @@ async function submitIn(admin, frame, action) {
 
 async function workflow(s) {
   const { sql, config, context, recorder, marker } = s;
+  h.assert(process.env.EXCLUSIVE === '1', 'Role repair validation requires an exclusive disposable deployment');
   const role = marker;
   const group = 'PW' + marker.slice(-8);
   const R = h.sqlString(role);
@@ -177,6 +178,12 @@ async function workflow(s) {
   await s.step(`Assign Role/Rights to Object grants the owned role ${OBJECT} read and lists it`, async () => {
     frame = await openItem(admin, 'ProviderPrivilege', 'select[name="roleUserGroup"]');
     await frame.locator('select[name="roleUserGroup"]').selectOption(role);
+    h.assert(await frame.locator('select[name="roleUserGroup1"]').evaluate(el => el.style.backgroundColor) === 'silver',
+      'Choosing a role did not update the provider selector');
+    await frame.locator('select[name="roleUserGroup"]').selectOption('');
+    h.assert(await frame.locator('select[name="roleUserGroup1"]').evaluate(el => el.style.backgroundColor) === 'white',
+      'Clearing the role did not restore the provider selector');
+    await frame.locator('select[name="roleUserGroup"]').selectOption(role);
     await frame.locator('#addtbl_filter input').fill(OBJECT);
     const row = frame.locator('#addtbl tbody tr').filter({ has: frame.locator(`input[name="object$${OBJECT}"]`) });
     await row.locator(`input[name="object$${OBJECT}"]`).check();
@@ -209,6 +216,11 @@ async function workflow(s) {
         if (!forbidden) {
           await own.locator('#adminNav').waitFor({ state: 'attached', timeout: TIMEOUT });
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderAddRole"]').count() === 0, 'A plain doctor was offered Add A Role');
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
+            'Flowsheet access exposed the role-rights editor');
+          h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
+          const flowsheets = await openItem(own, 'ManageFlowsheets', '#flowsheetActionForm');
+          await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
         }
       }
     } finally { await ctx.close(); }
@@ -298,6 +310,46 @@ async function workflow(s) {
     h.assert(await option.count() === 1 && (await option.innerText()).trim() === role, 'The owned role is not offered as a target');
     h.assert(await frame.locator('input[name="action"]').inputValue() === 'run', 'The page did not render its unsubmitted form');
   });
+  await s.step('Fix notes refuses GET/HEAD and missing CSRF, then a protected POST repairs only the owned note', async () => {
+    // This utility updates every zero-role note. Refuse to run if any pre-existing row could be affected.
+    h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role=0') === '0',
+      'Pre-existing invalid-role notes prevent an isolated repair test');
+    const others = () => JSON.stringify(sql.rows(`SELECT note_id,reporter_caisi_role FROM casemgmt_note
+      WHERE demographic_no<>${s.patient} OR demographic_no IS NULL ORDER BY note_id`));
+    const before = others();
+    const q = h.sqlString;
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND uuid=${q(marker)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}`) === '0',
+        'The owned repair note remains');
+      h.assert(others() === before, 'The repair changed another note role');
+    });
+    const noteId = sql.value(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,
+      note,history,uuid,locked,archived,reporter_caisi_role,appointmentNo)
+      VALUES (NOW(),NOW(),${s.patient},${q(s.provider)},${q(marker)},${q(marker)},${q(marker)},0,0,'0',0);
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(noteId), 'No owned note ID was returned');
+    const currentRole = () => sql.value(`SELECT reporter_caisi_role FROM casemgmt_note WHERE note_id=${noteId}`);
+    h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role=0') === '1'
+      && currentRole() === '0', 'The repair would target anything other than the owned note');
+    const route = h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes');
+    for (const method of ['GET', 'HEAD']) {
+      const response = await context.request.fetch(route, {method, params: {action: 'run', role_to: roleNo}, maxRedirects: 0});
+      h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} did not deliberately refuse repair`);
+      await response.dispose();
+      h.assert(currentRole() === '0' && others() === before, `${method} changed a note role`);
+    }
+    const refused = await context.request.post(route, {form: {action: 'run', role_to: roleNo}, maxRedirects: 0});
+    h.assert(refused.status() === 403, 'Repair without CSRF was not refused');
+    await refused.dispose();
+    h.assert(currentRole() === '0' && others() === before, 'A request without CSRF changed a note role');
+    h.assert((await frame.locator('input[name="CSRF-TOKEN"]').inputValue()).length > 0, 'The repair form has no CSRF token');
+    await frame.locator('select[name="role_to"]').selectOption(roleNo);
+    await submitIn(admin, frame, frame.locator('input[type="submit"]'));
+    await h.assertNotErrorPage(frame, 'protected note role repair');
+    h.assert(currentRole() === roleNo && others() === before, 'The protected repair did not change exactly the owned note');
+  });
+
   await s.step('ProviderAddRole and ProviderPrivilege refuse a GET save without writing', async () => {
     const extra = `${role}-GET`;
     const add = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
@@ -319,5 +371,5 @@ async function workflow(s) {
     h.assert(defects.length === 0, `Application defects: ${defects.join('; ')}`);
   });
 }
-if (require.main === module) runWorkflow('admin-role-management', workflow, { openPatient: false });
+if (require.main === module) runWorkflow('admin-role-management', workflow, { openPatient: true, openMaster: false });
 module.exports = { workflow };
