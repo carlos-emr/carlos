@@ -4205,7 +4205,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the group page hides the last value of readings without a measuring instruction (Heart Rate).",
+      "notes": "Checks Vitals entry, encounter-note text, history, archive/delete, XML export, and the last Heart Rate value without a measuring instruction.",
       "fixtures": "Owned patient; Vitals readings entered through the E-Chart measurement group with a marker comment; measurements and measurementsDeleted rows removed."
     },
     {
