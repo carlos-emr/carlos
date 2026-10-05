@@ -240,7 +240,7 @@ async function workflow(s) {
     await allowed.dispose();
     await authorized.close();
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
-    const role = `${marker}-no-report`;
+    const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.
     let roleNo;
     s.cleanup(() => {
       fixture.cleanup();
@@ -258,7 +258,9 @@ async function workflow(s) {
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
       VALUES (${q(role)},'_appointment','r',0,${q(provider)});
       DELETE FROM secUserRole WHERE provider_no=${q(fixture.providerNo)};
-      INSERT INTO secUserRole (provider_no, role_name, activeyn) VALUES (${q(fixture.providerNo)}, ${q(role)}, 1)`);
+      INSERT INTO secUserRole (provider_no, role_name, activeyn, lastUpdateDate) VALUES (${q(fixture.providerNo)}, ${q(role)}, 1, NOW())`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}
+      AND objectName='_appointment' AND privilege='r'`) === '1', 'The schedule-only grant was not stored exactly');
     const context = await h.newContext(s.context.browser(), s.config);
     s.cleanup(() => context.close());
     const schedule = await h.login(context, {...s.config, testUser: fixture.username}, s.recorder, {label: 'cdm-no-report'});
