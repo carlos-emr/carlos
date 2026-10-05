@@ -4599,7 +4599,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Code Search Update verifies exact persistence, return to the search with the saved description, reload from storage and preservation of unsaved bill edits. Separately tracked legacy failures remain visible for diagnosis Search Update, code Confirm and Manage Billing Form Add/bill-type/Delete.",
+      "notes": "Records billing administration saves independently. Code Search Update verifies exact persistence, return to search, reload and preservation of unsaved bill edits. Code Confirm fills only the selected correction row, closes without script errors and leaves stored bill items unchanged. Remaining legacy failures include diagnosis Search Update and Manage Billing Form Add/bill-type/Delete.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
