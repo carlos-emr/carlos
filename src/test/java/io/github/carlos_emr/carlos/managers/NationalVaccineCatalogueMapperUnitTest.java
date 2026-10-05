@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +33,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -72,23 +74,39 @@ class NationalVaccineCatalogueMapperUnitTest {
     }
 
     @Test
-    @DisplayName("should store each generic with its synonym as display name and its public picklist term")
+    @DisplayName("should name each active generic by its SNOMED synonym, which is unique, not the shared public picklist term")
     void shouldMapGenerics_whenGenericValueSetPresent() {
         CVCImmunization menC = immunization("7121000087107");
 
         assertThat(catalogue.immunizations().stream().filter(CVCImmunization::isGeneric)).hasSize(3);
         assertThat(menC.isGeneric()).isTrue();
         assertThat(menC.getDisplayName()).isEqualTo("[Men-C-ACYW] Meningococcal conjugate A + C + Y + W vaccine");
-        assertThat(menC.getPicklistName()).isEqualTo("Meningococcal conjugate (Men-C) vaccine");
+        assertThat(menC.getPicklistName()).isEqualTo("[Men-C-ACYW] Meningococcal conjugate A + C + Y + W vaccine");
+        assertThat(menC.getPrevalence()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("should leave a generic without a public picklist term out of the prevention list")
-    void shouldLeavePicklistEmpty_whenGenericHasNoPublicPicklistTerm() {
+    @DisplayName("should keep an inactive generic for lookups but leave it out of the prevention list")
+    void shouldLeavePicklistEmpty_whenGenericIsInactive() {
         CVCImmunization varicella = immunization("108729007");
 
         assertThat(varicella.getDisplayName()).isEqualTo("Varicella virus vaccine");
         assertThat(varicella.getPicklistName()).isNull();
+        assertThat(varicella.getPrevalence()).isZero();
+    }
+
+    @Test
+    @DisplayName("should store a code listed as both a generic and a brand only as the brand")
+    void shouldSkipGeneric_whenItsCodeIsAlsoABrand() {
+        Bundle bundle = new Bundle();
+        bundle.addEntry().setResource(valueSet("Generic", "111", "222"));
+        bundle.addEntry().setResource(valueSet("Tradename", "222"));
+
+        NationalVaccineCatalogueMapper.Catalogue mapped = NationalVaccineCatalogueMapper.map(bundle);
+
+        assertThat(mapped.immunizations())
+                .extracting(CVCImmunization::getSnomedConceptId, CVCImmunization::isGeneric)
+                .containsExactlyInAnyOrder(tuple("111", true), tuple("222", false));
     }
 
     @Test
@@ -99,7 +117,7 @@ class NationalVaccineCatalogueMapperUnitTest {
         assertThat(nimenrixGsk.isGeneric()).isFalse();
         assertThat(nimenrixGsk.getParentConceptId()).isEqualTo("7121000087107");
         assertThat(nimenrixGsk.getDisplayName()).isEqualTo("[Men-C-ACYW] NIMENRIX (GSK)");
-        assertThat(nimenrixGsk.getPicklistName()).isEqualTo("NIMENRIX");
+        assertThat(nimenrixGsk.getPicklistName()).isEqualTo("[Men-C-ACYW] NIMENRIX (GSK)");
         assertThat(catalogue.immunizations().stream()
                 .filter(i -> "7121000087107".equals(i.getParentConceptId()))
                 .map(CVCImmunization::getSnomedConceptId))
@@ -153,6 +171,16 @@ class NationalVaccineCatalogueMapperUnitTest {
         assertThatThrownBy(() -> NationalVaccineCatalogueMapper.map(empty))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Generic or Tradename");
+    }
+
+    private static ValueSet valueSet(String id, String... codes) {
+        ValueSet valueSet = new ValueSet();
+        valueSet.setId(id);
+        ValueSet.ConceptSetComponent include = valueSet.getCompose().addInclude();
+        for (String code : codes) {
+            include.addConcept().setCode(code).setDisplay("Vaccine " + code);
+        }
+        return valueSet;
     }
 
     private static CVCImmunization immunization(String code) {

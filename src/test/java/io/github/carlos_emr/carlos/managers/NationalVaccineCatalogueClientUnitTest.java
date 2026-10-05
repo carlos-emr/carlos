@@ -98,9 +98,20 @@ class NationalVaccineCatalogueClientUnitTest {
     void shouldFail_whenBodyPassesTheLimit() {
         byte[] body = "0123456789".getBytes(StandardCharsets.UTF_8);
 
-        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 9))
+        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 9, farFuture()))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("larger than 9 bytes");
+    }
+
+    @Test
+    @DisplayName("should stop reading once the download deadline has passed")
+    void shouldFail_whenDeadlinePassed() {
+        byte[] body = "0123456789".getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 10,
+                System.nanoTime() - 1))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("took longer than");
     }
 
     @Test
@@ -108,6 +119,10 @@ class NationalVaccineCatalogueClientUnitTest {
     void shouldReadBody_whenAtTheLimit() throws IOException {
         byte[] body = "0123456789".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 10)).isEqualTo("0123456789");
+        assertThat(NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 10, farFuture())).isEqualTo("0123456789");
+    }
+
+    private static long farFuture() {
+        return System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(1);
     }
 }

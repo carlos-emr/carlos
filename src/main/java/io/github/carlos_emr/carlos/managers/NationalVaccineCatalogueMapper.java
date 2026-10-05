@@ -85,7 +85,7 @@ final class NationalVaccineCatalogueMapper {
 
     private static final String SNOMED_FULLY_SPECIFIED_NAME = "900000000000003001";
     private static final String SNOMED_SYNONYM = "900000000000013009";
-    private static final String PUBLIC_PICKLIST = "enPublicPicklist";
+    private static final String ACTIVE = "active";
     private static final String LOT_NUMBER_PROPERTY = "lotNumber";
     private static final String EXPIRY_DATE_PROPERTY = "expiryDate";
 
@@ -123,20 +123,27 @@ final class NationalVaccineCatalogueMapper {
             throw new IllegalArgumentException("NVC bundle has no Generic or Tradename value set");
         }
 
+        List<ConceptReferenceComponent> brands = concepts(tradename);
+        Set<String> brandCodes = new HashSet<>();
+        for (ConceptReferenceComponent concept : brands) {
+            brandCodes.add(concept.getCode());
+        }
         List<CVCImmunization> immunizations = new ArrayList<>();
         for (ConceptReferenceComponent concept : concepts(generic)) {
-            immunizations.add(immunization(concept, true));
+            // The Generic value set also lists some discontinued brands. Storing them twice would
+            // make a lookup by SNOMED code return a generic row with no parent for a brand.
+            if (!brandCodes.contains(concept.getCode())) {
+                immunizations.add(immunization(concept, true));
+            }
         }
         // One medication per brand: the prevention screen lists a brand's lots through the single
         // medication found by its SNOMED code, so splitting a brand by DIN would hide lots.
         Map<String, CVCMedication> medicationsByBrand = new LinkedHashMap<>();
-        for (ConceptReferenceComponent concept : concepts(tradename)) {
+        for (ConceptReferenceComponent concept : brands) {
             CVCImmunization brand = immunization(concept, false);
             brand.setParentConceptId(firstCode(extensionConcept(concept.getExtension(), LINKED_GENERIC_CONCEPT)));
             immunizations.add(brand);
-            if (concept.hasCode()) {
-                medicationsByBrand.putIfAbsent(concept.getCode(), medication(concept, brand.getDisplayName()));
-            }
+            medicationsByBrand.putIfAbsent(concept.getCode(), medication(concept, brand.getDisplayName()));
         }
         int lotNumberCount = lots == null ? 0 : addLotNumbers(lots, medicationsByBrand);
         return new Catalogue(immunizations, new ArrayList<>(medicationsByBrand.values()), lotNumberCount);
@@ -160,13 +167,18 @@ final class NationalVaccineCatalogueMapper {
         CVCImmunization immunization = new CVCImmunization();
         immunization.setSnomedConceptId(concept.getCode());
         immunization.setVersionId(0);
-        String synonym = designation(concept, SNOMED_SYNONYM);
-        String displayName = firstNonBlank(synonym, concept.getDisplay(), designation(concept, SNOMED_FULLY_SPECIFIED_NAME));
+        String displayName = firstNonBlank(designation(concept, SNOMED_SYNONYM), concept.getDisplay(),
+                designation(concept, SNOMED_FULLY_SPECIFIED_NAME));
+        boolean active = ACTIVE.equals(stringValue(concept.getExtension(), CONCEPT_STATUS));
         immunization.setDisplayName(displayName);
-        // A generic without a public picklist term is not offered as a prevention type, as before;
-        // a brand always gets a name for the disambiguation list.
-        String picklist = designation(concept, PUBLIC_PICKLIST);
-        immunization.setPicklistName(generic ? picklist : firstNonBlank(picklist, displayName));
+        // The picklist name becomes the prevention type a generic is offered and recorded as, so it
+        // must be unique. The SNOMED synonym ("[Inf] Influenza quadrivalent vaccine") is, for every
+        // active generic and every brand; NVC's public picklist term is not ("Influenza (flu)
+        // vaccine" covers eleven generics). An inactive generic is kept for lookups by code but
+        // is not offered as a prevention type.
+        immunization.setPicklistName(generic && !active ? null : displayName);
+        // V2 has no prevalence; active concepts sort above inactive ones in catalogue search.
+        immunization.setPrevalence(active ? 1 : 0);
         immunization.setGeneric(generic);
         return immunization;
     }
@@ -184,7 +196,8 @@ final class NationalVaccineCatalogueMapper {
         }
         Coding holder = firstCoding(extensionConcept(concept.getExtension(), MARKET_AUTHORIZATION_HOLDER));
         if (holder != null) {
-            medication.setManufacturerId(holder.getCode());
+            // manufacturerId is an int column and the holder's SNOMED code does not fit; nothing
+            // reads the id, so only the name is kept.
             medication.setManufacturerDisplay(holder.getDisplay());
         }
         return medication;
@@ -196,8 +209,7 @@ final class NationalVaccineCatalogueMapper {
      */
     private static int addLotNumbers(CodeSystem lots, Map<String, CVCMedication> medicationsByBrand) {
         int count = 0;
-        // An unsaved lot's equals() reaches CVCMedication.equals(), which fails without an id, so a
-        // lot repeated under the same brand with the same expiry is never offered to the set twice.
+        // A lot repeated under the same brand with the same expiry is one row, and counted once.
         Set<String> added = new HashSet<>();
         for (ConceptDefinitionComponent lot : lots.getConcept()) {
             String lotNumber = firstNonBlank(stringProperty(lot, LOT_NUMBER_PROPERTY), lotNumberFromCode(lot.getCode()));

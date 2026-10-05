@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.ConnectionConfig;
@@ -52,6 +53,8 @@ class NationalVaccineCatalogueClient {
     static final URI BUNDLE_URI = URI.create(NationalVaccineCatalogueMapper.NVC_BASE + "/Bundle/NVC");
     /** The full bundle was about 9 MB in October 2026. */
     static final int MAX_BUNDLE_BYTES = 64 * 1024 * 1024;
+    /** The whole download, which takes a few seconds; each read also times out on its own. */
+    static final Duration DOWNLOAD_DEADLINE = Duration.ofMinutes(5);
     private static final String FHIR_JSON = "application/fhir+json";
 
     /**
@@ -69,8 +72,11 @@ class NationalVaccineCatalogueClient {
     }
 
     private static CloseableHttpClient newClient() {
+        // System properties so a clinic behind an HTTP proxy (https.proxyHost) can still reach it.
         return HttpClients.custom()
+                .useSystemProperties()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .useSystemProperties()
                         .setDefaultConnectionConfig(ConnectionConfig.custom()
                                 .setConnectTimeout(Timeout.ofSeconds(15))
                                 .setSocketTimeout(Timeout.ofSeconds(120))
@@ -98,7 +104,7 @@ class NationalVaccineCatalogueClient {
             throw new IOException("National Vaccine Catalogue bundle is larger than " + MAX_BUNDLE_BYTES + " bytes");
         }
         try (InputStream body = entity.getContent()) {
-            String json = readBounded(body, MAX_BUNDLE_BYTES);
+            String json = readBounded(body, MAX_BUNDLE_BYTES, System.nanoTime() + DOWNLOAD_DEADLINE.toNanos());
             if (json.isBlank()) {
                 throw new IOException("National Vaccine Catalogue answered with an empty body");
             }
@@ -106,8 +112,8 @@ class NationalVaccineCatalogueClient {
         }
     }
 
-    /** Reads UTF-8 text, failing as soon as it passes {@code maxBytes}. */
-    static String readBounded(InputStream in, int maxBytes) throws IOException {
+    /** Reads UTF-8 text, failing as soon as it passes {@code maxBytes} or the deadline. */
+    static String readBounded(InputStream in, int maxBytes, long deadlineNanos) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[64 * 1024];
         int total = 0;
@@ -116,6 +122,9 @@ class NationalVaccineCatalogueClient {
             total += read;
             if (total > maxBytes) {
                 throw new IOException("National Vaccine Catalogue bundle is larger than " + maxBytes + " bytes");
+            }
+            if (System.nanoTime() - deadlineNanos > 0) {
+                throw new IOException("National Vaccine Catalogue download took longer than " + DOWNLOAD_DEADLINE);
             }
             out.write(buffer, 0, read);
         }

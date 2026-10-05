@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,6 +108,9 @@ class CanadianVaccineCatalogueManagerUnitTest {
         verify(manager.immunizationDao, times(7)).persist(any(CVCImmunization.class));
         verify(manager.medicationDao, times(4)).persist(any(CVCMedication.class));
         verify(manager.lotNumberDao, times(4)).persist(any(CVCMedicationLotNumber.class));
+        InOrder medicationFirst = inOrder(manager.medicationDao, manager.lotNumberDao);
+        medicationFirst.verify(manager.medicationDao).persist(any(CVCMedication.class));
+        medicationFirst.verify(manager.lotNumberDao).persist(any(CVCMedicationLotNumber.class));
         verify(transactionManager, times(1)).commit(any());
         verify(transactionManager, never()).rollback(any());
         ArgumentCaptor<UserProperty> updated = ArgumentCaptor.forClass(UserProperty.class);
@@ -113,6 +118,39 @@ class CanadianVaccineCatalogueManagerUnitTest {
         assertThat(updated.getValue().getName()).isEqualTo("cvc.updated");
         logAction.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
                 eq("CanadianVaccineCatalogueManager.update"), eq("immunizations=7 medications=4 lotNumbers=4")));
+    }
+
+    @Test
+    @DisplayName("should keep each vaccine's ISPA flag from the previous catalogue, since V2 has none")
+    void shouldKeepIspaFlag_whenVaccineWasIspaBefore() throws IOException {
+        CVCImmunization previous = new CVCImmunization();
+        previous.setSnomedConceptId("7121000087107");
+        previous.setIspa(true);
+        when(manager.immunizationDao.findAll(0, 5000)).thenReturn(List.of(previous));
+        when(manager.catalogueClient.fetchBundleJson()).thenReturn(NationalVaccineCatalogueMapperUnitTest.sampleJson());
+
+        manager.update(loggedInInfo);
+
+        ArgumentCaptor<CVCImmunization> saved = ArgumentCaptor.forClass(CVCImmunization.class);
+        verify(manager.immunizationDao, times(7)).persist(saved.capture());
+        assertThat(saved.getAllValues())
+                .filteredOn(CVCImmunization::isIspa)
+                .extracting(CVCImmunization::getSnomedConceptId)
+                .containsExactly("7121000087107");
+    }
+
+    @Test
+    @DisplayName("should roll back and record nothing when saving the new catalogue fails")
+    void shouldRollBack_whenSavingFails() throws IOException {
+        when(manager.catalogueClient.fetchBundleJson()).thenReturn(NationalVaccineCatalogueMapperUnitTest.sampleJson());
+        doThrow(new IllegalStateException("database unavailable")).when(manager.medicationDao).persist(any(CVCMedication.class));
+
+        assertThatThrownBy(() -> manager.update(loggedInInfo)).isInstanceOf(IllegalStateException.class);
+
+        verify(transactionManager).rollback(any());
+        verify(transactionManager, never()).commit(any());
+        verify(manager.userPropertyDao, never()).saveProp(any());
+        logAction.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class), anyString(), anyString()), never());
     }
 
     @Test

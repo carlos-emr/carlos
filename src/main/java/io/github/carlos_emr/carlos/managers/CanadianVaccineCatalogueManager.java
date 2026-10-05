@@ -51,6 +51,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 
+import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationGTINDao;
@@ -157,12 +158,21 @@ public class CanadianVaccineCatalogueManager {
     }
 
     private void replaceCatalogue(NationalVaccineCatalogueMapper.Catalogue catalogue) {
+        // NVC V2 has no Ontario ISPA flag; keep what the previous catalogue recorded per vaccine,
+        // since DHIR consent and ISPA checks read it.
+        Set<String> ispaVaccines = new HashSet<>();
+        for (CVCImmunization existing : immunizationDao.findAll(0, AbstractDao.MAX_LIST_RETURN_SIZE)) {
+            if (existing.isIspa()) {
+                ispaVaccines.add(existing.getSnomedConceptId());
+            }
+        }
         // Children first: lot numbers and GTINs reference their medication.
         lotNumberDao.removeAll();
         gtinDao.removeAll();
         medicationDao.removeAll();
         immunizationDao.removeAll();
         for (CVCImmunization immunization : catalogue.immunizations()) {
+            immunization.setIspa(ispaVaccines.contains(immunization.getSnomedConceptId()));
             immunizationDao.persist(immunization);
         }
         for (CVCMedication medication : catalogue.medications()) {
@@ -202,18 +212,6 @@ public class CanadianVaccineCatalogueManager {
         }
         updated.setValue(new SimpleDateFormat("yyyy-MM-dd").format(new Date()));
         userPropertyDao.saveProp(updated);
-    }
-
-    public void saveImmunization(LoggedInInfo loggedInInfo, CVCImmunization immunization) {
-        immunizationDao.saveEntity(immunization);
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveImmunization",
-                immunization.getId().toString());
-    }
-
-    public void saveMedication(LoggedInInfo loggedInInfo, CVCMedication medication) {
-        persistMedication(medication);
-        LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.saveMedication",
-                medication.getId().toString());
     }
 
     public CVCMedicationLotNumber findByLotNumber(LoggedInInfo loggedInInfo, String lotNumber) {
