@@ -1,6 +1,6 @@
 -- Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
 -- Durable replay protection. Clinical prose remains in the clinician-approved target record.
-CREATE TABLE clinical_chart_update_receipt (
+CREATE TABLE IF NOT EXISTS clinical_chart_update_receipt (
     proposal_key CHAR(64) NOT NULL,
     demographic_no INT NOT NULL,
     document_no INT NOT NULL,
