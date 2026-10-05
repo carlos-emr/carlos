@@ -181,10 +181,14 @@ async function workflow(s) {
         for (const name of ['exactly', 'moreThan', 'lessThan']) await page.locator(`input[name="${name}"]`).nth(row).fill('1');
       }
       await page.locator(`input[name="${dateField}"]`).nth(row).fill('not-a-date');
-      await Promise.all([
+      const [validationResponse] = await Promise.all([
         page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/oscarReport/oscarMeasurements/${route}`) && response.status() === 200),
         page.locator('input[type="submit"][name="submitBtn"]').click(),
       ]);
+      // Response headers arrive before the navigation's HTML body is parsed.
+      // Wait for the returned validation form before inspecting its contents.
+      await validationResponse.finished();
+      await page.locator('.action-errors[role="alert"]').waitFor({state: 'visible'});
       await h.assertNotErrorPage(page, `CDM ${route}`);
       h.assert(await rowOf(page, prefix, type) === row, `${route} lost the owned measurement row`);
       const text = await page.locator('body').innerText();
