@@ -20,7 +20,8 @@ function setup(locale, includeLastName = true) {
   const variables = {};
   for (const [, key, variable] of jsp.matchAll(/<fmt:message key="([^"]+)" var="([^"]+)"\s*\/>/g)) variables[variable] = message(key);
   // Model the JSP message substitution and the declared JavaScript encoder context. The live
-  // browser check exercises the real tag implementation; raw fmt output must fail parsing here.
+  // browser check exercises the real tag, and CarlosEncodeTagUnitTest round-trips both messages
+  // through that tag in every locale; raw fmt output must fail parsing here.
   const source = script.replace(/<fmt:message key='([^']+)'\s*\/>/g, (_, key) => message(key))
     .replace(/<carlos:encode value='\$\{([^}]+)\}' context='javaScriptBlock'\s*\/>/g, (_, variable) => {
       assert.equal(typeof variables[variable], 'string');
