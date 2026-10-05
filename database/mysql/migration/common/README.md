@@ -67,7 +67,7 @@ See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient
 
 `V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
 used by the patient portal client and grants them to `admin` only.
-Versions up to `V1.0.40` are not free: `release/2026.08` holds them and they arrive with that
+Versions up to `V1.0.53` are not free: `release/2026.08` holds them and they arrive with that
 forward-merge.
 
 `V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`

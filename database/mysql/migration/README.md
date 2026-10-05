@@ -53,10 +53,9 @@ migration/
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
 `V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.54`
 (`common/V1.0.54`, shared by both provinces); `common/V1.0.43` (portal invite delivery) is in use
-too. `release/2026.08` holds versions up to
-`V1.0.53` (`common/V1.0.53__decode_diagnostic_description_apostrophes.sql`), which arrive here with
-that line's forward-merge, so the next free number for ANY location — shared or province — is
-`V1.0.55`.
+too. `release/2026.08` holds versions up to `V1.0.53`
+(`common/V1.0.53__decode_diagnostic_description_apostrophes.sql`), which arrive here with that
+line's forward-merge, so the next free number for ANY location — shared or province — is `V1.0.55`.
 The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already

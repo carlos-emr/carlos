@@ -220,11 +220,14 @@ private key: redact the code in screenshots.
 - [ ] Stop the CARLOS mail relay and invite: the delivery shows the mail server refused the email,
       or that it may not have been sent, with what to do next. After the relay returns, a resend
       works and the patient receives only the new code.
-- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS and
-      login normally, then drop the connection during the message itself (after `DATA`) without
-      answering, and invite. A relay that drops the connection before login completes (at the
-      greeting, STARTTLS or login) gives *The mail server refused the email* instead, which offers
-      no decision. The delivery shows *The email may not have been sent*. After 15 minutes, the
+- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS,
+      login, `MAIL FROM` and `RCPT TO` normally, answer `DATA` with `354` and take the message,
+      then drop the connection without replying to the final `.`, and invite. The delivery shows
+      *The email may not have been sent*. An earlier failure usually gives *The mail server refused
+      the email* instead, which offers no decision: any drop at the greeting, STARTTLS or login, a
+      clean close in reply to `MAIL FROM` or `DATA`, or an error reply to any command before the
+      message. A connection reset at `MAIL FROM`, `RCPT TO` or `DATA`, or any drop at `RCPT TO`,
+      also leaves the outcome unknown. After 15 minutes, the
       Invitation deliveries panel offers **It arrived** and **It did not arrive; revoke it**, and
       resolving it behaves as described in `patient-portal-client-security.md`. Stopping the portal is not a way to reach this state:
       stopped before the invitation, no attempt is recorded; stopped while the invitation is being
