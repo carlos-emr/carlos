@@ -123,7 +123,9 @@ public class SmsSendService {
             return result;
         } catch (RuntimeException releaseFailure) {
             // Keep the original failure as the one reported; stale recovery still covers the row.
-            failure.addSuppressed(releaseFailure);
+            if (releaseFailure != failure) {
+                failure.addSuppressed(releaseFailure);
+            }
             throw failure;
         }
     }

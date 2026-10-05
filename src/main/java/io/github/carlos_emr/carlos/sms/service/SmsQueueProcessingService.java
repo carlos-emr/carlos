@@ -129,8 +129,7 @@ public class SmsQueueProcessingService {
                 } else if (!decision.allowed()) {
                     transactionRecorder.markConsentBlocked(claimed, decision);
                     processed++;
-                } else if (!rateLimiter.tryAcquire(providerType)) {
-                    transactionRecorder.releaseClaim(claimed, new Date());
+                } else if (!acquirePermit(claimed, providerType)) {
                     shouldContinue = false;
                 } else {
                     DispatchOutcome outcome = sendOnRecordedConsent(claimed, decision);
@@ -144,6 +143,40 @@ public class SmsQueueProcessingService {
             }
         }
         return processed;
+    }
+
+    /**
+     * Takes a rate-limit permit for a claimed row. Without one nothing is sent, so the claim is handed back and
+     * the row stays QUEUED and due, as on the direct-send path. A limiter or hand-back failure ends this
+     * provider's drain only, never the whole run: if the hand-back fails, the row stays SENDING and stale
+     * recovery reconciles it.
+     *
+     * @return true when a permit was taken
+     */
+    private boolean acquirePermit(SmsTransaction claimed, SmsProviderType providerType) {
+        RuntimeException limiterFailure = null;
+        try {
+            if (rateLimiter.tryAcquire(providerType)) {
+                return true;
+            }
+        } catch (RuntimeException e) {
+            limiterFailure = e;
+        }
+        try {
+            transactionRecorder.releaseClaim(claimed, new Date());
+        } catch (RuntimeException releaseFailure) {
+            if (limiterFailure != null && limiterFailure != releaseFailure) {
+                releaseFailure.addSuppressed(limiterFailure);
+            }
+            LOGGER.warn("SMS transaction {} not sent: no rate-limit permit, and its claim could not be handed back;{}",
+                    claimed.getId(), LogSafe.exceptionTrace(releaseFailure));
+            return false;
+        }
+        if (limiterFailure != null) {
+            LOGGER.warn("SMS transaction {} not sent: the rate limiter failed, so its claim release was requested;{}",
+                    claimed.getId(), LogSafe.exceptionTrace(limiterFailure));
+        }
+        return false;
     }
 
     /**

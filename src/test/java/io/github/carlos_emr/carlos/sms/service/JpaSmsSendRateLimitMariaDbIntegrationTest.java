@@ -36,7 +36,10 @@ import org.springframework.transaction.annotation.AnnotationTransactionAttribute
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.time.Clock;
@@ -53,6 +56,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,6 +79,7 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-01T12:00:00Z"), ZoneOffset.UTC);
     private static final int LIMIT = 5;
     private static final int WORKERS = 12;
+    private static final Path COMMON_MIGRATIONS = Path.of("database", "mysql", "migration", "common");
     private final String schema = "sms_limiter_test_" + UUID.randomUUID().toString().replace("-", "");
     private Connection admin;
     private SessionFactory entityManagerFactory;
@@ -100,9 +106,9 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         }
         schemaUrl = serverUrl + schema;
         try (Connection fixture = DriverManager.getConnection(schemaUrl, user, password)) {
-            executeMigrationStatement(fixture, "V1.0.25__add_sms_system_of_record.sql", "CREATE TABLE sms_transaction (");
-            executeMigrationStatement(fixture, "V1.0.25__add_sms_system_of_record.sql", "CREATE TABLE sms_provider_rate_limit (");
-            executeMigrationStatement(fixture, "V1.0.32__add_sms_consent.sql", "ALTER TABLE sms_transaction");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_transaction (");
+            executeMigrationStatement(fixture, "add_sms_system_of_record", "CREATE TABLE sms_provider_rate_limit (");
+            executeMigrationStatement(fixture, "add_sms_consent", "ALTER TABLE sms_transaction");
         }
         entityManagerFactory = new Configuration().addAnnotatedClass(SmsProviderRateLimit.class)
                 .addAnnotatedClass(SmsTransaction.class)
@@ -417,15 +423,23 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         }
     }
 
-    private void executeMigrationStatement(Connection fixture, String filename, String marker) throws Exception {
-        try (var resource = getClass().getClassLoader().getResourceAsStream("db/migration/common/" + filename)) {
-            assertThat(resource).isNotNull();
-            String sql = new String(resource.readAllBytes(), StandardCharsets.UTF_8);
-            int start = sql.indexOf(marker);
-            assertThat(start).isNotNegative();
-            try (var statement = fixture.createStatement()) {
-                statement.execute(sql.substring(start, sql.indexOf(';', start)));
-            }
+    private void executeMigrationStatement(Connection fixture, String migrationName, String marker) throws Exception {
+        String sql = Files.readString(commonMigration(migrationName), StandardCharsets.UTF_8);
+        int start = sql.indexOf(marker);
+        assertThat(start).isNotNegative();
+        try (var statement = fixture.createStatement()) {
+            statement.execute(sql.substring(start, sql.indexOf(';', start)));
+        }
+    }
+
+    /** The one common migration named {@code V1.0.<n>__<name>.sql}; the number is not pinned, since it is set at merge. */
+    private static Path commonMigration(String name) throws IOException {
+        try (Stream<Path> files = Files.list(COMMON_MIGRATIONS)) {
+            List<Path> candidates = files
+                    .filter(p -> p.getFileName().toString().matches("V1\\.0\\.\\d+__" + Pattern.quote(name) + "\\.sql"))
+                    .toList();
+            assertThat(candidates).as("exactly one %s migration", name).hasSize(1);
+            return candidates.get(0);
         }
     }
 
