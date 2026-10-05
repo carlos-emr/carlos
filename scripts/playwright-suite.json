@@ -4161,7 +4161,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link, and the Ontario Billing Settings Save (no options shown) writes NULL rows for the BC-only property keys and invoice SystemPreferences. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
+      "notes": "Ontario Billing Settings has no Save control; explicit POSTs preserve BC-only property and invoice preference rows byte-exact. Administration Help uses the saved website, preserves literal markup in its URL, and refuses executable or malformed URLs. Website, Details, day-sheet and shell paths remain covered. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
