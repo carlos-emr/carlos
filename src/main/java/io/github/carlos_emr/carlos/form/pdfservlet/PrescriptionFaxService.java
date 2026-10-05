@@ -60,6 +60,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * <p>Only {@code io.github.carlos_emr.carlos.prescript.pageUtil.RxFaxPrescription2Action}, which
  * refuses anything but POST, calls it. It was moved out of {@link FrmCustomedPDFServlet}, which used to
  * answer a fax on any HTTP method (issue #3108).</p>
+ *
+ * @since 2026-07-06 (extracted from FrmCustomedPDFServlet)
  */
 @Service
 public class PrescriptionFaxService {

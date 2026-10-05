@@ -66,6 +66,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@code fax-failure} (nothing was queued, safe to retry) or {@code fax-uncertain} (the job may already be
  * queued). The status says the same thing: 200 queued, 400 bad request, 401 no session, 403 not allowed,
  * 409 the prescription cannot be faxed as it stands, 500 failed, 503 outcome unknown.</p>
+ *
+ * @since 2026-07-06
  */
 public class RxFaxPrescription2Action extends ActionSupport {
 
