@@ -66,6 +66,7 @@ async function workflow(s) {
     {context, recorder: s.recorder, label: 'settings-administration', timeout: TIMEOUT});
   let daySheet = isPopup ? s.schedule : null;
   async function openSection(link, path) {
+    await admin.waitForLoadState('load');
     await revealAuditLink(admin, link, TIMEOUT);
     await link.click();
     const deadline = Date.now() + TIMEOUT;

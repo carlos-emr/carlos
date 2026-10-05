@@ -333,7 +333,7 @@
                                data-help-url="${carlos:forHtmlAttribute(clinicHelpUrl)}"
                                onclick="if (!this.dataset.helpUrl.trim()) return false;
                                    try {
-                                   var helpUrl = new URL(this.dataset.helpUrl, window.location.href);
+                                   var helpUrl = new window.URL(this.dataset.helpUrl, window.location.href);
                                    if (helpUrl.protocol === 'https:' || helpUrl.protocol === 'http:') {
                                        popupPage(600,750,helpUrl.href);
                                    }

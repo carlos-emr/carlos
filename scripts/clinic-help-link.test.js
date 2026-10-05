@@ -11,8 +11,9 @@ const handler = page.match(/data-help-url="[^\n]+"\s+onclick="([\s\S]*?)">/)[1];
 function openHelp(value) {
   const opened = [];
   const click = vm.runInNewContext(`(function () { ${handler} })`, {
-    URL,
-    window: {location: {href: 'https://clinic.invalid/carlos/administration'}},
+    // Inline event handlers resolve document.URL before the window constructor.
+    URL: 'https://clinic.invalid/carlos/administration',
+    window: {URL, location: {href: 'https://clinic.invalid/carlos/administration'}},
     popupPage: (height, width, url) => opened.push({height, width, url}),
   });
   assert.equal(click.call({dataset: {helpUrl: value}}), false);
