@@ -22,7 +22,9 @@
  * Fixtures: the owned synthetic patient, one marker tickler on it, one marker
  * suggested-text row (plus any row the save writes on this run's behalf), and a
  * throwaway login holding a marker role with only _appointment, _tickler and _msg r; all
- * removed and verified by cleanup. encounter/ViewTimeOut has no UI entry and is not
+ * removed and verified by cleanup. Existing inactive suggestions are temporarily activated
+ * to establish an empty Inactive list, then restored exactly; run only on a disposable VM with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true.
+ * encounter/ViewTimeOut has no UI entry and is not
  * driven.
  */
 const h = require('./lib/playwright-harness');
@@ -71,6 +73,8 @@ async function searchTicklers(page, needle) {
 }
 
 async function workflow(s) {
+  h.assert(process.env.CARLOS_DISPOSABLE_VM === 'true', 'The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
+  h.assert(process.env.EXCLUSIVE === '1', 'The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
   const { sql, context, config, recorder, patient, provider, marker } = s;
   const contexts = [];
   s.cleanup(async () => { for (const ctx of contexts) await ctx.close().catch(() => {}); });
@@ -136,9 +140,25 @@ async function workflow(s) {
   });
   const suggestion = `${marker} suggestion`;
   const suggestionsBefore = sql.value('SELECT COALESCE(MAX(id),0) FROM tickler_text_suggest');
+  // Suggested text is clinic-wide. Temporarily activate existing inactive rows so
+  // the empty-list case is deterministic, then restore their original flags.
+  // This workflow runs exclusively; existing text, creators and dates are never rewritten.
+  const existingSuggestions = () => JSON.stringify(sql.rows(`SELECT id,suggested_text,active,creator,create_date
+    FROM tickler_text_suggest WHERE id<=${suggestionsBefore} ORDER BY id`));
+  const suggestionsSnapshot = existingSuggestions();
+  const inactiveIds = sql.rows('SELECT id FROM tickler_text_suggest WHERE active=0').map(([id]) => id);
+  h.assert(inactiveIds.every(id => /^[1-9]\d*$/.test(id)), 'Existing suggestion id is invalid');
+  s.cleanup(() => {
+    if (inactiveIds.length) sql.execute(`UPDATE tickler_text_suggest SET active=0,create_date=create_date WHERE id IN (${inactiveIds.join(',')})`);
+    h.assert(existingSuggestions() === suggestionsSnapshot, 'Existing suggestions were not restored exactly');
+  });
+  if (inactiveIds.length) sql.execute(`UPDATE tickler_text_suggest SET active=1,create_date=create_date WHERE id IN (${inactiveIds.join(',')})`);
+  h.assert(sql.value('SELECT COUNT(*) FROM tickler_text_suggest WHERE active=0') === '0',
+    'The empty Inactive list fixture was not established');
+
   // Rows the editor save writes for this run: the marker text, and any blank row it
   // creates on this provider's behalf (asserted against in the last step).
-  const ownedSuggestions = `id>${suggestionsBefore} AND creator=${h.sqlString(provider)} AND suggested_text IN (${h.sqlString(suggestion)},'')`;
+  const ownedSuggestions = `id>${suggestionsBefore} AND creator=${h.sqlString(provider)} AND suggested_text IN (${h.sqlString(suggestion)},'','0')`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM tickler_text_suggest WHERE ${ownedSuggestions}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler_text_suggest WHERE ${ownedSuggestions}`) === '0', 'Owned suggested text was not removed');
@@ -271,7 +291,7 @@ async function workflow(s) {
 
   await s.step('the Suggested Text save wrote no blank suggestion', async () => {
     await expectValue(sql, `SELECT COUNT(*) FROM tickler_text_suggest WHERE id>${suggestionsBefore} AND creator=${h.sqlString(provider)}
-      AND suggested_text=''`, '0', 'Saving the Suggested Text editor with an empty Inactive list wrote a blank inactive suggestion row');
+      AND suggested_text IN ('','0')`, '0', 'Saving the Suggested Text editor with an empty Inactive list wrote a blank or placeholder suggestion row');
   });
 }
 

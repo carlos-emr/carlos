@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 @DisplayName("Measurements.jsp output encoding regressions")
 @Tag("unit")
 @Tag("clinical")
-class MeasurementsJspEncodingRegressionTest {
+class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     private static final int MAX_PARENT_SEARCH_DEPTH = 8;
     private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{([^}]*)}");
@@ -43,7 +43,7 @@ class MeasurementsJspEncodingRegressionTest {
             Pattern.compile("<%=\\s*+((?:[^%]++|%(?!>))*+)%>");
     private static final Pattern ATTRIBUTE_START = Pattern.compile("([\\w:-]+)\\s*=\\s*([\"'])");
     private static final Pattern CONTROL_EXPRESSION = Pattern.compile(
-            "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastMInstrc"
+            "(?:empty css|not empty css|not empty groupName|not empty measurementType\\.lastData"
                     + "|fn:split\\(measurementType\\.measuringInstrc\\.substring\\(12\\), ','\\)"
                     + "|measurementType\\.measuringInstrc\\.startsWith\\('Choose radio'\\)"
                     + "|measurementTypes\\.measurementTypeVector|sessionScope\\[attributeName]\\.measuringInstructionList)");

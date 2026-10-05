@@ -325,27 +325,12 @@
             form.submit();
         }
 
-        newBrowser = (document.getElementById) ? 1 : 0;
-
         function onChangeSelect() {
-            if (newBrowser) {
-                //me.style.backgroundColor='red';
-                if (document.myform2.roleUserGroup.selectedIndex == 0) {
-                    document.myform2.roleUserGroup1.style.backgroundColor = 'white';
-                    document.myform2.roleUserGroup1.style.color = 'black';
-                    //document.myform2.roleUserGroup1.style.visibility = 'hidden';
-                } else {
-                    document.myform2.roleUserGroup1.style.backgroundColor = 'silver';
-                    document.myform2.roleUserGroup1.style.color = 'silver';
-                }
-                if (document.myform2.objectName.selectedIndex == 0) {
-                    document.myform2.objectName1.style.backgroundColor = 'white';
-                    document.myform2.objectName1.style.color = 'black';
-                } else {
-                    document.myform2.objectName1.style.backgroundColor = 'silver';
-                    document.myform2.objectName1.style.color = 'silver';
-                }
-            }
+            const fields = document.forms.namedItem('myform2').elements;
+            const roleSelected = fields.namedItem('roleUserGroup').value !== '';
+            const provider = fields.namedItem('roleUserGroup1');
+            provider.style.backgroundColor = roleSelected ? 'silver' : 'white';
+            provider.style.color = roleSelected ? 'silver' : 'black';
         }
 
         // -->

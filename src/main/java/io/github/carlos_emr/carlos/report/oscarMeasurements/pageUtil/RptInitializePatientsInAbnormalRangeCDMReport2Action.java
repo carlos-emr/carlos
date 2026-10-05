@@ -48,17 +48,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends ActionSupport {
+    private static final String INVALID_VALUE_MESSAGE = "oscarReport.CDMReport.msgInvalidValue";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -75,8 +73,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
         if (!validateForm()) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsInAbnormalRangeCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         if (patientSeenCheckbox != null) {
@@ -135,22 +133,22 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 if (new RptCheckGuideline().getValidation(measurementType) == 1
                         && (RptCheckGuideline.numericValue(upper) == null
                         || RptCheckGuideline.numericValue(lower) == null)) {
-                    addActionError(getText("errors.invalid", measurementType));
+                    addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{measurementType}));
                     valid = false;
                     continue;
                 }
                 // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
                 int iNumMInstrc = selection.instructionCount(ctr);
-                String upperMsg = "The upper bound value of " + measurementType;
-                String lowerMsg = "The lower bound value of " + measurementType;
+                String upperMsg = getText("oscarReport.CDMReport.msgUpperBound", new String[]{measurementType});
+                String lowerMsg = getText("oscarReport.CDMReport.msgLowerBound", new String[]{measurementType});
 
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
 
                     valid = false;
                 }
@@ -173,19 +171,19 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                         }
 
                         if (!ectValidation.isInRange(dMax, dMin, upper)) {
-                            addActionError(getText("errors.range", new String[]{upperMsg, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{upperMsg, Double.toString(dMin), Double.toString(dMax)}));
 
                             valid = false;
                         } else if (!ectValidation.isInRange(dMax, dMin, lower)) {
-                            addActionError(getText("errors.range", new String[]{lowerMsg, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{lowerMsg, Double.toString(dMin), Double.toString(dMax)}));
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, upper)) {
-                            addActionError(getText("errors.invalid", new String[]{upperMsg}));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{upperMsg}));
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, lower)) {
-                            addActionError(getText("errors.invalid", lowerMsg));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{lowerMsg}));
 
                             valid = false;
                         } else if (!ectValidation.isValidBloodPressure(regExp, upper)) {

@@ -205,6 +205,20 @@ async function workflow(s) {
     h.assert(await option.count() === 1, 'No professional specialist is offered to match');
     const specialistId = await option.getAttribute('value');
     await keys.locator('#selectProfessionalSpecialistList').selectOption(specialistId);
+    const matching = () => sql.value(`SELECT COALESCE(matchingProfessionalSpecialistId,'') FROM publicKeys WHERE service=${h.sqlString(service)}`);
+    const before = matching();
+    const route = h.appUrl(s.config.baseUrl, '/admin/ViewKeygenUpdateMatchingProfessionalSpecialist');
+    for (const method of ['GET', 'HEAD']) {
+      const response = await s.context.request.fetch(route, {method,
+        params: {serviceName: service, professionalSpecialistId: specialistId}, maxRedirects: 0});
+      h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} did not refuse specialist mutation`);
+      await response.dispose();
+      h.assert(matching() === before, `${method} changed the specialist`);
+    }
+    const refused = await s.context.request.post(route,
+      {form: {serviceName: service, professionalSpecialistId: specialistId}, maxRedirects: 0});
+    h.assert(refused.status() === 403 && matching() === before, 'An update without CSRF was not refused without changes');
+    await refused.dispose();
     let update;
     const dialogs = await h.withExpectedDialogs(admin, async () => {
       [update] = await Promise.all([
