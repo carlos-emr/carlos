@@ -117,6 +117,11 @@
         function addToList(listName, srcId) {
             var dst = document.getElementsByName(listName)[0];
             var src = document.getElementById(srcId);
+            if (src.value.trim() === "") {
+                src.focus();
+                return;
+            }
+            var optionClass = dst.options.length ? dst.options[dst.options.length - 1].className : "";
             //if dst has dummy clobber it with new options
             if (dst.options[0].value == "0")
                 dst.remove(0);
@@ -125,11 +130,11 @@
                 dst.add(opt);
                 dst.options[dst.options.length - 1].text = src.value;
                 dst.options[dst.options.length - 1].value = src.value;
-                dst.options[dst.options.length - 1].className = dst.options[dst.options.length - 2].className;
+                dst.options[dst.options.length - 1].className = optionClass;
             } catch (e) { //firefox method of adding option
                 opt.text = src.value;
                 opt.value = src.value;
-                opt.className = dst.options[dst.options.length - 2].className;
+                opt.className = optionClass;
                 dst.add(opt, null);
                 dst.options[dst.options.length - 1].selected = false;
             }
@@ -169,7 +174,7 @@
                         <% java.util.List<TicklerTextSuggest> activeTexts = ticklerTextSuggestDao.getActiveTicklerTextSuggests();
                             if (activeTexts.isEmpty()) {
                         %>
-                        <option value=""></option>
+                        <option value="0"></option>
                         <% } else {
 
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
@@ -196,7 +201,7 @@
                             java.util.List<TicklerTextSuggest> inactiveTexts = ticklerTextSuggestDao.getInactiveTicklerTextSuggests();
                             if (inactiveTexts.isEmpty()) {
                         %>
-                        <option value=""></option>
+                        <option value="0"></option>
                         <%
                         } else {
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {

@@ -4448,9 +4448,10 @@
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
-        "MYSQL_PASSWORD"
+        "MYSQL_PASSWORD",
+        "EXCLUSIVE"
       ],
-      "fixtures": "Owned patient, an owned suggested-text row and a throwaway read-only tickler login; the session is ended from a second context sharing the cookie."
+      "fixtures": "Owned patient, suggested-text row and throwaway read-only tickler login. Existing inactive suggestions are temporarily activated to test an empty Inactive list and restored exactly; run EXCLUSIVE=1. The session is ended from a second context sharing the cookie."
     },
     {
       "name": "workflow-tickler-suggested-text",

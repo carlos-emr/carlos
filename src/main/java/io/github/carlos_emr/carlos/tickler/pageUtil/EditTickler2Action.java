@@ -326,6 +326,10 @@ public class EditTickler2Action extends ActionSupport {
 
 
         for (String activeTextStr : activeText) {
+            // Empty lists submit a blank option; moving the last item leaves the UI's "0" placeholder.
+            if (activeTextStr == null || activeTextStr.isBlank() || "0".equals(activeTextStr)) {
+                continue;
+            }
             Integer textSuggestId = null;
             try {
                 textSuggestId = Integer.parseInt(activeTextStr);
@@ -353,6 +357,10 @@ public class EditTickler2Action extends ActionSupport {
 
 
         for (String inactiveTextStr : inactiveText) {
+            // Empty lists submit a blank option; moving the last item leaves the UI's "0" placeholder.
+            if (inactiveTextStr == null || inactiveTextStr.isBlank() || "0".equals(inactiveTextStr)) {
+                continue;
+            }
             Integer textSuggestId = null;
             try {
                 textSuggestId = Integer.parseInt(inactiveTextStr);
