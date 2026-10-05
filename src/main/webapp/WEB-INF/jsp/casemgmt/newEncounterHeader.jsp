@@ -240,7 +240,7 @@ function fallbackCopy(text) {
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
     <c:if test="${summaryPrototypeEnabled}">
-        <div><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}">Patient overview</a></div>
+        <div><a target="_blank" rel="noopener noreferrer" href="${carlos:forHtmlAttribute(ctx)}/clinical/AiSummaryPrototype?demographicNo=${carlos:forHtmlAttribute(summaryDemographicNo)}"><fmt:message key="clinical.aiSummaryPrototype.labelPatientOverview"/></a></div>
     </c:if>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>

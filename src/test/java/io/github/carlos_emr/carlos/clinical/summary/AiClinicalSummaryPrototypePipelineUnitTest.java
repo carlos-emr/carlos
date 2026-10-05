@@ -5,8 +5,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -28,6 +33,10 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
     private boolean namesStaff;
     private boolean duplicateIds;
     private int slowMs;
+    /** Counted down as each agent call starts, so a test can act while passes are in flight. */
+    private CountDownLatch callsStarted;
+    /** When set, each agent call waits here until released or interrupted. */
+    private CountDownLatch release;
     private JsonNode repairRequest;
     private String repairReply;
     private java.util.Map<String, String> classes;
@@ -40,6 +49,14 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
             synchronized (requests) {
                 requests.add(request.deepCopy());
                 call = requests.size();
+            }
+            if (callsStarted != null) callsStarted.countDown();
+            if (release != null) {
+                try {
+                    release.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
             }
             if (slowMs > 0) {
                 try {
@@ -359,6 +376,75 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
         assertThat(passes).isGreaterThan(2);
         long elapsedMs = (System.nanoTime() - started) / 1_000_000;
         assertThat(elapsedMs).isLessThan((long) passes * slowMs);
+    }
+
+    @Test
+    void shouldStopQueuedPassesAndKeepInterruptFlag_whenParallelGenerationIsInterrupted() throws Exception {
+        ObjectNode snapshot = JSON.valueToTree(new ClinicalSummaryArtifact(chart(60)).getView());
+        // Stands in for the service's prompt and schema, so the chart needs more passes than the pool runs at once.
+        ObjectNode request = JSON.createObjectNode().put("contract_version", 1).put("request_id", "interrupt-test")
+                .put("instructions", "Summarize the recorded sources. ".repeat(320));
+        request.set("sources", snapshot.get("sources").deepCopy());
+        new ClinicalSummaryGenerationPipeline(agent, null, null).generate(snapshot.deepCopy(), request.deepCopy());
+        int passes = requests.size();
+        assertThat(passes).isGreaterThan(ClinicalSummaryGenerationPipeline.PARALLEL_PASSES);
+        requests.clear();
+
+        // Each call blocks until released, so exactly PARALLEL_PASSES calls are in flight when the
+        // interrupt arrives, however slowly the workers are scheduled; only the interrupt frees them.
+        release = new CountDownLatch(1);
+        callsStarted = new CountDownLatch(ClinicalSummaryGenerationPipeline.PARALLEL_PASSES);
+        AtomicReference<Throwable> thrown = new AtomicReference<>();
+        AtomicBoolean interruptedOnReturn = new AtomicBoolean();
+        Thread caller = new Thread(() -> {
+            try {
+                new ClinicalSummaryGenerationPipeline(agent, null, null).generate(snapshot.deepCopy(), request.deepCopy());
+            } catch (Throwable failure) {
+                thrown.set(failure);
+            } finally {
+                interruptedOnReturn.set(Thread.currentThread().isInterrupted());
+            }
+        }, "summary-interrupt-test");
+        int callsAtReturn;
+        try {
+            caller.start();
+            assertThat(callsStarted.await(10, TimeUnit.SECONDS)).as("parallel passes started").isTrue();
+            caller.interrupt();
+            caller.join(10_000);
+
+            assertThat(caller.isAlive()).as("generate returned").isFalse();
+            // The collection loop's InterruptedException branch fired, not run()'s pre-call check.
+            assertThat(thrown.get()).isInstanceOf(IOException.class).isNotInstanceOf(InterruptedIOException.class)
+                    .hasMessage("Generation interrupted").hasCauseInstanceOf(InterruptedException.class);
+            assertThat(interruptedOnReturn.get()).as("interrupt flag restored for the caller").isTrue();
+            synchronized (requests) { callsAtReturn = requests.size(); }
+            // Only the in-flight passes reached the agent; queued passes were dropped.
+            assertThat(callsAtReturn).isEqualTo(ClinicalSummaryGenerationPipeline.PARALLEL_PASSES).isLessThan(passes);
+        } finally {
+            // Never leave a stub call parked, even when an assertion above fails.
+            release.countDown();
+        }
+        // ExecutorService.close() waited for the pool, so releasing the stub cannot start another call.
+        synchronized (requests) { assertThat(requests).hasSize(callsAtReturn); }
+    }
+
+    @Test
+    void shouldNotCallTheAgent_whenThePassStartsOnAnInterruptedThread() throws Exception {
+        ObjectNode snapshot = JSON.valueToTree(new ClinicalSummaryArtifact(chart(1)).getView());
+        ObjectNode request = JSON.createObjectNode().put("contract_version", 1).put("request_id", "interrupted-before-call");
+        request.set("sources", snapshot.get("sources").deepCopy());
+        ClinicalSummaryGenerationPipeline pipeline = new ClinicalSummaryGenerationPipeline(agent, null, null);
+
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> pipeline.generate(snapshot, request))
+                    .isInstanceOf(InterruptedIOException.class).hasMessage("Generation interrupted");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            // Clear the flag so it cannot leak into later tests on this worker thread.
+            Thread.interrupted();
+        }
+        assertThat(requests).isEmpty();
     }
 
     @Test
