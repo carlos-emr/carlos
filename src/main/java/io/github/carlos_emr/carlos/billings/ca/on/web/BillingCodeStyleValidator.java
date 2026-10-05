@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import com.google.common.base.Ascii;
 import java.util.Set;
+import java.util.HashSet;
 
 /** Validates the presentation declarations supported by the billing style editor without rewriting them. */
 final class BillingCodeStyleValidator {
@@ -45,12 +46,22 @@ final class BillingCodeStyleValidator {
                 case "font-style" -> value.matches("normal|italic|oblique");
                 case "font-variant" -> value.matches("normal|small-caps");
                 case "font-weight" -> value.matches("normal|bold|bolder|lighter|[1-9]00");
-                case "text-decoration" -> value.matches("none|(?:underline|overline|line-through)(?:\\s+(?:underline|overline|line-through))*");
+                case "text-decoration" -> isTextDecoration(value);
                 default -> false;
             };
             if (!supported) return false;
             found = true;
         }
         return found;
+    }
+
+    /** CSS allows each line-decoration keyword only once, or the single keyword none. */
+    private static boolean isTextDecoration(String value) {
+        if (value.equals("none")) return true;
+        Set<String> seen = new HashSet<>();
+        for (String word : value.split("\\s+")) {
+            if (!Set.of("underline", "overline", "line-through").contains(word) || !seen.add(word)) return false;
+        }
+        return !seen.isEmpty();
     }
 }
