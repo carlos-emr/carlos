@@ -139,7 +139,7 @@ public class SmsQueueProcessingService {
                     }
                     // A write failure is unlikely to be about one row; stop rather than strand the rest of
                     // the queue SENDING one row at a time.
-                    shouldContinue = outcome != DispatchOutcome.SNAPSHOT_WRITE_FAILED;
+                    shouldContinue = outcome != DispatchOutcome.WRITE_FAILED;
                 }
             }
         }
@@ -147,29 +147,32 @@ public class SmsQueueProcessingService {
     }
 
     /**
-     * Sends a claimed row once its audit snapshot names the consent record this dispatch relied on. The
-     * admission snapshot is usually still current and costs no write.
+     * Sends a claimed row once its claim is renewed and its audit snapshot names the consent record this
+     * dispatch relied on. The admission snapshot is usually still current and costs no write.
      *
      * @return {@link DispatchOutcome#SENT} once the send was attempted; otherwise nothing was sent
      */
     private DispatchOutcome sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision) {
-        SmsTransaction recorded = claimed;
-        // A permit naming no consent state never counts as already recorded, even against an empty snapshot;
-        // the row refuses to record it, so it ends below as not sent.
-        if (decision.consentStatus() == null || !claimed.hasConsentSnapshot(decision)) {
-            try {
-                recorded = transactionRecorder.recordConsentDecision(claimed, decision);
-            } catch (SmsTransactionClaimConflictException e) {
-                // The row changed or vanished under the claim, so whoever changed it decides what happens
-                // next. The recorder logs why the write was dropped.
-                return DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
-            } catch (RuntimeException e) {
-                // The row stays SENDING, and stale recovery will fail it for manual review unless the SMS
-                // provider can confirm by lookup that it never received the message.
-                LOGGER.warn("SMS transaction {} not sent: its dispatch-time consent could not be recorded;{}",
-                        claimed.getId(), LogSafe.exceptionTrace(e));
-                return DispatchOutcome.SNAPSHOT_WRITE_FAILED;
+        SmsTransaction recorded;
+        try {
+            // The permit wait can outlast the stale-send timeout, and another worker run's stale recovery may
+            // then have taken the row over and found it unsent at the SMS provider.
+            recorded = transactionRecorder.renewClaim(claimed, new Date());
+            // A permit naming no consent state never counts as already recorded, even against an empty
+            // snapshot; the row refuses to record it, so it ends below as not sent.
+            if (decision.consentStatus() == null || !recorded.hasConsentSnapshot(decision)) {
+                recorded = transactionRecorder.recordConsentDecision(recorded, decision);
             }
+        } catch (SmsTransactionClaimConflictException e) {
+            // The row changed or vanished under the claim, so whoever changed it decides what happens
+            // next. The recorder logs why the write was dropped.
+            return DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
+        } catch (RuntimeException e) {
+            // The row stays SENDING, and stale recovery will fail it for manual review unless the SMS
+            // provider can confirm by lookup that it never received the message.
+            LOGGER.warn("SMS transaction {} not sent: its claim or dispatch-time consent could not be recorded;{}",
+                    claimed.getId(), LogSafe.exceptionTrace(e));
+            return DispatchOutcome.WRITE_FAILED;
         }
         processTransaction(recorded);
         return DispatchOutcome.SENT;
@@ -181,8 +184,11 @@ public class SmsQueueProcessingService {
         SENT,
         /** The row changed or vanished under the claim: nothing sent, and the next row may be tried. */
         ROW_CHANGED_UNDER_CLAIM,
-        /** The consent snapshot could not be written: nothing sent, and draining stops for this run. */
-        SNAPSHOT_WRITE_FAILED
+        /**
+         * The claim renewal or consent snapshot could not be written: nothing sent, and draining stops for
+         * this run.
+         */
+        WRITE_FAILED
     }
 
     /**

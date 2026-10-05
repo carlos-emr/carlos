@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDaoImpl;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
+import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
@@ -50,7 +51,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -60,9 +60,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Opt-in MariaDB regression for locks that H2 cannot reproduce. Set SMS_TEST_DB_URL to a server URL
  * using the project's MySQL JDBC driver and ending in '/' (for example jdbc:mysql://localhost:3306/), plus SMS_TEST_DB_USER and
- * SMS_TEST_DB_PASSWORD. The account needs CREATE/DROP DATABASE privileges. Only a unique temporary
- * schema is written, and it is dropped afterwards. Requires MariaDB with snapshot isolation enabled.
- * Runs the production DAOs and Spring transaction boundaries, including direct-send claim release.
+ * SMS_TEST_DB_PASSWORD. The account needs CREATE/DROP DATABASE privileges, and PROCESS to read InnoDB
+ * lock waits. Only a unique temporary schema is written, and it is dropped afterwards. Requires MariaDB
+ * with snapshot isolation enabled. Runs the production DAOs and Spring transaction boundaries, including
+ * direct-send claim release and claim renewal after a long permit wait.
  */
 @Tag("integration")
 @Tag("service")
@@ -265,6 +266,114 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
         }
     }
 
+    @Test
+    void shouldNotSendTwice_whenStaleRecoveryTakesOverDuringPermitWait() throws Exception {
+        SmsTransactionDaoImpl dao = new SmsTransactionDaoImpl();
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        SmsTransactionService recorder = (SmsTransactionService) transactional(
+                new JpaSmsTransactionService(dao, event -> { }, transactionManager) {
+                    @Override
+                    public SmsTransaction markSending(SmsTransaction transaction, Date attemptAt) {
+                        // Stands in for a permit wait longer than the five-minute stale-send timeout.
+                        return super.markSending(transaction, new Date(attemptAt.getTime() - 360_000));
+                    }
+                });
+        AtomicInteger sends = new AtomicInteger();
+        StubSmsProviderClient provider = new StubSmsProviderClient() {
+            @Override
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+                sends.incrementAndGet();
+                return super.send(command, clientReferenceId);
+            }
+
+            @Override
+            public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String messageId) {
+                return SmsProviderMessageStatusDto.notFound();
+            }
+        };
+        SmsProviderClientResolver resolver = new SmsProviderClientResolver(List.of(provider));
+        SmsConsentService consent = command -> SmsConsentDecisionDto.permitted(
+                SmsConsentStatus.OPT_IN, 4321, CLOCK.instant());
+        SmsSendRateLimitService limiter = service(new SmsProviderRateLimitDaoImpl());
+        assertThat(limiter.tryAcquire(SmsProviderType.STUB)).isTrue();
+        SmsSendService direct = new SmsSendService(new SmsSendValidator(), consent, resolver, recorder, limiter,
+                new SmsDefaultProviderResolver(() -> "STUB"));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, resolver,
+                new SmsRetryCalculator(), limiter, consent);
+
+        // This connection holds the limiter row, so the direct send waits for its permit after claiming.
+        try (Connection holder = DriverManager.getConnection(schemaUrl, user, password)) {
+            holder.setAutoCommit(false);
+            try (var statement = holder.createStatement()) {
+                statement.executeUpdate("UPDATE sms_provider_rate_limit SET send_count = send_count");
+            }
+            try (var pool = Executors.newSingleThreadExecutor()) {
+                Future<SmsSendResultDto> waiting = pool.submit(() -> direct.send(syntheticCommand()));
+                SmsSendResultDto result;
+                try {
+                    awaitLockWaitOn(holder, waiting);
+                    // Another run's stale recovery finds the claim unsent at the provider and requeues it.
+                    assertThat(worker.processDueMessages()).isZero();
+                    assertThat(storedStatus()).isEqualTo(SmsStatus.QUEUED.name());
+                } finally {
+                    holder.commit();
+                }
+                result = waiting.get(15, TimeUnit.SECONDS);
+                assertThat(result.accepted()).isTrue();
+                assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+                // The permit was granted, so the claim renewal, not a limiter timeout, stopped the send.
+                assertCount(2);
+            }
+        }
+        assertThat(sends.get()).isZero();
+
+        mutateStoredSend("UPDATE `" + schema + "`.sms_transaction SET next_attempt_at = NULL");
+        assertThat(worker.processDueMessages()).isEqualTo(1);
+        assertThat(sends.get()).isEqualTo(1);
+        assertThat(storedStatus()).isEqualTo(SmsStatus.SENT.name());
+    }
+
+    private String storedStatus() throws Exception {
+        try (var statement = admin.createStatement(); var rows = statement.executeQuery(
+                "SELECT status FROM `" + schema + "`.sms_transaction")) {
+            assertThat(rows.next()).isTrue();
+            String status = rows.getString(1);
+            assertThat(rows.next()).isFalse();
+            return status;
+        }
+    }
+
+    /** Waits until InnoDB reports another transaction blocked by the given connection's locks. */
+    private void awaitLockWaitOn(Connection blocker, Future<?> waiter) throws Exception {
+        long blockerId;
+        try (var statement = blocker.createStatement(); var rows = statement.executeQuery("SELECT CONNECTION_ID()")) {
+            assertThat(rows.next()).isTrue();
+            blockerId = rows.getLong(1);
+        }
+        String sql = "SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w "
+                + "JOIN information_schema.INNODB_TRX b ON b.trx_id = w.blocking_trx_id "
+                + "WHERE b.trx_mysql_thread_id = ?";
+        try (var statement = admin.prepareStatement(sql)) {
+            statement.setLong(1, blockerId);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (System.nanoTime() < deadline) {
+                if (waiter.isDone()) {
+                    // Surfaces the waiter's own result or exception instead of a bare timeout.
+                    throw new AssertionError("The waiting call finished without blocking: " + waiter.get());
+                }
+                try (var rows = statement.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    if (rows.getInt(1) > 0) {
+                        return;
+                    }
+                }
+                // InnoDB refreshes its lock tables only when they have not been read for 100 ms.
+                Thread.sleep(200);
+            }
+        }
+        throw new AssertionError("No InnoDB lock wait on connection " + blockerId);
+    }
+
     private SmsSendCommand syntheticCommand() {
         return SmsSendCommand.patientMessage(123, "416-555-1212", "synthetic release regression", "999998");
     }
@@ -353,14 +462,7 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
     }
 
     private void waitForCreator(boolean commit) throws Exception {
-        CountDownLatch enteringUpsert = new CountDownLatch(1);
-        SmsSendRateLimitService service = service(new SmsProviderRateLimitDaoImpl() {
-            @Override
-            public void ensureExists(SmsProviderType type, Date now) {
-                enteringUpsert.countDown();
-                super.ensureExists(type, now);
-            }
-        });
+        SmsSendRateLimitService service = service(new SmsProviderRateLimitDaoImpl());
         // This connection keeps the new key uncommitted while another transaction requests a permit.
         try (Connection holder = DriverManager.getConnection(schemaUrl, user, password)) {
             holder.setAutoCommit(false);
@@ -371,9 +473,8 @@ class JpaSmsSendRateLimitMariaDbIntegrationTest {
             try (var pool = Executors.newSingleThreadExecutor()) {
                 Future<Boolean> waiting = pool.submit(() -> service.tryAcquire(SmsProviderType.STUB));
                 try {
-                    assertThat(enteringUpsert.await(10, TimeUnit.SECONDS)).isTrue();
-                    assertThatThrownBy(() -> waiting.get(200, TimeUnit.MILLISECONDS))
-                            .isInstanceOf(TimeoutException.class);
+                    // Proves the permit request reached the database and is blocked by the creator's row.
+                    awaitLockWaitOn(holder, waiting);
                 } finally {
                     if (commit) holder.commit();
                     else holder.rollback();

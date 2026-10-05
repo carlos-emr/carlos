@@ -118,6 +118,7 @@ class SmsSendServiceUnitTest {
                 "recordOutboundAttempt",
                 "markSending",
                 "tryAcquire",
+                "renewClaim",
                 "providerSend",
                 "markProviderResult"
         );
@@ -269,12 +270,82 @@ class SmsSendServiceUnitTest {
             assertThat(logs.events()).singleElement().satisfies(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
                 assertThat(event.getThrown()).isNull();
-                assertThat(event.getMessage().getParameters()).containsExactly(SmsStatus.QUEUED, "IllegalStateException");
+                assertThat(event.getMessage().getParameters())
+                        .containsExactly("rate limiter", SmsStatus.QUEUED, "IllegalStateException");
             });
-            assertThat(logs.messages()).containsExactly(
-                    "SMS rate limiter failed; claim release returned QUEUED. Failure type: IllegalStateException");
+            assertThat(logs.messages()).containsExactly("SMS rate limiter failed before sending; claim release "
+                    + "returned QUEUED. Failure type: IllegalStateException");
             assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain(sensitiveCanary));
         }
+    }
+
+    @Test
+    @DisplayName("send skips the SMS provider and reports the current row when stale recovery took it over during the permit wait")
+    void shouldNotSend_whenClaimRenewalConflicts() {
+        List<String> events = new ArrayList<>();
+        Date recoveryRetryAt = new Date(System.currentTimeMillis() + 60_000);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+                events.add("renewClaim");
+                throw new SmsTransactionClaimConflictException(transaction.getId());
+            }
+
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                // The version check drops the release and returns the row as recovery left it: requeued for later.
+                events.add("releaseClaim");
+                transaction.markRetryScheduled(SmsProviderSendResultDto.failed(
+                        "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED", "synthetic recovery"), recoveryRetryAt);
+                return transaction;
+            }
+        };
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))), recorder,
+                providerType -> events.add("tryAcquire"), new SmsDefaultProviderResolver(() -> "STUB"));
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+        assertThat(events).containsExactly(
+                "recordOutboundAttempt", "markSending", "tryAcquire", "renewClaim", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .extracting(SmsTransaction::getNextAttemptAt).isEqualTo(recoveryRetryAt);
+    }
+
+    @Test
+    @DisplayName("send hands the row back to the queue without sending when its claim cannot be renewed")
+    void shouldReleaseClaim_whenClaimRenewalFails() {
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(events) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+                events.add("renewClaim");
+                throw new IllegalStateException("synthetic renewal failure");
+            }
+        };
+        SmsSendService service = new SmsSendService(new SmsSendValidator(), command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new EventRecordingStubSmsProviderClient(events))), recorder,
+                providerType -> events.add("tryAcquire"), new SmsDefaultProviderResolver(() -> "STUB"));
+
+        try (LogCapture logs = LogCapture.forLogger(SmsSendService.class)) {
+            SmsSendResultDto result = service.send(
+                    SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+            assertThat(result.accepted()).isTrue();
+            assertThat(result.status()).isEqualTo(SmsStatus.QUEUED);
+            assertThat(logs.messages()).containsExactly("SMS claim renewal failed before sending; claim release "
+                    + "returned QUEUED. Failure type: IllegalStateException");
+        }
+        assertThat(events).containsExactly(
+                "recordOutboundAttempt", "markSending", "tryAcquire", "renewClaim", "releaseClaim");
+        assertThat(recorder.transactions()).singleElement()
+                .satisfies(transaction -> {
+                    assertThat(transaction.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                    assertThat(transaction.getAttemptCount()).isZero();
+                });
     }
 
     @Test
@@ -484,6 +555,13 @@ class SmsSendServiceUnitTest {
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
             events.add("releaseClaim");
             transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+            events.add("renewClaim");
+            transaction.renewSendingClaim(attemptAt);
             return transaction;
         }
 

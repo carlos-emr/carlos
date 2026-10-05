@@ -27,6 +27,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -650,6 +651,80 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
+    @DisplayName("a row taken over by another run's stale recovery during the permit wait is not sent, and the next row is")
+    void shouldNotSend_whenClaimRenewalConflicts() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(second, 2L);
+        second.recordConsentDecision(CONSENTED);
+        List<String> events = new ArrayList<>();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                events.add("renewClaim " + row.getId());
+                if (row == first) {
+                    // The JPA recorder's answer when the row changed under the claim.
+                    throw new SmsTransactionClaimConflictException(row.getId());
+                }
+                return super.renewClaim(row, attemptAt);
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString())).thenReturn(SmsProviderSendResultDto.accepted("provider-2", SmsStatus.SENT));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(),
+                providerType -> events.add("tryAcquire"),
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+
+        assertThat(events).containsExactly("tryAcquire", "renewClaim 1", "tryAcquire", "renewClaim 2");
+        verify(client).send(any(), eq(second.getClientReferenceId()));
+        verify(client, never()).send(any(), eq(first.getClientReferenceId()));
+        assertThat(second.getStatus()).isEqualTo(SmsStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("a claim renewal that cannot be written stops draining that SMS provider for the run")
+    void shouldStopDraining_whenClaimRenewalCannotBeWritten() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(second, 2L);
+        second.recordConsentDecision(CONSENTED);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                throw new IllegalStateException("database unavailable");
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        verify(client, never()).send(any(), anyString());
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(second)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
     @DisplayName("a dispatch-time permit that names no consent state is never sent on")
     void shouldNotSend_whenDispatchPermitNamesNoConsentState() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
@@ -811,6 +886,12 @@ class SmsQueueProcessingServiceUnitTest {
         @Override
         public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
             transaction.markClaimReleased(dueAt);
+            return transaction;
+        }
+
+        @Override
+        public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+            transaction.renewSendingClaim(attemptAt);
             return transaction;
         }
 

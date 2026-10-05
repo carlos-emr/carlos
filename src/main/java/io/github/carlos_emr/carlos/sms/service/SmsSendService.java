@@ -51,10 +51,12 @@ public class SmsSendService {
      * Sends directly through the SMS provider. If the SMS-provider rate limiter denies the attempt, the
      * row is left {@code QUEUED} (due now) and returned as queued; draining it then depends on the queue
      * scheduler ({@code sms.queue.scheduler.enabled}) or an explicit worker run, so that scheduler must
-     * be enabled wherever this path is used. If the row cannot be handed back to the queue after a
-     * denial or limiter error, the release failure is thrown. A confirmed release returns queued, so
-     * the caller does not retry a request that was already accepted. A concurrent update can reject
-     * the release; the returned result then reflects the current state and never assumes it is queued.
+     * be enabled wherever this path is used. The claim is renewed after the permit and nothing is sent
+     * unless that succeeds, because stale recovery may take over a row whose permit wait was long. If the
+     * row cannot be handed back to the queue after a denial, limiter error or failed renewal, an exception
+     * reaches the caller. A confirmed release returns queued, so the caller does not retry a request that
+     * was already accepted. A concurrent update can reject the release; the returned result then reflects
+     * the current state and never assumes it is queued.
      */
     public SmsSendResultDto send(SmsSendCommand command) {
         SmsSendValidator.Result validation = validator.validate(command);
@@ -83,12 +85,20 @@ public class SmsSendService {
         try {
             permitted = rateLimiter.tryAcquire(providerType);
         } catch (RuntimeException e) {
-            return releaseClaimAfterFailure(transaction, e);
+            return releaseClaimAfterFailure(transaction, "rate limiter", e);
         }
         if (!permitted) {
             // A release can lose a version race to another worker or callback. Use the returned row's
             // state instead of assuming the handoff succeeded; release exceptions still reach the caller.
             return releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
+        }
+        // The permit wait can outlast the stale-send timeout, and stale recovery may then have taken the row over
+        // and found it unsent at the SMS provider. Send only on a renewed claim; otherwise nothing was sent, so
+        // hand the row back as above and report whatever state it is now in.
+        try {
+            transaction = transactionRecorder.renewClaim(transaction, new Date());
+        } catch (RuntimeException e) {
+            return releaseClaimAfterFailure(transaction, "claim renewal", e);
         }
 
         SmsProviderSendResultDto providerResult;
@@ -103,12 +113,13 @@ public class SmsSendService {
         return SmsSendResultDto.fromTransaction(recorded);
     }
 
-    private SmsSendResultDto releaseClaimAfterFailure(SmsTransaction transaction, RuntimeException failure) {
+    private SmsSendResultDto releaseClaimAfterFailure(SmsTransaction transaction, String failedStep,
+                                                      RuntimeException failure) {
         try {
             SmsSendResultDto result = releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
             // Database exceptions can contain query parameters. Keep diagnostics to status and type.
-            LOGGER.warn("SMS rate limiter failed; claim release returned {}. Failure type: {}",
-                    result.status(), failure.getClass().getSimpleName());
+            LOGGER.warn("SMS {} failed before sending; claim release returned {}. Failure type: {}",
+                    failedStep, result.status(), failure.getClass().getSimpleName());
             return result;
         } catch (RuntimeException releaseFailure) {
             // Keep the original failure as the one reported; stale recovery still covers the row.
