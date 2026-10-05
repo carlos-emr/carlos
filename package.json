@@ -226,6 +226,7 @@
     "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
     "test:patient-set-cohort-playwright": "node scripts/patient-set-cohort-playwright-checks.js",
     "test:password-change-preferences-playwright": "node scripts/password-change-preferences-playwright-checks.js",
+    "test:password-spaces-playwright": "node scripts/password-spaces-playwright-checks.js",
     "test:account-lockout-unlock-playwright": "node scripts/account-lockout-unlock-playwright-checks.js",
     "test:encounter-templates-playwright": "node scripts/encounter-templates-playwright-checks.js",
     "test:admin-issue-editor-playwright": "node scripts/admin-issue-editor-playwright-checks.js",
