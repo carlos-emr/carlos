@@ -230,7 +230,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 assertThat(emailManager.credentialKeyRefusal(sendGrid)).isNull();
 
                 assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
-                        .contains("config id=17").contains("never uses"));
+                        .contains("config id=17").contains("never uses").doesNotContain("stays unencrypted"));
                 assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
                         .containsAnyOf("stale-secret", "live-key", "{ENC}", "{\""));
             }

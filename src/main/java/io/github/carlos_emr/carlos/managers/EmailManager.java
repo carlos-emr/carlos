@@ -764,8 +764,9 @@ public class EmailManager {
      *       needs an administrator to restore the original key, not a retry. A leftover credential
      *       the transport never reads, plaintext or encrypted, does not stop the send.</li>
      *   <li>A plaintext credential the transport reads, with no key available, is refused only when
-     *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise they are reported once
-     *       and sent. With a key, they are encrypted by {@link #upgradeConfigCredentialsAtRest}.</li>
+     *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise it is reported once
+     *       and sent. With a key it is encrypted by {@link #upgradeConfigCredentialsAtRest}, unless
+     *       an unreadable leftover blocks that.</li>
      * </ul>
      *
      * <p>A warning that lets the send proceed is logged once per account per server run, whatever
