@@ -5,8 +5,23 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/oscarReport/provider_service_report_form.jsp'), 'utf8');
-const body = jsp.match(/function parseMonth\(value\) \{([\s\S]*?)\n        \}/)[1];
-const parseMonth = vm.runInNewContext(`(function parseMonth(value) {${body}})`);
+// Execute the real initializer and capture the options actually passed to the picker.
+const fields = ['startDate', 'endDate'].map(id => ({id, addEventListener() {}}));
+const form = {elements: {startDate: fields[0], endDate: fields[1]}, addEventListener() {}};
+const pickers = [];
+const initializer = jsp.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+vm.runInNewContext(initializer, {
+  document: {getElementById: id => id === 'psrForm' ? form : undefined},
+  flatpickr: (field, options) => pickers.push({field, options}),
+});
+assert.equal(pickers.length, 2);
+assert.deepEqual(pickers.map(picker => picker.field.id), ['startDate', 'endDate']);
+for (const picker of pickers) assert.equal(typeof picker.options.parseDate, 'function');
+const parseMonth = value => {
+  const parsed = pickers.map(picker => picker.options.parseDate(value));
+  assert.equal(parsed[0]?.getTime(), parsed[1]?.getTime());
+  return parsed[0];
+};
 for (let month = 1; month <= 12; month++) {
   const value = `${String(month).padStart(2, '0')}/1953`;
   test(`The report picker parses ${value} without changing its month`, () => {

@@ -323,7 +323,7 @@ async function workflow(s) {
         if (mode === 'direct') {
           h.wireStrictPage(reportPage, 'provider-service-direct', s.recorder);
           await reportPage.goto(h.appUrl(s.config.baseUrl, '/oscarReport/ViewProviderServiceReportForm'), {waitUntil: 'load'});
-        } else {
+        } else if (await admin.locator('#psrForm').count() === 0) {
           await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
             {marker: '#psrForm'});
           h.assert(await admin.evaluate(original => window.jQuery === original, shellJQuery),
@@ -334,6 +334,11 @@ async function workflow(s) {
           await reportPage.locator(`#psrForm ${field}`).fill(value);
           // Click away, as a reader does, so the month picker closes before the next control.
           await reportPage.locator('#psrForm h4').click();
+          const picked = await reportPage.locator(`#psrForm ${field}`).evaluate(input => {
+            const date = input._flatpickr.selectedDates[0];
+            return date && `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+          });
+          h.assert(picked === value, `The picker did not parse the typed month ${value}`);
         }
         await reportPage.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
         h.assert(await reportPage.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
