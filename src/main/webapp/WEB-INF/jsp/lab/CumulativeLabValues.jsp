@@ -165,6 +165,9 @@
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
                 img.setAttribute('src', '${carlos:forJavaScript(pageContext.request.contextPath)}/images/spinner.jpg');
+                img.width = 100;
+                img.height = 77;
+                img.alt = '';
 
                 newNode.appendChild(img)
                 var ran_number = Math.round(Math.random() * 1000000);

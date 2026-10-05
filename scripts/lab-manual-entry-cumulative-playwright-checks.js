@@ -166,10 +166,31 @@ async function workflow(s) {
     for (const test of TESTS) {
       const button = rowDisplay.getByRole('button', { name: test.name, exact: true });
       h.assert(await button.count() === 1, `Row Display does not list ${test.name}`);
-      const [response] = await Promise.all([
-        rowDisplay.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/lab/ViewDisplayLabValue'), { timeout: TIMEOUT }),
-        button.click(),
-      ]);
+      // Hold the real row request until the loading state is measured; its response is unmodified.
+      let releaseRow;
+      const loadingState = new Promise(resolve => { releaseRow = resolve; });
+      const routePattern = '**/lab/ViewDisplayLabValue';
+      const holdRow = async route => { await loadingState; await route.continue(); };
+      await rowDisplay.route(routePattern, holdRow);
+      let response;
+      try {
+        [response] = await Promise.all([
+          rowDisplay.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/lab/ViewDisplayLabValue'), { timeout: TIMEOUT }),
+          (async () => {
+            await button.click();
+            const loader = rowDisplay.locator('#cumulativeLab img[src$="/images/spinner.jpg"]').last();
+            await loader.waitFor({ state: 'visible', timeout: TIMEOUT });
+            await loader.evaluate(img => img.decode());
+            const bounds = await loader.boundingBox();
+            h.assert(bounds && bounds.width === 100 && bounds.height === 77,
+              'The row loading image did not retain the standard 100 by 77 pixel size');
+            releaseRow();
+          })(),
+        ]);
+      } finally {
+        releaseRow();
+        await rowDisplay.unroute(routePattern, holdRow);
+      }
       h.assert(response.status() === 200, `lab/ViewDisplayLabValue answered HTTP ${response.status()}`);
       const section = rowDisplay.locator('#cumulativeLab .preventionSection').filter({ hasText: test.name.slice(0, 8) }).last();
       await section.waitFor({ state: 'visible', timeout: TIMEOUT });
