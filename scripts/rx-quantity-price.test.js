@@ -30,9 +30,9 @@ function setup() {
     setRequestHeader() {}
     send(body) { this.body = body; }
     abort() { this.aborted = true; }
-    respond(html) {
+    respond(html, status = 200) {
       if (this.aborted) return;
-      Object.assign(this, { status: 200, responseText: html, responseURL: this.url });
+      Object.assign(this, { status, responseText: html, responseURL: this.url });
       this.onload();
     }
   }
@@ -111,3 +111,18 @@ test('a removed prescription card does not start a price request', () => {
   s.context.getCost('cost_7', '7', '0001234', '30');
   assert.equal(s.requests.length, 0);
 });
+
+
+for (const failure of ['network', 'http']) {
+  test(`a changed quantity clears its previous quote while pending and after ${failure} failure`, () => {
+    const s = setup();
+    s.context.getCost('cost_7', '7', '0001234', '30');
+    s.requests[0].respond('<span>$3.00/30</span>');
+    s.context.getCost('cost_7', '7', '0001234', '60');
+    assert.equal(s.elements.get('cost_7').innerHTML, '', 'The pending lookup must not retain the old quote');
+    if (failure === 'network') s.requests[1].onerror();
+    else s.requests[1].respond('', 503);
+    assert.doesNotMatch(s.elements.get('cost_7').innerHTML, /3\.00|\/30/);
+    assert.equal(s.elements.get('cost_7')._priceRequest, null);
+  });
+}

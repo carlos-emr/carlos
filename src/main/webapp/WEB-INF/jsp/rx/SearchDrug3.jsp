@@ -2711,6 +2711,7 @@ function updateQty(element){
             if (!costElement) return;
             // A slower response for the previous quantity must not overwrite this price.
             if (costElement._priceRequest) costElement._priceRequest.abort();
+            costElement.innerHTML = '';
             var request = CarlosAjax.updater(costElement, url, {
                 method: 'get',
                 parameters: params,
