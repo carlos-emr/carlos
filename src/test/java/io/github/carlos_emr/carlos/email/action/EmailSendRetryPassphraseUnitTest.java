@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -33,6 +34,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -181,9 +183,24 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
         }.execute()).isEqualTo("success");
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(accepted);
         assertThat(request.getAttribute("isEmailDeliveryUnconfirmed")).isEqualTo(!accepted);
+        assertThat(request.getAttribute("emailRefusal")).isEqualTo("NONE");
         assertThat(states.consume(request)).isNull();
         verify(passwords, never()).generatePassphrase();
         assertThat(originalPdf).doesNotExist();
+    }
+
+    @ParameterizedTest
+    @EnumSource(Refusal.class)
+    @DisplayName("definite failure tells the result page which address the server refused, and still offers a retry")
+    void shouldExposeRefusal_whenSendDefinitelyFails(Refusal refusal) {
+        when(manager.sendEmailWithResult(any(), any()))
+                .thenReturn(EmailSendResult.failed(emailLog(EmailLog.EmailStatus.FAILED), true, refusal));
+        assertThat(new EmailSend2Action() {
+            @Override protected String encryptedBodyNotice() { return "Encrypted attachment enclosed."; }
+        }.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("emailRefusal")).isEqualTo(refusal.name());
+        assertThat((String) request.getAttribute(TOKEN)).isNotBlank().isNotEqualTo(originalToken);
     }
 
     @Test

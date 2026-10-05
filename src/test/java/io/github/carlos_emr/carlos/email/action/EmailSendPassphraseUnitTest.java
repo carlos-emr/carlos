@@ -54,6 +54,7 @@ import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionState
 import static io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -338,10 +339,16 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        // Preparation checks read access to the patient before generating anything.
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
 
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
-        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo("compose");
+        assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        assertThat(EmailComposeViewTestSupport.renderPreparedView(response)).isEqualTo("compose");
         String token = (String) request.getAttribute(EMAIL_PDF_PASSWORD_TOKEN_PARAM);
         assertThat(token).isNotBlank();
         request.setParameter("senderConfigId", "1");

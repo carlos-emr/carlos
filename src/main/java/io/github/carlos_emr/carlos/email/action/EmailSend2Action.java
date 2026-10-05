@@ -77,6 +77,8 @@ public class EmailSend2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final String EMAIL_FOLLOW_UP_REQUIRED = "isEmailFollowUpRequired";
+    /** Which address the mail server refused ("RECIPIENT", "SENDER" or "NONE"), for the result page hint. */
+    private static final String EMAIL_REFUSAL = "emailRefusal";
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
@@ -238,6 +240,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         if (isEmailSuccessful && context.deleteEFormAfterEmail() && StringUtils.filled(context.fdid())) {
             try {
                 eformDataManager.removeEFormData(loggedInInfo, context.fdid());
@@ -295,6 +298,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
     }

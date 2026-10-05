@@ -83,7 +83,8 @@ class PortalInviteContactUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"1234!", "1234é", "1234漢", "1234_"})
+    @ValueSource(strings = {"1234!", "1234é", "1234漢", "1234_",
+            "1234\u00df", "1234\u0131", "1234\u017f", "1234\ufb01"})
     void shouldRejectInvalidHealthCard_afterNormalization(String hin) {
         assertThatThrownBy(() -> PortalInviteContact.from(patient("patient@example.com", "5", hin)))
                 .isInstanceOfSatisfying(PortalInviteException.class,
