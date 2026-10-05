@@ -22,10 +22,12 @@ class HostedChartGatewayTest(unittest.TestCase):
                            output_schema=hosted.chart_updates.SCHEMA,
                            sources=[dict(id='document', title='Document', text=source)])
             with patch.object(gateway, 'complete', return_value={'proposals': []}) as complete:
-                gateway.run_chart_updates(request)
+                first = gateway.run_chart_updates(request)
                 self.assertEqual(2, complete.call_count)
             request['request_id'] = str(uuid.uuid4())
-            self.assertEqual(request['request_id'], gateway.run_chart_updates(request)['request_id'])
+            second = gateway.run_chart_updates(request)
+            self.assertEqual(request['request_id'], second['request_id'])
+            self.assertEqual(first['output'], second['output'])
             self.assertEqual(1, gateway.cache_hits)
             bad = copy.deepcopy(request)
             bad['sources'][0]['text'] += ' unapproved addition'
