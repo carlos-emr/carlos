@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 "use strict";
 (() => {
+    // Localized text arrives from the JSP in data-msg-* attributes; templates carry {0}/{1} placeholders.
+    const format = (template, ...values) =>
+        (template ?? "").replace(/\{(\d)\}/g, (placeholder, index) => String(values[Number(index)] ?? placeholder));
     const generationForm = document.getElementById("generate-summary");
     if (generationForm) {
         let submitting = false;
@@ -16,9 +19,9 @@
             submitting = true;
             button.disabled = true;
             button.querySelector("i").className = "fa-solid fa-spinner fa-spin";
-            button.querySelector("span").textContent = "Generating draft...";
+            button.querySelector("span").textContent = generationForm.dataset.msgGenerating;
             generationForm.setAttribute("aria-busy", "true");
-            status.textContent = "Preparing the summary from the included record. Longer records can take several minutes; the completed draft will appear here.";
+            status.textContent = generationForm.dataset.msgPreparing;
         });
         window.addEventListener("pageshow", event => {
             if (event.persisted && submitting) {
@@ -31,6 +34,7 @@
         });
     }
     const workspace = document.getElementById("workspace");
+    const messages = workspace.dataset;
     const nav = document.querySelector(".view-tabs");
     const tabs = [...nav.querySelectorAll("a")];
     const panels = [...document.querySelectorAll(".view-panel")];
@@ -102,7 +106,7 @@
         selected.open = true;
         picker.value = String(sourceIndex);
         document.getElementById("source-position").textContent =
-            "Source " + (sourceIndex + 1) + " of " + selectedSources.length;
+            format(messages.msgSourcePosition, sourceIndex + 1, selectedSources.length);
         document.getElementById("previous-source").disabled = sourceIndex === 0;
         document.getElementById("next-source").disabled = sourceIndex === selectedSources.length - 1;
         if (focus) {
@@ -122,12 +126,16 @@
         selectedStatement.hidden = !statement;
         selectedStatement.querySelector("p").textContent = statement || "";
         document.getElementById("evidence-subtitle").textContent =
-            selectedSources.length + (selectedSources.length === 1 ? " linked source" : " linked sources");
+            format(messages.msgLinkedSources, selectedSources.length);
         picker.replaceChildren();
         selectedSources.forEach((source, index) => {
             const option = document.createElement("option");
+            const title = source.querySelector("summary strong");
             option.value = String(index);
-            option.textContent = source.querySelector("summary strong").textContent;
+            option.textContent = title.textContent;
+            // Source titles are host-built English; keep their language on the copy.
+            const titleLanguage = title.closest("[lang]");
+            if (titleLanguage) option.lang = titleLanguage.lang;
             picker.append(option);
         });
         document.getElementById("source-switcher").hidden = false;
@@ -184,7 +192,7 @@
         evidenceWidth = Math.max(24, Math.min(55, percent));
         workspace.style.setProperty("--evidence-width", evidenceWidth + "%");
         splitter.setAttribute("aria-valuenow", String(Math.round(evidenceWidth)));
-        splitter.setAttribute("aria-valuetext", Math.round(evidenceWidth) + "% source evidence");
+        splitter.setAttribute("aria-valuetext", format(messages.msgEvidenceWidth, Math.round(evidenceWidth)));
     }
     splitter.addEventListener("pointerdown", event => {
         if (event.button !== 0) return;
