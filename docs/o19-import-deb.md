@@ -760,7 +760,9 @@ manifest does not is refused before it writes anything, because without
 the rule deleted consents would arrive live and undecided ones as
 opt-ins. After the copy, the import also counts the patients holding
 more than one live record of a type, and refuses to go on if there are
-any (see [Troubleshooting](#troubleshooting)).
+any. On MariaDB 11.8 such a copy stores no Consent rows at all, so it is
+the row-count verification that refuses (see
+[Troubleshooting](#troubleshooting)).
 
 ### What this means for Flyway
 
@@ -836,7 +838,12 @@ clinic's sign-off.
   after the copy"* — the import checks this itself because the copy runs
   with unique checks off. It means the import chose wrongly, not that the
   clinic's data is at fault: restore the pre-import snapshot and report
-  it. *"Consent: the manifest's entry does not carry the one-live-record
+  it. On MariaDB 11.8 the same defect shows up differently: the server
+  stores no Consent rows and reports success, so the row-count
+  verification fails for `Consent` instead. That failure has the same
+  cause and needs the same action; `--resume` cannot repair it, because
+  it re-runs the checks, not the copy.
+  *"Consent: the manifest's entry does not carry the one-live-record
   rule"*, among the ETL pre-checks, means the manifest was replaced or
   regenerated from an older overlay; the ETL wrote nothing (its pre-checks
   run before any write). Put back the manifest this package ships and run
