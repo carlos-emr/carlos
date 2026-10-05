@@ -156,6 +156,30 @@
     }
   },
   {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-14: Text block query with named parameters",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String hql = \"\"\"\n    select d from Demographic d\n    where d.providerNo = :providerNo\n    \"\"\";\nQuery q = em.createQuery(hql);\nq.setParameter(\"providerNo\", providerNo);"
+      }
+    }
+  },
+  {
+    "section": "False Positives (should be ALLOWED, exit 0)",
+    "description": "FP-15: Append of a literal concatenated with a placeholder counter",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/Dao.java",
+        "new_string": "buf.append(\"WHERE p.firstName like ?\" + paramIndex++);\nparams.add(firstName);\nquery.setParameter(paramIndex, firstName);"
+      }
+    }
+  },
+  {
     "section": "True Positives (should be BLOCKED, exit 2)",
     "description": "TP-1: Direct value injection (userId)",
     "expected_exit": 2,
@@ -248,6 +272,114 @@
       "tool_input": {
         "file_path": "/path/to/UnsafeDao.java",
         "content": "StringBuilder sb = new StringBuilder();\nsb.append(\"select x from \");\nsb.append(userTable);\nsb.append(\" x where x.id = ?1\");\nQuery q = entityManager.createQuery(sb.toString());\nq.setParameter(1, id);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-9: Placeholder in same literal must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM users WHERE a = :a AND b = \" + userId;\nquery.setParameter(\"a\", val);\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-10: Placeholder in different statement on same line must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String safe = \"x = ?\" + paramIndex; String sql = \"SELECT * FROM users WHERE id = \" + userId;\nquery.setParameter(paramIndex, val);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-11: Class metadata elsewhere in statement must not excuse raw concat",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM \" + Foo.class.getSimpleName() + \" WHERE name = \" + userName;\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-12: Closed block comment before code must not exempt the line",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "/* legacy */ String sql = \"SELECT * FROM users WHERE id = \" + userId;\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-13: Trailing comment placeholder must not serve as safety evidence",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/UnsafeDao.java",
+        "new_string": "String sql = \"SELECT * FROM users WHERE id = \" + userId; // was :id\nquery.setParameter(1, val);\nstatement.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-14: Parenthesized raw operand must not be excused by placeholders",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String hql = \"from Demographic d where d.id = :id and d.name = \" + (userName);\nQuery q = em.createQuery(hql);\nq.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-15: Text block content must not start a comment mask",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/ExampleDao.java",
+        "new_string": "String doc = \"\"\"\n    height 6\" and /* pending note\n    \"\"\";\nString sql = \"select * from patient where id = '\" + userId + \"'\";\nstmt.executeQuery(sql);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-16: StringBuilder append of a raw value must not be excused by a named placeholder",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/Dao.java",
+        "new_string": "StringBuilder sb = new StringBuilder();\nsb.append(\"select d from Demographic d where d.id = :id and d.lastName = \").append(lastName);\nQuery q = entityManager.createQuery(sb.toString());\nq.setParameter(\"id\", id);"
+      }
+    }
+  },
+  {
+    "section": "True Positives (should be BLOCKED, exit 2)",
+    "description": "TP-17: Text block SQL with concatenated raw value must be blocked",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Edit",
+      "tool_input": {
+        "file_path": "/path/to/Dao.java",
+        "new_string": "String sql = \"\"\"\n    SELECT * FROM demographic WHERE last_name = '\"\"\" + lastName + \"\"\"'\n    \"\"\";\nstatement.executeQuery(sql);"
       }
     }
   },

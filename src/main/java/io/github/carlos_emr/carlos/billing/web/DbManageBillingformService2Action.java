@@ -35,7 +35,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -77,7 +76,8 @@ public class DbManageBillingformService2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
@@ -99,8 +99,7 @@ public class DbManageBillingformService2Action extends ActionSupport {
         try {
             replacementRows = buildReplacementRows(typeid, type);
         } catch (Exception e) {
-            MiscUtils.getLogger().warn("Invalid generic billing service code request for typeid={}: {}",
-                    LogSafe.sanitize(typeid), LogSafe.sanitize(e.getMessage()));
+            MiscUtils.getLogger().warn("Invalid generic billing service code request ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid service order");
             return NONE;
         }
@@ -108,7 +107,7 @@ public class DbManageBillingformService2Action extends ActionSupport {
         try {
             billingFormConfigurationService.replaceServiceCodes(typeid, replacementRows);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to replace service codes for typeid={}", LogSafe.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to replace service codes ({})", e.getClass().getSimpleName());
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update service codes");
             return NONE;
         }

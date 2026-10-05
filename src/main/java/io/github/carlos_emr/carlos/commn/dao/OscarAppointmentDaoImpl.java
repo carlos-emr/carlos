@@ -35,6 +35,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -42,6 +43,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import org.hibernate.ScrollMode;
+import org.hibernate.ScrollableResults;
 
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.NonUniqueResultException;
@@ -49,6 +52,7 @@ import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import java.util.*;
+import java.util.function.Consumer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
@@ -57,6 +61,41 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
+    }
+
+    @Override
+    public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
+                + "AND a.appointmentDate BETWEEN :start AND :end "
+                + "AND a.startTime=:startTime AND a.endTime=:endTime "
+                + "AND a.demographicNo=:demographic AND a.programId=:program "
+                + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
+                + "AND COALESCE(a.notes,'')=COALESCE(:notes,'') "
+                + "AND COALESCE(a.reason,'')=COALESCE(:reason,'') "
+                + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
+                + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
+                + "ORDER BY a.appointmentDate, a.id", Appointment.class)
+                .setParameter("provider", anchor.getProviderNo())
+                .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
+                .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
+                .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
+                .setParameter("name", anchor.getName()).setParameter("notes", anchor.getNotes())
+                .setParameter("reason", anchor.getReason()).setParameter("creator", anchor.getCreator())
+                .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
+    @Override
+    public Appointment findForUpdate(Integer appointmentNo) {
+        if (appointmentNo == null) {
+            return null;
+        }
+        Query query = entityManager.createNativeQuery(
+                "SELECT * FROM appointment WHERE appointment_no = ?1 FOR UPDATE",
+                Appointment.class);
+        query.setParameter(1, appointmentNo);
+        List<Appointment> rows = query.getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Override
@@ -390,6 +429,25 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds) {
+        Map<Integer, Date> nextAppointmentDates = new HashMap<>();
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return nextAppointmentDates;
+        }
+        // The same predicate as findNextAppointment(Integer), aggregated: MIN over the rows that
+        // query orders by is the date its first row carries. Keep the two in step.
+        Query query = entityManager.createQuery(
+                "SELECT appt.demographicNo, MIN(appt.appointmentDate) FROM Appointment appt WHERE appt.demographicNo IN (:demographicIds) AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) GROUP BY appt.demographicNo");
+        query.setParameter("demographicIds", demographicIds);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            if (row[0] != null && row[1] != null) {
+                nextAppointmentDates.put(((Number) row[0]).intValue(), (Date) row[1]);
+            }
+        }
+        return nextAppointmentDates;
+    }
+
+    @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
         String orderedSql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.startTime ASC, a.id ASC";
@@ -433,7 +491,51 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Object[]> findPatientAppointments(String providerNo, Date from, Date to) {
-        String baseHql = "SELECT d, a, p FROM Demographic d, Appointment a, Provider p WHERE a.demographicNo = d.demographicNo AND a.providerNo = p.providerNo ";
+        return createPatientAppointmentsQuery(providerNo, from, to).getResultList();
+    }
+
+    @Override
+    public void streamPatientAppointments(String providerNo, Date from, Date to,
+                                          Consumer<PatientAppointmentExportRow> rowConsumer) {
+        Objects.requireNonNull(rowConsumer, "rowConsumer");
+
+        org.hibernate.query.Query<PatientAppointmentExportRow> query =
+                createPatientAppointmentExportQuery(providerNo, from, to)
+                        .unwrap(org.hibernate.query.Query.class);
+        query.setReadOnly(true);
+        // Connector/J only streams a forward-only result set without
+        // useCursorFetch when the special MIN_VALUE fetch size is used. Keep a
+        // conventional batch hint for other JDBC drivers (including H2 tests).
+        boolean mysql = entityManager.unwrap(org.hibernate.Session.class)
+                .doReturningWork(connection -> "MySQL".equals(
+                        connection.getMetaData().getDatabaseProductName()));
+        query.setFetchSize(mysql ? Integer.MIN_VALUE : 500);
+
+        try (ScrollableResults<PatientAppointmentExportRow> cursor =
+                     query.scroll(ScrollMode.FORWARD_ONLY)) {
+            while (cursor.next()) {
+                rowConsumer.accept(cursor.get());
+            }
+        }
+    }
+
+    private Query createPatientAppointmentExportQuery(String providerNo, Date from, Date to) {
+        String projection = "SELECT new io.github.carlos_emr.carlos.appointment.dto."
+                + "PatientAppointmentExportRow(d.lastName, d.firstName, d.phone, d.phone2, "
+                + "a.startTime, a.appointmentDate, a.type, p.firstName, p.lastName, a.location) ";
+        return createPatientAppointmentsQuery(projection, providerNo, from, to);
+    }
+
+    private Query createPatientAppointmentsQuery(String providerNo, Date from, Date to) {
+        return createPatientAppointmentsQuery(
+                "SELECT d, a, p ", providerNo, from, to);
+    }
+
+    private Query createPatientAppointmentsQuery(String projection, String providerNo,
+                                                 Date from, Date to) {
+        String baseHql = projection
+                + "FROM Demographic d, Appointment a, Provider p "
+                + "WHERE a.demographicNo = d.demographicNo AND a.providerNo = p.providerNo ";
         StringBuilder sql = new StringBuilder(baseHql);
 
         List<Object> params = new ArrayList<>();
@@ -452,13 +554,13 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
             sql.append("AND a.appointmentDate <= ?" + paramIndex++ + " ");
             params.add(to);
         }
-        sql.append("ORDER BY a.appointmentDate");
+        sql.append("ORDER BY a.appointmentDate, a.startTime, a.id");
 
         Query query = entityManager.createQuery(sql.toString());
         for (int i = 0; i < params.size(); i++) {
             query.setParameter(i + 1, params.get(i));
         }
-        return query.getResultList();
+        return query;
     }
 
     @Override

@@ -94,6 +94,23 @@ public class RxDrugData {
 
         public DrugMonograph(Hashtable hash) {
             MiscUtils.getLogger().debug(hash);
+            // A null hash is DrugRef reporting "no record for that key", not a
+            // programming error: RxDrugRef.getDrug2 and getDrugByDIN both return
+            // null for an empty XML-RPC result, and both feed this constructor
+            // directly. Dereferencing it threw NullPointerException out of
+            // RxWriteScript2Action.createNewRx, which reaches the browser as a 500
+            // on the staging XHR — so the drug the clinician picked silently
+            // failed to stage, with nothing on screen to say why.
+            //
+            // Degrade to the same empty monograph the no-arg constructor builds.
+            // Every collection a caller reads (components, route,
+            // drugComponentList) is initialised at its declaration, and the
+            // prescribing path already guards for an empty component list, so the
+            // prescription still stages under the name the clinician chose — just
+            // without the DrugRef enrichment that does not exist for it anyway.
+            if (hash == null) {
+                return;
+            }
             name = (String) hash.get("name");
             atc = (String) hash.get("atc");
             product = (String) hash.get("product");
@@ -118,13 +135,19 @@ public class RxDrugData {
                 }
             }
 
+            // DrugRef records for some products (and partially-populated drugref2
+            // databases) omit the "components" key entirely; guard it the same way
+            // as "drugRoute" above so a monograph without components still constructs
+            // instead of NPEing and silently blanking the Rx staging pane.
             Vector comps = (Vector) hash.get("components");
-            for (int i = 0; i < comps.size(); i++) {
+            if (comps != null) {
+                for (int i = 0; i < comps.size(); i++) {
 
-                Hashtable h = (Hashtable) comps.get(i);
-                DrugComponent comp = new DrugComponent(h);
-                components.add(comp);
-                drugComponentList.add(comp);
+                    Hashtable h = (Hashtable) comps.get(i);
+                    DrugComponent comp = new DrugComponent(h);
+                    components.add(comp);
+                    drugComponentList.add(comp);
+                }
             }
 
 //			gcnCode = (String) hash.get("gcnCode");
@@ -627,7 +650,19 @@ public class RxDrugData {
      */
     public DrugMonograph getDrug(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
-        return new DrugMonograph(d.getDrug(pKey, Boolean.TRUE));
+        Hashtable h = d.getDrug(pKey, Boolean.TRUE);
+        if (h == null) {
+            // Deliberately a throw, not an empty monograph. Both callers built their control flow
+            // on "not found" leaving the try block: RxAddAllergy2Action keeps its fallback
+            // regionalIdentifier (losing it silently disables drug-allergy interaction checks for
+            // that allergy), and RxChooseDrug2Action stages nothing rather than a nameless
+            // prescription item. When the constructor became null-tolerant for the display-only
+            // paths, an empty monograph started flowing THROUGH those catches and overwrote the
+            // fallbacks with nulls — this restores the old outcome as an intentional signal
+            // instead of the accidental NPE it used to be.
+            throw new java.util.NoSuchElementException("DrugRef has no record for drug id " + pKey);
+        }
+        return new DrugMonograph(h);
     }
 
 
@@ -667,7 +702,8 @@ public class RxDrugData {
     public String getDrugForm(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
         Hashtable h = d.getDrugForm(pKey);
-        return (String) h.get("pharmaceutical_cd_form");
+        // Same contract as getDrug2 above: null means "not found", not "crash".
+        return h == null ? null : (String) h.get("pharmaceutical_cd_form");
     }
 
     /**
@@ -682,7 +718,8 @@ public class RxDrugData {
     public String getGenericName(String pKey) throws Exception {
         RxDrugRef d = new RxDrugRef();
         Hashtable h = d.getGenericName(pKey);
-		return (String) h.get("name");
+        // Same contract as getDrug2 above: null means "not found", not "crash".
+		return h == null ? null : (String) h.get("name");
     }
 
 
@@ -848,68 +885,43 @@ public class RxDrugData {
      * @since 2026-02-26
      */
     public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
-        List<Map<String, String>> allergyDataList = new ArrayList<>();
+        if (allergies.length == 0) return new Allergy[0];
+        Vector<Map<String, String>> allergyData = new Vector<>();
         for (int i = 0; i < allergies.length; i++) {
             Allergy allergy = allergies[i];
-            Map<String, String> allergyMap = new Hashtable<>();
-            allergyMap.put("id", String.valueOf(i));
-            allergyMap.put("description", allergy.getDescription());
-            allergyMap.put("type", String.valueOf(allergy.getTypeCode()));
-
-            if (allergy.getRegionalIdentifier() != null) {
-                allergyMap.put("uuid", allergy.getRegionalIdentifier());
-            }
-
-            allergyMap.put("ATC", allergy.getAtc());
-            allergyDataList.add(allergyMap);
+            Map<String, String> item = new Hashtable<>();
+            item.put("id", String.valueOf(i));
+            item.put("description", allergy.getDescription() == null ? "" : allergy.getDescription());
+            item.put("type", String.valueOf(allergy.getTypeCode()));
+            item.put("ATC", allergy.getAtc() == null ? "" : allergy.getAtc());
+            if (allergy.getRegionalIdentifier() != null) item.put("uuid", allergy.getRegionalIdentifier());
+            allergyData.add(item);
         }
-
-        RxDrugRef drugRef = new RxDrugRef();
-        Vector<Map<String, String>> allergyDataVector = new Vector<>(allergyDataList);
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> response = drugRef.getAlergyWarnings(atcCode, allergyDataVector);
-
-        Allergy[] actualAllergies = {};
-        List<Allergy> foundWarnings = new ArrayList<>();
-        if (response != null && !response.isEmpty()) {
-            Map<String, Object> warningData = response.getFirst();
-            if (warningData != null) {
-                List<String> warningIndices = (List<String>) warningData.get("warnings");
-                if (warningIndices != null) {
-                    for (String indexStr : warningIndices) {
-                        try {
-                            int index = Integer.parseInt(indexStr);
-                            if (index < 0 || index >= allergies.length) {
-                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: warning index '{}' out of bounds (size={})", indexStr, allergies.length);
-                                continue;
-                            }
-                            foundWarnings.add(allergies[index]);
-                        } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid warning index '{}' from DrugRef", indexStr);
-                        }
-                    }
-                }
-
-                List<String> missingIndices = (List<String>) warningData.get("missing");
-                if (missingIndices != null && missing != null) {
-                    for (String indexStr : missingIndices) {
-                        try {
-                            int index = Integer.parseInt(indexStr);
-                            if (index < 0 || index >= allergies.length) {
-                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: missing index '{}' out of bounds (size={})", indexStr, allergies.length);
-                                continue;
-                            }
-                            missing.add(allergies[index]);
-                        } catch (NumberFormatException e) {
-                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid missing index '{}' from DrugRef", indexStr);
-                        }
-                    }
-                }
-            }
+        List<?> response = new RxDrugRef().getAlergyWarnings(atcCode, allergyData);
+        if (response == null || response.isEmpty() || !(response.getFirst() instanceof Map<?, ?> result)
+                || !(result.get("warnings") instanceof List<?> warnings)
+                || !(result.get("missing") instanceof List<?> unchecked)) {
+            throw new IllegalStateException("DrugRef returned an incomplete allergy-check response");
         }
-        actualAllergies  =  (Allergy[]) foundWarnings.toArray(actualAllergies);
+        List<Allergy> found = resolveAllergyIndices(warnings, allergies);
+        List<Allergy> unresolved = resolveAllergyIndices(unchecked, allergies);
+        if (missing != null) missing.addAll(unresolved);
+        return found.toArray(new Allergy[0]);
+    }
 
-        return actualAllergies;
+    private static List<Allergy> resolveAllergyIndices(List<?> indices, Allergy[] allergies) {
+        List<Allergy> result = new ArrayList<>();
+        for (Object value : indices) {
+            if (!(value instanceof String text)) {
+                throw new IllegalStateException("DrugRef returned a non-string allergy index");
+            }
+            int index = Integer.parseInt(text);
+            if (index < 0 || index >= allergies.length) {
+                throw new IllegalStateException("DrugRef returned an out-of-range allergy index");
+            }
+            if (!result.contains(allergies[index])) result.add(allergies[index]);
+        }
+        return result;
     }
 
 

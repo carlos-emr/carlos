@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictitious demo HRM report. No real clinical data. -->
+<OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
+  <PatientRecord>
+    <Demographics>
+      <Names>
+        <cdsd:LegalName namePurpose="L">
+          <cdsd:FirstName>
+            <cdsd:Part>FAKE-Jacky</cdsd:Part>
+            <cdsd:PartType>GIV</cdsd:PartType>
+          </cdsd:FirstName>
+          <cdsd:LastName>
+            <cdsd:Part>FAKE-Jones</cdsd:Part>
+            <cdsd:PartType>FAMC</cdsd:PartType>
+          </cdsd:LastName>
+        </cdsd:LegalName>
+      </Names>
+      <DateOfBirth>
+        <cdsd:FullDate>1985-06-15</cdsd:FullDate>
+      </DateOfBirth>
+      <HealthCard>
+        <cdsd:Number>0000000000</cdsd:Number>
+        <cdsd:Version>XX</cdsd:Version>
+        <cdsd:ProvinceCode>CA-ON</cdsd:ProvinceCode>
+      </HealthCard>
+      <Gender>M</Gender>
+      <UniqueVendorIdSequence>1</UniqueVendorIdSequence>
+      <PersonStatusCode>A</PersonStatusCode>
+    </Demographics>
+    <ReportsReceived>
+      <Media>Download</Media>
+      <Format>Text</Format>
+      <FileExtensionAndVersion>.txt</FileExtensionAndVersion>
+      <Content>
+        <cdsd:TextContent>SYNTHETIC-DEMO-HRM-34
+Fictitious demonstration report 34.
+No real examination or clinical result is represented by this fixture.</cdsd:TextContent>
+      </Content>
+      <Class>Diagnostic Imaging Report</Class>
+      <SubClass>X-Ray</SubClass>
+      <EventDateTime>
+        <cdsd:DateTime>2024-01-18T10:15:00</cdsd:DateTime>
+      </EventDateTime>
+      <ReceivedDateTime>
+        <cdsd:DateTime>2024-01-18T12:00:00</cdsd:DateTime>
+      </ReceivedDateTime>
+      <AuthorPhysician>
+        <cdsd:FirstName>Demo</cdsd:FirstName>
+        <cdsd:LastName>Radiologist</cdsd:LastName>
+      </AuthorPhysician>
+      <SendingFacility>DEMO</SendingFacility>
+      <SendingFacilityReportNumber>DEMO-DI-0034</SendingFacilityReportNumber>
+      <!-- Diagnostic Imaging reports carry their examination in OBRContent; HRM date
+           helpers read the report date from the first observation. -->
+      <OBRContent>
+        <AccompanyingSubClass>X-Ray</AccompanyingSubClass>
+        <AccompanyingMnemonic>CXR</AccompanyingMnemonic>
+        <AccompanyingDescription>Synthetic demonstration examination</AccompanyingDescription>
+        <ObservationDateTime>
+          <cdsd:DateTime>2024-01-18T10:15:00</cdsd:DateTime>
+        </ObservationDateTime>
+      </OBRContent>
+      <ResultStatus>S</ResultStatus>
+    </ReportsReceived>
+    <TransactionInformation>
+      <MessageUniqueID>demo-hrm-report-0034</MessageUniqueID>
+      <DeliverToUserID>999998</DeliverToUserID>
+      <Provider>
+        <cdsd:FirstName>Demo</cdsd:FirstName>
+        <cdsd:LastName>Provider</cdsd:LastName>
+      </Provider>
+    </TransactionInformation>
+  </PatientRecord>
+</OmdCds>

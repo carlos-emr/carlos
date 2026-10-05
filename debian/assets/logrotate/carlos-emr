@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# Log rotation for CARLOS EMR.
+#
+# ONLY the ModSecurity logs are listed here, and that is deliberate. Everything
+# else under /var/log/carlos-emr already rotates itself, and adding logrotate on
+# top would mean two things managing one open file descriptor:
+#
+#   access.<date>.log   Tomcat's AccessLogValve rotates daily and deletes at
+#                       maxDays="30" (see /etc/carlos-emr/tomcat/server.xml).
+#   catalina.<date>.log JULI's AsyncFileHandler, maxDays = 30
+#                       (/etc/carlos-emr/tomcat/logging.properties).
+#   csrf.log, waf.log   the application's own Log4j2 RollingFile appenders,
+#                       10 MB / daily, seven generations, gzipped.
+#
+# RETENTION IS A COMPLIANCE DECISION. The ModSecurity audit log records the
+# request line, headers and matched rule for every blocked request. It is
+# configured with SecAuditLogParts ABFHZ, which excludes request and response
+# BODIES — those are where clinical free text and health-card numbers would
+# land on each false positive — but the request line and cookies still make it
+# PHI-adjacent. Thirty days keeps it useful for incident triage without
+# accumulating an unbounded secondary record. If your site has a defined
+# retention rule, change the count here AND check that the backup retention in
+# /etc/carlos-emr/backup.env agrees with it.
+
+/var/log/carlos-emr/modsec/*.log {
+    daily
+    # daily alone let an internet scanner write unbounded JSON between
+    # rotations (every blocked request appends a multi-KB record and only
+    # the login routes are rate-limited); maxsize rotates early on the next
+    # logrotate pass once the file passes this. For an internet-exposed
+    # host, pair the WAF with fail2ban or upstream filtering.
+    maxsize 512M
+    rotate 30
+    missingok
+    notifempty
+    compress
+    delaycompress
+    # root:adm 0640, matching SecAuditLogFileMode in the ModSecurity policy.
+    # The file is opened by the nginx master (root), so a www-data-owned
+    # replacement would be reopened and rewritten as root anyway; what matters
+    # is that it is never world-readable.
+    create 0640 root adm
+    su root adm
+    sharedscripts
+    postrotate
+        # ModSecurity holds the audit log open for the life of the worker.
+        # Without this reload, rotation leaves it writing to the unlinked
+        # inode and the audit trail silently stops at the first rotation.
+        if [ -d /run/systemd/system ]; then
+            systemctl reload nginx.service >/dev/null 2>&1 || true
+        fi
+    endscript
+}

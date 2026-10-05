@@ -12,6 +12,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Files;
@@ -286,8 +287,8 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should return 404 when the requested provider stamp file is missing")
-    void shouldReturn404_whenRequestedProviderStampIsMissing() {
+    @DisplayName("should return uncached 204 when the requested provider stamp file is missing")
+    void shouldReturn204_whenRequestedProviderStampIsMissing() {
         mockRequest.setParameter("providerNo", "123456");
         when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -295,8 +296,45 @@ class ProviderSignatureImage2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+        assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+        assertThat(mockResponse.getHeader("Cache-Control")).contains("no-store");
+        assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should return 404 when the configured image path is not a directory")
+    void shouldReturn404_whenConfiguredImagePathIsNotDirectory() throws Exception {
+        Path configuredFile = Files.createTempFile(tempDir, "eform-images-", ".txt");
+        when(mockProperties.getEformImageDirectory()).thenReturn(configuredFile.toString());
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
         assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should return 404 when image directory validation fails")
+    void shouldReturn404_whenImageDirectoryValidationFails() {
+        String configuredDirectory = "/invalid/eform-images";
+        when(mockProperties.getEformImageDirectory()).thenReturn(configuredDirectory);
+
+        try (MockedStatic<PathValidationUtils> pathValidationUtilsMock =
+                     mockStatic(PathValidationUtils.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            pathValidationUtilsMock.when(() -> PathValidationUtils.resolveConfiguredDirectory(
+                            configuredDirectory, "EFORM_IMAGES_DIR"))
+                    .thenThrow(new SecurityException("not allowed"));
+
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(mockResponse.getContentAsByteArray()).isEmpty();
+            pathValidationUtilsMock.verify(() -> PathValidationUtils.resolveConfiguredDirectory(
+                    configuredDirectory, "EFORM_IMAGES_DIR"));
+        }
     }
 
     @Test

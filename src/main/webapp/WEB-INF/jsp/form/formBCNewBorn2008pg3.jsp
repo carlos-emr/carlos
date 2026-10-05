@@ -1074,7 +1074,7 @@
                         <td>
                             <b>16. <fmt:message key='form.bcnewborn.statusAtDischarge'/></b><br>
                             <textarea name="Section16TextPg3" @oscar.formDB
-                                      dbType="varchar(255)"/> <%= props.getProperty("Section16TextPg3", "") %></textarea>
+                                      dbType="text"/> <%= props.getProperty("Section16TextPg3", "") %></textarea>
                             <br>
                             <input type="checkbox"
                                    name="Section16ExclusivePg3" <%= props.getProperty("Section16ExclusivePg3", "") %>

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
@@ -934,6 +935,25 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             assertThat(row[0]).isInstanceOf(Demographic.class);
             assertThat(row[1]).isInstanceOf(Appointment.class);
             assertThat(row[2]).isInstanceOf(Provider.class);
+        }
+
+        @Test
+        @DisplayName("should stream scalar export projections")
+        void shouldStreamProjection_whenAppointmentsExist() {
+            createAndPersistProvider(PROVIDER_NO, "John", "Smith");
+            Demographic demo = createAndPersistDemographic("Jane", "Doe", "ON", "4567890123");
+            createAndPersist(today, PROVIDER_NO, demo.getDemographicNo(), "A");
+            List<PatientAppointmentExportRow> streamedRows = new java.util.ArrayList<>();
+
+            oscarAppointmentDao.streamPatientAppointments(
+                    PROVIDER_NO, yesterday, tomorrow, streamedRows::add);
+
+            assertThat(streamedRows).isNotEmpty();
+            PatientAppointmentExportRow row = streamedRows.get(0);
+            assertThat(row.patientFirstName()).isEqualTo("Jane");
+            assertThat(row.patientLastName()).isEqualTo("Doe");
+            assertThat(row.providerFirstName()).isEqualTo("John");
+            assertThat(row.providerLastName()).isEqualTo("Smith");
         }
 
         @Test

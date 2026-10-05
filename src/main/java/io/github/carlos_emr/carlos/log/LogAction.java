@@ -32,8 +32,9 @@ package io.github.carlos_emr.carlos.log;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,7 +56,20 @@ public class LogAction {
     private static final int EXECUTOR_SHUTDOWN_TIMEOUT_SECONDS = 5;
 
     private static ExecutorService createExecutorService() {
-        return Executors.newCachedThreadPool(new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.MAX_PRIORITY));
+        // Bounded pool at normal priority (was Executors.newCachedThreadPool at Thread.MAX_PRIORITY,
+        // which is unbounded): an audit-write burst or a database slowdown must not spawn an unbounded
+        // number of top-priority threads that exhaust memory/the DB pool and starve request threads.
+        // On saturation AbortPolicy throws RejectedExecutionException, which executeAsync() catches and
+        // handles by writing the audit entry synchronously — so no audit event is silently dropped.
+        int maxThreads = Math.max(2, Runtime.getRuntime().availableProcessors());
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                2, maxThreads,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                new DeamonThreadFactory(LogAction.class.getSimpleName() + ".executorService", Thread.NORM_PRIORITY),
+                new ThreadPoolExecutor.AbortPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     static void setExecutorServiceForTesting(ExecutorService testExecutorService) {
@@ -135,6 +149,43 @@ public class LogAction {
         logEntry.setAction(action);
         logEntry.setData(data);
         LogAction.addLogSynchronous(logEntry);
+    }
+
+    /**
+     * As {@link #addLogSynchronous(LoggedInInfo, String, String)}, in the caller's thread and
+     * transaction, also recording the content, its id and the patient, so the entry can be found
+     * by those columns rather than by searching the data text.
+     */
+    public static void addLogSynchronous(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        LogAction.addLogSynchronous(createPatientLogEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    /**
+     * Persists the patient audit entry in the caller's thread, propagating any failure so a
+     * transactional caller can roll back its change instead of committing without an audit.
+     * Use this for mutations that require their audit entry to succeed in the same transaction.
+     *
+     * @throws RuntimeException if the audit entry cannot be constructed or persisted
+     */
+    public static void addLogSynchronousOrThrow(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        getOscarLogDao().persist(createPatientLogEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
+    private static OscarLog createPatientLogEntry(LoggedInInfo loggedInInfo, String action, String content, String contentId,
+            Integer demographicNo, String data) {
+        OscarLog logEntry = new OscarLog();
+        if (loggedInInfo.getLoggedInSecurity() != null)
+            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
+        logEntry.setAction(action);
+        logEntry.setContent(content);
+        logEntry.setContentId(contentId);
+        logEntry.setIp(loggedInInfo.getIp());
+        logEntry.setDemographicId(demographicNo);
+        logEntry.setData(data);
+        return logEntry;
     }
 
     /**

@@ -78,8 +78,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
-import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
@@ -88,6 +86,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.File;
+import java.nio.file.Files;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -308,6 +307,9 @@ public class CaseManagementPrint {
 
         FileOutputStream fos = null;
         List<Object> pdfDocs = new ArrayList<Object>();
+        // Intermediate lab PDFs (PHI) whose per-iteration delete failed; the finally block retries
+        // them, since clearing file2 below would otherwise lose the only reference.
+        List<File> undeletedLabPdfs = new ArrayList<File>();
 
 
         try {
@@ -366,11 +368,16 @@ public class CaseManagementPrint {
                     //Date d = result.getDateObj();
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
-                    MessageHandler handler = Factory.getHandler(segmentId);
-                    String labReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.pdf");
-                    String fileName2 = PathValidationUtils.validateGeneratedChildPath(labReportName, documentDir).getAbsolutePath();
-                    file2 = PathValidationUtils.resolveTrustedPath(new File(fileName2));
-                    os2 = new FileOutputStream(file2);
+                    // Each lab is rendered into the application temp directory, as every other
+                    // LabPDFCreator caller does, NOT under DOCUMENT_DIR: addEmbeddedDocuments()
+                    // validates its source with validateUpload(), which admits temp locations only,
+                    // so a lab written under DOCUMENT_DIR was rejected there as a security violation
+                    // and the chart printed with every lab silently omitted (the empty embedded file
+                    // was then skipped by ConcatPDF). The neutral prefix also keeps the patient's
+                    // name, which the old file name carried, out of the filesystem.
+                    String tempPrefix = PathValidationUtils.validateGeneratedFileName("chart-print-lab-" + segmentId);
+                    file2 = PathValidationUtils.createSecureTempFile(tempPrefix + "-", ".pdf");
+                    os2 = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file2));
 
                     {
                         LabPDFCreator pdfCreator = new LabPDFCreator(os2, segmentId, loggedInInfo.getLoggedInProviderNo());
@@ -380,44 +387,53 @@ public class CaseManagementPrint {
                             throw new DocumentException(documentException);
                         }
                         os2.close();
+                        os2 = null;
 
-                        String embeddedLabReportName = PathValidationUtils.validateGeneratedFileName(handler.getPatientName().replaceAll("\\s", "_") + "_" + handler.getMsgDate() + "_LabReport.1.pdf");
-                        String fileName3 = PathValidationUtils.validateGeneratedChildPath(embeddedLabReportName, documentDir).getAbsolutePath();
-                        File file3 = PathValidationUtils.resolveTrustedPath(new File(fileName3));
-                        fos = new FileOutputStream(file3);
+                        File file3 = PathValidationUtils.createSecureTempFile(tempPrefix + "-embedded-", ".pdf");
+                        // Registered for cleanup BEFORE the stream is opened and the lab embedded: the
+                        // finally block only deletes what pdfDocs names, so a failure in either step
+                        // used to leave this file, which holds lab PHI, in the temp directory. Concat
+                        // below tolerates an empty entry, and on the failure path it is never reached.
+                        pdfDocs.add(file3.getAbsolutePath());
+                        fos = new FileOutputStream(PathValidationUtils.resolveTrustedPath(file3));
                         pdfCreator.addEmbeddedDocuments(file2, fos);
-                        pdfDocs.add(fileName3);
+                        fos.close();
+                        fos = null;
 
+                        // One lab per iteration: the finally block below only sees the last file2, so
+                        // every earlier lab's intermediate PDF (PHI) used to outlive the print.
+                        if (!deleteTempPdf(file2, "temporary lab PDF")) {
+                            undeletedLabPdfs.add(file2);
+                        }
+                        file2 = null;
                     }
                 }
 
             }
-            int skippedSections = ConcatPDF.concat(pdfDocs, os);
-            if (skippedSections > 0) {
-                logger.warn("Chart print: {} document section(s) omitted from the printed output", skippedSections);
-            }
-        } catch (IOException | SecurityException e) {
-            // Every failure here occurs before any byte is written to the response stream (os is only
-            // written by ConcatPDF.concat above), so propagate instead of silently returning an empty,
-            // HTTP-200 PDF. The Struts direct-response caller resets the response and sends a real error;
+            ConcatPDF.concatRequired(pdfDocs, os);
+        } catch (IOException | RuntimeException e) {
+            // Missing inputs fail before the response stream is written. Propagate assembly failures
+            // instead of returning a successful incomplete PDF. The Struts direct-response caller
+            // resets an uncommitted response and sends a real error;
             // the REST StreamingOutput caller logs and closes. Mapped to IOException per the method contract.
-            logger.error("Chart print generation failed before any output was written", e);
-            throw new IOException("Failed to generate chart print PDF", e);
+            logger.error("Chart print generation failed ({})", e.getClass().getSimpleName());
+            throw new IOException("Failed to generate complete chart print PDF");
         } finally {
-            if (out != null) {
-                out.close();
-            }
-            if (os2 != null) {
-                os2.close();
-            }
-            if (fos != null) {
-                fos.close();
-            }
+            closeTempStream(out);
+            closeTempStream(os2);
+            closeTempStream(fos);
+            // File.delete() fails silently; these are the encounter PDF and, on the exception
+            // path, the lab PDF that was in flight, both PHI, so a refusal must at least be logged.
             if (file != null) {
-                file.delete();
+                deleteTempPdf(file, "temporary encounter PDF");
             }
             if (file2 != null) {
-                file2.delete();
+                deleteTempPdf(file2, "temporary lab PDF");
+            }
+            // Second attempt for any intermediate lab PDF the loop could not delete: a transient
+            // filesystem refusal is the usual cause, and these files hold lab results.
+            for (File leftover : undeletedLabPdfs) {
+                deleteTempPdf(leftover, "temporary lab PDF (retry)");
             }
             for (Object o : pdfDocs) {
                 // Resolve+delete must never throw out of this finally: a malformed temp path would
@@ -425,11 +441,11 @@ public class CaseManagementPrint {
                 // which contain PHI. Degrade to a warning and continue cleaning up the rest.
                 try {
                     File tempPdf = PathValidationUtils.resolveTrustedPath(new File((String) o));
-                    if (!tempPdf.delete()) {
-                        logger.warn("Failed to delete temporary print PDF; leaving it for the OS temp sweep");
-                    }
+                    // The encounter PDF is in this list AND deleted via `file` above, so a missing
+                    // file here is the normal case for it, not a failed delete worth a warning.
+                    deleteTempPdf(tempPdf, "temporary print PDF");
                 } catch (RuntimeException ex) {
-                    logger.warn("Could not delete temporary print PDF; leaving it for the OS temp sweep", ex);
+                    logger.warn("Could not delete temporary print PDF ({})", ex.getClass().getSimpleName());
                 }
             }
         }
@@ -721,4 +737,32 @@ public class CaseManagementPrint {
         return strNewDate;
     }
 
+
+    private static void closeTempStream(java.io.Closeable stream) {
+        if (stream == null) return;
+        try {
+            stream.close();
+        } catch (IOException | RuntimeException failure) {
+            // Keep cleaning every PHI-bearing file and preserve the original print failure.
+            logger.warn("Could not close temporary chart print stream ({})", failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Deletes a temp PDF that holds PHI, tolerating one that is already gone (the encounter PDF is
+     * deleted through two handles) and never throwing out of cleanup: a failure is a warning with
+     * the reason, which {@code File#delete}'s boolean never gave.
+     *
+     * @return {@code true} when the file is gone, {@code false} after the warning when the delete
+     *         was refused, so the caller can keep the file for a retry
+     */
+    private static boolean deleteTempPdf(File tempPdf, String description) {
+        try {
+            Files.deleteIfExists(tempPdf.toPath());
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            logger.warn("Failed to delete {}; leaving it for the OS temp sweep ({})", description, ex.getClass().getSimpleName());
+            return false;
+        }
+    }
 }
