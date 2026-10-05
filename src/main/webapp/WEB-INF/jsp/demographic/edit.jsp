@@ -1187,8 +1187,9 @@
                                     <fmt:message key="global.tickler"/></a>
                             </td>
                         </tr>
-                        <%-- Patient portal (issue #3854): shown only where a portal is configured and the user can
-                             read invitations or accounts; the page's gate and JSON routes re-check both. It opens in
+                        <%-- Patient portal (issue #3854): shown only while the portal is switched on
+                             (patient_portal.enabled) and the user can read invitations or accounts; the page's
+                             gate and JSON routes re-check both. It opens in
                              this window, like Appointment History, and links back to this record. --%>
                         <% if (io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings.isConfigured()) { %>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_portal.invite,_portal.account" rights="r">
