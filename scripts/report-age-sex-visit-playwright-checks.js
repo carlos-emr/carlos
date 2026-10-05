@@ -19,6 +19,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
+const { parseCsv } = require('./lib/export-content-helpers');
 
 const JOINED = '1951-03-07';
 const VISIT_DATE = '1952-02-14';
@@ -288,40 +289,85 @@ async function workflow(s) {
     notes.push(id);
   }
 
-  for (const [endMonth, expected] of [
-    [SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
-    ['03/1953', {'1953-02': '3,1,0,2,1,0,2', '1953-03': '1,1,0,1,1,0,2', '1953-02 to 1953-03': '4,2,0,2,2,0,2'}],
-  ]) {
-    await s.step(`Provider Service CSV labels ${SERVICE_MONTH} through ${endMonth} inclusively and counts only that range`, async () => {
-      await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
-        { marker: '#psrForm' });
-      for (const [field, value] of [['#startDate', SERVICE_MONTH], ['#endDate', endMonth]]) {
-        await admin.locator(`#psrForm ${field}`).fill(value);
-        // Click away, as a reader does, so the month picker closes before the next control.
-        await admin.locator('#psrForm h4').click();
+  async function refusesInvalidMonths(page) {
+    const exports = [];
+    const record = request => {
+      if (new URL(request.url()).pathname.endsWith('/oscarReport/ViewProviderServiceReportExport')) exports.push(request.url());
+    };
+    page.on('request', record);
+    try {
+      for (const value of ['', '13/1953', '02/53', 'invalid']) {
+        for (const name of ['startDate', 'endDate']) {
+          await page.locator(`#${name}`).fill(value);
+          await page.locator('#psrForm h4').click();
+        }
+        await page.locator('#psrForm button[type="submit"]').click();
+        await page.locator('#startDateError').waitFor({state: 'visible'});
+        await page.locator('#endDateError').waitFor({state: 'visible'});
+        await page.waitForTimeout(150);
+        h.assert(exports.length === 0, `Invalid month ${JSON.stringify(value)} submitted a report`);
       }
-      await admin.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
-      h.assert(await admin.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
-      const outcome = await ui.clickDownloadsOrOpens(admin, admin.locator('#psrForm button[type="submit"]'),
-        { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
-      h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
-        'Provider Service Report Export did not download a provider_service_*.csv file');
-      const lines = fs.readFileSync(await outcome.download.path(), 'utf8').trim().split('\n');
-      h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
-        + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
-        + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
-      const rows = lines.map(line => line.split(','));
-      const agencyRows = rows.filter(cells => cells[1] === 'all programs');
-      h.assert(JSON.stringify(agencyRows.map(cells => cells[3])) === JSON.stringify(Object.keys(expected)),
-        'The CSV month/summary labels differ from the requested inclusive range');
-      for (const [date, counts] of Object.entries(expected)) {
-        const row = agencyRows.find(cells => cells[3] === date);
-        h.assert(row, `The Provider Service CSV has no all-programs row for ${date}`);
-        h.assert(row.slice(4).join(',') === counts,
-          `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give ${counts}`);
+    } finally {
+      page.off('request', record);
+    }
+  }
+  const shellJQuery = await admin.evaluateHandle(() => window.jQuery);
+  for (const [mode, endMonth, expected] of [
+    ['dynamic', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+    ['dynamic', '03/1953', {'1953-02': '3,1,0,2,1,0,2', '1953-03': '1,1,0,1,1,0,2', '1953-02 to 1953-03': '4,2,0,2,2,0,2'}],
+    ['direct', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+  ]) {
+    await s.step(`Provider Service ${mode} CSV labels ${SERVICE_MONTH} through ${endMonth} inclusively and counts only that range`, async () => {
+      const reportPage = mode === 'direct' ? await s.context.newPage() : admin;
+      try {
+        if (mode === 'direct') {
+          h.wireStrictPage(reportPage, 'provider-service-direct', s.recorder);
+          await reportPage.goto(h.appUrl(s.config.baseUrl, '/oscarReport/ViewProviderServiceReportForm'), {waitUntil: 'load'});
+        } else {
+          await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
+            {marker: '#psrForm'});
+          h.assert(await admin.evaluate(original => window.jQuery === original, shellJQuery),
+            'The report form replaced the Administration jQuery instance');
+        }
+        if (endMonth === SERVICE_MONTH) await refusesInvalidMonths(reportPage);
+        for (const [field, value] of [['#startDate', SERVICE_MONTH], ['#endDate', endMonth]]) {
+          await reportPage.locator(`#psrForm ${field}`).fill(value);
+          // Click away, as a reader does, so the month picker closes before the next control.
+          await reportPage.locator('#psrForm h4').click();
+        }
+        await reportPage.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+        h.assert(await reportPage.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
+        const outcome = await ui.clickDownloadsOrOpens(reportPage, reportPage.locator('#psrForm button[type="submit"]'),
+          { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
+        h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
+          'Provider Service Report Export did not download a provider_service_*.csv file');
+        const endLabel = `${endMonth.slice(3)}-${endMonth.slice(0, 2)}`;
+        h.assert(outcome.download.suggestedFilename() === `provider_service_1953-02_${endLabel}.csv`,
+          'The download filename is not the safe normalized date range');
+        const csv = fs.readFileSync(await outcome.download.path(), 'utf8');
+        const lines = csv.split('\n');
+        h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
+          + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
+          + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
+        const rows = parseCsv(csv);
+        const clinicName = sql.value("SELECT IFNULL(clinic_name,'') FROM clinic LIMIT 1") || '';
+        h.assert(rows.slice(1).filter(row => row.length > 1).every(row => row[0] === clinicName),
+          'The CSV agency differs from the configured clinic name');
+        const agencyRows = rows.filter(cells => cells[1] === 'all programs');
+        h.assert(JSON.stringify(agencyRows.map(cells => cells[3])) === JSON.stringify(Object.keys(expected)),
+          'The CSV month/summary labels differ from the requested inclusive range');
+        for (const [date, counts] of Object.entries(expected)) {
+          const row = agencyRows.find(cells => cells[3] === date);
+          h.assert(row, `The Provider Service CSV has no all-programs row for ${date}`);
+          h.assert(row.slice(4).join(',') === counts,
+            `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give ${counts}`);
+        }
+      } finally {
+        if (mode === 'direct') await reportPage.close();
       }
     });
   }
+  await shellJQuery.dispose();
 }
 
 if (require.main === module) runWorkflow('report-age-sex-visit', workflow, { openPatient: true, openMaster: false });
