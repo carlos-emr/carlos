@@ -31,8 +31,14 @@ for (let month = 1; month <= 12; month++) {
     assert.equal(date.getDate(), 1);
   });
 }
-for (const value of ['', '2/1953', '00/1953', '13/1953', '02/53', '02/1953extra', ' 02/1953', '02/1953 ']) {
+for (const value of ['', '2/1953', '00/1953', '13/1953', '02/53', '02/1953extra', ' 02/1953', '02/1953 ', '02/0000']) {
   test(`The report picker refuses malformed month ${JSON.stringify(value)}`, () => {
     assert.equal(parseMonth(value), undefined);
   });
 }
+
+test('The picker preserves year 0001 instead of applying the JavaScript 1900 offset', () => {
+  const date = parseMonth('02/0001');
+  assert.equal(date.getFullYear(), 1);
+  assert.equal(date.getMonth(), 1);
+});

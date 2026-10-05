@@ -84,7 +84,7 @@
                 <label class="form-label" for="startDate">Start Date</label>
                 <div>
                     <input id="startDate" name="startDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
-                           type="text" required pattern="(0[1-9]|1[0-2])/[0-9]{4}" placeholder="MM/YYYY"
+                           type="text" required pattern="(0[1-9]|1[0-2])/(?!0000)[0-9]{4}" placeholder="MM/YYYY"
                            aria-describedby="startDateError"/>
                     <span id="startDateError" class="text-danger" role="alert" hidden>Please enter a month as MM/YYYY.</span>
                 </div>
@@ -93,7 +93,7 @@
                 <label class="form-label" for="endDate">End Date (inclusive)</label>
                 <div>
                     <input id="endDate" name="endDate" class="form-control form-control-sm d-inline-block w-auto" size="7"
-                           type="text" required pattern="(0[1-9]|1[0-2])/[0-9]{4}" placeholder="MM/YYYY"
+                           type="text" required pattern="(0[1-9]|1[0-2])/(?!0000)[0-9]{4}" placeholder="MM/YYYY"
                            aria-describedby="endDateError"/>
                     <span id="endDateError" class="text-danger" role="alert" hidden>Please enter a month as MM/YYYY.</span>
                 </div>
@@ -121,7 +121,7 @@
         }
         function parseMonth(value) {
             const parts = /^(0[1-9]|1[0-2])\/([0-9]{4})$/.exec(value);
-            if (!parts) return undefined;
+            if (!parts || Number(parts[2]) === 0) return undefined;
             const date = new Date();
             date.setFullYear(Number(parts[2]), Number(parts[1]) - 1, 1);
             date.setHours(0, 0, 0, 0);

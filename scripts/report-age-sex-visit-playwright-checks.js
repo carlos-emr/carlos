@@ -300,7 +300,7 @@ async function workflow(s) {
     };
     page.on('request', record);
     try {
-      for (const value of ['', '13/1953', '02/53', 'invalid']) {
+      for (const value of ['', '13/1953', '02/53', '02/0000', 'invalid']) {
         for (const name of ['startDate', 'endDate']) {
           await page.locator(`#${name}`).fill(value);
           await page.locator('#psrForm h4').click();
