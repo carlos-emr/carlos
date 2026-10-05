@@ -108,6 +108,7 @@ async function workflow(s) {
       `DELETE FROM indicatorTemplate WHERE name LIKE ${h.sqlString(marker + '%')}`,
       `DELETE FROM dashboard WHERE name=${M}`,
       `DELETE FROM secObjPrivilege WHERE roleUserGroup=${P} AND objectName IN (${GRANTS.map(g => h.sqlString(g[0])).join(',')})`,
+      `DELETE FROM demographicExt WHERE demographic_no IN (${owned})`,
       `DELETE FROM demographicArchive WHERE demographic_no IN (${owned})`,
       `DELETE FROM demographic WHERE demographic_no IN (${owned}) AND last_name=${M}`,
     ].join(';'));
@@ -122,6 +123,7 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM indicatorTemplate WHERE name LIKE ${h.sqlString(marker + '%')})
       + (SELECT COUNT(*) FROM dashboard WHERE name=${M})
       + (SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${P})
+      + (SELECT COUNT(*) FROM demographicExt WHERE demographic_no IN (${owned}))
       + (SELECT COUNT(*) FROM demographicArchive WHERE demographic_no IN (${owned}))
       + (SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${owned}))`) === '0',
     'Owned dashboard fixtures were not all removed');
@@ -302,6 +304,9 @@ async function workflow(s) {
         dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
         dashboard.locator('#saveTicklerBtn').click(),
       ]);
+      const request = response.request();
+      h.assert(Boolean((await request.allHeaders())['csrf-token']
+        || new URLSearchParams(request.postData() || '').get('CSRF-TOKEN')), 'The successful tickler save carried no CSRF token');
       h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
       for (const id of [alpha, bravo]) await expectValue(sql, ticklers(id), '1', 'A checked patient did not receive exactly one tickler');
       h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient received a tickler');
@@ -320,7 +325,12 @@ async function workflow(s) {
     await modal.locator('#icd9code').filter({ hasText: DX_CODE }).waitFor();
     h.assert((await modal.locator('#icd9description').innerText()).trim()
       === sql.value(`SELECT description FROM icd9 WHERE icd9='${DX_CODE}'`), 'The confirmation shows the wrong ICD9 description');
-    await modal.locator('#confirmAddToDiseaseRegistry').click();
+    const [registryRequest] = await Promise.all([
+      dashboard.waitForRequest(r => r.method() === 'POST' && /BulkPatientAction$/.test(new URL(r.url()).pathname)),
+      modal.locator('#confirmAddToDiseaseRegistry').click(),
+    ]);
+    h.assert(Boolean((await registryRequest.allHeaders())['csrf-token']
+      || new URLSearchParams(registryRequest.postData() || '').get('CSRF-TOKEN')), 'The registry confirmation carried no CSRF token');
     if (!await eventually(`SELECT (${dxRows(alpha)})=1 AND (${dxRows(bravo)})=1`, '1')) {
       const misrouted = deferFailure('dashboard-display', /\/web\/dashboard\/display\/DrilldownDisplay$/, 500, null);
       const counts = [alpha, bravo].map(id => sql.value(dxRows(id)));
@@ -346,6 +356,29 @@ async function workflow(s) {
       + `&serviceTime=10:30%20AM&message=&messageAppend=${encodeURIComponent(marker)}%20recall`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `GET AssignTickler saveTickler answered HTTP ${response.status()}, expected 405`);
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'A GET save created a tickler');
+  });
+
+  await s.step('Missing-CSRF POSTs are refused before tickler or bulk patient mutations', async () => {
+    const snapshot = () => JSON.stringify([ownedRows(), sql.rows(`SELECT
+      (SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${patients.join(',')})),
+      (SELECT COUNT(*) FROM dxresearch WHERE demographic_no IN (${patients.join(',')})),
+      (SELECT COUNT(*) FROM demographicExt WHERE demographic_no IN (${patients.join(',')}))`)]);
+    const before = snapshot();
+    const requests = [
+      ['BulkPatientAction', {method: 'addToDiseaseRegistry', patientIds: charlie, dxUpdateICD9Code: DX_CODE}],
+      ['BulkPatientAction', {method: 'excludePatients', patientIds: charlie, indicatorId}],
+      ['BulkPatientAction', {method: 'setPatientsInactive', patientIds: alpha}],
+      ['AssignTickler', {method: 'saveTickler', demographics: charlie, ticklerCategoryId: '1',
+        taskAssignedTo: fixture.providerNo, priority: 'High', serviceDate: '12-31-2030',
+        serviceTime: '10:30 AM', messageAppend: `${marker} recall`}],
+    ];
+    for (const [route, form] of requests) {
+      const response = await ctx.request.post(h.appUrl(s.config.baseUrl, `/web/dashboard/display/${route}`),
+        {form, maxRedirects: 0});
+      h.assert(response.status() === 403, `Missing-CSRF ${form.method} answered HTTP ${response.status()}`);
+      await response.dispose();
+      h.assert(snapshot() === before, `Missing-CSRF ${form.method} changed owned patient data`);
+    }
   });
 
   await s.step('no deferred dashboard defect remains (plain-user drill down, GET-refusing BulkPatientAction)', async () => {

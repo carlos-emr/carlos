@@ -100,6 +100,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return "unauthorized";
         }
 
+        if (!isPostRequest()) return NONE;
+
         excludeDemographicHandler.setLoggedinInfo(loggedInInfo);
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -156,6 +158,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             }
             return "unauthorized";
         }
+
+        if (!isPostRequest()) return NONE;
 
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String icd9code = getICD9Code(request);
@@ -225,6 +229,8 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             return "unauthorized";
         }
 
+        if (!isPostRequest()) return NONE;
+
         demographicPatientStatusRosterStatusHandler.setLoggedinInfo(loggedInInfo);
 
         String patientIdsParam = request.getParameter("patientIds");
@@ -251,6 +257,14 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         logger.info("Bulk patient status change (inactive) notification sent to provider(s), {} patients affected", patientIdList.size());
 
         return null;
+    }
+
+    /** Refuses unsupported methods before any selected-patient mutation. */
+    private boolean isPostRequest() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**

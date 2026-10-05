@@ -4190,7 +4190,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser.",
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges.",
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
