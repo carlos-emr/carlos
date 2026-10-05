@@ -6,6 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/form/demographicMeasurementModal.jsp'), 'utf8');
+// nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- Extracts executable test code only from the fixed, checked-in JSP path above; no external data or HTML response is accepted.
 const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIndexOf('</script>'))
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
