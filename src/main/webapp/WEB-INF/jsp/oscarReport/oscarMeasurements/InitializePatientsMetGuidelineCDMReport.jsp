@@ -176,7 +176,7 @@
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
                                     <tr>
                                         <td width="2" class="fieldBox" bgcolor="#ddddff">
-                                            <input type="checkbox" name="guidelineCheckbox" value="${ctr.index}" <c:if test="${cdmForm.selected('guidelineCheckbox', ctr.index, false)}">checked="checked"</c:if> />
+                                            <input type="checkbox" name="guidelineCheckbox" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgTest"/>" value="${ctr.index}" <c:if test="${cdmForm.selected('guidelineCheckbox', ctr.index, false)}">checked="checked"</c:if> />
                                         </td>
                                         <td width="4" class="fieldBox" bgcolor="#ddddff">
                                             ${carlos:forHtml(measurementType.typeDisplayName)}
@@ -189,13 +189,13 @@
                                             <table>
                                                 <tr>
                                                     <c:set var="cdmComparisonName" value="value(aboveBelow${ctr.index})" />
-                                                    <td><input type="radio" name="value(aboveBelow${ctr.index})" value=">" <c:if test="${cdmForm.selected(cdmComparisonName, '>', true)}">checked="checked"</c:if> /></td>
-                                                    <td><input type="radio" name="value(aboveBelow${ctr.index})" value="&lt;" <c:if test="${cdmForm.selected(cdmComparisonName, '<', false)}">checked="checked"</c:if> /></td>
+                                                    <td><input type="radio" name="value(aboveBelow${ctr.index})" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} &gt;" value=">" <c:if test="${cdmForm.selected(cdmComparisonName, '>', true)}">checked="checked"</c:if> /></td>
+                                                    <td><input type="radio" name="value(aboveBelow${ctr.index})" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} &lt;" value="&lt;" <c:if test="${cdmForm.selected(cdmComparisonName, '<', false)}">checked="checked"</c:if> /></td>
                                                 </tr>
                                             </table>
                                         </td>
                                         <td width="50" class="fieldBox" bgcolor="#ddddff">
-                                            <input type="text" name="guidelineB" value="${carlos:forHtmlAttribute(cdmForm.value('guidelineB', ctr.index, ''))}" size="6" />
+                                            <input type="text" name="guidelineB" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgGuideline"/>" value="${carlos:forHtmlAttribute(cdmForm.value('guidelineB', ctr.index, ''))}" size="6" />
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff">
                                             <input type="text" name="startDateB" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value="${carlos:forHtmlAttribute(cdmForm.value('startDateB', ctr.index, lastYear))}" size="10">
@@ -222,7 +222,7 @@
                                                 <c:forEach var="mInstrc" items="${mInstrcList}" varStatus="index">
                                                     <tr>
                                                         <td>
-                                                            <c:set var="cdmInstructionName" value="value(mInstrcsCheckbox${ctr.index}${index.index})" /><input type="checkbox" name="value(mInstrcsCheckbox${ctr.index}${index.index})" <c:if test="${cdmForm.selected(cdmInstructionName, mInstrc.measuringInstrc, true)}">checked="checked"</c:if>
+                                                            <c:set var="cdmInstructionName" value="value(mInstrcsCheckbox${ctr.index}${index.index})" /><input type="checkbox" name="value(mInstrcsCheckbox${ctr.index}${index.index})" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - ${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" <c:if test="${cdmForm.selected(cdmInstructionName, mInstrc.measuringInstrc, true)}">checked="checked"</c:if>
                                                                    value="${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}" />
                                                             ${carlos:forHtml(mInstrc.measuringInstrc)}
                                                         </td>

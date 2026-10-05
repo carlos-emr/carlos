@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
 
 /** Raw submitted form values for an INPUT response; JSP callers must apply output encoding. */
 public final class CdmReportFormState {
@@ -11,7 +13,13 @@ public final class CdmReportFormState {
 
     public CdmReportFormState(HttpServletRequest request) {
         this.request = request;
-        this.submitted = "POST".equalsIgnoreCase(request.getMethod());
+        // Selecting a report also POSTs, but has no submitted report fields.
+        // Restore raw values only on a validation INPUT response, including conversion errors.
+        Object actionErrors = request.getAttribute("actionErrors");
+        Object fieldErrors = request.getAttribute("fieldErrors");
+        this.submitted = "POST".equals(request.getMethod())
+                && (actionErrors instanceof Collection<?> actionMessages && !actionMessages.isEmpty()
+                    || fieldErrors instanceof Map<?, ?> fieldMessages && !fieldMessages.isEmpty());
     }
 
     public String value(String name, int index, String initial) {

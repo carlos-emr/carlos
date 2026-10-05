@@ -20,8 +20,26 @@ class CdmReportFormStateUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldUseDefaults_whenSelectingReportWithPost() {
+        var request = new MockHttpServletRequest("POST", "/SelectCDMReport");
+        request.addParameter("value(CDMgroup)", "owned-group");
+        var state = new CdmReportFormState(request);
+        assertEquals("2025-01-01", state.value("startDateB", 0, "2025-01-01"));
+        assertTrue(state.selected("instruction", "yes", true));
+    }
+
+    @Test
+    void shouldRestoreRawValue_whenConversionFailsBeforeActionExecutes() {
+        var request = new MockHttpServletRequest("POST", "/form");
+        request.setAttribute("fieldErrors", java.util.Map.of("exactly", java.util.List.of("Invalid number")));
+        request.addParameter("exactly", "not-an-integer");
+        assertEquals("not-an-integer", new CdmReportFormState(request).value("exactly", 0, ""));
+    }
+
+    @Test
     void shouldPreserveInvalidValuesAndArrayPositions_whenReturningInput() {
         var request = new MockHttpServletRequest("POST", "/form");
+        request.setAttribute("actionErrors", java.util.List.of("Invalid date"));
         request.addParameter("startDateD", "2025-01-01", "not-a-date");
         request.addParameter("exactly", "1", "not-an-integer");
         var state = new CdmReportFormState(request);
@@ -32,6 +50,7 @@ class CdmReportFormStateUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepOmittedAndBlankValuesEmpty_whenSubmitted() {
         var request = new MockHttpServletRequest("POST", "/form");
+        request.setAttribute("actionErrors", java.util.List.of("Invalid date"));
         request.addParameter("date", "");
         var state = new CdmReportFormState(request);
         assertEquals("", state.value("date", 0, "default"));
@@ -44,6 +63,7 @@ class CdmReportFormStateUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRestoreExactSelections_whenReturningInput() {
         var request = new MockHttpServletRequest("POST", "/form");
+        request.setAttribute("actionErrors", java.util.List.of("Invalid date"));
         request.addParameter("row", "1", "10");
         request.addParameter("comparison", "<");
         var state = new CdmReportFormState(request);
