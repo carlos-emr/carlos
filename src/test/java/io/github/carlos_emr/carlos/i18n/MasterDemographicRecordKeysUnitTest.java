@@ -52,6 +52,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * guards against future regressions by cross-checking every key the MDR JSPs reference
  * against every locale bundle.</p>
  *
+ * <p>It also checks that the consent status lines ("Consented", "Opted Out") come from the
+ * bundles rather than hard-coded English.</p>
+ *
  * @since 2026-04-21
  */
 @DisplayName("Master Demographic Record i18n key coverage")
@@ -116,6 +119,23 @@ class MasterDemographicRecordKeysUnitTest {
                                     + "these render as ???key??? for users with a %s browser",
                             locale, locale)
                     .isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should label a patient's consent status from the bundle, not hard-coded English")
+    void shouldLabelConsentStatus_fromBundle() throws IOException {
+        for (String jsp : new String[]{
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp",
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"}) {
+            String content = new String(Files.readAllBytes(Paths.get(jsp)), StandardCharsets.UTF_8);
+            assertThat(extractFmtMessageKeys(content))
+                    .as(jsp)
+                    .contains("demographic.demographiceditdemographic.consentStatusConsented",
+                            "demographic.demographiceditdemographic.consentStatusOptedOut");
+            String code = HTML_COMMENT.matcher(JSP_COMMENT.matcher(content).replaceAll("")).replaceAll("");
+            // The labels as page text: at a line start or right after a tag, as the old markup had them.
+            assertThat(code).as(jsp).doesNotContainPattern("(?m)(^|>)\\s*(Consented|Opted Out)\\b");
         }
     }
 
