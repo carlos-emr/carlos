@@ -229,6 +229,26 @@ async function workflow(s) {
     h.assert(importedIds().length === 0, 'An empty import created a patient');
   });
 
+  await s.step('a rejected upload filename returns its JSON warning without a success or log link', async () => {
+    const refusedFile = {...file, name: '.hidden.xml'};
+    await frame.locator('#importFile').setInputFiles(refusedFile);
+    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
+      && r.request().method() === 'POST', {timeout: 120000});
+    await frame.locator('input[type="submit"][name="Submit"]').click();
+    const response = await uploaded;
+    h.assert(response.status() === 200, `Refused upload answered HTTP ${response.status()}`);
+    const outcome = await response.json();
+    h.assert(outcome.importedPatients === 0 && outcome.refusedPatients === 0 && outcome.importLog === null,
+      'A rejected upload reported imported patients or a nonexistent log');
+    h.assert(outcome.warnings.some(warning => warning.startsWith('Invalid filename.')),
+      'The upload validation warning was not returned');
+    const result = frame.locator('#result > div').filter({hasText: refusedFile.name}).last();
+    await result.locator('h5', {hasText: 'No patients imported'}).waitFor();
+    h.assert((await result.innerText()).includes(outcome.warnings[0]), 'The validation warning was not displayed');
+    h.assert(await result.locator('a').count() === 0, 'A refused upload offers an invalid event log');
+    h.assert(importedIds().length === 0, 'The rejected upload created a patient');
+  });
+
   let importLogHref;
   let id;
   await s.step('importing the CDS file reports success and offers the import event log', async () => {

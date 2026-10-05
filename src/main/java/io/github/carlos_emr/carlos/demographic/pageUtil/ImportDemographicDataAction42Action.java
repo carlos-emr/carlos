@@ -238,17 +238,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 
+        importedPatients = 0;
+        refusedPatients = 0;
         if (uploadValidationError != null) {
-            addActionError(uploadValidationError);
-            return SUCCESS;
+            generateResponse(response, new ArrayList<>(List.of(uploadValidationError)), null);
+            return NONE;
         }
 
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
         }
 
-        importedPatients = 0;
-        refusedPatients = 0;
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         List<Path> validXmlFiles = new ArrayList<>();

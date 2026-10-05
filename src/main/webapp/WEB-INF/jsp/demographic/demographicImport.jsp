@@ -172,7 +172,9 @@
                     resultDiv.append(warningsList);
                 }
 
-                resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
+                if (importLog) {
+                    resultDiv.append($('<a>').attr('href', '<%=request.getContextPath() %>/form/importLogDownload?importlog=' + encodeURIComponent(importLog)).attr('target', '_blank').text('Download Import Event Log'));
+                }
                 resultDiv.append($('<hr>'));
 
                 $('#result').append(resultDiv);

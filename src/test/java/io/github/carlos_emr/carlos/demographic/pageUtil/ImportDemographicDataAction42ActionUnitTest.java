@@ -30,6 +30,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -114,6 +117,24 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".hidden.xml", "../patient.xml"})
+    void shouldReturnJsonWarning_whenUploadFilenameIsRejected(String name) throws Exception {
+        UploadedFile upload = mock(UploadedFile.class);
+        when(upload.getContent()).thenReturn(Files.createFile(tempDir.resolve("upload.tmp")).toFile());
+        when(upload.getOriginalName()).thenReturn(name);
+        action.withUploadedFiles(List.of(upload));
+        ReflectionTestUtils.setField(action, "importedPatients", 1);
+        ReflectionTestUtils.setField(action, "refusedPatients", 2);
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("warnings").get(0).asText()).isEqualTo(PathValidationUtils.INVALID_FILENAME_MESSAGE);
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
+        assertThat(json.get("importLog").isNull()).isTrue();
+        assertThat(getMockResponse().getContentType()).startsWith("application/json");
     }
 
     @Test
