@@ -229,6 +229,7 @@
     "test:account-lockout-unlock-playwright": "node scripts/account-lockout-unlock-playwright-checks.js",
     "test:encounter-templates-playwright": "node scripts/encounter-templates-playwright-checks.js",
     "test:admin-issue-editor-playwright": "node scripts/admin-issue-editor-playwright-checks.js",
+    "test:security-password-length-playwright": "node scripts/security-password-length-playwright-checks.js",
     "test:security-record-admin-playwright": "node scripts/security-record-admin-playwright-checks.js",
     "test:provider-record-admin-playwright": "node scripts/provider-record-admin-playwright-checks.js",
     "test:rx-print-profile-playwright": "node scripts/rx-print-profile-playwright-checks.js",
