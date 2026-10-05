@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.dashboard.handler.DiseaseRegistryHandler;
 import io.github.carlos_emr.carlos.dashboard.handler.ExcludeDemographicHandler;
 import io.github.carlos_emr.carlos.dashboard.handler.DemographicPatientStatusRosterStatusHandler;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import java.util.List;
 import io.github.carlos_emr.carlos.dashboard.handler.MessageHandler;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
@@ -44,6 +45,8 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void prepare() {
+        // Mockito initializes the status handler's static DAO even when its constructor is bypassed.
+        createAndRegisterMock(DemographicDao.class);
         // CALLS_REAL_METHODS runs the real action while avoiding handler constructors with static DAOs.
         action = mock(BulkPatientDashboard2Action.class, CALLS_REAL_METHODS);
         request = new MockHttpServletRequest();
