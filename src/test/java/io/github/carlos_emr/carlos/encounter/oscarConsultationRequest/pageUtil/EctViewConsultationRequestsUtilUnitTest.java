@@ -25,11 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -47,8 +49,11 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Behaviour pinned here: a single imperfect legacy row must never blank the patient's whole
@@ -243,9 +248,45 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
      * "Consultations" view.
      */
     private void stubInboxQuery(ConsultationRequest consult) {
-        when(consultationRequestDao.getConsults(isNull(), eq(false), isNull(), isNull(), isNull(), isNull(),
-                isNull(), isNull(), isNull()))
+        // The positional overload now delegates to the filter-object query (issue #3976); the
+        // default view is the all-null filter with no consultant and no MRP.
+        when(consultationRequestDao.getConsults(new ConsultationListFilterDto(null, false, null, null, null, null,
+                null, null, null, null, null)))
                 .thenReturn(List.of(consult));
+    }
+
+    @Test
+    @DisplayName("should pass the consultant and MRP filters through to the list query")
+    void shouldPassConsultantAndMrpFilters_toListQuery() throws Exception {
+        Date start = new Date(0L);
+        ConsultationListFilterDto filter = new ConsultationListFilterDto("Cardio", true, start, null, "6", "1",
+                "0", 100, 50, 42, "101");
+        when(consultationRequestDao.getConsults(any(ConsultationListFilterDto.class)))
+                .thenReturn(List.of(consultWithNoOrderingProvider()));
+
+        boolean verdict = util.estConsultationVecByTeam(loggedInInfo, filter);
+
+        assertThat(verdict).isTrue();
+        assertThat(util.ids).containsExactly("7");
+        ArgumentCaptor<ConsultationListFilterDto> captor = ArgumentCaptor.forClass(ConsultationListFilterDto.class);
+        verify(consultationRequestDao).getConsults(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(filter);
+        assertThat(captor.getValue().consultantId()).isEqualTo(42);
+        assertThat(captor.getValue().mrpProviderNo()).isEqualTo("101");
+    }
+
+    @Test
+    @DisplayName("should call the list query with no consultant or MRP filter from the positional overload")
+    void shouldOmitConsultantAndMrpFilters_forPositionalOverload() throws Exception {
+        when(consultationRequestDao.getConsults(any(ConsultationListFilterDto.class)))
+                .thenReturn(List.of());
+
+        util.estConsultationVecByTeam(loggedInInfo, "Cardio", true, null, null, "2", "1", "1", 10, 20);
+
+        ArgumentCaptor<ConsultationListFilterDto> captor = ArgumentCaptor.forClass(ConsultationListFilterDto.class);
+        verify(consultationRequestDao).getConsults(captor.capture());
+        assertThat(captor.getValue()).isEqualTo(new ConsultationListFilterDto("Cardio", true, null, null, "2", "1",
+                "1", 10, 20, null, null));
     }
 
     @Test
@@ -307,4 +348,30 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         assertThat(util.provider).containsExactly("Lovelace, Ada");
         assertThat(util.providerNo).containsExactly("101");
     }
+
+    @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
+    @CsvSource(value = {
+            "Smith     | Jane     | Smith, Jane",
+            "Smith     | NULL     | Smith",
+            "NULL      | Jane     | Jane",
+            "NULL      | NULL     | ''",
+            "'  '      | '  '     | ''",
+            "' Smith ' | ' Jane ' | Smith, Jane"
+    }, delimiter = '|', nullValues = "NULL")
+    @DisplayName("should omit missing specialist name parts")
+    void shouldOmitMissingParts_whenFormattingSpecialistName(String last, String first, String expected) {
+        assertThat(
+                EctViewConsultationRequestsUtil.formatSpecialistName(last, first)).isEqualTo(expected);
+    }
+    @Test
+    void shouldShowDateWithoutInventingTime_whenAppointmentTimeIsAbsent() {
+        ConsultationRequest consult = consultWithNoOrderingProvider();
+        consult.setAppointmentDate(java.sql.Date.valueOf("2097-03-14"));
+        consult.setAppointmentTime(null);
+        stubInboxQuery(consult);
+        assertThat(util.estConsultationVecByTeam(loggedInInfo, null, false, null, null, null, null,
+                null, null, null)).isTrue();
+        assertThat(util.apptDate).containsExactly("2097-03-14");
+    }
+
 }

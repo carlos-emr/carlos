@@ -105,7 +105,9 @@ class JspJavaScriptEncodingRegressionTest {
                 .doesNotContain("request.getParameter(\"curUser\")");
         assertThat(documentReportJsp)
                 .containsPattern("curUser\\s*=\\s*LoggedInInfo\\.getLoggedInInfoFromSession\\(request\\)\\.getLoggedInProviderNo\\(\\)")
-                .containsPattern("hasOwnProperty\\.call\\(\\s*window\\.opener\\.URLs")
+                .containsPattern("var\\s+parent\\s*=\\s*window\\.opener")
+                .containsPattern("parent\\s*&&\\s*!parent\\.closed")
+                .containsPattern("parent\\.URLs\\s*&&\\s*Object\\.prototype\\.hasOwnProperty\\.call\\(\\s*parent\\.URLs")
                 // Gate forwards the validated lowercased function token; the JSP must prefer it so a
                 // mixed-case "function" param cannot skip the case-sensitive "demographic" branch.
                 .containsPattern("getAttribute\\(\\s*\"normalizedFunction\"\\s*\\)")

@@ -127,7 +127,11 @@ class RichTextLetterPrintAssetRegressionTest {
         assertThat(packaged.split("attachDirtyFlagListener\\(\\);", -1).length - 1)
                 .as("one initial registration plus one per template-load path")
                 .isGreaterThanOrEqualTo(4);
-        assertThat(packaged).contains("obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };");
+        // Loading-state bookkeeping may surround these calls; retain the ordering
+        // which makes the newly navigated document editable before parsing/listening.
+        assertThat(executableCode(packaged)).containsPattern(
+                "obj\\.onload\\s*=\\s*function\\(\\)\\s*\\{[^}]*"
+                        + "enableEditorDesignMode\\(\\);\\s*parseTemplate\\(\\);\\s*attachDirtyFlagListener\\(\\);");
         // The old single registration on the pre-template window must be gone: in Start() it was
         // the last statement of an if-block, so the listener call was followed directly by the
         // block's closing brace. The surviving registration inside attachDirtyFlagListener() is

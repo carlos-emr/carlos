@@ -53,14 +53,15 @@ import io.github.carlos_emr.carlos.commn.dao.CustomFilterDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerCategoryDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerCommentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerCategory;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -97,7 +98,7 @@ public class TicklerManagerImpl implements TicklerManager {
     private TicklerDao ticklerDao;
 
     @Autowired
-    private TicklerLinkDao ticklerLinkDao;
+    private TicklerDocsDao ticklerDocsDao;
 
     @Autowired
     private TicklerCommentDao ticklerCommentDao;
@@ -145,18 +146,6 @@ public class TicklerManagerImpl implements TicklerManager {
             return false;
         if (tickler.getDemographicNo() == null || tickler.getDemographicNo().intValue() == 0)
             return false;
-        return true;
-    }
-
-    @Override
-    public boolean addTicklerLink(LoggedInInfo loggedInInfo, TicklerLink ticklerLink) {
-        checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
-        ticklerDao.persist(ticklerLink);
-
-        // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.addTicklerLink",
-                "ticklerLinkId=" + ticklerLink.getId());
-
         return true;
     }
 
@@ -248,15 +237,10 @@ public class TicklerManagerImpl implements TicklerManager {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
-        for (TicklerLink link : links) {
-            if (link.getTicklerNo() != null) {
-                ticklerNos.add(link.getTicklerNo());
-            }
-        }
+        ArrayList<Integer> ticklerNos = ticklerNosForHl7Lab(labId);
 
-        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
+        ArrayList<Tickler> results = readableForPatient(loggedInInfo,
+                ticklerDao.findByTicklerNosAssignedTo(ticklerNos, providerNo, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
     }
@@ -264,17 +248,49 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public List<Tickler> getTicklerByLabIdAnyProvider(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
-        List<TicklerLink> links = ticklerLinkDao.getLinkByTableId("HL7", Long.valueOf(labId));
-        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(links.size());
-        for (TicklerLink link : links) {
-            if (link.getTicklerNo() != null) {
-                ticklerNos.add(link.getTicklerNo());
-            }
-        }
+        ArrayList<Integer> ticklerNos = ticklerNosForHl7Lab(labId);
 
-        ArrayList<Tickler> results = new ArrayList<Tickler>(ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
+        ArrayList<Tickler> results = readableForPatient(loggedInInfo, ticklerDao.findByTicklerNosDemo(ticklerNos, demoNo));
         Collections.sort(results, Tickler.StatusAscComparator);
         return results;
+    }
+
+    /**
+     * Keeps the ticklers whose patient the caller may read ticklers for. The entry check only
+     * proves the global {@code _tickler} right, and a patient-specific denial takes precedence
+     * over it; the lab pages reach these lookups from an {@code _lab}-gated path, so the
+     * patient-scoped right is enforced here before a tickler message leaves the manager.
+     */
+    private ArrayList<Tickler> readableForPatient(LoggedInInfo loggedInInfo, List<Tickler> ticklers) {
+        ArrayList<Tickler> readable = new ArrayList<Tickler>(ticklers.size());
+        java.util.Map<Integer, Boolean> readableByPatient = new java.util.HashMap<Integer, Boolean>();
+        for (Tickler tickler : ticklers) {
+            Integer demographicNo = tickler.getDemographicNo();
+            Boolean allowed = readableByPatient.get(demographicNo);
+            if (allowed == null) {
+                allowed = securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", PRIVILEGE_READ,
+                        demographicNo == null ? null : String.valueOf(demographicNo));
+                readableByPatient.put(demographicNo, allowed);
+            }
+            if (allowed) {
+                readable.add(tickler);
+            }
+        }
+        return readable;
+    }
+
+    /**
+     * Ticklers that carry the given HL7 lab as an attachment. Reads the {@code ticklerdocs}
+     * store (live rows only); the lab source is part of the key because lab numbers are only
+     * unique within one source.
+     */
+    private ArrayList<Integer> ticklerNosForHl7Lab(int labId) {
+        List<TicklerDocs> attachments = ticklerDocsDao.findByLab(labId, LabResultData.HL7TEXT);
+        ArrayList<Integer> ticklerNos = new ArrayList<Integer>(attachments.size());
+        for (TicklerDocs attachment : attachments) {
+            ticklerNos.add(attachment.getTicklerId());
+        }
+        return ticklerNos;
     }
 
     @Override

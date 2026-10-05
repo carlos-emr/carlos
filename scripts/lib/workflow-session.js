@@ -6,10 +6,12 @@ const { openMasterRecord } = require('../master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwright-checks');
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
-async function runWorkflow(name, workflow, { openPatient = true } = {}) {
+// REST workflows may retain the patient fixture without opening its master record.
+async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
   let browser;
   let sql;
   let patient;
+  let patientFixture;
   const cleanups = [];
   const marker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   const recorder = h.createRecorder();
@@ -20,8 +22,17 @@ async function runWorkflow(name, workflow, { openPatient = true } = {}) {
       sql = h.createSqlRunner(config.mysql);
       const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
       h.assert(provider, 'The configured test login has no provider');
+      if (preflight) await preflight({config, sql, provider});
       if (openPatient) {
-        patient = sql.value(`INSERT INTO demographic
+        if (patientFixtureFactory) {
+          // Register the lifecycle before its first INSERT. A failed create keeps
+          // its durable intent and cannot fall back to generic patient deletion.
+          patientFixture = patientFixtureFactory({sql, marker, provider});
+          h.assert(patientFixture && typeof patientFixture.create === 'function'
+            && typeof patientFixture.verifyOwner === 'function' && typeof patientFixture.cleanup === 'function',
+          'Patient fixture lifecycle is incomplete');
+          patient = await patientFixture.create();
+        } else patient = sql.value(`INSERT INTO demographic
         (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
          provider_no,hc_type,province,roster_status,lastUpdateDate)
         VALUES (${h.sqlString(marker)},'Workflow','1980','01','02','F','AC',
@@ -29,13 +40,13 @@ async function runWorkflow(name, workflow, { openPatient = true } = {}) {
         h.assert(/^[1-9]\d*$/.test(patient), 'The synthetic patient fixture was not created');
       }
       browser = await h.launchBrowser(config);
-      const context = await h.newContext(browser, config);
+      const context = await h.newContext(browser, config, contextOptions);
       context.setDefaultTimeout(20000);
       // Install synchronously on the event, before a popup's first script runs.
       context.on('page', page => h.wireStrictPage(page, name, recorder));
       const schedule = await h.login(context, config, recorder);
       let master;
-      if (openPatient) {
+      if (openPatient && openMaster) {
         ({ masterPage: master } = await openMasterRecord(context, schedule, recorder, {
           searchTerm: marker, preferredDemographicNo: patient, timeout: 20000,
         }));
@@ -67,21 +78,27 @@ async function runWorkflow(name, workflow, { openPatient = true } = {}) {
       h.assertStrictPage(recorder);
     },
     async cleanup() {
-      await cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups });
+      await cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture });
     },
   });
   if (result.outcome === 'FAIL') console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   return result;
 }
 
-async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups }) {
+async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture }) {
   const failures = [];
-  try { if (browser) await browser.close(); } catch (error) { failures.push(error); }
+  let browserClosed = !browser;
+  try { if (browser) await browser.close(); browserClosed = true; } catch (error) { failures.push(error); }
   // Check ownership before touching children. A replaced fixture must never cause
   // cleanup to erase another patient's records.
-  let owned = !patient;
+  let owned = !patient && !patientFixture;
   try {
-    if (patient) {
+    if (patientFixture) {
+      // Strict fixtures cannot release any child while a browser might still
+      // submit writes. Gate before ownership/child callbacks, not just the parent.
+      h.assert(browserClosed, 'Strict patient fixture and children retained: browser close is unconfirmed');
+      await patientFixture.verifyOwner(); owned = true;
+    } else if (patient) {
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}
         AND last_name=${h.sqlString(marker)}`) === '1', 'Patient fixture ownership changed');
       owned = true;
@@ -95,23 +112,27 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups })
         failures.push(error);
       }
     }
-    // Retain the parent when children need recovery. A browser teardown error
-    // still fails the check, but must not prevent verified database cleanup.
-    if (patient && childrenRemoved) {
+    // Retain the parent when children need recovery. Legacy workflows retain
+    // their verified-cleanup behavior after a browser teardown error; strict
+    // patient fixtures already refused every child callback above.
+    if ((patient || patientFixture) && childrenRemoved) {
       try {
-        const supportRows = [
-          ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
-          ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
-          ['demographicArchive', 'demographic_no'],
-        ];
-        sql.execute(supportRows.map(([table, column]) =>
-          `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
-        const remaining = supportRows.map(([table, column]) =>
-          `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${patient})`).join('+');
-        h.assert(sql.value(`SELECT ${remaining}`) === '0', 'Owned chart support rows were not removed');
-        sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
-        h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
-          'The owned patient was not removed');
+        if (patientFixture) await patientFixture.cleanup({browserClosed});
+        else {
+          const supportRows = [
+            ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
+            ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
+            ['demographicArchive', 'demographic_no'],
+          ];
+          sql.execute(supportRows.map(([table, column]) =>
+            `DELETE FROM ${table} WHERE ${column}=${patient}`).join(';'));
+          const remaining = supportRows.map(([table, column]) =>
+            `(SELECT COUNT(*) FROM ${table} WHERE ${column}=${patient})`).join('+');
+          h.assert(sql.value(`SELECT ${remaining}`) === '0', 'Owned chart support rows were not removed');
+          sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
+          h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`) === '0',
+            'The owned patient was not removed');
+        }
       } catch (error) { failures.push(error); }
     }
   }

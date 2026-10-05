@@ -88,6 +88,11 @@ read and returns a new `ByteArrayInputStream` on subsequent reads. Used exclusiv
 Serves the dynamically generated `csrfguard.js` script that handles all client-side token
 injection. Configured in `web.xml` as the `CsrfServlet` servlet.
 
+The template it renders is **CARLOS's patched copy**,
+`src/main/resources/csrfguard/carlos-csrfguard.js`, selected by
+`JavascriptServlet.sourceFile = classpath:csrfguard/carlos-csrfguard.js`. See
+[CARLOS patches to the client template](#carlos-patches-to-the-client-template).
+
 ---
 
 ## Client-Side Token Injection
@@ -108,12 +113,142 @@ The `csrfguard.js` script (served by the JavascriptServlet) automatically handle
 - POST forms automatically get a hidden `CSRF-TOKEN` field injected by JavaScript
 - `XMLHttpRequest` calls automatically get the token in a custom header
 - Dynamically created DOM nodes (via AJAX page loads, JavaScript DOM manipulation) are
-  automatically scanned and injected via `MutationObserver`
+  automatically scanned and injected via `MutationObserver`, including forms nested inside an
+  inserted fragment (CARLOS patch 2)
+- A form built in script and submitted at once (`createElement('form')` … `form.submit()`)
+  gets the token at submission time (CARLOS patch 3). Do not hand-roll token copying for new
+  code; set `method="post"` and a real same-origin `action`.
 - **No manual token handling is needed for `<form>` submissions or `XMLHttpRequest` calls**
 - **`fetch()` calls require manual CSRF token inclusion** — CSRFGuard (as of 4.5) does
   **not** auto-intercept `fetch()`. Use the `getCsrfToken()` helper from `oscarMDSIndex.js`
   or the `postForm()` wrapper which handles this automatically. See
   `src/main/webapp/share/javascript/oscarMDSIndex.js` for the implementation.
+
+### CARLOS patches to the client template
+
+CARLOS serves CSRFGuard 4.5.0's unminified client template with three marked patches
+(issue #4130). Each fixes a way the upstream script let a POST leave without a token, which
+`CarlosCsrfGuardFilter` then rejected with a 403 the user never saw:
+
+| # | Upstream defect | Symptom | Patch |
+|---|-----------------|---------|-------|
+| 1 | `injectTokenForm()` found existing token fields with `Object.keys(form.elements)` and `form.elements[key].name` | A form with numerically named controls (dx code search results) threw `TypeError … reading 'name'`, and no later form on the page got a token | Walk `form.elements` by position; isolate each form's injection in `try`/`catch` |
+| 2 | The dynamic-node `MutationObserver` only injected into added nodes that are themselves `<form>` | Forms inside HTML inserted with jQuery `.load()`/`.html()` (the Administration panel) had no token | Also inject into every `<form>` nested inside each added node |
+| 3 | Injection runs at load and in a `MutationObserver` callback | A form built in script and submitted in the same task was posted before any callback ran (Unbill, Delete Template, eForm restore, RA settle, Messenger link …) | Wrap `HTMLFormElement.prototype.submit` and add a capture-phase `submit` listener; each injects the token just before submission |
+
+Patch 3 adds the token only when the effective method is `post` and the effective action, resolved
+against the document base, has exactly the page's own origin (scheme, host and port). That is
+stricter than the upstream `isValidUrl()`, which compares the hostname alone, and a cross-origin
+`<base href>` cannot make a relative action count as local. Both method and action honour a submit
+button's `formmethod`/`formaction`. A missing or empty action counts as the current page.
+
+Patch 3 also closes the reverse leak. The upstream load-time scan still fills forms that have no
+`method` attribute, because pages read the token back with `new FormData(form)`. A submission
+that is a GET, or that leaves the origin (for example through a submit button's `formaction`), is
+sent without any token already in the form. The token fields are disabled only while the browser
+builds the form data set, then enabled again, so scripts that read the form later still find the
+token. A submit event that the page cancels, to post the form itself, keeps the token.
+
+**Upgrading CSRFGuard:** diff the new jar's `META-INF/csrfguard.js` against the unmarked parts
+of the CARLOS copy and re-apply the `CARLOS patch` blocks. Three checks guard the copy:
+- `CsrfGuardConfigurationRegressionTest` fails when the upstream template gains a placeholder
+  the copy lacks.
+- `scripts/csrfguard-client-patch.test.js` (vm, part of `npm run test:scripts`) pins the patch
+  behaviour.
+- `npm run test:csrfguard-client-browser` runs the rendered template in Chromium. Point
+  `CSRFGUARD_TEMPLATE` at the upstream file to watch it fail.
+
+### Runtime-built and injected forms (`carlosCsrfForm.js`)
+
+The client patches above fix these patterns for every page. `carlosCsrfForm.js` is the
+explicit helper the converted call sites use on top of them: it fetches a token when the page
+has none yet and fails closed with an alert instead of sending a POST that would be refused.
+The upstream defects it was written for, each ending in a token-less POST that
+`CarlosCsrfGuardFilter` answers with 403 (issue #4130):
+
+1. **A form built and submitted in one handler.** `document.createElement('form')`,
+   `appendChild`, `form.submit()` all run in one task. CSRFGuard's observer callback runs
+   after that task, so the form has already left without a token.
+2. **Forms nested in inserted HTML.** The observer injects only when the *added node* is
+   a `<form>`. `$("#dynamic-content").load(...)` (the Administration shell, the report
+   catchment shell) inserts containers whose descendants are the forms, and those forms
+   are never tokenised.
+
+A third, related failure: CSRFGuard's `injectTokenForm` enumerates `form.elements` by
+key, so a form with a control named with a bare number (the dx code search used
+`name="250"`) makes it throw. The page-load pass stops at that form, so it and every later
+form are left without a token. Don't name controls with bare numbers.
+
+Use `share/javascript/carlosCsrfForm.js` for both:
+
+```jsp
+<script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+```
+
+```js
+// Build, tokenise and submit in one call. For a popup, open it first, inside
+// the click handler, so the popup blocker sees the user gesture.
+window.open('', 'unbill_popup', 'width=720,height=700');
+carlosPostForm(ctx + '/billing/CA/ON/BillingDeleteNoAppt',
+    {billing_no: billingNo, dboperation: 'delete_bill'}, {target: 'unbill_popup'});
+
+// Or tokenise and submit a form you built yourself:
+carlosSubmitForm(form);
+```
+
+Loading the script also tokenises, by itself, every same-origin POST form that is left
+without a token: one pass after the page is parsed, then every form inside any
+subtree inserted later. That covers `.load()` shells with no per-call code. The token
+is taken from a populated `CSRF-TOKEN` input on the page, then from the pending
+`csrf-token.jspf` bootstrap (`window.csrfTokenReady`), then from the CSRFGuard servlet.
+If none of these yields a token, the form is **not** submitted and the user is told:
+a POST that would only be refused is never sent. Cross-origin, `javascript:` and GET
+forms are never touched. Unit tests are in `scripts/carlos-csrf-form.test.js`; the live
+browser check is `scripts/csrf-runtime-forms-playwright-checks.js`.
+
+### `X-Requested-With` is a LIST, not a single value
+
+CSRFGuard's client script sets `X-Requested-With` to the value of
+`org.owasp.csrfguard.JavascriptServlet.xRequestedWith` in `Owasp.CsrfGuard.properties`
+(currently `OWASP CSRFGuard Project`) from inside its `XMLHttpRequest.send()` hijack. jQuery has already
+called `setRequestHeader("X-Requested-With", "XMLHttpRequest")` by then, and the XHR
+specification says a repeated `setRequestHeader` **combines** values with `", "` rather than
+replacing them. So a plain `jQuery.ajax()` POST arrives at the server as:
+
+```
+X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project
+```
+
+`carlos-ajax.js` deliberately leaves the header to CSRFGuard (setting it itself would
+duplicate `CSRF-TOKEN` the same way and fail validation), so its requests carry only the
+marker.
+
+**Never compare this header with `equals`.** Use
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`, which splits the
+header and accepts either marker. An exact-match check classifies essentially every browser XHR
+in CARLOS as a browser page request; `LogoutBroadcastFilter` then appends its heartbeat
+`<script>` block to `text/html` AJAX replies, and any caller that renders the response body
+shows that JavaScript to the user as text. That is exactly how the HRM report viewer came to
+print JavaScript beside its comment box.
+
+Every server-side reader of this header in CARLOS goes through `RequestNegotiation.isAjax`:
+
+| Caller | What the misclassification cost |
+|--------|--------------------------------|
+| `LogoutBroadcastFilter` | appended its heartbeat `<script>` to `text/html` AJAX replies |
+| `CsrfGuardScriptInjectionFilter` | injected the CSRFGuard `<script>` tag into AJAX replies |
+| `PrivacyStatementAppendingFilter` | appended the confidentiality statement into AJAX reply bodies |
+| `EctDisplayAction.finalizeForward` | took `forward()` instead of `include()`, so Tomcat 11 truncated the encounter panel at the 8KB buffer boundary |
+| `CaseManagementView2Action.listNotes` | same truncation, for the notes list |
+| `providercontrol.jsp` / `provideraddstatus.jsp` | left the appointment-status reply as `text/html` instead of `text/plain`, so the decorating filters appended their script blocks to it |
+| `efmformmanager.jsp` / `efmimagemanager.jsp` | would have re-emitted the jQuery `<script>` tags into an AJAX fragment (these two already split the header; they now share the one implementation) |
+
+JSPs call it fully qualified in a scriptlet:
+`io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request)`.
+
+`PrivacyStatementAppendingFilter.HTTP_HEADER_NAME_AJAX_REQUESTED_WITH` and
+`...HTTP_HEADER_VALUE_AJAX_REQUESTED_WITH` remain as deprecated public constants; they name the
+header and the jQuery value correctly, but comparing a raw header against them is the mistake.
 
 ### Property Key Gotchas
 
@@ -325,6 +460,12 @@ The login flow creates the session and generates tokens on the first GET to a pr
 3. Browser dev tools (Elements tab) — confirm forms have a hidden `CSRF-TOKEN` input
 4. If the script tag is missing, check `CsrfGuardScriptInjectionFilter` is mapped in `web.xml`
 5. If the hidden input is missing, check browser console for JavaScript errors
+6. If the form is built in JavaScript or arrives inside `.load()`-injected HTML, submit it
+   through `carlosPostForm` / `carlosSubmitForm` and load `carlosCsrfForm.js` (see
+   "Runtime-built and injected forms" above)
+7. For a form built in script, confirm the request payload (Network tab) carries `CSRF-TOKEN`.
+   If it does not, check that the form's method is `post` and its action is same-origin: the
+   submit-time patch deliberately skips anything else
 
 ### AJAX requests failing with CSRF violation
 

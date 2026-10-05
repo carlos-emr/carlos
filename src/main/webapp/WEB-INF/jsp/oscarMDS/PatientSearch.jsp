@@ -647,17 +647,33 @@
                      + '&labType=' + encodeURIComponent(labType)
                      + '&demographicNo=' + encodeURIComponent(demoNo)
                      + '&CSRF-TOKEN=' + encodeURIComponent(token);
-            fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
+            return fetch('${pageContext.request.contextPath}/oscarMDS/PatientMatch', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
                 body: body
             }).then(function(response) {
                 if (!response.ok) {
                     throw new Error('PatientMatch failed');
                 }
+                // Consume the response before closing; closing on headers alone can abort fetch.
+                return response.json();
+            }).then(function(result) {
+                if (!result || result.success !== true) {
+                    throw new Error('PatientMatch did not confirm success');
+                }
                 // Notify lab display row (may be null due to COOP on action-served pages)
                 if (window.opener && typeof window.opener.updateLabDemoStatus === 'function') {
                     try { window.opener.updateLabDemoStatus(labNo); } catch (e) {}
+                }
+                // COOP can detach the opener. Notify only lab views in this application.
+                if (typeof BroadcastChannel !== 'undefined') {
+                    try {
+                        var matchChannel = new BroadcastChannel('lab-patient-match-${carlos:forJavaScript(pageContext.request.contextPath)}');
+                        matchChannel.postMessage({ type: 'patient-matched', labNo: labNo, labType: labType });
+                        matchChannel.close();
+                    } catch (e) {
+                        console.warn('Patient match saved; the lab view refresh notification was unavailable.');
+                    }
                 }
                 // Notify inboxhub list to refresh (BroadcastChannel is unaffected by COOP)
                 try {

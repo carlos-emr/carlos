@@ -28,6 +28,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { chromium } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
@@ -111,7 +112,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -267,6 +272,14 @@ async function assertVisible(page, selector, label) {
  * guards let the poll run forever — offset 20, 40, 60, ... on an endless loop, with the
  * loading throbber up for the life of the chart — because an exhausted batch still comes
  * back as a non-empty response body.
+ *
+ * Every batch that does land is also checked for issue #3961: the older notes go in above
+ * the note the reader was looking at, and that note must stay where it was on screen
+ * rather than the pane jumping to the oldest note that just arrived. Keeping the reader's
+ * place moves scrollTop off 0, which is also what stops the poll, so after each checked
+ * batch the pane is parked at the top again to page in the next one.
+ *
+ * @return {Promise<number>} how many batches paged in and were checked for the restore
  */
 async function assertNotesPaginationSettles(page) {
   const wrapper = page.locator('#encMainDivWrapper').first();
@@ -278,15 +291,56 @@ async function assertNotesPaginationSettles(page) {
     const original = { flex: element.style.flex, height: element.style.height };
     element.style.flex = 'none';
     element.style.height = '80px';
-    element.scrollTop = 0;
     return { original, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight };
   });
   assert(geometry.scrollHeight > geometry.clientHeight,
     `notes wrapper did not overflow, so the pagination poll was never armed: ${JSON.stringify(geometry)}`);
 
+  // Park at the top and remember the note now showing there, and where: the first one
+  // with a layout box, since notes hidden by the encounter.hide_* settings render as
+  // display:none. Held on window because the element cannot cross into Node.
+  const parkAtTop = () => wrapper.evaluate((element) => {
+    element.scrollTop = 0;
+    const notes = document.getElementById('encMainDiv');
+    const top = notes
+      ? Array.from(notes.children).find((note) => note.getClientRects().length > 0) || null
+      : null;
+    window.__carlosScrollRestoreCheck = top
+      ? { note: top, top: top.getBoundingClientRect().top - element.getBoundingClientRect().top }
+      : null;
+  });
+  // Where that note is now, once no notes fetch is in flight (null while one still is).
+  const readAnchor = () => wrapper.evaluate((element) => {
+    if (typeof notesLoadsInFlight !== 'undefined' && notesLoadsInFlight > 0) {
+      return null;
+    }
+    const anchor = window.__carlosScrollRestoreCheck;
+    const notes = document.getElementById('encMainDiv');
+    if (!anchor || !notes || !notes.contains(anchor.note)) {
+      return { tracked: false };
+    }
+    // Compare against the first RENDERED note, the same rule parkAtTop() used: a hidden
+    // note ahead of the anchor is not a page-in, and neither is a batch that brought only
+    // hidden notes. Either way nothing moved, so scrollTop rightly stays at 0.
+    const firstRendered = Array.from(notes.children)
+      .find((note) => note.getClientRects().length > 0) || null;
+    return {
+      tracked: true,
+      pagedIn: firstRendered !== null && firstRendered !== anchor.note,
+      expectedTop: anchor.top,
+      top: anchor.note.getBoundingClientRect().top - element.getBoundingClientRect().top,
+      scrollTop: element.scrollTop,
+    };
+  });
+
+  let restoredBatches = 0;
   try {
-    const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
+    // Take the baseline before parking: parking at the top is what arms the poll, and a
+    // request it fires while this await is pending must still count as a batch to check.
     let observed = notesLoadRequests.length;
+    await parkAtTop();
+    const deadline = Date.now() + NOTES_POLL_TIMEOUT_MS;
+    let awaitingBatch = false;
     let stableSince = Date.now();
     while (Date.now() < deadline) {
       await page.waitForTimeout(500);
@@ -294,12 +348,29 @@ async function assertNotesPaginationSettles(page) {
         // A chart with many notes legitimately pages in several batches; restart the
         // quiet window and keep waiting for the poll to run out of notes.
         observed = notesLoadRequests.length;
+        awaitingBatch = true;
         stableSince = Date.now();
+      }
+      if (awaitingBatch) {
+        const anchor = await readAnchor();
+        if (anchor === null) {
+          continue;
+        }
+        awaitingBatch = false;
+        if (anchor.tracked && anchor.pagedIn) {
+          // Sub-pixel layout rounding aside, the reader's note must not have moved.
+          assert(Math.abs(anchor.top - anchor.expectedTop) <= 2 && anchor.scrollTop > 0,
+            `older notes paged in above the note the reader was on and the pane jumped away from it `
+            + `(issue #3961): ${JSON.stringify(anchor)}`);
+          restoredBatches += 1;
+          await parkAtTop();
+          stableSince = Date.now();
+        }
       } else if (Date.now() - stableSince >= NOTES_POLL_QUIET_MS) {
         const throbber = await elementState(page, '#notesLoading');
         assert(!throbber.visible && throbber.display === 'none',
           `notes loading throbber stayed visible after pagination stopped: ${JSON.stringify(throbber)}`);
-        return;
+        return restoredBatches;
       }
     }
 
@@ -311,6 +382,7 @@ async function assertNotesPaginationSettles(page) {
     await wrapper.evaluate((element, original) => {
       element.style.flex = original.flex;
       element.style.height = original.height;
+      delete window.__carlosScrollRestoreCheck;
     }, geometry.original).catch(() => {});
   }
 }
@@ -471,7 +543,7 @@ function isExpectedNoteLockDialog(issue) {
     await assertVisible(echart, "#divR1I1 a[title='Add Item']", 'Social History plus icon');
     await screenshot(echart, 'echart-initial');
 
-    await assertNotesPaginationSettles(echart);
+    const restoredBatches = await assertNotesPaginationSettles(echart);
 
     await echart.locator("#divR1I1 a[title='Add Item']").first().click();
     const editor = await assertVisible(echart, '#showEditNote', 'Social History editor');
@@ -595,7 +667,8 @@ function isExpectedNoteLockDialog(issue) {
     console.log('PASS eChart clinical notes rendered, note pagination stopped at end of chart, '
       + 'Social History saved and archived, note draft autosaved and cleaned up, and '
       + 'Unresolved Issues refreshed');
-    console.log(`Observed ${notesLoadRequests.length} note pagination requests`);
+    console.log(`Observed ${notesLoadRequests.length} note pagination requests; `
+      + `${restoredBatches} older-note batches paged in with the reader's note held in place`);
     console.log(`Observed ${captures.length} eChart-related responses`);
     // Say plainly whether the WAF was in the path. This script's default BASE_URL is the
     // devcontainer's bare Tomcat, where CLINICAL_TEXT_THE_WAF_SCORES passes for the boring
@@ -613,7 +686,7 @@ function isExpectedNoteLockDialog(issue) {
       console.log(`Non-blocking browser diagnostics: ${JSON.stringify(consoleIssues, null, 2)}`);
     }
   } finally {
-    await browser.close();
+    await closeBrowserWithChartCleanup(browser, baseUrl);
   }
 })().catch((error) => {
   console.error('FAIL eChart Playwright check');

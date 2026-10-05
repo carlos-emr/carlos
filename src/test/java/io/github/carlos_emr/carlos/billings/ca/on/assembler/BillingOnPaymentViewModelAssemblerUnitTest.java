@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -67,7 +68,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingOnPaymentViewModelAssembler smoke")
 @Tag("unit")
 @Tag("billing")
-class BillingOnPaymentViewModelAssemblerUnitTest {
+class BillingOnPaymentViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     private ProviderDao providerDao;
     private RaDetailDao raDetailDao;
@@ -161,6 +162,29 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
 
         assertThat(vm.getProviderOptions()).hasSize(1);
         assertThat(vm.getProviderOptions().get(0).displayName()).contains("Smith");
+    }
+
+    @Test
+    void shouldIncludeReturnedBoundaryPremiums_inSubtotalAndFinalPaidTotal() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+        req.setParameter("startDateText", "2026-12-30");
+        req.setParameter("endDateText", "2026-12-31");
+        BillingONPremium start = new BillingONPremium();
+        start.setPayDate(java.sql.Date.valueOf("2026-12-30"));
+        start.setAmountPay("11.11");
+        BillingONPremium end = new BillingONPremium();
+        end.setPayDate(java.sql.Date.valueOf("2026-12-31"));
+        end.setAmountPay("22.22");
+        when(bPremiumDao.getActiveRAPremiumsByPayDate(any(), any(), any())).thenReturn(List.of(start, end));
+
+        BillingOnPaymentViewModel vm = assembler.assemble(req, loggedInInfo, false, false);
+
+        assertThat(vm.getPremiumRows()).hasSize(2);
+        assertThat(vm.getPremiumItemCount()).isEqualTo(2);
+        assertThat(vm.getPremiumTotal()).isEqualTo("33.33");
+        assertThat(vm.getFinalTotal()).isEqualTo("33.33");
+        assertThat(vm.isPaymentsPartial()).isFalse();
     }
 
     @Test

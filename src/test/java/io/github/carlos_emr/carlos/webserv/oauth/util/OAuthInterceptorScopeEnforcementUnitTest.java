@@ -142,6 +142,31 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         assertThat(attached).isInstanceOf(LoggedInInfo.class);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "GET,getSettings,tickler.read,false",
+        "GET,getSettings,ocean.read,true",
+        "GET,getSettings,ocean.write,true",
+        "POST,saveSettings,ocean.read,false",
+        "POST,saveSettings,ocean.write,true"
+    })
+    void shouldEnforceOceanScopes_whenOceanEndpointRequested(String method, String operation, String scope, boolean allowed) {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting(scope));
+        MockHttpServletRequest request = scheduleReadServletRequest();
+        request.setMethod(method);
+        request.setRequestURI("/carlos/ws/services/ocean/" + operation);
+        request.setPathInfo("/services/ocean/" + operation);
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+        if (allowed) {
+            assertThat(fault).isNull();
+            assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
+        } else {
+            assertThat(fault).isNotNull();
+            assertThat(fault.getStatusCode()).isEqualTo(403);
+        }
+    }
+
     /**
      * Builds an interceptor whose collaborators authenticate {@link #TOKEN} successfully (valid client,
      * good signature, resolvable provider) and return the supplied access token from the single token load.

@@ -178,6 +178,21 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("parse")
+    @Tag("binary")
+    @DisplayName("should produce a PDF when the page carries an HTML comment containing a double hyphen")
+    void shouldProducePdf_whenHtmlCommentContainsDoubleHyphen() {
+        // Legal in HTML, illegal in XML: the drug-profile page attached from Messenger has one,
+        // and before comments were stripped the whole item was stored as a failed render (#4133).
+        String html = "<html><head><!-- layout -- print --></head><body><!-- a -- b --><p>Current drugs</p></body></html>";
+
+        String result = Doc2PDF.parseString2Bin(request, response, html);
+
+        assertThat(result).isNotNull();
+        assertThat(java.util.Base64.getDecoder().decode(result)).startsWith("%PDF".getBytes());
+    }
+
+    @Test
+    @Tag("parse")
     @Tag("medical")
     @DisplayName("should produce PDF when realistic medical content is provided")
     void shouldProducePdf_whenRealisticMedicalContentProvided() {

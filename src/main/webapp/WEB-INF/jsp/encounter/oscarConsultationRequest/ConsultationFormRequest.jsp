@@ -309,14 +309,21 @@
                 if (attachedLabsSortedByVersions.contains(attachedLab1)) {
                     continue;
                 }
-                String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",");
+                // Version chains exist for HL7 labs only, and segment ids are only unique within a
+                // source: the chain is walked for HL7 labs and matched on source and id, so an
+                // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
+                boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
+                String[] matchingLabIds = hl7Lab
+                        ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
+                        : new String[]{attachedLab1.getSegmentID()};
                 if (matchingLabIds.length == 1) {
                     attachedLabsSortedByVersions.add(attachedLab1);
                     continue;
                 }
                 for (int i = matchingLabIds.length - 1; i >= 0; i--) {
                     for (LabResultData attachedLab2 : attachedLabs) {
-                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])) {
+                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])
+                                || !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())) {
                             continue;
                         }
                         if (i != matchingLabIds.length - 1) {
@@ -2538,16 +2545,26 @@ if (userAgent != null) {
                                                 </tr>
                                                 <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
-                                                    <tr id="entry_labNo${ attachedLab.segmentID }">
+                                                    <%-- Row and delegate ids follow the picker checkbox id, which for labs
+                                                         carries the source (labNoHL7123); the dialog adds and removes rows
+                                                         by that key. --%>
+                                                    <tr id="entry_labNo${ attachedLab.labType }${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
-                                                            <input name="labNo" value="${ attachedLab.segmentID }"
-                                                                   id="delegate_labNo${ attachedLab.segmentID }"
+                                                            <%-- The picker's lab checkbox id carries the lab source
+                                                                 (labNoHL7123), and the pre-check looks the box up by
+                                                                 this delegate id minus its delegate_ prefix. --%>
+                                                            <input name="labNo" value="${carlos:forHtmlAttribute(attachedLab.attachmentKey)}"
+                                                                   id="delegate_labNo${ attachedLab.labType }${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
+                                                            <c:if test="${attachedLab.attachmentUnavailable}">
+                                                                <button type="button" class="removeUnavailableLab"
+                                                                        onclick="this.closest('tr').remove()"><fmt:message key="admin.eformReportTool.remove"/></button>
+                                                            </c:if>
                                                         </td>
                                                     </tr>
                                                 </c:forEach>
@@ -2679,7 +2696,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <carlos:encode value='<%= thisForm.getPatientDOB() %>' context="html"/><br>
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <carlos:encode value='<%= thisForm.getPatientSex() %>' context="html"/><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getPatientHealthNum() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardVersionCode() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardType() %>' context="html"/>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getFormattedHealthCard() %>' context="html"/>
                                             </div>
                                         </div>
                                     </div>
@@ -2768,6 +2785,13 @@ if (userAgent != null) {
                                                 <carlos:encode value='<%= thisForm.geteReferralService() %>' context="html"/>
                                                 <% } else { %>
                                                 <input type="hidden" id="service" name="service" value=""/>
+                                                <%-- Marks the EDITABLE service picker. The health-care-team variant of this
+                                                     row posts a hidden name="service" fixed at "0" instead, so "a service was
+                                                     posted" does not mean "the clinician could choose one" -- without this
+                                                     marker the print preview would overlay that 0 onto a referral that has a
+                                                     real saved service and print a blank service. See
+                                                     ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="serviceRendered" value="1"/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
                                                        autocomplete="off"
                                                        placeholder="<fmt:message key='consultationList.header.service'/>"/>
@@ -2905,8 +2929,17 @@ if (userAgent != null) {
                                     <oscar:oscarPropertiesCheck defaultVal="false" value="true"
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
-                                            <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
-                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
+                                            <td class="consult-form-label"><label for="patientWillBook"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></label></td>
+                                            <td class="consult-form-value"><input type="checkbox" id="patientWillBook" name="patientWillBook" value="1" onclick="disableDateFields()" <%="1".equals(consultUtil.pwb) ? "checked" : ""%> />
+                                                <%-- The checked state must come from the stored record: an unchecked box posts
+                                                     nothing, so a box that rendered blank for an already-booked referral reads
+                                                     back as "unchecked" -- clearing pwb in the preview here, and in the database
+                                                     on save (EctConsultationFormRequest2Action defaults pWillBook to false).
+                                                     The marker below is the other half of that contract: this row is only
+                                                     rendered when CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default),
+                                                     and the marker is what lets the print preview tell "the clinician unchecked
+                                                     it" from "this deployment never showed it". See ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="patientWillBookRendered" value="1" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
 
@@ -3609,7 +3642,10 @@ if (userAgent != null) {
                         jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
                         ).each(function (index, data) {
                             var element = jQuery(this);
-                            var rowId = "entry_" + element.attr("name") + element.val();
+                            // Keyed by the checkbox id (not name + value) so a lab row carries
+                            // its source like the unchecked-row removal below and the
+                            // server-rendered rows do.
+                            var rowId = "entry_" + element.attr("id");
 
                             // skip if this entry was already added (e.g. dialog opened/closed multiple times)
                             if (jQuery('#EctConsultationFormRequest2Form').find("#" + rowId).length > 0) {
@@ -3619,7 +3655,8 @@ if (userAgent != null) {
                             var input = jQuery("<input />", {
                                 type: 'hidden',
                                 name: element.attr('name'),
-                                value: element.val(),
+                                value: element.attr('name') === 'labNo'
+                                    ? element.attr('data-lab-type') + ':' + element.val() : element.val(),
                                 id: "delegate_" + element.attr('id'),
                                 class: 'delegateAttachment'
                             });

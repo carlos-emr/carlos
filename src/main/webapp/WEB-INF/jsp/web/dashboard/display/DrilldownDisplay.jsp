@@ -62,6 +62,8 @@
             src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ pageContext.request.contextPath }/library/datetime-sort.js"></script>
     <script type="text/javascript"
+            src="${ pageContext.request.contextPath }/library/dompurify/purify.min.js"></script>
+    <script type="text/javascript"
             src="${ pageContext.request.contextPath }/web/dashboard/display/drilldownDisplayController.js"></script>
 </head>
 <body>

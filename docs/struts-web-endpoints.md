@@ -75,6 +75,13 @@ public class ViewExample2Action extends ActionSupport {
 - Forms, links, redirects, JavaScript, popup URLs, and Java-generated HTML should target the action path, not the JSP.
 - Internal forwards should use `/WEB-INF/jsp/...` only when they are deliberately internal server-side dispatches.
 - New code should not generate `.do` URLs.
+- Never build a link from `request.getRequestURI()` inside a view. After the gate action forwards, it
+  returns the internal `/WEB-INF/jsp/...` path, so a "relative to this page" link points into
+  `WEB-INF` and answers 404 (issue #4132: Prevention Print and eDoc Combine PDF). Use
+  `${pageContext.request.contextPath}` plus the route, or `<rewrite:reWrite jspPage="/module/route"/>`
+  with a leading `/`, which is resolved against the context path.
+  `FullPathReWriteJspRegressionTest` fails the build when a `<rewrite:reWrite>` target is
+  page-relative or names a route that no `struts-*.xml` maps.
 
 ## Choosing the Right Pattern
 
@@ -121,6 +128,13 @@ Current example:
 - Static assets are excluded from Struts by `struts.action.excludePattern`; do not create fake actions for files that should remain static.
 
 ## Testing Expectations
+
+Run `bash scripts/validate_struts_actions.sh` after changing action mappings.
+It follows the includes from `struts.xml`, checks fully qualified Java source
+paths and named Spring `@Component` actions (including `SPRING_BEAN_NAME`
+constants), and fails if the action inventory is empty or a dependency is
+missing. It does not load application classes or fetch XML DTDs. Its fixture
+regressions run with `node --test scripts/struts-action-validator.test.js`.
 
 For new routed pages, add focused tests that cover:
 

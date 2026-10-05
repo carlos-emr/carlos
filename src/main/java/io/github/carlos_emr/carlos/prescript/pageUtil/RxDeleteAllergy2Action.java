@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -56,8 +58,25 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Changes the allergy list of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _allergy} update, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Deletes or re-activates one allergy, which must belong to that patient (403 otherwise).
+     *
+     * @return the result for the allergy page, or {@code NONE} after an error response
+     * @throws SecurityException when the caller may not update the patient's allergies
+     */
     public String execute()
             throws IOException, ServletException {
+        // Deleting or re-activating an allergy changes the chart: POST-only, refused before
+        // anything else (#3908). ShowAllergies2's $.ajax posts it.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "u", null)) {
             throw new SecurityException("missing required sec object (_allergy)");
@@ -76,14 +95,22 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
         int id;
         try {
             id = Integer.parseInt(idParam);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
             return NONE;
         }
-        String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
-        RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+        // Deleting or re-activating an allergy changes the chart: act only for the patient the
+        // request explicitly names, never the session's last-opened Rx patient (#3875).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_allergy", "u");
+        RxPatientData.Patient patient = bean == null
+                ? null
+                : RxSessionBeanResolver.resolvePatient(request, bean.getDemographicNo());
+        if (patient == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
 
         Allergy allergy = patient.getAllergy(id);
         if (allergy == null) {
@@ -100,9 +127,8 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.DELETE, LogConst.CON_ALLERGY, "" + id, ip, "" + patient.getDemographicNo(), allergy.getAuditString());
         }
 
-        if (demographicNo != null) {
-            request.setAttribute("demographicNo", demographicNo);
-        }
+        // Echo the patient actually written, not the raw request value.
+        request.setAttribute("demographicNo", String.valueOf(patient.getDemographicNo()));
 
         return SUCCESS;
     }

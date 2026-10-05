@@ -115,6 +115,59 @@ class RestServiceSurfaceRegistrationUnitTest {
                 .containsAll(session);
     }
 
+    @Test
+    @DisplayName("should exclude CXF payload logging from credential-bearing Ocean surfaces")
+    void shouldNotLogOceanPayloads_onEitherSurface() throws Exception {
+        for (String config : new String[] {SESSION_CONFIG, OAUTH_CONFIG}) {
+            Document doc = parse(config);
+            String address = config.equals(SESSION_CONFIG) ? SESSION_SERVER_ADDRESS : OAUTH_SERVER_ADDRESS;
+            Element server = serverByAddress(doc, address);
+            assertThat(server).as("REST server %s in %s", address, config).isNotNull();
+            assertNoLogging(server, beanClassesById(doc));
+            NodeList buses = doc.getElementsByTagName("cxf:bus");
+            for (int i = 0; i < buses.getLength(); i++) {
+                assertNoLogging((Element) buses.item(i), beanClassesById(doc));
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should detect referenced logging interceptors on the server and bus")
+    void shouldDetectLoggingReferences_whenReintroduced(boolean busLevel) throws Exception {
+        Document doc = parse(SESSION_CONFIG);
+        Element owner = busLevel ? (Element) doc.getElementsByTagName("cxf:bus").item(0)
+                : serverByAddress(doc, SESSION_SERVER_ADDRESS);
+        assertThat(owner).isNotNull();
+        Element interceptors = doc.createElement(busLevel ? "cxf:inInterceptors" : "jaxrs:inInterceptors");
+        Element reference = doc.createElement("ref");
+        // Use an innocuous alias: the check must follow the reference to its class.
+        reference.setAttribute("bean", "transportDiagnostics");
+        interceptors.appendChild(reference);
+        owner.appendChild(interceptors);
+        Map<String, String> classes = beanClassesById(doc);
+        classes.put("transportDiagnostics", "org.apache.cxf.ext.logging.LoggingInInterceptor");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> assertNoLogging(owner, classes))
+                .isInstanceOf(AssertionError.class).hasMessageContaining("logging");
+    }
+
+    private static void assertNoLogging(Element element, Map<String, String> beanClasses) {
+        assertThat(element.getTagName().toLowerCase(java.util.Locale.ROOT)).doesNotContain("logging");
+        var attributes = element.getAttributes();
+        for (int i = 0; i < attributes.getLength(); i++) {
+            String value = attributes.item(i).getNodeValue();
+            assertThat(value.toLowerCase(java.util.Locale.ROOT)).doesNotContain("logging");
+            String referencedClass = beanClasses.get(value);
+            if (referencedClass != null) {
+                assertThat(referencedClass.toLowerCase(java.util.Locale.ROOT)).doesNotContain("logging");
+            }
+        }
+        // Element traversal excludes inactive XML comments but includes attributes.
+        for (var child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child instanceof Element childElement) assertNoLogging(childElement, beanClasses);
+        }
+    }
+
     /** Keep only beans in the rest data-service package (drops the OAuth-only status endpoint). */
     private static Set<String> restPackageServices(Set<String> all) {
         Set<String> out = new LinkedHashSet<>(all);

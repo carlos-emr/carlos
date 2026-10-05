@@ -198,8 +198,12 @@
     // under the response-buffering filter chain; keep the shared appointment gate above.
     String includeTarget = opToFileDict.getDef(operation, "");
     boolean statusRequest = "addstatus".equals(operation);
+    // RequestNegotiation.isAjax, not an exact match: CSRFGuard's client script appends its own
+    // marker to whatever jQuery set, so the real header is "XMLHttpRequest, OWASP CSRFGuard
+    // Project". Missing it left this reply as text/html, which the response-decorating filters
+    // then append their script blocks to — the caller renders the body as the status text.
     boolean ajaxStatusRequest = statusRequest
-      && "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+      && io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
     if (ajaxStatusRequest) {
         response.setContentType("text/plain;charset=UTF-8");
     }

@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -69,6 +70,38 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
 
     private static Logger log = MiscUtils.getLogger();
+
+    @Override
+    // FindSecBugs IMPROPER_UNICODE: lower-casing a directory search term with Locale.ROOT to match
+    // LOWER(name) in the query; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive directory name search term; not a security or authorization decision")
+    public List<Object[]> searchFaxRecipients(String term, int limit) {
+        String literalTerm = term.toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        // property has no unique key on (provider_no, name), so a provider can carry several
+        // faxnumber rows, and the write paths disagree about which one is current: saveProp()
+        // updates whichever row an unordered getProp() returns first, ProviderManager2 the last
+        // row it iterates, ProviderFaxUpdater every row; none inserts a second row. Neither
+        // "newest id" nor "first row" is therefore reliably the number the provider last saved.
+        // Faxes carry patient information, so fail closed: offer a provider only when every one
+        // of their faxnumber rows holds the same nonblank number (a cleared or conflicting row
+        // excludes them, and the clinician can still type a number). The rows are grouped once
+        // per provider in a derived table rather than by correlated subqueries: property has no
+        // index on provider_no, so a per-candidate subquery could rescan the table for each
+        // provider. One row per provider also makes the limit count providers, not rows.
+        return entityManager().createQuery(
+                "SELECT p, f.fax FROM Provider p JOIN ("
+                + "SELECT u.providerNo AS providerNo, MAX(TRIM(u.value)) AS fax FROM UserProperty u "
+                + "WHERE u.name = 'faxnumber' GROUP BY u.providerNo "
+                + "HAVING MIN(CASE WHEN u.value IS NULL OR TRIM(u.value) = '' THEN 0 ELSE 1 END) = 1 "
+                + "AND MIN(TRIM(u.value)) = MAX(TRIM(u.value))) f ON f.providerNo = p.providerNo "
+                + "WHERE p.status = '1' "
+                + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
+                + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
+                .setParameter("term", "%" + literalTerm + "%")
+                .setMaxResults(limit)
+                .getResultList();
+    }
 
     public boolean providerExists(String providerNo) {
         return entityManager().find(Provider.class, providerNo) != null;

@@ -38,6 +38,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -496,7 +497,11 @@ public class EctDisplayAction extends ActionSupport {
         // in Tomcat 11, truncating AJAX responses at the 8KB buffer boundary — include()
         // leaves the stream open. For non-XHR requests, return "success" so Struts performs
         // a FORWARD dispatch, allowing CsrfGuardScriptInjectionFilter to run on the FORWARD.
-        if ("success".equals(forward) && "XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+        // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+        // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
+        // "XMLHttpRequest, OWASP CSRFGuard Project" and an equals check would take the
+        // forward() path that truncates the very response this branch exists to protect.
+        if ("success".equals(forward) && RequestNegotiation.isAjax(request)) {
             String jspPath = Actions.get("success");
             request.getRequestDispatcher(jspPath).include(request, response);
             return NONE;

@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,12 +34,17 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Tickler.STATUS;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.TicklerLinkTo1;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -57,6 +63,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
+
+    private static final String TICKLER_SECURITY_OBJECT = "_tickler";
 
     private boolean includeLinks;
     private boolean includeComments;
@@ -85,7 +93,7 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
     public TicklerTo1 getAsTransferObject(LoggedInInfo loggedInInfo, Tickler t) throws ConversionException {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-        TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+        TicklerDocsDao ticklerDocsDao = SpringUtils.getBean(TicklerDocsDao.class);
         ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
 
 
@@ -122,9 +130,36 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
         Map<String, String> expandedProviderNames = getExpandedProviderNames(providerDao, t);
 
         if (includeLinks) {
-            List<TicklerLink> links = ticklerLinkDao.getLinkByTickler(d.getId());
-            TicklerLinkConverter tlc = new TicklerLinkConverter();
-            d.setTicklerLinks(tlc.getAllAsTransferObjects(loggedInInfo, links));
+            // The REST ticklerLinks shape stays as it was: tableName carries the legacy
+            // tickler_link code (DOC, HRM, the lab source, plus EFORM/FORM for the new types)
+            // while the rows themselves now come from ticklerdocs. The endpoint only proves
+            // the global _tickler read, and a patient-specific denial takes precedence over
+            // it, so the rows are gated on _tickler read for this patient and then on the
+            // patient-scoped read right of their own type (the same gates as the picker and
+            // the list JSON); a row the caller may not read is left out rather than redacted,
+            // since the shape has no restricted flag.
+            Map<DocumentType, Boolean> readable = new EnumMap<>(DocumentType.class);
+            boolean ticklerReadable = isReadable(loggedInInfo, TICKLER_SECURITY_OBJECT, t.getDemographicNo());
+            TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
+            for (TicklerDocs attachment : ticklerReadable ? ticklerDocsDao.findByTicklerId(d.getId()) : List.<TicklerDocs>of()) {
+                DocumentType documentType = DocumentType.fromType(attachment.getDocType());
+                if (documentType != null && !readable.computeIfAbsent(documentType,
+                        type -> isTypeReadable(loggedInInfo, type, t.getDemographicNo()))) {
+                    continue;
+                }
+                // Looked up afresh: an item re-filed to another patient since it was attached
+                // is left out rather than serialised under this patient's tickler.
+                if (documentType != null && !ticklerAttachmentService.belongsToPatient(loggedInInfo, documentType,
+                        attachment.getDocumentNo(), attachment.getLabType(), t.getDemographicNo())) {
+                    continue;
+                }
+                TicklerLinkTo1 link = new TicklerLinkTo1();
+                link.setId(attachment.getId());
+                link.setTicklerNo(attachment.getTicklerId());
+                link.setTableName(TicklerLinkDTO.legacyTableName(attachment));
+                link.setTableId((long) attachment.getDocumentNo());
+                d.getTicklerLinks().add(link);
+            }
         }
 
         if (includeComments) {
@@ -166,6 +201,16 @@ public class TicklerConverter extends AbstractConverter<Tickler, TicklerTo1> {
      * without forcing conversion code to dereference lazy provider associations on each expanded
      * row.</p>
      */
+    private static boolean isTypeReadable(LoggedInInfo loggedInInfo, DocumentType documentType, Integer demographicNo) {
+        return isReadable(loggedInInfo, TicklerAttachmentService.readSecurityObject(documentType), demographicNo);
+    }
+
+    private static boolean isReadable(LoggedInInfo loggedInInfo, String securityObject, Integer demographicNo) {
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        return securityInfoManager.hasPrivilege(loggedInInfo, securityObject,
+                SecurityInfoManager.READ, demographicNo == null ? null : String.valueOf(demographicNo));
+    }
+
     private Map<String, String> getExpandedProviderNames(ProviderDao providerDao, Tickler tickler) {
         Set<String> providerNos = new HashSet<>();
         if (includeComments) {

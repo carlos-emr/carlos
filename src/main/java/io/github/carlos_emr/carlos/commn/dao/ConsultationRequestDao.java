@@ -35,6 +35,9 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultantOptionDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
@@ -48,6 +51,42 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
     List<ConsultationRequest> getConsults(Integer demoNo);
 
     List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit);
+
+    /**
+     * Returns one page of the Consultations list, applying every filter in {@code filter}.
+     *
+     * <p>The positional {@link #getConsults(String, boolean, Date, Date, String, String, String, Integer, Integer)}
+     * delegates here with no consultant and no MRP filter.</p>
+     *
+     * @param filter ConsultationListFilterDto the list filters; must not be null
+     * @return List of matching requests, at most {@code MAX_LIST_RETURN_SIZE} rows
+     * @since 2026-09-30
+     */
+    List<ConsultationRequest> getConsults(ConsultationListFilterDto filter);
+
+    /**
+     * Searches the specialists that at least one consultation request was sent to, for the
+     * Consultant type-ahead on the Consultations list.
+     *
+     * <p>The keyword is split on whitespace and commas; every token (up to four) must appear,
+     * case-insensitively, somewhere in "last, first". So "Smith,B", "smith b" and "brian smith"
+     * all find "Smith, Brian". LIKE wildcards in the keyword are matched literally.</p>
+     *
+     * @param keyword    String the text typed by the user; null or blank returns an empty list
+     * @param maxResults int the maximum number of rows to return; values below 1 return an empty list
+     * @return List of specialists ordered by last name, first name
+     * @since 2026-09-30
+     */
+    List<ConsultantOptionDto> searchDistinctConsultants(String keyword, int maxResults);
+
+    /**
+     * Lists the distinct most responsible providers ({@code demographic.provider_no}) of patients
+     * that have at least one consultation request, for the Provider filter on the Consultations list.
+     *
+     * @return List of providers ordered by last name, first name
+     * @since 2026-09-30
+     */
+    List<ConsultationMrpOptionDto> findDistinctConsultMrps();
 
     List<ConsultationRequest> getConsultationsByStatus(Integer demographicNo, String status);
 
@@ -74,4 +113,6 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
      * @since 2026-04-11
      */
     List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId);
+    ConsultationRequest lockForAttachmentSync(Integer id);
+
 }

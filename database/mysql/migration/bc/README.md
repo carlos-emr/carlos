@@ -10,6 +10,9 @@ Forward deltas (not part of the frozen baseline):
 
 Applied together with `common/` for a BC install (`flyway.locations=filesystem:.../migration/common,filesystem:.../migration/bc` (see `flyway.conf` for the real paths)). New BC-only
 changes go here as `V1.0.N__short_description.sql` (sequential, next free version number). The
-version line is global across `common` + `bc`, so the next free BC-only number is `V1.0.23`
-(the global high-water mark is `common/V1.0.22`) — see
-`../README.md` for why a lower number must never be reused.
+version line is global across every location. The highest migration in this branch, including
+on the BC path, is `common/V1.0.52`; `V1.0.48`–`V1.0.51` are claimed by open pull requests, so the
+next unallocated version is `V1.0.53`.
+Numbers used only by Ontario are still taken — see
+`../README.md` for migration ordering, and why numbers at or below the global high-water
+mark must never be reused.

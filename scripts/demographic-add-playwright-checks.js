@@ -113,7 +113,7 @@ function sql(query) {
       searchPage.locator("input[type='submit']").first().click(),
     ]);
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await searchPage.locator("a[href*='ViewDemographicAddARecordHtm']").first().click();
+    await searchPage.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
     await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(searchPage, 'add-demographic form');
 
@@ -196,12 +196,18 @@ function sql(query) {
       const leftover = createdDemographicNo
         || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
       if (/^\d+$/.test(leftover)) {
+        assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}
+          AND last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`) === '1',
+          'Owned new-patient fixture identity changed');
         sql(`DELETE FROM admission WHERE client_id=${leftover}`);
         sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
         sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
+        assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
+          'Owned new-patient fixture was not removed');
       }
     } catch (cleanupError) {
-      console.error(`WARN cleanup failed: ${cleanupError.message}`);
+      process.exitCode = 1;
+      console.error(`FAIL cleanup failed: ${cleanupError.message}`);
     }
     cleanupMysqlDefaults();
     await browser.close();

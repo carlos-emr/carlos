@@ -92,6 +92,7 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         d.setRosterDate(t.getRosterDate());
         d.setRosterTerminationDate(t.getRosterTerminationDate());
         d.setRosterTerminationReason(t.getRosterTerminationReason());
+        d.setRosterEnrolledTo(t.getRosterEnrolledTo());
         d.setLinks(t.getRosterTerminationReason());
         d.setAlias(t.getAlias());
         d.setPreviousAddress(t.getPreviousAddress().getAddress());
@@ -172,6 +173,7 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         t.setRosterDate(d.getRosterDate());
         t.setRosterTerminationDate(d.getRosterTerminationDate());
         t.setRosterTerminationReason(d.getRosterTerminationReason());
+        t.setRosterEnrolledTo(d.getRosterEnrolledTo());
         t.setLinks(d.getRosterTerminationReason());
         t.setAlias(d.getAlias());
         t.getPreviousAddress().setAddress(d.getPreviousAddress());

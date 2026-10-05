@@ -95,12 +95,15 @@
         </action>
         <action name="form/formname" class="io.github.carlos_emr.carlos.form.Frm2Action">
             <result name="exit">/WEB-INF/jsp/encounter/close.jsp</result>
-            <result name="printAll">/form/createpdf</result>
+            <!-- The forwarded query string wins over the request's own parameters of the same
+                 name, which is how the freshly saved record id reaches FrmPDFServlet: the POST
+                 still carries the formId the page was loaded with, and on a first save that is 0. -->
+            <result name="printAll">/form/createpdf?formId=${savedFormId}</result>
             <result name="printAllJasperReport">/form/formPdfJasperReport</result>
             <result name="printLabReq">/WEB-INF/jsp/form/formlabreqprint.jsp</result>
             <result name="print">/WEB-INF/jsp/error/errorpage.jsp</result>
             <result name="save">/form/forwardname</result>
-            <result name="graph">/form/createpdf</result>
+            <result name="graph">/form/createpdf?formId=${savedFormId}</result>
             <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="form/forwardshortcutname" class="io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action"/>

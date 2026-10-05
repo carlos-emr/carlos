@@ -566,7 +566,7 @@
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
-                           onClick="popupPage('<%=bsurl%>/encounter/ViewCalculators?sex=<%=bean.patientSex%>&age=<%=pAge%>'); return false;">calculators</a><br>
+                           onClick="popupPage('<carlos:encode value='<%=bsurl%>' context="javaScriptAttribute"/>/encounter/ViewCalculators?demo=<carlos:encode value='<%=bean.demographicNo%>' context="uriComponent"/>'); return false;">calculators</a><br>
                     </td>
                 </tr>
 

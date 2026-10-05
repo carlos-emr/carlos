@@ -389,17 +389,23 @@
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 
-                if (update === "true"
-                        && window.opener
-                        && !window.opener.closed
-                        && window.opener.URLs
-                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
-                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
-                } else if (update === "true") {
-                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
-                    // skip silently in the UI but leave a console trace for debugging.
-                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
+                if (update !== "true") return;
+                var parent = window.opener;
+                if (parent && !parent.closed) {
+                    // The current E-Chart exposes reloadNav, not the legacy URLs map.
+                    // This upload callback targets only its Documents module.
+                    if (parentId === "docs" && typeof parent.reloadNav === "function"
+                            && parent.document.getElementById("docs")) {
+                        parent.reloadNav("docs");
+                        return;
+                    }
+                    if (parent.URLs && Object.prototype.hasOwnProperty.call(parent.URLs, parentId)
+                            && typeof parent.popLeftColumn === "function") {
+                        parent.popLeftColumn(parent.URLs[parentId], parentId, parentId);
+                        return;
+                    }
                 }
+                console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
             }
 
             window.closeWindow = function() {
@@ -415,6 +421,7 @@
             }
 
             jQuery(document).ready(function () {
+                setup();
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
                     columnDefs: [{orderable: false, targets: [0, 8]}],
@@ -422,7 +429,7 @@
                         [-1, 10, 20, 50, 100, 200],
                         ['All', 10, 20, 50, 100, 200]
                     ],
-                    order: [[6, 'dsc']],
+                    order: [[6, 'desc']],
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
@@ -515,6 +522,10 @@
 
                 for (int i = 0; i < categories.size(); i++) {
                     String currentkey = (String) categoryKeys.get(i);
+                    // The heading carries the patient's (or provider's) name, so the Browse link
+                    // sends a stable scope token instead: categories[0] is always the private list
+                    // and categories[1] (provider module only) the public one.
+                    String currentScope = (i == 0) ? "private" : "public";
                     ArrayList category = (ArrayList) categories.get(i);
             %>
                 <div class="doclist card">
@@ -561,7 +572,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>">
+                                        href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<%= currentScope %><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -796,7 +807,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs" context="javaScriptAttribute"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="/documentManager/combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>

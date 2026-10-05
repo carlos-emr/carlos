@@ -51,6 +51,20 @@ import static org.mockito.Mockito.when;
 @DisplayName("CaseManagementEntry2Action sanitization and reporter team helpers")
 class CaseManagementEntry2ActionSanitizationUnitTest {
 
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1", "abc", "2147483648", "99999999999999999999"})
+    void shouldRejectMessageId_whenInvalidOrOutOfRange(String value) {
+        assertThatThrownBy(() -> CaseManagementEntry2Action.parseEncounterMessageId(value))
+                .isInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    void shouldParseMessageId_whenPositiveOrAbsent() {
+        assertThat(CaseManagementEntry2Action.parseEncounterMessageId("2147483647")).isEqualTo(Integer.MAX_VALUE);
+        assertThat(CaseManagementEntry2Action.parseEncounterMessageId(null)).isNull();
+        assertThat(CaseManagementEntry2Action.parseEncounterMessageId(" ")).isNull();
+    }
+
     // ------------------------------------------------------------------
     // sanitizeFromParam
     // ------------------------------------------------------------------

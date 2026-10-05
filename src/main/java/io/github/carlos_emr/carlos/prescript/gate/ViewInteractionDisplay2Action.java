@@ -33,6 +33,14 @@ public final class ViewInteractionDisplay2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Admits the request to its view only with global {@code _rx} read and, when the request names a
+     * patient ({@code demographicNo} / {@code demographic_no}), the same privilege for that patient plus access to
+     * the patient's record ({@link RxRequestedPatientAccess#require}). A malformed or conflicting patient is refused.
+     *
+     * @return {@code success} to render the view
+     * @throws SecurityException when the caller may not view the module or the named patient
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -41,6 +49,8 @@ public final class ViewInteractionDisplay2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
+        // The JSP renders the patient the request names; authorise that patient too (#3875).
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
         return SUCCESS;
     }

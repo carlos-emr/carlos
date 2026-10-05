@@ -619,12 +619,12 @@
                            title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.scheduleSetting"/></a></li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule.curprovider_only"
                                        rights="r" reverse="<%=true%>">
-                        <oscar:oscarPropertiesCheck property="ENABLE_EDIT_APPT_STATUS"
-                                                    value="yes">
+                        <%-- Absent ENABLE_EDIT_APPT_STATUS means enabled; see CarlosProperties.isAppointmentStatusEditingEnabled(). --%>
+                        <% if (CarlosProperties.getInstance().isAppointmentStatusEditingEnabled()) { %>
                             <li><a href="#"
                                    onclick="popupPage(500,600,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
                                    title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
-                        </oscar:oscarPropertiesCheck>
+                        <% } %>
 
                         <li><a href="#"
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
@@ -801,8 +801,6 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/ViewApiClients");return false;'>REST Clients</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/Statement");return false;'>Hospital
-                        Report Manager (HRM) Status</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>

@@ -1509,7 +1509,7 @@ function checkTypeInAll() {
  * Submits a quick link action (add/remove) via POST form.
  * @param {string} action - The action to perform ('add' or 'remove')
  * @param {string} name - The quick link name
- * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
+ * @param {string} url - The quick link URL; always submitted, or an empty string when falsy
  */
 function submitQuickLinkAction(action, name, url) {
     var form = document.getElementById('quickLinkActionForm');
@@ -1618,36 +1618,41 @@ function isValidAutoSaveResponse(status, body) {
 
 // ── Dx Code Search Modal ─────────────────────────────────────────────
 // Loads billingDigSearch.jsp in an iframe when the modal opens.
-// Overrides the iframe's CodeAttach() so selecting a code writes back
-// to the dxCode input and closes the modal (no popup needed).
+// Register before loading the iframe: a single search result selects during document parsing.
+var dxSearchModalShown = false;
+var dxSearchSelectionPending = false;
+function selectDefaultDiagnosticCode(file) {
+    if (typeof file !== 'string' || !file) return;
+    document.getElementById('dxCode').value = file.split('|')[0];
+    var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
+    if (dxSearchModalShown) {
+        if (modal) modal.hide();
+    } else {
+        // Bootstrap ignores hide() while a fading modal is opening.
+        dxSearchSelectionPending = true;
+    }
+}
+
+document.getElementById('dxSearchModal').addEventListener('shown.bs.modal', function() {
+    dxSearchModalShown = true;
+    if (dxSearchSelectionPending) {
+        dxSearchSelectionPending = false;
+        var modal = bootstrap.Modal.getInstance(this);
+        if (modal) modal.hide();
+    }
+});
 
 document.getElementById('dxSearchModal').addEventListener('show.bs.modal', function() {
+    dxSearchModalShown = false;
+    dxSearchSelectionPending = false;
     var code = document.getElementById('dxCode').value;
-    var frame = document.getElementById('dxSearchFrame');
-    frame.src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
+    document.getElementById('dxSearchFrame').src = '<%= request.getContextPath() %>/billing/CA/ON/ViewBillingDigSearch?name='
         + encodeURIComponent(code) + '&search=';
-    frame.onload = function() {
-        try {
-            frame.contentWindow.CodeAttach = function(file) {
-                if (typeof file === 'string' && file.length >= 3) {
-                    document.getElementById('dxCode').value = file.substring(0, 3);
-                } else if (typeof file === 'string' && file.length > 0) {
-                    document.getElementById('dxCode').value = file;
-                }
-                var modal = bootstrap.Modal.getInstance(document.getElementById('dxSearchModal'));
-                if (modal) { modal.hide(); }
-            };
-        } catch(e) {
-            if (e.name === 'SecurityError') {
-                console.warn('Dx code search: cross-origin iframe, code selection may not work automatically.');
-            } else {
-                console.error('Dx code search: failed to attach code handler:', e);
-            }
-        }
-    };
 });
 
 document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {
+    dxSearchModalShown = false;
+    dxSearchSelectionPending = false;
     document.getElementById('dxSearchFrame').src = 'about:blank';
 });
 </script>

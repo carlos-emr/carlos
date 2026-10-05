@@ -336,7 +336,7 @@
                                                             </td>
                                                         </tr>
 
-                                                        <c:if test="${not empty measurementType.lastMInstrc}">
+                                                        <c:if test="${not empty measurementType.lastData}">
                                                             <tr class="note">
                                                                 <td><fmt:message key="oscarEncoutner.oscarMeasurements.msgTheLastValue"/>:</td>
                                                                 <td>&nbsp;${carlos:forHtmlContent(measurementType.lastMInstrc)}</td>
