@@ -941,14 +941,15 @@ class TestTheOntarioProfile(unittest.TestCase):
 
     def test_privilege_seed_floor_reflects_later_deletions(self):
         # 514 baseline tuples + the V1.0.6 INSERT IGNORE row - the carlosdoc
-        # denial V1.0.9 deletes + V1.0.25's two _msgSMS grants = 516, and
-        # 133 objects + V1.0.25's _msgSMS = 134, which is what a live
-        # target holds. (V1.0.31 seeds with INSERT ... SELECT, which the
-        # counter does not see and a P0 floor does not need.)
+        # denial V1.0.9 deletes + V1.0.25's two _msgSMS grants + V1.0.41's
+        # 19 _portal.* grants = 535, and 133 objects + V1.0.25's _msgSMS +
+        # V1.0.41's 5 _portal.* objects = 139, which is what a live target
+        # holds. (V1.0.31 seeds with INSERT ... SELECT, which the counter
+        # does not see and a P0 floor does not need.)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         516)
+                         535)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         134)
+                         139)
 
 
 class TestTheBritishColumbiaProfile(unittest.TestCase):
@@ -1024,11 +1025,12 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
     def test_privilege_seed_floor_is_counted_from_the_bc_migrations(self):
         # BC seeds two more privilege tuples and one more object than
         # Ontario; a floor carried over from Ontario would refuse every
-        # BC host at P0 (both include V1.0.25's _msgSMS rows)
+        # BC host at P0 (both include V1.0.25's _msgSMS rows and V1.0.41's
+        # _portal.* rows)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         518)
+                         537)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
-                         135)
+                         140)
 
     def test_no_ontario_only_table_leaks_into_the_bc_profile(self):
         # PROVINCE_SCOPED removals: these are Ontario CARLOS tables, and
