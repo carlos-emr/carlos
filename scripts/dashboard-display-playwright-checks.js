@@ -390,13 +390,19 @@ async function workflow(s) {
       'A skipped diagnosis was audited with a null content ID');
     const messages = `SELECT COUNT(*) FROM messagelisttbl WHERE provider_no=${P}`;
     const messagesBefore = Number(sql.value(messages));
+    // Both the bulk handler and indicator reader use name|category|subcategory.
+    const identifier = `${marker} Patient status|${marker} Category|${marker} Owned patients`;
+    sql.execute(`INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time)
+      VALUES (${alpha},${P},'excludeIndicator',${h.sqlString(identifier)},'2000-01-01 00:00:00')`);
     const exclusion = {method: 'excludePatients', patientIds: `${missingPatient},${alpha}`, indicatorId};
     await Promise.all([post(exclusion), post(exclusion)]);
     await post(exclusion);
-    const identifier = `${marker} Patient status|${marker} Owned patients|${marker} Category`;
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${alpha} AND provider_no=${P}
-      AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`) === '1',
-      'Repeated or concurrent exclusions created duplicate current rows');
+    const exclusions = `FROM demographicExt WHERE demographic_no=${alpha} AND provider_no=${P}
+      AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`;
+    const current = sql.value(`SELECT COUNT(*) ${exclusions} AND date_time >= DATE_SUB(NOW(), INTERVAL 365 DAY)`);
+    h.assert(current === '1', `Repeated or concurrent exclusions created ${current} current rows, expected one`);
+    h.assert(sql.value(`SELECT COUNT(*) ${exclusions} AND date_time='2000-01-01 00:00:00'`) === '1',
+      'Adding a current exclusion rewrote or removed its history');
     h.assert(sql.value(messages) === String(messagesBefore + 1),
       'Skipped exclusions sent a false success notification');
   });
