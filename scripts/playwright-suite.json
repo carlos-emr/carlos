@@ -4810,6 +4810,25 @@
       "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
     },
     {
+      "name": "contact-editor",
+      "script": "scripts/contact-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient and one marker-named Contact created and edited through the directory UI; cleanup removes the owned contact and this patient's type-2 links.",
+      "notes": "Checks script parsing, real Save handlers, focus, stable contact identity and quoted text. GET/HEAD write rejection remains covered by get-reject-contact-directory."
+    },
+    {
       "name": "get-reject-contact-directory",
       "script": "scripts/get-reject-contact-directory-playwright-checks.js",
       "tiers": [
@@ -4826,7 +4845,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
-      "notes": "Expected to FAIL at the last step 'the contact directory save refused GET/HEAD, the owned contact is unchanged, and the page ran cleanly': demographic/Contact method=saveContact writes on GET, and addEditContact.jsp's script block does not parse (unescaped quotes)."
+      "notes": "Expected to FAIL at the last step until demographic/Contact method=saveContact rejects GET/HEAD writes. Editor script behavior is also independently covered by contact-editor."
     },
     {
       "name": "get-reject-measurement-groups",
