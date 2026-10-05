@@ -174,9 +174,14 @@ final class NationalVaccineCatalogueMapper {
         // The picklist name becomes the prevention type a generic is offered and recorded as, so it
         // must be unique. The SNOMED synonym ("[Inf] Influenza quadrivalent vaccine") is, for every
         // active generic and every brand; NVC's public picklist term is not ("Influenza (flu)
-        // vaccine" covers eleven generics). An inactive generic is kept for lookups by code but
-        // is not offered as a prevention type.
-        immunization.setPicklistName(generic && !active ? null : displayName);
+        // vaccine" covers eleven generics). A generic's type drops the bracketed abbreviation,
+        // because prevention settings store type names between brackets. An inactive generic is
+        // kept for lookups by code but is not offered as a prevention type.
+        if (generic) {
+            immunization.setPicklistName(active ? withoutAbbreviationTag(displayName) : null);
+        } else {
+            immunization.setPicklistName(displayName);
+        }
         // V2 has no prevalence; active concepts sort above inactive ones in catalogue search.
         immunization.setPrevalence(active ? 1 : 0);
         immunization.setGeneric(generic);
@@ -230,6 +235,17 @@ final class NationalVaccineCatalogueMapper {
             }
         }
         return count;
+    }
+
+    /** "[Inf] Influenza quadrivalent vaccine" becomes "Influenza quadrivalent vaccine". */
+    static String withoutAbbreviationTag(String name) {
+        if (name != null && name.startsWith("[")) {
+            int end = name.indexOf("] ");
+            if (end > 0 && end + 2 < name.length()) {
+                return name.substring(end + 2);
+            }
+        }
+        return name;
     }
 
     /** Lot codes are the lot number plus an NVC suffix, for example {@code 042D21A_[1]}. */

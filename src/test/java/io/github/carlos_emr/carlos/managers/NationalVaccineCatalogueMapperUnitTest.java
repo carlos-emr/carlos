@@ -74,14 +74,14 @@ class NationalVaccineCatalogueMapperUnitTest {
     }
 
     @Test
-    @DisplayName("should name each active generic by its SNOMED synonym, which is unique, not the shared public picklist term")
+    @DisplayName("should name each active generic by its SNOMED synonym without the bracketed abbreviation")
     void shouldMapGenerics_whenGenericValueSetPresent() {
         CVCImmunization menC = immunization("7121000087107");
 
         assertThat(catalogue.immunizations().stream().filter(CVCImmunization::isGeneric)).hasSize(3);
         assertThat(menC.isGeneric()).isTrue();
         assertThat(menC.getDisplayName()).isEqualTo("[Men-C-ACYW] Meningococcal conjugate A + C + Y + W vaccine");
-        assertThat(menC.getPicklistName()).isEqualTo("[Men-C-ACYW] Meningococcal conjugate A + C + Y + W vaccine");
+        assertThat(menC.getPicklistName()).isEqualTo("Meningococcal conjugate A + C + Y + W vaccine");
         assertThat(menC.getPrevalence()).isEqualTo(1);
     }
 
@@ -171,6 +171,16 @@ class NationalVaccineCatalogueMapperUnitTest {
         assertThatThrownBy(() -> NationalVaccineCatalogueMapper.map(empty))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Generic or Tradename");
+    }
+
+    @Test
+    @DisplayName("should drop only a leading bracketed abbreviation from a name")
+    void shouldStripAbbreviationTag_whenNameStartsWithOne() {
+        assertThat(NationalVaccineCatalogueMapper.withoutAbbreviationTag("[Inf] Influenza quadrivalent vaccine"))
+                .isEqualTo("Influenza quadrivalent vaccine");
+        assertThat(NationalVaccineCatalogueMapper.withoutAbbreviationTag("Varicella virus vaccine"))
+                .isEqualTo("Varicella virus vaccine");
+        assertThat(NationalVaccineCatalogueMapper.withoutAbbreviationTag("[Inf]")).isEqualTo("[Inf]");
     }
 
     private static ValueSet valueSet(String id, String... codes) {

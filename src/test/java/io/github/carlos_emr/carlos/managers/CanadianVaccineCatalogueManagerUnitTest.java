@@ -188,6 +188,23 @@ class CanadianVaccineCatalogueManagerUnitTest {
     }
 
     @Test
+    @DisplayName("should leave inactive generics, which have no picklist name, out of catalogue search")
+    void shouldOmitUnrecordableGeneric_whenSearching() {
+        CVCImmunization inactiveGeneric = new CVCImmunization();
+        inactiveGeneric.setSnomedConceptId("108729007");
+        inactiveGeneric.setGeneric(true);
+        CVCImmunization activeGeneric = new CVCImmunization();
+        activeGeneric.setSnomedConceptId("7121000087107");
+        activeGeneric.setGeneric(true);
+        activeGeneric.setPicklistName("Meningococcal conjugate A + C + Y + W vaccine");
+        when(manager.immunizationDao.query("vaccine", true, true)).thenReturn(List.of(inactiveGeneric, activeGeneric));
+
+        List<CVCImmunization> found = manager.query("vaccine", true, true, false, false, null);
+
+        assertThat(found).extracting(CVCImmunization::getSnomedConceptId).containsExactly("7121000087107");
+    }
+
+    @Test
     @DisplayName("should report a loaded catalogue once a refresh has been recorded")
     void shouldReportCatalogue_whenUpdatedPropertyExists() {
         when(manager.userPropertyDao.getProp("cvc.updated")).thenReturn(new UserProperty());

@@ -255,7 +255,8 @@ public class CanadianVaccineCatalogueManager {
         for (CVCImmunization i : results) {
             // An imported lot/GTIN may reference a medication whose immunization
             // has not arrived yet; it must not abort the remaining suggestions.
-            if (i != null) tmp.put(i.getSnomedConceptId(), i);
+            // A generic with no picklist name (inactive in the catalogue) cannot be recorded.
+            if (i != null && !(i.isGeneric() && i.getPicklistName() == null)) tmp.put(i.getSnomedConceptId(), i);
         }
         List<CVCImmunization> uniqueResults = new ArrayList<>(tmp.values());
         Collections.sort(uniqueResults, new PrevalenceComparator());
