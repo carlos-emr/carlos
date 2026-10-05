@@ -8,7 +8,7 @@ const vm = require('node:vm');
 // Execute the shipped handlers; only server-rendered strings and browser I/O are substituted.
 const jsp = fs.readFileSync(path.join(__dirname,
   '../src/main/webapp/WEB-INF/jsp/form/formDischargeSummary.jsp'), 'utf8');
-const source = [...jsp.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)]
+const source = [...jsp.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
   .map(match => match[1]).find(script => script.includes('function valDate('))
   .replace(/<%=[\s\S]*?%>/g, 'carlos').replace(/<fmt:message\b[^>]*\/>/g, 'Localized message');
 
