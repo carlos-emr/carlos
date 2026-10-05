@@ -3400,6 +3400,21 @@
       "fixtures": "Owned synthetic patient saved into a marker-named patient set from the Demographic Report Tool; set rows removed."
     },
     {
+      "name": "password-spaces",
+      "script": "scripts/password-spaces-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Changes passwords through Preferences and logs in with exact internal, leading, trailing and repeated spaces; also changes from a space-containing password (#4273).",
+      "fixtures": "Owned throwaway provider/security/roles; cleanup verifies all owned records are removed."
+    },
+    {
       "name": "password-change-preferences",
       "script": "scripts/password-change-preferences-playwright-checks.js",
       "tiers": [
@@ -3474,6 +3489,19 @@
       ],
       "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
+    },
+    {
+      "name": "security-password-length",
+      "script": "scripts/security-password-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     },
     {
       "name": "security-record-admin",
