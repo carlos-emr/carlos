@@ -62,7 +62,8 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
         "Review on 2026-02-30", "Review on 2026-10-01 or 2026-10-02", "Surgery 2026-10-01; review later",
         "Advise routine GP follow-up 6 weeks post-surgery", "Review in six weeks postoperatively",
         "Review in 6 weeks following surgery", "Review in 2 weeks postop", "Review in 6 weeks since discharge",
-        "Review within six weeks of surgery", "Review in 6 weeks at discharge", "Review in 6 weeks on admission"})
+        "Review within six weeks of surgery", "Review in 6 weeks at discharge", "Review in 6 weeks on admission",
+        "Review 4 weeks later", "Recheck two weeks later"})
     void shouldLeaveDateEmpty_withAmbiguousOrConditionalTiming(String passage) {
         assertThat(reminder(passage, "2026-09-28").draft().dueDate()).isEmpty();
     }
@@ -80,8 +81,13 @@ class ChartUpdateSuggestionsUnitTest extends CarlosUnitTestBase {
             assertThat(ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("history", text), "", "101")
                     .draft().destination()).isEqualTo("MedHistory");
         }
-        assertThat(ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("history", "Suspected asthma"), "", "101")
-                .draft().destination()).isEqualTo("Concerns");
+        // HPI headings describe the current presentation even though they start with "history of".
+        for (String text : List.of("Suspected asthma", "History of present illness: cough for 3 days",
+                "History of presenting complaint: chest pain", "History of presenting complaints: chest pain",
+                "History of the presenting complaint: chest pain")) {
+            assertThat(ChartUpdateSuggestions.suggest(new ChartUpdateProposals.Proposal("history", text), "", "101")
+                    .draft().destination()).isEqualTo("Concerns");
+        }
     }
 
     @Test void shouldPreserveClinicianEdits_andOriginalSuggestionAcrossRefresh() {

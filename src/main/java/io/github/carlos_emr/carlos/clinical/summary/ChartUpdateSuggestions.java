@@ -35,9 +35,11 @@ public final class ChartUpdateSuggestions {
             "\\b([0-9]{1,3}|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s+(days?|weeks?|months?|years?)\\b");
     private static final Pattern ISO_DATE = Pattern.compile("\\b[0-9]{4}-[0-9]{2}-[0-9]{2}\\b");
     private static final Pattern UNCERTAIN = Pattern.compile(
-            "\\b(if|unless|after|before|ago|from|until|pending|when|once|or|between|no|not|never|cancelled|canceled|post|postop|postoperative|postoperatively|following|since)\\b|[0-9]\\s*[-–/.]\\s*[0-9]");
+            "\\b(if|unless|after|before|ago|from|until|pending|when|once|or|between|no|not|never|cancelled|canceled|post|postop|postoperative|postoperatively|following|since|later)\\b|[0-9]\\s*[-–/.]\\s*[0-9]");
+    // An HPI / presenting-complaint heading describes the current presentation, not past history.
     private static final Pattern HISTORICAL = Pattern.compile(
-            "^(?:past (?:medical |surgical )?history|medical history|history of|previous history of|resolved|previously treated for)\\b");
+            "^(?!(?:previous )?history of (?:the )?present(?:ing)? (?:illness|complaints?)\\b)"
+            + "(?:past (?:medical |surgical )?history|medical history|history of|previous history of|resolved|previously treated for)\\b");
     private static final List<String> NUMBERS = List.of("zero", "one", "two", "three", "four", "five", "six",
             "seven", "eight", "nine", "ten", "eleven", "twelve");
 
