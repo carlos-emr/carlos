@@ -43,6 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -206,5 +208,23 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
         assertThat(row.getProperty("provider_no")).isEqualTo("prov-target");
         assertThat(row.getProperty("demographic_no")).isEqualTo("7");
         assertThat(row.getProperty("data")).isEqualTo("line1\n<line2>");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2004-02-29, 2004-02-29, 2004-03-01", "2003-12-31, 2004-01-01, 2004-01-02"})
+    @DisplayName("should pass next midnight as the report's exclusive upper timestamp")
+    void shouldPassExclusiveUpperBound_forInclusiveSelectedDates(String start, String end, String exclusiveEnd)
+            throws Exception {
+        request.setParameter("startDate", start);
+        request.setParameter("endDate", end);
+        request.setParameter("providerNo", "*");
+        request.setParameter("content", "admin");
+        when(providerDataDao.findAllOrderByLastName()).thenReturn(new ArrayList<>());
+        when(oscarLogDao.findForReport(any(), any(), any(), any(), any())).thenReturn(List.of());
+
+        assertThat(new LogReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(oscarLogDao).findForReport(eq(java.sql.Date.valueOf(start)), eq(java.sql.Date.valueOf(exclusiveEnd)),
+                eq("admin"), isNull(), isNull());
     }
 }

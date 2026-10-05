@@ -3400,6 +3400,21 @@
       "fixtures": "Owned synthetic patient saved into a marker-named patient set from the Demographic Report Tool; set rows removed."
     },
     {
+      "name": "password-spaces",
+      "script": "scripts/password-spaces-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Changes passwords through Preferences and logs in with exact internal, leading, trailing and repeated spaces; also changes from a space-containing password (#4273).",
+      "fixtures": "Owned throwaway provider/security/roles; cleanup verifies all owned records are removed."
+    },
+    {
       "name": "password-change-preferences",
       "script": "scripts/password-change-preferences-playwright-checks.js",
       "tiers": [
@@ -3474,6 +3489,19 @@
       ],
       "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
+    },
+    {
+      "name": "security-password-length",
+      "script": "scripts/security-password-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
     },
     {
       "name": "security-record-admin",
@@ -4649,7 +4677,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Code Styles drops a hand-typed colour declaration on save.",
+      "notes": "Covers GST and fee-schedule administration, picker/manual style creation, same-row declaration edits, reopening, unsupported-input validation without partial writes, and independent editing/deletion of styles with identical declarations.",
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     },
     {
@@ -4666,8 +4694,8 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Fails at its last step ('Reviewed records the logged-in provider as the document reviewer...') on 2026.08: editDocument.jsp reviewed() tests reviewerId == 'null', but the null-safe encoder renders a NULL reviewer as '', so the first review raises the debug alert 'set extra', writes a DocumentExtraReviewer row and leaves document.reviewer empty.",
-      "fixtures": "Owns a patient and one unreviewed PDF (document row with reviewer NULL, ctl_document link, file under DOCUMENT_DIR); cleanup deletes the document, its link, its file and any DocumentExtraReviewer row for that document id, and asserts each gone. No global settings; safe to run concurrently."
+      "notes": "Regression #4262: first review records and displays the primary reviewer; an additional review preserves the original reviewer/date and records/displays the current provider without a debug alert or duplicate acknowledgement.",
+      "fixtures": "Owns a patient and two PDFs (one unreviewed, one reviewed by another existing active provider); cleanup removes both document rows, links, files and extra-reviewer rows and asserts they are gone. Requires a second active provider; no provider or global-setting changes."
     },
     {
       "name": "encoder-null-eform-lists",
@@ -7711,6 +7739,19 @@
       ],
       "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
       "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
+    },
+    {
+      "name": "rourke-measurement",
+      "script": "scripts/rourke-measurement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }
