@@ -47,6 +47,7 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 %>
 
+<%@ include file="cdmReportAccess.jspf" %>
 <html>
 
     <head>

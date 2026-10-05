@@ -15,6 +15,7 @@
 // a second marker patient, five readings; all deleted and checked gone in cleanup.
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const SETUP_ROUTE = '/oscarReport/oscarMeasurements/SetupSelectCDMReport';
 const INSTRUCTION = 'fixture reading';
@@ -226,6 +227,39 @@ async function workflow(s) {
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
     await page.close();
   });
+  await s.step('Malformed report parameters cannot expose INPUT forms without report permission', async () => {
+    const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
+    const role = `${marker}-no-report`;
+    let roleNo;
+    s.cleanup(() => {
+      fixture.cleanup();
+      if (roleNo) {
+        sql.execute(`DELETE FROM secRole WHERE role_no=${roleNo} AND role_name=${q(role)}`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_no=${roleNo}`) === '0', 'The owned no-report role remains');
+      }
+    });
+    h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned role already exists');
+    fixture.create();
+    roleNo = sql.value(`INSERT INTO secRole (role_name, description) VALUES (${q(role)}, 'Owned report denial fixture'); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(roleNo), 'No role ID was returned');
+    sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(fixture.providerNo)};
+      INSERT INTO secUserRole (provider_no, role_name, activeyn) VALUES (${q(fixture.providerNo)}, ${q(role)}, 1)`);
+    const context = await h.newContext(s.context.browser(), s.config);
+    s.cleanup(() => context.close());
+    const schedule = await h.login(context, {...s.config, testUser: fixture.username}, s.recorder, {label: 'cdm-no-report'});
+    const token = await schedule.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    for (const route of ['PatientsMetGuideline', 'PatientsInAbnormalRange', 'FrequencyOfRelevantTests']) {
+      const response = await context.request.post(h.appUrl(s.config.baseUrl,
+        `/oscarReport/oscarMeasurements/Initialize${route}CDMReport`), {
+        form: {'CSRF-TOKEN': token, row: 'not-an-integer', lessThan: 'not-an-integer'}, maxRedirects: 0,
+      });
+      h.assert(response.status() === 403, `${route} without report permission answered HTTP ${response.status()}`);
+      h.assert(!(await response.text()).includes('name="submitBtn"'), `${route} exposed the report form`);
+      await response.dispose();
+    }
+    await context.close();
+  });
+
 }
 
 if (require.main === module) runWorkflow('report-cdm', workflow, { openPatient: true, openMaster: false });
