@@ -185,12 +185,12 @@
                                         <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="exactly" size="6"/></td>
                                         <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="moreThan" size="6"/></td>
                                         <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="lessThan" size="6"/></td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateD" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value='${carlos:forHtmlAttribute(lastYear)}' size="10">
-                                            <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value='${carlos:forHtmlAttribute(lastYear)}' size="10">
+                                            <button type="button" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateD" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}' size="10">
-                                            <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}' size="10">
+                                            <button type="button" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
                                         <input type="hidden" name='value(measurementTypeD${ctr.index})' value="${carlos:forHtmlAttribute(measurementType.type)}"/>

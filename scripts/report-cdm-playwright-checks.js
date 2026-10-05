@@ -150,17 +150,27 @@ async function workflow(s) {
     for (const [forward, prefix, checkbox, dateField, route] of invalidDate) {
       const page = await openScreen(s, group, forward);
       const row = await rowOf(page, prefix, type);
-      const calendar = page.locator('button[onclick*="type=startDateA"]');
-      h.assert((await calendar.getAttribute('aria-label')).trim().length > 0,
-        `${route} has an unnamed calendar control`);
-      await calendar.focus();
-      const [popup] = await Promise.all([page.waitForEvent('popup'), calendar.press('Enter')]);
-      await popup.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewOscarReportCalendarPopup'));
-      await popup.locator('span.title').waitFor({state: 'visible'});
-      await h.assertNotErrorPage(popup, `${route} calendar`);
-      h.assert(new URL(popup.url()).searchParams.get('type') === 'startDateA',
-        `${route} keyboard calendar opened the wrong date field`);
-      await popup.close();
+      for (const field of ['startDateA', `${dateField}[${row}]`, `${dateField.replace('start', 'end')}[${row}]`]) {
+        const calendar = page.locator(`button[onclick*="type=${field}&"]`);
+        const label = await calendar.getAttribute('aria-label');
+        h.assert(label.trim().length > 0, `${route} has an unnamed calendar control`);
+        if (forward === 'freqencyOfReleventTests' && field !== 'startDateA') {
+          h.assert(label.includes(display), 'The per-measurement calendar label omits its measurement');
+          const input = page.locator(`input[name="${field.split('[')[0]}"]`).nth(row);
+          h.assert((await input.getAttribute('aria-label')) === label,
+            'The measurement date input and calendar have different accessible labels');
+        }
+        await calendar.focus();
+        const [popup] = await Promise.all([page.waitForEvent('popup'), calendar.press('Enter')]);
+        await popup.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewOscarReportCalendarPopup'));
+        await popup.locator('span.title').waitFor({state: 'visible'});
+        await h.assertNotErrorPage(popup, `${route} calendar`);
+        const params = new URL(popup.url()).searchParams;
+        h.assert(params.get('type') === field && /^[0-9]{4}$/.test(params.get('year'))
+          && Number(params.get('month')) >= 1 && Number(params.get('month')) <= 12,
+          `${route} keyboard calendar opened the wrong date field or an invalid year/month`);
+        await popup.close();
+      }
       await page.locator(`input[name="${checkbox}"][value="${row}"]`).check();
       if (forward === 'patientWhoMetGuideline') await page.locator('input[name="guidelineB"]').nth(row).fill('6');
       if (forward === 'patientInAbnormalRange') {
@@ -242,16 +252,21 @@ async function workflow(s) {
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
     const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.
     let roleNo;
+    let roleNameWasAbsent = false;
     s.cleanup(() => {
       fixture.cleanup();
-      if (roleNo) {
-        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg');
-          DELETE FROM secRole WHERE role_no=${roleNo} AND role_name=${q(role)}`);
+      if (/^[1-9]\d*$/.test(roleNo || '')) {
+        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg')`);
         h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'An owned role grant remains');
-        h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_no=${roleNo}`) === '0', 'The owned no-report role remains');
+      }
+      // A successful INSERT can leave its owned row even if retrieving its ID fails.
+      if (roleNameWasAbsent) {
+        sql.execute(`DELETE FROM secRole WHERE role_name=${q(role)}`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned no-report role remains');
       }
     });
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned role already exists');
+    roleNameWasAbsent = true;
     fixture.create();
     roleNo = sql.value(`INSERT INTO secRole (role_name, description) VALUES (${q(role)}, 'Owned report denial fixture'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(roleNo), 'No role ID was returned');
