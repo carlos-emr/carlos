@@ -35,7 +35,8 @@ const FORMS = [
     fields: [check('headN'), date('formDate')], print: { button: 'Print Page', kind: 'page' } },
   { key: 'MH1', title: 'Mental Health Form 1', path: '../form/formMentalHealthForm1.jsp',
     table: 'formMentalHealthForm1', idColumn: 'id', provider: false, confirm: false, prose: 'observation',
-    fields: [check('threatened')], print: { button: 'Print Pdf', kind: 'pdf' } },
+    fields: [check('threatened'), { name: 'onDate', value: '2026/09/30', stored: '2026/09/30' },
+      { name: 'todayDate', value: '2026-10-01', stored: '2026-10-01' }], print: { button: 'Print Pdf', kind: 'pdf' } },
   { key: 'DS', title: 'Discharge Summary', path: '../form/formDischargeSummary.jsp', table: 'formDischargeSummary',
     idColumn: 'id', provider: true, confirm: true, prose: 'briefSummary', fields: [date('dischargeDate')] },
   { key: 'PC', title: 'Palliative Care', path: '../form/formpalliativecare.jsp', table: 'formPalliativeCare',
@@ -153,6 +154,55 @@ async function workflow(s) {
           h.assert(await dateInput.inputValue() === DATE.value
             && await page.locator(`[name="${form.prose}"]`).inputValue() === entry.text,
           'Cancelling Save discarded the typed date or prose');
+          h.assertStrictPage(s.recorder, labels(form));
+        } finally {
+          page.off('request', countPost);
+        }
+      });
+    }
+
+    if (form.key === 'MH1') {
+      await attempt(entry, 'each real date is validated and cancelling Save and Exit preserves the unsaved form', async () => {
+        const { page } = entry;
+        const originalUrl = page.url();
+        let posts = 0;
+        const countPost = request => {
+          if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/form/formname')) posts++;
+        };
+        page.on('request', countPost);
+        try {
+          await page.locator(`[name="${form.prose}"]`).fill(entry.text);
+          const dates = form.fields.filter(field => !field.check);
+          for (const field of dates) await page.locator(`[name="${field.name}"]`).fill(field.value);
+          for (const field of dates) {
+            const input = page.locator(`[name="${field.name}"]`);
+            for (const invalidValue of ['2026/02/30', '2026//01', '2026/01/', '2026//', '2026--01']) {
+              await input.fill(invalidValue);
+              const invalid = await h.withExpectedDialogs(page,
+                () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
+              h.assert(invalid.length === 1 && invalid[0].type === 'alert'
+                && /valid date/i.test(invalid[0].text), 'An invalid date must show one useful validation alert');
+              h.assert(await input.inputValue() === invalidValue, 'Validation discarded the typed date');
+              h.assert(await input.evaluate(element => element === element.ownerDocument.activeElement),
+                'Validation did not focus the invalid date');
+              h.assert(page.url() === originalUrl && posts === 0, 'Invalid-date validation submitted the form');
+              h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
+                'Invalid-date validation wrote a form record');
+            }
+            await input.fill(field.value);
+          }
+          const cancelled = await h.withExpectedDialogs(page,
+            () => page.getByRole('button', { name: 'Save and Exit', exact: true }).first().click(), { accept: false });
+          h.assert(cancelled.length === 1 && cancelled[0].type === 'confirm',
+            'Save and Exit must ask for one cancellable confirmation');
+          h.assert(page.url() === originalUrl && posts === 0 && !page.isClosed(),
+            'Cancelling Save and Exit submitted or closed the form');
+          h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
+            'Cancelling Save and Exit wrote a form record');
+          for (const field of dates) h.assert(await fieldValue(page, field) === field.value,
+            'Cancelling Save and Exit discarded a typed date');
+          h.assert(await page.locator(`[name="${form.prose}"]`).inputValue() === entry.text,
+            'Cancelling Save and Exit discarded the typed prose');
           h.assertStrictPage(s.recorder, labels(form));
         } finally {
           page.off('request', countPost);

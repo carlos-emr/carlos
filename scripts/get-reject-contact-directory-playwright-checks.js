@@ -51,9 +51,8 @@ async function workflow(s) {
     await editor.locator('a[onclick="addContact();"]').click();
     await editor.locator('[name="contact_1.type"]').selectOption('2');
     const search = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'contact-search');
-    // addEditContact.jsp's script block does not parse (finding below), so the page raises
-    // errors while it is used. They are moved out of the strict recorder INTO the final
-    // assertion -- nothing is dropped -- so they cannot hide the GET probe.
+    // Preserve any editor script errors in the final assertion so an independent UI
+    // regression cannot prevent the GET probe from running. No errors are discarded.
     const since = s.recorder.pageErrors.length;
     await clickAndAwaitReload(search, search.locator('a[href*="/demographic/Contact?method=addContact"]').first());
     await search.locator('input[name="contact.lastName"]').fill(lastName);
