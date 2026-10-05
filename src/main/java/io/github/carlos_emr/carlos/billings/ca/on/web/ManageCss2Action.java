@@ -108,17 +108,11 @@ public class ManageCss2Action extends ActionSupport {
             cssStyle.setStatus(CssStyle.ACTIVE);
             newStyle = true;
         } else {
-            for (CssStyle cssStylecurrent : styles) {
-                if (String.valueOf(cssStylecurrent.getId()).equals(selectedStyle)) {
-                    cssStyle = cssStylecurrent;
-                    break;
-                }
-            }
+            cssStyle = findSelectedStyle(styles);
             // No-match guard: surface a clean validation message instead
             // of letting the next field-set NPE without an operator signal.
             if (cssStyle == null) {
-                MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for selectedStyle={}",
-                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(selectedStyle));
+                warnMissingStyle("save");
                 addActionError("CSS style not found.");
                 this.setStyles(styles);
                 return "init";
@@ -166,8 +160,7 @@ public class ManageCss2Action extends ActionSupport {
         boolean deleted = SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class)
                 .deleteByStyleId(selectedStyle);
         if (!deleted) {
-            MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for selectedStyle={}",
-                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(selectedStyle));
+            warnMissingStyle("delete");
             addActionError("CSS style not found.");
             this.setStyles(cssStylesDao.findAll());
             return "init";
@@ -177,6 +170,23 @@ public class ManageCss2Action extends ActionSupport {
         request.setAttribute("success", "true");
 
         return "init";
+    }
+
+    /** Find only the database identity selected by the editor, including duplicate CSS values. */
+    private CssStyle findSelectedStyle(List<CssStyle> candidates) {
+        for (CssStyle candidate : candidates) {
+            if (String.valueOf(candidate.getId()).equals(selectedStyle)) return candidate;
+        }
+        return null;
+    }
+
+    /** Sanitize an unknown selection only when the warning will be emitted. */
+    private void warnMissingStyle(String operation) {
+        var logger = MiscUtils.getLogger();
+        if (logger.isWarnEnabled()) {
+            logger.warn("ManageCss2Action.{}: CSS style not found for selectedStyle={}", operation,
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(selectedStyle));
+        }
     }
 
     private List<CssStyle> styles;

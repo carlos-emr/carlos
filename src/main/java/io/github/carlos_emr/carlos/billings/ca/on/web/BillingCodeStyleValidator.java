@@ -42,7 +42,7 @@ final class BillingCodeStyleValidator {
                 case "color", "background-color" -> COLORS.contains(value)
                         || value.matches("#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})");
                 case "font-size" -> value.matches("xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large|smaller|larger")
-                        || value.matches("(?:0|[0-9]{1,3}(?:\\.[0-9]{1,3})?(?:px|pt|em|rem|%))");
+                        || value.matches("(?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:px|pt|em|rem|%))");
                 case "font-style" -> value.matches("normal|italic|oblique");
                 case "font-variant" -> value.matches("normal|small-caps");
                 case "font-weight" -> value.matches("normal|bold|bolder|lighter|[1-9]00");

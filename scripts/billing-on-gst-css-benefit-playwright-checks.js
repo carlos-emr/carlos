@@ -226,16 +226,16 @@ async function workflow(s) {
   await s.step('a style typed by hand (Manual Enter) is saved with every declaration typed', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
     typed = `color:${colour};text-decoration:underline;`;
-    await frame.locator('#styleName').fill(`${styleName} typed`);
-    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
-    await frame.locator('#styleText').fill(typed);
+    await frame.getByLabel('Style Name:', {exact:true}).fill(`${styleName} typed`);
+    await frame.getByLabel('I know what I am doing', {exact:true}).check();
+    await frame.getByLabel('Style Text:', {exact:true}).fill(typed);
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT style FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`, typed,
       'Saving a hand-typed style dropped the colour declaration the operator typed');
     typedId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`);
     await frame.locator('#style').selectOption({label:`${styleName} typed`});
     await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
-    h.assert(await frame.locator('#styleText').inputValue() === typed, 'Reopening changed the typed style');
+    h.assert(await frame.getByLabel('Style Text:', {exact:true}).inputValue() === typed, 'Reopening changed the typed style');
   });
 
   await s.step('editing manual declarations updates the same style and survives reopening without a final semicolon', async () => {

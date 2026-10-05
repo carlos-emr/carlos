@@ -250,7 +250,7 @@
 
         <div class="row">
 
-            <fmt:message key="admin.manageCodeStyles.StyleName"/><br>
+            <label for="styleName"><fmt:message key="admin.manageCodeStyles.StyleName"/></label><br>
             <input type="text" id="styleName" name="styleName" maxlength="255" value="${carlos:forHtmlAttribute(styleName)}"/>
             <!--<br><br>
 <small><fmt:message key="admin.manageCodeStyles.Instructions"/></small>-->
@@ -325,8 +325,9 @@
 
             <div class="col-md-4">
 
-                <fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
-                                                                     onclick="enableEdit(this);"></small><br/>
+                <label for="styleText"><fmt:message key="admin.manageCodeStyles.StyleText"/></label>
+                <small><label for="manualEnter"><fmt:message key="admin.manageCodeStyles.ManualEnter"/></label>
+                    <input type="checkbox" id="manualEnter" onclick="enableEdit(this);"></small><br/>
                 <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText">${carlos:forHtml(styleText)}</textarea>
                 <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
