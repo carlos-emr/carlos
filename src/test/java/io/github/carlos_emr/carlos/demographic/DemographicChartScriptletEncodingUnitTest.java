@@ -109,4 +109,56 @@ class DemographicChartScriptletEncodingUnitTest {
                         + "demoExt.get(propDemoExt[k].replace(' ', '_'))))%>\"")
                 .doesNotContain("name=\"<%=propDemoExt[k].replace(' ', '_')%>Orig\"");
     }
+
+    @Test
+    @DisplayName("should encode provider, program, status and list names on both chart pages")
+    void shouldEncodeNamesAndStatuses_onBothChartPages() throws Exception {
+        String form = Files.readString(EDIT_FORM_CLINICAL_JSP);
+        String view = Files.readString(EDIT_VIEW_JSP);
+
+        assertThat(StringUtils.countMatches(form,
+                "<option value=\"<%=SafeEncode.forHtmlAttribute(p.getProviderNo())%>\"")).isEqualTo(5);
+        assertThat(StringUtils.countMatches(form,
+                "<%=SafeEncode.forHtmlContent(p.getLastName() + \",\" + p.getFirstName())%>")).isEqualTo(5);
+        assertThat(StringUtils.countMatches(form, ">><%=SafeEncode.forHtmlContent(status)%>")).isEqualTo(2);
+        assertThat(StringUtils.countMatches(form, "<%=SafeEncode.forHtmlContent(_p.getName())%>")).isEqualTo(2);
+        assertThat(form)
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(rosterStatus)%>\"")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(patientStatus)%>\"")
+                .contains("<option value=\"<%=SafeEncode.forHtmlAttribute(llItem.getValue())%>\" <%=selected%>>"
+                        + "<%=SafeEncode.forHtmlContent(llItem.getLabel())%>")
+                .contains("<%=SafeEncode.forHtmlContent(wln.getName())%>")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlnote)%>\"")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>\"")
+                .doesNotContainPattern("(?<!\\()(p\\.getLastName\\(\\) \\+ \",\" \\+ p\\.getFirstName\\(\\))%>")
+                .contains("value=\"${carlos:forHtmlAttribute(consentClearLabel)}\"")
+                .doesNotContain("value=\"<fmt:message key='demographic.demographiceditdemographic.clear'/>\"")
+                .doesNotContain(">><%=status%>")
+                .doesNotContain("<%=_p.getName()%>");
+
+        assertThat(StringUtils.countMatches(view, "<%=SafeEncode.forHtmlContent(providerBean.getProperty(")).isEqualTo(8);
+        assertThat(view)
+                .contains("<input type=\"hidden\" name=\"<%=SafeEncode.forHtmlAttribute(key)%>\"")
+                .contains("<%=SafeEncode.forHtmlContent(enrolledTo)%>")
+                .contains("<%=SafeEncode.forHtmlContent(hasPrimaryCarePhysician)%>")
+                .contains("<%=SafeEncode.forHtmlContent(employmentStatus)%>")
+                .contains("<%=SafeEncode.forHtmlContent(adm.getProgramName())%>")
+                .doesNotContain("<%=providerBean.getProperty(")
+                .doesNotContain("<%=enrolledTo %>");
+    }
+
+    @Test
+    @DisplayName("should encode the referral doctor values the edit form writes into its script")
+    void shouldEncodeReferralDoctorValues_forJavaScript() throws Exception {
+        String form = Files.readString(EDIT_FORM_CLINICAL_JSP);
+
+        assertThat(form)
+                .contains("if (refName == \"<%=SafeEncode.forJavaScript("
+                        + "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\"))%>\") {")
+                .contains("refNo = '<%=SafeEncode.forJavaScript(prop.getProperty(\"referral_no\", \"\"))%>';")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute("
+                        + "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\"))%>\"")
+                .doesNotContain("refName == \"<%=prop.getProperty(")
+                .doesNotContain("refNo = '<%=prop.getProperty(");
+    }
 }
