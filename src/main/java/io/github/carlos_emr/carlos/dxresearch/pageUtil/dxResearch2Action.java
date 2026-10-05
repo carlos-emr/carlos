@@ -140,7 +140,7 @@ public class dxResearch2Action extends ActionSupport {
 
                     if (csDao.findByCode(xml_research[i]) == null) {
                         valid = false;
-                        addActionError(getText("errors.codeNotFound", new String[]{xml_research[i], codingSystem}));
+                        addActionError(invalidCodeMessage(xml_research[i], codingSystem, csDao));
 
                     } else {
                         Dxresearch dr = new Dxresearch();
@@ -186,6 +186,29 @@ public class dxResearch2Action extends ActionSupport {
 
         response.sendRedirect(actionforward.toString());
         return NONE;
+    }
+
+    /**
+     * The message for a code the coding system does not know. CARLOS stores ICD-9 codes without the decimal
+     * point (151.9 is stored as 1519), so an ICD-9 code typed with one gets that explained, and the same code
+     * without the point is suggested when it exists. Nothing is changed or added for the user: they re-enter it.
+     *
+     * @param code         the code as entered; the page HTML-encodes the message
+     * @param codingSystem the coding system it was looked up in
+     * @param csDao        that coding system's DAO
+     * @return the localized message
+     */
+    String invalidCodeMessage(String code, String codingSystem,
+            AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao) {
+        if (AbstractCodeSystemDao.codingSystem.icd9.name().equals(codingSystem) && code.indexOf('.') >= 0) {
+            String withoutDecimal = code.replace(".", "");
+            if (!withoutDecimal.isEmpty() && csDao.findByCode(withoutDecimal) != null) {
+                return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
+                        new String[]{code, withoutDecimal});
+            }
+            return getText("oscarResearch.oscarDxResearch.error.icd9WithDecimal", new String[]{code});
+        }
+        return getText("errors.codeNotFound", new String[]{code, codingSystem});
     }
 
     private String demographicNo;

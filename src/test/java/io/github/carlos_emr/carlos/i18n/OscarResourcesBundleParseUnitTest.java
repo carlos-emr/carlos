@@ -259,6 +259,60 @@ class OscarResourcesBundleParseUnitTest {
         }
     }
 
+    private static final String[] ICD9_DECIMAL_KEYS = {
+            "oscarResearch.oscarDxResearch.icd9NoDecimalHint",
+            "oscarResearch.oscarDxResearch.error.icd9WithDecimal",
+            "oscarResearch.oscarDxResearch.error.icd9DidYouMean"
+    };
+
+    @Test
+    @DisplayName("should translate the ICD-9 decimal-point hint and errors in every locale")
+    void shouldTranslateIcd9DecimalHint_inEveryLocale() throws Exception {
+        Properties english = loadBundle("en");
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            for (String key : ICD9_DECIMAL_KEYS) {
+                String value = bundle.getProperty(key);
+                assertThat(value).as("%s in %s", key, locale).isNotBlank().contains(icd9Name(locale))
+                        .doesNotContain("<", "&#");
+                if (!"en".equals(locale)) {
+                    assertThat(value).as("%s in %s must be a real translation, not the English text", key, locale)
+                            .isNotEqualTo(english.getProperty(key));
+                }
+            }
+            // The errors go through Struts' MessageFormat: a lone apostrophe would swallow the rest of the text.
+            String didYouMean = new java.text.MessageFormat(
+                    bundle.getProperty("oscarResearch.oscarDxResearch.error.icd9DidYouMean"))
+                    .format(new Object[]{"151.9", "1519"});
+            assertThat(didYouMean).as("formatted %s message", locale).contains("151.9").contains("1519")
+                    .doesNotContain("{");
+        }
+    }
+
+    /** The local name of ICD-9 each translation uses, so a reader matches it to the coding-system list. */
+    private static String icd9Name(String locale) {
+        return switch (locale) {
+            case "fr" -> "CIM-9";
+            case "es" -> "CIE-9";
+            case "pt_BR" -> "CID-9";
+            default -> "ICD-9";
+        };
+    }
+
+    @Test
+    @DisplayName("should keep markup out of the invalid-code message, which the page HTML-encodes")
+    void shouldKeepMarkupOut_ofInvalidCodeMessage() throws Exception {
+        for (String locale : LOCALES) {
+            String pattern = loadBundle(locale).getProperty("errors.codeNotFound");
+            String formatted = new java.text.MessageFormat(pattern).format(new Object[]{"151.9", "icd9"});
+
+            assertThat(formatted).as("errors.codeNotFound in %s", locale)
+                    .doesNotContain("<", "&#").contains("151.9").contains("icd9");
+        }
+        assertThat(new java.text.MessageFormat(loadBundle("fr").getProperty("errors.codeNotFound"))
+                .format(new Object[]{"151.9", "icd9"})).isEqualTo("151.9 n'est pas un code icd9 valide");
+    }
+
     private Properties loadBundle(String locale) throws Exception {
         String resource = "/oscarResources_" + locale + ".properties";
         try (InputStream is = OscarResourcesBundleParseUnitTest.class.getResourceAsStream(resource)) {
