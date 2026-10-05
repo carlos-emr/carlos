@@ -132,10 +132,12 @@ class TestCheckSections(unittest.TestCase):
         settings = types.SimpleNamespace(server_name="emr.example", bind_ip="127.0.0.1",
                                          db_name="carlos")
         calls = []
+        order = []
 
         def section(name):
             def run_section(*args):
                 calls.append((name, args))
+                order.append(name)
                 if name in failing:
                     validate._bad(name + " failed")
                 return {"_check_services": True,
@@ -144,17 +146,27 @@ class TestCheckSections(unittest.TestCase):
 
         text = io.StringIO()
         with contextlib.ExitStack() as stack:
-            need_root = stack.enter_context(patch.object(validate, "need_root"))
-            stack.enter_context(patch.object(validate, "_load_settings", return_value=settings))
+            need_root = stack.enter_context(patch.object(
+                validate, "need_root", side_effect=lambda *args: order.append("need_root")))
+
+            def load_settings(*args):
+                order.append("_load_settings")
+                return settings
+
+            stack.enter_context(patch.object(validate, "_load_settings", side_effect=load_settings))
             for name in self.SECTIONS:
                 stack.enter_context(patch.object(validate, name, side_effect=section(name)))
             stack.enter_context(contextlib.redirect_stdout(text))
             code = validate.cmd_check([])
-        return types.SimpleNamespace(code=code, calls=calls, settings=settings,
+        return types.SimpleNamespace(code=code, calls=calls, order=order, settings=settings,
                                      text=text.getvalue(), need_root=need_root)
 
     def test_root_is_required_before_anything_is_probed(self):
-        self.check().need_root.assert_called_once_with("check")
+        run = self.check()
+        run.need_root.assert_called_once_with("check")
+        self.assertEqual(run.order[0], "need_root")
+        self.assertLess(run.order.index("need_root"), run.order.index("_load_settings"))
+        self.assertLess(run.order.index("_load_settings"), run.order.index(self.SECTIONS[0]))
 
     def test_every_section_runs_once_in_the_documented_order(self):
         calls = self.check().calls
