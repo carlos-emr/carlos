@@ -203,6 +203,15 @@ async function workflow(s) {
       && displayed.indexOf(texts[1]) < displayed.indexOf(texts[0]), 'Stored revisions are not newest first');
     h.assert(await stored.locator('em').count() === 0, 'Stored note markup became an HTML element');
   });
+  await s.step('History refuses a note requested under a different patient', async () => {
+    const url = new URL(history.url());
+    url.searchParams.set('demographicNo', '2147483647');
+    const response = await s.context.request.get(url.href);
+    h.assert(response.status() === 403, `Cross-patient history answered HTTP ${response.status()}`);
+    const body = await response.text();
+    h.assert(!texts.some(text => body.includes(text)), 'A refused history request exposed clinical text');
+    await response.dispose();
+  });
   await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
     // Tickler amendments retain the UUID in separate rows, each with cumulative history.
     // Seed two older rows after the original note/document paths have completed.

@@ -2820,20 +2820,50 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (request.getSession().getAttribute("userrole") == null) return "expired";
 
         String demono = getDemographicNo(request);
-        request.setAttribute("demoName", getDemoName(demono));
-
-        String noteid = request.getParameter("noteId");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        Long noteId = parseExistingNoteId(request.getParameter("noteId"));
+        Long demographicId = parseExistingNoteId(demono);
+        if (loggedInInfo == null || demographicId == null || demographicId <= 0 || demographicId > Integer.MAX_VALUE
+                || noteId == null || noteId <= 0
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demono)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)) {
+            return refuseNoteHistory();
+        }
+        CaseManagementNote selectedNote = caseManagementMgr.getNote(noteId.toString());
+        if (selectedNote == null || !demono.equals(selectedNote.getDemographic_no())) {
+            return refuseNoteHistory();
+        }
 
         // The note text is rendered by showHistory.jsp through the null-safe encoder with
         // line breaks preserved (carlos:forHtmlContentWithBreaks). Splicing "<br/>" into
         // the stored text here forced the view to emit it raw, which made a stored
         // "</p><script>" in a note execute in the history popup.
-        List<CaseManagementNote> history = caseManagementMgr.getHistory(noteid);
+        List<CaseManagementNote> history = caseManagementMgr.getHistory(noteId.toString());
+        if (history.stream().anyMatch(note -> !demono.equals(note.getDemographic_no()))) {
+            return refuseNoteHistory();
+        }
+        String programId = (String) request.getSession().getAttribute("case_program_id");
+        if (programId != null && !programId.isEmpty() && !"0".equals(programId)) {
+            // Match the chart's role/program/facility filter. Reject the whole expansion if any
+            // row is hidden: a visible row's cumulative text may contain that earlier revision.
+            List<CaseManagementNote> visible = caseManagementMgr.filterNotes(loggedInInfo,
+                    loggedInInfo.getLoggedInProviderNo(), history, programId);
+            if (visible.size() != history.size()) {
+                return refuseNoteHistory();
+            }
+        }
+        request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("history", history);
         request.setAttribute("showStoredNoteHistory", Boolean.TRUE);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";
+    }
+
+    /** Refuses history before any clinical text or demographic name is exposed to the view. */
+    private String refuseNoteHistory() {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        return NONE;
     }
 
     public String issuehistory() {
