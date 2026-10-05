@@ -44,7 +44,7 @@ async function workflow(s) {
   const refiled = path.join(incoming, '1', 'Refile', `R${docB.filename.substring(14)}`);
   const owned = { sql, marker, patient, docs, files: [...docs.map(doc => doc.file), refiled] };
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
-  texts[0] += " <em>literal & text</em>";
+  texts[0] += "\n<em>literal & text</em>";
   let storedHistory;
 
   s.cleanup(() => {
@@ -196,7 +196,8 @@ async function workflow(s) {
     const stored = history.locator('.note-text-history-content');
     h.assert(await stored.count() === 1, 'The saved note should expose one stored text history');
     const displayed = await stored.innerText();
-    const normalize = value => value.replace(/\s+/g, ' ').trim();
+    const normalize = value => value.replace(/\r\n?/g, '\n').split('\n')
+      .map(line => line.replace(/[^\S\n]+/g, ' ').trim()).join('\n').trim();
     h.assert(normalize(displayed) === normalize(storedHistory), 'The popup changed or omitted stored history text');
     h.assert(displayed.indexOf(texts[2]) < displayed.indexOf(texts[1])
       && displayed.indexOf(texts[1]) < displayed.indexOf(texts[0]), 'Stored revisions are not newest first');
