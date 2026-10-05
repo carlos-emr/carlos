@@ -4316,7 +4316,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08: a refused upload shows no error message; Clear Photo answers 500 (DetachedObjectException) and deleteImage accepts GET.",
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image.",
       "fixtures": "Owned FAKE- patient and its client_image rows only."
     },
     {

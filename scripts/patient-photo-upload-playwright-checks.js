@@ -129,7 +129,7 @@ async function workflow(s) {
     const before = JSON.stringify(stored());
     const manager = await openManager();
     await manager.locator('#clientImage').setInputFiles({
-      name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
+      name: 'notes<em>.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
     });
     const [post] = await Promise.all([
       manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
@@ -149,6 +149,10 @@ async function workflow(s) {
     const error = refused.locator('.alert-danger');
     h.assert(await error.count() === 1 && (await error.innerText()).trim().length > 0,
       'The refused upload re-rendered the form with no error message');
+    const message = await error.innerText();
+    h.assert(message.includes('Content-Type not allowed') && message.includes('notes<em>.txt'),
+      'The upload error did not explain which file type was rejected');
+    h.assert(await error.locator('em').count() === 0, 'The rejected filename rendered as markup');
     await refused.close();
   });
 
