@@ -246,12 +246,19 @@ async function workflow(s) {
     const route = '/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport';
     const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
     const authorizedToken = await authorized.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
-      form: {'CSRF-TOKEN': authorizedToken, lessThan: 'not-an-integer'}, maxRedirects: 0,
-    });
-    h.assert(allowed.status() === 200 && (await allowed.text()).includes('name="submitBtn"'),
-      'An authorized conversion failure did not return the frequency INPUT form');
-    await allowed.dispose();
+    for (const field of ['exactly', 'moreThan', 'lessThan']) {
+      const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
+        form: {'CSRF-TOKEN': authorizedToken, [field]: 'not-an-integer'}, maxRedirects: 0,
+      });
+      const body = await allowed.text();
+      h.assert(allowed.status() === 200 && body.includes('name="submitBtn"'),
+        `An authorized ${field} conversion failure did not return the frequency INPUT form`);
+      const errorText = await authorized.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
+        .querySelector('.action-errors[role="alert"]')?.textContent, body);
+      h.assert(errorText && errorText.includes(field),
+        `The ${field} conversion failure returned no visible field error`);
+      await allowed.dispose();
+    }
     await authorized.close();
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
     const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.
@@ -271,13 +278,16 @@ async function workflow(s) {
     });
     h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned role already exists');
     roleNameWasAbsent = true;
-    fixture.create();
     roleNo = sql.value(`INSERT INTO secRole (role_name, description) VALUES (${q(role)}, 'Owned report denial fixture'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(roleNo), 'No role ID was returned');
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
       VALUES (${q(role)},'_appointment','r',0,${q(provider)}), (${q(role)},'_msg','r',0,${q(provider)});
-      DELETE FROM secUserRole WHERE provider_no=${q(fixture.providerNo)};
-      INSERT INTO secUserRole (provider_no, role_name, activeyn, lastUpdateDate) VALUES (${q(fixture.providerNo)}, ${q(role)}, 1, NOW())`);
+      `);
+    fixture.create({roleNames: [role], expiresTomorrow: true});
+    h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(fixture.providerNo)} AND role_name<>${q(role)}`) === '0',
+      'The denial fixture inherited another role');
+    h.assert(sql.value(`SELECT COUNT(*) FROM security WHERE security_no=${fixture.securityNo} AND b_ExpireSet=1
+      AND date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 DAY)`) === '1', 'The denial login has no enforced expiry');
     h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}
       AND objectName='_appointment' AND privilege='r'`) === '1', 'The schedule-only grant was not stored exactly');
     h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName='_report'`) === '0',

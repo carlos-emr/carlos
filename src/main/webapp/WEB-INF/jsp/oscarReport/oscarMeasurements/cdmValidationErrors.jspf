@@ -2,11 +2,16 @@
      Shared, escaped CDM form validation feedback. --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-    <c:if test="${not empty requestScope.actionErrors}">
+    <c:if test="${not empty requestScope.actionErrors or not empty requestScope.fieldErrors}">
         <div class="action-errors" role="alert">
             <ul>
                 <c:forEach var="error" items="${requestScope.actionErrors}">
                     <li>${carlos:forHtml(error)}</li>
+                </c:forEach>
+                <c:forEach var="field" items="${requestScope.fieldErrors}">
+                    <c:forEach var="error" items="${field.value}">
+                        <li>${carlos:forHtml(error)}</li>
+                    </c:forEach>
                 </c:forEach>
             </ul>
         </div>
