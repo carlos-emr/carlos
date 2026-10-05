@@ -104,7 +104,8 @@ async function workflow(s) {
     const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
     history = await s.popup(chart, rev, 'note-history');
     h.assert(new URL(history.url()).searchParams.get('method') === 'notehistory'
-      && new URL(history.url()).searchParams.get('noteId') === noteId, 'The rev link opened the history of another note');
+      && new URL(history.url()).searchParams.get('noteId') === noteId
+      && new URL(history.url()).searchParams.get('demographicNo') === patient, 'The rev link opened the history of another note or patient');
     await history.locator('h3', { hasText: 'Note Revision History' }).waitFor();
     h.assert((await history.locator('body').innerText()).includes(texts[2]), 'The history popup does not show the current revision');
   });
