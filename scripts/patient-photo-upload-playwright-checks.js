@@ -79,8 +79,8 @@ async function workflow(s) {
   }
 
   // Upload closes the popup and reloads the chart; the reloaded chart fetches the photo.
-  async function upload(file) {
-    const manager = await openManager();
+  async function upload(file, manager) {
+    if (!manager) manager = await openManager();
     await manager.locator('#clientImage').setInputFiles(file);
     const since = s.recorder.requestFailures.length;
     const [post, , , image] = await Promise.all([
@@ -143,7 +143,7 @@ async function workflow(s) {
     refused = manager;
   });
 
-  await s.step('The refused upload tells the user why', async () => {
+  await s.step('The refused upload explains the error and accepts a corrected image', async () => {
     // The multipart interceptor rejects the part (logged "Content-Type not allowed") and lands
     // on the "input" result; uploadimage.jsp promises to show that rejection.
     const error = refused.locator('.alert-danger');
@@ -153,7 +153,12 @@ async function workflow(s) {
     h.assert(message.includes('Content-Type not allowed') && message.includes('notes<em>.txt'),
       'The upload error did not explain which file type was rejected');
     h.assert(await error.locator('em').count() === 0, 'The rejected filename rendered as markup');
-    await refused.close();
+    const image = await upload({ name: 'corrected.jpg', mimeType: 'image/jpeg', buffer: jpeg }, refused);
+    await expectValue(sql, `SELECT CONCAT(COUNT(*),'|',MAX(image_type),'|',MAX(SHA2(FROM_BASE64(contents),256)))
+      FROM client_image WHERE demographic_no=${patient}`, `1|jpeg|${sha(jpeg)}`,
+    'The corrected upload did not replace the photo exactly once');
+    h.assert(image.status() === 200 && sha(await image.body()) === sha(jpeg),
+      'The chart did not render the corrected upload');
   });
 
   await s.step('ClientImage refuses a GET deleteImage and keeps the stored photo', async () => {
