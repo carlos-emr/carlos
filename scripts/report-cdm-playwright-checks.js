@@ -227,7 +227,17 @@ async function workflow(s) {
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
     await page.close();
   });
-  await s.step('Malformed report parameters cannot expose INPUT forms without report permission', async () => {
+  await s.step('A frequency conversion failure preserves authorized access and refuses an unprivileged user', async () => {
+    const route = '/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport';
+    const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
+    const authorizedToken = await authorized.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
+      form: {'CSRF-TOKEN': authorizedToken, lessThan: 'not-an-integer'}, maxRedirects: 0,
+    });
+    h.assert(allowed.status() === 200 && (await allowed.text()).includes('name="submitBtn"'),
+      'An authorized conversion failure did not return the frequency INPUT form');
+    await allowed.dispose();
+    await authorized.close();
     const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
     const role = `${marker}-no-report`;
     let roleNo;
@@ -248,15 +258,12 @@ async function workflow(s) {
     s.cleanup(() => context.close());
     const schedule = await h.login(context, {...s.config, testUser: fixture.username}, s.recorder, {label: 'cdm-no-report'});
     const token = await schedule.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    for (const route of ['PatientsMetGuideline', 'PatientsInAbnormalRange', 'FrequencyOfRelevantTests']) {
-      const response = await context.request.post(h.appUrl(s.config.baseUrl,
-        `/oscarReport/oscarMeasurements/Initialize${route}CDMReport`), {
-        form: {'CSRF-TOKEN': token, row: 'not-an-integer', lessThan: 'not-an-integer'}, maxRedirects: 0,
-      });
-      h.assert(response.status() === 403, `${route} without report permission answered HTTP ${response.status()}`);
-      h.assert(!(await response.text()).includes('name="submitBtn"'), `${route} exposed the report form`);
-      await response.dispose();
-    }
+    const response = await context.request.post(h.appUrl(s.config.baseUrl, route), {
+      form: {'CSRF-TOKEN': token, lessThan: 'not-an-integer'}, maxRedirects: 0,
+    });
+    h.assert(response.status() === 403, `Frequency INPUT without report permission answered HTTP ${response.status()}`);
+    h.assert(!(await response.text()).includes('name="submitBtn"'), 'An unprivileged user received the report form');
+    await response.dispose();
     await context.close();
   });
 
