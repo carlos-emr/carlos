@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays saved medication history for the authorized patient, with re-prescribing, favourites and drug information.
+    The action supplies patient context; regionalIdentifier, cn, bn and atc filter the medication history.
+    Info passes the saved generic description (GN) and optional product DIN to the local DrugRef view.
+    @since 2026-07-07
+--%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

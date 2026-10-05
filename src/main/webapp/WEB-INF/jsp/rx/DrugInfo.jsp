@@ -1,4 +1,11 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
+<%--
+    Displays configured DrugRef product details and local name-search results without an external redirect.
+    RxDrugInfo2Action requires prescription read access and supplies the view attributes.
+    Request selectors: DIN identifies a prescribed product; BN is a chooser product key; GN is a name search.
+    Exact identifiers take precedence. Missing information and service errors remain on this page.
+    @since 2026-10-05
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>

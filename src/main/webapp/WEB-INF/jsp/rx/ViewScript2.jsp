@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays the authorized prescription workspace, preview and print/fax controls.
+    The action supplies prescription and patient context; pharmacyId selects the destination pharmacy.
+    Drug information links pass the generic description (GN) and optional product DIN to the local DrugRef view.
+    @since 2026-07-07
+--%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
