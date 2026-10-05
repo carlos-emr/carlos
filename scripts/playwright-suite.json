@@ -4647,7 +4647,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: ValidateSwipeCard answers 500 on a malformed track instead of a bad request.",
+      "notes": "Valid search, parsed-card confirmation and exact patient updates; malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid swipe remains usable.",
       "fixtures": "Owned synthetic patient given a unique synthetic HIN (valid Ontario check digit) and an X0X postal code; removed by runWorkflow."
     },
     {
