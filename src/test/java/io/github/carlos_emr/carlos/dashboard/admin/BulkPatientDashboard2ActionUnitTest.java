@@ -50,6 +50,8 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(user), anyString(), anyString(), isNull())).thenReturn(true);
         registry = mock(DiseaseRegistryHandler.class);
+        // Mockito defaults boxed Integer returns to zero; the real skip result is null.
+        when(registry.addToDiseaseRegistry(anyInt(), anyString(), anyString())).thenReturn(null);
         messages = mock(MessageHandler.class);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         ReflectionTestUtils.setField(action, "dashboardManager", mock(DashboardManager.class));

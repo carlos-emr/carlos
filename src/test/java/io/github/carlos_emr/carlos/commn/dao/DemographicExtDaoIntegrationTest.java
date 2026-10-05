@@ -214,8 +214,13 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     void shouldKeepHistoricalExclusion_whenAReplacementIsCreated() {
         DemographicExt old = createExt(DEMO_1, "excludeIndicator", "owned");
-        old.setDateCreated(new java.util.Date(0));
         entityManager.flush();
+        // Entity lifecycle callbacks refresh dateCreated on every entity update.
+        // Seed a historical database row directly, as it would exist from a prior year.
+        entityManager.createNativeQuery("UPDATE demographicExt SET date_time=?1 WHERE id=?2")
+                .setParameter(1, new java.sql.Timestamp(0))
+                .setParameter(2, old.getId()).executeUpdate();
+        entityManager.clear();
         java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
         assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
         assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).hasSize(2);
