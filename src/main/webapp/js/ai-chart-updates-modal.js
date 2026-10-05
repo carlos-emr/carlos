@@ -11,6 +11,7 @@
     const status = dialog.querySelector('[role="status"]');
     let trigger;
     let timer;
+    let previous;
     const state = () => {
         try { return frame.contentWindow.CarlosChartUpdateReview; }
         catch { return undefined; }
@@ -35,13 +36,17 @@
         trigger?.focus();
     });
     frame.addEventListener('load', () => {
+        const doc = frame.contentDocument;
         if (!dialog.open || !frame.hasAttribute('src')) return;
+        // A late load after a fast close and reopen belongs to the document shown before this open,
+        // or to the blank page left by close. Every new navigation gets a new document.
+        if (doc && (doc === previous || doc.URL === 'about:blank')) return;
+        previous = undefined;
         clearTimeout(timer);
         status.hidden = true;
         frame.hidden = false;
         close.disabled = false;
         try {
-            const doc = frame.contentDocument;
             doc.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && !doc.querySelector('dialog[open]')) {
                     event.preventDefault();
@@ -68,6 +73,7 @@
             status.hidden = false;
             frame.hidden = true;
             close.disabled = false;
+            previous = frame.contentDocument;
             frame.src = url.href;
             dialog.showModal();
             timer = setTimeout(() => {

@@ -278,6 +278,19 @@ async function run() {
     await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
     await page.keyboard.press('Escape');
     await modal.waitFor({ state: 'hidden' });
+    // A late load from the frame's previous document must not reveal it or cancel the new timeout.
+    assert.deepEqual(await page.evaluate(() => {
+      const link = document.querySelector('a.chart-update-workflow-link');
+      const workflowFrame = document.getElementById('chart-update-workflow-frame');
+      window.CarlosChartUpdateModal.open(link.href, link);
+      workflowFrame.dispatchEvent(new Event('load'));
+      return { frameHidden: workflowFrame.hidden,
+        statusHidden: document.querySelector('#chart-update-workflow-dialog [role="status"]').hidden };
+    }), { frameHidden: true, statusHidden: false });
+    await frame.getByRole('link', { name: 'Review chart updates', exact: true }).waitFor();
+    assert.equal(await modal.locator('[role="status"]').isHidden(), true);
+    await page.keyboard.press('Escape');
+    await modal.waitFor({ state: 'hidden' });
     await launch.click();
     await frame.getByRole('link', { name: 'Review chart updates', exact: true }).click();
     await frame.locator('.review-steps:not([hidden])').waitFor();
