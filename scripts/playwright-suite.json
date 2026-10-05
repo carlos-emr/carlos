@@ -4634,7 +4634,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors.",
+      "notes": "Records each form independently. Discharge Summary verifies invalid-date rejection, cancelled confirmation without POST/database writes, then exact save/redisplay/reopen. Other release failures remain independently visible: second-save CSRF, Vascular Tracker and Annual print routes, and Mental Health Form 1 date validation.",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
