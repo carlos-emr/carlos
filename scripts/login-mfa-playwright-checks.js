@@ -41,8 +41,15 @@ async function workflow(s) {
   const mfaStateQuery = `SELECT CONCAT(usingMfa,'|',IF(mfaSecret IS NULL,'none',mfaSecret)) FROM security WHERE security_no=${securityNo}`;
   const mfaState = () => sql.value(mfaStateQuery);
   // A digest, never the PIN itself, so a mismatch cannot print the credential.
-  const pinState = () => sql.value(`SELECT IF(pin IS NULL,'none',SHA2(pin,256)) FROM security WHERE security_no=${securityNo}`);
+  const pinState = () => sql.value(`SELECT SHA2(JSON_ARRAY(pin,pinUpdateDate),256) FROM security WHERE security_no=${securityNo}`);
+  const passwordState = () => sql.value(`SELECT SHA2(JSON_ARRAY(password,passwordUpdateDate),256) FROM security WHERE security_no=${securityNo}`);
+  const passwordBefore = passwordState();
   const pinBefore = pinState();
+  const credentialProblems = [];
+  function checkCredentials(stage) {
+    if (pinState() !== pinBefore) credentialProblems.push(`${stage} changed the stored PIN or its update date`);
+    if (passwordState() !== passwordBefore) credentialProblems.push(`${stage} changed the stored password or its update date`);
+  }
   const audits = content => sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(login.providerNo)}
     AND action='login' AND content=${h.sqlString(content)}`);
   const contexts = [];
@@ -95,12 +102,8 @@ async function workflow(s) {
 
   const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
     { context, recorder, label: 'mfa-admin', timeout: TIMEOUT });
-  // KNOWN DEFECTS, ASSERTED LAST: ticking Enable MFA disables the PIN input, so the save
-  // posts no pin and securityupdate.jsp overwrites the stored PIN; and securityupdatesecurity.jsp links a relative
-  // bcArStyle.css that resolves to the missing admin/bcArStyle.css (an HTML answer the
-  // browser refuses as a stylesheet; see the security-record-admin manifest note). The
-  // entries are set aside here so every MFA step is still proven, and the final step
-  // fails on them until the page is fixed.
+  // Collect credential-preservation failures and the historical stylesheet regression
+  // until the final assertion, so the complete enrolment/challenge/reset flow is verified.
   const stylesheetDefect = [];
   function setAsideStylesheetDefect() {
     const broken = entry => /\/admin\/bcArStyle\.css/.test(`${entry.url || ''} ${entry.text || ''}`);
@@ -130,6 +133,7 @@ async function workflow(s) {
     h.assert(await frame.locator('#mfaNote').isVisible(), 'Ticking Enable MFA did not show the first-login enrolment note');
     await saveRecord(frame);
     h.assert(mfaState() === '1|none', 'Enabling MFA did not set usingMfa without a secret');
+    checkCredentials('Enabling MFA');
   });
 
   let secret;
@@ -240,6 +244,7 @@ async function workflow(s) {
     await frame.locator('input[name="enableMfa"]').uncheck();
     await saveRecord(frame);
     h.assert(mfaState().startsWith('0|'), 'Clearing Enable MFA did not clear usingMfa');
+    checkCredentials('Clearing MFA');
     const ctx = await freshContext('mfa-disabled-login');
     // h.login fails if a challenge is served without an mfaCode callback.
     const schedule = await h.login(ctx, credentials, recorder, { label: 'mfa-disabled-login' });
@@ -251,8 +256,8 @@ async function workflow(s) {
 
   await s.step('enabling and clearing MFA kept the stored PIN, and the edit page loads its stylesheet', async () => {
     setAsideStylesheetDefect();
-    const problems = [];
-    if (pinState() !== pinBefore) problems.push('enabling and clearing MFA changed the stored PIN (the disabled PIN field posts no pin)');
+    const problems = [...credentialProblems];
+    if (credentialProblems.length === 0) console.log('  PASS login-mfa: enabling and clearing MFA preserved PIN/password values and update dates');
     if (stylesheetDefect.length) {
       problems.push(`the security record edit page requested the missing admin/bcArStyle.css `
         + `(${stylesheetDefect.length} console/network report(s)): the relative link in securityupdatesecurity.jsp is broken`);

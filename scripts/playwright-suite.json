@@ -4190,7 +4190,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser.",
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges.",
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
@@ -4205,7 +4205,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the group page hides the last value of readings without a measuring instruction (Heart Rate).",
+      "notes": "Checks Vitals entry, encounter-note text, history, archive/delete, XML export, and the last Heart Rate value without a measuring instruction.",
       "fixtures": "Owned patient; Vitals readings entered through the E-Chart measurement group with a marker comment; measurements and measurementsDeleted rows removed."
     },
     {
@@ -4316,7 +4316,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08: a refused upload shows no error message; Clear Photo answers 500 (DetachedObjectException) and deleteImage accepts GET.",
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image.",
       "fixtures": "Owned FAKE- patient and its client_image rows only."
     },
     {
@@ -4353,7 +4353,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails at its last step on 2026.08: enabling MFA wipes the stored PIN (the disabled PIN field posts no pin), and the security record edit page loads a missing admin/bcArStyle.css.",
+      "notes": "Verifies exact PIN/password and credential-date preservation after enabling and clearing MFA, plus enrolment, refused/accepted challenges, encrypted secret storage, reset GET rejection and re-enrolment. Retains the security editor stylesheet regression guard.",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
@@ -4448,9 +4448,11 @@
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
-        "MYSQL_PASSWORD"
+        "MYSQL_PASSWORD",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
       ],
-      "fixtures": "Owned patient, an owned suggested-text row and a throwaway read-only tickler login; the session is ended from a second context sharing the cookie."
+      "fixtures": "Owned patient, suggested-text row and throwaway read-only tickler login. Existing inactive suggestions are temporarily activated to test an empty Inactive list and restored exactly; run only on a disposable VM with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true. The session is ended from a second context sharing the cookie."
     },
     {
       "name": "workflow-tickler-suggested-text",
