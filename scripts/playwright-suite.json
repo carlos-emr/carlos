@@ -4599,7 +4599,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records billing administration saves independently. Code Search Update verifies exact persistence, return to search, reload and preservation of unsaved bill edits. Diagnosis Update uses the prefixed description control and verifies exact stored/reopened values, unchanged neighboring code and no duplicate rows. Remaining legacy failures include code Confirm and Manage Billing Form Add/bill-type/Delete.",
+      "notes": "Records billing administration saves independently. Code Search Update verifies exact persistence, return to search, reload and preservation of unsaved bill edits. Diagnosis Update verifies exact stored/reopened values, unchanged neighboring code and no duplicate rows. Code Confirm fills only the selected correction row, closes without script errors and leaves stored bill items unchanged. Manage Billing Form Add/bill-type/Delete failures remain separately tracked.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
@@ -4662,7 +4662,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records each form independently. Annual Health Review verifies the gated print route, saved record/date and literal clinical prose. Mental Health Form 1 validates its two actual dates, preserves cancelled input without POST/database writes, and verifies exact saved dates/prose on redisplay/reopen. Remaining release failures include second-save CSRF, Vascular Tracker routing and Discharge Summary validation.",
+      "notes": "Records each form independently. Annual Health Review verifies the gated print route, saved record/date and literal clinical prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without POST/database writes, followed by exact save/redisplay/reopen. Remaining release failures include second-save CSRF and Vascular Tracker routing.",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {

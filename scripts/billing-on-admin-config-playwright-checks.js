@@ -369,9 +369,10 @@ async function workflow(s) {
       'The location was not deleted');
   });
 
-  let correction;
+  let correction, ownedBill;
   await s.step('correction ▸ service code Search lists exactly the owned codes by their marked descriptions', async () => {
     const owned = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code: codeA, fee: '12.34', date: billDate(), dx: dxA });
+    ownedBill = owned;
     const history = await openHistory(s);
     correction = await openCorrection(s, history, owned.headerId);
     h.assert(await correction.locator('input[name="servicecode0"]').inputValue() === codeA, 'The correction did not load the owned code');
@@ -430,19 +431,31 @@ async function workflow(s) {
       } finally { await reopened.close().catch(() => {}); }
     });
 
-    await attempt('correction ▸ code Search ▸ Confirm attaches the ticked code', async () => {
-      await correction.locator('input[name="servicecode0"]').fill(marker);
-      const search = await s.popup(correction, correction.locator('a[onclick="scScriptAttach(\'servicecode0\')"]'), 'code-attach');
-      try {
-        await search.locator(`#servicecode input[type="checkbox"][name="code_${codeA}"]`).check();
-        const closed = search.waitForEvent('close', { timeout: 10000 });
-        closed.catch(() => {});
-        await search.locator('#servicecode input[name="update"][value="Confirm"]').click();
-        await closed.catch(() => {});
-        h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'code-attach'), 'the attach page raised a script error');
-        h.assert(await correction.locator('input[name="servicecode0"]').inputValue() === codeA,
-          'the chosen code was not written back into the correction row');
-      } finally { await search.close().catch(() => {}); }
+    await attempt('correction ▸ code Search ▸ Confirm attaches only to the selected row without saving the bill', async () => {
+      const savedBill = () => JSON.stringify(sql.rows(`SELECT service_code, fee, ser_num, dx
+        FROM billing_on_item WHERE ch1_id=${ownedBill.headerId} ORDER BY id`));
+      const before = savedBill();
+      for (const index of [0, 1]) {
+        const target = `servicecode${index}`;
+        const other = `servicecode${1 - index}`;
+        await correction.locator(`input[name="${target}"]`).fill(marker);
+        await correction.locator(`input[name="${other}"]`).fill(codeB);
+        const search = await s.popup(correction, correction.locator(`a[onclick="scScriptAttach('${target}')"]`), 'code-attach');
+        try {
+          await search.locator(`#servicecode input[type="checkbox"][name="code_${codeA}"]`).check();
+          const closed = search.waitForEvent('close', { timeout: 10000 });
+          closed.catch(() => {});
+          await search.locator('#servicecode input[name="update"][value="Confirm"]').click();
+          await closed.catch(() => {});
+          h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'code-attach'), 'the attach page raised a script error');
+          h.assert(search.isClosed(), 'Confirm did not close the search popup');
+          h.assert(await correction.locator(`input[name="${target}"]`).inputValue() === codeA,
+            'the chosen code was not written back into the selected correction row');
+          h.assert(await correction.locator(`input[name="${other}"]`).inputValue() === codeB,
+            'the attachment changed a different correction row');
+          h.assert(savedBill() === before, 'attaching a code persisted the unsaved bill');
+        } finally { await search.close().catch(() => {}); }
+      }
     });
 
     await attempt('correction ▸ code Search ▸ update', async () => {
