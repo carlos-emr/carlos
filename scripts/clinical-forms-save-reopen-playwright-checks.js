@@ -126,7 +126,7 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false } = {}) {
 
   for (const registration of registrations.filter(item => !item.fixtureOnly)) {
     const { form, name } = registration;
-    const entry = { form, name, text: `${marker} ${PROSE}` };
+    const entry = { form, name, text: `${marker} ${PROSE}${form.key === 'ANN' ? ' <follow-up>' : ''}` };
     results.push(entry);
     // Each form's menu entry is asserted in its own attempt, so one missing registration is
     // recorded without stopping the remaining forms.
@@ -265,7 +265,13 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false } = {}) {
         const button = page.getByRole('button', { name: form.print.button, exact: true }).first();
         if (form.print.kind === 'page') {
           const print = await s.popup(page, button, `print-${form.key}`);
-          h.assert(new URL(print.url()).searchParams.get('demographic_no') === patient, 'Print opened another patient');
+          const printUrl = new URL(print.url());
+          h.assert(printUrl.pathname.endsWith('/form/formannualfemaleprint'), 'Print did not use the gated form route');
+          h.assert(printUrl.searchParams.get('demographic_no') === patient, 'Print opened another patient');
+          h.assert(printUrl.searchParams.get('formId') === entry.id, 'Print opened another saved record');
+          h.assert(await print.locator('[name="ID"]').inputValue() === entry.id, 'Print rendered another saved record');
+          h.assert((await print.locator('body').innerText()).includes(DATE.value), 'Print omitted the saved review date');
+          h.assert(await print.locator('follow-up').count() === 0, 'Print treated clinical prose as HTML');
           h.assert((await print.locator('body').innerText()).includes(entry.text), 'Print does not show the saved prose');
           await print.close();
           return;
