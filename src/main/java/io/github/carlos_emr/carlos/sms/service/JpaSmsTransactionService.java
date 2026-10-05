@@ -211,8 +211,15 @@ public class JpaSmsTransactionService implements SmsTransactionService {
             smsTransactionDao.flush();
         } else {
             requireMatchingDeliveryTarget(transaction, webhook);
+            // Publish only when a message CARLOS handed to the carrier turns FAILED. Replayed or ignored
+            // callbacks stay silent, and so do rows that were never sent (still queued, or blocked by
+            // consent) and the placeholder rows that unmatched callbacks create, which name no patient.
+            boolean awaitingCarrier = transaction.isAwaitingCarrierOutcome();
             transaction.markDeliveryEvent(webhook);
             smsTransactionDao.merge(transaction);
+            if (awaitingCarrier) {
+                publishIfTerminalFailure(transaction);
+            }
         }
         return transaction;
     }
