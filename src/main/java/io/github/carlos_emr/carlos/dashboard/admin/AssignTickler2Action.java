@@ -87,6 +87,7 @@ public class AssignTickler2Action extends ActionSupport {
         request.setAttribute("providers", providers);
         request.setAttribute("ticklerCategories", ticklerCategories);
         request.setAttribute("demographics", demographics);
+        request.setAttribute("ticklerSubmission", TicklerSubmission.issue(request.getSession(), demographics));
 
         return SUCCESS;
     }
@@ -95,17 +96,27 @@ public class AssignTickler2Action extends ActionSupport {
     @SuppressWarnings({"unchecked", "unused"})
     public String saveTickler() {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return null;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.WRITE, null)) {
             return "unauthorized";
         }
 
-        TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
-        ticklerHandler.createMasterTickler(request.getParameterMap());
         ObjectNode jsonObject = objectMapper.createObjectNode();
-
-        if (ticklerHandler.addTickler(request.getParameter("demographics"))) {
+        Boolean saved = TicklerSubmission.execute(request.getSession(false),
+                request.getParameter("ticklerSubmission"), request.getParameterMap(), () -> {
+                    TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
+                    ticklerHandler.createMasterTickler(request.getParameterMap());
+                    return ticklerHandler.addTickler(request.getParameter("demographics"));
+                });
+        if (saved == null) response.setStatus(HttpServletResponse.SC_CONFLICT);
+        if (Boolean.TRUE.equals(saved)) {
             jsonObject.put("success", "true");
         } else {
             jsonObject.put("success", "false");

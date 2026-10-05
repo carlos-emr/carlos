@@ -312,6 +312,24 @@ async function workflow(s) {
       h.assert(Boolean((await request.allHeaders())['csrf-token']
         || new URLSearchParams(request.postData() || '').get('CSRF-TOKEN')), 'The successful tickler save carried no CSRF token');
       h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
+      const submitted = new URLSearchParams(request.postData() || '');
+      h.assert(Boolean(submitted.get('ticklerSubmission')), 'The save has no server-issued operation key');
+      const replay = async (body) => ctx.request.post(request.url(), {
+        data: body.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded',
+          'CSRF-TOKEN': (await request.allHeaders())['csrf-token'] || submitted.get('CSRF-TOKEN')},
+      });
+      // Repeat the exact operation concurrently as copied tabs/lost-response retries would.
+      const retries = await Promise.all([replay(submitted), replay(submitted)]);
+      for (const retry of retries) {
+        h.assert(retry.status() === 200 && (await retry.json()).success === 'true', 'An identical retry lost its cached success');
+        await retry.dispose();
+      }
+      const changed = new URLSearchParams(submitted);
+      changed.set('messageAppend', `${marker} altered retry`);
+      const refused = await replay(changed);
+      h.assert(refused.status() === 409, 'An operation key accepted a changed tickler payload');
+      await refused.dispose();
+
       for (const id of [alpha, bravo]) await expectValue(sql, ticklers(id), '1', 'A checked patient did not receive exactly one tickler');
       h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient received a tickler');
       h.assert(sql.value(`SELECT DATE_FORMAT(service_date,'%Y-%m-%d %H:%i') FROM tickler WHERE demographic_no=${alpha}`) === '2030-12-31 10:30',
