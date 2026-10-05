@@ -42,3 +42,7 @@ test('The picker preserves year 0001 instead of applying the JavaScript 1900 off
   assert.equal(date.getFullYear(), 1);
   assert.equal(date.getMonth(), 1);
 });
+
+test('Both month pickers retain the month parser on mobile devices', () => {
+  for (const picker of pickers) assert.equal(picker.options.disableMobile, true);
+});

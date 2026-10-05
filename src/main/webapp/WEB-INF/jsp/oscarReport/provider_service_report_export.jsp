@@ -114,11 +114,11 @@
     ProviderServiceReportUIBean providerServiceReportUIBean = new ProviderServiceReportUIBean(startDate, endDate);
     for (ProviderServiceReportUIBean.DataRow row : providerServiceReportUIBean.getDataRows()) {
         StringBuilder sb = new StringBuilder();
-        sb.append(StringEscapeUtils.escapeCsv(agencyName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(agencyName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programType));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programType));
         sb.append(',');
         sb.append(StringEscapeUtils.escapeCsv(row.date));
         sb.append(',');

@@ -130,6 +130,7 @@
         fields.forEach(function (field) {
             flatpickr(field, {
                 dateFormat: 'm/Y', allowInput: true, parseDate: parseMonth,
+                disableMobile: true,
                 errorHandler: function () {
                     field.setCustomValidity('Please enter a month as MM/YYYY.');
                     showValidity(field);

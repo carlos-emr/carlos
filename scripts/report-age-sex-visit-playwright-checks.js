@@ -308,7 +308,10 @@ async function workflow(s) {
         await page.locator('#psrForm button[type="submit"]').click();
         await page.locator('#startDateError').waitFor({state: 'visible'});
         await page.locator('#endDateError').waitFor({state: 'visible'});
-        await page.waitForTimeout(150);
+        for (const name of ['startDate', 'endDate']) {
+          h.assert(await page.locator(`#${name}`).evaluate(input => !input.validity.valid),
+            `${name} accepted invalid month ${JSON.stringify(value)}`);
+        }
         h.assert(exports.length === 0, `Invalid month ${JSON.stringify(value)} submitted a report`);
       }
     } finally {
@@ -320,11 +323,18 @@ async function workflow(s) {
     ['dynamic', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
     ['dynamic', '03/1953', {'1953-02': '3,1,0,2,1,0,2', '1953-03': '1,1,0,1,1,0,2', '1953-02 to 1953-03': '4,2,0,2,2,0,2'}],
     ['direct', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+    ['mobile', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
   ]) {
     await s.step(`Provider Service ${mode} CSV labels ${SERVICE_MONTH} through ${endMonth} inclusively and counts only that range`, async () => {
-      const reportPage = mode === 'direct' ? await s.context.newPage() : admin;
+      const mobileContext = mode === 'mobile' ? await s.context.browser().newContext({
+        storageState: await s.context.storageState(), ignoreHTTPSErrors: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
+        isMobile: true, hasTouch: true,
+      }) : null;
+      const reportContext = mobileContext || s.context;
+      const reportPage = mode === 'dynamic' ? admin : await reportContext.newPage();
       try {
-        if (mode === 'direct') {
+        if (mode !== 'dynamic') {
           h.wireStrictPage(reportPage, 'provider-service-direct', s.recorder);
           await reportPage.goto(h.appUrl(s.config.baseUrl, '/oscarReport/ViewProviderServiceReportForm'), {waitUntil: 'load'});
         } else if (await admin.locator('#psrForm').count() === 0) {
@@ -332,6 +342,11 @@ async function workflow(s) {
             {marker: '#psrForm'});
           h.assert(await admin.evaluate(original => window.jQuery === original, shellJQuery),
             'The report form replaced the Administration jQuery instance');
+        }
+        for (const name of ['startDate', 'endDate']) {
+          h.assert(await reportPage.locator(`#${name}`).evaluate(input =>
+            input._flatpickr.config.disableMobile && !input._flatpickr.isMobile),
+          'The report replaced its month picker with an incompatible native date input');
         }
         if (endMonth === SERVICE_MONTH) await refusesInvalidMonths(reportPage);
         for (const [field, value] of [['#startDate', SERVICE_MONTH], ['#endDate', endMonth]]) {
@@ -347,7 +362,7 @@ async function workflow(s) {
         await reportPage.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
         h.assert(await reportPage.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
         const outcome = await ui.clickDownloadsOrOpens(reportPage, reportPage.locator('#psrForm button[type="submit"]'),
-          { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
+          { context: reportContext, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
         h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
           'Provider Service Report Export did not download a provider_service_*.csv file');
         const endLabel = `${endMonth.slice(3)}-${endMonth.slice(0, 2)}`;
@@ -360,7 +375,7 @@ async function workflow(s) {
           + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
         const rows = parseCsv(csv);
         const clinicName = sql.value("SELECT IFNULL(clinic_name,'') FROM clinic LIMIT 1") || '';
-        h.assert(rows.slice(1).filter(row => row.length > 1).every(row => row[0] === clinicName),
+        h.assert(rows.slice(1).filter(row => row.length > 1).every(row => row[0] === (/^[=+\-@]/.test(clinicName.trimStart()) ? "'" + clinicName : clinicName)),
           'The CSV agency differs from the configured clinic name');
         const agencyRows = rows.filter(cells => cells[1] === 'all programs');
         h.assert(JSON.stringify(agencyRows.map(cells => cells[3])) === JSON.stringify(Object.keys(expected)),
@@ -372,7 +387,8 @@ async function workflow(s) {
             `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give ${counts}`);
         }
       } finally {
-        if (mode === 'direct') await reportPage.close();
+        if (mode !== 'dynamic') await reportPage.close();
+        if (mobileContext) await mobileContext.close();
       }
     });
   }
