@@ -27,10 +27,10 @@ if query("SELECT demographic_no FROM demographic WHERE chart_no='AIFACT005'"):
     raise ValueError("Trial patient already exists; refusing to replace it")
 files = [ ('nhs-empty-chart-full-record.txt', 'SYNTHETIC - 37-note record - 4537 words', selected[-1][0], combined),
           ('nhs-empty-chart-longest-note.txt', 'SYNTHETIC - long clerking note - 561 words', date, longest) ]
-for filename, _, _, text in files:
-    path = base/'documents'/filename
-    if path.exists(): raise ValueError('Trial source file already exists')
-    path.write_text(text, encoding='utf-8')
+# Refuse existing files now, but write them only after the database step succeeds,
+# so a failed preparation leaves nothing that blocks a retry.
+for filename, *_ in files:
+    if (base/'documents'/filename).exists(): raise ValueError('Trial source file already exists')
 sql = """CREATE TEMPORARY TABLE fixture_guard(ok INT NOT NULL CHECK(ok=1));
 INSERT INTO fixture_guard SELECT IF(DATABASE()='carlos_chartupdates_morning_20260929' AND EXISTS(SELECT 1 FROM security WHERE user_name='carlosdoc' AND provider_no='999998'),1,0);
 START TRANSACTION;
@@ -54,6 +54,8 @@ patient = ids[0]
 counts = {table:int(query(f'SELECT COUNT(*) FROM {table} WHERE demographic_no={patient}'))
           for table in ['casemgmt_note','tickler','drugs','allergies','clinical_chart_update_receipt']}
 if any(counts.values()): raise ValueError('Trial chart must be empty')
+for filename, _, _, text in files:
+    (base/'documents'/filename).write_text(text, encoding='utf-8')
 result = dict(chartNumber='AIFACT005', demographicId=patient, sourceFixture='NHSSYN005', baselineCounts=counts,
               documents=[dict(documentId=doc, title=title, sourceFile=str(base/'documents'/filename),
                               date=observed, characters=len(body), words=len(body.split()),
