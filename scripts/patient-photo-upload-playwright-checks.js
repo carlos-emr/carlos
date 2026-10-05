@@ -178,7 +178,12 @@ async function workflow(s) {
     h.assert(status === 405, `GET ClientImage deleteImage answered HTTP ${status}, expected 405`);
   });
 
-  await s.step('Clear Photo asks to confirm, removes the row and the chart shows the placeholder', async () => {
+  await s.step('Clear Photo asks to confirm, removes cached and legacy duplicate photos and restores the placeholder', async () => {
+    // Older installations may have multiple rows. Clearing a photo must not reveal an older one.
+    sql.execute(`INSERT INTO client_image (demographic_no,image_type,contents,update_date)
+      SELECT demographic_no,image_type,contents,DATE_SUB(update_date,INTERVAL 1 DAY)
+      FROM client_image WHERE demographic_no=${patient}`);
+    h.assert(stored().length === 2, 'The owned legacy duplicate photo was not created');
     const manager = await openManager();
     const since = s.recorder.requestFailures.length;
     const dialogs = await h.withExpectedDialogs(manager, async () => {
