@@ -919,10 +919,23 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
             verify(mockConsentDao).merge(implied);
             // Filed under the patient and the consent record, so an audit by patient finds it.
-            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
                     eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), eq("21"), eq(100),
                     eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 21 implied->explicit PriorConsentDate: "
                             + new Date(1_000L))));
+        }
+
+        @Test
+        @DisplayName("should fail the upgrade when its audit entry cannot be written, so the transaction rolls back")
+        void shouldThrow_whenUpgradeAuditCannotBeWritten() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+            IllegalStateException auditDown = new IllegalStateException("audit write failed");
+            logActionMock.when(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
+                    eq("PatientConsentManager.recordExplicitConsent"), any(), any(), any(), any())).thenThrow(auditDown);
+
+            assertThatThrownBy(() -> manager.recordExplicitConsent(loggedInInfo, 100, 1)).isSameAs(auditDown);
         }
 
         @Test
@@ -1266,7 +1279,6 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         void shouldReportExplicitNotRecorded_whenUpgradeIsRefused() {
             // The consent type was deactivated after the page was loaded, so neither the opt-in
             // nor the confirmation is recorded.
-            Consent inactiveTypeRecord = impliedOptIn(21);
             ConsentType inactive = createActiveConsentType(1, "email");
             inactive.setActive(false);
             when(mockConsentTypeDao.find(1)).thenReturn(inactive);
@@ -1275,7 +1287,6 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
                     new ChartConsentRequest(ChartConsentRequest.Choice.OPT_IN, true, false, null, null));
 
             assertThat(outcome).isEqualTo(ChartConsentOutcome.EXPLICIT_NOT_RECORDED);
-            assertThat(inactiveTypeRecord.isExplicit()).isFalse();
             verifyNothingWritten();
         }
 

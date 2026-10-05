@@ -136,30 +136,27 @@ class DemographicStaleConsentJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should define the warning text, in English, in every locale")
+    @DisplayName("should define the warning text in every locale")
     void shouldDefineWarningText_inEveryLocale() throws Exception {
-        String english = null;
-        String englishReview = null;
         for (String locale : List.of("en", "es", "fr", "pl", "pt_BR")) {
-            Properties bundle = new Properties();
-            try (InputStream in = Files.newInputStream(resolveProjectPath(Path.of(
-                    "src/main/resources/oscarResources_" + locale + ".properties")))) {
-                bundle.load(in);
-            }
-            String message = bundle.getProperty(MESSAGE_KEY);
-            String review = bundle.getProperty(REVIEW_KEY);
-            assertThat(message).as(locale).isNotBlank();
-            assertThat(review).as(locale).isNotBlank();
-            if (english == null) {
-                english = message;
-                englishReview = review;
-            }
-            assertThat(message).as(locale).isEqualTo(english);
-            assertThat(review).as(locale).isEqualTo(englishReview);
+            Properties bundle = loadBundle(locale);
+            // Other locales may carry English until translated; any wording is accepted there.
+            assertThat(bundle.getProperty(MESSAGE_KEY)).as(locale).isNotBlank();
+            assertThat(bundle.getProperty(REVIEW_KEY)).as(locale).isNotBlank();
         }
-        assertThat(english).contains("rest of the chart was saved").contains("not saved");
-        assertThat(englishReview).contains("changed by someone else after this page was opened")
+        Properties english = loadBundle("en");
+        assertThat(english.getProperty(MESSAGE_KEY)).contains("rest of the chart was saved").contains("not saved");
+        assertThat(english.getProperty(REVIEW_KEY)).contains("changed by someone else after this page was opened")
                 .contains("enter the change again");
+    }
+
+    private static Properties loadBundle(String locale) throws Exception {
+        Properties bundle = new Properties();
+        try (InputStream in = Files.newInputStream(resolveProjectPath(Path.of(
+                "src/main/resources/oscarResources_" + locale + ".properties")))) {
+            bundle.load(in);
+        }
+        return bundle;
     }
 
     /** The per-consent-type loop of the clinical fragment. */

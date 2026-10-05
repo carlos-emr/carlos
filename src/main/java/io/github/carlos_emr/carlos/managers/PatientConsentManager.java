@@ -45,7 +45,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *
  * <p><b>Transaction contract for all writes:</b> call {@code setConsent}, every
  * {@code addConsent} and {@code optoutConsent} overload, {@code addEditConsentRecord},
- * {@code deleteConsent}, and {@code addConsentType} outside an existing transaction.
+ * {@code recordExplicitConsent}, {@code saveChartConsent}, {@code deleteConsent}, and
+ * {@code addConsentType} outside an existing transaction.
  * Writes start a REQUIRED transaction at READ COMMITTED and serialize patient changes
  * with a patient-row lock. Joining a caller's transaction inherits its isolation;
  * REPEATABLE READ can reintroduce deadlock or stale-snapshot failures on MariaDB.

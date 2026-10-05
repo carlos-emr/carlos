@@ -37,7 +37,11 @@ public enum ChartConsentOutcome {
      */
     STALE,
 
-    /** The opt-in was applied, but the explicit confirmation asked for with it was not recorded. */
+    /**
+     * The explicit confirmation asked for with an opt-in was not recorded. Do not assume the opt-in
+     * was: today this happens only when the consent type is no longer active, and then nothing is
+     * written for it.
+     */
     EXPLICIT_NOT_RECORDED,
 
     /** The request carried no choice, so there was nothing to apply. */

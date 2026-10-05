@@ -467,7 +467,8 @@ public class DemographicUpdate2Action extends ActionSupport {
      * ({@code consentShownId_<type>} and {@code consentShownChoice_<type>}). A choice is applied
      * only while that record still decides the patient's consent; if a colleague has changed it
      * since the page was loaded, the consent change for that type is refused and nothing else is
-     * affected. A form that posts neither field, or only one, is applied without that check.</p>
+     * affected. A form that posts neither field is applied without that check; one that posts only
+     * one of them is refused, as a shown record that cannot be read.</p>
      *
      * @return the consent types whose consent change was refused; empty when none was
      */
@@ -500,7 +501,9 @@ public class DemographicUpdate2Action extends ActionSupport {
 
             String shownIdValue = request.getParameter("consentShownId_" + type);
             String shownChoiceValue = request.getParameter("consentShownChoice_" + type);
-            boolean shownSent = shownIdValue != null && shownChoiceValue != null;
+            // This page always posts both. Only one means the form is malformed, so the check is not
+            // skipped: the pair is read below and refused as unreadable.
+            boolean shownSent = shownIdValue != null || shownChoiceValue != null;
             Integer shownId = null;
             Boolean shownOptOut = null;
             if (shownSent) {
@@ -549,8 +552,11 @@ public class DemographicUpdate2Action extends ActionSupport {
                 ConsentNotSavedNotice.parameterValue(consentNotSaved));
     }
 
-    /** Returns the id, or null for an empty value: the page showed no record. */
+    /** Returns the id, or null for an empty value: the page showed no record. A missing value cannot be read. */
     private static Integer parseShownId(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("consent shown id missing");
+        }
         String trimmed = value.trim();
         if (trimmed.isEmpty()) {
             return null;
@@ -561,8 +567,14 @@ public class DemographicUpdate2Action extends ActionSupport {
         return Integer.valueOf(trimmed);
     }
 
-    /** Returns true for opt-out, false for opt-in, or null for an empty value: the page showed no record. */
+    /**
+     * Returns true for opt-out, false for opt-in, or null for an empty value: the page showed no
+     * record. A missing value cannot be read.
+     */
     private static Boolean parseShownChoice(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("consent shown choice missing");
+        }
         String trimmed = value.trim();
         if (trimmed.isEmpty()) {
             return null;

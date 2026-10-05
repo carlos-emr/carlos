@@ -480,25 +480,35 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
-        @DisplayName("should treat the shown record as not sent when the choice field is missing")
-        void shouldTreatShownRecordAsNotSent_whenChoiceFieldIsMissing() {
+        @DisplayName("should refuse the type when the shown choice field is missing but the id was sent")
+        void shouldRefuseConsentType_whenChoiceFieldIsMissing() {
             request.setParameter("email_consent", "0");
             request.setParameter("consentShownId_email_consent", "31");
 
-            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
-
-            verify(consentManager).saveChartConsent(mockLoggedInInfo, 42, 7, unchecked(Choice.OPT_IN, false));
+            assertRefusedAsUnreadable();
         }
 
         @Test
-        @DisplayName("should treat the shown record as not sent when the id field is missing")
-        void shouldTreatShownRecordAsNotSent_whenIdFieldIsMissing() {
-            request.setParameter("email_consent", "0");
+        @DisplayName("should refuse the type when the shown id field is missing but the choice was sent")
+        void shouldRefuseConsentType_whenIdFieldIsMissing() {
+            request.setParameter("email_consent", "1");
             request.setParameter("consentShownChoice_email_consent", "0");
 
-            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+            assertRefusedAsUnreadable();
+        }
 
-            verify(consentManager).saveChartConsent(mockLoggedInInfo, 42, 7, unchecked(Choice.OPT_IN, false));
+        /** A shown record posted with only one of its two fields is refused like an unreadable one. */
+        private void assertRefusedAsUnreadable() {
+            try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+                List<ConsentType> refused =
+                        DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                assertThat(refused).containsExactly(email);
+                verify(consentManager, never()).saveChartConsent(any(), anyInt(), anyInt(), any());
+                logAction.verify(() -> LogAction.addLogSynchronous(eq(mockLoggedInInfo),
+                        eq("DemographicUpdate2Action.saveConsents"), eq("consent"), isNull(), eq(42),
+                        eq(" Demographic: 42 ConsentTypeId: 7 refused: the consent the page showed could not be read")));
+            }
         }
 
         @Test
