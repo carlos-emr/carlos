@@ -33,6 +33,8 @@ try {
       assert.throws(() => sql.execute("INSERT INTO demographicExt (demographic_no,key_val,value) VALUES (1,'demo_cell','duplicate')"));
       assert.throws(() => sql.execute("INSERT INTO demographicExt (demographic_no,key_val,value) VALUES (1,'DEMO_CELL','case duplicate')"));
     }
+    sql.execute("INSERT INTO demographicExt VALUES (999,2,'111','demo_cell','positional seed','2000-01-01','0')");
+    assert.equal(sql.rows('SELECT * FROM demographicExt WHERE id=999')[0].length, 7);
     sql.execute(migration); // A repeat must not remove the replacement uniqueness or rewrite rows.
     assert.equal(sql.value("SELECT COUNT(*) FROM demographicExt WHERE key_val='excludeIndicator'"), '4');
     console.log(`PASS: ${variant} preserves existing rows, exclusion history and other-key constraints`);

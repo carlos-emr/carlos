@@ -7,6 +7,8 @@
 -- Replace equivalent unique indexes regardless of their adopted-site name or
 -- column order. A legacy table without this uniqueness needs no alteration:
 -- do not introduce a new constraint on its existing extension rows.
+-- The generated helper is invisible so legacy positional INSERT and SELECT * retain
+-- their original seven-column shape.
 -- Existing values, IDs, provider attribution and dates are not rewritten.
 -- Run with application nodes stopped, as for other schema upgrades.
 SET @dashboard_ext_indexes = (
@@ -34,7 +36,7 @@ SET @dashboard_ext_type = (
 SET @dashboard_ext_ddl = IF(@dashboard_ext_indexes IS NULL, 'SELECT 1',
     CONCAT('ALTER TABLE demographicExt ', @dashboard_ext_indexes,
            ', ADD COLUMN dashboard_single_value_key ', @dashboard_ext_type,
-           ' GENERATED ALWAYS AS (CASE WHEN key_val = ''excludeIndicator'' THEN NULL ELSE key_val END) VIRTUAL',
+           ' GENERATED ALWAYS AS (CASE WHEN key_val = ''excludeIndicator'' THEN NULL ELSE key_val END) VIRTUAL INVISIBLE',
            ', ADD UNIQUE INDEX uk_demo_ext_single_value (demographic_no, dashboard_single_value_key)',
            ', ALGORITHM=COPY'));
 PREPARE dashboard_ext_statement FROM @dashboard_ext_ddl;

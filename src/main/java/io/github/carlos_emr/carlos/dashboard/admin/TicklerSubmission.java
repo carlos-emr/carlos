@@ -92,7 +92,7 @@ public final class TicklerSubmission {
     }
 
     private static void updateLength(MessageDigest digest, int length) {
-        digest.update(new byte[]{(byte)(length >>> 24), (byte)(length >>> 16),
-                (byte)(length >>> 8), (byte)length});
+        digest.update(new byte[]{(byte) (length >>> 24), (byte) (length >>> 16),
+                (byte) (length >>> 8), (byte) length});
     }
 }
