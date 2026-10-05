@@ -155,7 +155,8 @@ async function workflow(s) {
         `${route} has an unnamed calendar control`);
       await calendar.focus();
       const [popup] = await Promise.all([page.waitForEvent('popup'), calendar.press('Enter')]);
-      await popup.waitForLoadState('domcontentloaded');
+      await popup.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewOscarReportCalendarPopup'));
+      await popup.locator('span.title').waitFor({state: 'visible'});
       await h.assertNotErrorPage(popup, `${route} calendar`);
       h.assert(new URL(popup.url()).searchParams.get('type') === 'startDateA',
         `${route} keyboard calendar opened the wrong date field`);
