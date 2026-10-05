@@ -4649,7 +4649,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Covers GST and fee-schedule administration, picker/manual style creation, same-row declaration edits, reopening, and unsupported-input validation without partial writes.",
+      "notes": "Covers GST and fee-schedule administration, picker/manual style creation, same-row declaration edits, reopening, unsupported-input validation without partial writes, and independent editing/deletion of styles with identical declarations.",
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     },
     {

@@ -222,7 +222,7 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         saved.setName("Original");
         when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
         ManageCss2Action action = writableAction();
-        action.setSelectedStyle(saved.getStyle());
+        action.setSelectedStyle(saved.getId().toString());
         action.setEditStyle(saved.getStyle());
         action.setStyleText("color:#abcdef;text-decoration:underline;");
         assertThat(action.save()).isEqualTo("init");
@@ -256,7 +256,7 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
         saved.setName("Original");
         when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
         ManageCss2Action action = writableAction();
-        action.setSelectedStyle(saved.getStyle());
+        action.setSelectedStyle(saved.getId().toString());
         action.setEditStyle(saved.getStyle());
         action.setStyleText("color:blue;position:fixed;");
         action.save();
@@ -276,6 +276,61 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.getActionErrors()).contains("admin.manageCodeStyles.invalidName");
         }
         verify(stylesDao, never()).persist(any(CssStyle.class));
+    }
+
+    @Test
+    void shouldEditOnlyTheSelectedRow_whenTwoStylesHaveIdenticalDeclarations() {
+        CssStyle first = new CssStyle();
+        first.setId(27);
+        first.setName("First");
+        first.setStyle("color:red;");
+        CssStyle selected = new CssStyle();
+        selected.setId(28);
+        selected.setName("Selected");
+        selected.setStyle("color:red;");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(first, selected)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle("28");
+        action.setEditStyle("color:red;");
+        action.setStyleText("color:blue;");
+        action.save();
+        assertThat(first.getName()).isEqualTo("First");
+        assertThat(first.getStyle()).isEqualTo("color:red;");
+        assertThat(selected.getStyle()).isEqualTo("color:blue;");
+        verify(stylesDao).merge(selected);
+        verify(stylesDao, never()).merge(first);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"color:red;", "-2", "27 OR 1=1", "missing"})
+    void shouldRejectAnUnknownIdentity_withoutChangingAnyRow(String identity) {
+        CssStyle saved = new CssStyle();
+        saved.setId(27);
+        saved.setStyle("color:red;");
+        when(stylesDao.findAll()).thenReturn(new ArrayList<>(List.of(saved)));
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle(identity);
+        action.setEditStyle("color:red;");
+        action.setStyleText("color:blue;");
+        assertThat(action.save()).isEqualTo("init");
+        assertThat(action.hasActionErrors()).isTrue();
+        assertThat(saved.getStyle()).isEqualTo("color:red;");
+        verify(stylesDao, never()).merge(any(CssStyle.class));
+        verify(stylesDao, never()).persist(any(CssStyle.class));
+    }
+
+    @Test
+    void shouldDeleteBySelectedId_ignoringTheLegacyTextIdentity() {
+        var deletion = mock(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class);
+        registerMock(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class, deletion);
+        when(deletion.deleteByStyleId("28")).thenReturn(true);
+        ManageCss2Action action = writableAction();
+        action.setSelectedStyle("28");
+        action.setEditStyle("27");
+        assertThat(action.delete()).isEqualTo("init");
+        verify(deletion).deleteByStyleId("28");
+        verify(deletion, never()).deleteByStyleId("27");
     }
 
 }

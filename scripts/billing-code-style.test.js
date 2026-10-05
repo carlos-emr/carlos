@@ -15,7 +15,7 @@ function setup() {
     'font-size', 'font-style', 'font-variant', 'font-weight', 'text-decoration', 'color', 'background-color']) {
     nodes[id] = {value:'', style:{}, selectedIndex:0, options:[{value:'', text:''}]};
   }
-  nodes.style.options = [{value:'-1', text:'None'}, {value:'color:#123456;background-color:#ffffff', text:'Saved'}];
+  nodes.style.options = [{value:'-1', text:'None'}, {value:'27', text:'Saved', dataset:{style:'color:#123456;background-color:#ffffff'}}];
   const alerts = [];
   const context = vm.createContext({document:{getElementById:id => nodes[id] || null}, alert:msg => alerts.push(msg), setInterval() {}});
   vm.runInContext(source, context);

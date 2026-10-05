@@ -272,6 +272,49 @@ async function workflow(s) {
     await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(id), MAX(style)) FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`,
       `1|${typedId}|color:${colour};`, 'Correcting validation did not update the original style');
   });
+
+  let duplicateId;
+  const duplicateName = `${styleName} duplicate`;
+  const identical = `color:${colour};`;
+  await s.step('styles with identical declarations are edited by their distinct database IDs', async () => {
+    frame = await adminFrame(admin, STYLE_ROUTE, '#style');
+    await frame.locator('#styleName').fill(duplicateName);
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(identical);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    duplicateId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(duplicateName)}`);
+    h.assert(/^[1-9]\d*$/.test(duplicateId) && duplicateId !== typedId, 'The duplicate declaration fixture needs a distinct row');
+    await frame.locator('#style').selectOption({label:duplicateName});
+    h.assert(await frame.locator('#style').inputValue() === duplicateId, 'Style selection must submit the database ID');
+    await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill('color:navy;');
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    await expectValue(sql, `SELECT style FROM cssStyles WHERE id=${Number(duplicateId)}`, 'color:navy;', 'Edit did not update the selected duplicate');
+    h.assert(sql.value(`SELECT CONCAT_WS('|', name, style, status) FROM cssStyles WHERE id=${Number(typedId)}`)
+      === `${styleName} typed|${identical}|A`, 'Editing the second style changed the first style');
+    // Restore identical declarations to prove that deletion also uses the row ID.
+    await frame.locator('#style').selectOption({label:duplicateName});
+    await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(identical);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    await expectValue(sql, `SELECT style FROM cssStyles WHERE id=${Number(duplicateId)}`, identical, 'Restoring the duplicate declarations failed');
+  });
+
+  await s.step('deleting a duplicate declaration leaves the other named style active and unchanged', async () => {
+    await frame.locator('#style').selectOption({label:duplicateName});
+    const dialogs = await h.withExpectedDialogs(admin,
+      () => navigates(admin, frame, frame.locator('input[type="submit"][name="submit"]:not(.btn-primary)')));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Deleting the duplicate did not ask for confirmation');
+    await expectValue(sql, `SELECT status FROM cssStyles WHERE id=${Number(duplicateId)}`, 'D', 'The selected duplicate was not deleted');
+    h.assert(sql.value(`SELECT CONCAT_WS('|', name, style, status) FROM cssStyles WHERE id=${Number(typedId)}`)
+      === `${styleName} typed|${identical}|A`, 'Deleting the second style changed the first style');
+    h.assert(await frame.locator('#style option', {hasText:duplicateName}).count() === 0, 'The deleted duplicate remains offered');
+    await frame.locator('#style').selectOption({label:`${styleName} typed`});
+    h.assert(await frame.locator('#style').inputValue() === typedId, 'The other style is no longer available by its ID');
+  });
+
 }
 
 if (require.main === module) runWorkflow('billing-on-gst-css-benefit', workflow, { openPatient: true });

@@ -37,10 +37,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Struts action for viewing, creating, and deleting Ontario billing CSS style
+ * Struts action for viewing, creating, editing, and deleting Ontario billing CSS style
  * snippets used by the legacy billing UI.
  *
  * <p>The action still routes by {@code method=} to stay compatible with the
@@ -78,8 +77,6 @@ public class ManageCss2Action extends ActionSupport {
     }
 
     /** Persist a new or edited CSS style after privilege and POST checks succeed. */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String save() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -112,7 +109,7 @@ public class ManageCss2Action extends ActionSupport {
             newStyle = true;
         } else {
             for (CssStyle cssStylecurrent : styles) {
-                if (cssStylecurrent.getStyle().equalsIgnoreCase(this.getEditStyle())) {
+                if (String.valueOf(cssStylecurrent.getId()).equals(selectedStyle)) {
                     cssStyle = cssStylecurrent;
                     break;
                 }
@@ -120,8 +117,8 @@ public class ManageCss2Action extends ActionSupport {
             // No-match guard: surface a clean validation message instead
             // of letting the next field-set NPE without an operator signal.
             if (cssStyle == null) {
-                MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for editStyle={}",
-                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
+                MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for selectedStyle={}",
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(selectedStyle));
                 addActionError("CSS style not found.");
                 this.setStyles(styles);
                 return "init";
@@ -167,10 +164,10 @@ public class ManageCss2Action extends ActionSupport {
         // inside CssStyleDeletionService — a mid-cascade DAO failure rolls
         // back, leaving both tables consistent.
         boolean deleted = SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.on.service.CssStyleDeletionService.class)
-                .deleteByStyleId(this.getEditStyle());
+                .deleteByStyleId(selectedStyle);
         if (!deleted) {
-            MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for editStyle={}",
-                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
+            MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for selectedStyle={}",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(selectedStyle));
             addActionError("CSS style not found.");
             this.setStyles(cssStylesDao.findAll());
             return "init";
@@ -214,6 +211,7 @@ public class ManageCss2Action extends ActionSupport {
         this.selectedStyle = selectedStyle;
     }
 
+    /** Legacy request field; row selection uses selectedStyle (the database ID) exclusively. */
     public String getEditStyle() {
         return editStyle;
     }

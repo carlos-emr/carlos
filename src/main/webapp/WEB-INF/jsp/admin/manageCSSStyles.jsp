@@ -32,7 +32,7 @@
 <%--
     Purpose: Manage billing-code presentation styles.
     Features: Picker and manual declaration editing with lossless saves and visible validation.
-    Parameters: selectedStyle/editStyle identify the original style; styleText contains the edited declarations.
+    Parameters: selectedStyle identifies the database row; styleText contains the edited declarations.
     @since 2026-10-05
 --%>
 
@@ -113,7 +113,8 @@
             reinit();
             getEl("style").selectedIndex = index;
             if (option.value === "-1") return;
-            option.value.split(";").forEach(function (declaration) {
+            var declarations = option.dataset.style;
+            declarations.split(";").forEach(function (declaration) {
                 var separator = declaration.indexOf(":");
                 if (separator < 0) return;
                 var name = declaration.substring(0, separator).trim().toLowerCase();
@@ -129,9 +130,8 @@
             });
             color = getEl("color").value;
             bgcolor = getEl("background-color").value;
-            getEl("styleText").value = option.value;
-            getEl("editStyle").value = option.value;
-            getEl("example").style.cssText = option.value;
+            getEl("styleText").value = declarations;
+            getEl("example").style.cssText = declarations;
             getEl("styleName").value = option.text;
         }
 
@@ -152,10 +152,6 @@
                 return false;
             }
 
-            //if it's a new style save it for addition
-            if (getEl("style").selectedIndex == 0) {
-                getEl("editStyle").value = getEl("styleText").value;
-            }
             getEl("method").value = "save";
 
             return true;
@@ -169,7 +165,6 @@
             }
 
             if (confirm("<fmt:message key="admin.manageCodeStyles.confirmDelete"/>")) {
-                getEl("editStyle").value = getEl("style").options[getEl("style").selectedIndex].value;
                 getEl("method").value = "delete";
                 return true;
             }
@@ -191,7 +186,6 @@
             getEl("color").value = "";
             getEl("background-color").value = "";
             getEl("styleText").value = "";
-            getEl("editStyle").value = "";
             getEl("example").style.cssText = "";
             color = "";
             bgcolor = "";
@@ -240,7 +234,8 @@
             <select name="selectedStyle" id="style">
                 <option value="-1"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                 <c:forEach items="${styles}" var="style">
-                    <option value="${carlos:forHtmlAttribute(style.style)}" <c:if test="${selectedStyle eq style.style}">selected</c:if>>${carlos:forHtml(style.name)}</option>
+                    <c:set var="styleId" value="${style.id.toString()}"/>
+                    <option value="${carlos:forHtmlAttribute(styleId)}" data-style="${carlos:forHtmlAttribute(style.style)}" <c:if test="${selectedStyle eq styleId}">selected</c:if>>${carlos:forHtml(style.name)}</option>
                 </c:forEach>
             </select>
 
@@ -329,7 +324,6 @@
 
 
             <div class="col-md-4">
-                <input type="hidden" id="editStyle" name="editStyle" value="${carlos:forHtmlAttribute(editStyle)}"/>
 
                 <fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
