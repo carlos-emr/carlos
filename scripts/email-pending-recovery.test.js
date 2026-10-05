@@ -15,7 +15,7 @@ function handler(name) {
   return jsp.slice(start, jsp.indexOf('\n    }', start) + 6);
 }
 function fixture({ accepted = false, recorded = false, uncertain = false, pendingCopy = false, followUp = false,
-  confirm = true, valid = true } = {}) {
+  confirm = true, valid = true, portalPending = false } = {}) {
   const calls = { submitted: 0, closed: 0, confirmed: 0, initialized: 0, opened: 0 };
   const fields = {
     isEmailError: { value: 'false' }, isEmailSuccessful: { value: String(accepted) },
@@ -36,7 +36,7 @@ function fixture({ accepted = false, recorded = false, uncertain = false, pendin
     selectPatientChartOption() {}, showAdditionalParamOption() {}, toggleInternalTextArea() {},
   });
   vm.runInContext(handler('validateEmailForm') + handler('autoSendEmail')
-    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready, context);
+    .replace('${carlos:forJavaScript(isEmailAutoSend)}', 'true') + ready.replace('${portalDeliveryNeedsRecovery}', String(portalPending)), context);
   return { context, calls };
 }
 
@@ -81,4 +81,58 @@ test('post-send follow-up warning keeps accepted mail open without resending', (
   context.ready();
   assert.equal(calls.closed, 0);
   assert.equal(calls.submitted, 0);
+});
+
+test('pending Portal publication keeps accepted mail open without sending again', () => {
+  const { context, calls } = fixture({ accepted: true, recorded: true, portalPending: true });
+  context.ready();
+  assert.equal(calls.closed, 0);
+  assert.equal(calls.submitted, 0);
+});
+
+test('Portal mode validates an encrypted email without requiring the password fields', () => {
+  for (const portalEnabled of [true, false]) {
+    const fields = {
+      subjectEmail: { value: 'Test subject' }, message: { value: 'Test message' },
+      encryptionSwitch: { checked: true }, encryptAttachmentSwitch: { checked: true },
+      emailPDFPassword: { value: '' }, emailPDFPasswordClue: { value: '' },
+      totalSenderEmails: { value: 1 }, totalRecipintEmails: { value: 1 },
+    };
+    const context = vm.createContext({
+      document: { getElementById: id => fields[id] || null, querySelectorAll: () => [] },
+      emailComposeSubjectRequiredMsg: '', emailComposeMessageRequiredMsg: '',
+      emailComposePasswordRequiredMsg: '', emailComposeClueRequiredMsg: '',
+      validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
+      clearError() {},
+    });
+    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', String(portalEnabled))
+      .replace('${portalEmailMisconfigured}', 'false'), context);
+    assert.equal(context.validateForm(), portalEnabled);
+  }
+});
+
+test('a malformed Portal setting stops an encrypted send on the page, but not an unencrypted one', () => {
+  for (const encrypted of [true, false]) {
+    const shown = [];
+    const fields = {
+      subjectEmail: { value: 'Test subject' }, message: { value: 'Test message' },
+      encryptionSwitch: { checked: encrypted }, encryptAttachmentSwitch: { checked: encrypted },
+      emailPDFPassword: { value: '' }, emailPDFPasswordClue: { value: '' },
+      totalSenderEmails: { value: 1 }, totalRecipintEmails: { value: 1 },
+    };
+    const context = vm.createContext({
+      document: { getElementById: id => fields[id] || null, querySelectorAll: () => [] },
+      emailComposeSubjectRequiredMsg: '', emailComposeMessageRequiredMsg: '',
+      emailComposePasswordRequiredMsg: '', emailComposeClueRequiredMsg: '',
+      emailComposePortalMisconfiguredMsg: 'setting not valid',
+      validateField: (field, _message, errors, key) => { if (!field.value) errors[key] = true; },
+      displayError: (_id, message) => shown.push(message),
+      clearError() {},
+    });
+    // A malformed setting renders portalEmailEnabled as true, so no manual password is asked for.
+    vm.runInContext(handler('validateForm').replace('${portalEmailEnabled}', 'true')
+      .replace('${portalEmailMisconfigured}', 'true'), context);
+    assert.equal(context.validateForm(), !encrypted);
+    assert.deepEqual(shown, encrypted ? ['setting not valid'] : []);
+  }
 });
