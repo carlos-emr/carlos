@@ -134,6 +134,7 @@ class ConsentReplayBase(unittest.TestCase):
 
     def setUp(self):
         self.db = sqlite3.connect(":memory:")
+        self.addCleanup(self.db.close)
         for schema in (SRC, DST, ARCH):
             self.db.execute("ATTACH DATABASE ':memory:' AS {0}".format(schema))
         self.src_names = [c for c in SOURCE_COLS
@@ -484,6 +485,14 @@ class TestTheRecordOfWhatChanged(ConsentReplayBase):
         self.assertEqual(
             (o19etl.CONSENT_NULL_FLAG, o19etl.CONSENT_DUPLICATE),
             ("null_flag", "duplicate_retired"))
+        # and the migration writes the same reasons into its audit table;
+        # found by name, as below, so renumbering cannot skip this
+        found = sorted(MIGRATIONS.glob("V*__one_live_consent_per_type.sql"))
+        self.assertEqual(len(found), 1, found)
+        reasons = re.findall(r"'one_live_consent_per_type', '(\w+)'",
+                             found[0].read_text())
+        self.assertEqual(sorted(reasons), sorted(
+            (o19etl.CONSENT_NULL_FLAG, o19etl.CONSENT_DUPLICATE)))
 
     def test_the_helper_covers_the_dump(self):
         self.imported(*MIXED)
