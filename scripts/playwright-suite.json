@@ -4599,7 +4599,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors.",
+      "notes": "Exercises real billing administration and popup saves. Code Confirm must fill only the selected correction row, close the popup without script errors, and leave stored bill items unchanged until the bill is saved. Other legacy saves retain their assertions and report failures independently.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
