@@ -130,10 +130,11 @@ The source passage, suggested date and its basis remain visible for comparison.
 Apply `database/mysql/migration/common/V1.0.33__reviewed_chart_update_receipts.sql`
 through the normal schema migration process first. Its version is draft and must
 be reconciled with other pending migrations before merging. Until then, test on a
-fresh database: one already migrated past `V1.0.33` (develop is higher) refuses to
-start, because Flyway does not apply a lower version out of order. Existing published
-migrations are unchanged. The new receipt table stores identifiers and hashes,
-not clinical prose. Target tables must be InnoDB; writes fail closed otherwise.
+fresh, throwaway database (never one already migrated by develop). Develop is already
+past `V1.0.33`, and Flyway does not apply a lower version out of order, so such a
+database refuses to start. Existing published migrations are unchanged. The new
+receipt table stores identifiers and hashes, not clinical prose. Target tables must
+be InnoDB; writes fail closed otherwise.
 
 In the server's properties, enable all three flags:
 
