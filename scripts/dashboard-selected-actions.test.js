@@ -12,7 +12,9 @@ function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerF
   const handlers = new Map();
   const requests = [];
   const alerts = [];
-  const document = {};
+  const document = {getElementById: id => ({id})};
+  const buttons = new Map();
+  const hidden = [];
   const rows = ['101', '102', '103'].map(id => ({ id, checked: selected.includes(id) }));
   function $(selector) {
     const chain = {
@@ -35,17 +37,19 @@ function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerF
   }
   $.fn = { dataTableExt: { afnFiltering: [] }, dataTable: { moment() {}, ext: { order: {} } } };
   $.ajax = request => { requests.push(request); };
-  vm.runInNewContext(source, { $, document, ctx: contextPath, alert: message => alerts.push(message), console });
+  const bootstrap = {Modal: {getOrCreateInstance: element => ({hide: () => hidden.push(element.id)})}};
+  vm.runInNewContext(source, { $, document, bootstrap, ctx: contextPath, alert: message => alerts.push(message), console });
   function click(id, form) {
     let prevented = false;
-    const button = { id, form }; // Submit buttons deliberately have no href.
+    if (!buttons.has(id)) buttons.set(id, {id, form});
+    const button = buttons.get(id); // Submit buttons deliberately have no href.
     if (id === 'assignTicklerChecked') button.href = `${contextPath}/web/dashboard/display/AssignTickler`;
     const handler = handlers.get(`#${id}`);
     assert.equal(typeof handler, 'function', `${id} has a registered handler`);
     handler.call(button, { preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
   }
-  return { requests, alerts, click };
+  return { requests, alerts, click, buttons, hidden };
 }
 
 const cases = [
@@ -99,3 +103,49 @@ for (const hiddenMethod of [[], [{ name: 'method', value: 'old-operation' }]]) {
       [...fields, { name: 'method', value: 'saveTickler' }]);
   });
 }
+
+for (const [button, method] of cases) {
+  test(`${button} prevents concurrent submissions and unlocks after a response`, () => {
+    const run = controller();
+    const form = {action: '/clinic/web/dashboard/display/BulkPatientAction', fields: [{name: 'method', value: method}]};
+    run.click(button, form);
+    run.click(button, form);
+    assert.equal(run.requests.length, 1);
+    assert.equal(run.buttons.get(button).disabled, true);
+    run.requests[0].error();
+    assert.equal(run.hidden.length, 0);
+    assert.equal(run.alerts.length, 1);
+    run.requests[0].complete();
+    assert.equal(run.buttons.get(button).disabled, false);
+    run.click(button, form);
+    assert.equal(run.requests.length, 2);
+    run.requests[1].success();
+    assert.equal(run.hidden.length, 1);
+  });
+}
+
+for (const success of [true, 'true', false, 'false', undefined]) {
+  test(`tickler save checks success=${success} and prevents repeated pending saves`, () => {
+    const run = controller();
+    run.click('saveTicklerBtn', {});
+    run.click('saveTicklerBtn', {});
+    assert.equal(run.requests.length, 1);
+    assert.equal(run.requests[0].dataType, 'json');
+    run.requests[0].success({success});
+    const saved = success === true || success === 'true';
+    assert.equal(run.hidden.length, saved ? 1 : 0);
+    assert.equal(run.alerts.length, saved ? 0 : 1);
+    run.requests[0].complete();
+    assert.equal(run.buttons.get('saveTicklerBtn').disabled, false);
+  });
+}
+
+test('a failed tickler request leaves the dialog open and releases the pending guard', () => {
+  const run = controller();
+  run.click('saveTicklerBtn', {});
+  run.requests[0].error({}, 'error', 'connection lost');
+  run.requests[0].complete();
+  assert.equal(run.hidden.length, 0);
+  assert.match(run.alerts[0], /could not be confirmed/);
+  assert.equal(run.buttons.get('saveTicklerBtn').disabled, false);
+});

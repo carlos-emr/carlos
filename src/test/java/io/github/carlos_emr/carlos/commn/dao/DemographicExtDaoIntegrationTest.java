@@ -200,4 +200,32 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
             assertThat(found.getValue()).isEqualTo("test_value");
         }
     }
+    @Test
+    void shouldSkipCurrentExclusion_forTheSamePatientProviderAndIndicator() {
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isFalse();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999999", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_2, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "different", since)).isTrue();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).hasSize(3);
+    }
+
+    @Test
+    void shouldKeepHistoricalExclusion_whenAReplacementIsCreated() {
+        DemographicExt old = createExt(DEMO_1, "excludeIndicator", "owned");
+        old.setDateCreated(new java.util.Date(0));
+        entityManager.flush();
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).hasSize(2);
+    }
+
+    @Test
+    void shouldMatchNullProvider_whenAnUnassignedExclusionAlreadyExists() {
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince(null, DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince(null, DEMO_1, "excludeIndicator", "owned", since)).isFalse();
+    }
+
 }

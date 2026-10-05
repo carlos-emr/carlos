@@ -59,6 +59,9 @@ public interface DxresearchDAO extends AbstractDao<Dxresearch> {
 
     boolean activeEntryExists(int demographicNo, String codeType, String code);
 
+    /** Atomically inserts an active diagnosis, returning null when one already exists. */
+    Integer persistActiveIfAbsent(Dxresearch diagnosis);
+
     void removeAllAssociationEntries();
 
     List<Object[]> findResearchAndCodingSystemByDemographicAndCondingSystem(String codingSystem, String demographicNo);

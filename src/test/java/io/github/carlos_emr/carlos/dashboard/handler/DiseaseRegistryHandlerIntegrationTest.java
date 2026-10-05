@@ -151,4 +151,26 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
             assertThat(list.get(0).getCodingSystem()).isEqualTo(icd9codesys);
         }
     }
+    @Test
+    void shouldInsertOnlyOnce_whenTheSameActiveDiagnosisIsSubmittedAgain() {
+        int patient = demoNos.get(0);
+        Integer first = diseaseRegistryHandler.addToDiseaseRegistry(patient, "250", PROVIDER_NO);
+        assertThat(first).isPositive();
+        assertThat(diseaseRegistryHandler.addToDiseaseRegistry(patient, "250", PROVIDER_NO)).isNull();
+        assertThat(dxDao.findByDemographicNoResearchCodeAndCodingSystem(patient, "250", "icd9")).hasSize(1);
+        assertThat(diseaseRegistryHandler.addToDiseaseRegistry(demoNos.get(1), "250", PROVIDER_NO)).isPositive();
+    }
+
+    @Test
+    void shouldAllowNewActiveDiagnosis_whenTheEarlierDiagnosisWasResolved() {
+        int patient = demoNos.get(0);
+        Integer first = diseaseRegistryHandler.addToDiseaseRegistry(patient, "250", PROVIDER_NO);
+        Dxresearch previous = dxDao.find(first);
+        previous.setStatus('C');
+        dxDao.merge(previous);
+        Integer next = diseaseRegistryHandler.addToDiseaseRegistry(patient, "250", PROVIDER_NO);
+        assertThat(next).isPositive().isNotEqualTo(first);
+        assertThat(dxDao.findByDemographicNoResearchCodeAndCodingSystem(patient, "250", "icd9")).hasSize(2);
+    }
+
 }

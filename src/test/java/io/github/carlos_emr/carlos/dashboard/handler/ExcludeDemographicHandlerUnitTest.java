@@ -121,91 +121,91 @@ class ExcludeDemographicHandlerUnitTest {
         @DisplayName("should parse plain comma-separated integers")
         void shouldParseCommaSeparatedIntegers() {
             handler.excludeDemoIds("1,2,3", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should parse bracket-wrapped integer array")
         void shouldParseBracketWrappedIntegers() {
             handler.excludeDemoIds("[10,20,30]", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should parse single integer without brackets")
         void shouldParseSingleInteger() {
             handler.excludeDemoIds("42", "testIndicator");
-            verify(mockDao, times(1)).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, times(1)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject JSON object injection payload")
         void shouldRejectJsonObjectInjection() {
             handler.excludeDemoIds("{\"key\":\"value\"}", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject script injection payload")
         void shouldRejectScriptInjection() {
             handler.excludeDemoIds("<script>alert(1)</script>", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject string values in array")
         void shouldRejectStringValues() {
             handler.excludeDemoIds("[\"malicious\",\"payload\"]", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject nested array payload")
         void shouldRejectNestedArrayPayload() {
             handler.excludeDemoIds("[[1,2],[3,4]]", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject string injection between brackets")
         void shouldRejectStringInjectionBetweenBrackets() {
             handler.excludeDemoIds("1,2],\"injected\":[3", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject consecutive commas")
         void shouldRejectConsecutiveCommas() {
             handler.excludeDemoIds("1,,3", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle null jsonString gracefully")
         void shouldHandleNullInput() {
             handler.excludeDemoIds((String) null, "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle empty jsonString gracefully")
         void shouldHandleEmptyInput() {
             handler.excludeDemoIds("", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should handle integers with whitespace")
         void shouldHandleIntegersWithWhitespace() {
             handler.excludeDemoIds(" 1 , 2 , 3 ", "testIndicator");
-            verify(mockDao, times(3)).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
 
         @Test
         @DisplayName("should reject integer overflow values gracefully")
         void shouldRejectIntegerOverflow() {
             handler.excludeDemoIds("99999999999999999999", "testIndicator");
-            verify(mockDao, never()).addKey(anyString(), anyInt(), anyString(), anyString());
+            verify(mockDao, never()).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
         }
     }
 

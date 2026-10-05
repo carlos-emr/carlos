@@ -168,6 +168,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
+        List<Integer> addedPatientIds = new ArrayList<>();
         for (int patientId : patientIdList) {
 
             Integer drId = diseaseRegistryHandler.addToDiseaseRegistry(
@@ -175,12 +176,17 @@ public class BulkPatientDashboard2Action extends ActionSupport {
                     icd9code,
                     providerNo
             );
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, "DX", "" + drId, ip, "");
+            if (drId != null) {
+                addedPatientIds.add(patientId);
+                LogAction.addLog(providerNo, LogConst.ADD, "DX", drId.toString(), ip, "");
+            }
         }
+
+        if (addedPatientIds.isEmpty()) return null;
 
         String subject = "Bulk addition to disease registry report.";
         String message = "Added ICD9 code {" + icd9code +
-                "} to disease registry for patient demographic_no {" + patientIdList + "}" +
+                "} to disease registry for patient demographic_no {" + addedPatientIds + "}" +
                 " with provider no {" + providerNo + "}";
 
         messageHandler.notifyProvider(subject, message, providerNo, null); //patientIdList);
@@ -237,6 +243,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         List<Integer> patientIdList = parsePatientIds(patientIdsParam);
 
         String ip = request.getRemoteAddr();
+        List<Integer> addedPatientIds = new ArrayList<>();
         for (int patientId : patientIdList) {
             demographicPatientStatusRosterStatusHandler.setPatientStatusInactive("" + patientId);
             LogAction.addLog(providerNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC, "" + patientId, ip, "" + patientId, "patient_status: IN");

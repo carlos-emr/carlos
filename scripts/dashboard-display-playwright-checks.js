@@ -343,6 +343,37 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${charlie}`) === '0', 'The unchecked patient was registered');
   });
 
+  await s.step('Concurrent registry and exclusion requests create one current entry and audit only inserted diagnoses', async () => {
+    const token = await dashboard.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    h.assert(token.length > 0, 'The drilldown has no CSRF token for the concurrency check');
+    const post = async form => {
+      const response = await ctx.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/display/BulkPatientAction'),
+        {form: {'CSRF-TOKEN': token, ...form}, maxRedirects: 0});
+      h.assert(response.status() === 200, `Concurrent ${form.method} returned HTTP ${response.status()}`);
+      await response.dispose();
+    };
+    // Remove only the synthetic diagnosis created above, then race two fresh additions.
+    sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${alpha} AND dxresearch_code='${DX_CODE}'
+      AND coding_system='icd9' AND providerNo=${P}`);
+    const audits = `SELECT COUNT(*) FROM log WHERE provider_no=${P} AND action='add' AND content='DX'`;
+    const before = Number(sql.value(audits));
+    const diagnosis = {method: 'addToDiseaseRegistry', patientIds: alpha, dxUpdateICD9Code: DX_CODE};
+    await Promise.all([post(diagnosis), post(diagnosis)]);
+    h.assert(sql.value(dxRows(alpha)) === '1', 'Concurrent requests created duplicate active diagnoses');
+    h.assert(await eventually(audits, String(before + 1)), 'The inserted diagnosis has no unique ADD audit entry');
+    await post(diagnosis);
+    h.assert(sql.value(audits) === String(before + 1), 'Skipping an existing diagnosis created a false ADD audit entry');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE provider_no=${P} AND action='add' AND content='DX' AND contentId='null'`) === '0',
+      'A skipped diagnosis was audited with a null content ID');
+    const exclusion = {method: 'excludePatients', patientIds: alpha, indicatorId};
+    await Promise.all([post(exclusion), post(exclusion)]);
+    await post(exclusion);
+    const identifier = `${marker} Patient status|${marker} Owned patients|${marker} Category`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${alpha} AND provider_no=${P}
+      AND key_val='excludeIndicator' AND value=${h.sqlString(identifier)}`) === '1',
+      'Repeated or concurrent exclusions created duplicate current rows');
+  });
+
   await s.step('the Dashboard button returns to the dashboard with the same counts', async () => {
     await Promise.all([dashboard.waitForURL(/DashboardDisplay/), dashboard.locator('.backtoDashboardBtn').click()]);
     await dashboard.locator(`#indicatorId_${indicatorId} .indicatorPanelContainer`).waitFor();

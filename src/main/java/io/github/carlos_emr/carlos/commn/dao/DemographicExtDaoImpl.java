@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -244,6 +246,25 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
      *                   is for
      * @param value      The value for this key
      */
+    @Override
+    public boolean addKeyIfAbsentSince(String providerNo, Integer demo, String key, String value, Date since) {
+        if (entityManager.find(Demographic.class, demo, LockModeType.PESSIMISTIC_WRITE) == null) {
+            throw new IllegalArgumentException("Patient does not exist");
+        }
+        Query query = entityManager.createQuery("SELECT d FROM DemographicExt d WHERE d.demographicNo=?1"
+                + " AND (d.providerNo=?2 OR (d.providerNo IS NULL AND ?2 IS NULL))"
+                + " AND d.key=?3 AND d.value=?4 AND d.dateCreated>=?5");
+        query.setParameter(1, demo);
+        query.setParameter(2, providerNo);
+        query.setParameter(3, key);
+        query.setParameter(4, value);
+        query.setParameter(5, since);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        if (!query.getResultList().isEmpty()) return false;
+        addKey(providerNo, demo, key, value);
+        return true;
+    }
+
     @Override
     public void addKey(String providerNo, Integer demo, String key, String value) {
         DemographicExt demographicExt = new DemographicExt();

@@ -7,6 +7,8 @@ import io.github.carlos_emr.carlos.managers.DashboardManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -120,4 +122,22 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("unauthorized");
         verifyNoInteractions(registry, messages);
     }
+    @Test
+    void shouldAuditAndNotifyOnlyInsertedPatients_whenAnActiveDiagnosisIsSkipped() {
+        request.setMethod("POST");
+        when(registry.addToDiseaseRegistry(101, "250", "4245")).thenReturn(501);
+        assertThat(action.addToDiseaseRegistry()).isNull();
+        logActionMock.verify(() -> LogAction.addLog("4245", LogConst.ADD, "DX", "501", request.getRemoteAddr(), ""));
+        logActionMock.verifyNoMoreInteractions();
+        verify(messages).notifyProvider(anyString(), argThat(text -> text.contains("[101]") && !text.contains("102")), eq("4245"), isNull());
+    }
+
+    @Test
+    void shouldNotAuditOrNotify_whenAllDiagnosesAlreadyExist() {
+        request.setMethod("POST");
+        assertThat(action.addToDiseaseRegistry()).isNull();
+        logActionMock.verifyNoInteractions();
+        verifyNoInteractions(messages);
+    }
+
 }
