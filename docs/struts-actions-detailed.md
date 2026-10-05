@@ -284,7 +284,7 @@ Email management and communication.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Composes new emails |
+| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Prepares the compose staged by an eForm save once, then redirects to `?composeView=<id>`, which renders it again on every request without preparing anything; an unusable window gets `emailComposeExpired.jsp` |
 | email/emailSendAction | io.github.carlos_emr.carlos.email.action.EmailSend2Action | Sends composed emails |
 
 ## Signature Module

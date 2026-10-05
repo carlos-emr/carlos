@@ -409,11 +409,11 @@ public class EmailManager {
             // Unlike ACCEPTED, this runs ahead of the EmailLog write on purpose: a failed send
             // held at PENDING for a lock wait cannot duplicate a delivered message, and the
             // archive id is only in scope here.
-            if (!e.isDeliveryOutcomeUncertain()) {
-                recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.FAILED);
+            if (e.isDeliveryOutcomeUncertain()) {
+                throw new EmailSendingException(safePersistedFailureMessage(e), e, true);
             }
-            throw new EmailSendingException(safePersistedFailureMessage(e), e,
-                    e.isDeliveryOutcomeUncertain());
+            recordArchiveSendOutcome(loggedInInfo, archiveId, SendOutcome.FAILED);
+            throw new EmailSendingException(safePersistedFailureMessage(e), e, e.getRefusal());
         } catch (SecurityException e) {
             // Record the refused attempt, but propagate authorization failure to the caller.
             recordAuthorizationFailure(log, e);
@@ -573,6 +573,18 @@ public class EmailManager {
                 || failure instanceof org.springframework.mail.MailAuthenticationException) {
             return "SMTP authentication failure";
         }
+        // The transport's own classification, from the command the server refused. Checked
+        // before the exception types below: a MAIL FROM refusal is a SendFailedException too.
+        if (failure instanceof EmailSendingException sendingFailure
+                && EmailSendingException.Refusal.SENDER.equals(sendingFailure.getRefusal())) {
+            return "SMTP sender refused";
+        }
+        // Thrown for a failed MAIL FROM, DATA or end of message, never for RCPT TO, including a
+        // connection lost after the message was sent. Neutral on purpose: after the content these
+        // rows are PENDING, and "refused" would claim the message did not go out.
+        if (failure instanceof org.eclipse.angus.mail.smtp.SMTPSendFailedException) {
+            return "SMTP message transfer failure";
+        }
         if (failure instanceof jakarta.mail.SendFailedException) {
             return "SMTP recipient failure";
         }
@@ -731,11 +743,11 @@ public class EmailManager {
             emailLog.setErrorMessage(safeDiagnostic(e));
             persistTransportOutcomeBestEffort(loggedInInfo, emailLog,
                     "transportOutcome=FAILED; statusRecorded=false");
-            return EmailSendResult.failed(emailLog, false);
+            return EmailSendResult.failed(emailLog, false, e.getRefusal());
         }
         logTransportFailure("FAILED", e);
         return EmailSendResult.failed(
-                emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()));
+                emailLog, EmailStatus.FAILED.equals(emailLog.getStatus()), e.getRefusal());
     }
 
     private String safeDiagnostic(EmailSendingException exception) {

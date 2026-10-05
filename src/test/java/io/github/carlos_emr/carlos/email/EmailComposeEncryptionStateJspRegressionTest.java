@@ -148,4 +148,22 @@ class EmailComposeEncryptionStateJspRegressionTest {
                 .contains("invalidField.classList.remove(\"is-invalid\")")
                 .doesNotContain("errorElement.parentNode.firstElementChild.classList");
     }
+
+    @Test
+    @DisplayName("should show a refused-address hint only in the definite-failure branch")
+    void shouldRenderRefusalHints_onlyInFailureBranch() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        int unconfirmedBranch = jsp.indexOf("id=\"deliveryUnconfirmedWarning\"");
+        int failureBranch = jsp.indexOf("<c:otherwise>", unconfirmedBranch);
+        int failureBranchEnd = jsp.indexOf("</c:otherwise>", failureBranch);
+        assertThat(unconfirmedBranch).isPositive();
+        assertThat(failureBranch).isGreaterThan(unconfirmedBranch);
+        for (String hint : new String[] {"id=\"recipientRefusedHint\"", "id=\"senderRefusedHint\""}) {
+            int at = jsp.indexOf(hint);
+            assertThat(at).as(hint).isGreaterThan(failureBranch).isLessThan(failureBranchEnd);
+            assertThat(jsp.indexOf(hint, at + 1)).as(hint + " rendered once").isEqualTo(-1);
+        }
+        assertThat(jsp).contains("emailRefusal eq 'RECIPIENT'").contains("emailRefusal eq 'SENDER'");
+    }
 }
