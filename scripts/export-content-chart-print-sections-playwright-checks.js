@@ -10,10 +10,10 @@
  *
  * Asserts (pdftotext): the active allergy prints with its reaction, severity and start date; the given prevention
  * prints with its date and the refused one is flagged "(Refused)"; the deleted prevention is absent; the current
- * medications print, the discontinued and the expired one do not. LAST (fails today): an ARCHIVED allergy (removed
- * from the chart) is not printed (CaseManagementPrint uses findAllergies, which includes archived rows, and the
- * printer filters nothing), and a custom-name medication prescribed twice with another drug in between is listed
- * once (RxPrescriptionData.getUniquePrescriptionsByPatient lets the last comparison decide).
+ * medications print, the discontinued and the expired one do not. Archived allergies never print, including when
+ * every allergy is archived; restoring an active allergy makes it printable again. Deselecting the Allergies icon
+ * omits that section. LAST (independent known failure): a custom-name medication prescribed twice with another drug
+ * in between must be listed once (RxPrescriptionData.getUniquePrescriptionsByPatient lets the last comparison decide).
  * Fixtures: the owned FAKE-PW patient with SQL-seeded allergies, preventions, one prescription row with five drugs and
  * one signed note; cleanup deletes the patient's rows of each table and asserts it. Needs pdftotext.
  */
@@ -116,12 +116,46 @@ async function workflow(s) {
     h.assert(!rx.includes('EXPIRED'), 'An expired medication is printed as current');
   });
 
-  await s.step('an allergy removed from the chart is not printed and a repeated medication is listed once', async () => {
-    const problems = [];
-    if (squashed(text).includes(squashed(names.archived))) problems.push('the archived (removed) allergy is printed in the Allergies section with no marker that it is inactive');
+  await s.step('an allergy removed from the chart is absent from the PDF', async () => {
+    h.assert(!squashed(text).includes(squashed(names.archived)),
+      'The archived (removed) allergy is printed in the Allergies section');
+    h.assert(sql.value(`SELECT archived FROM allergies WHERE demographic_no=${patient} AND DESCRIPTION=${q(names.archived)}`) === '1',
+      'Printing changed the archived allergy record');
+  });
+
+  await s.step('a chart with only archived allergies prints no allergy entries', async () => {
+    sql.execute(`UPDATE allergies SET archived=1 WHERE demographic_no=${patient}`);
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printAllergies']);
+    const { text: archivedText } = await print.pressPrint(chart, scratch);
+    h.assert(archivedText.includes('Patient Allergies'), 'The selected Allergies section is missing');
+    for (const name of Object.values(names)) h.assert(!squashed(archivedText).includes(squashed(name)),
+      'An archived allergy is printed in an otherwise empty allergy section');
+  });
+
+  await s.step('a restored active allergy appears on the next print without its archived sibling', async () => {
+    sql.execute(`UPDATE allergies SET archived=0 WHERE demographic_no=${patient} AND DESCRIPTION=${q(names.active)}`);
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printAllergies']);
+    const { text: restoredText } = await print.pressPrint(chart, scratch);
+    h.assert(squashed(restoredText).includes(squashed(names.active)), 'The restored active allergy is missing');
+    h.assert(!squashed(restoredText).includes(squashed(names.archived)), 'The archived sibling is printed');
+  });
+
+  await s.step('deselecting the Allergies icon omits the section and its active entries', async () => {
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printRx', 'printPreventions']);
+    const { text: omittedText } = await print.pressPrint(chart, scratch);
+    h.assert(!omittedText.includes('Patient Allergies'), 'An unselected Allergies section is printed');
+    for (const name of Object.values(names)) h.assert(!squashed(omittedText).includes(squashed(name)),
+      'An allergy is printed when its section is unselected');
+    h.assert(omittedText.includes('Patient Rx History') && omittedText.includes('Patient Preventions History'),
+      'Deselecting Allergies also removed another selected section');
+  });
+
+  await s.step('a repeated medication is listed once', async () => {
     const times = squashed(text).split(squashed(`${marker}-X 10 mg once daily`)).length - 1;
-    if (times !== 1) problems.push(`the medication prescribed twice is listed ${times} times in the Rx history`);
-    h.assert(!problems.length, `The printed chart misstates the record: ${problems.join('; ')}`);
+    h.assert(times === 1, `The medication prescribed twice is listed ${times} times in the Rx history`);
   });
 }
 

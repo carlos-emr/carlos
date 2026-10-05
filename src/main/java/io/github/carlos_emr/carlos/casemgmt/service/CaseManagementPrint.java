@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Modifications by CARLOS Contributors, 2026.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -280,7 +281,9 @@ public class CaseManagementPrint {
 
         List<Allergy> allergies = null;
         if (printAllergies) {
-            allergies = allergyDao.findAllergies(demographicNo);
+            // Keep the existing severity order while excluding allergies removed from the chart.
+            allergies = allergyDao.findAllergies(demographicNo).stream()
+                    .filter(allergy -> !allergy.getArchived()).toList();
         }
 
         SimpleDateFormat headerFormat = new SimpleDateFormat("yyyy-MM-dd.hh.mm.ss");
