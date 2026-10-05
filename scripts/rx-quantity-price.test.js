@@ -25,11 +25,13 @@ function setup() {
     },
   }]));
   class XMLHttpRequest {
-    constructor() { requests.push(this); }
+    constructor() { this.aborted = false; requests.push(this); }
     open(method, url, asynchronous) { Object.assign(this, { method, url, asynchronous }); }
     setRequestHeader() {}
     send(body) { this.body = body; }
+    abort() { this.aborted = true; }
     respond(html) {
+      if (this.aborted) return;
       Object.assign(this, { status: 200, responseText: html, responseURL: this.url });
       this.onload();
     }
@@ -75,4 +77,37 @@ test('an unavailable price clears an earlier amount instead of leaving stale pri
   s.context.getCost('cost_7', '7', '', '30');
   s.requests[0].respond('');
   assert.equal(s.elements.get('cost_7').innerHTML, '');
+});
+
+
+test('a newer quantity aborts the previous lookup so its late response cannot overwrite the current price', () => {
+  const s = setup();
+  s.context.getCost('cost_7', '7', '0001234', '30');
+  s.context.getCost('cost_7', '7', '0001234', '60');
+  assert.equal(s.requests[0].aborted, true);
+  assert.equal(s.requests[1].aborted, false);
+  s.requests[1].respond('<span>$6.00/60</span>');
+  s.requests[0].respond('<span>$3.00/30</span>');
+  assert.equal(s.elements.get('cost_7').innerHTML, '<span>$6.00/60</span>');
+});
+
+test('editing another prescription card does not cancel its independent price lookup', () => {
+  const s = setup();
+  s.context.getCost('cost_7', '7', '0001234', '30');
+  s.context.getCost('cost_8', '8', '0005678', '60');
+  assert.equal(s.requests[0].aborted, false);
+  assert.equal(s.requests[1].aborted, false);
+  s.requests[1].respond('<span>$12.00/60</span>');
+  s.requests[0].respond('<span>$3.00/30</span>');
+  assert.equal(s.elements.get('cost_7').innerHTML, '<span>$3.00/30</span>');
+  assert.equal(s.elements.get('cost_8').innerHTML, '<span>$12.00/60</span>');
+  s.context.getCost('cost_7', '7', '0001234', '60');
+  assert.equal(s.requests[0].aborted, false, 'Completed requests should be released');
+});
+
+test('a removed prescription card does not start a price request', () => {
+  const s = setup();
+  s.elements.delete('cost_7');
+  s.context.getCost('cost_7', '7', '0001234', '30');
+  assert.equal(s.requests.length, 0);
 });

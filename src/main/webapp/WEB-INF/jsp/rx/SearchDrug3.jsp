@@ -2707,11 +2707,18 @@ function updateQty(element){
          function getCost(divId, randomId, din, qty) {
             var url = ctx + "/rx/ViewDrugPrice";
             var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
-            // Replace the previous amount when the quantity changes.
-            CarlosAjax.updater(divId, url, {
+            var costElement = document.getElementById(divId);
+            if (!costElement) return;
+            // A slower response for the previous quantity must not overwrite this price.
+            if (costElement._priceRequest) costElement._priceRequest.abort();
+            var request = CarlosAjax.updater(costElement, url, {
                 method: 'get',
-                parameters: params
+                parameters: params,
+                onComplete: function () {
+                    if (costElement._priceRequest === request) costElement._priceRequest = null;
+                }
             });
+            costElement._priceRequest = request;
         }  
 
          function validateRxDate() {
