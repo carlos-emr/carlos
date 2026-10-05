@@ -32,7 +32,7 @@ class BillingCodeStyleValidatorUnitTest {
     }
 
     @Test
-    void shouldBoundDeclarationSize() {
+    void shouldRejectDeclarations_whenTextExceedsLimit() {
         assertThat(BillingCodeStyleValidator.isSupported("color:red;".repeat(500))).isFalse();
     }
 }

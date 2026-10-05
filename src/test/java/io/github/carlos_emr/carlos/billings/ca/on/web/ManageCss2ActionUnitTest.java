@@ -267,7 +267,7 @@ class ManageCss2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectMissingAndOverlongNames() {
+    void shouldRejectNames_whenMissingOrOverlong() {
         for (String name : new String[] {null, "  ", "x".repeat(256)}) {
             ManageCss2Action action = writableAction();
             action.setStyleName(name);
