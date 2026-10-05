@@ -78,6 +78,16 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(registry, messages);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"post", "PoSt", "PO\u017fT", "PUT", "DELETE"})
+    void shouldRejectOtherMethodTokens_withoutMutatingPatients(String httpMethod) {
+        request.setMethod(httpMethod);
+        request.setParameter("method", "addToDiseaseRegistry");
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        verifyNoInteractions(registry, messages);
+    }
+
     @Test
     void shouldPreserveGet_forTheReadOnlyCodeDescription() throws Exception {
         request.setMethod("GET");

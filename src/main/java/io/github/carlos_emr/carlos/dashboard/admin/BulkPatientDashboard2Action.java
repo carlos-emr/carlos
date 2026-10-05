@@ -261,7 +261,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
 
     /** Refuses unsupported methods before any selected-patient mutation. */
     private boolean isPostRequest() {
-        if ("POST".equalsIgnoreCase(request.getMethod())) return true;
+        if ("POST".equals(request.getMethod())) return true;
         response.setHeader("Allow", "POST");
         response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         return false;
