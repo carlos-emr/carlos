@@ -2023,3 +2023,7 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
   leftover commented lines in the operator's file are cosmetic. Removing them
   means `carlos-ctl`'s `prop_set` reactivating a commented key in place, which
   belongs to the carlos-ctl repository.
+
+### Note-role repair isolation
+
+`admin-role-management` requires `EXCLUSIVE=1` on a disposable deployment with no other checks running. Launch it with `EXCLUSIVE=1 npm run test:admin-role-management-playwright` or `EXCLUSIVE=1 node scripts/run-playwright-suite.js --only admin-role-management`. The workflow refuses to seed or submit the global repair if any pre-existing note has `reporter_caisi_role='0'`; it verifies that empty, nonnumeric and other existing roles remain unchanged. Set the same variable when including this check in `--tier core`.
