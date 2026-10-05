@@ -38,13 +38,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.ExcellerisOntarioHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 /** Exercises reference ranges through complete PDF generation, including handler-produced breaks. */
 @Tag("unit")
 @Tag("lab")
 @Tag("pdf")
 @DisplayName("Lab PDF reference-range rendering")
-class LabPDFCreatorReferenceRangeUnitTest {
+class LabPDFCreatorReferenceRangeUnitTest extends CarlosUnitTestBase {
 
     static Stream<MessageHandler> handlers() {
         return Stream.of(new PATHL7Handler(), new ExcellerisOntarioHandler());

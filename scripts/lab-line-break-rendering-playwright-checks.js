@@ -235,7 +235,7 @@ async function checkPdf(page, config, labNo) {
     const second = lineOf(b);
     assert(first >= 0 && second > first, `lab PDF did not put "${a}" and "${b}" on separate lines`);
   }
-  assert(text.includes('<script>window.__carlos3953=1</script>'),
+  assert(text.includes('<script>window.__carlos3953=1</script>'), // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag -- checks extracted synthetic PDF text; no HTML is rendered
     'lab PDF lost or interpreted the literal script-like result text');
 }
 
