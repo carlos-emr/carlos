@@ -7,7 +7,7 @@ const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwrig
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
 // REST workflows may retain the patient fixture without opening its master record.
-async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflight, patientFixtureFactory } = {}) {
+async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
   let browser;
   let sql;
   let patient;
@@ -40,7 +40,7 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
         h.assert(/^[1-9]\d*$/.test(patient), 'The synthetic patient fixture was not created');
       }
       browser = await h.launchBrowser(config);
-      const context = await h.newContext(browser, config);
+      const context = await h.newContext(browser, config, contextOptions);
       context.setDefaultTimeout(20000);
       // Install synchronously on the event, before a popup's first script runs.
       context.on('page', page => h.wireStrictPage(page, name, recorder));

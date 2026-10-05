@@ -211,5 +211,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('lab-manual-entry-cumulative', workflow);
+if (require.main === module) runWorkflow('lab-manual-entry-cumulative', workflow, { contextOptions: { locale: 'en-US' } });
 module.exports = { workflow };
