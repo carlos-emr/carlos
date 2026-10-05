@@ -120,6 +120,13 @@ class ChartUpdateCoverageUnitTest {
         }
     }
 
+    @Test void shouldKeepSelfOverlappingQuotationVisible_whenOccurrencesOverlap() {
+        String source = "Ha. Ha. Ha.";
+        var coverage = ChartUpdateCoverage.parse(audit(source), source);
+        var rows = coverage.sections(source, List.of(new ChartUpdateProposals.Proposal("history", "Ha. Ha.")));
+        assertThat(rows.getFirst().get("gaps")).isEqualTo(List.of(source));
+    }
+
     @Test void shouldTrustAuditOnlyOnDedicatedOrchestration_whenChoosingAnAdapter() {
         var properties = new java.util.Properties();
         properties.setProperty("clinical.ai_summary_generation.agent", "http");

@@ -359,6 +359,15 @@ async function run() {
     await audit.locator('.coverage-rejected > summary').click();
     assert.match(await audit.locator('.coverage-rejected').innerText(), /Untrusted explanation <script>/);
     assert.equal(await audit.locator('script, img').count(), 0);
+    // New-tab routes (modified or middle click, context menu) use the GET review, never the frame's URL.
+    const suggestion = audit.getByRole('link', { name: 'Suggestion 3', exact: true });
+    const href = await suggestion.getAttribute('href');
+    assert.match(href, /\/documentManager\/AiChartUpdates\?documentId=\d+#proposal-/);
+    const standalone = await page.context().newPage();
+    assert.equal((await standalone.goto(new URL(href, base).href)).status(), 200);
+    assert.equal(await standalone.locator('article.proposal:target').getAttribute('data-proposal-key'),
+        await suggestion.getAttribute('data-review-proposal'));
+    await standalone.close();
     await audit.getByRole('link', { name: 'Suggestion 3', exact: true }).dispatchEvent('click', { button: 0, ctrlKey: true });
     assert.equal(await frame.locator('[data-review-position]').textContent(), '1 / 5');
     await audit.getByRole('link', { name: 'Suggestion 3', exact: true }).click();

@@ -339,11 +339,14 @@ invalidate the synthetic gateway caches; older accepted quotations are never rel
 as having passed the new omission check.
 
 The modal's **Document coverage review** shows each source section, links to retained
-suggestions, exact text fragments without a retained suggestion, and AI reviewer rejection
-reasons. Counts and gaps are derived locally from source quotations. Repeated occurrences
-of the same exact quotation link to the same suggestion but remain manual-review gaps: the
-quotation does not identify which occurrence was selected. A repeat may belong to a negation,
-relative or another date. This is text coverage, not a count of facts. A retained quotation may itself contain additional facts requiring attention.
+suggestions, exact text fragments that need manual coverage review, and AI reviewer
+rejection reasons. Counts and gaps are derived locally from source quotations. Repeated
+occurrences of the same exact quotation link to the same suggestion but remain
+manual-review gaps: the quotation does not identify which occurrence was selected. A
+repeat may belong to a negation, relative or another date. This is text coverage, not a
+count of facts. A retained quotation may itself contain additional facts requiring
+attention. A plain click on a suggestion link moves within the modal; a new tab opens the
+standalone review at that suggestion.
 Gap fragments can lose surrounding context, so the entire section is shown beside them and
 they are never offered as standalone clinical assertions or approval actions. Rejection
 reasons are untrusted AI explanations, displayed as escaped text.

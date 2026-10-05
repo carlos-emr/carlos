@@ -57,13 +57,18 @@
             <p><fmt:message key="chartUpdates.audit.workflows"/></p>
             <c:choose><c:when test="${not empty chartUpdateCoverage}">
                 <p><fmt:message key="chartUpdates.audit.processed"><fmt:param value="${chartUpdateCoverage.size()}"/></fmt:message></p>
+                <%-- In the modal, script handles plain clicks. A new tab needs the GET review: an error page is
+                     served at the POST-only action URL, and a bare fragment would resolve against that URL. --%>
+                <c:url var="chartUpdateReviewUrl" value="/documentManager/AiChartUpdates">
+                    <c:param name="documentId" value="${chartUpdateDocumentId}"/>
+                </c:url>
                 <c:forEach items="${chartUpdateCoverage}" var="section" varStatus="sectionNumber">
                     <details class="coverage-section">
                         <summary><fmt:message key="chartUpdates.audit.section"><fmt:param value="${sectionNumber.count}"/><fmt:param value="${section.links.size()}"/><fmt:param value="${section.gaps.size()}"/></fmt:message></summary>
                         <h3 class="h5"><fmt:message key="chartUpdates.evidence"/></h3>
                         <blockquote class="source-text"><carlos:encode value="${section.text}"/></blockquote>
                         <c:forEach items="${section.links}" var="link">
-                            <a href="#proposal-${carlos:forHtmlAttribute(link.key)}" data-review-proposal="${carlos:forHtmlAttribute(link.key)}"><fmt:message key="chartUpdates.audit.suggestion"><fmt:param value="${link.number}"/></fmt:message></a>
+                            <a href="${carlos:forHtmlAttribute(chartUpdateReviewUrl)}#proposal-${carlos:forHtmlAttribute(link.key)}" data-review-proposal="${carlos:forHtmlAttribute(link.key)}"><fmt:message key="chartUpdates.audit.suggestion"><fmt:param value="${link.number}"/></fmt:message></a>
                             <c:if test="${link.nativeRecord}"> (<fmt:message key="chartUpdates.section.${link.destination}"/>: <fmt:message key="chartUpdates.audit.normalForm"/>)</c:if>
                         </c:forEach>
                         <c:if test="${not empty section.gaps}">

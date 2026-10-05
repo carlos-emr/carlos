@@ -43,7 +43,7 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
     @Override
     public String displayName() { return name + " via agent API v1"; }
 
-    /** The configured service owns multi-pass orchestration; coverage remains optional for older services. */
+    /** Only the dedicated chart-update orchestration attests to coverage; older services may omit it. */
     @Override
     public boolean providesChartCoverageAudit() { return chartCoverageAudit; }
 
