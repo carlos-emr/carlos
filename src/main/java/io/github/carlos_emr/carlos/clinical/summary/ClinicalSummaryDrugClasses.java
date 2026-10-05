@@ -23,8 +23,9 @@ import static io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryAgentP
  */
 final class ClinicalSummaryDrugClasses {
     static final String PROPERTY = "clinical.ai_summary_generation.drugClasses";
-    private static volatile Map<String, String> loaded;
-    private static volatile String loadedFrom;
+    // Guarded by the class lock in configured(String); the published map is immutable.
+    private static Map<String, String> loaded;
+    private static String loadedFrom;
 
     private ClinicalSummaryDrugClasses() { }
 

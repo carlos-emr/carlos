@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -67,8 +68,8 @@ final class ClinicalSummaryGenerationPipeline {
             for (ObjectNode part : requests) run(snapshot, part, false, outputs);
         } else {
             // A long chart's passes are independent; run them side by side, assembled in planned order.
-            ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLEL_PASSES, requests.size()));
-            try {
+            // Closing the pool waits for every pass, so nothing is in flight against the cache or agent on return.
+            try (ExecutorService pool = Executors.newFixedThreadPool(Math.min(PARALLEL_PASSES, requests.size()))) {
                 List<Future<List<JsonNode>>> futures = new ArrayList<>();
                 for (ObjectNode part : requests) {
                     futures.add(pool.submit(() -> {
@@ -86,6 +87,11 @@ final class ClinicalSummaryGenerationPipeline {
                         if (failed == null) outputs.addAll(own);
                     } catch (ExecutionException failure) {
                         if (failed == null) failed = failure;
+                    } catch (InterruptedException interrupted) {
+                        // Ask the remaining passes to stop; closing the pool still waits for them.
+                        pool.shutdownNow();
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Generation interrupted", interrupted);
                     }
                 }
                 if (failed != null) {
@@ -94,11 +100,6 @@ final class ClinicalSummaryGenerationPipeline {
                     if (cause instanceof RuntimeException runtime) throw runtime;
                     throw new IOException("Generation failed", cause);
                 }
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Generation interrupted", interrupted);
-            } finally {
-                pool.shutdownNow();
             }
         }
         return outputs.size() == 1 ? outputs.getFirst() : merge(outputs, snapshot.get("sources"));
@@ -177,6 +178,8 @@ final class ClinicalSummaryGenerationPipeline {
     }
 
     private void run(ObjectNode snapshot, ObjectNode request, boolean cachePart, List<JsonNode> outputs) throws IOException {
+        // Agent HTTP calls ignore interrupts, so a cancelled pass stops before starting its next call.
+        if (Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Generation interrupted");
         ObjectNode part = snapshot.deepCopy();
         part.set("sources", request.get("sources").deepCopy());
         for (String field : List.of("claims", "sections", "coverage", "fact_ledger", "validation")) part.putArray(field);

@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.codec.binary.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -40,6 +42,35 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
  */
 @Repository
 public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailLogDao {
+
+    /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean initializePortalDelivery(EmailLog log) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.portalDeliveryState = :state, "
+                + "e.portalSourceReference = :source, e.portalOrigin = :origin, e.portalClinicId = :clinic, "
+                + "e.body = :body, e.password = '', e.passwordClue = '' "
+                + "WHERE e.id = :id AND e.portalDeliveryState IS NULL")
+                .setParameter("state", EmailLog.PortalDeliveryState.PREPARING)
+                // Same encoding as EmailLog.setBody, so the stored body reads back as the one sent.
+                .setParameter("body", Base64.encodeBase64(log.getBody().getBytes(StandardCharsets.UTF_8)))
+                .setParameter("source", log.getPortalSourceReference())
+                .setParameter("origin", log.getPortalOrigin()).setParameter("clinic", log.getPortalClinicId())
+                .setParameter("id", log.getId()).executeUpdate() == 1;
+    }
+
+    /** Compare-and-set prevents recovery and the original sender making conflicting decisions. */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean transitionPortalDelivery(EmailLog log, EmailLog.PortalDeliveryState expected,
+            EmailLog.PortalDeliveryState next, Long secretId) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.portalDeliveryState = :next, "
+                + "e.portalSecretId = :secret WHERE e.id = :id AND e.portalSourceReference = :source "
+                + "AND e.portalDeliveryState = :expected")
+                .setParameter("next", next).setParameter("secret", secretId).setParameter("id", log.getId())
+                .setParameter("source", log.getPortalSourceReference()).setParameter("expected", expected)
+                .executeUpdate() == 1;
+    }
 
     /**
      * Constructs a new EmailLogDaoImpl with the EmailLog entity class.

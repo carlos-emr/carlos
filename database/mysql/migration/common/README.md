@@ -33,6 +33,9 @@ run the updated acknowledgement code to participate in this coordination protoco
 metadata when the idempotent V1.0.21 creation finds a pre-existing coordination table.
 `V1.0.24__add_email_consent_audit.sql` records the consent decision enforced for each
 provider-to-patient email attempt.
+`V1.0.25__add_sms_system_of_record.sql` creates the SMS system-of-record tables and seeds the
+`_msgSMS` security object (read a stored message body).
+
 `V1.0.26__widen_email_config_for_encrypted_credentials.sql` expands email configuration storage
 to TEXT so encrypted credentials fit even when the plaintext configuration filled the old column.
 
@@ -51,13 +54,42 @@ must be rebuilt or explicitly reconciled before adopting this migration: Flyway
 [archive operations guide](../../../../docs/outbound-email-archive.md) for permissions,
 retirement semantics, and failure investigation.
 
+`V1.0.31__add_sms_security_objects.sql` seeds the `_sms` and `_admin.sms` security objects and
+their default grants (admin and doctor on `_sms`, admin on `_admin.sms`); existing clinic grants
+are preserved. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#security-objects).
+
+`V1.0.32__add_sms_consent.sql` seeds the dedicated `sms_communication_consent` consent type and the
+`sms_communication` property that points outbound SMS at it, and adds the consent audit snapshot
+columns (`consent_status`, `consent_id`, `consent_last_update_date`) to `sms_transaction`. The consent
+type is seeded inactive until its wording has compliance sign-off, so SMS stays blocked as not
+configured until it is activated, and then for each patient until their consent is recorded.
+See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
+
+`V1.0.33__reviewed_chart_update_receipts.sql` adds durable per-proposal receipts for optional
+clinician-reviewed document chart updates (#4065). Its number is set when it merges: it must be
+above the highest version on both develop and `release/2026.08`.
+
+`V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
+used by the patient portal client and grants them to `admin` only.
+Versions up to `V1.0.40` are not free: `release/2026.08` holds them and they arrive with that
+forward-merge.
+
+`V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
+(state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
+password. `V1.0.43` is reserved for the portal invite delivery migration (#3856), which merges
+after this one.
+
+`V1.0.54__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
+with its approved wording (#3848) and, in the same statement, switches the type on where the
+`sms_communication` property still points at it. A clinic's own wording is left alone, and a clinic
+that turned SMS consent off by deleting, clearing or repointing that property keeps it off. Its
+number is set when it merges: it must be above the highest version on both develop and
+`release/2026.08`.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.33`
-(also the highest shared one), so the next free version for ANY location is `V1.0.34`
-(see `../README.md`).
-
-`V1.0.33__reviewed_chart_update_receipts.sql` adds durable per-proposal receipts
-for optional clinician-reviewed document chart updates. This draft number is above
-`develop`'s current `V1.0.32`; reconcile it again before integrating the prototype.
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.42`
+(also the highest shared one), `V1.0.43` is reserved for #3856, and `release/2026.08` holds
+versions up to `V1.0.40`, so the next free version for ANY location is `V1.0.44` (see
+`../README.md`).

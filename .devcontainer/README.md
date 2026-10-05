@@ -175,6 +175,47 @@ The devcontainer captures outbound email to `/var/log/carlos-mail-capture/messag
 instead of sending it externally. Start the local mail server with `mail start`
 and inspect captured messages with `mail list` and `mail read`.
 
+### Commit Signing (Optional)
+
+`develop` only accepts signed commits. The devcontainer can sign commits made inside it
+(by you or by AI agents) with an SSH key, which avoids setting up GPG in the container.
+This is opt-in: without a key, nothing changes. Do this once, on your host (in WSL on Windows):
+
+1. **Create a signing key** (no passphrase, so agents can use it unattended; keep it
+   separate from your personal SSH key so you can revoke it on its own). Create the folder
+   yourself *before* the container next starts: if it is missing, Docker creates it owned by
+   root and you will not be able to write the key into it.
+   ```bash
+   mkdir -p ~/.carlos-signing && chmod 700 ~/.carlos-signing
+   ssh-keygen -t ed25519 -N "" -C "carlos-signing" -f ~/.carlos-signing/id_ed25519
+   ```
+   If `mkdir`/`ssh-keygen` fails with "Permission denied" because Docker already created the
+   folder, take ownership of it first: `sudo chown "$USER": ~/.carlos-signing`.
+2. **Register it on GitHub as a signing key:**
+   ```bash
+   gh auth refresh -h github.com -s admin:ssh_signing_key
+   gh ssh-key add ~/.carlos-signing/id_ed25519.pub --type signing --title "CARLOS devcontainer signing"
+   ```
+   Or use GitHub → Settings → SSH and GPG keys → New SSH key, with key type **Signing Key**.
+3. **Check your commit email** is one that is verified on your GitHub account, otherwise
+   commits show as "Unverified":
+   ```bash
+   git config --global user.email
+   ```
+4. **Rebuild the container** (Dev Containers: Rebuild Container).
+
+On start, `setup-commit-signing` configures git in the container to sign every commit.
+Check it with `git log --show-signature -1` after committing. When starting containers
+manually (without VS Code), run it yourself:
+```bash
+docker exec carlos-tomcat-dev sh /workspace/.devcontainer/development/scripts/setup-commit-signing
+```
+
+**Security note:** the key has no passphrase and is readable by anything running in the
+container, including AI agents. Anyone who compromises the container could sign commits as
+you until the key is revoked. Use this dedicated key only for this purpose, and if you suspect
+it has been exposed, delete it under GitHub → Settings → SSH and GPG keys and generate a new one.
+
 ## Manual Container Management (Without VS Code)
 
 ### **Start containers manually:**

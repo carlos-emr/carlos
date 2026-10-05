@@ -31,4 +31,25 @@ class EmailSendingExceptionUnitTest {
     void shouldBeException_forTheTypeContract() {
         assertThat(new EmailSendingException("test")).isInstanceOf(Exception.class);
     }
+
+    @Test
+    @DisplayName("should report no refusal from every constructor that does not name one")
+    void shouldReportNoRefusal_forConstructorsWithoutRefusal() {
+        Throwable cause = new IllegalStateException("cause");
+        assertThat(new EmailSendingException().getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+        assertThat(new EmailSendingException("m").getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+        assertThat(new EmailSendingException(cause).getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+        assertThat(new EmailSendingException("m", cause).getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+        assertThat(new EmailSendingException("m", cause, true).getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+    }
+
+    @Test
+    @DisplayName("should mark a refusal as a definite failure and treat a null refusal as none")
+    void shouldMarkRefusalDefinite_withNullAsNone() {
+        EmailSendingException refused = new EmailSendingException("m", null, EmailSendingException.Refusal.RECIPIENT);
+        assertThat(refused.isDeliveryOutcomeUncertain()).isFalse();
+        assertThat(refused.getRefusal()).isEqualTo(EmailSendingException.Refusal.RECIPIENT);
+        assertThat(new EmailSendingException("m", null, (EmailSendingException.Refusal) null).getRefusal())
+                .isEqualTo(EmailSendingException.Refusal.NONE);
+    }
 }

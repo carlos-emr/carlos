@@ -58,7 +58,34 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
     public static final String ARTIFACT_TYPE_API_PAYLOAD = "API_PAYLOAD";
     public static final String STORAGE_TYPE_EDOC = "EDOC";
     public static final String RETENTION_POLICY_PERMANENT = "PERMANENT";
+    /**
+     * Artifact captured; dispatch has not been attempted yet. Also the state a row is left in
+     * when CARLOS could not record an outcome, and the state of every row archived before the
+     * send lifecycle existed, so it never implies "not sent".
+     */
     public static final String SEND_STATUS_ARCHIVED = "ARCHIVED";
+
+    /**
+     * Dispatch was started and its outcome is not known. Written immediately before the
+     * transport is invoked, so it does not by itself establish that the transport took the
+     * artifact. A row that stays here after a send is an unresolved attempt, not a failure: it
+     * is the honest state for a dispatch whose result CARLOS could not observe.
+     */
+    public static final String SEND_STATUS_SEND_ATTEMPTED = "SEND_ATTEMPTED";
+
+    /**
+     * The transport accepted the artifact for delivery.
+     *
+     * <p><strong>This is not proof of delivery.</strong> SMTP acceptance means the relay took
+     * custody; the recipient's provider may still bounce or silently discard the message
+     * afterwards, asynchronously, with nothing reported back to CARLOS. Deliberately named
+     * ACCEPTED rather than SENT so an auditor reading the archive is not told more than the
+     * record actually knows.
+     */
+    public static final String SEND_STATUS_ACCEPTED = "ACCEPTED";
+
+    /** The transport refused the artifact, or failed before it could be handed over. */
+    public static final String SEND_STATUS_SEND_FAILED = "SEND_FAILED";
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "emailLogId", nullable = false)
@@ -306,12 +333,102 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return deleted;
     }
 
-    public String getSendStatus() {
-        return sendStatus;
+    /**
+     * Records that dispatch is starting, outcome not yet known.
+     *
+     * <p>Stamps {@code sendAttemptedAt} so an unresolved attempt can be told apart from an
+     * archive that was never dispatched at all — before this existed, both sat at ARCHIVED.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendAttempt(String providerNo) {
+        requireNotDeleted();
+        if (isSendOutcomeObserved() || SEND_STATUS_SEND_ATTEMPTED.equals(sendStatus)) {
+            // An observed outcome is terminal, and the marker itself is idempotent. A late or
+            // duplicated attempt marker must not turn an outcome back into "not known", nor
+            // replace when the attempt began and who began it.
+            return;
+        }
+        this.sendStatus = SEND_STATUS_SEND_ATTEMPTED;
+        this.sendAttemptedAt = new Date();
+        setLastUpdateUser(providerNo);
     }
 
-    public void setSendStatus(String sendStatus) {
-        this.sendStatus = sendStatus;
+    /**
+     * Records that the transport accepted the artifact for delivery.
+     *
+     * <p>See {@link #SEND_STATUS_ACCEPTED}: this states custody was transferred, not that the
+     * recipient received anything. Backfills {@code sendAttemptedAt} when the attempt marker
+     * could not be written, so the pair is never half-recorded.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendAccepted(String providerNo) {
+        requireNotDeleted();
+        if (isSendOutcomeObserved()) {
+            // One archive is one dispatch, so a second outcome contradicts the first rather
+            // than updating it. Keep what was observed first: flipping a recorded refusal to
+            // ACCEPTED would pair a new sentAt with the failed attempt's timestamp.
+            return;
+        }
+        Date acceptedAt = new Date();
+        this.sendStatus = SEND_STATUS_ACCEPTED;
+        if (this.sendAttemptedAt == null) {
+            this.sendAttemptedAt = acceptedAt;
+        }
+        this.sentAt = acceptedAt;
+        setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * Records that the transport refused the artifact or failed before handing it over.
+     *
+     * <p>Leaves {@code sentAt} null: nothing accepted custody. Reserved for failures CARLOS
+     * observed directly — a dispatch whose outcome is genuinely unknown stays at
+     * {@link #SEND_STATUS_SEND_ATTEMPTED} rather than being recorded as a failure it cannot
+     * prove.</p>
+     *
+     * @param providerNo provider number responsible for the send
+     */
+    public void recordSendFailure(String providerNo) {
+        requireNotDeleted();
+        if (isSendOutcomeObserved()) {
+            // A post-acceptance bookkeeping fault must not rewrite a recorded acceptance, and a
+            // repeated failure must not replace the first one's audit stamp.
+            return;
+        }
+        this.sendStatus = SEND_STATUS_SEND_FAILED;
+        if (this.sendAttemptedAt == null) {
+            this.sendAttemptedAt = new Date();
+        }
+        setLastUpdateUser(providerNo);
+    }
+
+    /**
+     * A tombstone is frozen. The service refuses first, under the row lock; this keeps the
+     * invariant on the entity as well, the way the legal hold transitions do, so a future
+     * caller cannot restamp a deleted row by reaching the mutators directly.
+     */
+    private void requireNotDeleted() {
+        if (deleted) {
+            throw new IllegalStateException("Outbound email archive is already deleted");
+        }
+    }
+
+    /**
+     * Whether the transport's answer has been recorded. Only {@code ACCEPTED} and
+     * {@code SEND_FAILED} are terminal; {@code ARCHIVED} and {@code SEND_ATTEMPTED} both mean
+     * "not known" and can still advance.
+     */
+    private boolean isSendOutcomeObserved() {
+        return SEND_STATUS_ACCEPTED.equals(sendStatus) || SEND_STATUS_SEND_FAILED.equals(sendStatus);
+    }
+
+    // No setters for sendStatus, sendAttemptedAt or sentAt, on purpose. The record* methods
+    // above are the only way to move the send lifecycle, so the deleted-row and
+    // terminal-outcome guards cannot be bypassed. Field access means JPA needs none.
+    public String getSendStatus() {
+        return sendStatus;
     }
 
     public Date getArchivedAt() {
@@ -326,16 +443,8 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
         return sendAttemptedAt;
     }
 
-    public void setSendAttemptedAt(Date sendAttemptedAt) {
-        this.sendAttemptedAt = sendAttemptedAt;
-    }
-
     public Date getSentAt() {
         return sentAt;
-    }
-
-    public void setSentAt(Date sentAt) {
-        this.sentAt = sentAt;
     }
 
     public Date getDeletedAt() {

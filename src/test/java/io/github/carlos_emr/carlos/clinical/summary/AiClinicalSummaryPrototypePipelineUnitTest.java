@@ -42,7 +42,11 @@ class AiClinicalSummaryPrototypePipelineUnitTest {
                 call = requests.size();
             }
             if (slowMs > 0) {
-                try { Thread.sleep(slowMs); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                try {
+                    Thread.sleep(slowMs);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
             }
             assertThat(JSON.writeValueAsBytes(request).length).isLessThanOrEqualTo(requestBytes);
             if (call == failOnCall) throw new IOException("Test failure");

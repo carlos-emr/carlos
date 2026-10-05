@@ -40,8 +40,25 @@ separate chart composer is implemented, reviewed, and documented.
   saves the eForm and moves email options, attachment selections, and patient
   context into session state for the compose redirect.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
-  requires `_email`, loads consent and recipients, loads active sender accounts,
-  prepares attachments, and renders the compose screen.
+  requires `_email` and read access to the patient (`_demographic`, including
+  per-patient restrictions), and works in two steps. The first request takes
+  the staged session state once, prepares the attachments and the one-time send
+  token, and redirects to `email/emailComposeAction?composeView=<id>`. That view
+  URL loads consent, recipients and active sender accounts and renders the
+  compose screen. Refreshing it shows the same compose screen, password and
+  attachments without preparing anything again; an attachment preview link is
+  renewed once less than a minute of its two minutes remains.
+  The window shows "This email compose window has expired" instead when:
+  - a send was submitted from it, even one that failed, or it was cancelled;
+  - 30 minutes have passed since it was prepared;
+  - it was the oldest of more than eight unsent compose states in the
+    session, which also counts Manage Emails resends and send retries;
+  - the URL is opened in another session, including after logging in again;
+  - Tomcat restarted, or the request reached another server, because the
+    prepared state is held in that server's memory.
+
+  If preparing the attachments or storing the state fails, the provider is
+  returned to the eForm with a generic error instead.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`
@@ -103,6 +120,112 @@ For production use, treat email as an external delivery dependency:
 - Send non-PHI test messages after every sender configuration change.
 - Confirm successful test delivery and `EmailLog` status before sending patient
   communications.
+
+## Optional PDF Signing
+
+Outgoing PDF attachments can carry a cryptographic signature. It is disabled by
+default (`pdf.signing.enabled=false`); with it off, nothing about a send changes.
+
+What a signature does and does not give the recipient:
+
+- It lets a PDF reader show that the file has not been altered since CARLOS
+  signed it, and which certificate signed it.
+- It does not encrypt anything and does not replace the password-protected PDF
+  workflow. Signing runs after that encryption, so the signature covers the
+  exact bytes that are archived and sent.
+- A self-signed certificate proves control of the clinic's private key, but
+  readers show an "unknown signer" warning until the recipient trusts that
+  certificate. A certificate from a recognised authority avoids the warning.
+
+To enable it, provision a PKCS#12 or JKS keystore holding the private key and
+its certificate chain, readable only by the Tomcat user, and set in
+`carlos.properties`:
+
+```
+pdf.signing.enabled=true
+pdf.signing.keystore.path=/etc/carlos-emr/pdf-signing.p12
+pdf.signing.keystore.type=PKCS12
+pdf.signing.keystore.password=...
+pdf.signing.key.alias=...
+```
+
+`pdf.signing.key.password` defaults to the keystore password. The signer name,
+reason, location and contact shown in the reader are optional. Passwords are
+used exactly as written, so a trailing space after the value makes the keystore
+unreadable.
+
+Property changes take effect after a Tomcat restart. The keystore file itself is
+read on every send, so a keystore replaced in place at the same path takes
+effect immediately.
+
+Signing is fail-closed. Once enabled, a missing keystore, a wrong password, a
+key that does not match its certificate, or a certificate whose key usage
+forbids signing fails the send with "Failed to sign email PDF attachment"
+rather than delivering an unsigned file. Every attachment on the email is
+signed, so every attachment must be a PDF. Send a non-PHI test message after
+enabling it or rotating the keystore, and open the received PDF to confirm the
+signature panel.
+
+Two situations stop sends once signing is on, and both show in **Admin > Manage
+Emails** as "Failed to sign email PDF attachment", with the cause in the server
+log:
+
+- **The certificate expires, or is not yet valid.** Validity is checked on
+  every send, so from the expiry date until the keystore is replaced every
+  email with an attachment fails. That includes every encrypted-message email,
+  because the message itself travels as a signed PDF. Track the expiry date and
+  rotate ahead of it.
+- **A source PDF needs a password to open**, most often an uploaded document
+  that a third party protected with its own password. CARLOS cannot sign what
+  it cannot open, so that document cannot be emailed while signing is enabled.
+  A document that is only restricted (it opens without a password but limits
+  printing or editing) is signed normally.
+
+## Running More Than One Application Server
+
+The supported install is one application server
+([docs/install-deb.md](../install-deb.md)). If a deployment runs several
+CARLOS servers behind a load balancer, it **must route each login session to
+the same server for the whole session** ("sticky sessions", or session
+affinity). The email compose flow requires it:
+
+- Opening a compose window, or preparing a resend from **Manage Emails**,
+  creates a one-time token. The generated PDF passphrase, its clue and the
+  prepared attachment list are kept in that server's memory under the token.
+  They are not stored in the HTTP session or the database. An entry lasts at
+  most 30 minutes, with at most 8 per login session and 1,024 per server.
+- The attachment PDFs prepared for that window are written to that server's
+  own temporary directory.
+- An attachment preview link is valid on that server only, for two minutes.
+
+If submission of a prepared email or prepared resend reaches a different
+server, that server cannot resolve its submission token. The send is refused
+before transport with "This email compose window has expired or is no longer
+valid. Please reopen the email compose window and try again."
+
+A preview request that reaches a server without its preview capability returns
+HTTP 403. A failed preview does not establish whether a separate send was
+attempted or accepted. Opening a new resend from **Manage Emails** creates fresh
+state on the receiving server, provided the authenticated session and source
+documents are available. Submitting that prepared resend still requires the
+same server.
+
+To recover an unusable compose, return to the eForm and choose **Email** again,
+or open a new resend from **Manage Emails**. Refreshing or reopening the old
+compose URL does not recreate its prepared state. A restart or failover loses
+the previous server's prepared state; HTTP-session replication does not
+preserve it.
+
+Carrying it between servers would need a shared, short-lived store that keeps
+what the current design guarantees:
+- a token works once;
+- entries expire quickly;
+- storage is bounded;
+- no passphrase or attachment is ever in the HTTP session;
+- nothing sensitive appears in logs or error messages.
+
+CARLOS does not provide such a store, so sticky routing is the supported
+configuration ([issue #3225](https://github.com/carlos-emr/carlos/issues/3225)).
 
 ## Monitoring and Operations
 
