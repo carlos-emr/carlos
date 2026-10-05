@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
+ * Run exclusively on a disposable deployment: EXCLUSIVE=1 npm run test:admin-role-management-playwright
  * Role and privilege administration: coverage plan §2.2 admin-misc / role-privilege-matrix.
  * User path: Schedule ▸ Administration ▸ System Management ▸ Add A Role, Assign Role/Rights to Object;
  * User Management ▸ Assign Role to Provider (fixture step; assign-role covers it); Schedule Management
@@ -312,15 +313,18 @@ async function workflow(s) {
   });
   await s.step('Fix notes refuses GET/HEAD and missing CSRF, then a protected POST repairs only the owned note', async () => {
     // This utility updates every zero-role note. Refuse to run if any pre-existing row could be affected.
-    h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role=0') === '0',
+    h.assert(sql.value("SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role='0'") === '0',
       'Pre-existing invalid-role notes prevent an isolated repair test');
-    const others = () => JSON.stringify(sql.rows(`SELECT note_id,reporter_caisi_role FROM casemgmt_note
-      WHERE demographic_no<>${s.patient} OR demographic_no IS NULL ORDER BY note_id`));
-    const before = others();
     const q = h.sqlString;
+    const uuids = [marker, `${marker}-empty`, `${marker}-text`].map(q).join(',');
+    const ownedNotes = `demographic_no=${s.patient} AND uuid IN (${uuids})`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE ${ownedNotes}`) === '0', 'The note marker is already in use');
+    const others = () => JSON.stringify(sql.rows(`SELECT note_id,reporter_caisi_role FROM casemgmt_note
+      WHERE NOT (${ownedNotes}) OR demographic_no IS NULL OR uuid IS NULL ORDER BY note_id`));
+    const before = others();
     s.cleanup(() => {
-      sql.execute(`DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND uuid=${q(marker)}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${s.patient}`) === '0',
+      sql.execute(`DELETE FROM casemgmt_note WHERE ${ownedNotes}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE ${ownedNotes}`) === '0',
         'The owned repair note remains');
       h.assert(others() === before, 'The repair changed another note role');
     });
@@ -329,8 +333,16 @@ async function workflow(s) {
       VALUES (NOW(),NOW(),${s.patient},${q(s.provider)},${q(marker)},${q(marker)},${q(marker)},0,0,'0',0);
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(noteId), 'No owned note ID was returned');
+    for (const [suffix, value] of [['empty', ''], ['text', 'invalid-role']]) {
+      sql.execute(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,
+        note,history,uuid,locked,archived,reporter_caisi_role,appointmentNo)
+        VALUES (NOW(),NOW(),${s.patient},${q(s.provider)},${q(marker)},${q(marker)},${q(`${marker}-${suffix}`)},0,0,${q(value)},0)`);
+    }
+    const untouchedRoles = () => sql.rows(`SELECT uuid,reporter_caisi_role FROM casemgmt_note
+      WHERE demographic_no=${s.patient} AND uuid IN (${q(`${marker}-empty`)},${q(`${marker}-text`)}) ORDER BY uuid`);
+    const untouchedBefore = JSON.stringify(untouchedRoles());
     const currentRole = () => sql.value(`SELECT reporter_caisi_role FROM casemgmt_note WHERE note_id=${noteId}`);
-    h.assert(sql.value('SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role=0') === '1'
+    h.assert(sql.value("SELECT COUNT(*) FROM casemgmt_note WHERE reporter_caisi_role='0'") === '1'
       && currentRole() === '0', 'The repair would target anything other than the owned note');
     const route = h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes');
     for (const method of ['GET', 'HEAD']) {
@@ -348,6 +360,7 @@ async function workflow(s) {
     await submitIn(admin, frame, frame.locator('input[type="submit"]'));
     await h.assertNotErrorPage(frame, 'protected note role repair');
     h.assert(currentRole() === roleNo && others() === before, 'The protected repair did not change exactly the owned note');
+    h.assert(JSON.stringify(untouchedRoles()) === untouchedBefore, 'The repair overwrote an empty or nonnumeric role');
   });
 
   await s.step('ProviderAddRole and ProviderPrivilege refuse a GET save without writing', async () => {

@@ -4018,8 +4018,8 @@
         "all"
       ],
       "timeoutSec": 420,
-      "env": [],
-      "notes": "Fails at its last step on 2026.08: TypeError on Assign Role/Rights to Object, the Administration link 403s for plain doctors, and GET FixRolesOnNotes reaches the bulk update (500 on the probe's invalid role).",
+      "env": ["EXCLUSIVE"],
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding.",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
     {
