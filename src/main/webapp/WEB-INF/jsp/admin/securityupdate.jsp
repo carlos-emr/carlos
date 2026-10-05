@@ -59,7 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePinHandler" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
 <%
@@ -86,9 +86,6 @@
         </table>
         <%
 	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
-
-            String sPin = request.getParameter("pin");
-            if (CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(request.getParameter("pin"));
 
             int rowsAffected = 0;
 
@@ -118,10 +115,8 @@
                     s.setPasswordUpdateDate(new java.util.Date());
                 }
 
-                if (request.getParameter("pin") == null || !"****".equals(request.getParameter("pin"))) {
-                    s.setPin(sPin);
-                    s.setPinUpdateDate(new java.util.Date());
-                }
+                SecurityUpdatePinHandler.apply(s, request.getParameter("pin"),
+                        CarlosProperties.getInstance().isPINEncripted());
 
                 if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
                     s.setForcePasswordReset(Boolean.TRUE);
