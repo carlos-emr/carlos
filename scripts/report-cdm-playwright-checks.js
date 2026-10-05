@@ -220,6 +220,8 @@ async function workflow(s) {
       if (more[0] !== 2) defects.push(`more than 0 counted ${more[0]} patients; SQL gives 2`);
       if (less[0] !== exact[1] - 2) defects.push(`less than 1 counted ${less[0]} of ${exact[1]} patients seen; expected ${exact[1] - 2}`);
       if (!inBracket(exact[1])) defects.push(`the frequency denominator is ${exact[1]}; SQL counts ${seenBefore}..${seenAfter}`);
+      if (!inBracket(more[1])) defects.push(`the more-than denominator is ${more[1]}; SQL counts ${seenBefore}..${seenAfter}`);
+      if (!inBracket(less[1])) defects.push(`the less-than denominator is ${less[1]}; SQL counts ${seenBefore}..${seenAfter}`);
     }
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
     await page.close();
