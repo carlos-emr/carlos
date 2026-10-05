@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -48,7 +49,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @Tag("unit")
 @Tag("security")
-class ProseSinkEncodingRegressionTest {
+class ProseSinkEncodingRegressionTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> sinks() {
         return Stream.of(
