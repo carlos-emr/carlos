@@ -394,6 +394,8 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
 
                 assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
                         .contains("config id=22").contains("its api_key cannot be encrypted"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("sg-secret", "stale-secret", "{ENC}", "{\""));
             }
         }
 
@@ -703,6 +705,8 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
 
                 assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
                 assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_UNREADABLE_LEFTOVER_ERROR), any());
                 verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
                 logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
                         eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=unreadableLeftover"), eq("123"), eq("")));

@@ -112,10 +112,12 @@ public class EmailManager {
     static final String SENDER_CONFIG_MISCONFIGURATION_ERROR = "Email sender account is not configured or is inactive.";
     /**
      * Opt-in enforcement (#3673): when on ("true", "yes" or "on", as for every CARLOS switch), a
-     * sender account holding plaintext credentials is refused while the application encryption
-     * key is unavailable, instead of sending with credentials that cannot be protected at rest.
-     * Absent or off only warns. The servlet Startup listener creates and saves a key when none is
-     * set, so this matters for entry points that bypass Startup and as a guard should that change.
+     * sender account whose plaintext credential cannot be protected at rest is refused instead of
+     * sending: while the application encryption key is unavailable, or while an unreadable leftover
+     * credential keeps the transport's plaintext credential from being encrypted. Absent or off
+     * only warns. The servlet Startup listener creates and saves a key when none is set, so on a
+     * normal deployment only the leftover case applies; the first guards entry points that bypass
+     * Startup, should that change.
      */
     static final String REQUIRE_CREDENTIAL_KEY_PROPERTY = "email.credentials.require_encryption_key";
     static final String CREDENTIAL_KEY_REQUIRED_ERROR =
@@ -776,7 +778,8 @@ public class EmailManager {
      *
      * <p>A warning that lets the send proceed is logged once per account per server run, whatever
      * its later edits; each refusal logs an ERROR, since each is a send that did not go out. Logs
-     * name the account id and the setting, never the credential, the key or the JSON.</p>
+     * name the account id, the setting and the credential's field name, never the credential, the
+     * key or the JSON.</p>
      *
      * @return the staff-facing reason to record, or null when the send may proceed
      */
@@ -803,7 +806,11 @@ public class EmailManager {
                 : credentialRefusalWithoutKey(id, details, field);
     }
 
-    /** {@link #credentialKeyRefusal} with a key: only an encrypted credential the transport reads can be refused. */
+    /**
+     * {@link #credentialKeyRefusal} with a key: an encrypted credential the transport reads that does
+     * not decrypt is refused; so, under enforcement, is a plaintext one an unreadable leftover keeps
+     * from being encrypted.
+     */
     private String credentialRefusalWithKey(Integer id, String details, String field,
                                             EmailConfigSecrets.TransportSecretState state) {
         if (state != EmailConfigSecrets.TransportSecretState.ENCRYPTED
@@ -811,7 +818,8 @@ public class EmailManager {
             return null;
         }
         // Only the credential this transport reads can stop its mail. A leftover it never reads,
-        // such as an old password on an API account, is reported and the send proceeds.
+        // such as an old password on an API account, is reported and the send proceeds, unless
+        // enforcement refuses it below.
         if (EmailConfigSecrets.encryptedSecretDecrypts(details, field)) {
             // The leftover also stops the at-rest upgrade, so a plaintext credential beside it stays plaintext.
             boolean ownPlaintext = EmailConfigSecrets.transportSecretState(details, field)

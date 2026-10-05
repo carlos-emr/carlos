@@ -123,9 +123,9 @@ current key cannot read the credentials), `keyMissing` (the credentials are
 encrypted and no key is available), `keyRequired` (plaintext credentials
 refused under the enforcement setting) or `unreadableLeftover` (a plaintext
 credential an unreadable leftover keeps from being encrypted, refused under
-the enforcement setting). Logs name the account id and the
-setting only. They never contain the credential, the configuration JSON or the
-key.
+the enforcement setting). Logs name the account id, the setting and the
+credential's field name (`password` or `api_key`) only. They never contain the
+credential, the configuration JSON or the key.
 
 At startup CARLOS logs whether the enforcement setting is on. That line is
 logged at INFO, and the default log level is WARN, so it does not appear unless
@@ -145,7 +145,9 @@ WARN, so that warning appears at the default level; enforcement is then off.
 3. Optionally set `email.credentials.require_encryption_key=true` and restart.
    With Startup in place, the only sends this refuses are from an account
    whose credential stays plaintext because an old credential beside it cannot
-   be read (see the table above); clear or re-enter that old credential. It is
+   be read (see the table above); clear or re-enter that old credential. Before
+   turning it on, look for "stays unencrypted" warnings from step 2: those
+   accounts will be refused until their old credential is cleared. It is
    also a guard for deployments or tools that run CARLOS code without Startup,
    and against a future change to key creation.
 
