@@ -425,10 +425,18 @@ async function workflow(s) {
     const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(concurrentLast)}
       AND first_name=${h.sqlString(v.firstName)}`).flat();
     h.assert(ids.length === 1, 'Concurrent imports created duplicate patients');
-    for (const table of ['drugs', 'allergies', 'casemgmt_note']) {
+    for (const table of ['drugs', 'allergies']) {
       h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${Number(ids[0])}`) === '1',
         `Concurrent imports duplicated or omitted ${table}`);
     }
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}
+      AND note=${h.sqlString(v.note)}`) === '1', 'Concurrent imports duplicated or omitted the clinical note');
+    // The importer also stores linked medication/allergy/demographic annotations in this table.
+    // Require the same total as the equivalent single import, including those ancillary notes.
+    const singleNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id}`);
+    const concurrentNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}`);
+    h.assert(concurrentNotes === singleNotes,
+      `Concurrent import stored ${concurrentNotes} total notes; the equivalent single import stored ${singleNotes}`);
     await expectValue(s.sql, "SELECT IS_FREE_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())))", '1',
       'A completed import retained its database lock');
   });
