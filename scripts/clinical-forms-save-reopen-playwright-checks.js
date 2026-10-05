@@ -138,17 +138,19 @@ async function workflow(s) {
           for (const field of dates) await page.locator(`[name="${field.name}"]`).fill(field.value);
           for (const field of dates) {
             const input = page.locator(`[name="${field.name}"]`);
-            await input.fill('2026/02/30');
-            const invalid = await h.withExpectedDialogs(page,
-              () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
-            h.assert(invalid.length === 1 && invalid[0].type === 'alert'
-              && /valid date/i.test(invalid[0].text), 'An invalid date must show one useful validation alert');
-            h.assert(await input.inputValue() === '2026/02/30', 'Validation discarded the typed date');
-            h.assert(await input.evaluate(element => element === element.ownerDocument.activeElement),
-              'Validation did not focus the invalid date');
-            h.assert(page.url() === originalUrl && posts === 0, 'Invalid-date validation submitted the form');
-            h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
-              'Invalid-date validation wrote a form record');
+            for (const invalidValue of ['2026/02/30', '2026//01', '2026/01/', '2026//', '2026--01']) {
+              await input.fill(invalidValue);
+              const invalid = await h.withExpectedDialogs(page,
+                () => page.getByRole('button', { name: 'Save', exact: true }).first().click());
+              h.assert(invalid.length === 1 && invalid[0].type === 'alert'
+                && /valid date/i.test(invalid[0].text), 'An invalid date must show one useful validation alert');
+              h.assert(await input.inputValue() === invalidValue, 'Validation discarded the typed date');
+              h.assert(await input.evaluate(element => element === element.ownerDocument.activeElement),
+                'Validation did not focus the invalid date');
+              h.assert(page.url() === originalUrl && posts === 0, 'Invalid-date validation submitted the form');
+              h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
+                'Invalid-date validation wrote a form record');
+            }
             await input.fill(field.value);
           }
           const cancelled = await h.withExpectedDialogs(page,

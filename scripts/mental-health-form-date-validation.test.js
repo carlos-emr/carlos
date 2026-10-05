@@ -43,7 +43,9 @@ for (const values of [{}, {onDate:'2026/09/30', todayDate:'2026-10-01'},
 }
 
 for (const name of ['onDate', 'todayDate']) {
-  for (const value of ['2026/02/29', '2026-13-01', '2026/04/31', 'not a date']) {
+  for (const value of ['2026/02/29', '2026-13-01', '2026/04/31', 'not a date',
+    '2026//01', '2026/01/', '2026//', '2026--01', '2026-01-', '2026--',
+    '2026/01/01/extra', '2026/01/01/']) {
     test(`Save refuses invalid ${name}: ${value}`, () => {
       const e = editor({onDate:'2026/09/30', todayDate:'2026/10/01', [name]:value});
       assert.equal(e.context.onSave(), false);

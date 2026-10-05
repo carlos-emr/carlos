@@ -268,7 +268,8 @@
                 var m = dt[1];
                 var d = dt[2];
                 var orderString = m + '/' + d + '/' + y;
-                var pass = isDate(orderString);
+                var pass = dt.length === 3 && dt.every(function (part) { return /^\d+$/.test(part); })
+                    && isDate(orderString);
 
                 if (pass != true) {
                     alert(mentalHealthInvalidDateMessage);
