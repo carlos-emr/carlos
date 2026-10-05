@@ -44,6 +44,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
@@ -149,6 +150,62 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.generate()).isEqualTo(ActionSupport.NONE);
         verify(response).sendError(404);
         verifyNoInteractions(documents, summarizer);
+    }
+
+    // The flag check comes first, so a switched-off feature never answers 405 or 403.
+    @ParameterizedTest
+    @CsvSource({"generate,GET", "generate,PUT", "preview,POST", "preview,DELETE"})
+    void shouldHideFeature_forEveryMethodWhenDisabled(String operation, String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(properties.getProperty(DocumentSummaryService.ENABLED_PROPERTY, "false")).thenReturn("false");
+        assertThat("generate".equals(operation) ? action.generate() : action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(404);
+        verify(response, never()).sendError(405);
+        verify(response, never()).setHeader(eq("Allow"), anyString());
+        verifyNoInteractions(security, documents, summarizer);
+        sessions.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldOfferChartUpdates_whenAllThreeFlagsOnAndTextComplete() throws Exception {
+        when(request.getMethod()).thenReturn("GET");
+        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request).setAttribute("chartUpdatesEnabled", true);
+    }
+
+    @Test
+    void shouldHideChartUpdates_whenChartUpdateFlagOff() throws Exception {
+        when(request.getMethod()).thenReturn("GET");
+        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("false");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request).setAttribute("chartUpdatesEnabled", false);
+    }
+
+    // The link must follow the same switch as the eChart header, layout and document report.
+    @Test
+    void shouldHideChartUpdates_whenSharedSwitchOff() throws Exception {
+        when(request.getMethod()).thenReturn("GET");
+        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        try (MockedStatic<ChartUpdateContext> shared = mockStatic(ChartUpdateContext.class)) {
+            shared.when(ChartUpdateContext::enabled).thenReturn(false);
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            shared.verify(ChartUpdateContext::enabled);
+        }
+        verify(request).setAttribute("chartUpdatesEnabled", false);
+    }
+
+    // Partial, blank or empty text cannot back a reviewed chart update, even with every flag on.
+    @ParameterizedTest
+    @CsvSource(value = {"Blood work planned.|false", "'   '|true", "''|true"}, delimiter = '|')
+    void shouldHideChartUpdates_whenTextPartialOrBlank(String text, boolean complete) throws Exception {
+        when(request.getMethod()).thenReturn("GET");
+        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        reader.when(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"))
+                .thenReturn(new ClinicalSummaryTextExtractor.Extract(text, complete, "Extraction note."));
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request).setAttribute("chartUpdatesEnabled", false);
     }
 
     @Test

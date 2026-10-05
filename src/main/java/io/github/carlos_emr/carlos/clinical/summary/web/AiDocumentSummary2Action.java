@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.clinical.summary.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationService;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryTextExtractor;
@@ -59,6 +60,13 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
+        // A switched-off feature answers 404 to every method, before anything else is read.
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (!"true".equals(properties.getProperty(DocumentSummaryService.ENABLED_PROPERTY, "false"))
+                || !"true".equals(properties.getProperty(ClinicalSummaryGenerationService.ENABLED_PROPERTY, "false"))) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return NONE;
+        }
         if (generate ? !"POST".equals(request.getMethod())
                 : !"GET".equals(request.getMethod()) && !"HEAD".equals(request.getMethod())) {
             response.setHeader("Allow", generate ? "POST" : "GET, HEAD");
@@ -68,12 +76,6 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (user == null || !security.hasPrivilege(user, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
-        }
-        CarlosProperties properties = CarlosProperties.getInstance();
-        if (!"true".equals(properties.getProperty(DocumentSummaryService.ENABLED_PROPERTY, "false"))
-                || !"true".equals(properties.getProperty(ClinicalSummaryGenerationService.ENABLED_PROPERTY, "false"))) {
-            response.sendError(HttpServletResponse.SC_NOT_FOUND);
-            return NONE;
         }
         int documentId;
         try {
@@ -85,9 +87,9 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         var document = authorizedDocument(user, documentId);
         ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType());
         request.setAttribute("documentSummaryId", documentId);
-        request.setAttribute("chartUpdatesEnabled", "true".equals(properties.getProperty(
-                io.github.carlos_emr.carlos.clinical.summary.ChartUpdateProposals.ENABLED, "false"))
-                && extract.complete() && !extract.text().isBlank());
+        // Same three flags as the eChart header, layout and document report, plus readable text.
+        request.setAttribute("chartUpdatesEnabled",
+                ChartUpdateContext.enabled() && extract.complete() && !extract.text().isBlank());
         request.setAttribute("documentSummaryTitle", document.title());
         request.setAttribute("documentSummaryExtraction", extract.reason());
         request.setAttribute("documentSummaryAllowed", !extract.text().isBlank());
