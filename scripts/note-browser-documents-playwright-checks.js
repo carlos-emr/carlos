@@ -299,6 +299,18 @@ async function workflow(s) {
     const rowTexts = (await Promise.all(rows.map(row => row.innerText()))).map(normalize);
     h.assert(JSON.stringify(rowTexts) === JSON.stringify(texts.map(normalize)),
       'A saved row lost its own revision text or the rows are out of order');
+    // DATETIME stores seconds: a later saved row can have the same update timestamp.
+    const newestText = `${marker} same-second newest revision`;
+    const newestHistory = `${newestText}\n----------------History Record----------------\n${storedHistory}`;
+    sql.execute(`INSERT INTO casemgmt_note (update_date, note, history, ${metadata})
+      SELECT update_date, ${h.sqlString(newestText)}, ${h.sqlString(newestHistory)}, ${metadata}
+      FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '4',
+      'The same-second fixture did not create exactly one newer saved revision');
+    await history.reload();
+    h.assert(await stored.count() === 1 && normalize(await stored.innerText()) === normalize(newestHistory),
+      'A timestamp tie selected an older cumulative history and omitted the newest revision');
+
   });
 }
 
