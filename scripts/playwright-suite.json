@@ -4506,7 +4506,7 @@
         "BILLING_PRIVATE_CODE",
         "BILLING_CORRECTION_CODE"
       ],
-      "notes": "Fails at its last step on 2026.08: Payment Received omits payments dated on the End Date (< instead of <=), so today's payments never appear with the default range.",
+      "notes": "Verifies Payment Received includes the whole End Date, billed/paid amounts and midnight/noon/late payments, while excluding the preceding day and next midnight.",
       "fixtures": "Owned bills (one PAT, one with an owned error-report row) for an owned patient and appointment; all removed."
     },
     {

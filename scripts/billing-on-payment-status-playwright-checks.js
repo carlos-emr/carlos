@@ -252,7 +252,7 @@ async function workflow(s) {
     await history.close();
   });
 
-  // Last: the single-day Payment Received window exposes a defect (see the report).
+  // A report end date includes the whole calendar day, and excludes the next midnight.
   await s.step('Administration ▸ Payment Received lists the settled 3rd-party bill with its payment', async () => {
     const { frame } = await openAdminFrame(s, '/billing/CA/ON/BillingONPayment', 'form[name="billingPaymentForm"]', admin);
     const today = sql.value('SELECT CURDATE()');
@@ -277,7 +277,39 @@ async function workflow(s) {
     // The report's default window ends today; a payment received today must be in it.
     await generate(today, today);
     h.assert(await paymentRow().count() === 1,
-      'Payment Received with End Date = the payment date omits the payment (payments are filtered with < End Date)');
+      'Payment Received with End Date = the payment date omitted the payment');
+    const sameDayCells = (await cellsOf(paymentRow())).map(cell => cell.replace(/[^\d.-]/g, ''));
+    h.assert(sameDayCells.filter(cell => cell === patTotal).length >= 2,
+      'The single-day report did not include both the billed and paid amount');
+
+    const paymentId = sql.value(`SELECT payment_id FROM billing_on_payment WHERE billing_no=${pat.headerId}`);
+    h.assert(/^[1-9]\d*$/.test(paymentId), 'The owned bill must have exactly one payment');
+    const reportPaidTotal = async () => {
+      const footer = frame.locator('table.table-striped').last().locator('tbody > tr').last();
+      const value = Number((await footer.locator('td').nth(4).innerText()).trim());
+      h.assert(Number.isFinite(value), 'The third-party paid total is not numeric');
+      return value;
+    };
+    for (const time of ['00:00:00', '12:34:56', '23:59:59']) {
+      sql.execute(`UPDATE billing_on_payment SET pay_date=${h.sqlString(`${today} ${time}`)}
+        WHERE payment_id=${paymentId} AND billing_no=${pat.headerId}`);
+      await generate(today, today);
+      h.assert(await paymentRow().count() === 1, `Payment Received omitted the End Date payment at ${time}`);
+    }
+    const includedTotal = await reportPaidTotal();
+    sql.execute(`UPDATE billing_on_payment SET pay_date=${h.sqlString(`${tomorrow} 00:00:00`)}
+      WHERE payment_id=${paymentId} AND billing_no=${pat.headerId}`);
+    await generate(today, today);
+    h.assert(await paymentRow().count() === 0, 'Payment Received included midnight after the End Date');
+    h.assert(Math.round((includedTotal - await reportPaidTotal()) * 100) === Math.round(Number(patTotal) * 100),
+      'The report total did not change by the owned payment amount at the end-date boundary');
+    await generate(today, tomorrow);
+    h.assert(await paymentRow().count() === 1, 'Advancing End Date did not include the next-day payment');
+    const yesterday = sql.value('SELECT CURDATE() - INTERVAL 1 DAY');
+    sql.execute(`UPDATE billing_on_payment SET pay_date=${h.sqlString(`${yesterday} 23:59:59`)}
+      WHERE payment_id=${paymentId} AND billing_no=${pat.headerId}`);
+    await generate(today, today);
+    h.assert(await paymentRow().count() === 0, 'Payment Received included a payment before the Start Date');
   });
 }
 
