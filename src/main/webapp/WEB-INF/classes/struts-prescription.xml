@@ -159,7 +159,7 @@
             <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>
         <action name="rx/drugInfo" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxDrugInfo2Action">
-            <result name="success">/WEB-INF/jsp/rx/SearchDrug3.jsp</result>
+            <result name="success">/WEB-INF/jsp/rx/DrugInfo.jsp</result>
         </action>
         <action name="rx/managePharmacy2" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action">
             <result name="success">/WEB-INF/jsp/rx/SelectPharmacy2.jsp</result>
