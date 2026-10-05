@@ -44,6 +44,8 @@ async function workflow(s) {
   const refiled = path.join(incoming, '1', 'Refile', `R${docB.filename.substring(14)}`);
   const owned = { sql, marker, patient, docs, files: [...docs.map(doc => doc.file), refiled] };
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
+  texts[0] += " <em>literal & text</em>";
+  let storedHistory;
 
   s.cleanup(() => {
     removeOwnedPdfDocuments(owned);
@@ -92,6 +94,7 @@ async function workflow(s) {
     h.assert(uuids === '1', 'Editing the note created a different note instead of a revision');
     noteId = latest;
     h.assert(texts.every(text => history.includes(text)), 'The note history column lost an earlier revision');
+    storedHistory = history;
     const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
     h.assert((await rev.innerText()).trim() === '3', 'The note editor does not show revision 3 after two edits');
   });
@@ -190,6 +193,14 @@ async function workflow(s) {
     const body = await history.locator('body').innerText();
     h.assert(body.includes(texts[0]) && body.includes(texts[1]),
       'The note history popup shows only the current text: the two earlier revisions are not listed');
+    const stored = history.locator('.note-text-history-content');
+    h.assert(await stored.count() === 1, 'The saved note should expose one stored text history');
+    const displayed = await stored.innerText();
+    const normalize = value => value.replace(/\s+/g, ' ').trim();
+    h.assert(normalize(displayed) === normalize(storedHistory), 'The popup changed or omitted stored history text');
+    h.assert(displayed.indexOf(texts[2]) < displayed.indexOf(texts[1])
+      && displayed.indexOf(texts[1]) < displayed.indexOf(texts[0]), 'Stored revisions are not newest first');
+    h.assert(await stored.locator('em').count() === 0, 'Stored note markup became an HTML element');
   });
 }
 

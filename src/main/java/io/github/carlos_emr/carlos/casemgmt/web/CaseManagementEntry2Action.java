@@ -2830,6 +2830,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // "</p><script>" in a note execute in the history popup.
         List<CaseManagementNote> history = caseManagementMgr.getHistory(noteid);
         request.setAttribute("history", history);
+        request.setAttribute("showStoredNoteHistory", Boolean.TRUE);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
         return "showHistory";

@@ -54,6 +54,8 @@ class ProseSinkEncodingRegressionTest {
         return Stream.of(
                 Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
                         "${note.note}", "${carlos:forHtmlContentWithBreaks(note.note)}"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/casemgmt/showHistory.jsp",
+                        "${note.history}", "${carlos:forHtmlContentWithBreaks(note.history)}"),
                 Arguments.of("src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java",
                         ".replace(\"\\n\", \"<br/>\")", "SafeEncode.forHtmlContent(textStr).replace(\"\\n\", \"<br>\")"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/tickler/ticklerDemoMain.jsp",
