@@ -48,7 +48,16 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
         <script>
             function CodeAttach(File2) {
-                if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
+                // The parent callback exists before this document's single-result auto-selection runs.
+                if (self.parent !== self && typeof self.parent.selectDefaultDiagnosticCode === 'function') {
+                    self.parent.selectDefaultDiagnosticCode(File2);
+                    return;
+                }
+                if (!self.opener || self.opener.closed) {
+                    alert("Unable to transfer diagnostic code: the calling window is unavailable.");
+                    return;
+                }
+                if (typeof self.opener.callChangeCodeDesc === 'function') self.opener.callChangeCodeDesc();
 
                 <c:choose>
                     <c:when test="${digSearchModel.hasTargetElement}">
@@ -128,8 +137,12 @@
                 <td style="width:12%"><a
                         href="javascript:CodeAttach('<carlos:encode value='${__row.code}' context='javaScriptAttribute'/>|<carlos:encode value='${__row.description}' context='javaScriptAttribute'/>')"><carlos:encode value="${__row.code}" context="html"/>
                 </a></td>
+                <%-- Prefixed name: a control named with a bare numeric dx code made
+                     CSRFGuard's form.elements[...] lookup resolve it as an index and
+                     throw, so the update form never received its token (#4130).
+                     BillingDiagUpdate2Action reads desc_<code>. --%>
                 <td style="width:88%"><input type="text" class="form-control" style="margin-bottom: 0px;"
-                                             name="<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
+                                             name="desc_<carlos:encode value='${__row.code}' context='htmlAttribute'/>"
                                              value="<carlos:encode value='${__row.description}' context='htmlAttribute'/>">&nbsp;<input type="submit" class="btn btn-secondary"
                                                                                  name="update"
                                                                                  value="<fmt:message key="billing.billingDigSearch.btnUpdate"/> <carlos:encode value='${__row.code}' context='htmlAttribute'/>">

@@ -299,6 +299,7 @@
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
+            <fmt:message key="tickler.attachments.restricted" var="msgAttachmentRestricted"/>
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
@@ -308,6 +309,7 @@
             const i18nEditTickler = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipEdit") %>' context="javaScriptBlock"/>';
             const i18nAddNote = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipAddNote") %>' context="javaScriptBlock"/>';
             const i18nViewAttachment = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipViewAttachment") %>' context="javaScriptBlock"/>';
+            const i18nAttachmentRestricted = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAttachmentRestricted") %>' context="javaScriptBlock"/>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -433,7 +435,7 @@
                                 var html = '<span style="white-space:pre-wrap">' + escapeHtml(data.message || '') + '</span>';
                                 if (data.links && data.links.length > 0) {
                                     for (var i = 0; i < data.links.length; i++) {
-                                        html += buildAttachmentLink(data.links[i].tableName, data.links[i].tableId);
+                                        html += buildAttachmentLink(data.links[i], data);
                                     }
                                 }
                                 return html;
@@ -515,8 +517,21 @@
                 return div.innerHTML;
             }
 
-            function buildAttachmentLink(tableName, tableId) {
-                var encodedId = encodeURIComponent(tableId);
+            // encodeURIComponent leaves "'" alone, and these URLs sit inside a javascript: href's
+            // string literal; %27 is its percent-encoding.
+            function encodeUrlParam(value) {
+                return encodeURIComponent(value).replace(/'/g, '%27');
+            }
+
+            // link.tableName carries the legacy viewer code (lab source, DOC, HRM) plus EFORM and
+            // FORM for the two attachment types the ticklerdocs store added (#3984).
+            function buildAttachmentLink(link, row) {
+                if (link.restricted) {
+                    // The server withheld the id: the reader lacks read on this attachment type.
+                    return ' <i class="fas fa-paperclip text-muted attachment-restricted" title="' + i18nAttachmentRestricted + '"></i>';
+                }
+                var tableName = link.tableName;
+                var encodedId = encodeUrlParam(link.tableId);
                 var url = '';
                 if (tableName === 'MDS') {
                     url = 'javascript:reportWindow(\'' + ctx + '/oscarMDS/ViewSegmentDisplay?segmentID=' + encodedId + '\')';
@@ -528,6 +543,16 @@
                     url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
                     url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display?id=' + encodedId + '&segmentID=' + encodedId + '\')';
+                } else if (tableName === 'EFORM') {
+                    url = 'javascript:reportWindow(\'' + ctx + '/eform/efmshowform_data?fdid=' + encodedId + '\')';
+                } else if (tableName === 'FORM') {
+                    // Encounter forms span many tables, so the id alone cannot address one; without
+                    // the server-resolved name there is no URL to build.
+                    if (!link.formName) {
+                        return ' <i class="fas fa-paperclip" title="' + i18nViewAttachment + '"></i>';
+                    }
+                    url = 'javascript:reportWindow(\'' + ctx + '/form/forwardshortcutname?formname=' + encodeUrlParam(link.formName)
+                        + '&demographic_no=' + encodeUrlParam(row.demographicNo) + '&formId=' + encodedId + '\')';
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }

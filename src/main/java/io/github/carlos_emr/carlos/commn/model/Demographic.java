@@ -1760,11 +1760,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             return dm1.getChartNo().compareTo(dm2.getChartNo());
         }
     };
-    public static final Comparator<Demographic> ProviderNoComparator = new Comparator<Demographic>() {
-        public int compare(Demographic dm1, Demographic dm2) {
-            return dm1.getProviderNo().compareTo(dm2.getProviderNo());
-        }
-    };
+    /**
+     * Orders patients by provider number, placing missing providers first.
+     * Non-null values retain their existing string order, including blank values.
+     */
+    public static final Comparator<Demographic> ProviderNoComparator = Comparator.comparing(
+            Demographic::getProviderNo, Comparator.nullsFirst(Comparator.naturalOrder()));
     public static final Comparator<Demographic> PatientStatusComparator = new Comparator<Demographic>() {
         public int compare(Demographic dm1, Demographic dm2) {
             return dm1.getPatientStatus().compareTo(dm2.getPatientStatus());

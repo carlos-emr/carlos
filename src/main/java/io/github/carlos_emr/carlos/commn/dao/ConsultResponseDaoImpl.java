@@ -53,6 +53,11 @@ public class ConsultResponseDaoImpl extends AbstractDaoImpl<ConsultationResponse
         super(ConsultationResponse.class);
     }
 
+    @Override
+    public ConsultationResponse lockForAttachmentSync(Integer id) {
+        return entityManager.find(ConsultationResponse.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+    }
+
     public int getConsultationCount(ConsultationResponseSearchFilter filter) {
         String sql = getSearchQuery(filter, true);
         logger.debug("sql=" + sql);

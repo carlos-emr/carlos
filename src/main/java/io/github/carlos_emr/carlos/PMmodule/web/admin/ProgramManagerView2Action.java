@@ -149,7 +149,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         try {
             programIdInt = Integer.valueOf(programId);
             programId = String.valueOf(programIdInt);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.error("Invalid programId format: {}", LogSafe.sanitize(String.valueOf(programId)));
             addActionError("Invalid or missing required parameter");
             return ERROR;
@@ -319,7 +319,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         if (programId != null) {
             try {
                 programId = String.valueOf(Integer.parseInt(programId));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("Invalid non-numeric program ID received: {}", LogSafe.sanitize(programId));
                 programId = null;
             }
@@ -329,7 +329,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Integer clientIdInt;
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
@@ -340,7 +340,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Long queueIdLong;
         try {
             queueIdLong = Long.parseLong(queueIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid non-numeric queueId received: {}", LogSafe.sanitize(queueIdStr));
             return view();
         }
@@ -373,7 +373,7 @@ public class ProgramManagerView2Action extends ActionSupport {
             }
 
             addActionMessage(getText("admit.success"));
-        } catch (ProgramFullException e) {
+        } catch (ProgramFullException _) {
             addActionMessage(getText("admit.full"));
         } catch (AdmissionException e) {
             addActionMessage(getText("admit.error", e.getMessage()));
@@ -411,7 +411,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Integer programIdInt;
         try {
             programIdInt = Integer.valueOf(programIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid or missing non-numeric programId in session: {}", LogSafe.sanitize(programIdStr));
             return view();
         }
@@ -422,7 +422,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Integer clientIdInt;
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
@@ -433,7 +433,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Long queueIdLong;
         try {
             queueIdLong = Long.parseLong(queueIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid non-numeric queueId received: {}", LogSafe.sanitize(queueIdStr));
             return view();
         }
@@ -626,7 +626,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         if (programId != null) {
             try {
                 programId = String.valueOf(Integer.parseInt(programId));
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("Invalid non-numeric program ID received: {}", LogSafe.sanitize(programId));
                 programId = null;
             }
@@ -637,7 +637,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         Integer clientIdInt;
         try {
             clientIdInt = Integer.parseInt(clientIdStr);
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             logger.warn("Invalid non-numeric clientId received: {}", LogSafe.sanitize(clientIdStr));
             return view();
         }
@@ -668,6 +668,8 @@ public class ProgramManagerView2Action extends ActionSupport {
         }
         if (dependents != null) {
             for (Integer l : dependents) {
+                // programId is LogSafe-sanitized and the client ID is an Integer.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("rejecting from queue: program_id={},clientId={}", LogSafe.sanitize(programId), l);
                 programQueueManager.rejectQueue(programId, l.toString(), notes, rejectionReason);
             }

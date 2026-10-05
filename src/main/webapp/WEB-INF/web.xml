@@ -33,6 +33,23 @@
         <dispatcher>ERROR</dispatcher>
     </filter-mapping>
 
+    <!-- One COOP policy for static pages, redirects, forwards and early filter errors.
+         Keep the response sanitizer outermost; this header-only filter must precede
+         monitoring, WAF, login and Struts so short-circuit responses carry the policy. -->
+    <filter>
+        <filter-name>CrossOriginOpenerPolicyFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.utility.CrossOriginOpenerPolicyFilter</filter-class>
+        <async-supported>true</async-supported>
+    </filter>
+    <filter-mapping>
+        <filter-name>CrossOriginOpenerPolicyFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>ERROR</dispatcher>
+        <dispatcher>ASYNC</dispatcher>
+    </filter-mapping>
+
         <filter>
 		   <filter-name>monitoring</filter-name>
 		   <filter-class>net.bull.javamelody.MonitoringFilter</filter-class>
@@ -319,6 +336,10 @@
     <url-pattern>/*</url-pattern>
     <dispatcher>REQUEST</dispatcher>
   </filter-mapping>
+
+    <listener>
+        <listener-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanRequestListener</listener-class>
+    </listener>
 
 	<listener>
        	<listener-class>net.bull.javamelody.SessionListener</listener-class>

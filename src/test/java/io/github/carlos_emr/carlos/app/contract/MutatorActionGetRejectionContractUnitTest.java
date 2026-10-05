@@ -21,11 +21,17 @@
  */
 package io.github.carlos_emr.carlos.app.contract;
 
+import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
+import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
+import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -134,6 +140,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action",
+                    "_admin", "w"),
             // --- login ---
             // Logout2Action is in io.github.carlos_emr.carlos.login, which is not yet in
             // IN_SCOPE_PACKAGE_PREFIXES, so the discovery scan won't auto-find it.
@@ -169,6 +177,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "_admin", "w"),
+            // Provider Linking Rules (issue #3971): the save flips a clinic-wide switch that widens
+            // who receives lab and HRM results, so it is POST-only; the view gate never writes.
+            Arguments.of("io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
                     "_admin.eform", "w"),
             // Every forward value (add/delete/up/down) reorders encounter forms; the
@@ -185,6 +197,10 @@ class MutatorActionGetRejectionContractUnitTest {
             // a method=cancel body param). Registered explicitly — the encounter package is not scanned.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
                     "_con", "r"),
+            // Ocean eReferral attach/edit queues patient records for an external service; rejects
+            // GET/HEAD before auth. Registered explicitly (the encounter package is not scanned).
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
+                    "_con", "w"),
             // --- clinical measurements / flowsheets ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
                     "_measurement", "w"),
@@ -193,14 +209,28 @@ class MutatorActionGetRejectionContractUnitTest {
             // to write measurements from a link or an image tag.
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",
                     "_measurement", "w"),
+            // Measurement delete endpoint (DisplayHistory, newHistoryIndex, AddMeasurementData
+            // and the Health Tracker's fetch all POST to it). Unconditional: it 405s any
+            // non-POST before the privilege check and before any DAO lookup.
+            Arguments.of("io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
+                    "_measurement", "d"),
             Arguments.of("io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action",
                     "_flowsheet", "w"),
             // --- report ---
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbManageProvider2Action",
                     "_admin.reporting", "w"),
+            // Letter generation files a document per patient and marks follow-ups; template upload
+            // persists a report_letters row. Both are _report r, POST-only (issue #3963).
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action",
+                    "_report", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action",
+                    "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.DbReportAgeSex2Action",
                     "_report", "r"),
             Arguments.of("io.github.carlos_emr.carlos.report.pageUtil.RptByExamplesFavorite2Action",
+                    "_admin", "r"),
+            // Report by Template upload stores template SQL; POST-only after the read gate (#4133).
+            Arguments.of("io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action",
                     "_admin", "r"),
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
@@ -220,6 +250,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- tickler ---
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerAdd2Action",
                     "_tickler", "w"),
+            // Both dispatches (editTickler, suggested-text maintenance) mutate; the verb is
+            // checked before authorization, so a GET rejects with no hasPrivilege call and the
+            // tuple below is the POST-path bar (#3984).
+            Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                    "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action",
                     "_tickler", "u"),
             Arguments.of("io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action",
@@ -239,12 +274,19 @@ class MutatorActionGetRejectionContractUnitTest {
             // token at all until the gate was added. The gate runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action",
                     "_hrm", "w"),
+            // --- lab ---
+            // Rewrites a lab's patient routing and, with Provider Linking Rules on, routes it to the
+            // patient's MRP. Its only caller posts; the mds package is not in
+            // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+            Arguments.of("io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "_lab", "w"),
             // --- waitinglist ---
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLAdd2WaitingList2Action",
                     "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
                     "_demographic", "w"),
             // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action", "_eform", "u"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
                     "_admin.eform", "w"),
             // Creates a document from an approved-but-incomplete render, so a GET must not reach
@@ -266,7 +308,42 @@ class MutatorActionGetRejectionContractUnitTest {
             // method is checked before authorization, so a GET rejects without any
             // hasPrivilege call — the declared tuple below is the POST-path bar.
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
-                    "_form", "w")
+                    "_form", "w"),
+            // --- prescription ---
+            // Clears the named patient's staged prescriptions. Unconditional: it rejects non-POST
+            // before resolving any bean; ViewScript2's form POSTs (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+                    "_rx", "w"),
+            // Every dispatch (Delete, Delete2, Discontinue, clearStash, clearReRxDrugList) archives
+            // drugs or clears staged state; all reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+                    "_rx", "u"),
+            // Deleting / re-activating an allergy, staging a favourite, adding a favourite and
+            // editing or deleting one are writes; each rejects non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+                    "_allergy", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+                    "_rx", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+                    "_rx", "u"),
+            // Hiding a drug from the CPP list and swapping two drugs' display positions change the
+            // chart; both reject non-POST before anything else (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+                    "_rx", "u"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+                    "_rx", "u"),
+            // Choosing a drug stages a card in the patient's stash (#3908).
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
+                    "_rx", "w"),
+            // Adding an allergy and writing the script to the encounter note are chart writes.
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
+                    "_allergy", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
+                    "_rx", "w")
         );
     }
 
@@ -279,7 +356,19 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
+        // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
+        "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",
+        // Report by Template editor (#4133): the bare page permits GET; action=add|edit|delete
+        // must be a POST. Covered by ManageTemplates2ActionUnitTest.
+        "io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action",
+        // Message view (#4133): viewing permits GET; linkMsgDemo=true writes a msgDemoMap row and
+        // must be a POST. Covered by MsgViewMessage2ActionUnitTest.
+        "io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessage2Action",
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
+        // Lab display settings (#3977): the view permits GET; dboperation=Save must be a POST.
+        // Covered by LabDisplaySettings2ActionUnitTest.
+        "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         // BC supplementary billing: view permits GET; edit/delete require POST.
         // Covered by SupServiceCodeAssoc2ActionUnitTest.
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2Action",
@@ -321,8 +410,38 @@ class MutatorActionGetRejectionContractUnitTest {
         // Waitinglist: reject GET on Save/Delete submit values.
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLEditWaitingListName2Action",
         "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayWaitingList2Action",
-        // Prescription: read methods permit GET; saveDigitalSignature is a method-mapped POST-only mutator.
+        // Prescription: reprint, staging (represcribe, represcribe2, saveReRxDrugIdToStash,
+        // repcbAllLongTerm, represcribeMultiple) and saveDigitalSignature are POST-only;
+        // viewPrescribing only renders the workspace and permits GET (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        // Pharmacies: search/getPharmacyInfo/... permit GET; delete, unlink, setPreferred, add,
+        // save and the legacy pharmacyAction form are POST-only (#3908). Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectStagingOrPharmacyWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        // Drug-form editor gate: GET renders it for a readable patient; action=update changes the
+        // drug and rejects GET/HEAD (#3908). Covered by ViewUpdateForm2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        // Allergy display: the page and allergyData stay GET-compatible; method=reorder rewrites
+        // allergy positions and rejects non-POST with 405 (#3908). Covered by
+        // RxShowAllergy2ActionTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        // Prescription stash: deletePrescribe and the legacy action=delete remove a staged card and
+        // are POST-only; setStashIndex / action=edit cursor moves stay verb-open. Issue #3871.
+        // Covered by RxStash2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // Prescription write: updateSaveAllDrugs, the action=update* stash rewrite/save and
+        // updateReRxDrug are POST-only; the read dispatches (listPreviousInstructions,
+        // getInstructionsAutocomplete, ...) stay verb-open. Covered by
+        // RxWriteScript2ActionWriteIsolationUnitTest.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // Drug reasons: the popup view (GET, no method) stays verb-open; method=addDrugReason /
+        // archiveReason write the chart and reject GET/HEAD. Covered by
+        // RxPatientWriteAuthorizationUnitTest.shouldRejectReasonWrite_whenMethodIsNotPost.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // Favourite sharing/copying writes require POST; the selection page permits GET.
+        // Targeted guard from PR #2478, covered by CopyFavorites2ActionUnitTest.
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
         // Fax: queue/cancel (including the no-method fall-through to cancel) mutate and reject
         // GET/HEAD; getPreview/getPageCount/prepareFax stay verb-open (see Fax2ActionMethodGateUnitTest).
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
@@ -410,6 +529,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
+        "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
@@ -418,6 +538,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
         "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
+        "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
+        "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action",
         "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action",
@@ -429,6 +551,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action",
         "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action",
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
         "io.github.carlos_emr.carlos.form.pageUtil.FrmXmlUpload2Action",
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
@@ -447,6 +570,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // encounter slice: EctConsultationFormFax2Action queues PHI faxes; the encounter package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so this single migrated mutator registers explicitly.
         "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action",
+        // encounter slice: ERefer2Action queues attachments for Ocean eReferral (issue #3867).
+        "io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -455,7 +580,37 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
         // email slice: EmailSend2Action is the only gated mutator so far; the email package is
         // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
-        "io.github.carlos_emr.carlos.email.action.EmailSend2Action"
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+        // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
+        // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",
+        // prescript slice: RxWriteScript2Action's save and update dispatches are POST-only
+        // (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action",
+        // prescript slice: RxClearPending2Action clears the named patient's stash and is POST-only
+        // (unconditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxClearPending2Action",
+        // prescript slice: RxReason2Action's add/archive drug-reason writes are POST-only; the popup
+        // view stays GET (conditional mutator, #3908).
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxReason2Action",
+        // prescript slice (#3908): re-prescribe staging, drug deletion/discontinue/clears and
+        // pharmacy links are POST-only.
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteRx2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUseFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxUpdateFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteFavorite2Action",
+        "io.github.carlos_emr.carlos.prescript.gate.ViewUpdateForm2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxHideCpp2Action",
+        "io.github.carlos_emr.carlos.prescript.web.RxReorder2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxChooseDrug2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2Action",
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteToEncounter2Action",
+        "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
@@ -493,6 +648,26 @@ class MutatorActionGetRejectionContractUnitTest {
                 "w",
                 httpMethod,
                 Map.of("method", "addIncomingDocument"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("EditTickler2Action should reject unsafe methods for the edit dispatch")
+    void shouldRejectUnsafeMethod_forTicklerEditDispatch(String httpMethod) throws Exception {
+        assertRejectsUnsafeMethod(
+                "io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action",
+                "_tickler", "u", httpMethod, Map.of("method", "editTickler"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"update", "copy"})
+    @DisplayName("CopyFavorites2Action should reject GET and HEAD for either write dispatch")
+    void shouldRejectUnsafeMethod_forCopyFavoritesMutationDispatch(String dispatch) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
+                    "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
+        }
     }
 
     private static void assertRejectsUnsafeMethod(
@@ -544,6 +719,7 @@ class MutatorActionGetRejectionContractUnitTest {
             servletCtx.when(ServletActionContext::getResponse).thenReturn(response);
 
             LoggedInInfo sessionInfo = mock(LoggedInInfo.class);
+            when(sessionInfo.getLoggedInProviderNo()).thenReturn("999998");
             loggedInInfo.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                     .thenReturn(sessionInfo);
 
@@ -608,6 +784,12 @@ class MutatorActionGetRejectionContractUnitTest {
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
         }
+        if (actionClass.equals(ERefer2Action.class)) {
+            return new ERefer2Action(mock(SecurityInfoManager.class),
+                    (DocumentAttachmentManager) autoMocks.computeIfAbsent(DocumentAttachmentManager.class, Mockito::mock),
+                    (EReferAttachmentDao) autoMocks.computeIfAbsent(EReferAttachmentDao.class, Mockito::mock),
+                    (AttachmentOwnershipService) autoMocks.computeIfAbsent(AttachmentOwnershipService.class, Mockito::mock));
+        }
         if (actionClass.equals(SecurityDelete2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
@@ -618,6 +800,11 @@ class MutatorActionGetRejectionContractUnitTest {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
             return new SecurityAddSecurity2Action(methodSecurity);
+        }
+        if (actionClass.equals(SaveProviderLinkingRules2Action.class)) {
+            ProviderLinkingRulesService rules = (ProviderLinkingRulesService)
+                    autoMocks.computeIfAbsent(ProviderLinkingRulesService.class, Mockito::mock);
+            return new SaveProviderLinkingRules2Action(mock(SecurityInfoManager.class), rules);
         }
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);

@@ -56,6 +56,17 @@ test('sqlString escapes quotes and backslashes in fixture literals', () => {
   assert.equal(sqlString('a\\b'), "'a\\\\b'");
 });
 
+test('insertId reads LAST_INSERT_ID in the same call and refuses a missing id', () => {
+  const queries = [];
+  const runner = (answer) => ({ value(query) { queries.push(query); return answer; } });
+  assert.equal(harness.insertId(runner('42'), 'INSERT INTO t(a) VALUES(1)', 'row'), '42');
+  assert.equal(queries[0], 'INSERT INTO t(a) VALUES(1); SELECT LAST_INSERT_ID()');
+  for (const answer of [null, '', '0', 'abc', '-3']) {
+    assert.throws(() => harness.insertId(runner(answer), 'INSERT INTO t(a) VALUES(1)', 'probe'),
+      /The owned probe fixture was not created/);
+  }
+});
+
 test('TLS verification is only waived for a demonstrably local target (issue #3598)', () => {
   for (const host of ['localhost', '127.0.0.1', '::1', '10.1.2.3', '192.168.0.9', '172.16.0.1']) {
     assert.equal(isLocalTlsTarget(host), true, `${host} should count as local`);
@@ -375,6 +386,73 @@ test('a timed-out query is reported as a timeout, not as a generic failure', () 
   }
 });
 
+test('SQL output above Node default stays bounded and preserves the full result', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      assert.equal(options.maxBuffer, 8 * 1024 * 1024);
+      assert.equal(options.timeout, 30000);
+      assert.deepEqual(options.stdio, ['ignore', 'pipe', 'pipe']);
+      return execFileSync(process.execPath, ['-e', 'process.stdout.write("x".repeat(2 * 1024 * 1024))'], options);
+    },
+  });
+  try {
+    const result = runner.value('SELECT owned_synthetic_catalog');
+    assert.equal(result.length, 2 * 1024 * 1024);
+    assert.equal(result, 'x'.repeat(2 * 1024 * 1024));
+    assert.equal(calls, 1);
+  } finally { runner.dispose(); }
+});
+
+for (const stream of ['stdout', 'stderr']) test('actual SQL child ' + stream + ' overflow fails once without exposing captured bytes', () => {
+  const {execFileSync} = require('node:child_process');
+  let calls = 0;
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'private-password'}, {
+    exec: (_file, _args, options) => {
+      calls++;
+      const code = 'process.' + stream + '.write("PRIVATE_ROW".repeat(1024 * 1024))';
+      return execFileSync(process.execPath, ['-e', code], options);
+    },
+  });
+  try {
+    assert.throws(() => runner.execute('SELECT PRIVATE_QUERY'), error => {
+      assert.match(error.message, /exceeded its 8MiB output limit/);
+      assert.doesNotMatch(error.message, /timed out|PRIVATE_ROW|PRIVATE_QUERY|private-password/);
+      assert.equal(error.cause, undefined);
+      assert.equal(error.stdout, undefined); assert.equal(error.stderr, undefined);
+      return true;
+    });
+    assert.equal(calls, 1, 'unknown child outcome must never be automatically replayed');
+  } finally { runner.dispose(); }
+});
+
+for (const code of ['ENOBUFS', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER']) test(code + ' takes precedence over SIGTERM and redacts exception details', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE query and row'), {code, signal: 'SIGTERM',
+      stdout: 'PRIVATE row', stderr: 'PRIVATE diagnostic'});},
+  });
+  try {
+    assert.throws(() => runner.rows('PRIVATE QUERY'), error => {
+      assert.match(error.message, /8MiB output limit/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      assert.equal(error.cause, undefined); return true;
+    });
+  } finally { runner.dispose(); }
+});
+
+test('SIGTERM without a timeout code does not invent a 30s timeout', () => {
+  const runner = createSqlRunner({host: '127.0.0.1', password: 'secret'}, {
+    exec: () => {throw Object.assign(new Error('PRIVATE interrupted query'), {signal: 'SIGTERM'});},
+  });
+  try {
+    assert.throws(() => runner.value('PRIVATE QUERY'), error => {
+      assert.match(error.message, /database query failed/); assert.doesNotMatch(error.message, /PRIVATE|timed out/);
+      return true;
+    });
+  } finally { runner.dispose(); }
+});
+
 /*
  * A control can navigate the SAME page instead of opening a popup (the
  * schedule's Search is a same-tab href under the caisi module), so the page a
@@ -516,11 +594,14 @@ test('login works through the authentication stages in whatever order they arriv
   assert.ok(body.indexOf('forcepasswordreset/i.test(url)') > body.indexOf('for (let stage'),
     'the reset stage must be inside the loop, not ahead of it');
 
-  // The reset submit must accept a landing on the MFA page, or that hand-off is
-  // a 30s timeout instead of the next turn of the loop.
+  // The reset submit must accept the MFA page wherever it lands, or that
+  // hand-off is a 30s timeout instead of the next turn of the loop. Login2Action
+  // forwards the challenge in place at /forcepasswordresetSubmit, so the stage
+  // waits for the main frame to navigate rather than for a list of URLs.
   const resetStage = body.slice(body.indexOf('forcepasswordreset/i.test(url)'));
-  assert.match(resetStage.slice(0, resetStage.indexOf('continue;')),
-    /waitForURL\(\/providercontrol\|appointment\|select_facility\|loginMfa\/i/);
+  const resetSubmit = resetStage.slice(0, resetStage.indexOf('continue;'));
+  assert.match(resetSubmit, /waitForEvent\('framenavigated', \{ predicate: frame => frame === page\.mainFrame\(\)/);
+  assert.doesNotMatch(resetSubmit, /waitForURL\(/);
 
   // And the loop is bounded, with a diagnosis rather than a silent success when
   // a stage keeps re-serving itself.
@@ -606,4 +687,29 @@ test('native PDF audit requires status, MIME and complete PDF bytes and disposes
     assert.equal(disposed, true);
     await assert.rejects(harness.assertNotErrorPage(page, 'ordinary HTML'), /blank page/);
   }
+});
+
+test('a failed request knows whether the document that issued it went away', async () => {
+  const recorder = createRecorder();
+  const page = fakePage();
+  wireStrictPage(page, 'walk', recorder, { baseline: [] });
+  let address = 'https://host/carlos/page';
+  const frame = { isDetached: () => false, url: () => address };
+  const other = { isDetached: () => false, url: () => 'https://host/carlos/other' };
+  const request = (url, from) => ({ url: () => url, resourceType: () => 'font', frame: () => from, failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  const stays = request('https://host/carlos/api/poll', other);
+  const leaves = request('https://host/carlos/font.woff2', frame);
+  await page.emit('request', stays);
+  await page.emit('request', leaves);
+  await page.emit('requestfailed', stays);
+  await page.emit('requestfailed', leaves);
+  // The navigation commits after the failure it caused: the answer is read when asked, not when recorded.
+  assert.equal(recorder.requestFailures[1].navigatedAway(), false);
+  address = 'https://host/carlos/next';
+  assert.equal(recorder.requestFailures[1].navigatedAway(), true);
+  assert.equal(recorder.requestFailures[0].navigatedAway(), false);
+  // A request whose issuing document is unknown is never presumed abandoned.
+  await page.emit('requestfailed', { url: () => 'https://host/carlos/x.js', resourceType: () => 'script', failure: () => ({ errorText: 'net::ERR_ABORTED' }) });
+  assert.equal(recorder.requestFailures[2].navigatedAway(), false);
+  assert.deepEqual(Object.keys(recorder.requestFailures[0]), ['label', 'url', 'resourceType', 'errorText']);
 });

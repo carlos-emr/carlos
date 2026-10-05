@@ -82,7 +82,11 @@ function validateBaseUrl(rawBaseUrl) {
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -204,6 +208,8 @@ function assert(condition, message) {
   }
 }
 
+const testContexts = new Set();
+
 async function record(name, fn) {
   const start = Date.now();
   try {
@@ -213,6 +219,13 @@ async function record(name, fn) {
   } catch (error) {
     failures.push({ name, error });
     console.log(`FAIL ${name}: ${error.message}`);
+  } finally {
+    // A failed assertion must not leave its browser processes alive while later
+    // checks run, especially on a memory-constrained validation VM.
+    for (const context of testContexts) {
+      await context.close().catch(() => {});
+    }
+    testContexts.clear();
   }
 }
 
@@ -229,7 +242,9 @@ async function assertResponseNotBlank(response, label, minBytes = 100) {
 }
 
 async function newBrowserContext(browser) {
-  return browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  testContexts.add(context);
+  return context;
 }
 
 async function login(page, password = testPassword) {
@@ -328,10 +343,12 @@ async function expectSchedulePage(page, label) {
       const context = await newBrowserContext(browser);
       const page = await context.newPage();
       await gotoApp(page, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      // logoutPage submits its logout form after a delay. Wait for the final login
+      // page so that pending submission cannot abort the next route's navigation.
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated provider redirect');
       await gotoApp(page, '/billing/CA/ON/ViewBillingONMRI', { waitUntil: 'domcontentloaded' });
-      await page.waitForURL(/login|logout|index/, { timeout: 15000 });
+      await page.waitForURL(appUrl('/index'), { timeout: 15000 });
       await assertNotBlank(page, 'unauthenticated billing MRI redirect');
       await context.close();
     });

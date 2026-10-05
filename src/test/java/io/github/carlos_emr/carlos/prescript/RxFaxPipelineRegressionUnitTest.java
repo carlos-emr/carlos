@@ -152,13 +152,14 @@ class RxFaxPipelineRegressionUnitTest {
         String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
         int selectionStart = viewScript2.indexOf("String scriptIdForFax = firstValidScriptId(");
         int selectionEnd = viewScript2.indexOf(';', selectionStart);
-        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = (RxSessionBean) session.getAttribute(\"tmpBeanRX\")"));
+        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = reprintEntry.bean();"));
         assertThat(selectionEnd).isLessThan(viewScript2.indexOf("function addNotes()"));
         // The attribute is set on fresh writes and /rx/viewScript; direct reprints
         // have the displayed saved stash instead. Neither may be overridden by a URL.
         assertThat(viewScript2.substring(selectionStart, selectionEnd))
                 .contains("request.getAttribute(\"scriptId\")")
                 .contains("bean.getStashItem(0).getScript_no()")
+                .contains("reprintEntry != null && bean.getStashSize() > 0")
                 .doesNotContain("getParameter");
         assertThat(viewScript2)
                 .doesNotContain("request.getParameter(\"scriptId\")")
@@ -167,6 +168,23 @@ class RxFaxPipelineRegressionUnitTest {
                 .contains("/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>")
                 .contains("associateSavedSignature(e, '<%= scriptIdForFax %>')")
                 .contains("onPrint2('oscarRxFax', faxScriptNo,");
+    }
+
+    @Test
+    @DisplayName("should render the selected saved script independently of later session changes")
+    void shouldRenderSnapshot_whenBoundToRequest() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        String preview2 = Files.readString(PREVIEW2_JSP);
+        assertThat(viewScript2)
+                .contains("RxReprintWorkspace.findForRequest(request, session, viewScriptDemographicNo)")
+                .contains("RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax)")
+                .contains("bean = previewSnapshot.bean();")
+                .contains("bean = emptyPreview;")
+                .contains("String comment = reprintEntry != null ? reprintEntry.comment()");
+        assertThat(preview2)
+                .contains("request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE)")
+                .contains("bean = previewSnapshot != null ? previewSnapshot.bean() : reprintEntry.bean();")
+                .contains("else if (previewSnapshot == null && !\"true\".equalsIgnoreCase(rePrint) && hasRxStampSignature)");
     }
 
     @Test

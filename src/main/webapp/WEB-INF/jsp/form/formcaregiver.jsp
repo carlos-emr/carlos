@@ -153,7 +153,7 @@
             }
         }
     </script>
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
     </script>
 
 
@@ -585,7 +585,7 @@
                                                 accompanying your family member/friend is at the moment.</i></td>
                                     </tr>
                                     <tr class="answer" align="center">
-                                        <td><img src="graphics/caregiver/SRB.jpg" border="0"/></td>
+                                        <td><img src="${pageContext.request.contextPath}/form/graphics/caregiver/SRB.jpg" border="0"/></td>
                                     </tr>
                                     <tr>
                                         <td class="answer">SRB Score <input type="text"

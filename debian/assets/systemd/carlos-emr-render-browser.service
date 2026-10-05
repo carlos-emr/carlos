@@ -16,6 +16,9 @@
 [Unit]
 Description=CARLOS EMR eForm render browser (chromedriver)
 Documentation=file:///usr/share/doc/carlos-emr/README.Debian
+# A failed legacy-driver stop must also block starts pulled in by the EMR's
+# Wants dependency. Successful package reconfiguration removes this marker.
+ConditionPathExists=!/var/lib/carlos-emr/.legacy-renderer-live
 # No network-online.target: this listens on loopback only and would just delay
 # boot waiting for an address it never uses.
 #

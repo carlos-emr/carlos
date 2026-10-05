@@ -31,11 +31,14 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="RxPharmacy.js.updateIncomplete" var="msg_pharmacyIncomplete"/>
+<fmt:message key="SearchDrug.js.requestRefused" var="msg_pharmacyRefused"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.rx.data.*,java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -73,18 +76,23 @@
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
 
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
+        <c:if test="${not empty pageScope.RxSessionBean}">
             <%
                 // Directly access the RxSessionBean from the session
-                bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+                bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
                 if (bean != null && !bean.isValid()) {
                     response.sendRedirect("error.html");
                     return; // Ensure no further JSP processing
                 }
-                RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+                RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
                 if (patient != null) {
                     surname = patient.getSurname();
                     firstName = patient.getFirstName();
@@ -92,10 +100,26 @@
             %>
         </c:if>
         <script type="text/javascript">
+            function reportPharmacyFailure(event, transport, settings) {
+                if (!settings || !/\/rx\/managePharmacy(?:\?|$)/.test(settings.url)) return;
+                if (typeof HideSpin === 'function') HideSpin(true);
+                if (transport && transport.responseJSON
+                        && transport.responseJSON.error === 'INCOMPLETE_PHARMACY_UPDATE') {
+                    alert('${carlos:forJavaScript(msg_pharmacyIncomplete)}');
+                } else {
+                    alert('${carlos:forJavaScript(msg_pharmacyRefused)}');
+                }
+            }
+            // jQuery rejects HTTP failures and malformed JSON before its success callback.
+            // Keep the current form/list visible and explain the failed request.
+            jQuery(document).ajaxError(reportPharmacyFailure);
+
             ShowSpin(true);
             (function ($) {
                 $(function () {
                     var demo = $("#demographicNo").val();
+                    var preferredListReady = false;
+                    $(".pharmacyItem").attr("aria-disabled", "true").css("pointer-events", "none");
 					if(demo != null && demo !== "") {
 						$.post("<%=request.getContextPath() + "/rx/managePharmacy?method=getPharmacyFromDemographic&demographicNo="%>" + demo,
                         function (data) {
@@ -243,6 +267,8 @@
                                     }
                                 });
                             }
+                            preferredListReady = true;
+                            $(".pharmacyItem").attr("aria-disabled", "false").css("pointer-events", "");
                             HideSpin(true);
                         }, "json");
 					}
@@ -272,26 +298,42 @@
                     filterPharmacies();
 
                     $(".pharmacyItem").click(function () {
+                        if (!preferredListReady) return;
                         var pharmId = $(this).attr("pharmId");
 
-                        $("#preferredList div").each(function () {
+                        var preferredPharmacies = $("#preferredList > div[pharmId]");
+                        var alreadySelected = false;
+                        preferredPharmacies.each(function () {
                             if ($(this).attr("pharmId") == pharmId) {
-                                alert("Selected pharamacy is already selected");
+                                alreadySelected = true;
                                 return false;
                             }
                         });
+                        if (alreadySelected) {
+                            alert("Selected pharmacy is already selected");
+                            return;
+                        }
 
-                        var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + ($("#preferredList div").length + 1);
+                        // Count pharmacy entries only; an empty list contains placeholder divs.
+                        var data = "pharmId=" + pharmId + "&demographicNo=" + demo + "&preferredOrder=" + (preferredPharmacies.length + 1);
+                        // The rendered list stays stale until reload: serialize additions
+                        // so repeated clicks cannot duplicate a link or reuse its order.
+                        preferredListReady = false;
+                        $(".pharmacyItem").attr("aria-disabled", "true").css("pointer-events", "none");
                         ShowSpin(true);
                         $.post("<%=request.getContextPath() + "/rx/managePharmacy?method=setPreferred"%>", data, function (data) {
-                            if (data.id) {
+                            if (data && data.id) {
                                 $("html, body").animate({scrollTop: 0}, 1000);
                                 window.location.reload(false);
                             } else {
                                 alert("There was an error setting your preferred Pharmacy");
-                                HideSpin(true);  //hiding the spinner is deliberately only in the "else" case of the callback because reloading is slow.  It's better to leave the spinner in place while the page is reloading.
+                                window.location.reload(false);
                             }
-                        }, "json");
+                        }, "json").fail(function () {
+                            // A failed response may follow a committed write. Keep the
+                            // list disabled until reload establishes its actual order.
+                            window.location.reload(false);
+                        });
                     });
 
                     $(".deletePharm").click(function () {
@@ -330,6 +372,14 @@
 
             function openPharmacyModal(url) {
                 var iframe = document.getElementById('pharmacyModalIframe');
+                // The modal page resolves its Rx patient from the request: name this page's patient,
+                // or it would render for whichever patient's Rx was opened last (#3908). An iframe
+                // src is not a request rx-patient-context.js can tag.
+                var demoField = document.getElementById("demographicNo");
+                var demo = demoField ? demoField.value : "";
+                if (demo) {
+                    url += (url.indexOf('?') >= 0 ? '&' : '?') + "demographicNo=" + encodeURIComponent(demo);
+                }
                 iframe.src = url;
                 var modal = new bootstrap.Modal(document.getElementById('pharmacyModal'));
                 modal.show();

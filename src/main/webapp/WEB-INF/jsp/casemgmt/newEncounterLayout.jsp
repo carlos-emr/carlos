@@ -27,12 +27,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    E-Chart encounter layout: assembles chart modules, note editing and the print dialog.
+    Print extensions register before their controls are added and report registration failures.
+    Parameters: demographicNo, appointmentNo and encounter view preferences from the action.
+    @since 2026-07-07
+--%>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%-- The same negotiation the header and note fragments perform, so this page's own
+     <fmt:message> text, the header include and the html lang attribute all answer the
+     browser's Accept-Language with one policy (see LocaleUtils.resolveBundleLocale). --%>
+<fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@page import="java.util.Enumeration" %>
@@ -72,7 +84,10 @@
     pageContext.setAttribute("cppPreferences", cppPreferences, PageContext.PAGE_SCOPE);
 %>
 <!DOCTYPE html>
-<html>
+<%-- lang is the negotiated chart language: assistive technology reads the page in the right
+     language (WCAG 3.1.1), and a field report of a chart "in the wrong language" can name
+     which language the server actually chose for that load (see newEncounterHeader.jsp). --%>
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
@@ -182,6 +197,10 @@
             });
 
 
+            // Keep the draft in this chart, independent of sidebar requests rebuilding the session bean.
+            // Define even an empty value: a new chart must not inherit another tab's shared message.
+            var pendingEncounterMessage = "<carlos:encode value='<%= request.getAttribute("encounterMessage") == null ? "" : (String) request.getAttribute("encounterMessage") %>' context="javaScriptBlock"/>";
+
             function assembleMainChartParams(displayFullChart) {
 
                 var params = "method=edit&ajaxview=ajaxView&fullChart=" + displayFullChart;
@@ -258,24 +277,7 @@
             function popColumn(url, div, params, navBar, navBarObj) {
                 params = "reloadURL=" + url + "&numToDisplay=6&cmd=" + params;
 
-                CarlosAjax.request(url, {
-                    method: 'post',
-                    postBody: params,
-                    evalScripts: true,
-                    onSuccess: function (transport) {
-                        $(div).update(transport.responseText);
-
-                        if ($("leftColLoader") != null)
-                            Element.remove("leftColLoader");
-
-                        if ($("rightColLoader") != null)
-                            Element.remove("rightColLoader");
-                    },
-                    onFailure: function (transport) {
-                        var el = document.getElementById(div);
-                        if (el) el.textContent = div + " Error: " + transport.status;
-                    }
-                });
+                return requestNavbarColumn(url, div, params, navBar);
             };
 
             function addLeftNavDiv(name) {
@@ -333,15 +335,28 @@
             });
 
             function addPrintOption(name, bean) {
-                var test1Str = "<img style=\"cursor: pointer;\" title=\"Print " + name + "\" id=\"img" + name + "\" alt=\"Print " + name + "\" onclick=\"return printInfo(this, 'extPrint" + name + "');\" src=\"" + ctx + "/encounter/graphics/printer.png\">&nbsp;" + name;
-                jQuery("#printDateRow").before("<tr><td></td><td>" + test1Str + "</tr></tr>");
-                jQuery("form[name='caseManagementEntryForm']").append("<input name=\"extPrint" + name + "\" id=\"extPrint" + name + "\" value=\"false\" type=\"hidden\"/>");
                 jQuery.ajax({
                     type: 'POST',
                     url: ctx + "/casemgmt/ExtPrintRegistry",
                     data: {method: 'register', name: name, bean: bean},
                     async: false,
-                    success: function (data) {
+                    success: function () {
+                        var fieldId = "extPrint" + name;
+                        if (document.getElementById(fieldId)) return;
+                        var icon = jQuery("<img>").attr({
+                            title: "Print " + name, alt: "Print " + name, id: "img" + name,
+                            src: ctx + "/encounter/graphics/printer.png"
+                        }).css("cursor", "pointer").on("click", function () {
+                            return printInfo(this, fieldId);
+                        });
+                        jQuery("<tr>").append(jQuery("<td>"),
+                            jQuery("<td>").append(icon, document.createTextNode(" " + name)))
+                            .insertBefore("#printDateRow");
+                        jQuery("<input>").attr({name: fieldId, id: fieldId, value: "false", type: "hidden"})
+                            .appendTo("form[name='caseManagementEntryForm']");
+                    },
+                    error: function () {
+                        alert("Unable to register the print option. Please contact your administrator.");
                     }
                 });
             }

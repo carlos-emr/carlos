@@ -992,6 +992,12 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         return d;
     }
 
+    private static boolean isNamedFlowsheet(Element root) {
+        String name = root.getAttributeValue("name");
+        return "flowsheet".equals(root.getName()) && root.getNamespaceURI().isEmpty()
+                && name != null && !name.isBlank();
+    }
+
     /**
      * Validates a flowsheet XML string by attempting to parse it into a {@link MeasurementFlowSheet}.
      *
@@ -1008,6 +1014,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      *         cannot be parsed or contains structural errors
      */
     public MeasurementFlowSheet validateFlowsheet(String data) {
+        if (data == null || data.isBlank()) return null;
         InputStream is = null;
         try {
             is = new ByteArrayInputStream(data.getBytes("UTF-8"));
@@ -1022,6 +1029,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             SAXBuilder parser = XmlUtils.createSecureSAXBuilder();
             Document doc = parser.build(is);
             Element root = doc.getRootElement();
+            // Reject unrelated XML before importing any measurement types or modifying registries.
+            if (!isNamedFlowsheet(root)) return null;
+
 
             XMLOutputter outp = new XMLOutputter();
 
@@ -1045,9 +1055,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             d.setItemHeirarchy(aItems);
 
             // Extract flowsheet-level attributes
-            if (root.getAttribute("name") != null) {
-                d.setName(root.getAttribute("name").getValue());
-            }
+            d.setName(root.getAttributeValue("name"));
             if (root.getAttribute("display_name") != null) {
                 d.setDisplayName(root.getAttribute("display_name").getValue());
             }

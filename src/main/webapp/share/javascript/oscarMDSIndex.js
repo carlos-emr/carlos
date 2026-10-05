@@ -26,6 +26,62 @@
 /************init global data methods*****************/
 let oldestLab;
 
+// Shared by standalone lab displays and inline inbox/queue hosts. COOP may sever
+// the matching popup's opener, but same-origin BroadcastChannel still reaches both.
+if (typeof BroadcastChannel !== 'undefined' && typeof contextpath === 'string') {
+    try {
+        const matchChannel = new BroadcastChannel('lab-patient-match-' + contextpath);
+        matchChannel.onmessage = function(event) {
+            const match = event.data;
+            if (match && match.type === 'patient-matched' && match.labType === 'HL7'
+                    && typeof match.labNo === 'string' && /^\d+$/.test(match.labNo)) {
+                const patientPanel = document.getElementById('DemoTable' + match.labNo);
+                if (patientPanel) return refreshMatchedLabPanel(match.labNo, patientPanel);
+            }
+        };
+    } catch (e) {
+        console.warn('Live lab refresh notifications are unavailable; reload the lab view after matching.');
+    }
+}
+
+/**
+ * Refreshes patient-dependent report markup without discarding unsaved acknowledgment fields.
+ * Only the matching patient table and next-appointment label are replaced; the response comes
+ * from the same application's authorized lab view.
+ * @param {string} labNo confirmed HL7 report identifier
+ * @param {HTMLElement} patientPanel currently displayed patient table
+ * @returns {Promise<void>} completion of the best-effort display refresh
+ */
+async function refreshMatchedLabPanel(labNo, patientPanel) {
+    patientPanel.style.backgroundColor = '#FFF';
+    try {
+        const standalone = window.location.pathname.endsWith('/lab/CA/ALL/ViewLabDisplay');
+        const provider = typeof providerNo === 'string' ? providerNo : '';
+        const searchProvider = patientPanel.getAttribute('data-search-provider-no');
+        const url = standalone
+            ? contextpath + '/lab/CA/ALL/ViewLabDisplay' + window.location.search
+            : contextpath + '/lab/CA/ALL/ViewLabDisplayAjax?segmentID=' + encodeURIComponent(labNo)
+                + '&providerNo=' + encodeURIComponent(provider)
+                + (searchProvider === null ? '' : '&searchProviderNo=' + encodeURIComponent(searchProvider));
+        const response = await fetch(url, { credentials: 'same-origin', cache: 'no-store' });
+        if (!response.ok) throw new Error('Lab view refresh failed');
+        const parsed = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const replacement = parsed.getElementById('DemoTable' + labNo);
+        if (!replacement) throw new Error('Lab view did not return its patient panel');
+        if (document.getElementById('DemoTable' + labNo) !== patientPanel) return;
+        // In inline views the next-appointment label is outside the patient table.
+        const nextAppointment = document.getElementById('labNextAppointment' + labNo);
+        const refreshedAppointment = parsed.getElementById('labNextAppointment' + labNo);
+        if (nextAppointment && refreshedAppointment && !patientPanel.contains(nextAppointment)) {
+            nextAppointment.replaceWith(document.importNode(refreshedAppointment, true));
+        }
+        replacement.style.backgroundColor = '#FFF';
+        patientPanel.replaceWith(document.importNode(replacement, true));
+    } catch (e) {
+        console.warn('Patient match saved; reload the lab view to refresh its patient details.');
+    }
+}
+
 /**
  * Helper function to show an element
  * @param {HTMLElement|string} el - Element or element ID
@@ -190,11 +246,12 @@ function getCsrfToken() {
  * token input exists in the DOM) required by CSRFGuard.
  * @param {string} url - The URL to POST to
  * @param {string|Object|URLSearchParams} data - Form data as a URL-encoded string, a key-value object, or URLSearchParams instance
+ * @param {string} [pinnedCsrfToken] - Explicit token for an immutable queued operation
  * @returns {Promise<Response>}
  */
-function postForm(url, data) {
+function postForm(url, data, pinnedCsrfToken) {
     var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-    var csrfToken = csrfEl ? csrfEl.value : '';
+    var csrfToken = pinnedCsrfToken === undefined ? (csrfEl ? csrfEl.value : '') : pinnedCsrfToken;
     return fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
@@ -293,17 +350,6 @@ function appendHtmlWithScripts(container, html) {
         }
         document.head.appendChild(newScript).parentNode.removeChild(newScript);
     });
-}
-
-function updateDocStatusInQueue(docid) {//change status of queue document link row to I=inactive
-    console.log('in updateDocStatusInQueue, docid ' + docid);
-    const url = ctx + "/documentManager/inboxManage";
-    const data = "docid=" + docid + "&method=updateDocStatusInQueue";
-
-    postForm(url, data)
-        .then(response => response.text())
-        .then(text => console.log(text))
-        .catch(error => console.error('Error:', error));
 }
 
 function saveNext(docid) {
@@ -585,74 +631,132 @@ function sendMRP(ele) {
     }
 }
 
-function rotate180(id) {
-    jQuery("#rotate180btn_" + id).prop('disabled', true);
-    const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-    const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
+const quickDocumentMutations = new Map();
 
-    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate180&document=" + id)
-        .then(response => response.text())
-        .then(data => {
-            jQuery("#rotate180btn_" + id).prop('disabled', false);
-            if (displayDocumentAs == "PDF") {
-                showPDF(id, contextpath);
-            } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function rotate90(id) {
-    jQuery("#rotate90btn_" + id).prop('disabled', true);
-    const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-    const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
-
-    postForm(contextpath + "/documentManager/SplitDocument", "method=rotate90&document=" + id)
-        .then(response => response.text())
-        .then(data => {
-            jQuery("#rotate90btn_" + id).prop('disabled', false);
-            if (displayDocumentAs == "PDF") {
-                showPDF(id, contextpath);
-            } else {
-                jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
-            }
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function removeFirstPage(id) {
-    jQuery("#removeFirstPagebtn_" + id).prop('disabled', true);
-    if (confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) {
-        ShowSpin(true);
-        const displayDocumentAsEl = document.getElementById('displayDocumentAs_' + id);
-        const displayDocumentAs = displayDocumentAsEl ? displayDocumentAsEl.value : '';
-
-        postForm(contextpath + "/documentManager/SplitDocument", "method=removeFirstPage&document=" + id)
-            .then(response => response.text())
-            .then(data => {
-                if (displayDocumentAs == "PDF") {
-                    showPDF(id, contextpath);
-                } else {
-                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument?method=viewDocPage&doc_no=" + id + "&curPage=1&rand=" + (new Date().getTime()));
+function quickDocumentMutation(id, method) {
+    id = String(id);
+    if (!/^[1-9][0-9]{0,9}$/.test(id) || Number(id) > 2147483647
+            || !['rotate90', 'rotate180', 'removeFirstPage'].includes(method)) return false;
+    let entry = quickDocumentMutations.get(id);
+    if (entry) entry.bind();
+    if (entry && entry.controller.isLocked()) return false;
+    if (method === 'removeFirstPage' && !confirm("!! This is a destructive action that can cause loss of document data !! \n Click OK to delete the first page of this document, or Cancel to abort.")) return false;
+    if (!entry) {
+        const buttons = ['rotate90btn_', 'rotate180btn_', 'removeFirstPagebtn_']
+            .map(prefix => document.getElementById(prefix + id)).filter(Boolean);
+        if (!buttons.length) return false;
+        const messages = window.CarlosDocumentMutationMessages;
+        const container = document.createElement('div');
+        container.id = 'document-mutation-status-' + id;
+        const status = document.createElement('span');
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = messages.cancel;
+        cancel.hidden = true;
+        container.appendChild(status);
+        container.appendChild(cancel);
+        buttons[0].parentNode.appendChild(container);
+        entry = {buttons, baseline: [], controller: null, state: 'idle'};
+        entry.bind = () => {
+            const current = ['rotate90btn_', 'rotate180btn_', 'removeFirstPagebtn_']
+                .map(prefix => document.getElementById(prefix + id)).filter(Boolean);
+            if (current.length === entry.buttons.length && current.every((button, index) => button === entry.buttons[index])) return;
+            // Inbox AJAX refreshes can replace a row while its operation is still
+            // pending. Rebind the visible controls without discarding acceptance state.
+            entry.buttons = current;
+            entry.baseline = current.map(button => button.disabled);
+            if (current.length) current[0].parentNode.appendChild(container);
+            if (entry.state !== 'idle') current.forEach(button => {button.disabled = true;});
+        };
+        function message(key, alert) {
+            status.textContent = messages[key];
+            status.setAttribute('role', alert ? 'alert' : 'status');
+        }
+        entry.controller = window.CarlosDocumentMutation.create({
+            beforeSend: () => {
+                entry.localRefusal = null;
+                if (typeof entry.csrfToken !== 'string' || !entry.csrfToken.length || getCsrfToken() !== entry.csrfToken) return false;
+                const observed = document.getElementById('sourceRevision_' + id);
+                if (!/^[0-9a-f]{64}$/.test(entry.sourceRevision || '') || !observed) {
+                    entry.localRefusal = 'sourceUnavailable'; return false;
                 }
-                const numPages = parseInt(jQuery("#numPages_" + id).text()) - 1;
-                jQuery("#numPages_" + id).text("" + numPages);
-
-                if (numPages <= 1) {
-                    jQuery("#numPages_" + id).removeClass("multiPage");
-                    jQuery("#removeFirstPagebtn_" + id).remove();
+                if (observed.value !== entry.sourceRevision) {
+                    entry.localRefusal = 'sourceChanged'; return false;
                 }
-                HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                HideSpin();
-                jQuery("#removeFirstPagebtn_" + id).prop('disabled', false);
-            });
+                return true;
+            },
+            send: async body => {
+                const response = await postForm(contextpath + '/documentManager/SplitDocument', body, entry.csrfToken);
+                const data = await response.json();
+                return {status: response.status, data, retryAfter: response.headers.get('Retry-After')};
+            },
+            isSuccess: data => data.document === Number(id) && Number.isSafeInteger(data.pageCount) && data.pageCount > 0
+                && typeof data.sourceRevision === 'string' && /^[0-9a-f]{64}$/.test(data.sourceRevision),
+            onState: state => {
+                entry.state = state;
+                entry.bind();
+                const locked = state !== 'idle';
+                entry.buttons.forEach((button, index) => {button.disabled = locked || entry.baseline[index];});
+                cancel.hidden = state !== 'waiting';
+                if (state === 'pending') message('pending', false);
+            },
+            onWaiting: () => message('waiting', false),
+            onCancelled: () => message('cancelled', false),
+            onRejected: data => message(data && data.sourceChanged ? 'sourceChanged' : entry.localRefusal || 'rejected', true),
+            onUncertain: () => message('uncertain', true),
+            onSuccess: data => {
+                const observed = document.getElementById('sourceRevision_' + id);
+                // A replaced row may already describe a later edit by another
+                // session. Do not overwrite its newer revision or page count.
+                if (!observed || (observed.value !== entry.sourceRevision && observed.value !== data.sourceRevision)) {
+                    message('sourceChanged', true);
+                    return;
+                }
+                observed.value = data.sourceRevision;
+                // Trust the committed server count, never a decrement based on stale tab state.
+                const count = document.getElementById('numPages_' + id);
+                if (count) {
+                    count.textContent = String(data.pageCount);
+                    if (data.pageCount <= 1) count.classList.remove('multiPage');
+                }
+                const total = document.getElementById('totalPage_' + id);
+                const current = document.getElementById('curPage_' + id);
+                const viewed = document.getElementById('viewedPage_' + id);
+                if (total) total.value = String(data.pageCount);
+                if (current) current.value = '1';
+                if (viewed) viewed.textContent = '1';
+                const remove = document.getElementById('removeFirstPagebtn_' + id);
+                if (remove && data.pageCount <= 1) remove.remove();
+                hidePrev(id);
+                if (data.pageCount > 1) showNext(id); else hideNext(id);
+                const display = document.getElementById('displayDocumentAs_' + id);
+                if (display && display.value === 'PDF') showPDF(id, contextpath);
+                else {
+                    const image = document.getElementById('docImg_' + id);
+                    if (image) CarlosDocumentImages.load(image, contextpath + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + id + '&curPage=1&rand=' + Date.now());
+                }
+                message('saved', false);
+            }
+        });
+        cancel.addEventListener('click', () => entry.controller.cancelWaiting());
+        window.addEventListener('pagehide', () => entry.controller.hide());
+        window.addEventListener('pageshow', () => entry.controller.show());
+        quickDocumentMutations.set(id, entry);
     }
+    entry.baseline = entry.buttons.map(button => button.disabled);
+    // Pin the page/session token once for the entire immutable operation. A later
+    // AJAX refresh must not authorize the old intent under another logged-in user.
+    entry.csrfToken = getCsrfToken();
+    entry.sourceRevision = document.getElementById('sourceRevision_' + id)?.value || '';
+    entry.localRefusal = null;
+    return entry.controller.start('method=' + method + '&document=' + id + '&sourceRevision=' + encodeURIComponent(entry.sourceRevision));
 }
+
+function rotate180(id) { return quickDocumentMutation(id, 'rotate180'); }
+function rotate90(id) { return quickDocumentMutation(id, 'rotate90'); }
+function removeFirstPage(id) { return quickDocumentMutation(id, 'removeFirstPage'); }
 
 function split(id) {
     const loc = contextpath + "/oscarMDS/ViewSplit?document=" + id;
@@ -1919,122 +2023,32 @@ function decreaseCount(eleId) {
     }
 }
 
-function updateDocumentAndNext(eleId) {//save doc info
-    const url = "../documentManager/ManageDocument"
-    const formEl = document.getElementById(eleId);
-    const data = serializeForm(formEl);
-
-    postForm(url, data)
-        .then(response => response.json())
-        .then(json => {
-        if (json != null) {
-            const patientId = json.patientId;
-
-            const ar = eleId.split("_");
-            const num = ar[1].replace(/\s/g, '');
-
-            showElement("saveSucessMsg_" + num);
-            const savedEl = document.getElementById('saved' + num);
-            if (savedEl) savedEl.value = 'true';
-
-            const msgBtnEl = document.getElementById("msgBtn_" + num);
-            if (msgBtnEl) {
-                msgBtnEl.onclick = function () {
-                    popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
-                };
-            }
-
-            updateDocStatusInQueue(num);
-
-            if (typeof _in_window !== 'undefined' && _in_window) {
-                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                    // Typed: segment ids are not unique across report types, and an untyped
-                    // call can remove another type's row and decrement its total instead.
-                    self.opener.removeReport(num, 'DOC');
-                }
-                window.close();
-            } else {
-                //Hide document with slide up animation
-                labDocumentRows(num, 'DOC').slideUp();
-                const success = updateGlobalDataAndSideNav(num, patientId);
-                if (success) {
-                    const innerSuccess = updatePatientDocLabNav(num, patientId);
-                    if (innerSuccess) {
-                        //disable demo input
-                        const autocompletedemoEl = document.getElementById('autocompletedemo' + num);
-                        if (autocompletedemoEl) autocompletedemoEl.disabled = true;
-                    }
-                }
-            }
+function confirmedDocumentMetadata(json, num, next) {
+    const patientId = json.patientId;
+    const msgBtn = document.getElementById('msgBtn_' + num);
+    if (msgBtn && patientId !== null) msgBtn.onclick = function () {
+        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
+    };
+    if (typeof _in_window !== 'undefined' && _in_window) {
+        if (self.opener && typeof self.opener.removeReport === 'function') self.opener.removeReport(num, 'DOC');
+        if (next) window.close();
+    } else {
+        if (next) labDocumentRows(num, 'DOC').slideUp();
+        if (patientId !== null && updateGlobalDataAndSideNav(num, patientId) && updatePatientDocLabNav(num, patientId)) {
+            const input = document.getElementById('autocompletedemo' + num);
+            if (input) input.disabled = true;
         }
-    })
-    .catch(error => console.error('Error:', error));
+    }
+}
 
-    return false;
+function updateDocumentAndNext(eleId) {
+    if (!checkObservationDate(eleId)) return false;
+    return window.CarlosDocumentMetadata.save(eleId, (json, num) => confirmedDocumentMetadata(json, num, true), true);
 }
 
 function updateDocument(eleId) {
-    if (!checkObservationDate(eleId)) {
-        return false;
-    }
-
-    //save doc info
-    const url = "../documentManager/ManageDocument";
-    const formEl = document.getElementById(eleId);
-    const data = serializeForm(formEl);
-
-    postForm(url, data)
-        .then(response => response.text())
-        .then(responseText => {
-        const ar = eleId.split("_");
-        const num = ar[1].replace(/\s/g, '');
-
-        const msg = document.getElementById("saveSucessMsg_" + num);
-        if (msg) msg.style.display = "inline";
-
-        const savedField = document.getElementById("saved" + num);
-        if (savedField) savedField.value = "true";
-
-        let success = false;
-        let patientId = null;
-
-        try {
-            const json = JSON.parse(responseText);
-            if (json && json.patientId) {
-                patientId = json.patientId;
-
-                const msgBtn = document.getElementById("msgBtn_" + num);
-                if (msgBtn) {
-                    msgBtn.onclick = function () {
-                        popup(700, 960, contextpath + '/messenger/SendDemoMessage?demographic_no=' + patientId, 'msg');
-                    };
-                }
-
-                if (typeof _in_window !== 'undefined' && _in_window) {
-                    if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                        // Typed, for the same reason as updateDocumentAndNext above.
-                        self.opener.removeReport(num, 'DOC');
-                        success = true;
-                    }
-                } else {
-                    success = updateGlobalDataAndSideNav(num, patientId);
-                }
-
-                if (success) {
-                    const updateSuccess = updatePatientDocLabNav(num, patientId);
-                    if (updateSuccess) {
-                        const ac = document.getElementById("autocompletedemo" + num);
-                        if (ac) ac.disabled = true;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("Not JSON");
-        }
-    })
-    .catch(error => console.error("Save failed:", error));
-
-    return false;
+    if (!checkObservationDate(eleId)) return false;
+    return window.CarlosDocumentMetadata.save(eleId, (json, num) => confirmedDocumentMetadata(json, num, false));
 }
 
 function checkObservationDate(formid) {
@@ -2203,10 +2217,8 @@ function updateStatus(formid) {//acknowledge
         if (jQuery('#saved' + doclabid).length) {
             saved = jQuery('#saved' + doclabid).val();
         }
-        console.log("Update status for demoid: " + demoId + " doclabid: " + doclabid);
-        console.log("Previously saved: " + saved);
 
-        if (demoId === '-1' || !saved) {
+        if (demoId === '-1' || saved === false || saved === 'false') {
             alert('Document is not assigned and saved to a patient,please file it');
         } else {
             const url = contextpath + "/oscarMDS/UpdateStatus";
@@ -2218,18 +2230,8 @@ function updateStatus(formid) {//acknowledge
             // have the hidden field (showDocument, MultiPageDocDisplay, labDisplayAjax); the
             // lab display's does not, and its acknowledgement is the multi-version case.
             data.ajaxcall = 'yes';
-            console.log("Updating status. URL: " + url);
-            console.log(data);
 
-            jQuery.post(url, data).done(function (responseBody) {
-                // Only a DOCUMENT has an inbox queue link. This handler serves lab (HL7) and
-                // document acknowledge forms alike, and doclabid is whichever id the form
-                // carries -- lab segment ids and document ids are separate sequences, so
-                // posting a lab id here inactivated the queue link of an unrelated document
-                // that happened to share the number.
-                if (data.labType === 'DOC') {
-                    updateDocStatusInQueue(doclabid);
-                }
+            function acknowledged(responseBody) {
 				// How many routing rows the server took out of NEW. Only it knows: it derives
 				// the HL7 version chain itself rather than trusting the posted multiID, and it
 				// alone can see which of those rows were still NEW. Absent — an older server,
@@ -2261,49 +2263,23 @@ function updateStatus(formid) {//acknowledge
                     labDocumentRows(doclabid, data.labType).slideUp();
                     updateGlobalDataAndSideNav(doclabid, null);
                 }
-            })
+            }
+            if (data.labType === 'DOC') window.CarlosDocumentMetadata.acknowledge(formid, acknowledged);
+            else jQuery.post(url, data).done(acknowledged);
         }
     }
 }
 
 function fileDoc(docId) {
-    if (docId) {
-        docId = docId.replace(/\s/, '');
-        if (docId.length > 0) {
-            const demofindEl = document.getElementById('demofind' + docId);
-            const demoId = demofindEl ? demofindEl.value : '-1';
-            let isFile = true;
-            if (demoId == '-1') {
-                isFile = confirm('Document is not assigned to any patient, do you still want to file it?');
-            }
-            if (isFile) {
-                const type = 'DOC';
-                if (type) {
-                    const url = '../oscarMDS/FileLabs';
-                    const data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-
-                    postForm(url, data)
-                        .then(response => response.text())
-                        .then(responseText => {
-                            updateDocStatusInQueue(docId);
-
-                            if (typeof _in_window !== 'undefined' && _in_window) {
-                                if (self.opener && typeof self.opener.removeReport !== 'undefined') {
-                                    // 'type' is the labType this filing was posted under.
-                                    self.opener.removeReport(docId, type);
-                                }
-
-                                window.close();
-                            } else {
-                                // Slide up animation using jQuery
-                                labDocumentRows(docId, type).slideUp();
-                            }
-                        })
-                        .catch(error => console.error('Error:', error));
-                }
-            }
-        }
-    }
+    docId = String(docId).trim();
+    const demographic = document.getElementById('demofind' + docId);
+    if ((!demographic || demographic.value === '-1') && !confirm('Document is not assigned to any patient, do you still want to file it?')) return false;
+    return window.CarlosDocumentMetadata.file(docId, function () {
+        if (typeof _in_window !== 'undefined' && _in_window) {
+            if (self.opener && typeof self.opener.removeReport === 'function') self.opener.removeReport(docId, 'DOC');
+            window.close();
+        } else labDocumentRows(docId, 'DOC').slideUp();
+    });
 }
 
 function handleQueueListChange(queueListSelectElement, refileBtnElement) {
@@ -2356,17 +2332,9 @@ function addDocToList(provNo, provName, docId) {
 }
 
 function removeLink(docType, docId, providerNo, e) {
-    const url = "../documentManager/ManageDocument";
-    const data = 'method=removeLinkFromDocument&docType=' + docType + '&docId=' + docId + '&providerNo=' + providerNo;
-
-    postForm(url, data)
-    .then(response => response.text())
-    .then(responseText => {
+    return window.CarlosDocumentMetadata.unlink(docType, docId, providerNo, e, function () {
         updateDocLabData(docId);
-    })
-    .catch(error => console.error('Error:', error));
-
-    e.parentNode.remove(e);
+    });
 }
 
 function replaceQueryString(url, param, value) {
@@ -2521,7 +2489,7 @@ function showPageImg(docid, pn, cp) {
     } else if (docid && pn && cp) {
         const e = document.getElementById('docImg_' + docid);
         const url = cp + '/documentManager/ManageDocument?method=viewDocPage&doc_no=' + docid + '&curPage=' + pn;
-        if (e) e.setAttribute('src', url);
+        if (e) CarlosDocumentImages.load(e, url);
     }
 }
 

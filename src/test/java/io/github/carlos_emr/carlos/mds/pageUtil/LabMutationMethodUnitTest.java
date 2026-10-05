@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -129,7 +129,7 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest(method, "/oscarMDS/UpdateStatus");
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         TicklerDao ticklers = createAndRegisterMock(TicklerDao.class);
-        TicklerLinkDao links = createAndRegisterMock(TicklerLinkDao.class);
+        TicklerAttachmentService links = createAndRegisterMock(TicklerAttachmentService.class);
         UserPropertyDAO preferences = createAndRegisterMock(UserPropertyDAO.class);
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);

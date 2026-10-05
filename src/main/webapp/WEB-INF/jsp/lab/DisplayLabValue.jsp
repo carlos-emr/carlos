@@ -109,11 +109,11 @@
     //alert(ele);
     <%for (int k =0; k < list.size(); k++){ %>
     Rounded("div#preventionProcedure<%=""+k+""+ran%>", "all", "#CCF", "#efeadc", "small border blue");
-    scanDOM(document.getElementById("preventionProcedure<%=""+k+""+ran%>"));
+    scanBO(document.getElementById("preventionProcedure<%=""+k+""+ran%>"));
     <%}%>
     Rounded("div#headPrevention<%=ran%>", "all", "transparent", "#F0F0E7", "small border #999");
 
-    scanDOM(document.getElementById("ahead<%=ran%>"));
+    scanBO(document.getElementById("ahead<%=ran%>"));
 </script>
 
 

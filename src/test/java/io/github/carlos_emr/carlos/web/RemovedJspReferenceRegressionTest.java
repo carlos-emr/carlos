@@ -152,7 +152,9 @@ class RemovedJspReferenceRegressionTest {
 
         assertThat(jsp.indexOf("/library/jquery/jquery-3.7.1.min.js"))
                 .isPositive()
-                .isLessThan(jsp.indexOf("$(\"#providers-selection\")"));
+                .isLessThan(jsp.indexOf("$(\"#provider-selection\")"));
+        // The select is #provider-selection; a handler on #providers-selection never fires (#4131).
+        assertThat(jsp).doesNotContain("#providers-selection");
     }
 
     @Test

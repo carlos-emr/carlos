@@ -153,13 +153,69 @@
                  * @param {string} memberId - The ID of the provider to add
                  * @param {string} groupId - The ID of the group to add the member to
                  */
-                function addMember(memberId, groupId) {
-                    $.post(ctx + "/messenger?method=add&member=" + memberId + "&group=" + groupId).done(function () {
-                        // Reload the group member list to show the new member
-                        $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId);
-                        // Check the appropriate checkbox in the member list display
-                        $("div#addContacts input[type='checkbox'][value^='" + memberId + "']").prop("checked", true);
+                function showMembershipError() {
+                    $('#membership-error').removeClass('d-none');
+                }
+
+                function refreshGroupMembers(groupId) {
+                    $('#group-member-list-' + groupId).load(ctx + '/messenger?method=fetch #group-member-list-' + groupId + ' > *', function (_body, status) {
+                        if (status === 'error') showMembershipError();
                     });
+                }
+
+                function addMember(memberId, groupId, checkbox) {
+                    $('#membership-error').addClass('d-none');
+                    if (checkbox) $(checkbox).prop('disabled', true);
+                    $.post(ctx + "/messenger?method=add&member=" + encodeURIComponent(memberId)
+                            + "&group=" + encodeURIComponent(groupId)).done(function () {
+                        // Reload the group member list to show the new member. Load the list's
+                        // children, not the list itself, so the reload does not nest a second
+                        // element with the same id inside the first.
+                        refreshGroupMembers(groupId);
+                        // Check the appropriate checkbox in the member list display
+                        $("div#addContacts input[type='checkbox']").filter(function () {
+                            return this.value === memberId;
+                        }).prop("checked", true);
+                    }).fail(function (xhr) {
+                        // 409: the server refused a second membership row for this contact.
+                        // For the general registry (group 0) the checkbox already shows the
+                        // right state; for a named group, tell the administrator.
+                        if (xhr.status === 409) {
+                            if (String(groupId) !== "0") {
+                                showDuplicateMember(groupId, true);
+                                refreshGroupMembers(groupId);
+                            }
+                            if (checkbox) $(checkbox).prop('checked', true);
+                        } else {
+                            if (checkbox) $(checkbox).prop('checked', false);
+                            showMembershipError();
+                        }
+                    }).always(function () {
+                        if (checkbox) $(checkbox).prop('disabled', false);
+                    });
+                }
+
+                /**
+                 * Whether the group's member list already shows this contact. Members are
+                 * matched on the provider-and-facility key, not the full composite id: the
+                 * clinic location segment of a stored membership can differ from the one the
+                 * contact list is stamped with.
+                 */
+                function inGroup(groupId, memberKey) {
+                    return $("#group-member-list-" + groupId + " [data-member-key]").filter(function () {
+                        return $(this).attr("data-member-key") === memberKey;
+                    }).length > 0;
+                }
+
+                function showDuplicateMember(groupId, show) {
+                    $("#duplicate-member-" + groupId).toggleClass("d-none", !show);
+                }
+
+                // Forget a picked contact: the add button only acts on a contact chosen from
+                // the list, never on free text left in the box.
+                function resetMemberPick(groupId) {
+                    $("#add-member-id-" + groupId).val("");
+                    $("#add-" + groupId).prop("disabled", true);
                 }
 
                 /**
@@ -169,56 +225,71 @@
                  * @param {string} memberId - The ID of the provider to remove
                  * @param {string} groupId - The ID of the group (used for display updates)
                  */
-                function removeMember(memberId, groupId) {
+                function removeMember(memberId, groupId, checkbox) {
                     if (memberId) {
-                        $.post(ctx + "/messenger?method=remove&member=" + memberId).done(function () {
-                            // Remove from groups view display. Quote the attribute value:
-                            // provider ids are numeric, and i[id^=123] is an invalid CSS
-                            // identifier that would silently match nothing.
-                            $('div#manageGroups i[id^="' + memberId + '"]').parent().parent().remove();
+                        $('#membership-error').addClass('d-none');
+                        if (checkbox) $(checkbox).prop('disabled', true);
+                        $.post(ctx + "/messenger?method=remove&member=" + encodeURIComponent(memberId)).done(function () {
+                            $('#manageGroups i[id]').filter(function () {
+                                return this.id.startsWith(memberId + '-');
+                            }).closest('.row').remove();
+                        }).fail(function () {
+                            if (checkbox) $(checkbox).prop('checked', true);
+                            showMembershipError();
+                        }).always(function () {
+                            if (checkbox) $(checkbox).prop('disabled', false);
                         });
                     }
                 }
 
                 function removeGroupMember(memberId, groupId) {
                     if (memberId) {
-                        $.post(ctx + "/messenger?method=remove&member=" + memberId + "&group=" + groupId).done(function () {
-                            /*
-                             * Add the group id back into selector as it is used to make the id's unique.
-                             * Remove the selected value from the user interface
-                             */
-                            $('#' + memberId + '-' + groupId).parent().parent().remove();
-                        });
+                        $('#membership-error').addClass('d-none');
+                        $.post(ctx + "/messenger?method=remove&member=" + encodeURIComponent(memberId)
+                                + "&group=" + encodeURIComponent(groupId)).done(function () {
+                            $(document.getElementById(memberId + '-' + groupId)).closest('.row').remove();
+                        }).fail(showMembershipError);
                     }
                 }
 
-                function createGroup(groupName) {
-                    // Wait for the create to commit before reloading the panel (the
-                    // previous code raced the reload against the POST), then re-attach
-                    // the provider autocomplete to the freshly-loaded search boxes.
-                    $.post(ctx + "/messenger?method=create&groupName=" + encodeURIComponent(groupName)).done(function () {
-                        $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups', function () {
-                            if (window.initProviderAutocomplete) { window.initProviderAutocomplete(); }
-                        });
+                function reloadGroups() {
+                    $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups > *', function (_body, status) {
+                        if (status === 'error') {
+                            showMembershipError();
+                        } else if (window.initProviderAutocomplete) {
+                            window.initProviderAutocomplete();
+                        }
                     });
                 }
 
+                function createGroup(groupName) {
+                    $('#membership-error').addClass('d-none');
+                    $.post(ctx + "/messenger?method=create&groupName=" + encodeURIComponent(groupName))
+                            .done(reloadGroups).fail(showMembershipError);
+                }
+
                 function deleteGroup(groupId) {
-                    $.post(ctx + "/messenger?method=remove&group=" + encodeURIComponent(groupId)).done(function () {
-                        $('#manageGroups').load(ctx + '/messenger?method=fetch #manageGroups', function () {
-                            if (window.initProviderAutocomplete) { window.initProviderAutocomplete(); }
-                        });
-                    });
+                    $('#membership-error').addClass('d-none');
+                    $.post(ctx + "/messenger?method=remove&group=" + encodeURIComponent(groupId))
+                            .done(reloadGroups).fail(showMembershipError);
                 }
 
                 // Build the provider list for the group-search typeahead. The source
                 // spans are class="provider-name" — the previous selector
                 // "span.providers-name" matched nothing, so the autocomplete had an
                 // empty source and offered no options.
+                //
+                // Only the Manage Contacts list is a source: the group member lists reuse the
+                // provider-name class, and including them duplicated every member in the
+                // suggestions with an empty value.
                 function collectProviders() {
                     var providers = [];
-                    $("span.provider-name").each(function () {
-                        providers.push({value: this.id, label: $(this).text().trim()});
+                    $("#local-contacts span.provider-name").each(function () {
+                        providers.push({
+                            value: this.id,
+                            key: $(this).attr("data-member-key"),
+                            label: $(this).text().trim()
+                        });
                     });
                     return providers;
                 }
@@ -240,8 +311,17 @@
                                 return false;
                             },
                             select: function (event, ui) {
+                                var groupId = this.id;
                                 $(this).val(ui.item.label);
-                                $("#add-member-id-" + this.id).val(ui.item.value);
+                                if (inGroup(groupId, ui.item.key)) {
+                                    // Stop a duplicate here; the server refuses it too (409).
+                                    resetMemberPick(groupId);
+                                    showDuplicateMember(groupId, true);
+                                } else {
+                                    showDuplicateMember(groupId, false);
+                                    $("#add-member-id-" + groupId).val(ui.item.value);
+                                    $("#add-" + groupId).prop("disabled", false);
+                                }
                                 return false;
                             }
                         });
@@ -253,9 +333,9 @@
                     // so a direct binding is fine here.
                     $("input:checkbox").on("change", function () {
                         if (this.checked) {
-                            addMember(this.value, 0);
+                            addMember(this.value, 0, this);
                         } else {
-                            removeMember(this.value, 0)
+                            removeMember(this.value, 0, this)
                         }
                     });
 
@@ -267,9 +347,21 @@
                         var groupId = this.id.replace("add-", '');
                         var memberId = $("#add-member-id-" + groupId).val();
                         if (memberId) {
+                            // Disable before posting so a double-click cannot send two adds.
+                            resetMemberPick(groupId);
                             addMember(memberId, groupId);
-                            $(".search-provider").val('');
+                            document.getElementById(groupId).value = '';
                         }
+                    });
+
+                    // Typing after a pick invalidates it.
+                    $(document).on("input", ".search-provider", function () {
+                        resetMemberPick(this.id);
+                        showDuplicateMember(this.id, false);
+                    });
+
+                    $(document).on("click", "i.group-member", function () {
+                        removeGroupMember($(this).attr('data-member-id'), $(this).attr('data-group-id'));
                     });
 
                     $(document).on("click", "#add-group-btn", function () {
@@ -296,6 +388,7 @@
         <body>
 
         <div class="container-fluid">
+            <div id="membership-error" class="alert alert-danger d-none" role="alert"><fmt:message key="messenger.config.MessengerAdmin.updateFailed"/></div>
 
             <div class="navbar">
                 <div class="container-fluid">
@@ -329,10 +422,11 @@
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
                                 <div class="row contact-entry">
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" value="${ contact.id.compositeId }"
+                                        <input type="checkbox" id="contact-enabled-${count.index}" class="form-check-input" value="${carlos:forHtmlAttribute(contact.id.compositeId)}"
                                             ${ contact.member ? 'checked="checked"' : '' } />
-                                        <label class="form-check-label">
-                                        <span id="${ contact.id.compositeId }" class="provider-name">
+                                        <label class="form-check-label" for="contact-enabled-${count.index}">
+                                        <span id="${carlos:forHtmlAttribute(contact.id.compositeId)}" class="provider-name"
+                                              data-member-key="${carlos:forHtmlAttribute(contact.id.contactId)}-${ contact.id.facilityId }">
 									${carlos:forHtml(contact.lastName)}, ${carlos:forHtml(contact.firstName)}
 								</span>
                                         <span class="text-muted">
@@ -372,10 +466,12 @@
                                         <div class="row contact-entry">
                                             <div class="form-check">
                                                 <i class="fa-solid fa-trash group-member"
-                                                   onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
+                                                   data-member-id="${carlos:forHtmlAttribute(member.id.compositeId)}"
+                                                   data-group-id="${ group.key.id }"
                                                    title="<fmt:message key='messenger.config.MessengerAdmin.removeContact'/>"
-                                                   id="${ member.id.compositeId }-${ group.key.id }"></i>
-                                                <span class="provider-name">
+                                                   id="${carlos:forHtmlAttribute(member.id.compositeId)}-${ group.key.id }"></i>
+                                                <span class="provider-name"
+                                                      data-member-key="${carlos:forHtmlAttribute(member.id.contactId)}-${ member.id.facilityId }">
 											${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
 										</span>
                                                 <span class="text-muted">
@@ -391,10 +487,13 @@
                                             <input type='text' placeholder="<fmt:message key='messenger.config.MessengerAdmin.lastFirst'/>" id="${ group.key.id }"
                                                    class="search-provider"/>
                                             <input type='hidden' id="add-member-id-${ group.key.id }" value=""/>
-                                            <button id="add-${ group.key.id }" class="btn add-member-btn"><fmt:message key="messenger.config.MessengerAdmin.btnAddContact"/>
+                                            <button id="add-${ group.key.id }" class="btn add-member-btn" disabled><fmt:message key="messenger.config.MessengerAdmin.btnAddContact"/>
                                             </button>
                                         </div>
                                     </div>
+                                    <output id="duplicate-member-${ group.key.id }" class="alert alert-info d-none mt-2" style="display: block">
+                                        <fmt:message key="messenger.config.MessengerAdmin.msgAlreadyInGroup"/>
+                                    </output>
                                 </div>
                                 <div class="row" style="background-color:white;">
                                     <button id="delete-${ group.key.id }" class="btn delete-group-btn float-end"><fmt:message key="messenger.config.MessengerAdmin.btnDeleteGroup"/>

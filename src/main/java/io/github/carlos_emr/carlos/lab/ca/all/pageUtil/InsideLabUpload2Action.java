@@ -43,8 +43,6 @@ import java.io.File;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -176,36 +174,45 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path;
+        File savedFile;
+        File documentDir;
         String fileName;
         try {
-            File savedFile = PathValidationUtils.validateExistingDocumentPath(filePath);
-            path = savedFile.toPath();
-            fileName = path.getFileName().toString();
+            savedFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            documentDir = PathValidationUtils.getRequiredDocumentDirectory();
+            fileName = savedFile.getName();
         } catch (IOException | SecurityException e) {
             MiscUtils.getLogger().error("Invalid saved lab file path", e);
             return FileStatus.FAILED;
         }
-        int checkFileUploadedSuccessfully;
-
-        try (InputStream localFileInputStream = Files.newInputStream(path)) {
-            String providerNumber = (String) request.getSession().getAttribute("user");
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(fileName, localFileInputStream, providerNumber);
-            if (checkFileUploadedSuccessfully == FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                return FileStatus.EXISTS;
-            }
-        } catch (IOException e) {
-            // exceptionTrace: Files.newInputStream failures carry the validated path, whose
+        String providerNumber = (String) request.getSession().getAttribute("user");
+        FileUploadCheck.StoreOutcome stored;
+        try {
+            // The handler stores the lab inside storeIfNew's transaction, with the checksum it links
+            // its rows to. A handler that fails or returns null rolls both back, so the file can be
+            // uploaded again instead of being reported "Already uploaded" forever; a concurrent upload
+            // of the same file waits on the checksum lock instead of seeing this one in flight. The
+            // saved copy is removed unless the stored lab may reference it.
+            stored = FileUploadCheck.storeSavedFileIfNew(savedFile, documentDir, fileName, providerNumber,
+                    checksumId -> {
+                        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
+                        return msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checksumId,
+                                request.getRemoteAddr()) != null;
+                    });
+        } catch (Exception e) {
+            // exceptionTrace: content-read failures carry the validated path, whose
             // basename comes from the uploaded lab filename.
             MiscUtils.getLogger().error("Error occurred while processing uploaded lab file: {}", LogSafe.exceptionTrace(e));
             return FileStatus.FAILED;
         }
-
-        MessageHandler msgHandler = HandlerClassFactory.getHandler(fileType);
-        if ((msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, request.getRemoteAddr())) != null) {
-            return FileStatus.COMPLETED;
+        switch (stored) {
+            case ALREADY_RECORDED:
+                return FileStatus.EXISTS;
+            case STORED:
+                return FileStatus.COMPLETED;
+            default:
+                return FileStatus.INVALID;
         }
-        return FileStatus.INVALID;
     }
 
     public List<File> getImportFiles() 

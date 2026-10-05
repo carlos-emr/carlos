@@ -83,10 +83,12 @@
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
+const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { browserErrorClass } = require('./browser-error-class');
+const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -106,7 +108,7 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // string equality, so the "from" number MUST be exactly 10 chars: '416' + a 7-digit random keeps it
 // there while giving a 10-million-value space, making a same-number collision between two concurrent
 // runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
-const runFaxSuffix = String(randomInt(1000000, 10000000)); // 7 digits (crypto RNG; CodeQL-clean)
+const runFaxSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 7, randomInt);
 // Destination number staged on the patient's pharmacy. Clicking Fax QUEUES A JOB against this
 // number, so it must be unroutable: NPA 555 is not assignable in the NANP, so 555-xxx-xxxx can
 // never reach a real fax machine. Ten digits after the servlet strips non-digits (it requires at
@@ -125,6 +127,8 @@ if (!/^\d+$/.test(providerNo)) throw new Error(`RX_FAX_PROVIDER_NO must be numer
 
 const findings = [];
 const visited = [];
+// Fixed workflow labels only: browser exceptions can contain clinical data.
+let checkPhase = 'initialization';
 // True only while clicking the custom-drug button, the one moment a confirm() is expected. The
 // page dialog handler auto-accepts a confirm only in this window and records any other dialog.
 let expectingCustomDrugConfirm = false;
@@ -153,7 +157,11 @@ function validateBaseUrl(rawBaseUrl) {
   }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -259,7 +267,8 @@ const seededPharmacyFaxes = [];
  * found"), and ViewScript2.jsp folds the same fact into the Fax button via `hasFaxNumber`. The demo
  * dataset ships its pharmacies with a blank fax, so without this the signed-fax assertion would be
  * measuring the missing pharmacy number rather than the signature gate it exists to pin. Every
- * active pharmacy for the patient is seeded because which one the Rx page carries through is a
+ * active pharmacy for the patient, including one with an existing fax, gets this run's
+ * non-routable destination. Which pharmacy the Rx page carries through is a
  * property of the patient's saved preference, not of this check.
  *
  * Fidelity rules this follows, because it mutates a shared record:
@@ -273,6 +282,7 @@ const seededPharmacyFaxes = [];
  *     concurrent run or an operator edit made during the check is never overwritten.
  */
 function seedPharmacyFax() {
+  checkPhase = 'pharmacy-fixture';
   const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
     JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
     WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
@@ -280,11 +290,13 @@ function seedPharmacyFax() {
     .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
   for (const [rawId, rawWasNull, rawFax] of rows) {
     const recordId = rawId.trim();
-    const originalFax = (rawFax || '').trim();
-    if (originalFax) continue;
     const wasNull = String(rawWasNull).trim() === '1';
+    const originalFax = wasNull ? null : String(rawFax || '');
+    if (originalFax !== null && !/^[0-9A-Za-z .()+-]{0,32}$/.test(originalFax)) {
+      throw new Error('a pharmacy fax value has an unexpected shape; refusing to rewrite it');
+    }
     sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, wasNull });
+    seededPharmacyFaxes.push({ recordId, wasNull, originalFax });
   }
   visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
   if (!rows.length) {
@@ -325,6 +337,7 @@ function cleanupFixtures() {
   }
   // Fax rows on this run's unique staged line, and the fax_config we created.
   attempt('faxes', () => {
+    if (!faxConfig || !faxConfig.created) return;
     // The Fax click also writes a FaxClientLog audit row keyed to the fax job id, so collect the ids
     // BEFORE deleting the jobs or the audit rows would be orphaned.
     const faxIds = sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
@@ -334,22 +347,16 @@ function cleanupFixtures() {
     }
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
-  attempt('fax_config', () => {
-    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-  });
+  attempt('fax_config', cleanupOwnedFaxSender);
   while (seededPharmacyFaxes.length) {
-    const { recordId, wasNull } = seededPharmacyFaxes.pop();
+    const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
+    const restored = wasNull ? 'NULL' : `'${originalFax}'`;
     attempt(`pharmacy-fax ${recordId}`, () => sql(
-      `UPDATE pharmacyInfo SET fax = ${wasNull ? 'NULL' : "''"} `
+      `UPDATE pharmacyInfo SET fax = ${restored} `
       + `WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
   }
 }
 
-// On interruption (Ctrl-C / CI termination) run the same idempotent DB cleanup, then remove the
-// cleartext-password file, before exiting — so a killed run leaves neither test rows nor the secret.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(signal === 'SIGTERM' ? 143 : 130); });
-}
 
 function sql(query) {
   try {
@@ -390,6 +397,7 @@ function wirePage(page, label) {
 // --- login + build-stamp defence-in-depth guard -----------------------------
 
 async function login(context) {
+  checkPhase = 'login';
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
@@ -417,6 +425,7 @@ async function login(context) {
 }
 
 async function checkBuildStampOnAboutPage(context) {
+  checkPhase = 'about-build-stamp';
   const page = await context.newPage();
   wirePage(page, 'about');
   await gotoApp(page, '/encounter/ViewAbout');
@@ -435,22 +444,44 @@ async function checkBuildStampOnAboutPage(context) {
 // --- DB fixtures -------------------------------------------------------------
 
 function stageFaxConfig() {
-  // A fax gateway account so the ViewScript2 "From fax number" select has an
-  // option and sendFax() can run; the servlet matches it to create the fax job.
-  // Reuse only an ACTIVE SRFAX row — an inactive or MIDDLEWARE row on this number
-  // would not populate the select the UI needs, so in that case stage our own.
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
-  if (/^\d+$/.test(existing)) return { id: existing, created: false };
+  checkPhase = 'fax-account-fixture';
+  // Refuse any collision, including inactive/other-provider accounts: cleanup must
+  // never assume that pre-existing jobs on a coincidentally chosen line are ours.
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
+  if (existing) throw new Error('Fixture sender number collided with an existing account; rerun with a new fixture');
+  if (sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}' LIMIT 1;`).trim()) {
+    throw new Error('Fixture sender number collided with an existing fax job; rerun with a new fixture');
+  }
   const id = sql(
     `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
-    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.invalid', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 0); SELECT LAST_INSERT_ID();`,
   ).trim();
+  if (!/^[1-9][0-9]*$/.test(id)) throw new Error('Owned fax sender was not created');
   return { id, created: true };
+}
+
+async function selectOwnedFaxSender(modalFrame) {
+  const sender = modalFrame.locator('#faxNumber');
+  await sender.selectOption(faxNumber);
+  if (await sender.inputValue() !== faxNumber) throw new Error('Owned fax sender was not selected');
+}
+
+function assertOwnedFaxRequest(request) {
+  assertFaxDestination(request, faxNumber, pharmacyFaxNumber);
+}
+
+function cleanupOwnedFaxSender() {
+  if (!faxConfig || !faxConfig.created) return;
+  sql(`DELETE FROM fax_config WHERE id=${faxConfig.id} AND faxNumber='${faxNumber}' AND accountName='Playwright Fax';`);
+  if (sql(`SELECT COUNT(*) FROM fax_config WHERE id=${faxConfig.id};`).trim() !== '0') {
+    throw new Error('Owned fax sender cleanup failed or ownership changed');
+  }
 }
 
 // --- the real UI journey -----------------------------------------------------
 
 async function writeCustomRxThroughUi(page) {
+  checkPhase = 'open-prescription-page';
   await gotoApp(page, `/rx/choosePatient?demographicNo=${demographicNo}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   visited.push({ label: 'rx-search', url: safeUrl(page.url()) });
@@ -459,6 +490,7 @@ async function writeCustomRxThroughUi(page) {
 
   // Real control: name the custom medication, then click the "Custom Drug" button.
   await page.locator('#searchString').waitFor({ state: 'visible', timeout: 30000 });
+  checkPhase = 'stage-custom-drug';
   await page.locator('#searchString').fill(customDrugName);
   // Open the confirm-acceptance window only for this click; the handler records any other dialog.
   expectingCustomDrugConfirm = true;
@@ -475,9 +507,12 @@ async function writeCustomRxThroughUi(page) {
   const previewStateQuery = `SELECT script_no,COALESCE(digital_signature_id,0) FROM prescription WHERE provider_no='${providerNo}' AND demographic_no=${demographicNo} ORDER BY script_no;`;
   const beforePreview = sql(previewStateQuery);
   for (const method of ['GET', 'HEAD']) {
+    checkPhase = method === 'GET' ? 'unsaved-preview-get' : 'unsaved-preview-head';
     const response = await page.request.fetch(appUrl('/rx/viewScript'), { method });
     try {
-      if (response.status() !== 409 || sql(previewStateQuery) !== beforePreview) {
+      const databaseUnchanged = sql(previewStateQuery) === beforePreview;
+      if (response.status() !== 409 || !databaseUnchanged) {
+        console.error(JSON.stringify({ phase: checkPhase, status: response.status(), databaseUnchanged }));
         throw new Error('Unsaved prescription preview navigation must reject without saving or stamping');
       }
     } finally {
@@ -487,6 +522,7 @@ async function writeCustomRxThroughUi(page) {
   visited.push({ label: 'unsaved-preview-get-head-read-only', databaseUnchanged: true });
 
   // Real control: "Save And Print" — writes the script and opens ViewScript2 in the modal.
+  checkPhase = 'save-and-print';
   const [previewRequest] = await Promise.all([
     page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/rx/viewScript'), { timeout: 30000 }),
     page.locator('#saveButton').click(),
@@ -496,14 +532,17 @@ async function writeCustomRxThroughUi(page) {
   }
 
   // The Bootstrap preview modal loads ViewScript2 in an iframe.
+  checkPhase = 'render-prescription-preview';
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
+  await selectOwnedFaxSender(modalFrame);
 
   // Identify exactly the prescription(s) this run created by our fixture drug name — not by
   // MAX(script_no), which a concurrent prescription for the same provider/patient could perturb.
   // "Save And Print" now writes exactly ONE prescription (updateSaveAllDrugs persists it and
   // RxViewScript2Action reuses that row instead of re-saving), so this list should have one entry;
   // a stray duplicate from re-saving would show as a second entry and is caught by runChecks.
+  checkPhase = 'verify-created-prescription';
   const createdScriptNos = sql(`SELECT DISTINCT script_no FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo} AND script_no>${rangeStart};`)
     .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
   if (createdScriptNos.length === 0) {
@@ -514,12 +553,15 @@ async function writeCustomRxThroughUi(page) {
   return { modalFrame, scriptId, createdCount: createdScriptNos.length };
 }
 
-async function runChecks(context) {
+async function runChecks(context, cancellation) {
   const page = await context.newPage();
   wirePage(page, 'rx-fax-stamp');
   let createdScriptId = null;
   // throwawayUnsignedScriptId and faxConfig are module-scoped (see cleanupFixtures); assign, not redeclare.
   try {
+    await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
+      findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
+    });
     faxConfig = stageFaxConfig();
     seedPharmacyFax();
 
@@ -536,6 +578,7 @@ async function runChecks(context) {
     }
 
     // Real DOM: the Fax button must be enabled with no drawn signature.
+    checkPhase = 'verify-stored-stamp';
     const faxDisabled = await modalFrame.locator('#faxButton').isDisabled();
     if (faxDisabled) {
       findings.push({ label: 'fax-button', type: 'greyed', text: 'Fax button is disabled on a stamp-signed new script — the reported defect' });
@@ -569,23 +612,24 @@ async function runChecks(context) {
     // Real control: click Fax. Capture the createcustomedpdf request (the JSP puts scriptId on it)
     // and its response. The fax row it inserts lands on this run's unique faxline and is cleaned up
     // by cleanupFixtures.
+    checkPhase = 'fax-signed-prescription';
     const faxRequestPromise = page.waitForRequest((req) => /form\/createcustomedpdf/.test(req.url()) && /__method=oscarRxFax/.test(req.url()), { timeout: 30000 });
-    const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()), { timeout: 30000 });
+    const faxResponsePromise = page.waitForResponse((res) => /form\/createcustomedpdf/.test(res.url()) && /__method=oscarRxFax/.test(res.url()), { timeout: 30000 });
 
     let faxRequest = null;
     let faxBody = '';
     let faxStatus = 0;
     try {
-      // Observe both waiters and the click together. A disabled button can hold the
-      // click open until the waiters time out; leaving either rejection unhandled
-      // would terminate Node before the fixture cleanup runs.
+      // Drain both observers and the click even if one rejects, so cleanup cannot
+      // delete the fixture while another initiated request is still pending.
       // Capture the request the moment its waiter resolves, so a fax whose response never comes
       // still records which script it posted.
-      const [, faxResponse] = await Promise.all([
+      const [, faxResponse] = await settleOperations([
         faxRequestPromise.then((captured) => { faxRequest = captured; return captured; }),
         faxResponsePromise,
         modalFrame.locator('#faxButton').click(),
       ]);
+      assertOwnedFaxRequest(faxRequest);
       faxStatus = faxResponse.status();
       faxBody = await faxResponse.text().catch(() => '');
       // Path only: the query carries scriptId and the satellite-clinic block, and this goes to the artifact file.
@@ -622,6 +666,8 @@ async function runChecks(context) {
     // Server-side confirmation that an UNSIGNED script is still refused. The demo
     // signs every prescription, so stage a throwaway unsigned row (the refusal
     // fires before PDF rendering, so it needs no drugs).
+    checkPhase = 'unsigned-prescription-fixture';
+    cancellation.throwIfCancelled();
     throwawayUnsignedScriptId = sql(
       // lastUpdateDate is NOT NULL with no default, so a strict-mode database rejects an insert that
       // omits it; supply it explicitly so the throwaway row can be staged anywhere.
@@ -631,6 +677,8 @@ async function runChecks(context) {
     // it carries the session cookie and, via a real CSRFGuard master token, passes CSRF the way the
     // browser does. GET is CSRF-unprotected here (ProtectedMethods=POST,PUT,DELETE,PATCH), so only a
     // POST proves the signature gate refuses an unsigned script on the actual, CSRF-validated route.
+    checkPhase = 'refuse-unsigned-fax';
+    cancellation.throwIfCancelled();
     const unsigned = await page.evaluate(async ({ tokenUrl, postUrl, params }) => {
       const tokenResp = await fetch(tokenUrl, { credentials: 'same-origin' });
       const tokenJs = await tokenResp.text();
@@ -653,7 +701,7 @@ async function runChecks(context) {
       postUrl: appUrl('/form/createcustomedpdf'),
       params: {
         __title: 'Rx', __method: 'oscarRxFax', scriptId: throwawayUnsignedScriptId,
-        pdfId: 'rxfaxstamp', pharmaFax: '4165551212', clinicFax: faxNumber, pharmaName: 'P',
+        pdfId: 'rxfaxstamp', pharmaFax: pharmacyFaxNumber, clinicFax: faxNumber, pharmaName: 'P',
         demographic_no: demographicNo, rxPageSize: 'PageSize.Letter', rx: 'x', rxDate: '2026-01-01',
       },
     });
@@ -675,11 +723,14 @@ async function runChecks(context) {
 }
 
 (async () => {
-  const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
+  const cancellation = createGracefulSignalCancellation();
+  const launchOptions = { handleSIGINT: false, handleSIGTERM: false, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) launchOptions.executablePath = chromePath;
 
-  const browser = await chromium.launch(launchOptions);
+  let browser;
   try {
+    browser = await chromium.launch(launchOptions);
+    cancellation.throwIfCancelled();
     // Bypass TLS verification ONLY for an exact loopback target (self-signed local certs). Any other
     // host — including host.docker.internal, a container alias, or a private-range IP — receives the
     // login credentials, so its certificate must be verified. IPv6 hostnames are normalized (Node's
@@ -687,11 +738,11 @@ async function runChecks(context) {
     const bypassHost = baseUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1']).has(bypassHost);
     const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
-    const loginPage = await login(context);
+    const loginPage = await cancellation.run(() => login(context));
     await loginPage.close();
 
-    await checkBuildStampOnAboutPage(context);
-    const result = await runChecks(context);
+    await cancellation.run(() => checkBuildStampOnAboutPage(context));
+    const result = await cancellation.run(() => runChecks(context, cancellation));
 
     console.log(JSON.stringify({ visited, result, findings }, null, 2));
     // Every recorded finding is blocking. Expected dialogs (the custom-drug confirm) are accepted
@@ -702,12 +753,17 @@ async function runChecks(context) {
     } else {
       console.log('PASS rx-fax-signature-stamp');
     }
+  } catch (error) {
+    if (!cancellation.isCancellation(error)) throw error;
+    process.exitCode = cancellation.exitCode;
   } finally {
-    await browser.close();
-    removeSecretsDir();
+    try { if (browser) await browser.close(); } finally {
+      removeSecretsDir();
+      cancellation.dispose();
+    }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${browserErrorClass(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}`);
   removeSecretsDir();
   process.exit(1);
 });

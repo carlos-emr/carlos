@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 
 import org.openpdf.text.Element;
 import org.openpdf.text.*;
@@ -206,7 +208,7 @@ public class HRMPDFCreator extends PdfPageEventHelper {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void generateHRMReport(HRMReport hrmReport) throws IOException, DocumentException {
-        BaseFont baseFont = BaseFont.createFont(BaseFont.COURIER, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        BaseFont baseFont = PdfFonts.createFont(BaseFont.COURIER, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         Font font = new Font(baseFont, 10, Font.NORMAL);
         Font italicFont = new Font(baseFont, 10, Font.ITALIC);
         Font boldFont = new Font(baseFont, 10, Font.BOLD);

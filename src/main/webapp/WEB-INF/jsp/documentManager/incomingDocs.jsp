@@ -76,82 +76,28 @@
 <jsp:useBean id="LastPatientsBean" class="java.util.ArrayList" scope="session"/>
 
 
-<style>
-    .autocomplete_style {
-        background: #fff;
-        text-align: left;
-        z-index: 2;
-    }
 
-    .autocomplete_style ul {
-        border: 1px solid #aaa;
-        margin: 0px;
-        padding: 2px;
-        list-style: none;
-    }
-
-    .autocomplete_style ul li.selected {
-        background-color: #ffa;
-        text-decoration: underline;
-    }
-
-    /* Save & Next stays unmistakably grey until a patient is selected; Bootstrap's
-       default disabled state keeps the primary blue and reads as clickable.
-       pointer-events must come back on: Bootstrap's .btn:disabled removes hit testing,
-       which would silently kill both the tooltip and the not-allowed cursor. The
-       disabled attribute still prevents activation, so the button stays unclickable. */
-    #save:disabled {
-        background-color: #adb5bd;
-        border-color: #adb5bd;
-        color: #495057;
-        opacity: 1;
-        cursor: not-allowed;
-        pointer-events: auto;
-    }
-
-    /* Constrain the left panel so fields don't extend off-page */
-    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
-    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
-    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
-    #incoming-docs-wrapper fieldset input[type="button"] {
-        font-size: 11px; padding: 2px 6px; margin: 1px;
-    }
-
-
-    .multiPage {
-        background-color: RED;
-        color: WHITE;
-        font-weight: bold;
-        padding: 0px 5px;
-        font-size: medium;
-    }
-
-    .topalign {
-        vertical-align: text-top;
-    }
-
-    #incoming-docs-wrapper {
-        margin: auto 15px;
-    }
-
-    * table {
-        border-collapse: collapse;
-        width: 100%;
-    }
-</style>
 
 <%
     String user_no = (String) session.getAttribute("user");
 
     String imageType = IncomingDocUtil.getAndSetViewDocumentAs(user_no, request.getParameter("imageType"));
-    String queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, request.getParameter("defaultQueue"));
+    // An explicit read-only retry stays in this window's queue even when another session
+    // changes the provider's shared default. Do not persist a retry as a preference change.
+    String queueIdStr = request.getParameter("queueId");
+    io.github.carlos_emr.carlos.managers.SecurityInfoManager queueSecurity = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+    io.github.carlos_emr.carlos.utility.LoggedInInfo queueLogin = io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+    try {
+        if (queueIdStr == null) {
+            String selectedQueue = request.getParameter("defaultQueue");
+            if (selectedQueue != null) io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, selectedQueue);
+            queueIdStr = IncomingDocUtil.getAndSetIncomingDocQueue(user_no, selectedQueue);
+        }
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.requireQueueAccess(queueSecurity, queueLogin, queueIdStr);
+    } catch (SecurityException denied) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
     String entryMode = IncomingDocUtil.getAndSetEntryMode(user_no, request.getParameter("entryMode"));
 
     UserPropertyDAO userPropertyDAO = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -241,8 +187,51 @@
     }
     String pdfExtractPageNumber = request.getParameter("pdfExtractPageNumber") == null ? "" : request.getParameter("pdfExtractPageNumber");
 
+    // pdfAction rotates, deletes or extracts pages of the queued PDF: a mutation. The page
+    // is reached through ViewIncomingDocuments2Action and also as ManageDocument's
+    // nextIncomingDoc result, which bypasses that gate, so these checks are the shared
+    // boundary for both entry paths. CSRFGuard protects only
+    // POST/PUT/DELETE/PATCH, so a GET carrying pdfAction from a link, an image tag or a
+    // prefetch would otherwise change the file with no token. Refuse it before touching
+    // anything; the PdfInfoForm posts, so real operators never see this.
+    if (!pdfAction.isEmpty() && !"POST".equals(request.getMethod())) {
+        response.setHeader("Allow", "POST");
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return;
+    }
+    // The page itself only needs _edoc read (the gate above and ViewDocumentRead2Action), but
+    // a page action rewrites or deletes the queued file. Hold it to the same _edoc write that
+    // ManageDocument's addIncomingDocument requires, so a read-only user cannot change the
+    // queue with a CSRF-valid POST.
+    if (!pdfAction.isEmpty() && !ctx.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+            .hasPrivilege(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    }
+    // doPagesAction ignores names it does not know; reject them so a typo or a new verb
+    // cannot reach the page without first being added to the supported set.
+    if (!pdfAction.isEmpty() && !IncomingDocUtil.isSupportedPageAction(pdfAction)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+
     try {
-        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale);
+        String[] observedRevisions = request.getParameterValues("sourceRevision");
+        String observedRevision = observedRevisions != null && observedRevisions.length == 1 ? observedRevisions[0] : null;
+        IncomingDocUtil.doPagesAction(pdfAction, queueIdStr, pdfDir, pdfName, pdfPageNumber, pdfExtractPageNumber, vLocale, observedRevision);
+    } catch (io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.ConflictException | java.nio.file.NoSuchFileException changed) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageSourceChanged(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (IncomingDocUtil.PageEditAdmissionBusyException busy) {
+        out.clearBuffer();
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageEditBusy(
+                request, response, out, queueIdStr, pdfDir, request.getParameter("pdfNo"));
+        return;
+    } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+        errorMessage = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("dms.incomingDocs.editNotApplied");
     } catch (Exception e) {
         errorMessage = e.getMessage();
     }
@@ -277,8 +266,26 @@
 
     int tabIndex = 0;
     int numOfPage = 0;
+    String sourceRevision = "";
     if (!pdfName.isEmpty()) {
-        numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+        try (io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.Lease viewLease =
+                io.github.carlos_emr.carlos.documentManager.IncomingDocumentMutationLock.acquire(
+                    new File(IncomingDocUtil.getIncomingDocumentFilePathName(queueIdStr, pdfDir, pdfName)), new File(pdfDirectory))) {
+            numOfPage = IncomingDocUtil.getNumOfPages(queueIdStr, pdfDir, pdfName);
+            sourceRevision = io.github.carlos_emr.carlos.documentManager.StoredDocumentRevision.sha256(viewLease.source().toPath());
+        } catch (io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask.BusyException busy) {
+            // This JSP also follows successful POST mutations. Retry a constructed read-only
+            // GET, never reload the current request and risk replaying a page edit or filing.
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountBusy(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        } catch (java.io.IOException unreadable) {
+            out.clearBuffer();
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.pageCountFailed(
+                    request, response, out, queueIdStr, pdfDir, pdfNo, pdfPageNumber, errorMessage);
+            return;
+        }
     }
 
     if (Integer.parseInt(pdfPageNumber) > numOfPage) {
@@ -288,6 +295,76 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html lang="${pageContext.request.locale.language}">
 <head>
+<style>
+    .autocomplete_style {
+        background: #fff;
+        text-align: left;
+        z-index: 2;
+    }
+
+    .autocomplete_style ul {
+        border: 1px solid #aaa;
+        margin: 0px;
+        padding: 2px;
+        list-style: none;
+    }
+
+    .autocomplete_style ul li.selected {
+        background-color: #ffa;
+        text-decoration: underline;
+    }
+
+    /* Save & Next stays unmistakably grey until a patient is selected; Bootstrap's
+       default disabled state keeps the primary blue and reads as clickable.
+       pointer-events must come back on: Bootstrap's .btn:disabled removes hit testing,
+       which would silently kill both the tooltip and the not-allowed cursor. The
+       disabled attribute still prevents activation, so the button stays unclickable. */
+    #save:disabled {
+        background-color: #adb5bd;
+        border-color: #adb5bd;
+        color: #495057;
+        opacity: 1;
+        cursor: not-allowed;
+        pointer-events: auto;
+    }
+
+    /* Constrain the left panel so fields don't extend off-page */
+    #incoming-docs-wrapper > table { width: 100%; table-layout: fixed; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child { width: 380px; overflow: hidden; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child table { width: 100% !important; }
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child input[type="text"],
+    #incoming-docs-wrapper > table > tbody > tr > td:first-child select {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    #incoming-docs-wrapper fieldset { border: 1px solid #ddd; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+    #incoming-docs-wrapper legend { font-size: 12px; font-weight: bold; padding: 0 4px; width: auto; float: none; }
+    #incoming-docs-wrapper fieldset input[type="button"] {
+        font-size: 11px; padding: 2px 6px; margin: 1px;
+    }
+
+
+    .multiPage {
+        background-color: RED;
+        color: WHITE;
+        font-weight: bold;
+        padding: 0px 5px;
+        font-size: medium;
+    }
+
+    .topalign {
+        vertical-align: text-top;
+    }
+
+    #incoming-docs-wrapper {
+        margin: auto 15px;
+    }
+
+    * table {
+        border-collapse: collapse;
+        width: 100%;
+    }
+</style>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -870,6 +947,7 @@
                     <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                     <input type="hidden" name="pdfAction" value="">
                     <input type="hidden" name="pdfPageNumber" value="1">
                     <input type="hidden" name="pdfExtractPageNumber" value="">
@@ -1019,10 +1097,17 @@
                             <option value="Fast" <%=entryMode.equals("Fast") ? "selected" : ""%> ><fmt:message key="dms.incomingDocs.fast"/></option>
                         </select>
                     </legend>
-                    <form id="forms_" method="post" action="ManageDocument">
+                    <fmt:message key="faxAnnotateViewer.status.documentServerBusy" var="incomingWaitMessage"/>
+                    <fmt:message key="faxAnnotateViewer.alert.saveUnconfirmed" var="incomingUnconfirmedMessage"/>
+                    <fmt:message key="faxAnnotateViewer.status.saving" var="incomingSavingMessage"/>
+                    <form id="forms_" method="post" action="ManageDocument" data-incoming-filing="true"
+                          data-saving-message="<carlos:encode value='${incomingSavingMessage}' context="htmlAttribute"/>"
+                          data-wait-message="<carlos:encode value='${incomingWaitMessage}' context="htmlAttribute"/>"
+                          data-unconfirmed-message="<carlos:encode value='${incomingUnconfirmedMessage}' context="htmlAttribute"/>">
                         <input type="hidden" name="method" value="addIncomingDocument"/>
                         <input type="hidden" name="pdfDir" value="<carlos:encode value='<%= pdfDir %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfName" value="<carlos:encode value='<%= pdfName %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="sourceRevision" value="<carlos:encode value='<%= sourceRevision %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queueId" value="<carlos:encode value='<%= queueIdStr %>' context="htmlAttribute"/>">
                         <input type="hidden" name="pdfNo" value="<carlos:encode value='<%= pdfNo %>' context="htmlAttribute"/>">
                         <input type="hidden" name="queue" value="1">
@@ -1221,6 +1306,7 @@
                                             title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
                                             data-disabled-title="<carlos:encode value='${selectPatientToSaveMessage}' context="htmlAttribute"/>"
                                             aria-describedby="save-disabled-help"><fmt:message key="inboxmanager.document.SaveAndNext"/></button>
+                                    <p id="incoming-filing-status" role="status" aria-live="polite"></p>
                                     <div id="save-disabled-help" class="form-text text-muted">
                                         <carlos:encode value='${selectPatientToSaveMessage}' context="html"/>
                                     </div>
@@ -1300,5 +1386,6 @@
     showPageImg('<carlos:encode value='<%= queueIdStr %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfDir %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfName %>' context="javaScriptBlock"/>', '<carlos:encode value='<%= pdfPageNumber %>' context="javaScriptBlock"/>');
 </script>
 
+<script src="<%=request.getContextPath()%>/js/incomingDocumentFiling.js"></script>
 </body>
 </html>

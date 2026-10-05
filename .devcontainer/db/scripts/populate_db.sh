@@ -84,6 +84,24 @@ $SQL drugref2 < /database/mysql/drugref/2026-04-19-drugref-tc-atc-f.sql
 # the baseline reference rows with the demo dataset (patients, appointments, notes, etc.).
 echo 'Loading demo data for development...'
 $SQL carlos < /scripts/development.sql
+# development.sql also truncate-reloads measurement and billing reference tables
+# (measurementType, validations, billingservice, ctl_billingservice) from the old
+# snapshot, undoing the reference-data migrations applied above. Re-apply those
+# migrations here; each one is idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops these tables, so the Flyway rows stand there.)
+# V1.0.43 is re-applied for a different reason: the snapshot's consultdocs and
+# EFormDocs rows predate lab_type (their INSERTs name the seven original columns,
+# so the reload leaves lab_type NULL), and the migration's inference UPDATE is
+# what resolves a demo lab attachment's source from patientLabRouting, exactly as
+# it does for legacy rows on an upgraded database.
+echo 'Re-applying reference-data migrations undone by the demo snapshot...'
+for REF_MIGRATION in \
+    "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
+    "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
+    "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
+    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
+  $SQL carlos < "${REF_MIGRATION}"
+done
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'

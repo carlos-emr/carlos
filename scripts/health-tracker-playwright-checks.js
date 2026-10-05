@@ -46,9 +46,16 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 // non-word characters produces a field the action cannot read back.
 const DISPLAY_NAME = 'Weight kg';
 const MEASUREMENT_TYPE = 'WT';
-// A Yes/No measurement, for the tick-or-cross the card header shows.
-const YES_NO_TYPE = 'AACP';
-const YES_NO_DISPLAY_NAME = 'Asthma Action Plan';
+// A Yes/No measurement, for the tick-or-cross the card header shows. Not AACP: that one is
+// Provided/Revised/Reviewed since V1.0.33 (issue #3893), so it no longer gets a tick or cross.
+const YES_NO_TYPE = 'AENC';
+const YES_NO_DISPLAY_NAME = 'Asthma Environmental Control';
+// The one measurement whose rule is neither Yes/No nor Review: since V1.0.33 AACP is
+// Provided/Revised/Reviewed, and the tracker must offer those three as radios rather than
+// fall through to the free-text input (PR #3900 review).
+const CHOICE_TYPE = 'AACP';
+const CHOICE_DISPLAY_NAME = 'Asthma Action Plan';
+const CHOICE_OPTIONS = ['Provided', 'Revised', 'Reviewed'];
 // The tracker names its inputs after the measurement type, which is unique within
 // a flowsheet -- display names are not, and two of them can sanitize to one name.
 const FIELD = MEASUREMENT_TYPE;
@@ -81,6 +88,35 @@ async function workflow(s) {
   s.cleanup(() => sql.execute(`DELETE FROM flowsheet_customization WHERE demographic_no=${sqlString(String(patient))}`));
 
   let page;
+
+  await s.step('the Health Tracker heads the encounter Measurements module', async () => {
+    // Alpha-tester regression: the nav entry was off by default on packaged
+    // installs, and when on it sat below the universal flowsheets. OSCAR 19
+    // lists it first, above any disease-registry flowsheet, and so must CARLOS.
+    // Diabetes (icd9 250) is registered so a dx-triggered flowsheet competes
+    // for the top slot; the one measurement gives the module a dated row too.
+    s.cleanup(() => sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${patient}`));
+    sql.execute(`INSERT INTO dxresearch (demographic_no, start_date, update_date, status, dxresearch_code, coding_system, providerNo)
+      VALUES (${patient}, CURDATE(), NOW(), 'A', '250', 'icd9', ${sqlString(provider)})`);
+    sql.execute(`INSERT INTO measurements
+      (type, demographicNo, providerNo, dataField, measuringInstruction, comments, dateObserved, dateEntered)
+      VALUES (${sqlString(MEASUREMENT_TYPE)}, ${patient}, ${sqlString(provider)}, '80.0', 'kg', '', NOW(), NOW())`);
+    const chart = await s.chart();
+    const rows = chart.locator('#measurementslist li a.links[onclick]');
+    await rows.first().waitFor({ state: 'visible', timeout: 20000 });
+    const onclicks = await rows.evaluateAll((els) => els.map((el) => el.getAttribute('onclick') || ''));
+    const tracker = onclicks.findIndex((js) => js.includes('/encounter/oscarMeasurements/ViewHealthTracker?'));
+    const diabetes = onclicks.findIndex((js) => js.includes('ViewTemplateFlowSheet?') && /template=diab/.test(js));
+    assert(tracker !== -1,
+      'The encounter Measurements module has no Health Tracker entry; health_tracker must default to on');
+    assert(tracker === 0,
+      `The Health Tracker is item ${tracker + 1} of the Measurements module, not the first`);
+    assert(diabetes > tracker,
+      'The diabetes flowsheet triggered by the disease registry is missing or listed above the Health Tracker');
+    // Removed now so the duplicate-suppression counts below start from zero.
+    sql.execute(`DELETE FROM measurements WHERE demographicNo=${patient}`);
+    await chart.close();
+  });
 
   await s.step('an un-customized tracker offers the add-measurements first run', async () => {
     page = await openTracker(s, 'health-tracker-empty');
@@ -274,6 +310,60 @@ async function workflow(s) {
     assert(await page.locator(`#wrap-${YES_NO_TYPE} i.fa-check`).count() === 1,
       'A Yes/No measurement whose latest answer is Yes shows no tick in its header');
     await page.close();
+  });
+
+  await s.step('a Provided/Revised/Reviewed measurement offers its three choices as radios', async () => {
+    const choicePayload = `<item measurement_type="${CHOICE_TYPE}" display_name="${CHOICE_DISPLAY_NAME}" `
+      + 'guideline="" graphable="no" value_name="Plan" />';
+    sql.execute(`INSERT INTO flowsheet_customization
+      (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
+      VALUES ('tracker','add',NULL,${sqlString(choicePayload)},
+        ${sqlString(provider)},${sqlString(String(patient))},NOW(),0)`);
+
+    page = await openTracker(s, 'health-tracker-choices');
+    const radios = page.locator(`#wrap-${CHOICE_TYPE} input[type="radio"][name="${CHOICE_TYPE}"]`);
+    const offered = await radios.evaluateAll((els) => els.map((el) => el.value));
+    assert(JSON.stringify(offered) === JSON.stringify(CHOICE_OPTIONS),
+      `The ${CHOICE_TYPE} card offers ${JSON.stringify(offered)}, not the three allowed answers`
+      + ` ${JSON.stringify(CHOICE_OPTIONS)}; the tracker fell back to a free-text input`);
+    assert(await page.locator(`#wrap-${CHOICE_TYPE} input.entry-input[type="text"]`).count() === 0,
+      `The ${CHOICE_TYPE} card still renders a free-text input beside its choices`);
+    await page.close();
+  });
+
+  await s.step('a failed progress-note write reports the saved measurement and missing note', async () => {
+    const trigger = `pw_health_tracker_${process.pid}`;
+    const drop = () => sql.execute(`DROP TRIGGER IF EXISTS ${trigger}`);
+    s.cleanup(drop);
+    const before = measurementRows(s);
+    const notesBefore = Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${sqlString(String(patient))}`));
+    // Fail only this harness's synthetic patient's note; all other charts are unaffected.
+    sql.execute(`DELIMITER //
+CREATE TRIGGER ${trigger} BEFORE INSERT ON casemgmt_note FOR EACH ROW
+BEGIN
+  IF NEW.demographic_no = ${sqlString(String(patient))} THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Synthetic Health Tracker note failure';
+  END IF;
+END//
+DELIMITER ;`);
+    try {
+      page = await openTracker(s, 'health-tracker-note-failure');
+      await page.locator(`#trackerForm input[name="${FIELD}"]`).fill('83.7');
+      await page.locator(`#trackerForm input[name="${FIELD}_note"]`).check();
+      await Promise.all([
+        page.waitForEvent('domcontentloaded'),
+        page.locator('button[form="trackerForm"][value="Save All"]').click(),
+      ]);
+      await assertNotErrorPage(page, 'health-tracker note failure');
+      const alert = page.locator('#validation-alert');
+      assert(await alert.isVisible(), 'A failed progress note was silently reported as a successful save');
+      assert((await alert.innerText()).includes('measurements were saved'), 'The warning does not explain that the measurements were saved');
+      assert((await alert.innerText()).includes('progress note could not be confirmed'), 'The warning does not identify the missing note');
+      assert(measurementRows(s) === before + 1, 'The measurement was not preserved after the note failure');
+      assert(Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${sqlString(String(patient))}`)) === notesBefore,
+        'The synthetic note-write failure was not exercised');
+      await page.close();
+    } finally { drop(); }
   });
 
   await s.step('the save endpoint refuses GET', async () => {

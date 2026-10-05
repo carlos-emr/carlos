@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -225,8 +227,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return edit();
     }
 
-    public String setUpMainEncounter() {
+    static Integer parseEncounterMessageId(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new NumberFormatException("Message ID must be positive");
+        return id;
+    }
+
+    /**
+     * Prepares the chart page, loading a nonblank msgId for the current demographic into
+     * the encounterMessage request attribute after access/link checks.
+     * @return chart layout result, or NONE after a controlled invalid/missing-message response
+     * @throws java.io.IOException if sending an error response fails
+     */
+    public String setUpMainEncounter() throws java.io.IOException {
         String demono = getDemographicNo(request);
+        Integer messageId;
+        try {
+            messageId = parseEncounterMessageId(request.getParameter("msgId"));
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter message ID");
+            return NONE;
+        }
+        if (messageId != null) {
+            try {
+                String text = SpringUtils.getBean(io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.class)
+                        .load(LoggedInInfo.getLoggedInInfoFromSession(request), messageId, Integer.parseInt(demono));
+                request.setAttribute("encounterMessage", text);
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Encounter message no longer exists");
+                return NONE;
+            }
+        }
         logger.debug("client Image?");
 
         //get client image
@@ -1032,29 +1064,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean extChanged = false;
             List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(Long.valueOf(noteId));
 
+            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, so the
+            // first match is the NEWEST row, and this loop used to stop there. A note that already
+            // carries several rows for one key can hold different values in them, and
+            // NotesService.getNote() reads to the end of that list, so it reports the OLDEST.
+            // Submitting the value the newest row already held therefore looked like "nothing
+            // changed": the save returned early below, the reconciliation further down never ran,
+            // and the chart went on showing the older value. Walking every row makes disagreement
+            // between them a change in its own right.
             extNames:
             for (int i = 0; i < extNames.length; i++) {
                 boolean extKeyMatched = false;
 
-                String val = request.getParameter(extNames[i]);
+                String submitted = request.getParameter(extNames[i]);
+                // Resolved once per key: the date fields are normalised for comparison, and
+                // re-normalising an already-normalised value on a second row would compare the
+                // wrong thing.
+                String comparableDate = i <= 2 ? partialFullDate(submitted, partialDateFormat(submitted)) : null;
+                String comparableValue = i <= 2 ? partialDateFormat(submitted) : submitted;
+                // A date the write loop below would discard cannot change anything. A null format
+                // is an empty or malformed submission, and writePartialDate() skips exactly that,
+                // so counting it as a change would re-save an otherwise unchanged note.
+                if (i <= 2 && comparableValue == null) continue;
                 for (CaseManagementNoteExt cme : cmeList) {
                     if (!cme.getKeyVal().equals(extKeys[i])) continue;
 
-                    if (i <= 2) {
-                        if (!nullEmptyEqual(cme.getDateValueStr(), partialFullDate(val, partialDateFormat(val)))) {
-                            extChanged = true;
-                            break extNames;
-                        }
-                        val = partialDateFormat(val);
+                    if (i <= 2 && !nullEmptyEqual(cme.getDateValueStr(), comparableDate)) {
+                        extChanged = true;
+                        break extNames;
                     }
-                    if (!nullEmptyEqual(cme.getValue(), val)) {
+                    if (!nullEmptyEqual(cme.getValue(), comparableValue)) {
                         extChanged = true;
                         break extNames;
                     }
                     extKeyMatched = true;
-                    break;
                 }
-                if (filled(val) && !extKeyMatched) { // new ext value(s) added
+                // THE SUBMITTED VALUE, NOT THE COMPARISON FORM. partialDateFormat() returns the
+                // EMPTY STRING for a full YYYY-MM-DD date -- that is its marker for "full
+                // precision" -- so comparableValue is "" exactly when the clinician typed a
+                // complete date. Testing it here would read a newly added full date as nothing
+                // added, and the early return below would then discard it. comparableValue exists
+                // only to compare against a stored row's precision marker.
+                if (filled(submitted) && !extKeyMatched) { // new ext value(s) added
                     extChanged = true;
                     break extNames;
                 }
@@ -1062,6 +1113,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if note has not changed don't save
             note = this.caseManagementMgr.getNote(noteId);
+            // THE NOTE MUST BE IN THE CHART WHOSE LOCK WAS CHECKED. noteId comes from the request,
+            // and everything below rewrites that note -- its text, signer, archived flag and every
+            // extension row -- so a note from another patient's chart is refused here rather than
+            // trusted because this patient's lock is held.
+            if (note == null || !Objects.equals(demo, note.getDemographic_no())) {
+                throw new SecurityException("CPP note save references a note outside this patient chart");
+            }
             if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged && (archived == null || archived.equalsIgnoreCase("false")))
                 return null;
         }
@@ -1305,19 +1363,65 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        CaseManagementNoteExt cme = new CaseManagementNoteExt();
-        cme.setNoteId(note.getId());
+        // One synchronized value per extension key of this note: a key with no casemgmt_note_ext
+        // row gets exactly one inserted; a key that already has rows -- including legacy
+        // duplicates, see below -- has every one of them updated in place, none added or removed.
+        //
+        // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
+        // entity across the keys leaves it DETACHED with an id assigned by the time the second
+        // key is written: Hibernate raises PersistentObjectException, surfaced as
+        // EntityExistsException, and the whole save answers HTTP 500 with the second key never
+        // stored. That is issue #3739 -- a CPP item given both a start date and a resolution
+        // date could not be saved or archived at all, and the box repainted as "Error: 500".
+        // (Inside a single persistence context the same reuse is absorbed instead, collapsing
+        // the keys into the first row; CaseManagementCppExtPersistenceIntegrationTest pins that
+        // half, and scripts/cpp-note-extension-archive-playwright-checks.js pins the 500.)
+        // Allocating per key is not enough on its own either: saveNote()
+        // merges an existing note rather than revising it under a fresh id, so a note keeps its
+        // id across edits and a plain persist() per save piles a second row onto every key.
+        //
+        // Notes saved before that was fixed can already carry several rows for one key, and the
+        // readers disagree about which of them counts: getExtByNote() orders id desc, so the first
+        // match is the NEWEST, while NotesService.getNote() assigns from every row it walks and
+        // ends on the OLDEST. (The change-detection loop above used to stop at that first match,
+        // which is why a note whose duplicates disagreed could decline to save at all; it now
+        // walks every row.)
+        // Updating just one of a duplicate set would leave the other readers on a stale value,
+        // so every row for the key is written. That is deliberately not a delete: pruning the
+        // extras is a data migration, and a note save is no place to drop clinical history.
+        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
+            extByKey.computeIfAbsent(existing.getKeyVal(), k -> new ArrayList<>()).add(existing);
+        }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
             if (filled(val)) {
-                cme.setKeyVal(extKeys[i]);
-                cme.setDateValue((Date) null);
-                cme.setValue(null);
+                // Resolve the new state on a detached carrier first. A malformed date has to
+                // leave the stored rows exactly as they were, and mutating a managed entity
+                // before knowing that would blank it through dirty checking even though nothing
+                // is saved.
+                CaseManagementNoteExt resolved = new CaseManagementNoteExt();
                 if (i <= 2) {
-                    if (writePartialDate(val, cme)) caseManagementMgr.saveNoteExt(cme);
+                    if (!writePartialDate(val, resolved)) continue;
                 } else {
-                    cme.setValue(val);
+                    resolved.setValue(val);
+                }
+
+                List<CaseManagementNoteExt> rows = extByKey.get(extKeys[i]);
+                if (rows == null || rows.isEmpty()) {
+                    CaseManagementNoteExt cme = new CaseManagementNoteExt();
+                    cme.setNoteId(note.getId());
+                    cme.setKeyVal(extKeys[i]);
+                    cme.setValue(resolved.getValue());
+                    cme.setDateValue(resolved.getDateValue());
                     caseManagementMgr.saveNoteExt(cme);
+                    extByKey.put(extKeys[i], new ArrayList<>(List.of(cme)));
+                } else {
+                    for (CaseManagementNoteExt cme : rows) {
+                        cme.setValue(resolved.getValue());
+                        cme.setDateValue(resolved.getDateValue());
+                        caseManagementMgr.updateNoteExt(cme);
+                    }
                 }
             }
         }
@@ -1346,8 +1450,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "listCPPNotes";
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
     static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
                                         String sessionAppointmentNo,
@@ -1370,6 +1472,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
     }
 
+    // FindSecBugs IMPROPER_UNICODE: compares on/persist/null/empty form flags and sentinels, not provider identities or secrets.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive form flags and null/empty sentinels; provider identities and secrets are not case-folded")
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2001,7 +2105,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private void releaseNoteLock(String providerNo, Integer demographicNo, Long noteId) {
         logger.debug("REMOVING LOCK FOR PROVIDER " + providerNo + " DEMO " + demographicNo + " NOTE ID " + noteId);
-        casemgmtNoteLockDao.remove(providerNo, demographicNo, noteId);
+        casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, noteId, request.getSession().getId());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2886,6 +2990,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
             textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
+            // textStr is SafeEncode.forHtmlContent output followed only by fixed br tags.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             out.println(textStr);
             out.println("<br><br>");
         }
@@ -2917,16 +3023,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
-            cStartDate = Calendar.getInstance();
-            cStartDate.setTime(startDate);
-        }
-
-        if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
-            cEndDate = Calendar.getInstance();
-            cEndDate.setTime(endDate);
+        try {
+            if ("dates".equals(pType)) {
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate, LocaleUtils.resolveBundleLocale(request));
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
+                ChartPrintDateRange.from(cStartDate, cEndDate);
+            }
+        } catch (IllegalArgumentException _) {
+            response.reset();
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
+            return null;
         }
 
         boolean printAllNotes = "ALL_NOTES".equals(ids);

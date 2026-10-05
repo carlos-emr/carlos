@@ -282,6 +282,20 @@ install_once() {
 
 case "$1" in
     configure)
+        # The carlos-ctl command moved to its own package (from
+        # 2026.08.0~alpha16; developer builds from 2026.09.0~snapshot25). dpkg
+        # has removed the modules the pre-split carlos-emr shipped under
+        # /usr/lib/carlos-emr/carlos_ctl, but the bytecode cache no package
+        # ever owned (root ran the tool, so it existed on every host) keeps
+        # that directory alive; take it with us so the old copy is really
+        # gone. Judged by presence, not by the old version: this package
+        # never ships that directory, so anything there is the orphan.
+        # Nothing under /usr/lib/carlos-ctl is touched: that is the new
+        # package's.
+        if [ -d /usr/lib/carlos-emr/carlos_ctl ]; then
+            rm -rf /usr/lib/carlos-emr/carlos_ctl/__pycache__
+            rmdir /usr/lib/carlos-emr/carlos_ctl 2>/dev/null || true
+        fi
         # --- accounts -------------------------------------------------------
         # dh_installsysusers has already run systemd-sysusers by this point on
         # a systemd host. This is the fallback for a chroot or container image
@@ -539,6 +553,25 @@ case "$1" in
             : > "${CONSULT_SIG_SENTINEL}"
         fi
 
+        # One-time migration (2026.08): the Health Tracker nav entry shipped
+        # behind health_tracker=false, so every packaged install copied that
+        # into the persistent /etc override and never showed the tracker, which
+        # OSCAR 19 lists first in the encounter Measurements module (reported by
+        # alpha testers). The stock default is now true. Same contract as the
+        # consultation-signature flip above: rewrite ONLY the exact old stock
+        # line, ONLY on upgrade, ONLY once; the sentinel is written on fresh
+        # installs too so a false the operator sets later is never flipped back.
+        HEALTH_TRACKER_SENTINEL="${STATE}/.health-tracker-default-migrated"
+        if [ ! -e "${HEALTH_TRACKER_SENTINEL}" ]; then
+            if [ -n "${2:-}" ] && [ -f "${PROPERTIES}" ] \
+                && grep -qx 'health_tracker=false' "${PROPERTIES}"; then
+                sed -i 's/^health_tracker=false$/health_tracker=true/' "${PROPERTIES}"
+                echo "carlos-emr: enabled the Health Tracker nav entry (migrated the old stock default off -> on; set health_tracker=false in ${PROPERTIES} to hide it)"
+            fi
+            mkdir -p "${STATE}"
+            : > "${HEALTH_TRACKER_SENTINEL}"
+        fi
+
         # Normalise the legacy yes/no spellings of the same key to true/false.
         # Until this release the two buttons that start a consultation fax were
         # rendered by a tag that compared the raw string against the literal
@@ -782,6 +815,72 @@ except ValueError:
         PROVISION_LOCK_HELD=1
         acquire_provision_lock || PROVISION_LOCK_HELD=0
 
+        # One-time migration (2026.08): the stock carlos.properties shipped the
+        # OSCAR pre-installer template values for these clinic features (off),
+        # while the OSCAR installer that template belonged to always switched
+        # them on. Alpha testers coming from OSCAR saw them as regressions (no
+        # Rx fax, no eForm signature pad, no schedule notes/alerts, no tickler
+        # edit, no document split/rotate, 2007 lab requisition, ...). The stock
+        # defaults now match the OSCAR installer. Like the flips
+        # above: rewrite ONLY the exact old stock line of each key, ONLY
+        # once (whenever the sentinel is absent, see below); the sentinel is
+        # written on fresh installs too so a value the operator sets later is
+        # never flipped back. A key defined
+        # more than once is skipped entirely (the later definition is the
+        # operator's override). Keys that were
+        # commented out in the old stock file (invoice_due_date,
+        # privateConsentEnabled) need no rewrite: the WAR's classpath default
+        # applies under the /etc override. Keep this list in step with
+        # OSCAR_DEFAULT_MIGRATIONS in scripts/deb-upgrade-baseline.sh.
+        #
+        # Runs under the provisioning lock: carlos-ctl init-config and
+        # finish-install rewrite this same file, and an interleaved write would
+        # lose one side. Without the lock nothing is rewritten and the sentinel
+        # is not written, so the next configure retries.
+        OSCAR_DEFAULTS_SENTINEL="${STATE}/.oscar-feature-defaults-migrated"
+        if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${OSCAR_DEFAULTS_SENTINEL}" ]; then
+            # Not gated on an old version ($2): purge KEEPS carlos.properties
+            # (it holds the encryption key) but removes this sentinel, so a
+            # purge-then-reinstall arrives with no $2 and the old stock lines
+            # still in place. A genuinely fresh install has the new skeleton,
+            # which matches none of the old lines, so only the sentinel lands.
+            if [ -f "${PROPERTIES}" ]; then
+                while IFS='|' read -r old_line new_line; do
+                    [ -n "${old_line}" ] || continue
+                    # Only a key defined exactly once is the untouched stock
+                    # line. A second definition (an appended override, even
+                    # an identical one) is the operator's, and java.util.
+                    # Properties honours the last one, so leave the key alone.
+                    key="${old_line%%=*}"
+                    defs="$(grep -c "^${key}[[:space:]]*[=:]" "${PROPERTIES}" || true)"
+                    [ "${defs}" = 1 ] || continue
+                    if grep -qxF "${old_line}" "${PROPERTIES}"; then
+                        sed -i "s/^${old_line}\$/${new_line}/" "${PROPERTIES}"
+                        echo "carlos-emr: ${old_line} -> ${new_line} (migrated the old stock default; edit ${PROPERTIES} to change it back)"
+                    fi
+                done <<'OSCAR_DEFAULTS'
+new_flowsheet_enabled=false|new_flowsheet_enabled=true
+workflow_enhance=false|workflow_enhance=true
+rx_fax_enabled=false|rx_fax_enabled=true
+eform_signature_enabled=false|eform_signature_enabled=true
+eform_generator_indivica_signature_enabled=false|eform_generator_indivica_signature_enabled=true
+eform_generator_indivica_print_enabled=false|eform_generator_indivica_print_enabled=true
+eform_generator_indivica_fax_enabled=false|eform_generator_indivica_fax_enabled=true
+tickler_edit_enabled=false|tickler_edit_enabled=true
+consultation_dynamic_labelling_enabled=false|consultation_dynamic_labelling_enabled=true
+onare_labreqver=07|onare_labreqver=10
+lab_req_include_chartno=false|lab_req_include_chartno=true
+use_lab_clientreference=false|use_lab_clientreference=true
+ALLOW_UPDATE_DOCUMENT_CONTENT= false|ALLOW_UPDATE_DOCUMENT_CONTENT= true
+displayNotesOnScheduleScreen=false|displayNotesOnScheduleScreen=true
+displayAlertsOnScheduleScreen=false|displayAlertsOnScheduleScreen=true
+DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=false|DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true
+OSCAR_DEFAULTS
+            fi
+            mkdir -p "${STATE}"
+            : > "${OSCAR_DEFAULTS_SENTINEL}"
+        fi
+
         DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"
         if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${DB_NAME_SENTINEL}" ]; then
             CUR_DB_NAME="$(sed -n 's/^CARLOS_DB_NAME=//p' "${ENV_FILE}" 2>/dev/null | head -1)"
@@ -993,8 +1092,9 @@ except ValueError:
             # carlos-emr-eform-renderer package used render-browser.env, the home
             # /var/lib/carlos-emr/render and carlos-emr-chromedriver.service, and its
             # postrm deletes/disables exactly those on purge -- a purge that can come
-            # at any time after this upgrade (apt removes the old package when the
-            # transitional deb is left out, and it lingers in config-files state).
+            # at any time after this upgrade (apt removes the old package -- no
+            # transitional package is built any more -- and it lingers in
+            # config-files state).
             # Living under NEW names makes that purge harmless by construction, with
             # no reliance on the operator reading a warning. The token moves across
             # (so the running configuration's service URL stays valid); the old home
@@ -1002,10 +1102,40 @@ except ValueError:
             # so it is removed rather than kept; the old unit is stopped (its driver
             # still holds the port) and forgotten.
             # Stop the old unit first -- its driver holds the port and runs out of
-            # the old home -- but only once no package ships the old unit any more
-            # (always true here: the old renderer's exact dependency on the
-            # carlos-emr it came with means it has been upgraded to the transitional
-            # package or removed by now).
+            # the old home. Under apt every unpack precedes every configure, so the
+            # removal (or, on alpha14-alpha17, the transitional package) has
+            # already deleted the old unit file by now and the enablement is
+            # purged below. A bare
+            # `dpkg -i --auto-deconfigure` of this package alone only DECONFIGURES
+            # the old renderer: its unit file is still present and its driver still
+            # running, so the stop is keyed on the unit being active as well --
+            # otherwise the rm -rf of the old home below pulls the working
+            # directory from under a live browser, the old driver keeps the port,
+            # and the new carlos-emr-render-browser fails to bind.
+            # If the stop fails the old driver is still running out of that home, so
+            # the home is kept and the operator is told how to finish; this block runs
+            # on every configure, so a later dpkg-reconfigure completes the move.
+            OLD_RENDERER_LIVE=0
+            if [ -d /run/systemd/system ] \
+                && systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                deb-systemd-invoke stop carlos-emr-chromedriver.service >/dev/null 2>&1 || true
+                if systemctl is-active --quiet carlos-emr-chromedriver.service; then
+                    OLD_RENDERER_LIVE=1
+                    echo "carlos-emr: WARNING: the old carlos-emr-chromedriver.service did not stop;" >&2
+                    echo "carlos-emr: keeping ${STATE}/render until it does. Stop it, then run:" >&2
+                    echo "carlos-emr:   sudo systemctl stop carlos-emr-chromedriver.service" >&2
+                    echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
+                fi
+            fi
+            # The EMR's Wants dependency can start the new browser even when this
+            # postinst skips its explicit restart. Its unit condition consumes this
+            # durable marker, including after reboot, until a successful repair.
+            if [ "${OLD_RENDERER_LIVE}" = 1 ]; then
+                : > "${STATE}/.legacy-renderer-live"
+                deb-systemd-invoke stop carlos-emr-render-browser.service >/dev/null 2>&1 || true
+            else
+                rm -f "${STATE}/.legacy-renderer-live"
+            fi
             if [ ! -e /usr/lib/systemd/system/carlos-emr-chromedriver.service ] \
                 && [ ! -e /lib/systemd/system/carlos-emr-chromedriver.service ]; then
                 if [ -d /run/systemd/system ]; then
@@ -1023,7 +1153,8 @@ except ValueError:
                     rm -f "${OLD_RENDER_ENV}"
                 fi
             fi
-            if [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
+            if [ "${OLD_RENDERER_LIVE}" = 0 ] \
+                && [ -d "${STATE}/render" ] && [ ! -L "${STATE}/render" ]; then
                 rm -rf "${STATE}/render"
             fi
             if getent passwd carlos-render >/dev/null \
@@ -1680,7 +1811,17 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
     # the unit (deb-systemd-invoke skips a unit that is neither enabled nor
     # active). Independent of the credential and schema gates below: the browser
     # holds no credential and serves nothing until the EMR connects to it.
-    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ]; then
+    # A legacy carlos-emr-chromedriver that would not stop (OLD_RENDERER_LIVE, set by the
+    # move off the pre-alpha14 names above) still holds the port, so starting the new
+    # browser would only contend for it. Leave it down; the warning printed there says to
+    # stop the old unit and run dpkg-reconfigure, which completes the move and starts it.
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ] \
+        && [ "${OLD_RENDERER_LIVE:-0}" = 1 ]; then
+        echo "carlos-emr: WARNING: NOT starting the eForm render browser while the old" >&2
+        echo "carlos-emr: WARNING: carlos-emr-chromedriver.service still holds its port." >&2
+    fi
+    if [ "${RENDER_PAYLOAD:-0}" = 1 ] && [ "${RENDER_PROVISION:-1}" = 1 ] \
+        && [ "${OLD_RENDERER_LIVE:-0}" = 0 ]; then
         sd_invoke restart carlos-emr-render-browser.service || {
             echo "carlos-emr: WARNING: the eForm render browser service did not start;" >&2
             echo "carlos-emr: WARNING: eForm print/fax/archive will fail until it does" >&2

@@ -29,16 +29,21 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicListSearch" %>
+
 <%--
     Displays the general patient search and recently viewed patient list.
     Features: search result navigation, pagination, and patient selection links.
     Parameters: keyword, search_mode, displaymode, dboperation, ptstatus, orderby,
     limit1 (offset), and limit2 (page size) preserve the current search context.
+    Search ordering and merged-record exclusion happen before database pagination;
+    one extra matching patient determines whether Next is available.
     Access: requires _search read access. Recent-patient loading excludes missing
     or merged records before pagination and skips records removed during rendering;
     audit history is retained. Patient-specific access remains with destination actions.
     @since 2026.08 (recent-patient corrections and contract documentation)
 --%>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -104,7 +109,6 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -131,20 +135,16 @@
         limit = 18;
     }
 
+    limit = Math.clamp(limit, 1, 500);
+    offset = Math.clamp(offset, 0, Integer.MAX_VALUE - limit - 1);
+    strOffset = String.valueOf(offset);
+    strLimit = String.valueOf(limit);
+
     String displayMode = request.getParameter("displaymode");
     String dboperation = request.getParameter("dboperation");
-    String keyword = null;
-    if (request.getParameter("keyword") != null) {
-        keyword = SafeEncode.forJava(request.getParameter("keyword"));
-    }
+    // Search terms are bound as data by the DAO. Apply output encoding only when rendering them.
+    String keyword = request.getParameter("keyword");
     String orderBy = request.getParameter("orderby");
-
-    // Pre-encode request parameters used repeatedly in sort and pagination links.
-    // Each is null-safe (noNull converts null to "") and URI-component-encoded.
-    String encKeyword = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("keyword")));
-    String encDisplayMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("displaymode")));
-    String encSearchMode = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("search_mode")));
-    String encDbOperation = SafeEncode.forUriComponent(StringUtils.noNull(request.getParameter("dboperation")));
 
     String ptStatus = request.getParameter("ptstatus") == null ? "active" : request.getParameter("ptstatus");
     ;
@@ -191,35 +191,7 @@
                 document.titlesearch.keyword.select();
             }
 
-            function checkTypeIn() {
-                var dob = document.titlesearch.keyword;
-                typeInOK = true;
-
-                if (dob.value.indexOf('%b610054') == 0 && dob.value.length > 18) {
-                    document.titlesearch.keyword.value = dob.value.substring(8, 18);
-                    document.titlesearch.search_mode[4].checked = true;
-                }
-                if (document.titlesearch.search_mode[0].checked) {
-                    var keyword = document.titlesearch.keyword.value;
-                    var keywordLowerCase = keyword.toLowerCase();
-                    document.titlesearch.keyword.value = keywordLowerCase;
-                }
-                if (document.titlesearch.search_mode[2].checked) {
-                    if (dob.value.length == 8) {
-                        dob.value = dob.value.substring(0, 4) + "-"
-                            + dob.value.substring(4, 6) + "-"
-                            + dob.value.substring(6, 8);
-                    }
-                    if (dob.value.length != 10) {
-                        alert("<fmt:message key="demographic.search.msgWrongDOB"/>");
-                        typeInOK = false;
-                    }
-
-                    return typeInOK;
-                } else {
-                    return true;
-                }
-            }
+            // Search validation is supplied by zdemographicfulltitlesearch.jsp below.
 
             function popup(vheight, vwidth, varpage) {
                 var page = varpage;
@@ -295,6 +267,26 @@
         </div>
 
 
+<form id="search-sort" method="post" action="${pageContext.request.contextPath}/demographic/DemographicSearch">
+    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+    <c:forTokens var="searchField" items="keyword,search_mode,displaymode,dboperation,fromMessenger,outofdomain" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+    <input type="hidden" name="limit2" value="<%=limit%>"/>
+    <input type="hidden" name="ptstatus" value="${carlos:forHtmlAttribute(empty param.ptstatus ? 'active' : param.ptstatus)}"/>
+    <input type="hidden" name="limit1" value="0"/>
+</form>
+<form id="search-page" method="post" action="${pageContext.request.contextPath}/demographic/DemographicSearch">
+    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+    <c:forTokens var="searchField" items="keyword,search_mode,displaymode,dboperation,fromMessenger,outofdomain" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+    <input type="hidden" name="limit2" value="<%=limit%>"/>
+    <input type="hidden" name="ptstatus" value="${carlos:forHtmlAttribute(empty param.ptstatus ? 'active' : param.ptstatus)}"/>
+    <c:forTokens var="searchField" items="orderby" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+</form>
         <div id="searchResults">
             <a href="javascript:void(0)" onclick="showHideItem('demographicSearch');" id="searchPopUpButton"
                class="rightButton top">Search</a>
@@ -305,51 +297,34 @@
             <table id="patientResults" class="table table-sm table-striped">
                 <tr class="tableHeadings deep">
 
-                    <%
-                        // Common search-link prefix shared by all column sort headers.
-                        // Only the "orderby" value changes per column.
-                        String sortBase = "DemographicSearch?fromMessenger=" + fromMessenger
-                            + "&keyword=" + encKeyword
-                            + "&displaymode=" + encDisplayMode
-                            + "&search_mode=" + encSearchMode
-                            + "&dboperation=" + encDbOperation;
-                        String sortSuffix = "&limit1=0&limit2=" + strLimit + "&ptstatus=" + SafeEncode.forUriComponent(ptStatus);
-                    %>
+
                     <% if (fromMessenger) {%>
                     <!-- leave blank -->
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="demographic_no"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></button>
                     </th>
                     <%} else {%>
                     <th class="demoIdSearch">
-                        <a href="<%=sortBase%>&orderby=demographic_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></a>
+                        <button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="demographic_no"><fmt:message key="demographic.demographicsearchresults.btnDemoNo"/></button>
                     </th>
                     <th class="links"><fmt:message key="demographic.demographicsearchresults.module"/></th>
 
                     <%}%>
-                    <th class="name"><a
-                            href="<%=sortBase%>&orderby=last_name<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></a>
+                    <th class="name"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="last_name"><fmt:message key="demographic.demographicsearchresults.btnDemoName"/></button>
                     </th>
-                    <th class="chartNo"><a
-                            href="<%=sortBase%>&orderby=chart_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnChart"/></a>
+                    <th class="chartNo"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="chart_no"><fmt:message key="demographic.demographicsearchresults.btnChart"/></button>
                     </th>
-                    <th class="sex"><a
-                            href="<%=sortBase%>&orderby=sex<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnSex"/></a>
+                    <th class="sex"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="sex"><fmt:message key="demographic.demographicsearchresults.btnSex"/></button>
                     </th>
-                    <th class="dob"><a
-                            href="<%=sortBase%>&orderby=dob<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></a>
+                    <th class="dob"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="dob"><fmt:message key="demographic.demographicsearchresults.btnDOB"/> <span class="dateFormat"><fmt:message key="demographic.demographicsearchresults.btnDOBFormat"/></span></button>
                     </th>
-                    <th class="doctor"><a
-                            href="<%=sortBase%>&orderby=provider_no<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></a>
+                    <th class="doctor"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="provider_no"><fmt:message key="demographic.demographicsearchresults.btnDoctor"/></button>
                     </th>
-                    <th class="rosterStatus"><a
-                            href="<%=sortBase%>&orderby=roster_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></a>
+                    <th class="rosterStatus"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="roster_status"><fmt:message key="demographic.demographicsearchresults.btnRosSta"/></button>
                     </th>
-                    <th class="patientStatus"><a
-                            href="<%=sortBase%>&orderby=patient_status<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></a>
+                    <th class="patientStatus"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="patient_status"><fmt:message key="demographic.demographicsearchresults.btnPatSta"/></button>
                     </th>
-                    <th class="phone"><a
-                            href="<%=sortBase%>&orderby=phone<%=sortSuffix%>"><fmt:message key="demographic.demographicsearchresults.btnPhone"/></a>
+                    <th class="phone"><button type="submit" class="btn btn-link p-0" form="search-sort" name="orderby" value="phone"><fmt:message key="demographic.demographicsearchresults.btnPhone"/></button>
                     </th>
                 </tr>
 
@@ -381,6 +356,7 @@
 
 
                     List<Demographic> demoList = null;
+                    boolean hasNextPage = false;
 
                     if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
@@ -394,37 +370,41 @@
 
                     } else {
                         demoList = doSearch(demographicDao, searchMode, ptStatus, keyword, limit, offset, orderBy, providerNo, outOfDomain);
+                        hasNextPage = demoList.size() > limit;
+                        if (hasNextPage) demoList = demoList.subList(0, limit);
                     }
 
                     boolean toggleLine = false;
-                    int nItems = 0;
 
                     if (demoList == null) {
                         out.println("Your Search Returned No Results!!!");
                     } else {
 
-                        if (orderBy.equals("last_name")) {
-                            Collections.sort(demoList, Demographic.LastNameComparator);
-                        } else if (orderBy.equals("last_name, first_name")) {
-                            Collections.sort(demoList, Demographic.LastAndFirstNameComparator);
-                        } else if (orderBy.equals("demographic_no")) {
-                            Collections.sort(demoList, Demographic.DemographicNoComparator);
-                        } else if (orderBy.equals("chart_no")) {
-                            Collections.sort(demoList, Demographic.ChartNoComparator);
-                        } else if (orderBy.equals("sex")) {
-                            Collections.sort(demoList, Demographic.SexComparator);
-                        } else if (orderBy.equals("dob")) {
-                            Collections.sort(demoList, Demographic.DateOfBirthComparator);
-                        } else if (orderBy.equals("provider_no")) {
-                            Collections.sort(demoList, Demographic.ProviderNoComparator);
-                        } else if (orderBy.equals("roster_status")) {
-                            Collections.sort(demoList, Demographic.RosterStatusComparator);
-                        } else if (orderBy.equals("patient_status")) {
-                            Collections.sort(demoList, Demographic.PatientStatusComparator);
-                        } else if (orderBy.equals("phone")) {
-                            Collections.sort(demoList, Demographic.PhoneComparator);
-                        }
+                        if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
+                            if (orderBy.equals("last_name")) {
+                                Collections.sort(demoList, Demographic.LastNameComparator);
+                            } else if (orderBy.equals("last_name, first_name")) {
+                                Collections.sort(demoList, Demographic.LastAndFirstNameComparator);
+                            } else if (orderBy.equals("demographic_no")) {
+                                Collections.sort(demoList, Demographic.DemographicNoComparator);
+                            } else if (orderBy.equals("chart_no")) {
+                                Collections.sort(demoList, Demographic.ChartNoComparator);
+                            } else if (orderBy.equals("sex")) {
+                                Collections.sort(demoList, Demographic.SexComparator);
+                            } else if (orderBy.equals("dob")) {
+                                Collections.sort(demoList, Demographic.DateOfBirthComparator);
+                            } else if (orderBy.equals("provider_no")) {
+                                Collections.sort(demoList, Demographic.ProviderNoComparator);
+                            } else if (orderBy.equals("roster_status")) {
+                                Collections.sort(demoList, Demographic.RosterStatusComparator);
+                            } else if (orderBy.equals("patient_status")) {
+                                Collections.sort(demoList, Demographic.PatientStatusComparator);
+                            } else if (orderBy.equals("phone")) {
+                                Collections.sort(demoList, Demographic.PhoneComparator);
+                            }
 
+
+                        }
 
                     DemographicMerged dmDAO = new DemographicMerged();
 
@@ -436,7 +416,6 @@
 
                         if (head != null && !head.equals(dem_no)) {
                             //skip non head records
-                            nItems++;
                             continue;
                         }
 
@@ -517,7 +496,6 @@
                 <%
 
                             toggleLine = !toggleLine;
-                            nItems++; //to calculate if it is the end of records
                         }
                     }
                 %>
@@ -530,33 +508,28 @@
                 nNextPage = Integer.parseInt(strLimit) + Integer.parseInt(strOffset);
                 nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
 
-                // Pagination links use local variables (already extracted from request params above)
-                String pageBase = "DemographicSearch?fromMessenger=" + fromMessenger
-                    + "&keyword=" + SafeEncode.forUriComponent(StringUtils.noNull(keyword))
-                    + "&search_mode=" + SafeEncode.forUriComponent(StringUtils.noNull(searchMode))
-                    + "&displaymode=" + SafeEncode.forUriComponent(StringUtils.noNull(displayMode))
-                    + "&dboperation=" + SafeEncode.forUriComponent(StringUtils.noNull(dboperation))
-                    + "&orderby=" + SafeEncode.forUriComponent(StringUtils.noNull(orderBy));
-
                 if (nLastPage >= 0) {
             %>
-            <a href="<%=pageBase%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
-                <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></a> <%
+            <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nLastPage%>">
+                <fmt:message key="demographic.demographicsearchresults.btnLastPage"/></button> <%
             }
-            if (nItems >= Integer.parseInt(strLimit)) {
+            if (hasNextPage) {
                 if (nLastPage >= 0) {
         %> | <% } %>
-            <a href="<%=pageBase%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>&ptstatus=<carlos:encode value='<%= ptStatus %>' context="uriComponent"/>">
-                <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></a>
+            <button type="submit" class="btn btn-link p-0" form="search-page" name="limit1" value="<%=nNextPage%>">
+                <fmt:message key="demographic.demographicsearchresults.btnNextPage"/></button>
             <%
                 }
             %>
             <br>
             <div class="createNew">
-                <a href="<%= request.getContextPath() %>/demographic/ViewDemographicAddARecordHtm?search_mode=<carlos:encode value='<%= StringUtils.noNull(searchMode) %>' context="uriComponent"/>&keyword=<carlos:encode value='<%= StringUtils.noNull(keyWord) %>' context="uriComponent"/>"
-                   title="<fmt:message key="demographic.search.btnCreateNewTitle"/>">
-                    <fmt:message key="demographic.search.btnCreateNew"/>
-                </a>
+                <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+<input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+<c:forTokens var="searchField" items="search_mode,keyword" delims=",">
+        <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
+    </c:forTokens>
+<button type="submit" class="btn btn-link p-0" title="<fmt:message key="demographic.search.btnCreateNewTitle"/>"><fmt:message key="demographic.search.btnCreateNew"/></button>
+</form>
             </div>
 
             <caisi:isModuleLoad moduleName="caisi">
@@ -576,71 +549,19 @@
 <%!
 
     List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
-        List<Demographic> demoList = null;
         CarlosProperties props = CarlosProperties.getInstance();
         String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
         pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
         List<String> stati = Arrays.asList(pstatus.split(","));
 
 
-        if ("".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByName(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhone(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOB(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddress(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHIN(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNo(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNo(keyword, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNo(getDemographicNumberWithBandNumber(keyword), limit, offset, orderBy, providerNo, outOfDomain);
-            }
-        } else if ("active".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByNameAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhoneAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOBAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddressAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHINAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNoAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndNotStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndNotStatus(getDemographicNumberWithBandNumber(keyword), stati, limit, offset, orderBy, providerNo, outOfDomain);
-            }
-        } else if ("inactive".equals(ptstatus)) {
-            if (searchMode.equals("search_name")) {
-                demoList = demographicDao.searchDemographicByNameAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_phone")) {
-                demoList = demographicDao.searchDemographicByPhoneAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_dob")) {
-                demoList = demographicDao.searchDemographicByDOBAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_address")) {
-                demoList = demographicDao.searchDemographicByAddressAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_hin")) {
-                demoList = demographicDao.searchDemographicByHINAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_chart_no")) {
-                demoList = demographicDao.findDemographicByChartNoAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_demographic_no")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndStatus(keyword, stati, limit, offset, orderBy, providerNo, outOfDomain);
-            } else if (searchMode.equals("search_band_number")) {
-                demoList = demographicDao.findDemographicByDemographicNoAndStatus(getDemographicNumberWithBandNumber(keyword), stati, limit, offset, orderBy, providerNo, outOfDomain);
-            }
+        if ("search_band_number".equals(searchMode)) {
+            keyword = getDemographicNumberWithBandNumber(keyword);
+            searchMode = "search_demographic_no";
         }
-
-	return new ArrayList<>(new HashSet<>(demoList != null ? demoList : Collections.emptyList()));
-
+        List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
+        return demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword, orderBy,
+                statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
     }
 
     String getDemographicNumberWithBandNumber(String bandNumber) {

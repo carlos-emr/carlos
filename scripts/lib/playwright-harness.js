@@ -271,6 +271,9 @@ function parseMysqlBatchOutput(stdout) {
  * throws. 35 scripts each reimplemented a piece of this.
  */
 function createSqlRunner(mysqlConfig, options = {}) {
+  // Full schema/reference catalogs exceed Node's 1MiB default. Keep both captured
+  // streams bounded even when a catalog or query unexpectedly grows.
+  const maxBuffer = 8 * 1024 * 1024;
   const exec = options.exec || execFileSync;
   const host = validateMysqlHost(mysqlConfig.host, options.env || process.env);
   const { password } = mysqlConfig;
@@ -290,7 +293,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
         '-u', mysqlConfig.user || 'root',
         mysqlConfig.database || 'carlos',
         '-N', '-B', '-e', query,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000, maxBuffer });
     } catch (error) {
       // CAPTURING stderr IS NOT ENOUGH. execFileSync folds the captured stderr
       // into the thrown error's own message, and runCheck() logs that message --
@@ -298,11 +301,15 @@ function createSqlRunner(mysqlConfig, options = {}) {
       // the query can carry a patient's name or a clinical note. Rethrow a
       // bounded reason instead: enough to tell a timeout from a refusal, and
       // nothing of the statement or the row.
-      const timedOut = error && (error.code === 'ETIMEDOUT' || error.signal === 'SIGTERM');
+      // Buffer overflow also terminates the child with SIGTERM. Classify its
+      // code first, and never infer a 30s timeout from the signal alone.
+      const outputLimit = error && (error.code === 'ENOBUFS' || error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER');
+      const timedOut = error && error.code === 'ETIMEDOUT';
       const status = error && typeof error.status === 'number' ? ` (mysql exit ${error.status})` : '';
-      const failure = new Error(timedOut
-        ? 'the database query timed out after 30s'
-        : `the database query failed${status}; its text and any rows it carried are withheld deliberately`);
+      const failure = new Error(outputLimit
+        ? 'the database query exceeded its 8MiB output limit; its text and any rows it carried are withheld deliberately'
+        : timedOut ? 'the database query timed out after 30s'
+          : `the database query failed${status}; its text and any rows it carried are withheld deliberately`);
       failure.cause = undefined;
       throw failure;
     }
@@ -331,6 +338,17 @@ function createSqlRunner(mysqlConfig, options = {}) {
 /** Single-quoted SQL string literal. Checks build fixture statements, never user input. */
 function sqlString(value) {
   return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
+}
+
+/**
+ * Runs one fixture INSERT and returns its LAST_INSERT_ID() from the same
+ * session. Throws unless the id is a positive integer, so a check never builds
+ * later SQL or cleanup from an empty or malformed id.
+ */
+function insertId(sql, statement, what) {
+  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
+  assert(/^[1-9]\d*$/.test(String(id)), `The owned ${what} fixture was not created`);
+  return String(id);
 }
 
 function createRecorder() {
@@ -579,6 +597,20 @@ function wireStrictPage(page, label, recorder, options = {}) {
       });
     }
   });
+  // Which document each request was issued from (its frame and that frame's address then), so a failure can
+  // later be proven to be the browser abandoning a load because its document went away (the frame moved to
+  // another address, was detached, or the page closed) rather than the application cancelling it. Decided at
+  // read time (navigatedAway), because a navigation can commit after the failure event it caused. A reload of
+  // the same address is not proof, so such a failure stays a failure.
+  const issuedFrom = new WeakMap();
+  page.on('request', (request) => {
+    try {
+      const frame = request.frame();
+      if (frame) issuedFrom.set(request, { frame, url: frame.url() });
+    } catch {
+      // A service-worker request has no frame: its failure is never presumed abandoned.
+    }
+  });
   page.on('requestfailed', (request) => {
     if (!strictSignals) {
       return;
@@ -594,9 +626,18 @@ function wireStrictPage(page, label, recorder, options = {}) {
     if (request.resourceType() === 'document') {
       return;
     }
-    recorder.requestFailures.push({
+    const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
+    };
+    const origin = issuedFrom.get(request);
+    // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
+    // issuing document is unknown, so only a proven abandonment can be treated as one.
+    Object.defineProperty(entry, 'navigatedAway', {
+      enumerable: false,
+      value: () => Boolean(origin) && ((typeof page.isClosed === 'function' && page.isClosed())
+        || origin.frame.isDetached() || origin.frame.url() !== origin.url),
     });
+    recorder.requestFailures.push(entry);
   });
   page.on('console', (message) => {
     if (!isSevereConsoleMessage(message)) {
@@ -856,6 +897,9 @@ async function assertNotErrorPage(page, label, options = {}) {
   return text;
 }
 
+// The one-time-code field of mfa_otp_handler.jsp (the older ids kept for other skins).
+const MFA_CODE_INPUT = '#otpInput, input[name="code"][autocomplete="one-time-code"], input[name="mfaCode"], #mfaCode';
+
 /**
  * Log in, handling every branch the login page can take.
  *
@@ -880,7 +924,11 @@ async function login(context, config, recorder, options = {}) {
   assert(await page.locator('#username').inputValue() === config.testUser, 'login username field changed before submit');
   assert(await page.locator('#password').inputValue() === config.testPassword, 'login password field changed before submit');
   await settleOperations([
-    page.waitForURL(/providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i, { timeout: 30000 }),
+    // Login2Action renders the MFA challenge as a forward, not a redirect, so it
+    // arrives at the form's own /login address: that landing counts too, and the
+    // loop below recognises the challenge by its code field.
+    page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
+      || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
@@ -899,14 +947,29 @@ async function login(context, config, recorder, options = {}) {
   const STAGES = 4;
   for (let stage = 0; stage < STAGES; stage += 1) {
     const url = page.url();
-    if (/loginMfa/i.test(url)) {
+    // The challenge (mfa_otp_handler.jsp) is served at /login, /mfa/loginMfa or
+    // /forcepasswordresetSubmit, so it is recognised by its code field first.
+    if (/loginMfa/i.test(url) || await page.locator(MFA_CODE_INPUT).count() > 0) {
       assert(typeof options.mfaCode === 'function',
         `${config.testUser} is enrolled in MFA; pass options.mfaCode to supply the challenge response`);
-      await page.locator('input[name="mfaCode"], #mfaCode').first().fill(await options.mfaCode());
-      await settleOperations([
-        page.waitForURL(/providercontrol|appointment|forcepasswordreset|select_facility/i, { timeout: 30000 }),
-        page.locator('input[type="submit"], button[type="submit"]').first().click(),
-      ]);
+      const code = String(await options.mfaCode());
+      // Wait for the main frame to navigate, not for a URL pattern: the challenge
+      // itself can already sit on /mfa/loginMfa or /forcepasswordresetSubmit, and a
+      // URL wait that matches the current address returns before the page's own
+      // six-digit auto-submit lands, so the loop would type the code a second time.
+      const landed = page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 30000 });
+      landed.catch(() => {});
+      const codeInput = page.locator(MFA_CODE_INPUT).first();
+      // Only mfa_otp_handler.jsp's #otpInput submits its own form once six digits
+      // are typed; any other code field (and a code that is not six digits) needs
+      // Verify pressed. Never both, so the one-time challenge is posted once.
+      const autoSubmits = await codeInput.evaluate(input => input.id === 'otpInput');
+      await codeInput.fill(code);
+      if (!autoSubmits || !/^\d{6}$/.test(code)) {
+        await page.locator('#verifyButton, input[type="submit"], button[type="submit"]').first().click();
+      }
+      await landed;
+      await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;
     }
@@ -924,13 +987,16 @@ async function login(context, config, recorder, options = {}) {
       await page.locator('input[name="oldPassword"]').fill(config.testPassword);
       await page.locator('input[name="newPassword"]').fill(config.resetPassword);
       await page.locator('input[name="confirmPassword"]').fill(config.resetPassword);
-      // loginMfa is in this list because the reset can hand straight to the MFA
-      // challenge; leaving it out made that landing a 30s timeout rather than
-      // the next turn of this loop.
+      // Wait for the main frame to commit the submit's response, not for a URL:
+      // when the reset hands straight to the MFA challenge, Login2Action forwards
+      // mfa_otp_handler.jsp in place, so the challenge sits at
+      // /forcepasswordresetSubmit and a URL list would time out. The next turn of
+      // this loop recognises the challenge by its code field.
       await settleOperations([
-        page.waitForURL(/providercontrol|appointment|select_facility|loginMfa/i, { timeout: 30000 }),
+        page.waitForEvent('framenavigated', { predicate: frame => frame === page.mainFrame(), timeout: 30000 }),
         page.locator('input[type="submit"], button[type="submit"]').first().click(),
       ]);
+      await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
       continue;
     }
@@ -938,6 +1004,12 @@ async function login(context, config, recorder, options = {}) {
     break;
   }
 
+  assert(await page.locator(MFA_CODE_INPUT).count() === 0,
+    `login is still on the MFA challenge (${pathOnly(page.url())}): the one-time code is being refused`);
+  // Accepting a /login landing (the MFA forward) must not turn a refused
+  // password into a silent success: a re-rendered login form is a refusal.
+  assert(await page.locator('#username, input[name="password"]').count() === 0,
+    `login is still on the login form (${pathOnly(page.url())}): the credentials were refused`);
   assert(!/loginMfa|forcepasswordreset/i.test(page.url()),
     `login is still on ${pathOnly(page.url())} after working through the authentication stages, so the `
     + 'credentials or the OTP are being refused rather than the flow having more steps');
@@ -1038,6 +1110,7 @@ module.exports = {
   getLatestRequest,
   getLaunchOptions,
   gotoApp,
+  insertId,
   isLocalTlsTarget,
   launchBrowser,
   loadConsoleBaseline,

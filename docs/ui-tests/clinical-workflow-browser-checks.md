@@ -1,6 +1,6 @@
 # Clinical-workflow browser checks
 
-Five `scripts/*-playwright-checks.js` scripts that cover clinical work the rest of
+Six `scripts/*-playwright-checks.js` scripts that cover clinical work the rest of
 the suite leaves untouched. They are part of the standard pass described in
 [deb-install-validation.md](deb-install-validation.md) and run the same way as
 every other check there.
@@ -8,6 +8,7 @@ every other check there.
 | Check | Covers | The check next to it |
 |---|---|---|
 | `appointment-lifecycle` | Appointment HTML label preview/print, edit, validate the Update & Receipt PDF, advance status from the day sheet, cancel, delete an appointment (+ the `appointmentArchive` row) | `schedule-quick-search-appointment` and `echart-new-patient-notes` cover **booking**; nothing covered what happens to a booking afterwards |
+| `appointment-status-editing` | The status pull-down on the add and edit popups (with `ENABLE_EDIT_APPT_STATUS` absent it must still be on), a deactivated status surviving an edit-form save, and the Appointment Status Setting link on `admin.jsp` and the administration panel. `APPT_STATUS_EDITING_EXPECT=disabled` asserts the opt-out shape instead | `appointment-lifecycle` accepts either status shape, so it cannot catch the default regressing to the free-text `t` field |
 | `messenger-inbox-actions` | Mark read / unread, search and clear, archive, unarchive, and the archived box | `messenger` covers composing, sending from the messenger and the chart, and that **opening** a message marks it read |
 | `lab-acknowledge` | Acknowledge a result (`oscarMDS/UpdateStatus`), the lab PDF, cumulative values | `lab-macro-tickler` covers raising a tickler from a lab macro |
 | `prevention-recall-report` | Run the prevention recall report over a seeded patient set and assert a patient who is due comes back as due | `prevention-brand-picker` covers recording an immunization on one chart |

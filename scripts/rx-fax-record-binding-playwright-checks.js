@@ -38,8 +38,8 @@
  * real CSRFGuard token exactly as the browser's own submit does.
  *
  * The check reads the generated PDF from disk (the servlet's only durable
- * output) with a small text-run extractor over the content streams; OpenPDF
- * writes each rendered line as its own `(...) Tj`, so a rendered line is a run.
+ * output) with Poppler pdftotext, including embedded Unicode fonts.
+ * Assertions compare the extracted text lines.
  * Nothing from the PDF is printed: identity is reported as present/absent.
  *
  * Fixtures this run seeds and REMOVES (keyed on per-run-unique values, never a
@@ -75,10 +75,12 @@
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
+const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const zlib = require('zlib');
+const pdf = require('./lib/export-content-helpers');
+const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { browserErrorClass } = require('./browser-error-class');
 const {
@@ -121,7 +123,7 @@ if (!Number.isInteger(notesSaveDelayMs) || notesSaveDelayMs < 0 || notesSaveDela
 // Per-run identifiers, same rationale as rx-fax-signature-stamp-playwright-checks.js: the "from"
 // fax number must be exactly 10 chars (fax_config.faxNumber varchar(10), matched by equality), the
 // destination must be unroutable (NPA 555), and the drug name identifies THIS run's prescription.
-const runSuffix = String(randomInt(1000000, 10000000)); // 7 digits, crypto RNG
+const runSuffix = readFaxSuffix(process.env.PR4055_RX_FAX_SUFFIX, 7, randomInt);
 const pharmacyFaxNumber = `555${runSuffix}`;
 const faxNumber = `416${runSuffix}`;
 const customDrugName = `PW FAX BIND ${Date.now()}${runSuffix}`;
@@ -246,63 +248,9 @@ function safeUrl(rawUrl) {
 
 // --- PDF text runs --------------------------------------------------------------
 
-/**
- * Every string shown by a `Tj` / `TJ` operator in every content stream of the PDF, in stream order.
- * OpenPDF (the servlet's writer) positions each rendered line with `Tm` and shows it with one `Tj`,
- * so one rendered line is one run. Handles FlateDecode streams and the ()-string escapes; that is
- * all this writer emits. Not a general PDF text extractor and not meant to be one.
- */
+/** Rendered text lines, decoded with each embedded font's Unicode mapping. */
 function pdfTextRuns(buf) {
-  const runs = [];
-  const text = buf.toString('latin1');
-  const streamRe = /(<<(?:(?!<<)[\s\S]){0,400}?>>)\s*stream\r?\n/g;
-  let m;
-  while ((m = streamRe.exec(text))) {
-    const dict = m[1];
-    const start = m.index + m[0].length;
-    const end = text.indexOf('endstream', start);
-    if (end < 0) break;
-    let data = buf.subarray(start, end);
-    if (/FlateDecode/.test(dict)) {
-      let inflated = null;
-      // The stream may carry a trailing EOL before `endstream`; try the exact length first.
-      for (const cut of [0, 1, 2]) {
-        try { inflated = zlib.inflateSync(buf.subarray(start, end - cut)); break; } catch (error) { /* try shorter */ }
-      }
-      if (!inflated) continue;
-      data = inflated;
-    }
-    const content = data.toString('latin1');
-    if (!/\bT[jJ]\b/.test(content)) continue;
-    // The TJ array alternative keeps its two repeated branches DISJOINT: a string branch that
-    // consumes "(...)" and a filler branch that may consume anything except "]" and "(". Letting the
-    // filler also eat "(" gave the engine two ways to match every parenthesis and made a "[" with
-    // many "()" and no closing "] TJ" backtrack exponentially (CodeQL js/redos).
-    const opRe = /\((?:\\.|[^\\)])*\)\s*Tj|\[(?:\((?:\\.|[^\\)])*\)|[^\]\(])*\]\s*TJ/g;
-    let op;
-    while ((op = opRe.exec(content))) {
-      const parts = [];
-      const strRe = /\(((?:\\.|[^\\)])*)\)/g;
-      let s;
-      while ((s = strRe.exec(op[0]))) {
-        // PDF literal-string escapes (ISO 32000 7.3.4.2): \n \r \t \b \f, the three delimiters,
-        // and \ddd octal. Decoding them here keeps a run's text equal to what was rendered.
-        parts.push(s[1].replace(/\\(\d{1,3}|[nrtbf()\\])/g, (_, esc) => {
-          switch (esc) {
-            case 'n': return '\n';
-            case 'r': return '\r';
-            case 't': return '\t';
-            case 'b': return '\b';
-            case 'f': return '\f';
-            case '(': case ')': case '\\': return esc;
-            default: return String.fromCharCode(parseInt(esc, 8));
-          }
-        }));
-      }
-      runs.push(parts.join(''));
-    }
-  }
-  return runs;
+  return pdf.pdfTextBuffer(buf).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 }
 
 /** The servlet's PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
@@ -337,13 +285,37 @@ let faxConfig = null;
 const seededPharmacyFaxes = [];
 
 function stageFaxConfig() {
-  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
-  if (/^\d+$/.test(existing)) return { id: existing, created: false };
+  // Refuse any collision, including inactive/other-provider accounts: cleanup must
+  // never assume that pre-existing jobs on a coincidentally chosen line are ours.
+  const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' LIMIT 1;`).trim();
+  if (existing) throw new Error('Fixture sender number collided with an existing account; rerun with a new fixture');
+  if (sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}' LIMIT 1;`).trim()) {
+    throw new Error('Fixture sender number collided with an existing fax job; rerun with a new fixture');
+  }
   const id = sql(
     `INSERT INTO fax_config (providerType, active, faxNumber, faxReply, accountName, senderEmail, faxUser, siteUser, passwd, faxPasswd, gatewayName, queue, url, download) `
-    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.ca', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 1); SELECT LAST_INSERT_ID();`,
+    + `VALUES ('SRFAX', 1, '${faxNumber}', '${faxNumber}', 'Playwright Fax', 'fax@example.invalid', 'faxuser', 'siteuser', 'x', 'x', 'srfax', '0', '', 0); SELECT LAST_INSERT_ID();`,
   ).trim();
+  if (!/^[1-9][0-9]*$/.test(id)) throw new Error('Owned fax sender was not created');
   return { id, created: true };
+}
+
+async function selectOwnedFaxSender(modalFrame) {
+  const sender = modalFrame.locator('#faxNumber');
+  await sender.selectOption(faxNumber);
+  if (await sender.inputValue() !== faxNumber) throw new Error('Owned fax sender was not selected');
+}
+
+function assertOwnedFaxRequest(request) {
+  assertFaxDestination(request, faxNumber, pharmacyFaxNumber);
+}
+
+function cleanupOwnedFaxSender() {
+  if (!faxConfig || !faxConfig.created) return;
+  sql(`DELETE FROM fax_config WHERE id=${faxConfig.id} AND faxNumber='${faxNumber}' AND accountName='Playwright Fax';`);
+  if (sql(`SELECT COUNT(*) FROM fax_config WHERE id=${faxConfig.id};`).trim() !== '0') {
+    throw new Error('Owned fax sender cleanup failed or ownership changed');
+  }
 }
 
 function seedPharmacyFax() {
@@ -393,6 +365,7 @@ function cleanupFixtures() {
     });
   }
   attempt('faxes', () => {
+    if (!faxConfig || !faxConfig.created) return;
     const faxIds = sql(`SELECT id FROM faxes WHERE faxline='${faxNumber}';`)
       .split('\n').map((r) => r.trim()).filter((r) => /^\d+$/.test(r));
     if (faxIds.length) {
@@ -400,9 +373,7 @@ function cleanupFixtures() {
     }
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
-  attempt('fax_config', () => {
-    if (faxConfig && faxConfig.created) sql(`DELETE FROM fax_config WHERE id=${faxConfig.id};`);
-  });
+  attempt('fax_config', cleanupOwnedFaxSender);
   while (seededPharmacyFaxes.length) {
     const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
     const restored = wasNull ? 'NULL' : `'${originalFax}'`; // shape-validated before the rewrite
@@ -491,6 +462,7 @@ async function writeCustomRxThroughUi(page) {
   await page.locator('#saveButton').click();
   const modalFrame = page.frameLocator('#carlosModalBody iframe');
   await modalFrame.locator('#faxButton').waitFor({ state: 'attached', timeout: 30000 });
+  await selectOwnedFaxSender(modalFrame);
   // The outer page can render its Fax button before ViewPreview2 has finished
   // loading in the nested iframe. Both fax attempts below synchronously read
   // #preview2Form, so establish that shared precondition before returning.
@@ -823,6 +795,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     if (clickFailure) throw clickFailure;
     status = response.status();
     body = await response.text().catch(() => '');
+    assertOwnedFaxRequest(request);
     const post = new URLSearchParams(request.postData() || '');
     pdfId = post.get('pdfId');
     // What the page put on the wire for the clinic header, and whether the servlet will use it. A
@@ -1053,6 +1026,9 @@ function assertNoteRendered(runs) {
 async function runChecks(context, cancellation) {
   const page = await cancellation.run(() => login(context));
   try {
+    await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
+      findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
+    });
     faxConfig = stageFaxConfig();
     seedPharmacyFax();
 
@@ -1097,7 +1073,9 @@ async function runChecks(context, cancellation) {
   const cancellation = createGracefulSignalCancellation({ graceMs: faxRoundTripTimeoutMs + 60000 });
   let browser;
   let exitCode = 0;
+  let skipped;
   try {
+    pdf.requirePoppler('pdftotext');
     browser = await chromium.launch({
       ...getLaunchOptions(process.env.CHROME_PATH || ''),
       handleSIGINT: false,
@@ -1110,7 +1088,10 @@ async function runChecks(context, cancellation) {
     await runChecks(context, cancellation);
     await context.close();
   } catch (error) {
-    if (!cancellation.isCancellation(error)) {
+    if (error instanceof SkipCheck) {
+      exitCode = 2;
+      skipped = 'Poppler pdftotext is unavailable';
+    } else if (!cancellation.isCancellation(error)) {
       findings.push({ label: 'run', type: 'exception', text: browserErrorClass(error) });
     }
   } finally {
@@ -1119,7 +1100,7 @@ async function runChecks(context, cancellation) {
     cancellation.dispose();
   }
 
-  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings };
+  const summary = { baseUrl: `${baseUrl.origin}${baseUrl.pathname}`, visited, findings, skipped };
   try {
     const out = buildArtifactPath(artifactDir, 'rx-fax-record-binding', '.json');
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
@@ -1128,7 +1109,9 @@ async function runChecks(context, cancellation) {
     console.log(`artifact not written: ${browserErrorClass(error)}`);
   }
   console.log(JSON.stringify({ visited }, null, 2));
-  if (findings.length) {
+  if (skipped) {
+    console.log(`SKIP: ${skipped}`);
+  } else if (findings.length) {
     exitCode = 1;
     console.error(`FAIL: ${findings.length} finding(s)`);
     for (const f of findings) console.error(` - [${f.label}] ${f.type}: ${f.text || ''}`);

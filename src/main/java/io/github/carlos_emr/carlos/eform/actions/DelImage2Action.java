@@ -81,9 +81,12 @@ public class DelImage2Action extends ActionSupport {
 
         String imgname = request.getParameter("filename");
         
-        // Validate input parameter
+        // Validate input parameter. struts-eform.xml maps only "success" for this route, so a
+        // named "error" result would resolve to a Struts "No result defined" page; report the
+        // outcome on the response directly instead (direct-response contract).
         if (imgname == null || imgname.trim().isEmpty()) {
-            return ERROR;
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "filename is required");
+            return NONE;
         }
         
         // Use FilenameUtils.getName to extract just the filename, removing any path components
@@ -93,6 +96,8 @@ public class DelImage2Action extends ActionSupport {
         
         // Construct the file using the base directory and sanitized filename only
         File imageDir = new File(imgpath);
+        // the basename is containment-checked by validateExistingPath below, before Files.delete.
+        // nosemgrep: carlos.httpservlet-path-traversal
         File image = new File(imageDir, sanitizedFilename);
         
         try {
@@ -104,11 +109,13 @@ public class DelImage2Action extends ActionSupport {
             Files.delete(imagePath);
 
         } catch (SecurityException _) {
-            // Path validation failed
-            return ERROR;
+            // Path validation failed: the name did not resolve inside the image directory.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "invalid image name");
+            return NONE;
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error deleting the image file: " + imgpath, e);
-            return ERROR;
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "the image could not be deleted");
+            return NONE;
         }
         
         return SUCCESS;

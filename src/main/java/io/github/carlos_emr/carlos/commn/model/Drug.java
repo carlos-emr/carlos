@@ -35,6 +35,9 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -81,8 +84,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
+    @Convert(converter = LegacyZeroFloatConverter.class)
     private float takeMin = 0;
     @Column(name = "takemax")
+    @Convert(converter = LegacyZeroFloatConverter.class)
     private float takeMax = 0;
     @Column(name = "freqcode")
     private String freqCode = null;
@@ -124,6 +129,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date createDate = new Date();
     private String dosage = null;
     @Column(name = "custom_instructions")
+    @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean customInstructions;
     private String unitName = null;
     @Column(name = "long_term")
@@ -150,6 +156,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private String eTreatmentType = null;
     private String rxStatus = null;
     @Column(name = "hide_cpp")
+    @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean hideFromCpp;
     @Column(name = "refill_duration")
     private Integer refillDuration;
@@ -160,6 +167,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "position")
     private Integer position;
     @Column(name = "start_date_unknown")
+    @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean startDateUnknown;
     private String comment;
 
