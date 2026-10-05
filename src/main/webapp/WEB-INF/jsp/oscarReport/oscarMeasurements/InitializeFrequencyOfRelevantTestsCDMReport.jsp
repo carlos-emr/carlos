@@ -103,9 +103,6 @@
             </ul>
         </div>
     </c:if>
-        </ul>
-    </div>
-<% } %>
     <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
