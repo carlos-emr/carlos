@@ -308,6 +308,22 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
         }
 
         @Test
+        void shouldReportInvalidDatesAndGuidelineTogether() throws Exception {
+            useNumericValidation();
+            RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", null);
+            action.setGuidelineB(new String[] {"not a number"});
+            action.setStartDateB(new String[] {"invalid"});
+            action.setEndDateB(new String[] {"invalid"});
+
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly(
+                    "oscarReport.CDMReport.msgInvalidDate", "oscarReport.CDMReport.msgInvalidDate",
+                    "oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(formsDao);
+            verify(measurementDao, never()).findLastEntered(any(Date.class), any(Date.class), anyString());
+        }
+
+        @Test
         @DisplayName("should bound the instruction loop by the rendered list when a huge count is posted")
         void shouldIgnorePostedCount_whenInstructionCountIsHuge() throws Exception {
             RptInitializePatientsMetGuidelineCDMReport2Action action = actionForRow0("AACP", "Yes/No");

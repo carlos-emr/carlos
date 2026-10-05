@@ -128,6 +128,14 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 if (measurementType == null) {
                     continue;
                 }
+                if (!ectValidation.isDate(startDate)) {
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
+                    valid = false;
+                }
+                if (!ectValidation.isDate(endDate)) {
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
+                    valid = false;
+                }
                 // Validate the aggregate row too, even when every instruction is unchecked.
                 if (new RptCheckGuideline().getValidation(measurementType) == 1
                         && RptCheckGuideline.numericValue(guideline) == null) {
@@ -138,14 +146,6 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 // The posted value(mNbInstrcsN) count is ignored: the rendered list bounds the loop.
                 int iNumMInstrc = selection.instructionCount(ctr);
 
-                if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
-                    valid = false;
-                }
-                if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
-                    valid = false;
-                }
                 for (int j = 0; j < iNumMInstrc; j++) {
 
                     String mInstrc = selection.acceptedMeasuringInstruction(ctr, (String) this.getValue("mInstrcsCheckbox" + ctr + j));

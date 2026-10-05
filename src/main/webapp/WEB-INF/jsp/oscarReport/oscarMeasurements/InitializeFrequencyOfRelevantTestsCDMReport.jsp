@@ -208,6 +208,7 @@
                                                     <tr>
                                                         <td><c:set var="cdmInstructionName" value="value(mInstrcsCheckboxD${ctr.index}${index.index})" /><input type="checkbox"
                                                                    name='value(mInstrcsCheckboxD${ctr.index}${index.index})'
+                                                                   aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - ${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}"
                                                                    <c:if test="${cdmForm.selected(cdmInstructionName, mInstrc.measuringInstrc, true)}">checked="checked"</c:if>
                                                                    value='${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}'/>
                                                                    ${carlos:forHtml(mInstrc.measuringInstrc)}
