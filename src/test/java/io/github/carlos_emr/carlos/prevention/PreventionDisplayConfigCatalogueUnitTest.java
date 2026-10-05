@@ -23,9 +23,6 @@ package io.github.carlos_emr.carlos.prevention;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -98,14 +95,9 @@ class PreventionDisplayConfigCatalogueUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep the full list, legacy immunizations included, even with a catalogue loaded")
+    @DisplayName("should keep the full list, legacy immunizations included, when PREVENTION_ITEMS is not set")
     void shouldLoadFullList_whenPreventionItemsIsNotSet() throws Exception {
-        when(catalogue.isCatalogueOn()).thenReturn(true);
-        when(catalogue.hasCatalogue()).thenReturn(true);
-
         assertThat(load()).extracting(h -> h.get("name")).contains("PAP", "LDCT", "Inf", "H1N1");
-        verify(catalogue, never()).isCatalogueOn();
-        verify(catalogue, never()).hasCatalogue();
     }
 
     @Test

@@ -36,7 +36,9 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
@@ -51,7 +53,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
@@ -124,8 +125,8 @@ public class CanadianVaccineCatalogueManager {
     /**
      * Replaces the stored catalogue with the current NVC V2 bundle.
      *
-     * <p>The download and parsing happen outside any database transaction. Only a bundle that
-     * parsed and holds the Generic and Tradename value sets reaches the database, where the old
+     * <p>The download and parsing happen outside any database transaction. Only a bundle that parsed
+     * and holds generics, brands linked to them and lots reaches the database, where the old
      * catalogue is deleted and the new one saved in a single transaction. A refresh already running
      * on this instance makes this call return without doing anything.</p>
      *
@@ -167,12 +168,22 @@ public class CanadianVaccineCatalogueManager {
                 ispaVaccines.add(existing.getSnomedConceptId());
             }
         }
+        // A generic's picklist name is the prevention type its records are filed under. Keep each
+        // offered generic's name across refreshes, even if NVC rewords or retires it, so no record
+        // loses its type.
+        Map<String, CVCImmunization> offeredBefore = new LinkedHashMap<>();
+        for (CVCImmunization existing : immunizationDao.findAllGeneric()) {
+            if (existing.getPicklistName() != null) {
+                offeredBefore.put(existing.getSnomedConceptId(), existing);
+            }
+        }
+        List<CVCImmunization> immunizations = keepTypeNames(catalogue.immunizations(), offeredBefore);
         // Children first: lot numbers and GTINs reference their medication.
         lotNumberDao.removeAll();
         gtinDao.removeAll();
         medicationDao.removeAll();
         immunizationDao.removeAll();
-        for (CVCImmunization immunization : catalogue.immunizations()) {
+        for (CVCImmunization immunization : immunizations) {
             immunization.setIspa(ispaVaccines.contains(immunization.getSnomedConceptId()));
             immunizationDao.persist(immunization);
         }
@@ -180,6 +191,56 @@ public class CanadianVaccineCatalogueManager {
             persistMedication(medication);
         }
         setUpdatedInPropertyTable();
+    }
+
+    /**
+     * Gives each generic the type name it was offered under before, and keeps a row for a generic that
+     * was offered before but is no longer in the catalogue. A new name that would repeat a kept one
+     * gets its SNOMED code added, so two vaccines never share a prevention type.
+     */
+    static List<CVCImmunization> keepTypeNames(List<CVCImmunization> fresh, Map<String, CVCImmunization> offeredBefore) {
+        List<CVCImmunization> result = new ArrayList<>(fresh);
+        Set<String> kept = new HashSet<>();
+        Set<String> freshCodes = new HashSet<>();
+        Set<String> freshGenerics = new HashSet<>();
+        for (CVCImmunization immunization : fresh) {
+            freshCodes.add(immunization.getSnomedConceptId());
+            if (immunization.isGeneric()) {
+                freshGenerics.add(immunization.getSnomedConceptId());
+            }
+            CVCImmunization before = immunization.isGeneric() ? offeredBefore.get(immunization.getSnomedConceptId()) : null;
+            if (before != null) {
+                immunization.setPicklistName(before.getPicklistName());
+                kept.add(before.getPicklistName().toLowerCase(Locale.ROOT));
+            }
+        }
+        for (CVCImmunization before : offeredBefore.values()) {
+            if (freshCodes.contains(before.getSnomedConceptId()) && !freshGenerics.contains(before.getSnomedConceptId())) {
+                // NVC now lists this code only as a brand, which is stored under the same code.
+                logger.warn("Vaccine {} is no longer a generic in the catalogue; its prevention type {} is not offered",
+                        before.getSnomedConceptId(), before.getPicklistName());
+            }
+            if (!freshCodes.contains(before.getSnomedConceptId())) {
+                CVCImmunization retired = new CVCImmunization();
+                retired.setSnomedConceptId(before.getSnomedConceptId());
+                retired.setDisplayName(before.getDisplayName());
+                retired.setPicklistName(before.getPicklistName());
+                retired.setGeneric(true);
+                retired.setPrevalence(0);
+                result.add(retired);
+                kept.add(before.getPicklistName().toLowerCase(Locale.ROOT));
+            }
+        }
+        for (CVCImmunization immunization : fresh) {
+            String name = immunization.getPicklistName();
+            if (immunization.isGeneric() && name != null && !offeredBefore.containsKey(immunization.getSnomedConceptId())
+                    && kept.contains(name.toLowerCase(Locale.ROOT))) {
+                immunization.setPicklistName(name + " (" + immunization.getSnomedConceptId() + ")");
+                logger.warn("Vaccine catalogue type name already in use; vaccine {} was given its code as well",
+                        immunization.getSnomedConceptId());
+            }
+        }
+        return result;
     }
 
     /** Saves a medication, then its GTINs and lot numbers, which reference it. */
@@ -195,23 +256,6 @@ public class CanadianVaccineCatalogueManager {
         for (CVCMedicationLotNumber lotNumber : lotNumbers) {
             lotNumberDao.persist(lotNumber);
         }
-    }
-
-    /**
-     * Whether a catalogue has been loaded from the National Vaccine Catalogue, so the prevention
-     * page can offer search by brand, generic or lot number.
-     */
-    public boolean hasCatalogue() {
-        return userPropertyDao.getProp(CVC_UPDATED_PROP) != null;
-    }
-
-    /**
-     * Whether the prevention page searches the vaccine catalogue: a catalogue has been loaded, or the
-     * old {@code cvc.url} setting is non-empty.
-     */
-    public boolean isCatalogueOn() {
-        String cvcUrl = CarlosProperties.getInstance().getProperty("cvc.url");
-        return (cvcUrl != null && !cvcUrl.isBlank()) || hasCatalogue();
     }
 
     private void setUpdatedInPropertyTable() {
@@ -265,8 +309,10 @@ public class CanadianVaccineCatalogueManager {
         for (CVCImmunization i : results) {
             // An imported lot/GTIN may reference a medication whose immunization
             // has not arrived yet; it must not abort the remaining suggestions.
-            // A generic with no picklist name (inactive in the catalogue) cannot be recorded.
-            if (i != null && !(i.isGeneric() && i.getPicklistName() == null)) tmp.put(i.getSnomedConceptId(), i);
+            // A generic with no picklist name (inactive in the catalogue), or a brand with no generic,
+            // has no prevention type to be recorded under.
+            boolean recordable = i != null && (i.isGeneric() ? i.getPicklistName() != null : i.getParentConceptId() != null);
+            if (recordable) tmp.put(i.getSnomedConceptId(), i);
         }
         List<CVCImmunization> uniqueResults = new ArrayList<>(tmp.values());
         Collections.sort(uniqueResults, new PrevalenceComparator());

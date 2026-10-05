@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -37,7 +38,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +53,7 @@ import org.mockito.MockedStatic;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
-import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao;
 import io.github.carlos_emr.carlos.commn.dao.CVCMedicationGTINDao;
@@ -127,7 +130,7 @@ class CanadianVaccineCatalogueManagerUnitTest {
         CVCImmunization previous = new CVCImmunization();
         previous.setSnomedConceptId("7121000087107");
         previous.setIspa(true);
-        when(manager.immunizationDao.findAll(0, 5000)).thenReturn(List.of(previous));
+        when(manager.immunizationDao.findAll(0, AbstractDao.MAX_LIST_RETURN_SIZE)).thenReturn(List.of(previous));
         when(manager.catalogueClient.fetchBundleJson()).thenReturn(NationalVaccineCatalogueMapperUnitTest.sampleJson());
 
         manager.update(loggedInInfo);
@@ -206,33 +209,60 @@ class CanadianVaccineCatalogueManagerUnitTest {
     }
 
     @Test
-    @DisplayName("should treat the catalogue as on once one is loaded, or when cvc.url is set, and off otherwise")
-    void shouldReportCatalogueOn_whenLoadedOrCvcUrlSet() {
-        String savedUrl = CarlosProperties.getInstance().getProperty("cvc.url");
-        try {
-            CarlosProperties.getInstance().remove("cvc.url");
-            assertThat(manager.isCatalogueOn()).isFalse();
-            CarlosProperties.getInstance().setProperty("cvc.url", "  ");
-            assertThat(manager.isCatalogueOn()).isFalse();
-            CarlosProperties.getInstance().setProperty("cvc.url", "https://example.test/cvc");
-            assertThat(manager.isCatalogueOn()).isTrue();
-            CarlosProperties.getInstance().remove("cvc.url");
-            when(manager.userPropertyDao.getProp("cvc.updated")).thenReturn(new UserProperty());
-            assertThat(manager.isCatalogueOn()).isTrue();
-        } finally {
-            if (savedUrl == null) {
-                CarlosProperties.getInstance().remove("cvc.url");
-            } else {
-                CarlosProperties.getInstance().setProperty("cvc.url", savedUrl);
-            }
-        }
+    @DisplayName("should keep a generic's earlier type name when NVC rewords or retires it, so its records keep their type")
+    void shouldKeepTypeNames_whenCatalogueRenamesOrRetiresAGeneric() throws IOException {
+        CVCImmunization renamed = generic("7121000087107", "Meningococcal ACYW (old wording)");
+        CVCImmunization retired = generic("999999", "Discontinued vaccine");
+        when(manager.immunizationDao.findAllGeneric()).thenReturn(List.of(renamed, retired));
+        when(manager.catalogueClient.fetchBundleJson()).thenReturn(NationalVaccineCatalogueMapperUnitTest.sampleJson());
+
+        manager.update(loggedInInfo);
+
+        ArgumentCaptor<CVCImmunization> saved = ArgumentCaptor.forClass(CVCImmunization.class);
+        verify(manager.immunizationDao, times(8)).persist(saved.capture());
+        assertThat(saved.getAllValues())
+                .filteredOn(i -> i.isGeneric() && i.getPicklistName() != null)
+                .extracting(CVCImmunization::getSnomedConceptId, CVCImmunization::getPicklistName)
+                .contains(tuple("7121000087107", "Meningococcal ACYW (old wording)"),
+                        tuple("999999", "Discontinued vaccine"),
+                        tuple("7691000087100", "Influenza trivalent vaccine"));
     }
 
     @Test
-    @DisplayName("should report a loaded catalogue once a refresh has been recorded")
-    void shouldReportCatalogue_whenUpdatedPropertyExists() {
-        when(manager.userPropertyDao.getProp("cvc.updated")).thenReturn(new UserProperty());
+    @DisplayName("should keep two vaccines apart when a new name repeats one kept from before")
+    void shouldAddCode_whenNewTypeNameRepeatsAKeptOne() {
+        CVCImmunization fresh = generic("222", "Shared name");
+        Map<String, CVCImmunization> before = new LinkedHashMap<>();
+        before.put("111", generic("111", "Shared name"));
 
-        assertThat(manager.hasCatalogue()).isTrue();
+        List<CVCImmunization> result = CanadianVaccineCatalogueManager.keepTypeNames(List.of(fresh), before);
+
+        assertThat(result).extracting(CVCImmunization::getSnomedConceptId, CVCImmunization::getPicklistName)
+                .containsExactlyInAnyOrder(tuple("222", "Shared name (222)"), tuple("111", "Shared name"));
+    }
+
+    @Test
+    @DisplayName("should leave out of search a brand with no generic and a generic with no type name")
+    void shouldOmitUnrecordableResults_whenSearching() {
+        CVCImmunization orphanBrand = new CVCImmunization();
+        orphanBrand.setSnomedConceptId("555");
+        orphanBrand.setGeneric(false);
+        CVCImmunization brand = new CVCImmunization();
+        brand.setSnomedConceptId("556");
+        brand.setGeneric(false);
+        brand.setParentConceptId("7121000087107");
+        when(manager.immunizationDao.query("x", true, true)).thenReturn(List.of(orphanBrand, brand));
+
+        assertThat(manager.query("x", true, true, false, false, null))
+                .extracting(CVCImmunization::getSnomedConceptId).containsExactly("556");
+    }
+
+    private static CVCImmunization generic(String code, String typeName) {
+        CVCImmunization generic = new CVCImmunization();
+        generic.setSnomedConceptId(code);
+        generic.setDisplayName(typeName);
+        generic.setPicklistName(typeName);
+        generic.setGeneric(true);
+        return generic;
     }
 }

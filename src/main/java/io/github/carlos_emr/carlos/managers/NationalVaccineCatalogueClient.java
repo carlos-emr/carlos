@@ -34,6 +34,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.concurrent.Cancellable;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
@@ -67,7 +68,8 @@ class NationalVaccineCatalogueClient {
         HttpGet request = new HttpGet(BUNDLE_URI);
         request.setHeader(HttpHeaders.ACCEPT, FHIR_JSON);
         try (CloseableHttpClient client = newClient()) {
-            return client.execute(request, NationalVaccineCatalogueClient::readBundle);
+            return client.execute(request, response -> readBundle(response, request, MAX_BUNDLE_BYTES,
+                    System.nanoTime() + DOWNLOAD_DEADLINE.toNanos()));
         }
     }
 
@@ -92,19 +94,34 @@ class NationalVaccineCatalogueClient {
                 .build();
     }
 
-    static String readBundle(ClassicHttpResponse response) throws IOException {
+    /**
+     * Reads the bundle. A refused answer cancels the request first: closing a response, or its body
+     * stream, otherwise reads and discards the rest of the body to reuse the connection, so neither
+     * the size cap nor the deadline would bound how long the job runs. The cancel therefore happens
+     * inside the try, before the body stream is closed.
+     */
+    static String readBundle(ClassicHttpResponse response, Cancellable request, int maxBytes, long deadlineNanos)
+            throws IOException {
         if (response.getCode() != 200) {
+            request.cancel();
             throw new IOException("National Vaccine Catalogue answered HTTP " + response.getCode());
         }
         HttpEntity entity = response.getEntity();
         if (entity == null) {
             throw new IOException("National Vaccine Catalogue answered without a body");
         }
-        if (entity.getContentLength() > MAX_BUNDLE_BYTES) {
-            throw new IOException("National Vaccine Catalogue bundle is larger than " + MAX_BUNDLE_BYTES + " bytes");
+        if (entity.getContentLength() > maxBytes) {
+            request.cancel();
+            throw new IOException("National Vaccine Catalogue bundle is larger than " + maxBytes + " bytes");
         }
         try (InputStream body = entity.getContent()) {
-            String json = readBounded(body, MAX_BUNDLE_BYTES, System.nanoTime() + DOWNLOAD_DEADLINE.toNanos());
+            String json;
+            try {
+                json = readBounded(body, maxBytes, deadlineNanos);
+            } catch (IOException e) {
+                request.cancel();
+                throw e;
+            }
             if (json.isBlank()) {
                 throw new IOException("National Vaccine Catalogue answered with an empty body");
             }

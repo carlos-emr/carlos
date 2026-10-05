@@ -23,11 +23,18 @@ package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.hc.core5.concurrent.Cancellable;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.InputStreamEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
@@ -56,7 +63,54 @@ class NationalVaccineCatalogueClientUnitTest {
         BasicClassicHttpResponse response = new BasicClassicHttpResponse(200);
         response.setEntity(new StringEntity("{\"resourceType\":\"Bundle\"}", ContentType.APPLICATION_JSON));
 
-        assertThat(NationalVaccineCatalogueClient.readBundle(response)).isEqualTo("{\"resourceType\":\"Bundle\"}");
+        assertThat(read(response, mock(Cancellable.class))).isEqualTo("{\"resourceType\":\"Bundle\"}");
+    }
+
+    @Test
+    @DisplayName("should cancel the request before closing the body when the body passes the cap")
+    void shouldCancelBeforeClosingBody_whenBodyPassesTheCap() {
+        List<String> events = new ArrayList<>();
+        Cancellable request = () -> events.add("cancel");
+        BasicClassicHttpResponse response = new BasicClassicHttpResponse(200);
+        response.setEntity(new InputStreamEntity(new ByteArrayInputStream(new byte[100]) {
+            @Override
+            public void close() {
+                events.add("close");
+            }
+        }, -1, ContentType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(response, request, 10, farFuture()))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("larger than 10 bytes");
+        assertThat(events).containsExactly("cancel", "close");
+    }
+
+    @Test
+    @DisplayName("should cancel the request when the declared length is over the cap or the answer is not 200")
+    void shouldCancelRequest_whenAnswerIsRefusedBeforeReading() {
+        Cancellable tooLarge = mock(Cancellable.class);
+        BasicClassicHttpResponse large = new BasicClassicHttpResponse(200);
+        large.setEntity(new InputStreamEntity(new ByteArrayInputStream(new byte[0]), 11, ContentType.APPLICATION_JSON));
+        Cancellable refused = mock(Cancellable.class);
+        BasicClassicHttpResponse error = new BasicClassicHttpResponse(503);
+
+        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(large, tooLarge, 10, farFuture()))
+                .isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(error, refused, 10, farFuture()))
+                .isInstanceOf(IOException.class);
+        verify(tooLarge).cancel();
+        verify(refused).cancel();
+    }
+
+    @Test
+    @DisplayName("should keep the connection when the answer is read")
+    void shouldNotCancelRequest_whenAnswerIsRead() throws IOException {
+        Cancellable request = mock(Cancellable.class);
+        BasicClassicHttpResponse response = new BasicClassicHttpResponse(200);
+        response.setEntity(new StringEntity("{\"resourceType\":\"Bundle\"}", ContentType.APPLICATION_JSON));
+
+        assertThat(read(response, request)).contains("Bundle");
+        verify(request, never()).cancel();
     }
 
     @Test
@@ -65,7 +119,7 @@ class NationalVaccineCatalogueClientUnitTest {
         BasicClassicHttpResponse response = new BasicClassicHttpResponse(406);
         response.setEntity(new StringEntity("not acceptable", ContentType.TEXT_PLAIN));
 
-        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(response))
+        assertThatThrownBy(() -> read(response, mock(Cancellable.class)))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("HTTP 406");
     }
@@ -77,7 +131,7 @@ class NationalVaccineCatalogueClientUnitTest {
         response.setEntity(new InputStreamEntity(new ByteArrayInputStream(new byte[0]),
                 NationalVaccineCatalogueClient.MAX_BUNDLE_BYTES + 1L, ContentType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(response))
+        assertThatThrownBy(() -> read(response, mock(Cancellable.class)))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("larger than");
     }
@@ -88,7 +142,7 @@ class NationalVaccineCatalogueClientUnitTest {
         BasicClassicHttpResponse response = new BasicClassicHttpResponse(200);
         response.setEntity(new StringEntity("  ", ContentType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> NationalVaccineCatalogueClient.readBundle(response))
+        assertThatThrownBy(() -> read(response, mock(Cancellable.class)))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("empty");
     }
@@ -122,7 +176,12 @@ class NationalVaccineCatalogueClientUnitTest {
         assertThat(NationalVaccineCatalogueClient.readBounded(new ByteArrayInputStream(body), 10, farFuture())).isEqualTo("0123456789");
     }
 
+    private static String read(BasicClassicHttpResponse response, Cancellable request) throws IOException {
+        return NationalVaccineCatalogueClient.readBundle(response, request,
+                NationalVaccineCatalogueClient.MAX_BUNDLE_BYTES, farFuture());
+    }
+
     private static long farFuture() {
-        return System.nanoTime() + java.util.concurrent.TimeUnit.MINUTES.toNanos(1);
+        return System.nanoTime() + TimeUnit.MINUTES.toNanos(1);
     }
 }

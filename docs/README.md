@@ -37,6 +37,7 @@ Key testing resources:
 |----------|-------------|
 | [MyDrugref](MyDrugref.md) | Drug reference system documentation |
 | [Form Resources README](README-form-resources.md) | Medical forms and resources |
+| [Vaccine catalogue](prevention-vaccine-catalogue.md) | National Vaccine Catalogue refresh, catalogue search and the opt-in prevention list |
 
 ### 🔧 Technical References
 

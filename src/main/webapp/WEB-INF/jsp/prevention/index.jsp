@@ -849,8 +849,7 @@
                     </div>
                     <% } %>
 
-                    <%-- Catalogue search once a catalogue is loaded; a non-empty cvc.url (the old CVC V1 address) still turns it on. --%>
-                    <%if (SpringUtils.getBean(io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager.class).isCatalogueOn()) { %>
+                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
                                 <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
                                        style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>

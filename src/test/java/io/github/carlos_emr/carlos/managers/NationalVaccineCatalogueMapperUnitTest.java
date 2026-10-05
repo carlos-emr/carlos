@@ -33,6 +33,11 @@ import java.time.ZoneId;
 import java.util.List;
 
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -98,9 +103,9 @@ class NationalVaccineCatalogueMapperUnitTest {
     @Test
     @DisplayName("should store a code listed as both a generic and a brand only as the brand")
     void shouldSkipGeneric_whenItsCodeIsAlsoABrand() {
-        Bundle bundle = new Bundle();
-        bundle.addEntry().setResource(valueSet("Generic", "111", "222"));
-        bundle.addEntry().setResource(valueSet("Tradename", "222"));
+        ValueSet brands = valueSet("Tradename", "222");
+        linkToGeneric(brands, "222", "111");
+        Bundle bundle = bundle(valueSet("Generic", "111", "222"), brands, lots());
 
         NationalVaccineCatalogueMapper.Catalogue mapped = NationalVaccineCatalogueMapper.map(bundle);
 
@@ -181,6 +186,122 @@ class NationalVaccineCatalogueMapperUnitTest {
         assertThat(NationalVaccineCatalogueMapper.withoutAbbreviationTag("Varicella virus vaccine"))
                 .isEqualTo("Varicella virus vaccine");
         assertThat(NationalVaccineCatalogueMapper.withoutAbbreviationTag("[Inf]")).isEqualTo("[Inf]");
+    }
+
+    @Test
+    @DisplayName("should take a lot that only the brand lists, with the expiry the lot code system gives that lot number")
+    void shouldAddLot_whenOnlyTheBrandListsIt() {
+        ValueSet brands = valueSet("Tradename", "222");
+        linkToGeneric(brands, "222", "111");
+        brands.getCompose().getInclude().get(0).getConcept().get(0).addExtension(
+                NationalVaccineCatalogueMapper.LOT, new Coding(NationalVaccineCatalogueMapper.LOT_CODE_SYSTEM, "LOT9", null));
+        CodeSystem lots = lots();
+        CodeSystem.ConceptDefinitionComponent lot = lots.addConcept().setCode("LOT9_[2]");
+        lot.addProperty().setCode("lotNumber").setValue(new StringType("LOT9"));
+        lot.addProperty().setCode("expiryDate").setValue(new DateTimeType("2027-03-31"));
+
+        NationalVaccineCatalogueMapper.Catalogue mapped =
+                NationalVaccineCatalogueMapper.map(bundle(valueSet("Generic", "111"), brands, lots));
+
+        CVCMedicationLotNumber added = mapped.medications().get(0).getLotNumberList().stream()
+                .filter(l -> "LOT9".equals(l.getLotNumber())).findFirst().orElseThrow();
+        assertThat(added.getExpiryDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate())
+                .isEqualTo(LocalDate.of(2027, 3, 31));
+        assertThat(mapped.lotNumberCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should neither repeat a brand's lot nor borrow another product's expiry when a lot number is shared")
+    void shouldKeepOneRowWithoutBorrowedExpiry_whenLotNumberIsShared() {
+        ValueSet brands = valueSet("Tradename", "222", "333");
+        linkToGeneric(brands, "222", "111");
+        linkToGeneric(brands, "333", "111");
+        for (ValueSet.ConceptReferenceComponent brand : brands.getCompose().getInclude().get(0).getConcept()) {
+            brand.addExtension(NationalVaccineCatalogueMapper.LOT,
+                    new Coding(NationalVaccineCatalogueMapper.LOT_CODE_SYSTEM, "150101", null));
+        }
+        CodeSystem lots = lots();
+        CodeSystem.ConceptDefinitionComponent forBrand = lots.addConcept().setCode("150101_[94]");
+        forBrand.addProperty().setCode("lotNumber").setValue(new StringType("150101"));
+        forBrand.addProperty().setCode("expiryDate").setValue(new DateTimeType("2018-01-31"));
+        forBrand.addExtension(NationalVaccineCatalogueMapper.LINKED_TRADENAME_CONCEPT,
+                new CodeableConcept(new Coding("http://snomed.info/sct", "222", null)));
+        CodeSystem.ConceptDefinitionComponent otherProduct = lots.addConcept().setCode("150101_[95]");
+        otherProduct.addProperty().setCode("lotNumber").setValue(new StringType("150101"));
+        otherProduct.addProperty().setCode("expiryDate").setValue(new DateTimeType("2016-06-30"));
+
+        NationalVaccineCatalogueMapper.Catalogue mapped =
+                NationalVaccineCatalogueMapper.map(bundle(valueSet("Generic", "111"), brands, lots));
+
+        CVCMedication linked = mapped.medications().stream().filter(m -> "222".equals(m.getSnomedCode())).findFirst().orElseThrow();
+        CVCMedication brandOnly = mapped.medications().stream().filter(m -> "333".equals(m.getSnomedCode())).findFirst().orElseThrow();
+        assertThat(linked.getLotNumberList()).singleElement().satisfies(lot -> assertThat(
+                lot.getExpiryDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()).isEqualTo(LocalDate.of(2018, 1, 31)));
+        assertThat(brandOnly.getLotNumberList()).singleElement()
+                .satisfies(lot -> assertThat(lot.getExpiryDate()).isNull());
+        assertThat(mapped.lotNumberCount()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("should refuse a bundle without lots, so a partial download never replaces the catalogue")
+    void shouldRefuseBundle_whenLotCodeSystemMissing() {
+        ValueSet brands = valueSet("Tradename", "222");
+        linkToGeneric(brands, "222", "111");
+
+        assertThatThrownBy(() -> NationalVaccineCatalogueMapper.map(bundle(valueSet("Generic", "111"), brands)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should refuse a bundle whose brands name no generic")
+    void shouldRefuseBundle_whenNoBrandIsLinkedToAGeneric() {
+        assertThatThrownBy(() -> NationalVaccineCatalogueMapper.map(
+                bundle(valueSet("Generic", "111"), valueSet("Tradename", "222"), lots())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("links no brand");
+    }
+
+    @Test
+    @DisplayName("should refuse a bundle with an empty Generic value set")
+    void shouldRefuseBundle_whenGenericValueSetIsEmpty() {
+        ValueSet brands = valueSet("Tradename", "222");
+        linkToGeneric(brands, "222", "111");
+
+        assertThatThrownBy(() -> NationalVaccineCatalogueMapper.map(bundle(valueSet("Generic"), brands, lots())))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("should strip markup characters from names, and the setting separators from type names")
+    void shouldStripUnsafeCharacters_whenNamingVaccines() {
+        assertThat(NationalVaccineCatalogueMapper.withoutMarkup("A <b>\"x\" & 'y'</b>")).isEqualTo("A b x y /b");
+        assertThat(NationalVaccineCatalogueMapper.typeName("[Inf] Flu [x]=y")).isEqualTo("Flu x y");
+        assertThat(NationalVaccineCatalogueMapper.typeName("[Inf]")).isEqualTo("Inf");
+    }
+
+    private static Bundle bundle(org.hl7.fhir.r4.model.Resource... resources) {
+        Bundle bundle = new Bundle();
+        for (org.hl7.fhir.r4.model.Resource resource : resources) {
+            bundle.addEntry().setResource(resource);
+        }
+        return bundle;
+    }
+
+    private static CodeSystem lots() {
+        CodeSystem lots = new CodeSystem();
+        lots.setUrl(NationalVaccineCatalogueMapper.LOT_CODE_SYSTEM);
+        CodeSystem.ConceptDefinitionComponent lot = lots.addConcept().setCode("UNLINKED_[1]");
+        lot.addProperty().setCode("lotNumber").setValue(new StringType("UNLINKED"));
+        return lots;
+    }
+
+    private static void linkToGeneric(ValueSet brands, String brandCode, String genericCode) {
+        for (ValueSet.ConceptReferenceComponent concept : brands.getCompose().getInclude().get(0).getConcept()) {
+            if (brandCode.equals(concept.getCode())) {
+                concept.addExtension(NationalVaccineCatalogueMapper.LINKED_GENERIC_CONCEPT,
+                        new CodeableConcept(new Coding("http://snomed.info/sct", genericCode, null)));
+            }
+        }
     }
 
     private static ValueSet valueSet(String id, String... codes) {

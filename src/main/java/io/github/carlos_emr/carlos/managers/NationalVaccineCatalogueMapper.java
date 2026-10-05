@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,12 +61,17 @@ import io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber;
  *       its generic through {@code nvc-linked-generic-concept}, and one {@link CVCMedication}
  *       carrying the brand's DIN, market authorization holder and status;</li>
  *   <li>the {@code nvc-vaccine-lot-id} code system: lot numbers and expiry dates, each linked to
- *       its brands through {@code nvc-linked-tradename-concept}.</li>
+ *       its brands through {@code nvc-linked-tradename-concept}. A brand also lists its lots in
+ *       {@code nvc-lot}; a few links appear only there, so both are read.</li>
  * </ul>
  *
  * <p>V2 replaced the CVC V1 wrapper extensions ({@code nvc-dins}, {@code nvc-lots},
- * {@code nvc-parent-concept} and so on) with single-valued ones on each concept, and moved lots
- * into their own code system. Nothing here reads the V1 names.</p>
+ * {@code nvc-parent-concept} and so on) with single-valued ones on each concept, and gave lots
+ * their own code system. Nothing here reads the V1 names.</p>
+ *
+ * <p>Names come from an external feed and reach pages and stored settings, so markup characters are
+ * removed from them, and a prevention type name also loses the brackets and equals sign that the
+ * prevention settings use as separators.</p>
  *
  * <p>Mapping is pure: it reads the parsed bundle and builds unsaved entities, so it can be tested
  * without a database or network.</p>
@@ -82,6 +88,7 @@ final class NationalVaccineCatalogueMapper {
     static final String DIN = EXTENSION_BASE + "nvc-din";
     static final String CONCEPT_STATUS = EXTENSION_BASE + "nvc-concept-status";
     static final String LOT_CODE_SYSTEM = NVC_BASE + "/CodeSystem/nvc-vaccine-lot-id";
+    static final String LOT = EXTENSION_BASE + "nvc-lot";
 
     private static final String SNOMED_FULLY_SPECIFIED_NAME = "900000000000003001";
     private static final String SNOMED_SYNONYM = "900000000000013009";
@@ -99,8 +106,9 @@ final class NationalVaccineCatalogueMapper {
     /**
      * Maps an NVC V2 bundle.
      *
-     * @throws IllegalArgumentException if the bundle lacks the {@code Generic} or {@code Tradename}
-     *     value set, so a malformed download never replaces the stored catalogue
+     * @throws IllegalArgumentException if the bundle lacks concepts in the {@code Generic} or
+     *     {@code Tradename} value set, the lot code system, or any brand linked to a generic, so a
+     *     malformed or partial download never replaces the stored catalogue
      */
     static Catalogue map(Bundle bundle) {
         ValueSet generic = null;
@@ -122,14 +130,17 @@ final class NationalVaccineCatalogueMapper {
         if (generic == null || tradename == null) {
             throw new IllegalArgumentException("NVC bundle has no Generic or Tradename value set");
         }
-
         List<ConceptReferenceComponent> brands = concepts(tradename);
+        List<ConceptReferenceComponent> generics = concepts(generic);
+        if (brands.isEmpty() || generics.isEmpty() || lots == null || lots.getConcept().isEmpty()) {
+            throw new IllegalArgumentException("NVC bundle has no generics, brands or lots");
+        }
         Set<String> brandCodes = new HashSet<>();
         for (ConceptReferenceComponent concept : brands) {
             brandCodes.add(concept.getCode());
         }
         List<CVCImmunization> immunizations = new ArrayList<>();
-        for (ConceptReferenceComponent concept : concepts(generic)) {
+        for (ConceptReferenceComponent concept : generics) {
             // The Generic value set also lists some discontinued brands. Storing them twice would
             // make a lookup by SNOMED code return a generic row with no parent for a brand.
             if (!brandCodes.contains(concept.getCode())) {
@@ -139,13 +150,18 @@ final class NationalVaccineCatalogueMapper {
         // One medication per brand: the prevention screen lists a brand's lots through the single
         // medication found by its SNOMED code, so splitting a brand by DIN would hide lots.
         Map<String, CVCMedication> medicationsByBrand = new LinkedHashMap<>();
+        boolean anyBrandLinked = false;
         for (ConceptReferenceComponent concept : brands) {
             CVCImmunization brand = immunization(concept, false);
             brand.setParentConceptId(firstCode(extensionConcept(concept.getExtension(), LINKED_GENERIC_CONCEPT)));
+            anyBrandLinked |= brand.getParentConceptId() != null;
             immunizations.add(brand);
             medicationsByBrand.putIfAbsent(concept.getCode(), medication(concept, brand.getDisplayName()));
         }
-        int lotNumberCount = lots == null ? 0 : addLotNumbers(lots, medicationsByBrand);
+        if (!anyBrandLinked) {
+            throw new IllegalArgumentException("NVC bundle links no brand to a generic");
+        }
+        int lotNumberCount = addLotNumbers(lots, brands, medicationsByBrand);
         return new Catalogue(immunizations, new ArrayList<>(medicationsByBrand.values()), lotNumberCount);
     }
 
@@ -167,8 +183,8 @@ final class NationalVaccineCatalogueMapper {
         CVCImmunization immunization = new CVCImmunization();
         immunization.setSnomedConceptId(concept.getCode());
         immunization.setVersionId(0);
-        String displayName = firstNonBlank(designation(concept, SNOMED_SYNONYM), concept.getDisplay(),
-                designation(concept, SNOMED_FULLY_SPECIFIED_NAME));
+        String displayName = withoutMarkup(firstNonBlank(designation(concept, SNOMED_SYNONYM), concept.getDisplay(),
+                designation(concept, SNOMED_FULLY_SPECIFIED_NAME)));
         boolean active = ACTIVE.equals(stringValue(concept.getExtension(), CONCEPT_STATUS));
         immunization.setDisplayName(displayName);
         // The picklist name becomes the prevention type a generic is offered and recorded as, so it
@@ -178,7 +194,7 @@ final class NationalVaccineCatalogueMapper {
         // because prevention settings store type names between brackets. An inactive generic is
         // kept for lookups by code but is not offered as a prevention type.
         if (generic) {
-            immunization.setPicklistName(active ? withoutAbbreviationTag(displayName) : null);
+            immunization.setPicklistName(active ? typeName(displayName) : null);
         } else {
             immunization.setPicklistName(displayName);
         }
@@ -203,38 +219,66 @@ final class NationalVaccineCatalogueMapper {
         if (holder != null) {
             // manufacturerId is an int column and the holder's SNOMED code does not fit; nothing
             // reads the id, so only the name is kept.
-            medication.setManufacturerDisplay(holder.getDisplay());
+            medication.setManufacturerDisplay(withoutMarkup(holder.getDisplay()));
         }
         return medication;
     }
 
     /**
-     * Adds each lot to the brands it is linked to. A lot linked to two brands is listed under both;
-     * a lot whose brands are not in the bundle's Tradename value set is skipped.
+     * Adds each lot to the brands it is linked to, from either side: the lot code system's
+     * {@code nvc-linked-tradename-concept} and the brand's own {@code nvc-lot} list. A lot linked to
+     * two brands is listed under both; a lot whose brands are not in the Tradename value set is
+     * skipped. A lot that only the brand names takes its expiry date from the code system when that
+     * lot number is a single concept there, and none when it is several, so it never borrows another
+     * product's date; and a brand that already has the lot number from the code system gets no
+     * second row.
      */
-    private static int addLotNumbers(CodeSystem lots, Map<String, CVCMedication> medicationsByBrand) {
+    private static int addLotNumbers(CodeSystem lots, List<ConceptReferenceComponent> brands,
+            Map<String, CVCMedication> medicationsByBrand) {
+        Set<String> brandLots = new HashSet<>();
+        Map<String, Date> expiryByLotNumber = new HashMap<>();
+        Set<String> sharedLotNumbers = new HashSet<>();
         int count = 0;
-        // A lot repeated under the same brand with the same expiry is one row, and counted once.
-        Set<String> added = new HashSet<>();
         for (ConceptDefinitionComponent lot : lots.getConcept()) {
             String lotNumber = firstNonBlank(stringProperty(lot, LOT_NUMBER_PROPERTY), lotNumberFromCode(lot.getCode()));
             if (lotNumber == null) {
                 continue;
             }
             Date expiryDate = dateProperty(lot, EXPIRY_DATE_PROPERTY);
+            if (expiryByLotNumber.containsKey(lotNumber)) {
+                sharedLotNumbers.add(lotNumber);
+            }
+            expiryByLotNumber.put(lotNumber, expiryDate);
             for (Extension link : lot.getExtension()) {
-                if (!LINKED_TRADENAME_CONCEPT.equals(link.getUrl())) {
-                    continue;
+                if (LINKED_TRADENAME_CONCEPT.equals(link.getUrl())) {
+                    count += addLot(medicationsByBrand, brandLots, firstCode(asCodeableConcept(link)), lotNumber, expiryDate);
                 }
-                String brand = firstCode(asCodeableConcept(link));
-                CVCMedication medication = medicationsByBrand.get(brand);
-                if (medication != null && added.add(brand + '\n' + lotNumber + '\n' + expiryDate)) {
-                    medication.getLotNumberList().add(new CVCMedicationLotNumber(medication, lotNumber, expiryDate));
-                    count++;
+            }
+        }
+        for (ConceptReferenceComponent brand : brands) {
+            for (Extension lotLink : brand.getExtension()) {
+                if (LOT.equals(lotLink.getUrl()) && lotLink.getValue() instanceof Coding coding && coding.hasCode()) {
+                    String lotNumber = lotNumberFromCode(coding.getCode());
+                    Date expiryDate = sharedLotNumbers.contains(lotNumber) ? null : expiryByLotNumber.get(lotNumber);
+                    count += addLot(medicationsByBrand, brandLots, brand.getCode(), lotNumber, expiryDate);
                 }
             }
         }
         return count;
+    }
+
+    /**
+     * Adds a lot to a brand's medication, once per brand and lot number: a lot number repeated for the
+     * same brand (with the same or another expiry) is one row.
+     */
+    private static int addLot(Map<String, CVCMedication> medicationsByBrand, Set<String> brandLots, String brand,
+            String lotNumber, Date expiryDate) {
+        CVCMedication medication = medicationsByBrand.get(brand);
+        if (medication == null || lotNumber == null || !brandLots.add(brand + '\n' + lotNumber)) {
+            return 0;
+        }
+        medication.getLotNumberList().add(new CVCMedicationLotNumber(medication, lotNumber, expiryDate));
+        return 1;
     }
 
     /** "[Inf] Influenza quadrivalent vaccine" becomes "Influenza quadrivalent vaccine". */
@@ -246,6 +290,20 @@ final class NationalVaccineCatalogueMapper {
             }
         }
         return name;
+    }
+
+    /**
+     * A prevention type name: the name without its bracketed abbreviation and without the brackets
+     * and equals sign that prevention settings use to separate names.
+     */
+    static String typeName(String name) {
+        String type = withoutAbbreviationTag(name);
+        return type == null ? null : firstNonBlank(type.replaceAll("[\\[\\]=]", " ").replaceAll("\\s+", " ").strip());
+    }
+
+    /** Removes the characters that would be markup in a page or an attribute. */
+    static String withoutMarkup(String text) {
+        return text == null ? null : firstNonBlank(text.replaceAll("[<>\"'&]", " ").replaceAll("\\s+", " ").strip());
     }
 
     /** Lot codes are the lot number plus an NVC suffix, for example {@code 042D21A_[1]}. */

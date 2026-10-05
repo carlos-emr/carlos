@@ -11,29 +11,54 @@ An administrator sets this up once. It then runs on its own.
 
 1. **Administration > System Management > Job Type Management**: add a job type with any name and the
    JAVA Class Name `io.github.carlos_emr.carlos.commn.jobs.CanadianVaccineCatalogueJob`.
-2. **Administration > System Management > Jobs Management**: add a job of that type, enabled. Pick any
-   provider as **Run As Provider**: it only names who ran the refresh in the audit log.
-3. Set the job's schedule. Weekly, Sunday at 3 am, is suggested; the catalogue changes slowly.
+2. **Administration > System Management > Jobs Management**: add a job of that type, enabled.
+   **Run As Provider** only names who ran the refresh in the audit log; use the administrator's own
+   account.
+3. Set the job's schedule: choose **minute 0**, **hour 3** and **weekday Sunday**, once a week. Choose
+   the minute as well: the dialog defaults to every minute, which would refresh 60 times in that hour.
 
 There is no "run now": the first refresh waits for the schedule.
 
-Each refresh downloads and reads the whole bundle before touching the database. It then replaces
-the stored catalogue in one transaction, so a failed download or a malformed bundle leaves the
-previous catalogue in place. A failure is logged and the job runs again at its next time.
+Each refresh downloads and reads the whole bundle before touching the database. A bundle without
+generics, brands, lots or any brand-to-generic link is refused. Otherwise the stored catalogue is
+replaced in one transaction, so a failed download or a malformed bundle leaves the previous
+catalogue in place. A failure is logged and the job runs again at its next time. A download is
+abandoned past 64 MB or five minutes.
 
-## What it changes
+## What a refresh changes
 
-- Once a catalogue has been loaded, the prevention page offers **Add by Brand/Generic/Lot#** and
-  searches the catalogue. A non-empty `cvc.url` from a CVC V1 setup also turns this search on; the
-  value is no longer used as an address.
-- Every active NVC generic becomes a prevention type, named by its SNOMED synonym without the
-  bracketed abbreviation, for example "Influenza quadrivalent vaccine". The exception is a generic that
-  a `CVCMapping` row folds into an existing type in the loaded list. The prevention list is read
-  once, so new types appear after CARLOS restarts.
-- Adding a prevention for a generic offers its NVC brands, and choosing a brand offers its NVC lot
-  numbers and expiry dates.
-- NVC V2 has no Ontario ISPA flag. Each vaccine keeps the flag the previous catalogue recorded, and
-  vaccines new to the catalogue start without it. No screen edits the flag yet.
+- **New prevention types.** Every active NVC generic is added as a prevention type, unless a
+  `CVCMapping` row folds it into an existing type in the loaded list. The type is named by the
+  generic's SNOMED synonym without its bracketed abbreviation, for example "Influenza quadrivalent
+  vaccine".
+  - A name stays the same across refreshes, even if NVC later rewords or retires that vaccine, so
+    records filed under it keep their type. A retired vaccine stays offered as a type, so its old
+    records can still be edited. On a database that still holds the CVC V1 catalogue, the first
+    refresh likewise keeps the V1 names of the generics it already offered.
+  - If a new vaccine's name would repeat a kept one, its SNOMED code is added in parentheses.
+  - Some names contain commas (20 in October 2026), so a `PREVENTION_CONFIG_SETS` list cannot
+    name them.
+  - The prevention list is read once, so new types appear after CARLOS restarts.
+- **Recording.** Adding a prevention for a catalogue type offers its NVC brands, and choosing a brand
+  offers its NVC lot numbers and expiry dates.
+- **Legacy names elsewhere.** Immunizations recorded under catalogue type names are not counted by
+  decision support (`prevention.drl`) or the child immunization report, which use the legacy type
+  names (`Inf`, `Pneu-C`, …). CDS export cannot set their type.
+- **Ontario ISPA.** NVC V2 has no ISPA flag. Each vaccine keeps the flag the previous catalogue
+  recorded, and vaccines new to the catalogue start without it. No screen edits the flag yet.
+- **Admin lot numbers.** Administration's "Add Lot Number" stores the prevention type in a 20-character
+  column, so most catalogue type names do not fit there. Lot numbers for catalogue vaccines come from
+  the catalogue itself.
+
+## Catalogue search (opt-in)
+
+The prevention page can search the catalogue by brand, generic or lot number ("Add by
+Brand/Generic/Lot#") instead of offering the "Pick vaccine brand/generic" picker. To turn it on, set
+`cvc.url` to any value in `carlos.properties` after the first refresh and a restart, so the
+prevention list already holds the catalogue's types. The value is no longer used as an address.
+While the search is on, restart CARLOS after each refresh too (for example, schedule a restart
+after the Sunday refresh): a vaccine type the refresh added is offered in the search at once, but
+opening it shows "Prevention not found" until the prevention list is read again.
 
 ## The prevention list without legacy immunizations (opt-in)
 
@@ -54,8 +79,6 @@ this list:
   stay in the database, and the newer preventions summary and flowsheets still list them, but they
   cannot be edited or deleted, because saving checks the type against the loaded list. Their
   decision-support warnings still appear, with no row to act on;
-- decision support (`prevention.drl`) and the child immunization report key on the legacy names, so
-  they do not count immunizations recorded under catalogue names and "due" warnings keep appearing;
 - CDS export cannot set the type of any immunization, and CDS import files every immunization as
   `OtherA`, because CDS maps types through the loaded list;
 - eForm prevention tags with a legacy type are skipped;
