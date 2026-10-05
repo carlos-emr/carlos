@@ -181,7 +181,9 @@
                     local_jQuery.each(data, function () {
                         // At the beginning of each iteration, the patients age in days, weeks, months and years at the date of observation will be calculated, and displayed based on what the result is
                         let ageDisplay = '<fmt:message key="form.measurement.age"/>: ';
-                        let dateObserved = new Date(this.dateObserved.time);
+                        // Jackson returns epoch milliseconds; older endpoints used a nested time value.
+                        let dateObserved = new Date(this.dateObserved?.time ?? this.dateObserved ?? NaN);
+                        let hasObservationDate = !Number.isNaN(dateObserved.getTime());
                         let ageDays = Math.floor((dateObserved.getTime() - demographicDob.getTime()) / 1000 / 60 / 60 / 24);
                         let tempAgeDays = ageDays;
                         let months = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -214,7 +216,7 @@
                             ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
-                        let obsDate = new Date(this.dateObserved.time).toISOString().slice(0, 10);
+                        let obsDate = hasObservationDate ? dateObserved.toISOString().slice(0, 10) : '';
 
                         // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
                         // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
@@ -229,7 +231,8 @@
                         });
 
                         let para = document.createElement('p');
-                        para.textContent = dataField + ' ' + measuringInstruction + ' (' + obsDate + ' - ' + ageDisplay + ')';
+                        para.textContent = dataField + ' ' + measuringInstruction
+                            + (hasObservationDate ? ' (' + obsDate + ' - ' + ageDisplay + ')' : '');
                         anchor.appendChild(para);
                         bodyContent.appendChild(anchor);
                     });

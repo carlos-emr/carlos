@@ -11,7 +11,7 @@ const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIn
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
 
-function setup() {
+function setup(history = null) {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.classList = { add() {}, remove() {} }; }
     appendChild(child) { this.children.push(child); return child; }
@@ -29,9 +29,9 @@ function setup() {
     getElementById: id => body.find(element => element.id === id) || null });
   const target = body.appendChild(Object.assign(new Element('input'), { id: 'weight', value: '3.4' }));
   const requests = [];
-  const jQuery = { ajax(options) {
+  const jQuery = { each(data, callback) { for (const value of Object.values(data)) callback.call(value); }, ajax(options) {
     requests.push(options);
-    options.success(options.url.includes('saveMeasurement') ? {success:true} : {'-1':'No Results Found'});
+    options.success(options.url.includes('saveMeasurement') ? {success:true} : (history || {'-1':'No Results Found'}));
   }};
   const context = vm.createContext({ document, jQuery, setTimeout() {}, requestAnimationFrame: callback => callback() });
   vm.runInContext(source, context);
@@ -87,3 +87,18 @@ test('editing an imported value enables a new measurement save', () => {
   assert.equal(f.requests[1].data.instruction, 'in kg');
   closed(f);
 });
+
+for (const date of [Date.UTC(2026,0,8), {time:Date.UTC(2026,0,8)}, '2026-01-08T00:00:00Z', null]) {
+  test(`measurement history accepts its observation-date representation: ${JSON.stringify(date)}`, () => {
+    const f = setup({12:{dateObserved:date, dataField:'3.6', measuringInstruction:'in kg'}});
+    const link = f.body.find(element => element.tag === 'a');
+    assert.ok(link, 'Existing measurement is not displayed');
+    assert.ok(!link.children[0].textContent.includes('NaN'), 'Unknown observation dates must not invent an age');
+    link.listeners.click({preventDefault() {}});
+    assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, date === null ? '' : '2026-01-08');
+    f.click('meas-btn-save');
+    assert.equal(f.target.value, '3.6');
+    assert.equal(f.requests.length, 1, 'Importing history must not save a duplicate');
+    closed(f);
+  });
+}
