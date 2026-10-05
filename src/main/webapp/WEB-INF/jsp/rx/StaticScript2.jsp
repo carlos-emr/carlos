@@ -118,8 +118,9 @@
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
         <script type="text/javascript">
-            function ShowDrugInfo(gn) {
-                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(gn), "_blank",
+            function ShowDrugInfo(gn, din) {
+                window.open("<%= request.getContextPath() %>/rx/drugInfo?GN=" + encodeURIComponent(gn)
+                    + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                     "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
             }
         </script>
@@ -371,7 +372,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>');">Info</a> <%
+						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= drug.regionalIdentifier %>' context="javaScriptAttribute"/>');">Info</a> <%
 							}
 						%>
                         </td>

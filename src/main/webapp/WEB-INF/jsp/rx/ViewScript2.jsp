@@ -1475,8 +1475,9 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             try { var m = parent.document.getElementById('carlosModal'); if (m) { var bs = (typeof parent.bootstrap !== 'undefined') ? parent.bootstrap : (typeof bootstrap !== 'undefined' ? bootstrap : null); if (bs) { var modal = bs.Modal.getInstance(m); if (modal) { modal.hide(); } } } } catch(e) { parent.window.location = '<%= request.getContextPath() %>/rx/close.html'; }
                                         }
 
-                                        function ShowDrugInfo(drug) {
-                                            window.open('${carlos:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug), "_blank",
+                                        function ShowDrugInfo(drug, din) {
+                                            window.open('${carlos:forJavaScript(ctx)}/rx/drugInfo?GN=' + encodeURIComponent(drug)
+                                                + (din && din !== "null" && din !== "0" ? "&DIN=" + encodeURIComponent(din) : ""), "_blank",
                                                 "location=no, menubar=no, toolbar=no, scrollbars=yes, status=yes, resizable=yes");
                                         }
 
@@ -1751,8 +1752,8 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         %>
                                         <tr>
                                             <td><span><a
-                                                    href="javascript:ShowDrugInfo('<%= rx.getGenericName() %>');">
-						<%= rx.getGenericName() %> (<%= rx.getBrandName() %>) </a></span></td>
+                                                    href="javascript:ShowDrugInfo('<carlos:encode value='<%= rx.getGenericName() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>');">
+						<carlos:encode value="<%= rx.getGenericName() %>" context="html"/> (<carlos:encode value="<%= rx.getBrandName() %>" context="html"/>) </a></span></td>
                                         </tr>
                                         <%
                                                 }
