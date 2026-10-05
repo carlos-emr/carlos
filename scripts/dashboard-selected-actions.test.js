@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/web/dashboard/display/drilldownDisplayController.js'), 'utf8');
 
 /** Run the shipped controller and retain the handlers it installs on the page. */
-function controller(selected = ['101', '102'], contextPath = '/clinic') {
+function controller(selected = ['101', '102'], contextPath = '/clinic', ticklerFields = []) {
   const handlers = new Map();
   const requests = [];
   const alerts = [];
@@ -29,7 +29,7 @@ function controller(selected = ['101', '102'], contextPath = '/clinic') {
       },
       attr(name) { return selector && selector[name]; },
       closest(name) { assert.equal(name, 'form'); return $(selector.form); },
-      serializeArray() { return selector.fields.map(field => ({ ...field })); },
+      serializeArray() { return (selector === '#ticklerAddForm' ? ticklerFields : selector.fields).map(field => ({ ...field })); },
     };
     return chain;
   }
@@ -83,5 +83,19 @@ for (const contextPath of ['', '/clinic']) {
     assert.equal(run.requests[0].url, `${contextPath}/web/dashboard/display/AssignTickler`);
     assert.equal(run.requests[0].type, 'POST');
     assert.equal(run.requests[0].data, 'demographics=101,102');
+  });
+}
+
+for (const hiddenMethod of [[], [{ name: 'method', value: 'old-operation' }]]) {
+  test(`Save Tickler supplies exactly one save operation with ${hiddenMethod.length} surviving method fields`, () => {
+    const fields = [{ name: 'demographics', value: '101,102' }, { name: 'CSRF-TOKEN', value: 'owned-token' },
+      { name: 'messageAppend', value: 'owned recall' }];
+    const run = controller(['101', '102'], '/clinic', [...fields, ...hiddenMethod]);
+    run.click('saveTicklerBtn', {});
+    assert.equal(run.requests.length, 1);
+    assert.equal(run.requests[0].url, '/clinic/web/dashboard/display/AssignTickler');
+    assert.equal(run.requests[0].type, 'POST');
+    assert.deepEqual(JSON.parse(JSON.stringify(run.requests[0].data)),
+      [...fields, { name: 'method', value: 'saveTickler' }]);
   });
 }

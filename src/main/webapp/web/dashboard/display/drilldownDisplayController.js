@@ -368,7 +368,13 @@ $(document).ready(function () {
     $("#saveTicklerBtn").on('click', function (event) {
         event.preventDefault();
         if (checkFields()) {
-            sendData("/web/dashboard/display/AssignTickler", $("#ticklerAddForm").serialize(), "close")
+            // DOMPurify removes name="method" to prevent form-property clobbering.
+            // Supply this fixed operation explicitly without relaxing sanitization.
+            var data = $("#ticklerAddForm").serializeArray().filter(function (field) {
+                return field.name !== 'method';
+            });
+            data.push({name: 'method', value: 'saveTickler'});
+            sendData("/web/dashboard/display/AssignTickler", data, "close");
         }
     });
 
