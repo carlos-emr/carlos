@@ -86,14 +86,12 @@
         </c:choose>
     </c:when>
     <c:otherwise>
-<%-- Update mode: assembler already persisted; emit popup-close JS. --%>
+<%-- The action already saved the description. Return to the search while preserving unsaved bill edits. --%>
 <p>
 <h1>Successful Addition of a billing Record.</h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);
-    return false;
-    self.opener.refresh();
 </script>
     </c:otherwise>
 </c:choose>

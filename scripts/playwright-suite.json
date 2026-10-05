@@ -4599,7 +4599,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors.",
+      "notes": "Code Search Update verifies exact persistence, return to the search with the saved description, reload from storage and preservation of unsaved bill edits. Separately tracked legacy failures remain visible for diagnosis Search Update, code Confirm and Manage Billing Form Add/bill-type/Delete.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
@@ -4662,7 +4662,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records each form independently. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without POST/database writes, followed by exact save/redisplay/reopen. Remaining release failures include second-save CSRF and Vascular Tracker/Annual print routes.",
+      "notes": "Records each form independently. Annual Health Review verifies the gated print route, saved record/date and literal clinical prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without POST/database writes, followed by exact save/redisplay/reopen. Remaining release failures include second-save CSRF and Vascular Tracker routing.",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
