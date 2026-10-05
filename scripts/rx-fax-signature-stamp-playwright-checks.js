@@ -58,7 +58,7 @@
  * Every database row it creates (prescription and drugs, stored signature, fax
  * job and its FaxClientLog audit row, a fax_config account, a throwaway unsigned
  * row) is removed in a finally, so the check is idempotent at the database.
- * Files are NOT removed: the fax servlet writes prescription_<pdfId>.pdf under
+ * Files are NOT removed: the fax action writes prescription_<pdfId>.pdf under
  * DOCUMENT_DIR and prescription_<pdfId>.pdf/.txt under fax_file_location on the
  * install, and this check runs through HTTP and MySQL only. The pdfId is
  * <providerNo><millis>, so each run leaves one small PDF (plus the pair in the
@@ -105,14 +105,14 @@ const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // Per-run identifiers so a concurrent (or crashed-then-rerun) invocation of this check is not
 // correlated with — or has its rows deleted by — another run.
-// fax_config.faxNumber/faxReply are varchar(10) and the servlet matches the staged account by exact
+// fax_config.faxNumber/faxReply are varchar(10) and the fax action matches the staged account by exact
 // string equality, so the "from" number MUST be exactly 10 chars: '416' + a 7-digit random keeps it
 // there while giving a 10-million-value space, making a same-number collision between two concurrent
 // runs negligible. The drug name (customName is varchar(60)) carries the full timestamp + suffix.
 const runFaxSuffix = String(randomInt(1000000, 10000000)); // 7 digits (crypto RNG; CodeQL-clean)
 // Destination number staged on the patient's pharmacy. Clicking Fax QUEUES A JOB against this
 // number, so it must be unroutable: NPA 555 is not assignable in the NANP, so 555-xxx-xxxx can
-// never reach a real fax machine. Ten digits after the servlet strips non-digits (it requires at
+// never reach a real fax machine. Ten digits after the fax action strips non-digits (it requires at
 // least seven), and unique per run so cleanup restores only this run's fixture and never one a
 // concurrent run is still using.
 const pharmacyFaxNumber = `555${runFaxSuffix}`;
@@ -258,7 +258,7 @@ const seededPharmacyFaxes = [];
 /**
  * Give the patient's active pharmacies a destination fax number.
  *
- * The fax servlet refuses a prescription whose pharmacy has no fax number ("Valid fax number not
+ * The fax action refuses a prescription whose pharmacy has no fax number ("Valid fax number not
  * found"), and ViewScript2.jsp folds the same fact into the Fax button via `hasFaxNumber`. The demo
  * dataset ships its pharmacies with a blank fax, so without this the signed-fax assertion would be
  * measuring the missing pharmacy number rather than the signature gate it exists to pin. Every
@@ -439,7 +439,7 @@ async function checkBuildStampOnAboutPage(context) {
 
 function stageFaxConfig() {
   // A fax gateway account so the ViewScript2 "From fax number" select has an
-  // option and sendFax() can run; the servlet matches it to create the fax job.
+  // option and sendFax() can run; the fax action matches it to create the fax job.
   // Reuse only an ACTIVE SRFAX row — an inactive or MIDDLEWARE row on this number
   // would not populate the select the UI needs, so in that case stage our own.
   const existing = sql(`SELECT id FROM fax_config WHERE faxNumber='${faxNumber}' AND active=1 AND providerType='SRFAX' LIMIT 1;`).trim();
@@ -612,7 +612,7 @@ async function runChecks(context) {
       if (/not signed/i.test(faxBody)) {
         findings.push({ label: 'fax-gate', type: 'signed-refused', text: 'clicking Fax on a stamp-signed script was refused as unsigned' });
       }
-      // The signed fax must SUCCEED: the servlet writes a fax-success banner on success and a
+      // The signed fax must SUCCEED: the fax action writes a fax-success banner on success and a
       // fax-failure banner (or a non-2xx status) on any error. A generic error is a failure of the
       // check, not a note — otherwise a 500 or an unrelated error page would let it pass.
       if (faxStatus < 200 || faxStatus >= 300) {

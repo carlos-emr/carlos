@@ -126,8 +126,8 @@ public class RxFaxPrescription2Action extends ActionSupport {
                 return;
             }
 
-            // The prescription named by scriptId is loaded ONCE here and shared by the privilege
-            // pre-check, the signature gate and the fax content binding below.
+            // The prescription named by scriptId is loaded ONCE here and shared by the record-based
+            // privilege check, the signature gate and the fax content binding below.
             prescription = prescriptionPdfComposer.requestedPrescription(req);
 
             // An authorization refusal must be reported as one. resolveSignatureImage withholds the
@@ -192,7 +192,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
                 // Reject, rather than rewrite, an invalid identifier. A missing identifier used
                 // to create prescription_null.pdf and rewriting could make two distinct caller
                 // values collide on one already-signed clinical document.
-                if (pdfid == null || !pdfid.matches("[a-zA-Z0-9_-]{1,128}")) {
+                if (!PrescriptionFaxService.isValidDocumentId(pdfid)) {
                     res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     writer.println("<div id='fax-failure'><h3>Error: Unable to generate fax.</h3></div>");
                     writer.flush();

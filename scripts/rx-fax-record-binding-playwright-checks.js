@@ -9,7 +9,7 @@
  * signed prescription fax (PrescriptionPdfComposer.bindFaxContentToRecord and
  * rx/ViewScript2.jsp, PR #3606). It drives the real UI to write and stamp-sign
  * a prescription, faxes it the way a clinician does, and then reads the PDF the
- * servlet wrote to DOCUMENT_DIR and asserts on the text actually rendered:
+ * fax action wrote to DOCUMENT_DIR and asserts on the text actually rendered:
  *
  *   A. identity — an oscarRxFax POST carrying a FORGED patientName/HIN/DOB/
  *      address/phone/chartNo for a signed script must fax the prescription's
@@ -37,7 +37,7 @@
  * same signed script, made from inside the page so it carries the session and a
  * real CSRFGuard token exactly as the browser's own submit does.
  *
- * The check reads the generated PDF from disk (the servlet's only durable
+ * The check reads the generated PDF from disk (the fax action's only durable
  * output) with a small text-run extractor over the content streams; OpenPDF
  * writes each rendered line as its own `(...) Tj`, so a rendered line is a run.
  * Nothing from the PDF is printed: identity is reported as present/absent.
@@ -133,7 +133,7 @@ const customDrugName = `PW FAX BIND ${Date.now()}${runSuffix}`;
 const probeLine = 'Z';
 const probeLineContext = `PW PROBE ${runSuffix}`;
 const noteText = `PW NOTE ${runSuffix}`;
-// Header values with record sources the servlet must bind the same way: the prescription date,
+// Header values with record sources the fax must bind the same way: the prescription date,
 // the clinic block, the reprint annotation, and a satellite-clinic block (useSC/scAddress) the
 // provider was never offered. Distinct markers so a rendered one names the field that leaked.
 const forgedHeader = {
@@ -250,7 +250,7 @@ function safeUrl(rawUrl) {
 
 /**
  * Every string shown by a `Tj` / `TJ` operator in every content stream of the PDF, in stream order.
- * OpenPDF (the servlet's writer) positions each rendered line with `Tm` and shows it with one `Tj`,
+ * OpenPDF (the composer's writer) positions each rendered line with `Tm` and shows it with one `Tj`,
  * so one rendered line is one run. Handles FlateDecode streams and the ()-string escapes; that is
  * all this writer emits. Not a general PDF text extractor and not meant to be one.
  */
@@ -307,10 +307,10 @@ function pdfTextRuns(buf) {
   return runs;
 }
 
-/** The servlet's PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
+/** The faxed PDF for this pdfId, once it is fully written (exists, %PDF header, size stable). */
 async function waitForPdf(pdfId, label) {
-  // The servlet strips everything outside [a-zA-Z0-9_-] from pdfId before naming the file; accept
-  // exactly that set so a dashed or underscored id from the page is not a false failure here.
+  // The fax action refuses a pdfId with anything outside [a-zA-Z0-9_-]; accept exactly that set so a
+  // dashed or underscored id from the page is not a false failure here.
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(pdfId)) {
     throw new Error(`${label}: pdfId is not a plain identifier`);
   }
@@ -827,8 +827,8 @@ async function faxThroughUi(page, modalFrame, scriptId) {
     body = await response.text().catch(() => '');
     const post = new URLSearchParams(request.postData() || '');
     pdfId = post.get('pdfId');
-    // What the page put on the wire for the clinic header, and whether the servlet will use it. A
-    // specialist/satellite address (useSC=true) makes the servlet compose the header itself, so
+    // What the page put on the wire for the clinic header, and whether the fax will use it. A
+    // specialist/satellite address (useSC=true) makes the fax compose the header itself, so
     // only the submitted value, not the rendered lines, can be judged in that case.
     submittedClinicHeader = post.get('clinicName');
     headerComposedByServlet = /[?&]useSC=true(&|$)/.test(request.url());
@@ -891,7 +891,7 @@ async function faxWithForgedIdentity(page, scriptId) {
       pharmaName: 'Playwright Pharmacy',
       demographic_no: demographicNo,
       rxPageSize: 'PageSize.Letter',
-      rx: 'ignored: the servlet faxes the record',
+      rx: 'ignored: the fax action faxes the record',
       rxDate: 'January 1, 2026',
       sigDoctorName: 'Dr Forged',
       showPatientDOB: 'true',
@@ -945,7 +945,7 @@ function assertHeaderBound(runs) {
   // read back from the database (not this process's clock, which may sit in another time zone or
   // on the other side of midnight from Tomcat); the date cell is one PDF phrase, so one text run.
   // Numeric parts from SQL, English month name from the runner: DATE_FORMAT('%M') follows the
-  // server's lc_time_names, while the servlet's "MMMM d, yyyy" is always English.
+  // server's lc_time_names, while the composer's "MMMM d, yyyy" is always English.
   const ymd = sql(`SELECT DATE_FORMAT(MAX(rx_date), '%Y-%m-%d') FROM drugs WHERE customName='${customDrugName}' AND demographic_no=${demographicNo};`).trim();
   const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
   const recordDate = ymdMatch
@@ -1003,7 +1003,7 @@ function clinicRowNames() {
 }
 
 /**
- * The clinic header must reach the servlet as separate lines and render that way.
+ * The clinic header must reach the fax action as separate lines and render that way.
  *
  * <p>Judged from what the page actually POSTed. Preview2.jsp composes {@code name<br>address<br>
  * city   postal} and converts the joins to line breaks for the hidden {@code clinicName} input, so
@@ -1011,7 +1011,7 @@ function clinicRowNames() {
  * pins produced ONE line with the letter n where each break belonged. A single line is only called
  * glued when the clinic row's name is a proper prefix of it -- a program address is legitimately one
  * line and must not fail the check. A missing or empty header on the normal path is a finding, not a
- * skip. When {@code useSC=true} the servlet composes the header itself and ignores the submitted
+ * skip. When {@code useSC=true} the fax composes the header itself and ignores the submitted
  * value, so nothing is judged.</p>
  */
 function assertClinicHeader(runs) {

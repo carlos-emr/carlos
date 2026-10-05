@@ -87,7 +87,7 @@ public class PrescriptionFaxService {
      * ({@link #isFaxDeniedByPrivilege}) still apply to every caller who passes.
      */
     public boolean mayFaxForRequestedPatient(LoggedInInfo loggedInInfo, String demographicNo) {
-        String patient = demographicNo != null && demographicNo.matches("[0-9]{1,10}") ? demographicNo : null;
+        String patient = canonicalPatientNumber(demographicNo);
         try {
             return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient)
                     && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null);
@@ -95,6 +95,30 @@ public class PrescriptionFaxService {
             logger.warn("A directive refused the fax permission check ({})", e.getClass().getSimpleName());
             return false;
         }
+    }
+
+    /**
+     * The patient number in the form privilege objects are keyed by ({@code "0001"} becomes {@code "1"}), as
+     * the later record checks read it; {@code null} when it is absent, malformed or not a positive int.
+     */
+    private static String canonicalPatientNumber(String demographicNo) {
+        if (demographicNo == null || !demographicNo.matches("[0-9]{1,10}")) {
+            return null;
+        }
+        try {
+            int parsed = Integer.parseInt(demographicNo);
+            return parsed > 0 ? String.valueOf(parsed) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * True when {@code pdfId} is a valid fax document id: 1-128 of {@code [a-zA-Z0-9_-]}. It names the fax
+     * files, so anything else is refused rather than rewritten (rewriting could make two ids collide).
+     */
+    public static boolean isValidDocumentId(String pdfId) {
+        return pdfId != null && pdfId.matches("[a-zA-Z0-9_-]{1,128}");
     }
 
     /**
@@ -164,7 +188,7 @@ public class PrescriptionFaxService {
      * file is never overwritten. Every target is resolved and validated before the first write, and on
      * any failure the files this call created are removed again.
      *
-     * @param pdfid the document id, 1-128 of {@code [a-zA-Z0-9_-]}; anything else is refused before any write
+     * @param pdfid the document id ({@link #isValidDocumentId}); anything else is refused before any write
      * @throws FileAlreadyExistsException when a target already exists, as a replay of a queued job would
      *                                    find; its artifacts are left untouched
      * @throws IOException                when a write fails
@@ -176,7 +200,7 @@ public class PrescriptionFaxService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "every target is resolved under a configured directory by PathValidationUtils before use")
     public PreparedFaxFiles prepareFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
             ByteArrayOutputStream baosPDF) throws IOException {
-        if (pdfid == null || !pdfid.matches("[a-zA-Z0-9_-]{1,128}")) {
+        if (!isValidDocumentId(pdfid)) {
             throw new IllegalArgumentException("Invalid fax document id");
         }
         // Resolve and validate EVERY target before the first write. A bad spool directory must not

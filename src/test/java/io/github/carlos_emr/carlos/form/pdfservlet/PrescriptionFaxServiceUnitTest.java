@@ -43,6 +43,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @Tag("unit")
 @Tag("prescription")
@@ -104,5 +106,65 @@ class PrescriptionFaxServiceUnitTest extends PrescriptionPdfUnitTestBase {
 
         assertThatThrownBy(() -> newFaxService().isFaxDeniedByPrivilege(prescription, mock(LoggedInInfo.class)))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"1, 1", "0001, 1", "42, 42"})
+    @DisplayName("should check _rx write on the patient the request names, in its standard form")
+    void shouldScopeRxCheckToRequestedPatient_whenNumberIsValid(String given, String expected) {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, expected)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+
+        assertThat(newFaxService().mayFaxForRequestedPatient(loggedInInfo, given)).isTrue();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "abc", "1 OR 1=1", "12345678901", "0", "-1"})
+    @DisplayName("should check _rx write role-wide when the request names no usable patient")
+    void shouldCheckRxRoleWide_whenNumberIsAbsentOrMalformed(String given) {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)).thenReturn(true);
+
+        assertThat(newFaxService().mayFaxForRequestedPatient(loggedInInfo, given)).isTrue();
+        verify(securityInfoManager, never()).hasPrivilege(any(), eq("_rx"), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should refuse a caller who may write prescriptions but not send faxes")
+    void shouldRefuseFax_whenFaxWriteIsMissing() {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, "1")).thenReturn(true);
+
+        assertThat(newFaxService().mayFaxForRequestedPatient(loggedInInfo, "1")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should count a patient directive that refuses the check as no")
+    void shouldRefuseFax_whenDirectiveRefusesCheck() {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, "1"))
+                .thenThrow(new PatientDirectiveException("directive"));
+
+        assertThat(newFaxService().mayFaxForRequestedPatient(loggedInInfo, "1")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rx-123", "A_b-9", "x"})
+    @DisplayName("should accept a document id made only of letters, digits, dash and underscore")
+    void shouldAcceptDocumentId_whenWithinAllowedCharacters(String pdfId) {
+        assertThat(PrescriptionFaxService.isValidDocumentId(pdfId)).isTrue();
+        assertThat(PrescriptionFaxService.isValidDocumentId("a".repeat(128))).isTrue();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"", "../etc/passwd", "has space", "rx.123", "é"})
+    @DisplayName("should refuse a missing, overlong or out-of-set document id")
+    void shouldRejectDocumentId_whenOutsideAllowedCharacters(String pdfId) {
+        assertThat(PrescriptionFaxService.isValidDocumentId(pdfId)).isFalse();
+        assertThat(PrescriptionFaxService.isValidDocumentId("a".repeat(129))).isFalse();
     }
 }

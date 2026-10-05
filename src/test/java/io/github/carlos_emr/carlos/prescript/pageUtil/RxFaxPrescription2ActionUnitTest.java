@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
@@ -153,7 +154,7 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
     @DisplayName("should refuse with 403 when a patient directive refuses the fax permission check")
     void shouldRefuseFaxAsPermissionError_whenDirectiveRefusesCheck() throws Exception {
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO))))
-                .thenThrow(new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("directive"));
+                .thenThrow(new PatientDirectiveException("directive"));
         MockHttpServletResponse response = new MockHttpServletResponse();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -163,6 +164,53 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(response.getContentAsString()).contains("fax-failure").doesNotContain("directive");
         verifyNoInteractions(prescriptionDao, faxConfigDao, faxJobDao, faxManager);
+    }
+
+    @Test
+    @DisplayName("should refuse with 403 when the request names another patient and the caller cannot write the record's")
+    void shouldRefuseFaxAsPermissionError_whenRequestNamesOtherPatient() throws Exception {
+        stubStoredSignature(); // the record's patient is 1
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq("2"))).thenReturn(true);
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("demographic_no", "2");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        faxAs(newFaxAction(), request, response, loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getContentAsString()).contains("permission");
+        verifyFaxWasNotQueued();
+        verifyNoInteractions(faxJobDao, faxConfigDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should refuse as unsigned when the request names another patient than the record's")
+    void shouldRefuseFaxAsUnsigned_whenRequestNamesOtherPatient(boolean callerHasRecordRights) throws Exception {
+        stubStoredSignature(); // the record's patient is 1; grants everything on it
+        if (!callerHasRecordRights) {
+            when(securityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(false);
+        }
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq("2"))).thenReturn(true);
+        MockHttpServletRequest request = createFaxRequest();
+        request.setParameter("demographic_no", "2");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        faxAs(newFaxAction(), request, response, loggedInInfo);
+
+        // Without rights on the record, and equally with them but a demographic_no that is not the
+        // record's, the signature is withheld: the same "not signed" a non-existent script gets.
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+        assertThat(response.getContentAsString()).contains("not signed").doesNotContain("permission");
+        verifyFaxWasNotQueued();
+        verifyNoInteractions(faxJobDao, faxConfigDao);
     }
 
     @Test
