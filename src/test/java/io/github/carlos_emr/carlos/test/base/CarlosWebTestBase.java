@@ -325,6 +325,38 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
     }
 
     /**
+     * Sets a private collaborator field on an action under test.
+     *
+     * <p>Several legacy {@code *2Action} classes resolve their collaborators through
+     * {@code SpringUtils} in a field initializer, which runs before a test can stub anything.
+     * Replacing the bean in {@code SpringUtils} is therefore not enough for an action that is
+     * already constructed, and each such test grew an identical private reflection helper.
+     * This is that helper, once, walking the hierarchy so a field declared on a superclass
+     * still resolves.
+     *
+     * @param target    the action instance to mutate
+     * @param fieldName the declared field to replace
+     * @param value     the mock (or stub) to inject
+     */
+    protected void injectField(Object target, String fieldName, Object value) {
+        Class<?> type = target.getClass();
+        while (type != null) {
+            try {
+                java.lang.reflect.Field field = type.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                field.set(target, value);
+                return;
+            } catch (NoSuchFieldException e) {
+                type = type.getSuperclass();
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException("Failed to inject " + fieldName, e);
+            }
+        }
+        throw new IllegalStateException(
+                "No field '" + fieldName + "' on " + target.getClass().getName() + " or its superclasses");
+    }
+
+    /**
      * Clean up ActionContext after test
      */
     @Override

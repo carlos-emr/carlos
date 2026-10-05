@@ -21,14 +21,20 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.web;
 
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -208,6 +214,121 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
     }
 
     @Nested
+    @DisplayName("sanitizeChainResultName")
+    class SanitizeChainResultName {
+
+        @ParameterizedTest(name = "safe chain result: {0}")
+        @ValueSource(strings = {
+                "list",
+                "view",
+                "issueList_ajax"
+        })
+        @DisplayName("should return whitelisted chain result names")
+        void shouldReturn_whenResultNameWhitelisted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isEqualTo(chain);
+        }
+
+        @Test
+        @DisplayName("should return trimmed whitelisted chain result name")
+        void shouldReturn_whenResultNameHasOuterWhitespace() {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(" \tlist \n")).isEqualTo("list");
+        }
+
+        @ParameterizedTest(name = "blank chain result: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {" ", "\t", "\n"})
+        @DisplayName("should return null for blank chain result names")
+        void shouldReturnNull_whenResultNameBlank(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+
+        @ParameterizedTest(name = "unsafe chain result: {0}")
+        @ValueSource(strings = {
+                "listCPPNotes",
+                "windowClose",
+                "https://evil.example",
+                "/provider/providercontrol.jsp",
+                "../admin",
+                "list;listCPPNotes"
+        })
+        @DisplayName("should return null for untrusted chain result names")
+        void shouldReturnNull_whenResultNameUntrusted(String chain) {
+            assertThat(CaseManagementEntry2Action.sanitizeChainResultName(chain)).isNull();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // parseExistingNoteId
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("parseExistingNoteId")
+    class ParseExistingNoteId {
+
+        @Test
+        @DisplayName("should return the parsed id when noteId is a positive number")
+        void shouldReturnParsedId_whenNoteIdIsPositiveNumber() {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId("42")).isEqualTo(42L);
+        }
+
+        @ParameterizedTest(name = "no existing note for noteId: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"0", "undefined", "null", "NaN", "-1abc", "-1", "1.5", "1abc",
+                "99999999999999999999"})
+        @DisplayName("should return null when noteId does not identify an existing note")
+        void shouldReturnNull_whenNoteIdDoesNotIdentifyExistingNote(String noteId) {
+            assertThat(CaseManagementEntry2Action.parseExistingNoteId(noteId)).isNull();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // nextRevision
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("nextRevision")
+    class NextRevision {
+
+        @Test
+        @DisplayName("should increment a numeric prior revision")
+        void shouldIncrementPriorRevision_whenNumeric() {
+            assertThat(CaseManagementEntry2Action.nextRevision("3")).isEqualTo("4");
+        }
+
+        @ParameterizedTest(name = "falls back to first revision for prior revision: [{0}]")
+        @NullAndEmptySource
+        @ValueSource(strings = {"undefined", "null", "NaN", "1.5", "1abc"})
+        @DisplayName("should fall back to the first revision when the prior revision is not numeric")
+        void shouldFallBackToFirstRevision_whenPriorRevisionNotNumeric(String priorRevision) {
+            assertThat(CaseManagementEntry2Action.nextRevision(priorRevision)).isEqualTo("1");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // combineHistory
+    // ------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("combineHistory")
+    class CombineHistory {
+
+        @Test
+        @DisplayName("should prepend new note to a non-empty prior history")
+        void shouldPrependNewNote_whenPriorHistoryNonEmpty() {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", "old note"))
+                    .isEqualTo("new note\nold note");
+        }
+
+        @ParameterizedTest(name = "returns just the new note for prior history: [{0}]")
+        @NullAndEmptySource
+        @DisplayName("should return only the new note when prior history is null or empty")
+        void shouldReturnOnlyNewNote_whenPriorHistoryNullOrEmpty(String priorHistory) {
+            assertThat(CaseManagementEntry2Action.combineHistory("new note", priorHistory))
+                    .isEqualTo("new note");
+        }
+    }
+
+    @Nested
     @DisplayName("resolveReporterProgramTeamId")
     class ResolveReporterProgramTeamId {
 
@@ -252,4 +373,166 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
                     .isEqualTo("0");
         }
     }
+
+    @Nested
+    @DisplayName("case-management chain redirect")
+    class CaseManagementChainRedirect {
+
+        @Test
+        @DisplayName("should allow list chain token")
+        void shouldAllowRedirect_whenChainIsList() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("list")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should allow list chain token with whitespace")
+        void shouldAllowRedirect_whenChainHasWhitespace() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(" list ")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reject raw redirect values")
+        void shouldRejectRedirect_whenChainIsRawUrl() {
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(null)).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "/carlos/provider/providercontrol.jsp?tab=main")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain(
+                    "https://emr.example/carlos/provider/providercontrol.jsp")).isFalse();
+            assertThat(CaseManagementEntry2Action.isAllowedInternalRedirectChain("//evil.example/path")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should include servlet context path")
+        void shouldBuildRedirect_whenContextPathProvided() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl("/carlos"))
+                    .isEqualTo("/carlos/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should use root path when context path is empty")
+        void shouldBuildRedirect_whenContextPathEmpty() {
+            assertThat(CaseManagementEntry2Action.caseManagementListRedirectUrl(""))
+                    .isEqualTo("/CaseManagementView?method=view");
+        }
+
+        @Test
+        @DisplayName("should reject unsafe context paths")
+        void shouldRejectRedirect_whenContextPathUnsafe() {
+            assertThatThrownBy(() -> CaseManagementEntry2Action.caseManagementListRedirectUrl("//evil.example"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsafe case-management redirect context path");
+        }
+    }
+    @Test
+    void shouldRecoverOrphanedDraftWithoutReusingMissingNoteId() {
+        CaseManagementNote recovered = CaseManagementEntry2Action.restoreDraftNote(
+                null, "Unsaved clinical draft", "999998", "1");
+        assertThat(recovered.getId()).isNull();
+        assertThat(recovered.getNote()).isEqualTo("Unsaved clinical draft");
+        assertThat(recovered.getDemographic_no()).isEqualTo("1");
+        assertThat(recovered.getProviderNo()).isEqualTo("999998");
+        assertThat(recovered.isSigned()).isFalse();
+    }
+
+    @Test
+    void shouldRetainExistingDraftNoteMetadata() {
+        CaseManagementNote original = new CaseManagementNote();
+        original.setId(123L);
+        original.setDemographic_no("1");
+        original.setAppointmentNo(456);
+        original.setHistory("Previous revision");
+        CaseManagementNote recovered = CaseManagementEntry2Action.restoreDraftNote(
+                original, "Recovered draft", "999998", "1");
+        assertThat(recovered).isSameAs(original);
+        assertThat(recovered.getId()).isEqualTo(123L);
+        assertThat(recovered.getAppointmentNo()).isEqualTo(456);
+        assertThat(recovered.getHistory()).isEqualTo("Previous revision");
+        assertThat(recovered.getNote()).isEqualTo("Recovered draft");
+    }
+
+    @Test
+    void shouldRejectDraftReferenceToAnotherPatientWithoutChangingOriginal() {
+        CaseManagementNote original = new CaseManagementNote();
+        original.setDemographic_no("2");
+        original.setNote("Other patient's note");
+        assertThatThrownBy(() -> CaseManagementEntry2Action.restoreDraftNote(
+                original, "Draft", "999998", "1")).isInstanceOf(SecurityException.class);
+        assertThat(original.getNote()).isEqualTo("Other patient's note");
+    }
+
+    @Test
+    void shouldUseChartAppointment_whenAnotherTabChangesSessionAppointment() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(1);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", "99", id -> {
+            assertThat(id).isEqualTo(42);
+            return appointment;
+        })).isEqualTo(42);
+    }
+
+    @Test
+    void shouldPreserveVisitAssociation_whenEditingExistingNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setId(1L);
+        note.setAppointmentNo(42);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "99", "100", id -> {
+            throw new AssertionError("Existing note must retain its appointment");
+        })).isEqualTo(42);
+    }
+
+    @Test
+    void shouldRejectAppointmentOutsidePatientChart_whenSavingNewNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(2);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", null, id -> appointment)).isZero();
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, "42", null, id -> null)).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "", "invalid", "-1", "999999999999999999999"})
+    void shouldNotUseSharedSessionAppointment_whenChartExplicitlyHasNoValidAppointment(String requestValue) {
+        CaseManagementNote note = new CaseManagementNote();
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, requestValue, "42", id -> {
+            throw new AssertionError("Invalid chart value must not fall back to shared session");
+        })).isZero();
+    }
+
+    @Test
+    void shouldSupportLegacyAppointment_whenRequestOmitsAppointment() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        io.github.carlos_emr.carlos.commn.model.Appointment appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setDemographicNo(1);
+        assertThat(CaseManagementEntry2Action.resolveNoteAppointmentNo(note, null, "42", id -> appointment)).isEqualTo(42);
+    }
+
+    @Test
+    void shouldKeepUnknownOwnerLock_whenLegacyLockHasNullProvider() {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao.class);
+        var lock = new io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock();
+        lock.setNoteId(42L);
+        when(dao.findByNoteDemo(1, 42L)).thenReturn(lock);
+        try (var spring = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class)) {
+            spring.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao.class)).thenReturn(dao);
+            var actual = CaseManagementEntry2Action.isNoteEdited(42L, 1, "999998", "127.0.0.1", "new-session");
+            assertThat(actual).isSameAs(lock);
+            assertThat(actual.isLocked()).isTrue();
+            org.mockito.Mockito.verify(dao, org.mockito.Mockito.never()).persist(org.mockito.ArgumentMatchers.any());
+        }
+    }
+
+    @Test
+    void shouldRenderEmptyDraft_whenLegacyDraftTextIsNull() {
+        CaseManagementNote restored = CaseManagementEntry2Action.restoreDraftNote(null, null, "999998", "1");
+        assertThat(restored.getNote()).isEmpty();
+        assertThat(restored.getAuditString()).contains("Issues");
+        assertThat(restored.getId()).isNull();
+    }
+
 }

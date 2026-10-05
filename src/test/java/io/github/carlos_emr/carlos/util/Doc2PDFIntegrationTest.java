@@ -25,6 +25,17 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.io.BufferedInputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -54,9 +65,14 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
+        request.setScheme("http");
         request.setProtocol("HTTP/1.1");
         request.setRemoteHost("localhost");
+        request.setServerName("carlos.local");
         request.setServerPort(8080);
+        request.setLocalName("localhost");
+        request.setLocalAddr("127.0.0.1");
+        request.setLocalPort(8080);
         request.setContextPath("/openo");
 
         response = new MockHttpServletResponse();
@@ -242,6 +258,139 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when target host differs")
+    void shouldRejectInternalFetch_whenTargetHostDiffers() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://169.254.169.254/openo/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when URI uses file scheme")
+    void shouldRejectInternalFetch_whenUriUsesFileScheme() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", "file:///etc/passwd")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch outside current context path")
+    void shouldRejectInternalFetch_whenOutsideContextPath() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://localhost:8080/admin/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject Doc2PDF internal fetch when path contains encoded dot segment")
+    void shouldRejectInternalFetch_whenPathContainsEncodedDotSegment() {
+        assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123",
+                "http://localhost:8080/openo/%2e%2e/admin/report.jsp")).isNull();
+    }
+
+    @Test
+    @Tag("security")
+    @DisplayName("should reject legacy Doc2PDF fetch without request context")
+    void shouldRejectLegacyInternalFetch_withoutRequestContext() {
+        assertThat(Doc2PDF.GetInputFromURI("ABC123",
+                "http://localhost:8080/openo/report.jsp")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"JSESSIONID", "CUSTOMSESSION"})
+    @DisplayName("should authenticate internal fetch with cookies and preserve encoded URI parts")
+    void shouldAuthenticateInternalFetch_whenSessionTrackingIsCookieOnly(String cookieName) throws Exception {
+        HttpServer server = localFetchServer();
+        AtomicReference<String> receivedUri = new AtomicReference<>();
+        AtomicReference<String> receivedCookie = new AtomicReference<>();
+        String sessionId = "ABC123.route1";
+        request.getServletContext().getSessionCookieConfig().setName(cookieName);
+        server.createContext("/openo/", exchange -> {
+            receivedUri.set(exchange.getRequestURI().toASCIIString());
+            receivedCookie.set(exchange.getRequestHeaders().getFirst("Cookie"));
+            byte[] body = "authenticated page".getBytes(StandardCharsets.UTF_8);
+            int status = (cookieName + "=" + sessionId).equals(receivedCookie.get()) ? 200 : 401;
+            exchange.sendResponseHeaders(status, body.length);
+            try (var output = exchange.getResponseBody()) {
+                output.write(body);
+            }
+        });
+        server.start();
+        String path = "/openo/report%20view.jsp?name=Fran%C3%A7ois%20C%C3%B4t%C3%A9";
+        try (BufferedInputStream result = Doc2PDF.openValidatedInternalFetch(request, sessionId, fetchUrl(path))) {
+            assertThat(result).isNotNull();
+            assertThat(new String(result.readAllBytes(), StandardCharsets.UTF_8)).isEqualTo("authenticated page");
+            assertThat(receivedUri.get()).isEqualTo(path).doesNotContain(sessionId, ";jsessionid");
+            assertThat(receivedCookie.get()).isEqualTo(cookieName + "=" + sessionId);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {302, 401, 500})
+    @DisplayName("should reject unsuccessful internal fetch without following redirects")
+    void shouldRejectInternalFetch_whenResponseIsNotSuccessful(int status) throws Exception {
+        HttpServer server = localFetchServer();
+        AtomicInteger redirectedRequests = new AtomicInteger();
+        server.createContext("/openo/report", exchange -> {
+            exchange.getResponseHeaders().set("Location", fetchUrl("/outside/login"));
+            exchange.sendResponseHeaders(status, -1);
+            exchange.close();
+        });
+        server.createContext("/outside/login", exchange -> {
+            redirectedRequests.incrementAndGet();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", fetchUrl("/openo/report"))).isNull();
+            assertThat(redirectedRequests.get()).isZero();
+            Doc2PDF.parseJSP2PDF(request, response, fetchUrl("/openo/report"), "ABC123");
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentType()).isNotEqualTo("application/pdf");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject plain HTTP connector hostnames before forwarding the session")
+    void shouldRejectInternalFetch_whenHttpTargetUsesHostname() throws Exception {
+        HttpServer server = localFetchServer();
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/openo/", exchange -> {
+            requests.incrementAndGet();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            String target = "http://localhost:" + request.getLocalPort() + "/openo/report";
+            assertThat(Doc2PDF.openValidatedInternalFetch(request, "ABC123", target)).isNull();
+            assertThat(requests.get()).isZero();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "ABC;other=value", "ABC\r\nInjected: value", "A B", "ABC,DEF"})
+    @DisplayName("should reject invalid session cookie values before opening a connection")
+    void shouldRejectInternalFetch_whenSessionCookieIsInvalid(String sessionId) throws Exception {
+        assertInvalidSessionCookieRejected("JSESSIONID", sessionId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "bad name", "bad;name", "bad\r\nInjected", "naïve"})
+    @DisplayName("should reject invalid session cookie names before opening a connection")
+    void shouldRejectInternalFetch_whenSessionCookieNameIsInvalid(String cookieName) throws Exception {
+        assertInvalidSessionCookieRejected(cookieName, "ABC123");
+    }
+
+    @Test
     @Tag("parse")
     @DisplayName("should produce PDF when HTML contains input without type attribute")
     void shouldProducePdf_whenHtmlContainsInputWithoutTypeAttribute() {
@@ -303,5 +452,34 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         // Then
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    private void assertInvalidSessionCookieRejected(String cookieName, String sessionId) throws Exception {
+        request.getServletContext().getSessionCookieConfig().setName(cookieName);
+        HttpServer server = localFetchServer();
+        AtomicInteger requests = new AtomicInteger();
+        server.createContext("/openo/", exchange -> {
+            requests.incrementAndGet();
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+        try {
+            assertThat(Doc2PDF.openValidatedInternalFetch(request, sessionId, fetchUrl("/openo/report"))).isNull();
+            assertThat(requests.get()).isZero();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private HttpServer localFetchServer() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        request.setLocalPort(server.getAddress().getPort());
+        request.setServerPort(server.getAddress().getPort());
+        return server;
+    }
+
+    private String fetchUrl(String path) {
+        return "http://127.0.0.1:" + request.getLocalPort() + path;
     }
 }

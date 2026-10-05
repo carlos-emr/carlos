@@ -33,6 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.dto.BillObRow" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.model.BillingDetail" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="2" cellpadding="0" cellspacing="0">
 
@@ -114,9 +115,9 @@ int rCount = 0;
 		<TD align="left" width="5%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=bId%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=bId%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=bId%></a></font></b></TD>
 		<TD align="left" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="left" width="12%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptDate%></font></b></TD>
 
@@ -126,7 +127,7 @@ int rCount = 0;
 		<TD align="right" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><%=total%></font></b></TD>
 		<TD align="center" width="5%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/></font></b></TD>
 
 	</tr>
 	<%  rowCount = rowCount + 1;

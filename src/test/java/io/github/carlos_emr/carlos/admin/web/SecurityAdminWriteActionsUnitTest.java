@@ -36,9 +36,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -69,6 +71,8 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUpServletActionContext() {
         request = new MockHttpServletRequest();
+        // SecurityUpdate2Action requires a parseable record id; the add action ignores it.
+        request.setParameter("security_no", "42");
         response = new MockHttpServletResponse();
         methodSecurity = mock(CarlosMethodSecurity.class);
         registerMock(CarlosMethodSecurity.class, methodSecurity);
@@ -148,6 +152,35 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
                 .as("%s should use the registered CarlosMethodSecurity bean", actionName)
                 .isEqualTo(ActionSupport.SUCCESS);
         verify(methodSecurity).hasAdminWrite();
+    }
+
+    @ParameterizedTest(name = "SecurityUpdate2Action rejects security_no \"{0}\"")
+    @ValueSource(strings = {"", "   ", "abc", "0", "-1", "12a", "99999999999"})
+    @DisplayName("should reject update POST with 400 when security_no is not a positive integer")
+    void shouldRejectUpdatePost_whenSecurityNoIsNotAPositiveInteger(String securityNo) throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("security_no", securityNo);
+
+        String result = new SecurityUpdate2Action(methodSecurity).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage())
+                .isEqualTo("security_no is required and must be a positive integer");
+    }
+
+    @Test
+    @DisplayName("should reject update POST with 400 when security_no is absent")
+    void shouldRejectUpdatePost_whenSecurityNoIsAbsent() throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+        request.removeParameter("security_no");
+
+        String result = new SecurityUpdate2Action(methodSecurity).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @ParameterizedTest(name = "{0} rejects GET with 405 when admin write is granted")

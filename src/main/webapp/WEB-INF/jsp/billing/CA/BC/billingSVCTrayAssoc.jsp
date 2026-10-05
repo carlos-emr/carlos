@@ -3,6 +3,8 @@
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -45,7 +47,10 @@
                 var width = 575;
                 var height = 400;
                 var str = document.forms[form].elements[field].value;
-                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem"/>' + '?form=' + form + '&field=' + field + '&searchStr=' + str;
+                var url = '<rewrite:reWrite jspPage="/billing/CA/BC/support/BillingFeeItem" context="javaScriptBlock"/>'
+                    + '?form=' + encodeURIComponent(form)
+                    + '&field=' + encodeURIComponent(field)
+                    + '&searchStr=' + encodeURIComponent(str);
                 var windowName = field;
                 popup(height, width, url, windowName);
             }
@@ -72,19 +77,20 @@
         <title>Manage Procedure and Tray Fee Associations</title>
     </head>
     <body>
-    <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
+    <%-- Validation messages echo the submitted service codes, so every one goes through the
+         null-safe CARLOS encoder. This is the only error renderer on the page: the raw
+         scriptlet loop and the Struts <s:actionerror/> tag that both used to live here were
+         removed so a message cannot reach the browser unencoded or twice. --%>
+    <c:if test="${not empty actionErrors}">
+        <div class="action-errors">
+            <ul class="errorMessage">
+                <c:forEach items="${actionErrors}" var="error">
+                    <li><carlos:encode value="${error}"/></li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
+    <form id="supServiceCodeAssocActionForm" name="supServiceCodeAssocActionForm" action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
         <input type="hidden" name="actionMode" id="actionMode"/>
         <input type="hidden" name="id" id="id"/>
         <fieldset>

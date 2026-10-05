@@ -152,4 +152,11 @@
         };
     }
 
+    // --- .size() (removed jQuery 3.0 — use .length) ---
+    if (!$.fn.size) {
+        $.fn.size = function () {
+            return this.length;
+        };
+    }
+
 })(window.jQuery);

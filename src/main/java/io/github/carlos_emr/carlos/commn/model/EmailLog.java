@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogChartDisplayOptionConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.EmailLogConsentStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogStatusConverter;
 import io.github.carlos_emr.carlos.commn.model.converter.EmailLogTransactionTypeConverter;
 import jakarta.persistence.*;
@@ -26,7 +27,7 @@ import java.util.List;
  *   <li>Base64-encoded storage of email body and encrypted messages for security</li>
  *   <li>Support for multiple transaction types (eForm, consultation, tickler, direct)</li>
  *   <li>Attachment management with encryption support</li>
- *   <li>Status tracking (success, failed, resolved) for delivery monitoring</li>
+ *   <li>Status tracking (pending, success, failed, resolved) for delivery monitoring</li>
  *   <li>Patient and provider associations for clinical context</li>
  *   <li>Chart display options for clinical note integration</li>
  *   <li>Password-protected encrypted messages with password clues</li>
@@ -51,12 +52,55 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Used for tracking the lifecycle and delivery state of email communications.
      */
     public enum EmailStatus {
-        /** Email was successfully sent and delivered */
+        /**
+         * Delivery outcome is unconfirmed: the log row exists but transport completion was not
+         * recorded.
+         *
+         * <p>The initial state of every send. It exists so an interrupted send is not recorded as
+         * a failed one -- if the status write after transport never lands, the row stays PENDING
+         * rather than claiming a delivered message failed, which previously invited an admin to
+         * resend and deliver the patient a duplicate.</p>
+         *
+         * <p>A row stuck in PENDING can be reviewed by an admin after the active-send guard period
+         * and marked RESOLVED. It is deliberately not aged out automatically: a sweep would have
+         * to guess whether the message reached the patient, and only a human can establish that.</p>
+         *
+         * @since 2026-08-20
+         */
+        PENDING,
+        /** The configured transport accepted the send without a synchronous error */
         SUCCESS,
         /** Email failed to send due to an error */
         FAILED,
-        /** Previously failed email was successfully resent or issue resolved */
-        RESOLVED
+        /** A failed or unconfirmed email was manually reviewed and resolved */
+        RESOLVED,
+        /** Email was blocked before transmission by a compliance control */
+        BLOCKED
+    }
+
+    /**
+     * Enumeration of the patient email consent state evaluated at send time.
+     */
+    public enum EmailConsentStatus {
+        /** Patient has explicitly opted in to email communication */
+        OPT_IN("email.consent.status.optIn"),
+        /** Patient has explicitly opted out of email communication */
+        OPT_OUT("email.consent.status.optOut"),
+        /** Explicit consent is not established; a documented confirmation is required */
+        UNKNOWN("email.consent.status.unknown"),
+        /** Email consent tracking is not configured with an active consent type */
+        NOT_CONFIGURED("email.consent.status.notConfigured");
+
+        private final String messageKey;
+
+        EmailConsentStatus(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        /** @return the resource-bundle key for the user-facing consent-state label */
+        public String getMessageKey() {
+            return messageKey;
+        }
     }
 
     /**
@@ -119,6 +163,57 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
 
     private String errorMessage;
 
+    /** Durable portal lifecycle; SMTP acceptance and portal publication are separate operations. */
+    public enum PortalDeliveryState {
+        PREPARING, READY, SENDING, SENT, PUBLISHED, REVOKE_PENDING, REVOKED
+    }
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 32)
+    private PortalDeliveryState portalDeliveryState;
+    @Column(length = 64)
+    private String portalSourceReference;
+    private Long portalSecretId;
+    @Column(length = 512)
+    private String portalOrigin;
+    @Column(length = 64)
+    private String portalClinicId;
+
+    public PortalDeliveryState getPortalDeliveryState() { return portalDeliveryState; }
+
+    /**
+     * True when portal password delivery for this email is not finished: the password is neither
+     * published nor revoked, or the transport status was never recorded. Such an email belongs on
+     * the recovery page, never back in the resend flow.
+     */
+    public boolean isPortalDeliveryUnresolved() {
+        if (portalDeliveryState == null) {
+            return false;
+        }
+        if (status == EmailStatus.PENDING) {
+            return true;
+        }
+        // A published password for a failed email, or a revoked one for a delivered email, is a
+        // contradiction staff must see, not a finished delivery.
+        if (portalDeliveryState == PortalDeliveryState.PUBLISHED) {
+            return status == EmailStatus.FAILED;
+        }
+        if (portalDeliveryState == PortalDeliveryState.REVOKED) {
+            return status == EmailStatus.SUCCESS;
+        }
+        return true;
+    }
+    public void setPortalDeliveryState(PortalDeliveryState value) { portalDeliveryState = value; }
+    public String getPortalSourceReference() { return portalSourceReference; }
+    public void setPortalSourceReference(String value) { portalSourceReference = value; }
+    public Long getPortalSecretId() { return portalSecretId; }
+    public void setPortalSecretId(Long value) { portalSecretId = value; }
+    public String getPortalOrigin() { return portalOrigin; }
+    public void setPortalOrigin(String value) { portalOrigin = value; }
+    public String getPortalClinicId() { return portalClinicId; }
+    public void setPortalClinicId(String value) { portalClinicId = value; }
+
+
     @Temporal(TemporalType.TIMESTAMP)
     private Date timestamp = new Date();
 
@@ -145,6 +240,18 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     private TransactionType transactionType;
 
     private String additionalParams;
+
+    @Convert(converter = EmailLogConsentStatusConverter.class)
+    private EmailConsentStatus consentStatus;
+
+    private Integer consentId;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date consentLastUpdateDate;
+
+    private boolean consentOverride;
+
+    private String consentOverrideReason;
 
     @ManyToOne
     @JoinColumn(name = "DemographicNo")
@@ -183,7 +290,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         this.fromEmail = fromEmail;
         this.toEmail = toEmail != null ? String.join(";", toEmail) : "";
         this.subject = subject;
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
         this.status = status;
         this.timestamp = new Date();
     }
@@ -241,7 +348,11 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @return String[] array of recipient email addresses
      */
     public String[] getToEmail() {
-        return toEmail.split(";");
+        // Null-safe: a legacy row (or a not-yet-populated entity) can have a NULL toEmail column,
+        // and the constructor/setter coalesce a null/empty recipient list to "". Both cases return
+        // an empty array rather than NPEing in the getter or handing callers (Manage Emails view,
+        // EmailNoteUtil) a stray one-element [""] from "".split(";").
+        return (toEmail == null || toEmail.isEmpty()) ? new String[0] : toEmail.split(";");
     }
 
     /**
@@ -276,10 +387,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Gets the email body content.
      * The body is stored as Base64-encoded bytes and automatically decoded when retrieved.
      * 
-     * @return String the decoded email body content
+     * @return String the decoded email body content, or empty when the stored value is null
      */
     public String getBody() {
-        return new String(Base64.decodeBase64(body), StandardCharsets.UTF_8);
+        return body == null ? "" : new String(Base64.decodeBase64(body), StandardCharsets.UTF_8);
     }
 
     /**
@@ -289,13 +400,13 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param body String the email body content to encode and store
      */
     public void setBody(String body) {
-        this.body = Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
+        this.body = body == null ? null : Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * Gets the current delivery status of the email.
      * 
-     * @return EmailStatus the email delivery status (SUCCESS, FAILED, or RESOLVED)
+     * @return EmailStatus the email delivery status (PENDING, SUCCESS, FAILED, or RESOLVED)
      */
     public EmailStatus getStatus() {
         return status;
@@ -311,18 +422,18 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
     }
 
     /**
-     * Gets the error message if the email failed to send.
+     * Gets the delivery-status detail message.
      * 
-     * @return String the error message, or null if no error occurred
+     * @return String the pending-delivery or failure detail, or null if no detail was recorded
      */
     public String getErrorMessage() {
         return errorMessage;
     }
 
     /**
-     * Sets the error message for failed email delivery.
+     * Sets the delivery-status detail message.
      * 
-     * @param errorMessage String the error message describing the failure
+     * @param errorMessage String describing an unconfirmed or failed delivery
      */
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
@@ -350,10 +461,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Gets the encrypted message content.
      * The encrypted message is stored as Base64-encoded bytes and automatically decoded.
      * 
-     * @return String the decoded encrypted message content
+     * @return String the decoded encrypted message content, or empty when the stored value is null
      */
     public String getEncryptedMessage() {
-        return new String(Base64.decodeBase64(encryptedMessage), StandardCharsets.UTF_8);
+        return encryptedMessage == null ? "" : new String(Base64.decodeBase64(encryptedMessage), StandardCharsets.UTF_8);
     }
 
     /**
@@ -363,7 +474,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param encryptedMessage String the encrypted message content to encode and store
      */
     public void setEncryptedMessage(String encryptedMessage) {
-        this.encryptedMessage = Base64.encodeBase64(encryptedMessage.getBytes(StandardCharsets.UTF_8));
+        this.encryptedMessage = encryptedMessage == null ? null : Base64.encodeBase64(encryptedMessage.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -463,10 +574,10 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * Internal comments are stored as Base64-encoded bytes and automatically decoded.
      * Used for staff notes that are not part of the clinical record.
      * 
-     * @return String the decoded internal comment
+     * @return String the decoded internal comment, or empty when the stored value is null
      */
     public String getInternalComment() {
-        return new String(Base64.decodeBase64(internalComment), StandardCharsets.UTF_8);
+        return internalComment == null ? "" : new String(Base64.decodeBase64(internalComment), StandardCharsets.UTF_8);
     }
 
     /**
@@ -476,7 +587,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      * @param internalComment String the internal comment to encode and store
      */
     public void setInternalComment(String internalComment) {
-        this.internalComment = Base64.encodeBase64(internalComment.getBytes(StandardCharsets.UTF_8));
+        this.internalComment = internalComment == null ? null : Base64.encodeBase64(internalComment.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
@@ -552,6 +663,56 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
      */
     public void setAdditionalParams(String additionalParams) {
         this.additionalParams = additionalParams;
+    }
+
+    /** @return the patient consent state captured when this send was attempted */
+    public EmailConsentStatus getConsentStatus() {
+        return consentStatus;
+    }
+
+    /** @param consentStatus the patient consent state captured for this send attempt */
+    public void setConsentStatus(EmailConsentStatus consentStatus) {
+        this.consentStatus = consentStatus;
+    }
+
+    /** @return the source consent-record identifier, or {@code null} when no record exists */
+    public Integer getConsentId() {
+        return consentId;
+    }
+
+    /** @param consentId the source consent-record identifier, or {@code null} */
+    public void setConsentId(Integer consentId) {
+        this.consentId = consentId;
+    }
+
+    /** @return a defensive copy of the source consent record's update time */
+    public Date getConsentLastUpdateDate() {
+        return consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    /** @param consentLastUpdateDate source consent update time, defensively copied */
+    public void setConsentLastUpdateDate(Date consentLastUpdateDate) {
+        this.consentLastUpdateDate = consentLastUpdateDate != null ? new Date(consentLastUpdateDate.getTime()) : null;
+    }
+
+    /** @return whether an unknown-consent send was permitted by a documented override */
+    public boolean getConsentOverride() {
+        return consentOverride;
+    }
+
+    /** @param consentOverride whether a documented unknown-consent override was applied */
+    public void setConsentOverride(boolean consentOverride) {
+        this.consentOverride = consentOverride;
+    }
+
+    /** @return the persisted override reason, or {@code null} when no override was applied */
+    public String getConsentOverrideReason() {
+        return consentOverrideReason;
+    }
+
+    /** @param consentOverrideReason the override reason to persist */
+    public void setConsentOverrideReason(String consentOverrideReason) {
+        this.consentOverrideReason = consentOverrideReason;
     }
 
     /**

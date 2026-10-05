@@ -99,7 +99,7 @@ public class LabManagerImpl implements LabManager {
 
     /** {@inheritDoc} */
     public List<Hl7TextMessage> getHl7Messages(LoggedInInfo loggedInInfo, Integer demographicNo, int offset, int limit) {
-        checkPrivilege(loggedInInfo, "r");
+        checkPrivilege(loggedInInfo, "r", demographicNo);
 
         LogAction.addLogSynchronous(loggedInInfo, "LabManager.getHl7Messages", "demographicNo=" + demographicNo);
 
@@ -110,7 +110,7 @@ public class LabManagerImpl implements LabManager {
 
     /** {@inheritDoc} */
     public List<Hl7TextInfo> getHl7TextInfo(LoggedInInfo loggedInInfo, int demographicNo) {
-        checkPrivilege(loggedInInfo, "r");
+        checkPrivilege(loggedInInfo, "r", demographicNo);
 
         List<PatientLabRouting> patientLabRoutingList = patientLabRoutingDao.findByDemographicAndLabType(demographicNo, PatientLabRoutingDao.HL7);
         List<Integer> labIds = new ArrayList<Integer>();
@@ -181,8 +181,25 @@ public class LabManagerImpl implements LabManager {
      * @param privilege String the privilege level ("r", "w", etc.)
      */
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_lab)");
+        // Role-level check only (no demographic target). Retained for the lab-id / segment-id lookups
+        // (getHl7Message, renderLab) which receive no demographic and would need to resolve the owning
+        // patient first before they can be patient-scoped (tracked follow-up). Demographic-bearing
+        // reads must use the overload below so per-patient _lab overrides are enforced.
+        checkPrivilege(loggedInInfo, privilege, null);
+    }
+
+    /**
+     * Enforces {@code _lab} privilege for a specific demographic. Passing the demographic (rather than
+     * {@code null}) is what lets {@code SecurityInfoManager} consult the per-patient
+     * {@code _lab$<demographicNo>} override — without it, any holder of global {@code _lab} read could
+     * retrieve any patient's HL7 messages.
+     */
+    private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege, Integer demographicNo) {
+        String target = demographicNo == null ? null : String.valueOf(demographicNo);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", privilege, target)) {
+            // SecurityException (not a bare RuntimeException) so an authorization failure is
+            // recognizable as security-denied rather than surfacing as a generic 500.
+            throw new SecurityException("missing required sec object (_lab)");
         }
     }
 

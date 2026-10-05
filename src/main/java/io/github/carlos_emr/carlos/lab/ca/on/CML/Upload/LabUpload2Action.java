@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
@@ -52,7 +53,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Date;
 import java.util.List;
 
@@ -103,7 +106,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     // Validates source file is from an allowed temp location
                     importFile = PathValidationUtils.validateUpload(importFile);
                 } catch (SecurityException e) {
-                    _logger.error("Invalid upload source: " + importFile.getPath());
+                    _logger.error("Invalid upload source: {}", LogSafe.sanitize(importFile.getPath()));
                     outcome = OUTCOME_ACCESS_DENIED;
                     request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                     return SUCCESS;
@@ -122,20 +125,16 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
 
                 boolean fileUploadedSuccessfully = false;
                 if (localFileName != null) {
-                    // Validate the localFileName path using PathValidationUtils
-                    File localFile = new File(localFileName);
-                    CarlosProperties props = CarlosProperties.getInstance();
-                    String documentDir = props.getProperty("DOCUMENT_DIR");
-                    if (documentDir != null) {
-                        try {
-                            File docDirFile = new File(documentDir);
-                            localFile = PathValidationUtils.validateExistingPath(localFile, docDirFile);
-                        } catch (SecurityException e) {
-                            _logger.error("Invalid file path: " + localFileName);
-                            outcome = OUTCOME_ACCESS_DENIED;
-                            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
-                            return SUCCESS;
-                        }
+                    File localFile;
+                    try {
+                        localFile = PathValidationUtils.validateExistingDocumentPath(localFileName);
+                    } catch (IOException | SecurityException e) {
+                        // localFileName is the generated saved-file path, whose basename embeds the
+                        // caller-supplied lab filename; log the rejection, not the path.
+                        _logger.error("Saved lab file path failed validation; upload not processed");
+                        outcome = OUTCOME_ACCESS_DENIED;
+                        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
+                        return SUCCESS;
                     }
 
                     InputStream fis = new FileInputStream(localFile);
@@ -196,51 +195,69 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     private static String saveFile(InputStream stream, String filename) {
         String retVal = null;
 
-        try {
-            CarlosProperties props = CarlosProperties.getInstance();
-            //properties must exist
-            String place = props.getProperty("DOCUMENT_DIR");
+        File partialOutput = null;
 
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-
+        try (InputStream uploadStream = stream) {
             // Construct the target filename with timestamp
             String targetFileName = "LabUpload." + filename + "." + (new Date()).getTime();
 
-            // Use PathValidationUtils to validate and get safe path
-            File docDir = new File(place);
             File targetFile;
             try {
-                targetFile = PathValidationUtils.validatePath(targetFileName, docDir);
-            } catch (SecurityException e) {
-                MiscUtils.getLogger().error("Invalid filename: " + targetFileName);
+                targetFile = PathValidationUtils.validatePath(targetFileName, PathValidationUtils.getRequiredDocumentDirectory());
+            } catch (IOException | SecurityException e) {
+                // The generated name embeds the caller-supplied lab filename; log the failure, not it.
+                MiscUtils.getLogger().error("Invalid generated lab upload filename; upload not written");
                 return null;
             }
 
-            retVal = targetFile.getCanonicalPath();
-            MiscUtils.getLogger().debug(retVal);
+            partialOutput = targetFile;
 
-            //write the  file to the file specified
-            OutputStream bos = new FileOutputStream(targetFile);
-            int bytesRead = 0;
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
+            // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
+            // destroyed the colliding upload's lab. The output is also closed by try-with-resources
+            // now, rather than only on the success path.
+            try (OutputStream bos = Files.newOutputStream(targetFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                int bytesRead = 0;
+                while ((bytesRead = uploadStream.read()) != -1) {
+                    bos.write(bytesRead);
+                }
             }
-            bos.close();
 
-            //close the stream
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
+            // Assigned only after a complete write: a path to a partial lab is worse than none.
+            retVal = targetFile.getCanonicalPath();
+        } catch (FileAlreadyExistsException nameCollision) {
 
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
+            MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return null;
 
         } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+            // As in the PathNet writer: the collision case is handled above, so a file present here
+            // belongs to this call and must not be left looking like a complete lab.
+            deletePartialOutput(partialOutput);
+            // exceptionTrace rather than the throwable: a filesystem exception message here is the
+            // generated path, whose basename embeds the uploaded lab filename.
+            MiscUtils.getLogger().error("Error writing CML lab upload: {}", LogSafe.exceptionTrace(ioe));
             return null;
         }
         return retVal;
+    }
+
+    /**
+     * Removes a partially written upload. Only ever called for a destination this invocation
+     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     *
+     * @param outputFile the destination to remove, or {@code null} if none was created
+     */
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
+                    deleteException.getClass().getSimpleName());
+        }
     }
 
     private File importFile;

@@ -47,10 +47,22 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class ProgramWs extends AbstractWs {
+
+    /**
+     * Program-list and staff-list reads are gated on the same objects the PMmodule UI uses for the
+     * equivalent screens. Both are granted {@code x} to the {@code admin} and {@code doctor} roles
+     * in the Ontario and BC migration sets, so these endpoints stay reachable on a stock install --
+     * unlike {@code _pmm_management}, which several PMmodule actions reference but no migration
+     * ever grants to any role.
+     */
+    private static final String PROGRAM_LIST_OBJECT = "_pmm.programList";
+    private static final String STAFF_LIST_OBJECT = "_pmm.staffList";
+
     @Autowired
     private ProgramManager2 programManager;
 
     public ProgramTransfer[] getAllPrograms() {
+        requirePrivilege(PROGRAM_LIST_OBJECT, "r");
         List<Program> tempResults = programManager.getAllPrograms(getLoggedInInfo());
 
         ProgramTransfer[] results = ProgramTransfer.toTransfers(tempResults);
@@ -59,6 +71,7 @@ public class ProgramWs extends AbstractWs {
     }
 
     public ProgramProviderTransfer[] getAllProgramProviders() {
+        requirePrivilege(STAFF_LIST_OBJECT, "r");
         List<ProgramProvider> tempResults = programManager.getAllProgramProviders(getLoggedInInfo());
 
         ProgramProviderTransfer[] results = ProgramProviderTransfer.toTransfers(tempResults);

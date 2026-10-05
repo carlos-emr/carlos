@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -35,6 +37,7 @@ import java.util.Set;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
@@ -193,6 +196,16 @@ public class LogoutBroadcastFilter implements Filter {
         chain.doFilter(request, delegatingResponse);
         delegatingResponse.markChainComplete();
 
+        if (Boolean.TRUE.equals(httpRequest.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            // Skip-injection responses are passed through unchanged, so an explicitly-supplied
+            // Content-Length is still correct and must be replayed. Do NOT discard it here (only the
+            // SCRIPT_INJECTED / append paths below, which lengthen the body, discard). Routing straight
+            // through completeWithoutInjection() preserves the header, matching the no-session path
+            // below.
+            delegatingResponse.completeWithoutInjection();
+            return;
+        }
+
         if (Boolean.TRUE.equals(httpRequest.getAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE))) {
             delegatingResponse.discardDeferredContentLength();
             delegatingResponse.completeWithoutInjection();
@@ -229,7 +242,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         try {
             delegatingResponse.discardDeferredContentLength();
-            appendScript(delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
+            appendScript(delegatingResponse, httpRequest, httpRequest.getContextPath(), httpRequest.getLocale());
             httpRequest.setAttribute(SCRIPT_INJECTED_REQUEST_ATTRIBUTE, Boolean.TRUE);
         } catch (IOException e) {
             logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
@@ -267,6 +280,9 @@ public class LogoutBroadcastFilter implements Filter {
      * @return true when the response should be wrapped for possible script injection
      */
     private boolean isResponseWrappingCandidate(HttpServletRequest request) {
+        if (Boolean.TRUE.equals(request.getAttribute(EformViewForPdfGenerationServlet.SKIP_HTML_INJECTION_ATTRIBUTE))) {
+            return false;
+        }
         if (isExcluded(request) || isStaticAssetPath(request) || RequestNegotiation.isAjax(request)) {
             return false;
         }
@@ -348,6 +364,14 @@ public class LogoutBroadcastFilter implements Filter {
     /**
      * Returns a context-relative request path for filter matching.
      *
+     * <p>During a {@code RequestDispatcher.forward()} — e.g. a Struts action forwarding its route to
+     * an internal {@code /WEB-INF/jsp} view — {@code getServletPath()}/{@code getRequestURI()} reflect
+     * the forward <em>target</em> (the JSP), not the route the client requested. The exclusion list is
+     * configured with client-facing routes, and the heartbeat script is appended on the FORWARD
+     * dispatch, so matching against the forward target would silently miss excluded routes on the very
+     * dispatch where injection happens. When the original request URI is available via the standard
+     * {@link RequestDispatcher#FORWARD_REQUEST_URI} attribute, match against it instead (issue #3099).</p>
+     *
      * <p>Some servlet containers or tests leave {@code servletPath} empty for extensionless routes,
      * so this method falls back to {@code requestURI} and removes the context path before
      * normalizing.</p>
@@ -356,22 +380,56 @@ public class LogoutBroadcastFilter implements Filter {
      * @return normalized path beginning with {@code /}, or null when no path is available
      */
     private String getNormalizedRequestPath(HttpServletRequest request) {
-        String servletPath = request.getServletPath();
-        if (servletPath == null || servletPath.trim().isEmpty()) {
-            servletPath = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            if (servletPath != null && contextPath != null && !contextPath.isEmpty()
-                    && servletPath.startsWith(contextPath)) {
-                servletPath = servletPath.substring(contextPath.length());
+        String path = (String) request.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI);
+        if (path != null && !path.trim().isEmpty()) {
+            path = stripContextPath(path, request.getContextPath());
+        } else {
+            path = request.getServletPath();
+            if (path == null || path.trim().isEmpty()) {
+                path = stripContextPath(request.getRequestURI(), request.getContextPath());
             }
         }
 
-        if (servletPath == null || servletPath.trim().isEmpty()) {
+        if (path == null || path.trim().isEmpty()) {
             return null;
         }
 
-        servletPath = normalizeServletPath(servletPath);
-        return servletPath.startsWith("/") ? servletPath : "/" + servletPath;
+        path = stripPathParameters(path);
+        path = normalizeServletPath(path);
+        return path.startsWith("/") ? path : "/" + path;
+    }
+
+    /**
+     * Removes the leading context path from an absolute request URI so it can be matched against the
+     * context-relative routes configured in the exclusion list.
+     *
+     * @param uri absolute request URI (may be null)
+     * @param contextPath servlet context path (may be null or empty for the root context)
+     * @return the context-relative path, or the original URI when no context path prefix applies
+     */
+    private String stripContextPath(String uri, String contextPath) {
+        if (uri != null && contextPath != null && !contextPath.isEmpty()
+                && uri.startsWith(contextPath)) {
+            return uri.substring(contextPath.length());
+        }
+        return uri;
+    }
+
+    /**
+     * Removes path/matrix parameters (e.g. {@code ;jsessionid=...}) from each path segment so a route
+     * matches the exclusion list regardless of URL-rewritten session ids. This mirrors the container's
+     * {@code getServletPath()}, which strips them on its own; the {@code requestURI} and
+     * {@code FORWARD_REQUEST_URI} fallbacks used above do not, so an excluded route carrying a rewritten
+     * {@code ;jsessionid} would otherwise fail to match.
+     *
+     * @param path context-relative path that may carry path parameters
+     * @return the path with any {@code ;param} suffix stripped from every segment
+     */
+    private String stripPathParameters(String path) {
+        if (path.indexOf(';') < 0) {
+            return path;
+        }
+        return path.replaceAll(";[^/]*", "");
     }
 
     /**
@@ -395,14 +453,17 @@ public class LogoutBroadcastFilter implements Filter {
      * Appends the inline logout broadcast and session heartbeat script through the wrapped response.
      *
      * @param delegatingResponse DelegatingServletResponse the wrapped response
+     * @param request HttpServletRequest the current request, read only for a page-published
+     *                CSP nonce
      * @param contextPath String the servlet context path
      * @param locale Locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
-    private void appendScript(DelegatingServletResponse delegatingResponse, String contextPath, Locale locale)
+    private void appendScript(DelegatingServletResponse delegatingResponse, HttpServletRequest request,
+                              String contextPath, Locale locale)
             throws IOException {
 
-        String script = buildScript(contextPath, locale);
+        String script = buildScript(contextPath, locale, cspNonce(request));
 
         if (delegatingResponse.isResponseWriterObtained()) {
             writeScriptToWriter(delegatingResponse, script);
@@ -480,6 +541,29 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
+     * Renders the {@code nonce} attribute for the injected block, or an empty string.
+     *
+     * <p>This script is inline, so a page that sends a {@code script-src} without
+     * {@code 'unsafe-inline'} drops it — and with it idle logout and cross-tab logout on that
+     * page, silently, reported only on the browser console. A page with such a policy
+     * publishes its nonce as the {@code cspNonce} request attribute (see
+     * {@code annotateDocument.jsp}); this reuses it so the control keeps working under a
+     * strict policy. Pages that publish nothing get exactly the markup they got before.
+     *
+     * <p>The value is encoded for an HTML attribute even though pages generate it from
+     * {@code SecureRandom}: it reaches here as an opaque request attribute, and this filter
+     * runs on every page.
+     */
+    private static String cspNonce(HttpServletRequest request) {
+        Object published = request.getAttribute("cspNonce");
+        if (published == null) {
+            return "";
+        }
+        String value = SafeEncode.forHtmlAttribute(String.valueOf(published));
+        return value.isEmpty() ? "" : " nonce=\"" + value + "\"";
+    }
+
+    /**
      * Builds the inline JavaScript for logout broadcast and session heartbeat.
      *
      * <p>The script uses an IIFE to avoid polluting the global scope. It sets a
@@ -491,12 +575,13 @@ public class LogoutBroadcastFilter implements Filter {
      *
      * @param contextPath String the servlet context path for URL construction
      * @param locale Locale the user's locale for the logout overlay message
+     * @param nonce String a CSP nonce published by the page, or empty when it published none
      * @return String the complete {@code <script>} block to inject
      */
-    private String buildScript(String contextPath, Locale locale) {
+    private String buildScript(String contextPath, Locale locale, String nonce) {
         int inactivityLimitMins = getInactivityLimitMins();
 
-        return "<script>" +
+        return "<script" + nonce + ">" +
                 "(function(){" +
                 "if(window.__carlosLogoutActive)return;" +
                 "window.__carlosLogoutActive=true;" +

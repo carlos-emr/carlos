@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil;
 
+import io.github.carlos_emr.carlos.managers.ProfessionalSpecialistsManager;
+
 import java.io.IOException;
 
 import jakarta.servlet.ServletException;
@@ -87,13 +89,19 @@ public class EctConAddSpecialist2Action extends ActionSupport {
                     return SUCCESS;
                 }
             }
-            professionalSpecialistDao.persist(professionalSpecialist);
+            if (!saveSpecialist(professionalSpecialist)) return NONE;
         } else if (whichType == 2) // update
         {
             request.setAttribute("upd", true);
 
             Integer specId = Integer.parseInt(this.getSpecId());
             professionalSpecialist = professionalSpecialistDao.find(specId);
+            if (professionalSpecialist == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            // Validation must not dirty a managed entity before the transactional save.
+            professionalSpecialistDao.detach(professionalSpecialist);
             populateFields(professionalSpecialist);
             if (professionalSpecialist.getReferralNo() != null && professionalSpecialist.getReferralNo().length() > 0) {
                 if (referralNoValid(professionalSpecialist.getReferralNo())) {
@@ -106,12 +114,13 @@ public class EctConAddSpecialist2Action extends ActionSupport {
                     return SUCCESS;
                 }
             }
-            professionalSpecialistDao.merge(professionalSpecialist);
+            if (!saveSpecialist(professionalSpecialist)) return NONE;
 
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
             constructSpecialistsScriptsFile.makeString(request.getLocale());
         } else {
-            logger.error("missed a case, whichType=" + whichType);
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         this.resetForm();
@@ -119,6 +128,17 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         String added = "" + professionalSpecialist.getFirstName() + " " + professionalSpecialist.getLastName();
         request.setAttribute("Added", added);
         return SUCCESS;
+    }
+
+    private boolean saveSpecialist(ProfessionalSpecialist specialist) throws IOException {
+        try {
+            SpringUtils.getBean(ProfessionalSpecialistsManager.class).saveProfessionalSpecialist(
+                    LoggedInInfo.getLoggedInInfoFromSession(request), specialist);
+            return true;
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation specialty");
+            return false;
+        }
     }
 
     private boolean referralNoInUse(String referralNo) {

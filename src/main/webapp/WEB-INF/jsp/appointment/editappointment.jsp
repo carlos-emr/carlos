@@ -20,6 +20,17 @@
     CARLOS EMR Project
     https://github.com/carlos-emr/carlos
 --%>
+<%--
+    Edits an existing appointment, including scheduling details, status, notes,
+    recurring/group actions, and receipt generation.
+
+    Request parameters include appointment_no and the appointment's editable
+    demographic, provider, date, time, status, and scheduling fields. Update &
+    Receipt validates the form, reserves the named receipt window during the
+    user gesture, and reuses that window after the update succeeds.
+
+    @since 2026-07-30
+--%>
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
@@ -91,6 +102,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
+<fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -123,7 +136,24 @@
     ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     //String demographic_nox = (String)session.getAttribute("demographic_nox");
+    // The day sheet appends demographic_no, provider_no, date and time to this link, but a
+    // link that carries only appointment_no (a bookmark, the receipt window, a support link)
+    // does not. The appointment record is the authority for which patient it belongs to, so
+    // load it up front and fall back to it rather than parsing an absent request parameter
+    // and dying with NumberFormatException before the page renders (#3729). The gate action
+    // has already rejected a missing, non-numeric or unknown appointment_no.
+    Appointment apptFromRequest = null;
+    if (!appointment_no.isEmpty()) {
+        try {
+            apptFromRequest = appointmentDao.find(Integer.parseInt(appointment_no));
+        } catch (NumberFormatException nfe) {
+            apptFromRequest = null;
+        }
+    }
     String demographic_nox = request.getParameter("demographic_no");
+    if ((demographic_nox == null || demographic_nox.isEmpty()) && apptFromRequest != null) {
+        demographic_nox = String.valueOf(apptFromRequest.getDemographicNo());
+    }
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Demographic demographicTmp = demographicManager.getDemographic(loggedInInfo, demographic_nox);
     String proNoTmp = demographicTmp == null ? null : demographicTmp.getProviderNo();
@@ -146,7 +176,11 @@
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
     List<BillingONCHeader1> cheader1s = null;
-    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
+    // demographic_nox is "0" for a free slot on the day sheet and absent on the add-appointment
+    // flows, neither of which has billing history to fetch.
+    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))
+            && demographic_nox != null && demographic_nox.matches("\\d+")
+            && !"0".equals(demographic_nox)) {
         cheader1s = cheader1Dao.getBillCheader1ByDemographicNo(Integer.parseInt(demographic_nox));
     }
 
@@ -176,7 +210,7 @@
     String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
 
     if (bFirstDisp) {
-        appt = appointmentDao.find(Integer.parseInt(appointment_no));
+        appt = apptFromRequest;
         pageContext.setAttribute("appointment", appt);
     }
 
@@ -209,7 +243,9 @@
             patientStatus = StringUtils.defaultString(d.getPatientStatus());
         }
 
-        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demono));
+        DemographicCust demographicCust = demono.matches("\\d+")
+                ? demographicCustDao.find(Integer.parseInt(demono))
+                : null;
         if (demographicCust != null) {
             alert = StringUtils.defaultString(demographicCust.getAlert());
         }
@@ -390,6 +426,15 @@
                 saveTemp = 2;
             }
 
+            function reserveAppointmentReceiptWindow() {
+                var receiptWindow = popupFocusPage(350, 750, '', 'appointmentReceipt');
+                if (receiptWindow != null) {
+                    var receiptDocument = receiptWindow.document;
+                    receiptDocument.title = '${carlos:forJavaScript(appointmentReceiptTitle)}';
+                    receiptDocument.body.textContent = '${carlos:forJavaScript(appointmentReceiptPending)}';
+                }
+            }
+
             function onButCancel() {
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
@@ -417,9 +462,15 @@
                     }
                 }
                 if (saveTemp === 2) {
-                    return calculateEndTime();
-                } else
-                    return true;
+                    if (!calculateEndTime()) {
+                        document.EDITAPPT.printReceipt.value = '';
+                        return false;
+                    }
+                    if (document.EDITAPPT.printReceipt.value === '1') {
+                        reserveAppointmentReceiptWindow();
+                    }
+                }
+                return true;
             }
 
             function calculateEndTime() {
@@ -1383,7 +1434,7 @@
                     <% }%>
                     <input type="submit" id="printReceiptButton" class="btn btn-secondary"
                            formaction="<%=request.getContextPath() %>/appointment/UpdateRecord"
-                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';"
+                           onclick="document.forms['EDITAPPT'].displaymode.value='Update Appt';document.forms['EDITAPPT'].printReceipt.value='1';onButUpdate();"
                            value="<fmt:message key='appointment.editappointment.btnPrintReceipt'/>">
                     <input type="hidden" name="printReceipt" value="">
                     <input type="submit" class="btn btn-danger" id="deleteButton"
@@ -1402,7 +1453,7 @@
                        onClick="window.location='<%=request.getContextPath() %>/appointment/appointmentviewrecordcard?appointment_no=' + encodeURIComponent(document.forms['EDITAPPT'].appointment_no.value)">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnPrintCard"/></a>
                     <a class="btn"
-                       onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=550,width=700,location=no,scrollbars=yes,menubars=no,toolbars=no')">
+                       onClick="window.open('<%=request.getContextPath() %>/demographic/ViewDemographicLabelPrintSetting?demographic_no=' + encodeURIComponent(document.EDITAPPT.demographic_no.value), 'labelprint','height=850,width=1000,resizable=yes,location=no,scrollbars=yes,menubars=no,toolbars=no')">
                         <i class="fa-solid fa-print"></i>&nbsp;<fmt:message key="appointment.editappointment.btnLabelPrint"/></a>
                     <a class="btn"
                        onclick="document.forms['EDITAPPT'].action='<%=request.getContextPath() %>/appointment/CutRecord';document.forms['EDITAPPT'].displaymode.value='Cut';localStorage.setItem('copyPaste','1');document.forms['EDITAPPT'].submit();">

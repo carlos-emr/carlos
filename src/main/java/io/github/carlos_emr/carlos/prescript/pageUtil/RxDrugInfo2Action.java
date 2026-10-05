@@ -82,6 +82,12 @@ public final class RxDrugInfo2Action extends ActionSupport {
                 } catch (Exception e) {
                     genName = BN;
                 }
+                if (genName == null) {
+                    // getGenericName now returns null for a drug DrugRef has no generic-name
+                    // record for (it used to throw, which the catch above turned into this same
+                    // fallback). Keep the brand name so the resource search still proceeds.
+                    genName = BN;
+                }
                 response.sendRedirect("http://resource.oscarmcmaster.org/oscarResource/OSCAR_search/OSCAR_search_results?title=" + URLEncoder.encode(genName, "UTF-8"));
             }
         }

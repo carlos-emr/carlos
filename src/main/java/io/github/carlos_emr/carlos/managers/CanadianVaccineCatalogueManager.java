@@ -605,7 +605,9 @@ public class CanadianVaccineCatalogueManager {
         // Deduplicate by SNOMED concept ID
         Map<String, CVCImmunization> tmp = new HashMap<>();
         for (CVCImmunization i : results) {
-            tmp.put(i.getSnomedConceptId(), i);
+            // An imported lot/GTIN may reference a medication whose immunization
+            // has not arrived yet; it must not abort the remaining suggestions.
+            if (i != null) tmp.put(i.getSnomedConceptId(), i);
         }
         List<CVCImmunization> uniqueResults = new ArrayList<>(tmp.values());
         Collections.sort(uniqueResults, new PrevalenceComparator());
