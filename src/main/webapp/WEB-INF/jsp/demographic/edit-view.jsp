@@ -612,10 +612,10 @@
                                                                         <span class="info"><%=archivedStr %></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.dateArchived"/>:</span>
-                                                                        <span class="info"><%=archivedDate %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedDate %>' context="html"/></span>
                                                                     </li>
                                                                     <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.paperChartIndicator.programArchived"/>:</span>
-                                                                        <span class="info"><%=archivedProgram %></span>
+                                                                        <span class="info"><carlos:encode value='<%= archivedProgram %>' context="html"/></span>
                                                                     </li>
                                                                 </ul>
                                                             </div>
@@ -644,13 +644,13 @@
                                                                             if (showConsentsThisTime) { %>
 
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.privacyConsent"/>:</span>
-                                                                            <span class="info"><%=privacyConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= privacyConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.informedConsent"/>:</span>
-                                                                            <span class="info"><%=informedConsent %></span>
+                                                                            <span class="info"><carlos:encode value='<%= informedConsent %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.usConsent"/>:</span>
-                                                                            <span class="info"><%=usSigned %></span>
+                                                                            <span class="info"><carlos:encode value='<%= usSigned %>' context="html"/></span>
                                                                         </li>
 
 
@@ -1275,10 +1275,10 @@
                                                                             <span class="info"><%=providerBean.getProperty(resident == null ? "" : resident, "")%></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDoc"/>:</span><span
-                                                                                class="info"><%=rd%></span>
+                                                                                class="info"><carlos:encode value='<%= rd %>' context="html"/></span>
                                                                         </li>
                                                                         <li><span class="label"><fmt:message key="demographic.demographiceditdemographic.formRefDocNo"/>:</span><span
-                                                                                class="info"><%=rdohip%></span>
+                                                                                class="info"><carlos:encode value='<%= rdohip %>' context="html"/></span>
                                                                         </li>
                                                                     </ul>
                                                                 </div>

@@ -273,7 +273,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <%=nameage%>
+                            <carlos:encode value='<%= nameage %>' context="html"/>
                         </td>
                         <td>&nbsp;
 
