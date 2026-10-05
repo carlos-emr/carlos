@@ -40,6 +40,15 @@ try {
     console.log(`PASS: ${variant} preserves existing rows, exclusion history and other-key constraints`);
     sql.execute('DROP TABLE demographicExt');
   }
+  sql.execute(schema);
+  sql.execute(migration);
+  const development = fs.readFileSync(path.join(root, '.devcontainer/db/scripts/development.sql'), 'utf8');
+  const extensionSeed = development.match(/^INSERT INTO `demographicExt` VALUES .+;$/m);
+  assert.ok(extensionSeed, 'The shipped development seed has no demographicExt insert');
+  sql.execute(extensionSeed[0]);
+  assert.ok(Number(sql.value('SELECT COUNT(*) FROM demographicExt')) > 0);
+  assert.equal(sql.rows('SELECT * FROM demographicExt LIMIT 1')[0].length, 7);
+  console.log('PASS: the actual shipped positional extension seed imports after migration');
 } finally {
   if (sql) sql.dispose();
   admin.execute(`DROP DATABASE IF EXISTS ${name}`);
