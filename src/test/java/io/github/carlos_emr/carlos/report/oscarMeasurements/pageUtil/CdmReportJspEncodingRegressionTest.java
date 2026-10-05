@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("fast")
 @Tag("security")
-class CdmReportJspEncodingRegressionTest {
+class CdmReportJspEncodingRegressionTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     private static final Path CDM = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "oscarReport", "oscarMeasurements");
     private static final Path MEASUREMENTS = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "encounter", "oscarMeasurements");
@@ -70,6 +70,15 @@ class CdmReportJspEncodingRegressionTest {
                 .doesNotContain("${mInstrcs[")
                 .doesNotContain("measurementType.measuringInstrcVector")
                 .doesNotContain("/img/calendar.gif");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"InitializePatientsMetGuidelineCDMReport.jsp", "InitializePatientsInAbnormalRangeCDMReport.jsp",
+            "InitializeFrequencyOfRelevantTestsCDMReport.jsp"})
+    void shouldEncodeValidationErrors(String page) throws Exception {
+        String jsp = Files.readString(CDM.resolve(page), StandardCharsets.UTF_8);
+        assertThat(rawElMentioning(jsp, "error")).isEmpty();
+        assertThat(jsp).contains("${carlos:forHtml(error)}").doesNotContain("<%= error %>");
     }
 
     @Test

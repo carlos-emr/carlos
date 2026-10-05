@@ -49,7 +49,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -58,8 +57,6 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -75,8 +72,8 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
         if (!validate(request)) {
             MiscUtils.getLogger().debug("the form is invalid");
-            response.sendRedirect(request.getContextPath() + "/oscarReport/oscarMeasurements/ViewInitializePatientsMetGuidelineCDMReport");
-            return NONE;
+            request.setAttribute("actionErrors", new ArrayList<>(getActionErrors()));
+            return INPUT;
         }
 
         if (patientSeenCheckbox != null) {
@@ -134,7 +131,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 // Validate the aggregate row too, even when every instruction is unchecked.
                 if (new RptCheckGuideline().getValidation(measurementType) == 1
                         && RptCheckGuideline.numericValue(guideline) == null) {
-                    addActionError(getText("errors.invalid", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
                     valid = false;
                     continue;
                 }
@@ -142,11 +139,11 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                 int iNumMInstrc = selection.instructionCount(ctr);
 
                 if (!ectValidation.isDate(startDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
                     valid = false;
                 }
                 if (!ectValidation.isDate(endDate)) {
-                    addActionError(getText("errors.invalidDate", measurementType));
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
                     valid = false;
                 }
                 for (int j = 0; j < iNumMInstrc; j++) {
@@ -168,10 +165,10 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
                         }
 
                         if (!ectValidation.isInRange(dMax, dMin, guideline)) {
-                            addActionError(getText("errors.range", new String[]{measurementType, Double.toString(dMin), Double.toString(dMax)}));
+                            addActionError(getText("oscarReport.CDMReport.msgOutOfRange", new String[]{measurementType, Double.toString(dMin), Double.toString(dMax)}));
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, guideline)) {
-                            addActionError(getText("errors.invalid", measurementType));
+                            addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
                             valid = false;
                         } else if (!ectValidation.isValidBloodPressure(regExp, guideline)) {
                             addActionError(getText("error.bloodPressure"));

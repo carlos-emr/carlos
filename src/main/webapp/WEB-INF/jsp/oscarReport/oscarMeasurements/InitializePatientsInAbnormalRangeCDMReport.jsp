@@ -90,15 +90,15 @@
           href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();">
-    <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
+    <c:if test="${not empty requestScope.actionErrors}">
+        <div class="action-errors" role="alert">
+            <ul>
+                <c:forEach var="error" items="${requestScope.actionErrors}">
+                    <li>${carlos:forHtml(error)}</li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
         </ul>
     </div>
 <% } %>

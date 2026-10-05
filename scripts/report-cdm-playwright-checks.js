@@ -5,8 +5,8 @@
 // the owned CDM group ▸ Continue to "patients who met guideline", "patients in abnormal range"
 // and "frequency of relevant tests" ▸ Generate Report. NO MENU OPENS THIS ENTRY PAGE (finding:
 // the plan's "Query By Example ▸ CDM report" link does not exist), so this check alone opens
-// its route by address and drives every form from there; the gate routes View*CDMReport are
-// reached only as the actions' validation redirect.
+// its route by address and drives every form from there. Invalid submissions return the
+// same authorized form with visible validation feedback.
 // Asserts each report line for the owned measurement type equals the counts SQL gives for the
 // same window (two owned patients, latest reading semantics, date-window exclusion), and that
 // the clinic-wide "patients seen" figure equals SQL. cdm-measurement-report already covers the
@@ -139,14 +139,13 @@ async function workflow(s) {
     await page.close();
   });
 
-  // The three report actions answer an invalid date with a redirect to their View* gate route.
+  // Invalid dates return the same authorized form with escaped validation feedback.
   const invalidDate = [
     ['patientWhoMetGuideline', 'measurementType', 'guidelineCheckbox', 'startDateB', 'InitializePatientsMetGuidelineCDMReport'],
     ['patientInAbnormalRange', 'measurementTypeC', 'abnormalCheckbox', 'startDateC', 'InitializePatientsInAbnormalRangeCDMReport'],
     ['freqencyOfReleventTests', 'measurementTypeD', 'frequencyCheckbox', 'startDateD', 'InitializeFrequencyOfRelevantTestsCDMReport'],
   ];
-  const lostMessages = [];
-  await s.step('an invalid start date returns each CDM form through its View gate with the owned row and no report', async () => {
+  await s.step('an invalid start date returns each CDM form with its error, owned row, and no report', async () => {
     for (const [forward, prefix, checkbox, dateField, route] of invalidDate) {
       const page = await openScreen(s, group, forward);
       const row = await rowOf(page, prefix, type);
@@ -161,20 +160,19 @@ async function workflow(s) {
       }
       await page.locator(`input[name="${dateField}"]`).nth(row).fill('not-a-date');
       await Promise.all([
-        page.waitForURL(url => url.pathname.endsWith(`/oscarReport/oscarMeasurements/View${route}`)),
+        page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/oscarReport/oscarMeasurements/${route}`) && response.status() === 200),
         page.locator('input[type="submit"][name="submitBtn"]').click(),
       ]);
-      await h.assertNotErrorPage(page, `CDM View${route}`);
-      h.assert(await rowOf(page, prefix, type) === row, `View${route} lost the owned measurement row`);
+      await h.assertNotErrorPage(page, `CDM ${route}`);
+      h.assert(await rowOf(page, prefix, type) === row, `${route} lost the owned measurement row`);
       const text = await page.locator('body').innerText();
-      h.assert(!text.includes(line), `View${route} produced a report for an invalid date`);
-      if (!text.includes(`The date of ${type} is invalid`)) lostMessages.push(`View${route} does not say the date is invalid`);
+      h.assert(!text.includes(line), `${route} produced a report for an invalid date`);
+      h.assert(await page.locator('.action-errors[role="alert"]').innerText() === `The date of ${type} is invalid`, `${route} does not show the invalid-date error`);
       await page.close();
     }
   });
 
-  // Known-defect area last: every provable step above has already passed.
-  await s.step('validation messages survive the redirect; "frequency of relevant tests" and "patients seen" equal SQL', async () => {
+  await s.step('"frequency of relevant tests" and "patients seen" equal SQL', async () => {
     const page = await openScreen(s, group, 'freqencyOfReleventTests');
     const row = await rowOf(page, 'measurementTypeD', type);
     const [start, end] = await Promise.all(['startDateA', 'endDateA'].map(name => page.locator(`input[name="${name}"]`).inputValue()));
@@ -187,7 +185,7 @@ async function workflow(s) {
     const seenBefore = Number(sql.value(seenSql));
     const text = await generate(page, 'InitializeFrequencyOfRelevantTestsCDMReport');
     const seenAfter = Number(sql.value(seenSql));
-    const defects = [...lostMessages];
+    const defects = [];
     // Other workflows may add or remove readings while the report runs: bracket the SQL figure.
     const seen = /There are (\d+) patients seen from/.exec(text);
     const inBracket = n => n >= Math.min(seenBefore, seenAfter) && n <= Math.max(seenBefore, seenAfter);
