@@ -224,7 +224,9 @@ async function workflow(s) {
     h.assert(normalize(await stored.innerText()) === normalize(storedHistory),
       'The single expansion does not retain the latest complete stored history');
     h.assert(await stored.locator('em').count() === 0, 'Stored markup became HTML after loading multiple rows');
-    const rowTexts = (await history.locator('body > div > div:first-child').allTextContents()).map(normalize);
+    // innerText retains the line breaks rendered from stored multiline prose.
+    const rows = await history.locator('body > div > div:first-child').all();
+    const rowTexts = (await Promise.all(rows.map(row => row.innerText()))).map(normalize);
     h.assert(JSON.stringify(rowTexts) === JSON.stringify(texts.map(normalize)),
       'A saved row lost its own revision text or the rows are out of order');
   });
