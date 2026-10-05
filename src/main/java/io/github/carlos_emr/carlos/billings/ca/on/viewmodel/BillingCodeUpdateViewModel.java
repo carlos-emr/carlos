@@ -38,7 +38,7 @@ public final class BillingCodeUpdateViewModel {
     public enum Mode {
         /** Confirm-mode: emit {@code CodeAttach(p0, p1, p2)} or "No input selected" stub. */
         CONFIRM_SELECTION,
-        /** Update-mode: emit history.go(-1) + opener.refresh() to close the popup. */
+        /** Update-mode: return to the search with history.go(-1), preserving the unsaved opener. */
         UPDATE_DESCRIPTION
     }
 

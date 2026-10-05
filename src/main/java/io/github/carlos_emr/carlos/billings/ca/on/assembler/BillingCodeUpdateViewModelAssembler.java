@@ -40,8 +40,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *       {@code CodeAttach}.</li>
  *   <li><b>Update</b>: user clicked "update <code>" — persist the new
  *       description for that {@code BillingService} row, then signal the
- *       JSP to close the popup via {@code history.go(-1)} + opener
- *       refresh.</li>
+ *       JSP to return to the search via {@code history.go(-1)} without
+ *       refreshing the unsaved bill in the opener.</li>
  * </ol>
  *
  * <p>Read-only — the description-merge that the JSP used to perform
