@@ -108,6 +108,9 @@ public class BillingOnDiskService {
             // Validate the complete selected group set before even the first solo disk is allocated.
             // Reuse this snapshot for generation so validation and writing see the same configuration.
             List<BillingProviderDto> groupProviders = prep.getCurGrpProvider();
+            if (groupReport && groupProviders.stream().noneMatch(member -> provider.equals(member.getProviderNo()))) {
+                throw new BillingValidationException("Selected provider is not available for group billing.");
+            }
             List<String> invalidProviders = groupProviders.stream()
                     .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
                     .filter(member -> !BillingDiskCreationService.isValidGroupNumber(member.getBillingGroupNo()))

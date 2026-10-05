@@ -168,6 +168,7 @@ public class BillingDiskCreationService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int createNewGrpDiskName(List providerNo, List ohipNo, String groupNo, String creator) {
         if (!isValidGroupNumber(groupNo)) {
+            // All members share this invalid group key, so identify every affected provider.
             throw new InvalidBillingGroupException(providerNo);
         }
         for (int attempt = 1; attempt <= DISK_NAME_INSERT_RETRIES; attempt++) {

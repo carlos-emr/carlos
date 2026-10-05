@@ -338,6 +338,24 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectUnavailableSelectedGroupProvider_beforeAnyWrite() {
+        givenGroupMembers(provider("101"));
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>1234</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("102")).thenReturn(selected);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "102");
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessage("Selected provider is not available for group billing.");
+
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
+        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+    }
+
+    @Test
     void shouldGenerateSelectedProvider_whenAnUnselectedGroupIsInvalid() {
         BillingProviderDto invalid = provider("102");
         invalid.setBillingGroupNo("123");

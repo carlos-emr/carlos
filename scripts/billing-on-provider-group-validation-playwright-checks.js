@@ -5,6 +5,8 @@
  * Issue #4277: reject malformed provider group numbers before allocating disks,
  * identify the affected provider, and generate distinct files after correction.
  * Uses the standard browser/SQL harness on a disposable Ontario deployment.
+ * Run as the only billing writer, with a small fixture database/output directory:
+ * whole-table/file snapshots prove All Providers cannot mutate unrelated records.
  * Requires OHIP_DISK_DIR (the application's local HOME_DIR). Optional fixture
  * settings: GROUP_DISK_TEMPLATE_PROVIDER, GROUP_DISK_DEMOGRAPHIC_NO,
  * GROUP_DISK_SERVICE_DATE, GROUP_DISK_PAID_CODE (same as the zero-total check).
