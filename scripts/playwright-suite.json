@@ -449,12 +449,13 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [
+        "CONSULT_APPLICATION_TEMP_DIR",
         "CONSULT_DEMOGRAPHIC_NO",
         "CONSULT_REQUEST_ID",
         "CONSULT_SIGNATURE_SCENARIOS"
