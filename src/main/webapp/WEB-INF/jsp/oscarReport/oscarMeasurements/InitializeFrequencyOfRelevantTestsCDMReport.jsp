@@ -131,14 +131,14 @@
                                     <tr>
                                         <td width="2" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="checkbox" name="patientSeenCheckbox" value="ctr"
-                                                checked="checked"/></td>
+                                                <c:if test="${cdmForm.selected('patientSeenCheckbox', 'ctr', true)}">checked="checked"</c:if>/></td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
                                                 type="text" name='startDateA' aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
-                                                value='${carlos:forHtmlAttribute(lastYear)}' size="10"> <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
+                                                value="${carlos:forHtmlAttribute(cdmForm.value('startDateA', 0, lastYear))}" size="10"> <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializeFrequencyOfRelevantTestsCDMReportForm"%>','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
-                                                type="text" name='endDateA' aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}'
+                                                type="text" name='endDateA' aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value="${carlos:forHtmlAttribute(cdmForm.value('endDateA', 0, today))}"
                                                 size="10"> <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializeFrequencyOfRelevantTestsCDMReportForm"%>','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
@@ -178,18 +178,18 @@
                                     <c:forEach var="measurementType" items="${measurementTypes.measurementTypeVector}" varStatus="ctr">
                                     <tr>
                                         <td width="2" class="fieldBox" bgcolor="#ddddff"><input
-                                                type="checkbox" name="frequencyCheckbox" value="${ctr.index}"/></td>
+                                                type="checkbox" name="frequencyCheckbox" value="${ctr.index}" <c:if test="${cdmForm.selected('frequencyCheckbox', ctr.index, false)}">checked="checked"</c:if>/></td>
                                         <td width="4" class="fieldBox" bgcolor="#ddddff">${carlos:forHtml(measurementType.typeDisplayName)}</td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff">${carlos:forHtml(measurementType.typeDesc)}</td>
                                         <td width="200" class="fieldBox" bgcolor="#ddddff"></td>
-                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="exactly" size="6"/></td>
-                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="moreThan" size="6"/></td>
-                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="lessThan" size="6"/></td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value='${carlos:forHtmlAttribute(lastYear)}' size="10">
+                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="exactly" value="${carlos:forHtmlAttribute(cdmForm.value('exactly', ctr.index, ''))}" size="6"/></td>
+                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="moreThan" value="${carlos:forHtmlAttribute(cdmForm.value('moreThan', ctr.index, ''))}" size="6"/></td>
+                                        <td width="80" class="fieldBox" bgcolor="#ddddff"><input type="text" name="lessThan" value="${carlos:forHtmlAttribute(cdmForm.value('lessThan', ctr.index, ''))}" size="6"/></td>
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value="${carlos:forHtmlAttribute(cdmForm.value('startDateD', ctr.index, lastYear))}" size="10">
                                             <button type="button" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}' size="10">
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateD" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value="${carlos:forHtmlAttribute(cdmForm.value('endDateD', ctr.index, today))}" size="10">
                                             <button type="button" aria-label="${carlos:forHtmlAttribute(measurementType.typeDisplayName)} - <fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
                                                 onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateD[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializeFrequencyOfRelevantTestsCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
@@ -206,9 +206,9 @@
                                                 <%int k = 0;%>
                                                 <c:forEach var="mInstrc" items="${measurementTypes.measuringInstrcBeanVector[ctr.index].measuringInstrcVector}" varStatus="index">
                                                     <tr>
-                                                        <td><input type="checkbox"
+                                                        <td><c:set var="cdmInstructionName" value="value(mInstrcsCheckboxD${ctr.index}${index.index})" /><input type="checkbox"
                                                                    name='value(mInstrcsCheckboxD${ctr.index}${index.index})'
-                                                                   checked="checked"
+                                                                   <c:if test="${cdmForm.selected(cdmInstructionName, mInstrc.measuringInstrc, true)}">checked="checked"</c:if>
                                                                    value='${carlos:forHtmlAttribute(mInstrc.measuringInstrc)}'/>
                                                                    ${carlos:forHtml(mInstrc.measuringInstrc)}
                                                                    </td>

@@ -2,6 +2,7 @@
      Shared, escaped CDM form validation feedback. --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<% request.setAttribute("cdmForm", new io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.CdmReportFormState(request)); %>
     <c:if test="${not empty requestScope.actionErrors or not empty requestScope.fieldErrors}">
         <div class="action-errors" role="alert">
             <ul>

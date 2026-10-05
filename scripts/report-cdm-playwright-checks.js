@@ -154,7 +154,7 @@ async function workflow(s) {
         const calendar = page.locator(`button[onclick*="type=${field}&"]`);
         const label = await calendar.getAttribute('aria-label');
         h.assert(label.trim().length > 0, `${route} has an unnamed calendar control`);
-        if (forward === 'freqencyOfReleventTests' && field !== 'startDateA') {
+        if (field !== 'startDateA') {
           h.assert(label.includes(display), 'The per-measurement calendar label omits its measurement');
           const input = page.locator(`input[name="${field.split('[')[0]}"]`).nth(row);
           h.assert((await input.getAttribute('aria-label')) === label,
@@ -180,6 +180,14 @@ async function workflow(s) {
       if (forward === 'freqencyOfReleventTests') {
         for (const name of ['exactly', 'moreThan', 'lessThan']) await page.locator(`input[name="${name}"]`).nth(row).fill('1');
       }
+      await page.locator('input[name="patientSeenCheckbox"]').uncheck();
+      const instructionPrefix = prefix.replace('measurementType', 'mInstrcsCheckbox');
+      const instruction = page.locator(`input[type="checkbox"][name^="value(${instructionPrefix}${row}"]`).first();
+      const instructionName = await instruction.getAttribute('name');
+      await instruction.uncheck();
+      if (forward === 'patientWhoMetGuideline') {
+        await page.locator(`input[name="value(aboveBelow${row})"][value="<"]`).check();
+      }
       await page.locator(`input[name="${dateField}"]`).nth(row).fill('not-a-date');
       const [validationResponse] = await Promise.all([
         page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/oscarReport/oscarMeasurements/${route}`) && response.status() === 200),
@@ -194,6 +202,20 @@ async function workflow(s) {
       const text = await page.locator('body').innerText();
       h.assert(!text.includes(line), `${route} produced a report for an invalid date`);
       h.assert(await page.locator('.action-errors[role="alert"]').innerText() === `The date of ${type} is invalid`, `${route} does not show the invalid-date error`);
+      h.assert(await page.locator(`input[name="${dateField}"]`).nth(row).inputValue() === 'not-a-date',
+        `${route} replaced the submitted invalid date`);
+      h.assert(await page.locator(`input[name="${checkbox}"][value="${row}"]`).isChecked(), `${route} cleared the selected report row`);
+      h.assert(!(await page.locator('input[name="patientSeenCheckbox"]').isChecked()), `${route} reselected the patient count`);
+      h.assert(!(await page.locator(`input[name="${instructionName}"]`).isChecked()), `${route} reselected an omitted instruction`);
+      const numbers = forward === 'patientWhoMetGuideline' ? [['guidelineB', '6']]
+        : forward === 'patientInAbnormalRange' ? [['lowerBound', '3'], ['upperBound', '5']]
+          : [['exactly', '1'], ['moreThan', '1'], ['lessThan', '1']];
+      for (const [name, value] of numbers) {
+        h.assert(await page.locator(`input[name="${name}"]`).nth(row).inputValue() === value, `${route} lost ${name}`);
+      }
+      if (forward === 'patientWhoMetGuideline') {
+        h.assert(await page.locator(`input[name="value(aboveBelow${row})"][value="<"]`).isChecked(), `${route} lost the comparison`);
+      }
       await page.close();
     }
   });
@@ -257,6 +279,9 @@ async function workflow(s) {
         .querySelector('.action-errors[role="alert"]')?.textContent, body);
       h.assert(errorText && errorText.includes(field),
         `The ${field} conversion failure returned no visible field error`);
+      const submitted = await authorized.evaluate(({html, field}) => new DOMParser().parseFromString(html, 'text/html')
+        .querySelector(`input[name="${field}"]`)?.value, {html: body, field});
+      h.assert(submitted === 'not-an-integer', `The ${field} conversion failure discarded the invalid value`);
       await allowed.dispose();
     }
     await authorized.close();
