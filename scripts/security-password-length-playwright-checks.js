@@ -15,7 +15,16 @@ const {throwawayLoginFixture, submitLoginForm} = require('./lib/throwaway-login-
 async function workflow(s) {
   const {sql, context, config, recorder} = s;
   const account = throwawayLoginFixture({sql, marker: s.marker, provider: s.provider, testUser: config.testUser});
-  s.cleanup(() => account.cleanup());
+  const rejectedUserName = `${account.username}x`;
+  s.cleanup(() => {
+    // A regression in the rejected POST could apply our attempted rename. Restore
+    // only that exact owned alias so the login fixture can still remove its row.
+    if (account.securityNo) sql.execute(`UPDATE security SET user_name=${h.sqlString(account.username)}
+      WHERE security_no=${account.securityNo} AND provider_no=${h.sqlString(account.providerNo)}
+      AND user_name=${h.sqlString(rejectedUserName)} AND EXISTS
+        (SELECT 1 FROM provider WHERE provider_no=${h.sqlString(account.providerNo)} AND last_name=${h.sqlString(s.marker)})`);
+    account.cleanup();
+  });
   account.create();
   const page = await context.newPage();
   const fields = () => ({password: page.locator('input[name="password"]'), confirmation: page.locator('input[name="conPassword"]')});
@@ -99,7 +108,7 @@ async function workflow(s) {
     ];
     for (const [password, confirmation, message] of cases) {
       const before = snapshot();
-      const body = {...form, user_name: `${account.username}x`, password, conPassword: confirmation,
+      const body = {...form, user_name: rejectedUserName, password, conPassword: confirmation,
         pin: '1234', conPin: '1234', b_LocalLockSet: '1', forcePasswordReset: '1', 'CSRF-TOKEN': csrf};
       if (password === null) { delete body.password; delete body.conPassword; }
       const response = await context.request.post(h.appUrl(config.baseUrl, '/admin/SecurityUpdate'), {

@@ -70,6 +70,7 @@ class SecurityUpdatePasswordValidatorUnitTest extends CarlosUnitTestBase {
     void shouldEnforceEncoderByteLimit_whenMultibytePasswordFitsCharacterLimit() {
         String boundary = candidate(4) + "\u20ac".repeat(22) + "xx";
         assertThat(SecurityUpdatePasswordValidator.validate(boundary, boundary, properties())).isNull();
+        assertThat(PasswordHashHelper.matches(boundary, PasswordHashHelper.encodePassword(boundary))).isTrue();
         String overlong = boundary + "x";
         assertThat(SecurityUpdatePasswordValidator.validate(overlong, overlong, properties()))
                 .isEqualTo("admin.securityupdate.msgPasswordEncodingTooLong");
