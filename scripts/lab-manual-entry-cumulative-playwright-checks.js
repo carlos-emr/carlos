@@ -176,6 +176,11 @@ async function workflow(s) {
       const shown = (await section.locator('.preventionProcedure p').allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim());
       h.assert(shown.length === 1 && shown[0].startsWith(`${test.value} ${DATE}`),
         `Row Display shows ${test.name} as ${JSON.stringify(shown)}`);
+      await section.locator('.preventionProcedure').hover();
+      await rowDisplay.waitForFunction(({ value, units, range }) =>
+        typeof oDv !== 'undefined' && getComputedStyle(oDv).visibility === 'visible'
+          && dvHdr.textContent.trim() === value && dvBdy.textContent.trim() === `${units} ${range}`,
+      { value: test.value, units: test.unit, range: `${test.low} - ${test.high}` }, { timeout: TIMEOUT });
     }
     await rowDisplay.close();
   });
