@@ -203,6 +203,32 @@ async function workflow(s) {
       && displayed.indexOf(texts[1]) < displayed.indexOf(texts[0]), 'Stored revisions are not newest first');
     h.assert(await stored.locator('em').count() === 0, 'Stored note markup became an HTML element');
   });
+  await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
+    // Tickler amendments retain the UUID in separate rows, each with cumulative history.
+    // Seed two older rows after the original note/document paths have completed.
+    for (const index of [0, 1]) {
+      const cumulative = texts.slice(0, index + 1).reverse().join('\n----------------History Record----------------\n');
+      sql.execute(`INSERT INTO casemgmt_note
+        (update_date, observation_date, demographic_no, provider_no, note, history, uuid, program_no)
+        SELECT DATE_SUB(update_date, INTERVAL ${2 - index} MINUTE), observation_date,
+          demographic_no, provider_no, ${h.sqlString(texts[index])}, ${h.sqlString(cumulative)}, uuid, program_no
+        FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '3',
+      'The multiple-row history fixture did not create exactly three saved revisions');
+    await history.reload();
+    const stored = history.locator('.note-text-history-content');
+    h.assert(await stored.count() === 1, 'Cumulative history is repeated beneath older saved rows');
+    const normalize = value => value.replace(/\r\n?/g, '\n').split('\n')
+      .map(line => line.replace(/[^\S\n]+/g, ' ').trim()).join('\n').trim();
+    h.assert(normalize(await stored.innerText()) === normalize(storedHistory),
+      'The single expansion does not retain the latest complete stored history');
+    h.assert(await stored.locator('em').count() === 0, 'Stored markup became HTML after loading multiple rows');
+    for (const text of texts) {
+      h.assert((await history.locator('body > div > div:first-child').allTextContents())
+        .some(value => normalize(value) === normalize(text)), 'A saved row lost its own revision text');
+    }
+  });
 }
 
 if (require.main === module) runWorkflow('note-browser-documents', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
