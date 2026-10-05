@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.util.*;
 
 public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends ActionSupport {
+    private static final String INVALID_VALUE_MESSAGE = "oscarReport.CDMReport.msgInvalidValue";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -132,7 +133,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 if (new RptCheckGuideline().getValidation(measurementType) == 1
                         && (RptCheckGuideline.numericValue(upper) == null
                         || RptCheckGuideline.numericValue(lower) == null)) {
-                    addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
+                    addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{measurementType}));
                     valid = false;
                     continue;
                 }
@@ -178,11 +179,11 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, upper)) {
-                            addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{upperMsg}));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{upperMsg}));
 
                             valid = false;
                         } else if (!ectValidation.matchRegExp(regExp, lower)) {
-                            addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{lowerMsg}));
+                            addActionError(getText(INVALID_VALUE_MESSAGE, new String[]{lowerMsg}));
 
                             valid = false;
                         } else if (!ectValidation.isValidBloodPressure(regExp, upper)) {

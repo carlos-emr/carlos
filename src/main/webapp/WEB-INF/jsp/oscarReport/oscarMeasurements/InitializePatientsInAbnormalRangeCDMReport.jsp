@@ -90,15 +90,7 @@
           href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="window.focus();">
-    <c:if test="${not empty requestScope.actionErrors}">
-        <div class="action-errors" role="alert">
-            <ul>
-                <c:forEach var="error" items="${requestScope.actionErrors}">
-                    <li>${carlos:forHtml(error)}</li>
-                </c:forEach>
-            </ul>
-        </div>
-    </c:if>
+    <%@ include file="cdmValidationErrors.jspf" %>
     <form action="${pageContext.request.contextPath}/oscarReport/oscarMeasurements/InitializePatientsInAbnormalRangeCDMReport" method="post">
         <table class="MainTable" id="scrollNumber1" name="encounterTable">
             <tr class="MainTableTopRow">
@@ -136,15 +128,14 @@
                                                 type="checkbox" name="patientSeenCheckbox" checked="checked"
                                                 value="ctr"/></td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
-                                                type="text" name='startDateA'
-                                                value='${carlos:forHtmlAttribute(lastYear)}' size="10"> <img
-                                                src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
-                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsInAbnormalRangeCDMReportForm"%>','','width=300,height=300')"/>
+                                                type="text" name='startDateA' aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
+                                                value='${carlos:forHtmlAttribute(lastYear)}' size="10"> <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
+                                                onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsInAbnormalRangeCDMReportForm"%>','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
                                         <td width="120" class="fieldBox" bgcolor="#ddddff"><input
-                                                type="text" name='endDateA' value='${carlos:forHtmlAttribute(today)}'
-                                                size="10"> <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0"
-                                                                onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsInAbnormalRangeCDMReportForm"%>','','width=300,height=300')"/>
+                                                type="text" name='endDateA' aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}'
+                                                size="10"> <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
+                                                onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateA&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=<%="RptInitializePatientsInAbnormalRangeCDMReportForm"%>','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
                                         <td width="450" class="fieldBox" bgcolor="#ddddff"></td>
                                     </tr>
@@ -187,11 +178,13 @@
                                         <td width="200" class="fieldBox" bgcolor="#ddddff"></td>
                                         <td width="50" class="fieldBox" bgcolor="#ddddff"><input type="text" name="upperBound" size="6"/></td>
                                         <td width="50" class="fieldBox" bgcolor="#ddddff"><input type="text" name="lowerBound" size="6"/></td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateC" value='${carlos:forHtmlAttribute(lastYear)}' size="10"> 
-                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateC[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializePatientsInAbnormalRangeCDMReportForm','','width=300,height=300')"/>
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="startDateC" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>" value='${carlos:forHtmlAttribute(lastYear)}' size="10">
+                                            <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgStartDate"/>"
+                                                onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=startDateC[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializePatientsInAbnormalRangeCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
-                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateC" value='${carlos:forHtmlAttribute(today)}' size="10"> 
-                                            <img src="<%= request.getContextPath() %>/images/calendar.gif" border="0" onClick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateC[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializePatientsInAbnormalRangeCDMReportForm','','width=300,height=300')"/>
+                                        <td width="120" class="fieldBox" bgcolor="#ddddff"><input type="text" name="endDateC" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>" value='${carlos:forHtmlAttribute(today)}' size="10">
+                                            <button type="button" aria-label="<fmt:message key="oscarReport.CDMReport.msgEndDate"/>"
+                                                onclick="window.open('<%= request.getContextPath() %>/oscarReport/ViewOscarReportCalendarPopup?type=endDateC[${ctr.index}]&amp;year=<%=curYear%>&amp;month=<%=curMonth%>&amp;form=RptInitializePatientsInAbnormalRangeCDMReportForm','','width=300,height=300')"><img src="<%= request.getContextPath() %>/images/calendar.gif" alt="" /></button>
                                         </td>
                                         <input type="hidden"
                                                name='value(measurementTypeC${ctr.index})'

@@ -1,0 +1,11 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+     Shared, escaped CDM form validation feedback. Parent pages declare c and carlos taglibs. --%>
+    <c:if test="${not empty requestScope.actionErrors}">
+        <div class="action-errors" role="alert">
+            <ul>
+                <c:forEach var="error" items="${requestScope.actionErrors}">
+                    <li>${carlos:forHtml(error)}</li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>

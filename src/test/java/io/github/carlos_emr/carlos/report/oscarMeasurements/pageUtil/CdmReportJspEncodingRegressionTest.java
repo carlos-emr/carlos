@@ -78,7 +78,10 @@ class CdmReportJspEncodingRegressionTest extends io.github.carlos_emr.carlos.tes
     void shouldEncodeValidationErrors(String page) throws Exception {
         String jsp = Files.readString(CDM.resolve(page), StandardCharsets.UTF_8);
         assertThat(rawElMentioning(jsp, "error")).isEmpty();
-        assertThat(jsp).contains("${carlos:forHtml(error)}").doesNotContain("<%= error %>");
+        assertThat(jsp).contains("<%@ include file=\"cdmValidationErrors.jspf\" %>").doesNotContain("<%= error %>");
+        String feedback = Files.readString(CDM.resolve("cdmValidationErrors.jspf"), StandardCharsets.UTF_8);
+        assertThat(rawElMentioning(feedback, "error")).isEmpty();
+        assertThat(feedback).contains("${carlos:forHtml(error)}", "role=\"alert\"");
     }
 
     @Test
