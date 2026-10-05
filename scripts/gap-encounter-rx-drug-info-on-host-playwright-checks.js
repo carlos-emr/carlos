@@ -39,6 +39,7 @@ async function workflow(s) {
   let rx;
   let drug;
   let generic;
+  let brand;
   let din;
   let infoPage;
 
@@ -56,7 +57,7 @@ async function workflow(s) {
     h.assert((await saved).status() === 200, 'Save did not answer 200');
     await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND BN=${h.sqlString(DRUG_NAME)}`, '1',
       'Save did not file the chosen DrugRef product for the patient');
-    [[drug, generic, din]] = sql.rows(`SELECT drugid, GN, regional_identifier FROM drugs WHERE demographic_no=${patient}`);
+    [[drug, generic, brand, din]] = sql.rows(`SELECT drugid, GN, BN, regional_identifier FROM drugs WHERE demographic_no=${patient}`);
     h.assert(generic && generic !== 'NULL', 'The saved drug has no generic name for Info to look up');
     h.assert(din && din !== 'NULL' && din !== '0', 'The saved DrugRef product has no DIN');
     await rx.locator(`#prescrip_${drug}`).waitFor({ state: 'visible' });
@@ -120,6 +121,9 @@ async function workflow(s) {
       'The reference search result does not show the chosen product DIN');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND drugid=${drug}`) === '1',
       'Viewing drug reference information changed the saved prescription');
+    const storedValues = sql.rows(`SELECT GN, BN, regional_identifier FROM drugs WHERE demographic_no=${patient} AND drugid=${drug}`);
+    h.assert(JSON.stringify(storedValues) === JSON.stringify([[generic, brand, din]]),
+      'Viewing drug reference information changed the saved drug names or DIN');
   });
 }
 
