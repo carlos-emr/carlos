@@ -167,6 +167,18 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldIgnoreDisplayVisibility_whenChoosingTheNewestEquivalentEntry() {
+        Drug older = drug(1, "Synthetic X");
+        Drug newer = drug(2, "Synthetic X");
+        older.setHideFromDrugProfile(false);
+        newer.setHideFromDrugProfile(true);
+        newer.setHideFromCpp(true);
+        RxPrescriptionData.Prescription[] prescriptions = unique(older, newer);
+        assertThat(prescriptions).extracting(RxPrescriptionData.Prescription::getDrugId).containsExactly(2);
+        assertThat(prescriptions[0].isHideCpp()).isTrue();
+    }
+
+    @Test
     void shouldRetainEntries_whenProductIdentityIsUnavailable() {
         Drug first = drug(1, null);
         Drug second = drug(2, null);

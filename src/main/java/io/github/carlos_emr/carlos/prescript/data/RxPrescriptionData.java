@@ -526,7 +526,7 @@ public class RxPrescriptionData {
     }
 
     /**
-     * Exact clinical values, excluding row ID, script linkage, display position and
+     * Exact clinical values, excluding row ID, script linkage, display position/visibility and
      * create/update timestamps. Those bookkeeping fields differ between duplicate rows.
      * Nulls are retained rather than guessed to mean an empty value or a default.
      */
@@ -548,7 +548,7 @@ public class RxPrescriptionData {
                             instant(drug.getArchivedDate()), drug.getLongTerm(), drug.getShortTerm(), drug.getPastMed(),
                             drug.getPatientCompliance(), drug.getStartDateUnknown(), drug.getOutsideProviderName(),
                             drug.getOutsideProviderOhip(), drug.getComment(), drug.isCustomNote(),
-                            drug.isNonAuthoritative(), drug.isHideFromDrugProfile(), drug.getHideFromCpp()));
+                            drug.isNonAuthoritative()));
         }
 
         private static List<Object> values(Object... values) {
