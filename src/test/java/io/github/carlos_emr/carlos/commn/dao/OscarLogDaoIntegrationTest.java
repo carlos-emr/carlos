@@ -33,6 +33,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -291,6 +293,40 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("findForReport")
     class FindForReport {
+
+        @ParameterizedTest
+        @CsvSource({
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, unrestricted",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, provider",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, site",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, unrestricted",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, provider",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, site"
+        })
+        @Tag("query")
+        @DisplayName("should include the start and exclude next midnight for every report provider scope")
+        void shouldUseHalfOpenDateWindow_forEveryProviderScope(String startText, String endText, String scope)
+                throws Exception {
+            Date start = Timestamp.valueOf(startText);
+            Date endExclusive = Timestamp.valueOf(endText);
+            createOscarLog(null, "edge", "read", "admin", "before", new Date(start.getTime() - 1_000));
+            OscarLog first = createOscarLog(null, "edge", "read", "admin", "start", start);
+            OscarLog middle = createOscarLog(null, "edge", "read", "admin", "middle", new Date(start.getTime() + 43_200_000));
+            OscarLog last = createOscarLog(null, "edge", "read", "admin", "last", new Date(endExclusive.getTime() - 1_000));
+            createOscarLog(null, "edge", "read", "admin", "next-midnight", endExclusive);
+            createOscarLog(null, "edge", "read", "admin", "after", new Date(endExclusive.getTime() + 1_000));
+            createOscarLog(null, "edge", "read", "login", "other-content", start);
+            if (!"unrestricted".equals(scope)) {
+                createOscarLog(null, "outside", "read", "admin", "other-provider", start);
+            }
+
+            List<OscarLog> result = dao.findForReport(start, endExclusive, "admin",
+                    "provider".equals(scope) ? "edge" : null,
+                    "site".equals(scope) ? List.of("edge") : null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(last.getId(), middle.getId(), first.getId());
+        }
 
         @Test
         @Tag("query")
