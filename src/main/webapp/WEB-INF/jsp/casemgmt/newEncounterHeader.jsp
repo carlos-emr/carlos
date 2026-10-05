@@ -86,9 +86,7 @@
     pageContext.setAttribute("popupPatientAge", popupPatientAge);
     pageContext.setAttribute("popupDemographicNo", demoNo);
     pageContext.setAttribute("summaryDemographicNo", Integer.parseInt(demoNo));
-    pageContext.setAttribute("chartUpdatesEnabled", java.util.List.of(
-            "clinical.ai_summary_generation.enabled", "clinical.ai_document_summary.enabled", "clinical.ai_chart_updates.enabled")
-            .stream().allMatch(flag -> "true".equals(CarlosProperties.getInstance().getProperty(flag, "false"))));
+    pageContext.setAttribute("chartUpdatesEnabled", io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext.enabled());
     pageContext.setAttribute("summaryPrototypeEnabled", "true".equals(CarlosProperties.getInstance()
             .getProperty("clinical.ai_summary_prototype.enabled", "false")));
 

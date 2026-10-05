@@ -99,12 +99,16 @@ public class ChartUpdateContext {
             String sourceHash, String fingerprint, String program, String role, List<Entry> entries) {
     }
 
-    public static void requireEnabled() {
+    /** True only when chart updates, document summaries and summary generation are all switched on. */
+    public static boolean enabled() {
         CarlosProperties properties = CarlosProperties.getInstance();
-        for (String flag : List.of(ChartUpdateProposals.ENABLED, DocumentSummaryService.ENABLED_PROPERTY,
-                ClinicalSummaryGenerationService.ENABLED_PROPERTY)) {
-            if (!"true".equals(properties.getProperty(flag, "false"))) throw new IllegalStateException("Chart updates are disabled.");
-        }
+        return List.of(ChartUpdateProposals.ENABLED, DocumentSummaryService.ENABLED_PROPERTY,
+                ClinicalSummaryGenerationService.ENABLED_PROPERTY).stream()
+                .allMatch(flag -> "true".equals(properties.getProperty(flag, "false")));
+    }
+
+    public static void requireEnabled() {
+        if (!enabled()) throw new IllegalStateException("Chart updates are disabled.");
     }
 
     // Loading evidence also records a synchronous access audit. MySQL enforces

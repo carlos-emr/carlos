@@ -48,6 +48,35 @@ class EChartLayoutRegressionTest {
     }
 
     @Test
+    @DisplayName("should load the chart-update dialog and assets only when the feature is enabled")
+    void shouldLoadChartUpdateAssets_onlyWhenFeatureEnabled() throws IOException {
+        String layout = Files.readString(NEW_ENCOUNTER_LAYOUT, StandardCharsets.UTF_8);
+
+        // The header is a separate <jsp:include>, so the layout reads the shared flag itself.
+        assertThat(layout).contains("io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext.enabled()");
+        for (String asset : new String[] {"/css/ai-chart-updates-navigation.css",
+                "<%@ include file=\"/WEB-INF/jspf/chart-update-workflow-dialog.jspf\" %>",
+                "/js/ai-chart-updates-modal.js"}) {
+            int at = layout.indexOf(asset);
+            assertThat(at).as(asset).isPositive().isEqualTo(layout.lastIndexOf(asset));
+            int guard = layout.lastIndexOf("<c:if test=\"${chartUpdatesEnabled}\">", at);
+            assertThat(guard).as("%s must sit inside the chartUpdatesEnabled guard", asset).isPositive();
+            assertThat(layout.indexOf("</c:if>", guard)).as("%s must sit inside the chartUpdatesEnabled guard", asset)
+                    .isGreaterThan(at);
+        }
+    }
+
+    @Test
+    @DisplayName("should version chart-update assets like the layout's other custom assets")
+    void shouldVersionChartUpdateAssets_likeOtherLayoutAssets() throws IOException {
+        String layout = Files.readString(NEW_ENCOUNTER_LAYOUT, StandardCharsets.UTF_8);
+
+        assertThat(layout)
+                .contains("/css/ai-chart-updates-navigation.css?v=<%= System.currentTimeMillis() %>\"")
+                .contains("/js/ai-chart-updates-modal.js?v=<%= System.currentTimeMillis() %>\"");
+    }
+
+    @Test
     @DisplayName("should load shared scripts unconditionally for the notes fragment")
     void shouldLoadSharedScriptsUnconditionally_forNotesFragment() throws IOException {
         String jsp = Files.readString(CHART_NOTES, StandardCharsets.UTF_8);

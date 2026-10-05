@@ -104,6 +104,20 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     }
     @AfterEach void tearDown() { reader.close(); visibility.close(); settings.close(); }
 
+    @Test void shouldReportEnabled_onlyWhenAllThreeFlagsAreOn() {
+        assertThat(ChartUpdateContext.enabled()).isTrue();
+        var properties = CarlosProperties.getInstance();
+        // The three flags behind enabled(), which the eChart header, layout and document report call.
+        for (String flag : List.of("clinical.ai_summary_generation.enabled", "clinical.ai_document_summary.enabled",
+                "clinical.ai_chart_updates.enabled")) {
+            when(properties.getProperty(flag, "false")).thenReturn("false");
+            assertThat(ChartUpdateContext.enabled()).as(flag).isFalse();
+            assertThatThrownBy(ChartUpdateContext::requireEnabled).isInstanceOf(IllegalStateException.class);
+            when(properties.getProperty(flag, "false")).thenReturn("true");
+        }
+        assertThat(ChartUpdateContext.enabled()).isTrue();
+    }
+
     @Test void shouldIdentifyMissingOriginal_withoutStoredHtmlFallback() throws Exception {
         reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
                 .thenThrow(new java.nio.file.NoSuchFileException("synthetic.txt"));
