@@ -1,0 +1,312 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.managers;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
+import org.hl7.fhir.r4.model.CodeSystem;
+import org.hl7.fhir.r4.model.CodeSystem.ConceptDefinitionComponent;
+import org.hl7.fhir.r4.model.CodeSystem.ConceptPropertyComponent;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.PrimitiveType;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+
+import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
+import io.github.carlos_emr.carlos.commn.model.CVCMedication;
+import io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber;
+
+/**
+ * Reads a National Vaccine Catalogue (NVC) V2 bundle into the catalogue entities CARLOS stores.
+ *
+ * <p>The NVC V2 bundle ({@code https://nvc-cnv.canada.ca/fhir/v2/Bundle/NVC}) is a FHIR R4
+ * collection. CARLOS uses three of its resources:</p>
+ * <ul>
+ *   <li>the {@code Generic} value set: one generic {@link CVCImmunization} per concept;</li>
+ *   <li>the {@code Tradename} value set: one brand {@link CVCImmunization} per concept, linked to
+ *       its generic through {@code nvc-linked-generic-concept}, and one {@link CVCMedication}
+ *       carrying the brand's DIN, market authorization holder and status;</li>
+ *   <li>the {@code nvc-vaccine-lot-id} code system: lot numbers and expiry dates, each linked to
+ *       its brands through {@code nvc-linked-tradename-concept}.</li>
+ * </ul>
+ *
+ * <p>V2 replaced the CVC V1 wrapper extensions ({@code nvc-dins}, {@code nvc-lots},
+ * {@code nvc-parent-concept} and so on) with single-valued ones on each concept, and moved lots
+ * into their own code system. Nothing here reads the V1 names.</p>
+ *
+ * <p>Mapping is pure: it reads the parsed bundle and builds unsaved entities, so it can be tested
+ * without a database or network.</p>
+ *
+ * @since 2026-10-05
+ */
+final class NationalVaccineCatalogueMapper {
+
+    static final String NVC_BASE = "https://nvc-cnv.canada.ca/fhir/v2";
+    private static final String EXTENSION_BASE = NVC_BASE + "/StructureDefinition/";
+    static final String LINKED_GENERIC_CONCEPT = EXTENSION_BASE + "nvc-linked-generic-concept";
+    static final String LINKED_TRADENAME_CONCEPT = EXTENSION_BASE + "nvc-linked-tradename-concept";
+    static final String MARKET_AUTHORIZATION_HOLDER = EXTENSION_BASE + "nvc-linked-to-market-authorization-holder";
+    static final String DIN = EXTENSION_BASE + "nvc-din";
+    static final String CONCEPT_STATUS = EXTENSION_BASE + "nvc-concept-status";
+    static final String LOT_CODE_SYSTEM = NVC_BASE + "/CodeSystem/nvc-vaccine-lot-id";
+
+    private static final String SNOMED_FULLY_SPECIFIED_NAME = "900000000000003001";
+    private static final String SNOMED_SYNONYM = "900000000000013009";
+    private static final String PUBLIC_PICKLIST = "enPublicPicklist";
+    private static final String LOT_NUMBER_PROPERTY = "lotNumber";
+    private static final String EXPIRY_DATE_PROPERTY = "expiryDate";
+
+    /** The catalogue read from one bundle; medications carry their lot numbers. */
+    record Catalogue(List<CVCImmunization> immunizations, List<CVCMedication> medications, int lotNumberCount) {
+    }
+
+    private NationalVaccineCatalogueMapper() {
+    }
+
+    /**
+     * Maps an NVC V2 bundle.
+     *
+     * @throws IllegalArgumentException if the bundle lacks the {@code Generic} or {@code Tradename}
+     *     value set, so a malformed download never replaces the stored catalogue
+     */
+    static Catalogue map(Bundle bundle) {
+        ValueSet generic = null;
+        ValueSet tradename = null;
+        CodeSystem lots = null;
+        for (BundleEntryComponent entry : bundle.getEntry()) {
+            Resource resource = entry.getResource();
+            if (resource instanceof ValueSet valueSet) {
+                String id = valueSet.getIdElement().getIdPart();
+                if ("Generic".equals(id)) {
+                    generic = valueSet;
+                } else if ("Tradename".equals(id)) {
+                    tradename = valueSet;
+                }
+            } else if (resource instanceof CodeSystem codeSystem && LOT_CODE_SYSTEM.equals(codeSystem.getUrl())) {
+                lots = codeSystem;
+            }
+        }
+        if (generic == null || tradename == null) {
+            throw new IllegalArgumentException("NVC bundle has no Generic or Tradename value set");
+        }
+
+        List<CVCImmunization> immunizations = new ArrayList<>();
+        for (ConceptReferenceComponent concept : concepts(generic)) {
+            immunizations.add(immunization(concept, true));
+        }
+        // One medication per brand: the prevention screen lists a brand's lots through the single
+        // medication found by its SNOMED code, so splitting a brand by DIN would hide lots.
+        Map<String, CVCMedication> medicationsByBrand = new LinkedHashMap<>();
+        for (ConceptReferenceComponent concept : concepts(tradename)) {
+            CVCImmunization brand = immunization(concept, false);
+            brand.setParentConceptId(firstCode(extensionConcept(concept.getExtension(), LINKED_GENERIC_CONCEPT)));
+            immunizations.add(brand);
+            if (concept.hasCode()) {
+                medicationsByBrand.putIfAbsent(concept.getCode(), medication(concept, brand.getDisplayName()));
+            }
+        }
+        int lotNumberCount = lots == null ? 0 : addLotNumbers(lots, medicationsByBrand);
+        return new Catalogue(immunizations, new ArrayList<>(medicationsByBrand.values()), lotNumberCount);
+    }
+
+    private static List<ConceptReferenceComponent> concepts(ValueSet valueSet) {
+        List<ConceptReferenceComponent> concepts = new ArrayList<>();
+        if (valueSet.hasCompose()) {
+            for (ConceptSetComponent include : valueSet.getCompose().getInclude()) {
+                for (ConceptReferenceComponent concept : include.getConcept()) {
+                    if (concept.hasCode()) {
+                        concepts.add(concept);
+                    }
+                }
+            }
+        }
+        return concepts;
+    }
+
+    private static CVCImmunization immunization(ConceptReferenceComponent concept, boolean generic) {
+        CVCImmunization immunization = new CVCImmunization();
+        immunization.setSnomedConceptId(concept.getCode());
+        immunization.setVersionId(0);
+        String synonym = designation(concept, SNOMED_SYNONYM);
+        String displayName = firstNonBlank(synonym, concept.getDisplay(), designation(concept, SNOMED_FULLY_SPECIFIED_NAME));
+        immunization.setDisplayName(displayName);
+        // A generic without a public picklist term is not offered as a prevention type, as before;
+        // a brand always gets a name for the disambiguation list.
+        String picklist = designation(concept, PUBLIC_PICKLIST);
+        immunization.setPicklistName(generic ? picklist : firstNonBlank(picklist, displayName));
+        immunization.setGeneric(generic);
+        return immunization;
+    }
+
+    private static CVCMedication medication(ConceptReferenceComponent concept, String displayName) {
+        CVCMedication medication = new CVCMedication();
+        medication.setSnomedCode(concept.getCode());
+        medication.setSnomedDisplay(displayName);
+        medication.setBrand(true);
+        medication.setStatus(stringValue(concept.getExtension(), CONCEPT_STATUS));
+        Coding din = firstCoding(extensionConcept(concept.getExtension(), DIN));
+        if (din != null) {
+            medication.setDin(din.getCode());
+            medication.setDinDisplayName(din.getDisplay());
+        }
+        Coding holder = firstCoding(extensionConcept(concept.getExtension(), MARKET_AUTHORIZATION_HOLDER));
+        if (holder != null) {
+            medication.setManufacturerId(holder.getCode());
+            medication.setManufacturerDisplay(holder.getDisplay());
+        }
+        return medication;
+    }
+
+    /**
+     * Adds each lot to the brands it is linked to. A lot linked to two brands is listed under both;
+     * a lot whose brands are not in the bundle's Tradename value set is skipped.
+     */
+    private static int addLotNumbers(CodeSystem lots, Map<String, CVCMedication> medicationsByBrand) {
+        int count = 0;
+        // An unsaved lot's equals() reaches CVCMedication.equals(), which fails without an id, so a
+        // lot repeated under the same brand with the same expiry is never offered to the set twice.
+        Set<String> added = new HashSet<>();
+        for (ConceptDefinitionComponent lot : lots.getConcept()) {
+            String lotNumber = firstNonBlank(stringProperty(lot, LOT_NUMBER_PROPERTY), lotNumberFromCode(lot.getCode()));
+            if (lotNumber == null) {
+                continue;
+            }
+            Date expiryDate = dateProperty(lot, EXPIRY_DATE_PROPERTY);
+            for (Extension link : lot.getExtension()) {
+                if (!LINKED_TRADENAME_CONCEPT.equals(link.getUrl())) {
+                    continue;
+                }
+                String brand = firstCode(asCodeableConcept(link));
+                CVCMedication medication = medicationsByBrand.get(brand);
+                if (medication != null && added.add(brand + '\n' + lotNumber + '\n' + expiryDate)) {
+                    medication.getLotNumberList().add(new CVCMedicationLotNumber(medication, lotNumber, expiryDate));
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Lot codes are the lot number plus an NVC suffix, for example {@code 042D21A_[1]}. */
+    private static String lotNumberFromCode(String code) {
+        if (code == null) {
+            return null;
+        }
+        int suffix = code.indexOf("_[");
+        return suffix > 0 ? code.substring(0, suffix) : code;
+    }
+
+    private static String designation(ConceptReferenceComponent concept, String use) {
+        for (ConceptReferenceDesignationComponent designation : concept.getDesignation()) {
+            Coding designationUse = designation.getUse();
+            boolean english = !designation.hasLanguage() || "en".equals(designation.getLanguage());
+            if (english && designationUse != null && use.equals(designationUse.getCode())
+                    && designation.hasValue() && !designation.getValue().isBlank()) {
+                return designation.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static CodeableConcept extensionConcept(List<Extension> extensions, String url) {
+        for (Extension extension : extensions) {
+            if (url.equals(extension.getUrl())) {
+                CodeableConcept concept = asCodeableConcept(extension);
+                if (concept != null) {
+                    return concept;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static CodeableConcept asCodeableConcept(Extension extension) {
+        return extension.getValue() instanceof CodeableConcept concept ? concept : null;
+    }
+
+    private static String stringValue(List<Extension> extensions, String url) {
+        for (Extension extension : extensions) {
+            if (url.equals(extension.getUrl()) && extension.getValue() instanceof PrimitiveType<?> value) {
+                return value.getValueAsString();
+            }
+        }
+        return null;
+    }
+
+    private static Coding firstCoding(CodeableConcept concept) {
+        if (concept == null) {
+            return null;
+        }
+        for (Coding coding : concept.getCoding()) {
+            if (coding.hasCode()) {
+                return coding;
+            }
+        }
+        return null;
+    }
+
+    private static String firstCode(CodeableConcept concept) {
+        Coding coding = firstCoding(concept);
+        return coding == null ? null : coding.getCode();
+    }
+
+    private static String stringProperty(ConceptDefinitionComponent concept, String code) {
+        for (ConceptPropertyComponent property : concept.getProperty()) {
+            if (code.equals(property.getCode()) && property.getValue() instanceof PrimitiveType<?> value) {
+                return value.getValueAsString();
+            }
+        }
+        return null;
+    }
+
+    private static Date dateProperty(ConceptDefinitionComponent concept, String code) {
+        for (ConceptPropertyComponent property : concept.getProperty()) {
+            if (code.equals(property.getCode()) && property.getValue() instanceof DateTimeType value) {
+                return value.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+}
