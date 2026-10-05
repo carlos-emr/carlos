@@ -140,6 +140,23 @@ public final class EmailConfigSecrets {
      * @since 2026-09-24
      */
     public static TransportSecretState transportSecretState(String configDetailsJson) {
+        return transportSecretState(configDetailsJson, SECRET_FIELDS);
+    }
+
+    /**
+     * As {@link #transportSecretState(String)}, for the one credential a transport reads: an SMTP
+     * transport reads {@code password} and an API transport reads {@code api_key}.
+     *
+     * @param configDetailsJson the raw {@code configDetails} value, may be null/blank
+     * @param field the credential field the transport reads
+     * @return the state of that field; never null
+     * @since 2026-10-05
+     */
+    public static TransportSecretState transportSecretState(String configDetailsJson, String field) {
+        return transportSecretState(configDetailsJson, List.of(field));
+    }
+
+    private static TransportSecretState transportSecretState(String configDetailsJson, List<String> fields) {
         if (configDetailsJson == null || configDetailsJson.isBlank()) {
             return TransportSecretState.NONE;
         }
@@ -153,7 +170,7 @@ public final class EmailConfigSecrets {
             return TransportSecretState.UNPARSEABLE;
         }
         TransportSecretState state = TransportSecretState.NONE;
-        for (String field : SECRET_FIELDS) {
+        for (String field : fields) {
             JsonNode value = root.get(field);
             if (value == null || value.isNull() || (value.isValueNode() && value.asText().isEmpty())) {
                 continue;

@@ -264,6 +264,73 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             assertThat(emailManager.credentialKeyRefusal(config)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
         }
 
+        /** A plaintext API key beside a password encrypted under some earlier key. */
+        private EmailConfig apiAccountWithEncryptedLeftover(String apiKeyField) throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"password\":\"stale-secret\"}");
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                    "{" + apiKeyField + stale.substring(stale.indexOf('{') + 1));
+            injectDependency(sendGrid, "id", 19);
+            return sendGrid;
+        }
+
+        @Test
+        @DisplayName("should send an API account's plaintext API key with a warning when no key is available, despite an encrypted leftover")
+        void shouldWarnAndAllowApiAccount_whenKeyMissingAndOnlyUnusedPasswordEncrypted() throws Exception {
+            EmailConfig sendGrid = apiAccountWithEncryptedLeftover("\"api_key\":\"sg-secret\",");
+            removeKey();
+            requireKey(false);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(sendGrid)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=19").contains("stay unencrypted"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("stale-secret", "sg-secret", "{ENC}", "{\""));
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse an API account's plaintext API key under enforcement, not as a key mismatch, despite an encrypted leftover")
+        void shouldRequireKey_whenKeyMissingEnforcedAndOnlyUnusedPasswordEncrypted() throws Exception {
+            EmailConfig sendGrid = apiAccountWithEncryptedLeftover("\"api_key\":\"sg-secret\",");
+            removeKey();
+            requireKey(true);
+
+            assertThat(emailManager.credentialKeyRefusal(sendGrid)).isEqualTo(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR);
+        }
+
+        @Test
+        @DisplayName("should not refuse an API account with no API key over an encrypted leftover when no key is available")
+        void shouldAllowApiAccount_whenKeyMissingAndOnlyCredentialIsUnusedLeftover() throws Exception {
+            EmailConfig sendGrid = apiAccountWithEncryptedLeftover("");
+            removeKey();
+            requireKey(true);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(sendGrid)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=19").contains("never uses"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("stale-secret", "{ENC}", "{\""));
+            }
+        }
+
+        @Test
+        @DisplayName("should still refuse an SMTP account whose own password is encrypted when no key is available")
+        void shouldRefuseSmtpAccount_whenKeyMissingAndPasswordEncryptedBesidePlaintextLeftover() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"plain-secret\"}");
+            EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    "{\"api_key\":\"unused\"," + encrypted.substring(encrypted.indexOf('{') + 1));
+            removeKey();
+            requireKey(false);
+
+            assertThat(emailManager.credentialKeyRefusal(smtp)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+        }
+
         @Test
         @DisplayName("should never refuse an unauthenticated LOCAL relay")
         void shouldAllowLocalRelay_whenKeyMissingAndEnforced() {

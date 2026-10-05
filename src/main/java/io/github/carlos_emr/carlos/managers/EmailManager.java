@@ -758,9 +758,11 @@ public class EmailManager {
      * <ul>
      *   <li>An unauthenticated LOCAL relay never uses a credential, so it is never refused. A
      *       leftover secret on such a row is reported once.</li>
-     *   <li>Encrypted credentials that do not decrypt with the current key are always refused:
-     *       the send would fail anyway, and the likely cause (the key was lost and a new one
-     *       generated) needs an administrator to restore the original key, not a retry.</li>
+     *   <li>An encrypted credential the transport reads that does not decrypt with the current
+     *       key, or that cannot be read because no key is available, is always refused: the send
+     *       would fail anyway, and the likely cause (the key was lost and a new one generated)
+     *       needs an administrator to restore the original key, not a retry. An encrypted leftover
+     *       the transport never reads does not stop the send.</li>
      *   <li>Plaintext credentials with no key available are refused only when
      *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise they are reported once
      *       and sent. With a key, they are encrypted by {@link #upgradeConfigCredentialsAtRest}.</li>
@@ -789,6 +791,20 @@ public class EmailManager {
             return null;
         }
         boolean keyConfigured = EncryptionUtils.isKeyConfigured();
+        if (state == EmailConfigSecrets.TransportSecretState.ENCRYPTED && !keyConfigured) {
+            // Nothing encrypted can be read without a key, but only the credential this transport reads
+            // can stop its mail. If that one is not encrypted, it decides under the rules for any other
+            // account, and an encrypted leftover beside it, such as an old password on an API account,
+            // is left for the key-mismatch report once a key is configured.
+            state = EmailConfigSecrets.transportSecretState(emailConfig.getConfigDetailsJson(),
+                    transportCredentialField(emailConfig));
+            if (state == EmailConfigSecrets.TransportSecretState.NONE) {
+                if (firstReport(id)) {
+                    logger.warn("Sender config id={} holds an encrypted credential its transport never uses; remove it.", id);
+                }
+                return null;
+            }
+        }
         if (state == EmailConfigSecrets.TransportSecretState.ENCRYPTED) {
             if (keyConfigured && EmailConfigSecrets.encryptedSecretsDecrypt(emailConfig.getConfigDetailsJson())) {
                 return null;

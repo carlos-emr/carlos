@@ -234,6 +234,22 @@ class EmailConfigSecretsUnitTest {
     }
 
     @Test
+    @DisplayName("should classify only the named field when asked about one credential")
+    void shouldReportOneField_whenFieldNamed() throws Exception {
+        String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
+        String details = "{\"api_key\":\"key\"," + encrypted.substring(encrypted.indexOf('{') + 1);
+
+        assertThat(EmailConfigSecrets.transportSecretState(details))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.ENCRYPTED);
+        assertThat(EmailConfigSecrets.transportSecretState(details, "api_key"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.PLAINTEXT);
+        assertThat(EmailConfigSecrets.transportSecretState(details, "password"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.ENCRYPTED);
+        assertThat(EmailConfigSecrets.transportSecretState(encrypted, "api_key"))
+                .isEqualTo(EmailConfigSecrets.TransportSecretState.NONE);
+    }
+
+    @Test
     @DisplayName("should report an encrypted credential as undecryptable after the key is replaced")
     void shouldReportUndecryptable_afterKeyReplaced() throws Exception {
         String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"secret\"}");
