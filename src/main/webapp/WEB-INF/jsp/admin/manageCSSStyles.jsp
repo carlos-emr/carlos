@@ -29,6 +29,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Manage billing-code presentation styles.
+    Features: Picker and manual declaration editing with lossless saves and visible validation.
+    Parameters: selectedStyle/editStyle identify the original style; styleText contains the edited declarations.
+    @since 2026-10-05
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -48,6 +54,7 @@
 
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
@@ -75,47 +82,18 @@
         }
 
         function addStyle(id, option) {
-            var currentStyle = getEl("styleText").value;
-            var idx = currentStyle.indexOf(id);
-            var idx2;
-            var tmp1;
-            var tmp2;
-
-
-            //need to account for color not overwriting background-color
-            if (id == "color") {
-                tmp1 = currentStyle.charAt(idx - 1);
-                if (tmp1 == '-') {
-                    idx = currentStyle.indexOf(id, idx + 1);
-                }
-            }
-
-            if (idx != -1) {
-                tmp1 = currentStyle.substring(0, idx);
-                idx2 = currentStyle.indexOf(";", idx);
-                tmp2 = currentStyle.substring(idx2 + 1);
-
-                if (option.value != "") {
-                    currentStyle = tmp1 + id + ":" + option.value + ";" + tmp2;
-                } else {
-                    currentStyle = tmp1 + tmp2;
-                }
-
-                getEl("styleText").value = currentStyle;
-                getEl("example").style.cssText = currentStyle;
-            } else {
-                if (option.value != "") {
-                    currentStyle += id + ":" + option.value + ";";
-                    getEl("styleText").value = currentStyle;
-                    getEl("example").style.cssText = currentStyle;
-                }
-            }
-
-
+            var declarations = getEl("styleText").value.split(";").map(function (part) {
+                return part.trim();
+            }).filter(function (part) {
+                return part && part.split(":", 1)[0].trim().toLowerCase() !== id;
+            });
+            if (option.value !== "") declarations.push(id + ":" + option.value);
+            getEl("styleText").value = declarations.length ? declarations.join(";") + ";" : "";
+            getEl("example").style.cssText = getEl("styleText").value;
         }
 
-        var color;
-        var bgcolor;
+        var color = "";
+        var bgcolor = "";
 
         function checkColours() {
             if (color != getEl("color").value) {
@@ -130,51 +108,35 @@
         }
 
         function edit() {
-            var style = getEl("style").options[getEl("style").selectedIndex].value;
-            var styles = style.split(";");
-            var item;
-            var components;
-            var value;
-            var pos;
-            var tmp;
-
-            getEl("font-size").selectedIndex = 0;
-            getEl("font-style").selectedIndex = 0;
-            getEl("font-variant").selectedIndex = 0;
-            getEl("font-weight").selectedIndex = 0;
-            getEl("text-decoration").selectedIndex = 0;
-            getEl("styleName").value = "";
-            getEl("color").value = "";
-            getEl("background-color").value = "";
-            getEl("styleText").value = "";
-            getEl("example").style.cssText = "";
-
-            for (var idx = 0; idx < styles.length - 1; ++idx) {
-                components = styles[idx].split(":");
-                item = components[0];
-                value = components[1];
-
-                if (item == "color" || item == "background-color") {
-                    getEl(item).value = value;
-                } else {
-                    for (var idx2 = 0; idx2 < getEl(item).options.length; ++idx2) {
-                        if (getEl(item).options[idx2].value == value) {
-                            getEl(item).options[idx2].selected = true;
-                            break;
-                        }
-                    } //end for
+            var index = getEl("style").selectedIndex;
+            var option = getEl("style").options[index];
+            reinit();
+            getEl("style").selectedIndex = index;
+            if (option.value === "-1") return;
+            option.value.split(";").forEach(function (declaration) {
+                var separator = declaration.indexOf(":");
+                if (separator < 0) return;
+                var name = declaration.substring(0, separator).trim().toLowerCase();
+                var value = declaration.substring(separator + 1).trim();
+                var picker = getEl(name);
+                if (!picker) return; // Unsupported legacy declarations remain visible for correction.
+                if (name === "color" || name === "background-color") picker.value = value;
+                else if (picker.options) {
+                    for (var i = 0; i < picker.options.length; i++) {
+                        if (picker.options[i].value === value) picker.selectedIndex = i;
+                    }
                 }
-            } //end for
-
-            if (style != "-1") {
-                getEl("styleText").value = style;
-                getEl("editStyle").value = style;
-                getEl("example").style.cssText = style;
-                getEl("styleName").value = getEl("style").options[getEl("style").selectedIndex].text;
-            }
+            });
+            color = getEl("color").value;
+            bgcolor = getEl("background-color").value;
+            getEl("styleText").value = option.value;
+            getEl("editStyle").value = option.value;
+            getEl("example").style.cssText = option.value;
+            getEl("styleName").value = option.text;
         }
 
         function checkfields() {
+            checkColours(); // The popup picker can change values without firing onchange.
             var msg = "";
 
             if (getEl("styleText").value.length == 0) {
@@ -192,8 +154,6 @@
 
             //if it's a new style save it for addition
             if (getEl("style").selectedIndex == 0) {
-                addStyle("color", getEl("color"));
-                addStyle("background-color", getEl("background-color"));
                 getEl("editStyle").value = getEl("styleText").value;
             }
             getEl("method").value = "save";
@@ -233,6 +193,8 @@
             getEl("styleText").value = "";
             getEl("editStyle").value = "";
             getEl("example").style.cssText = "";
+            color = "";
+            bgcolor = "";
         }
 
         function init() {
@@ -249,6 +211,10 @@
 <body>
 
 <h3><fmt:message key="admin.admin.manageCodeStyles"/></h3>
+
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert"><s:actionerror escape="true"/></div>
+</s:if>
 
 <div class="container-fluid d-flex flex-wrap align-items-center gap-2">
 
@@ -274,7 +240,7 @@
             <select name="selectedStyle" id="style">
                 <option value="-1"><fmt:message key="admin.manageCodeStyles.NoneSelected"/></option>
                 <c:forEach items="${styles}" var="style">
-                    <option value="${carlos:forHtmlAttribute(style.style)}">${carlos:forHtml(style.name)}</option>
+                    <option value="${carlos:forHtmlAttribute(style.style)}" <c:if test="${selectedStyle eq style.style}">selected</c:if>>${carlos:forHtml(style.name)}</option>
                 </c:forEach>
             </select>
 
@@ -290,7 +256,7 @@
         <div class="row">
 
             <fmt:message key="admin.manageCodeStyles.StyleName"/><br>
-            <input type="text" id="styleName" name="styleName"/>
+            <input type="text" id="styleName" name="styleName" maxlength="255" value="${carlos:forHtmlAttribute(styleName)}"/>
             <!--<br><br>
 <small><fmt:message key="admin.manageCodeStyles.Instructions"/></small>-->
 
@@ -363,11 +329,11 @@
 
 
             <div class="col-md-4">
-                <input type="hidden" id="editStyle" name="editStyle"/>
+                <input type="hidden" id="editStyle" name="editStyle" value="${carlos:forHtmlAttribute(editStyle)}"/>
 
                 <fmt:message key="admin.manageCodeStyles.StyleText"/> <small><fmt:message key="admin.manageCodeStyles.ManualEnter"/><input type="checkbox"
                                                                      onclick="enableEdit(this);"></small><br/>
-                <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText"></textarea>
+                <textarea rows="8" class="form-control" readonly="true" id="styleText" name="styleText">${carlos:forHtml(styleText)}</textarea>
                 <input class="btn btn-secondary" id="apply-btn" type="button"
                        value="<fmt:message key="admin.manageCodeStyles.Apply"/>" onclick="applyStyle();return false;"
                        style="display:none"/>

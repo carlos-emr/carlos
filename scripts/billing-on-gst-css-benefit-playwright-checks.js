@@ -13,8 +13,8 @@
  * previews only its new fake code, GET against the apply mutator is refused, and applying that one
  * change inserts just its billingservice row (no existing fee is touched); a code style built with
  * the pickers is added, renamed, assigned to the owned code and deleted, which resets the code.
- * The LAST step asserts a hand-typed (Manual Enter) style keeps its colour; it fails while the
- * page strips it.
+ * Manual declarations round-trip through create/edit without changing the row ID. Unsupported
+ * declarations report validation errors, preserve the editor text, and do not write partial styles.
  *
  * Fixtures: one owned bill (seedOwnedBill) with owned billing_on_ext GST rows; an unused fake fee
  * code created by the upload. gstControl is clinic-wide: it is snapshotted and restored, so run with
@@ -221,15 +221,56 @@ async function workflow(s) {
     h.assert(await frame.locator('#style option', { hasText: styleName }).count() === 0, 'The deleted style is still offered');
   });
 
+  let typedId;
+  let typed;
   await s.step('a style typed by hand (Manual Enter) is saved with every declaration typed', async () => {
     frame = await adminFrame(admin, STYLE_ROUTE, '#style');
-    const typed = `color:${colour};text-decoration:underline;`;
+    typed = `color:${colour};text-decoration:underline;`;
     await frame.locator('#styleName').fill(`${styleName} typed`);
     await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
     await frame.locator('#styleText').fill(typed);
     await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
     await expectValue(sql, `SELECT style FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`, typed,
       'Saving a hand-typed style dropped the colour declaration the operator typed');
+    typedId = sql.value(`SELECT id FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`);
+    await frame.locator('#style').selectOption({label:`${styleName} typed`});
+    await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
+    h.assert(await frame.locator('#styleText').inputValue() === typed, 'Reopening changed the typed style');
+  });
+
+  await s.step('editing manual declarations updates the same style and survives reopening without a final semicolon', async () => {
+    typed = `color:rebeccapurple; background-color:${colour}; text-decoration:overline`;
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(typed);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(id), MAX(style)) FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`,
+      `1|${typedId}|${typed}`, 'Editing declarations failed to update the same style row');
+    await frame.locator('#style').selectOption({label:`${styleName} typed`});
+    await frame.locator('input[type="button"][onclick="edit();return false;"]').click();
+    h.assert(await frame.locator('#styleText').inputValue() === typed, 'Reopening lost edited declarations');
+    h.assert(await frame.locator('#color').inputValue() === 'rebeccapurple'
+      && await frame.locator('#background-color').inputValue() === colour
+      && await frame.locator('#text-decoration').inputValue() === 'overline', 'Reopening did not synchronize all pickers');
+  });
+
+  await s.step('unsupported manual declarations show an error without writing or discarding the editor text', async () => {
+    const unsupported = `${typed};position:fixed;`;
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(unsupported);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    const validation = frame.locator('.alert-danger[role="alert"]');
+    h.assert(await validation.count() === 1 && /Unsupported style/.test(await validation.innerText()),
+      'Unsupported declarations did not show a translated validation message');
+    h.assert(await frame.locator('.alert-success').count() === 0, 'Rejected style incorrectly reported success');
+    h.assert(await frame.locator('#styleText').inputValue() === unsupported, 'Validation discarded the text needing correction');
+    h.assert(await frame.locator('#styleName').inputValue() === `${styleName} typed`, 'Validation discarded the style name');
+    h.assert(sql.value(`SELECT style FROM cssStyles WHERE id=${Number(typedId)}`) === typed, 'Rejected edit changed the stored style');
+    // Correct the rejected edit through the same form, preserving its original identity.
+    await frame.locator('input[type="checkbox"][onclick="enableEdit(this);"]').check();
+    await frame.locator('#styleText').fill(`color:${colour};`);
+    await navigates(admin, frame, frame.locator('input[type="submit"][name="submit"].btn-primary'));
+    await expectValue(sql, `SELECT CONCAT_WS('|', COUNT(*), MAX(id), MAX(style)) FROM cssStyles WHERE name=${h.sqlString(`${styleName} typed`)}`,
+      `1|${typedId}|color:${colour};`, 'Correcting validation did not update the original style');
   });
 }
 

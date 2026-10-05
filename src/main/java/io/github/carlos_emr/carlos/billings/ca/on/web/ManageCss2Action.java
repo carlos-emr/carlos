@@ -95,7 +95,18 @@ public class ManageCss2Action extends ActionSupport {
         boolean newStyle = false;
         List<CssStyle> styles = cssStylesDao.findAll();
 
-        if (selectedStyle.equals("-1")) {
+        if (styleName == null || styleName.isBlank() || styleName.length() > 255) {
+            addActionError(getText("admin.manageCodeStyles.invalidName"));
+        }
+        if (!BillingCodeStyleValidator.isSupported(styleText)) {
+            addActionError(getText("admin.manageCodeStyles.invalidDeclarations"));
+        }
+        if (hasActionErrors()) {
+            this.setStyles(styles);
+            return "init";
+        }
+
+        if ("-1".equals(selectedStyle)) {
             cssStyle = new CssStyle();
             cssStyle.setStatus(CssStyle.ACTIVE);
             newStyle = true;
@@ -118,7 +129,7 @@ public class ManageCss2Action extends ActionSupport {
         }
 
         cssStyle.setName(this.getStyleName());
-        cssStyle.setStyle(this.getEditStyle());
+        cssStyle.setStyle(this.getStyleText());
 
         if (newStyle) {
             cssStylesDao.persist(cssStyle);
@@ -129,6 +140,11 @@ public class ManageCss2Action extends ActionSupport {
 
         this.setStyles(styles);
         request.setAttribute("success", "true");
+        // Keep submitted fields only on validation errors; a successful save starts a fresh editor.
+        styleText = "";
+        styleName = "";
+        editStyle = "-1";
+        selectedStyle = "-1";
 
         return "init";
     }
