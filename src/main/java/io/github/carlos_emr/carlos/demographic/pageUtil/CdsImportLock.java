@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import javax.sql.DataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
 
 /**
  * Serializes CDS uploads to one database, including requests handled by different application instances.
@@ -17,9 +18,11 @@ final class CdsImportLock implements AutoCloseable {
     static final String ACQUIRE_SQL = "SELECT GET_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())), 30)";
     static final String RELEASE_SQL = "SELECT RELEASE_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())))";
     private final Connection connection;
+    private final DataSource dataSource;
     private boolean closed;
 
-    private CdsImportLock(Connection connection) {
+    private CdsImportLock(Connection connection, DataSource dataSource) {
+        this.dataSource = dataSource;
         this.connection = connection;
     }
 
@@ -28,13 +31,13 @@ final class CdsImportLock implements AutoCloseable {
         Connection connection = dataSource.getConnection();
         try {
             int result = query(connection, ACQUIRE_SQL);
-            if (result == 1) return new CdsImportLock(connection);
+            if (result == 1) return new CdsImportLock(connection, dataSource);
             if (result != 0) throw new SQLException("Unexpected CDS import lock result");
             connection.close();
             return null;
         } catch (SQLException failure) {
             // The server may have acquired the lock even if reading its reply failed.
-            abort(connection, failure);
+            discard(dataSource, connection, failure);
             try { connection.close(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
             throw failure;
         }
@@ -59,13 +62,21 @@ final class CdsImportLock implements AutoCloseable {
                 if (query(connection, RELEASE_SQL) != 1) throw new SQLException("CDS import lock was not released");
             } catch (SQLException failure) {
                 // Never return a session with an uncertain advisory lock to the connection pool.
-                abort(connection, failure);
+                discard(dataSource, connection, failure);
                 throw failure;
             }
         }
     }
 
-    private static void abort(Connection connection, SQLException failure) {
+    private static void discard(DataSource dataSource, Connection connection, SQLException failure) {
+        if (dataSource instanceof BasicDataSource pool) {
+            try {
+                pool.invalidateConnection(connection);
+                return;
+            } catch (RuntimeException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+        }
         try { connection.abort(Runnable::run); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
     }
 }

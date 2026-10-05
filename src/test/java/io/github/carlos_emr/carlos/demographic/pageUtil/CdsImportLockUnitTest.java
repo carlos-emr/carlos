@@ -104,4 +104,16 @@ class CdsImportLockUnitTest extends CarlosUnitTestBase {
         verify(connection).abort(any());
         verify(connection).close();
     }
+    @Test
+    void shouldEvictFromApplicationPool_whenReleaseFails() throws Exception {
+        var pool = mock(org.apache.commons.dbcp2.BasicDataSource.class);
+        when(pool.getConnection()).thenReturn(connection);
+        when(released.getInt(1)).thenReturn(0);
+        CdsImportLock lock = CdsImportLock.acquire(pool);
+        assertThatThrownBy(lock::close).isInstanceOf(SQLException.class);
+        verify(pool).invalidateConnection(connection);
+        verify(connection, never()).abort(any());
+        verify(connection).close();
+    }
+
 }
