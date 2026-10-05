@@ -121,7 +121,7 @@ public final class EmailConfigSecrets {
 
     /** What a {@code configDetails} value holds in its credential fields. */
     public enum TransportSecretState {
-        /** No non-empty password or API key: an unauthenticated relay. */
+        /** No non-empty password or API key (or, asked about one field, that field is empty). */
         NONE,
         /** Every credential is still plaintext. */
         PLAINTEXT,

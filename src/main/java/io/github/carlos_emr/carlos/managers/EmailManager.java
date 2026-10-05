@@ -761,9 +761,9 @@ public class EmailManager {
      *   <li>An encrypted credential the transport reads that does not decrypt with the current
      *       key, or that cannot be read because no key is available, is always refused: the send
      *       would fail anyway, and the likely cause (the key was lost and a new one generated)
-     *       needs an administrator to restore the original key, not a retry. An encrypted leftover
-     *       the transport never reads does not stop the send.</li>
-     *   <li>Plaintext credentials with no key available are refused only when
+     *       needs an administrator to restore the original key, not a retry. A leftover credential
+     *       the transport never reads, plaintext or encrypted, does not stop the send.</li>
+     *   <li>A plaintext credential the transport reads, with no key available, is refused only when
      *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise they are reported once
      *       and sent. With a key, they are encrypted by {@link #upgradeConfigCredentialsAtRest}.</li>
      * </ul>
@@ -790,51 +790,59 @@ public class EmailManager {
             }
             return null;
         }
-        boolean keyConfigured = EncryptionUtils.isKeyConfigured();
-        if (state == EmailConfigSecrets.TransportSecretState.ENCRYPTED && !keyConfigured) {
-            // Nothing encrypted can be read without a key, but only the credential this transport reads
-            // can stop its mail. If that one is not encrypted, it decides under the rules for any other
-            // account, and an encrypted leftover beside it, such as an old password on an API account,
-            // is left for the key-mismatch report once a key is configured.
-            state = EmailConfigSecrets.transportSecretState(emailConfig.getConfigDetailsJson(),
-                    transportCredentialField(emailConfig));
-            if (state == EmailConfigSecrets.TransportSecretState.NONE) {
-                if (firstReport(id)) {
-                    logger.warn("Sender config id={} holds an encrypted credential its transport never uses; remove it.", id);
-                }
-                return null;
-            }
-        }
-        if (state == EmailConfigSecrets.TransportSecretState.ENCRYPTED) {
-            if (keyConfigured && EmailConfigSecrets.encryptedSecretsDecrypt(emailConfig.getConfigDetailsJson())) {
-                return null;
-            }
-            // Only the credential this transport reads can stop its mail. A leftover it never reads,
-            // such as an old password on an API account, is reported and the send proceeds.
-            if (keyConfigured && EmailConfigSecrets.encryptedSecretDecrypts(emailConfig.getConfigDetailsJson(),
-                    transportCredentialField(emailConfig))) {
-                if (firstReport(id)) {
-                    logger.warn("Sender config id={} holds a credential its transport never uses that cannot be "
-                            + "decrypted with the current {}; remove it.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
-                }
-                return null;
-            }
-            if (keyConfigured) {
-                logger.error("Email send refused: sender config id={} holds credentials that cannot be decrypted with "
-                        + "the current {}: they were encrypted under a different key, or the stored value is damaged. "
-                        + "Restore the original key if it changed (generating a new one does not recover them); "
-                        + "otherwise re-enter the credentials.",
-                        id, EncryptionUtils.SECRET_KEY_ENV_VAR);
-            } else {
-                logger.error("Email send refused: sender config id={} holds encrypted credentials but {} is not available. "
-                        + "Configure the original key.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
-            }
-            return CREDENTIAL_KEY_MISMATCH_ERROR;
-        }
-        if (keyConfigured) {
+        String details = emailConfig.getConfigDetailsJson();
+        String field = transportCredentialField(emailConfig);
+        return EncryptionUtils.isKeyConfigured()
+                ? credentialRefusalWithKey(id, details, field, state)
+                : credentialRefusalWithoutKey(id, details, field);
+    }
+
+    /** {@link #credentialKeyRefusal} with a key: only an encrypted credential the transport reads can be refused. */
+    private String credentialRefusalWithKey(Integer id, String details, String field,
+                                            EmailConfigSecrets.TransportSecretState state) {
+        if (state != EmailConfigSecrets.TransportSecretState.ENCRYPTED
+                || EmailConfigSecrets.encryptedSecretsDecrypt(details)) {
             return null;
         }
-        String held = state == EmailConfigSecrets.TransportSecretState.UNPARSEABLE
+        // Only the credential this transport reads can stop its mail. A leftover it never reads,
+        // such as an old password on an API account, is reported and the send proceeds.
+        if (EmailConfigSecrets.encryptedSecretDecrypts(details, field)) {
+            if (firstReport(id)) {
+                // The leftover also stops the at-rest upgrade, so a plaintext credential beside it stays plaintext.
+                String unencrypted = EmailConfigSecrets.transportSecretState(details, field)
+                        == EmailConfigSecrets.TransportSecretState.PLAINTEXT
+                        ? " Until then, its " + field + " stays unencrypted at rest." : "";
+                logger.warn("Sender config id={} holds a credential its transport never uses that cannot be "
+                        + "decrypted with the current {}; remove it.{}", id, EncryptionUtils.SECRET_KEY_ENV_VAR, unencrypted);
+            }
+            return null;
+        }
+        logger.error("Email send refused: sender config id={} holds credentials that cannot be decrypted with "
+                + "the current {}: they were encrypted under a different key, or the stored value is damaged. "
+                + "Restore the original key if it changed (generating a new one does not recover them); "
+                + "otherwise re-enter the credentials.",
+                id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+        return CREDENTIAL_KEY_MISMATCH_ERROR;
+    }
+
+    /**
+     * {@link #credentialKeyRefusal} without a key. Nothing encrypted can be read, but only the credential
+     * this transport reads can stop its mail, so a leftover beside it, plaintext or encrypted, never decides.
+     */
+    private String credentialRefusalWithoutKey(Integer id, String details, String field) {
+        EmailConfigSecrets.TransportSecretState own = EmailConfigSecrets.transportSecretState(details, field);
+        if (own == EmailConfigSecrets.TransportSecretState.NONE) {
+            if (firstReport(id)) {
+                logger.warn("Sender config id={} holds a credential its transport never uses; remove it.", id);
+            }
+            return null;
+        }
+        if (own == EmailConfigSecrets.TransportSecretState.ENCRYPTED) {
+            logger.error("Email send refused: sender config id={} holds encrypted credentials but {} is not available. "
+                    + "Configure the original key.", id, EncryptionUtils.SECRET_KEY_ENV_VAR);
+            return CREDENTIAL_KEY_MISMATCH_ERROR;
+        }
+        String held = own == EmailConfigSecrets.TransportSecretState.UNPARSEABLE
                 ? "a configuration that cannot be parsed" : "plaintext credentials";
         if (CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
             logger.error("Email send refused: sender config id={} holds {}, {} is not available, and {} requires it",

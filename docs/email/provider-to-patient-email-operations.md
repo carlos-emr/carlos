@@ -111,10 +111,10 @@ to protect:
 | Sender account | Result |
 |---|---|
 | Encrypted credentials that decrypt with the current key | Sent. |
-| Encrypted credentials that do **not** decrypt (the key was changed or regenerated) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
-| A leftover credential the account's transport never reads (an old password on an API account, an old API key on an SMTP account) that does not decrypt | Sent on the transport's own credential, with one WARN per account asking for the leftover to be removed. The stored row is left exactly as it is: nothing in it is encrypted while it holds a value the current key cannot read. With no key available, an encrypted leftover is not checked, and the transport's own credential is handled by the rows above and below. |
+| Encrypted credentials that do **not** decrypt (the key was changed or regenerated, or no key is available) | Refused. The email log records `FAILED`: "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator." An ERROR names the account id and says to restore the original key. |
+| A leftover credential the account's transport never reads (an old password on an API account, an old API key on an SMTP account) that does not decrypt | Sent on the transport's own credential, with one WARN per account asking for the leftover to be removed. The stored row is left exactly as it is: nothing in it is encrypted while it holds a value the current key cannot read. With no key available, a leftover is not checked, and the transport's own credential is handled by the rows above and below. |
 | Plaintext credentials, key available | Encrypted at rest (best-effort: if that write fails, it is retried on the next send), then sent. |
-| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured." |
+| Plaintext credentials, no key available | Only possible where CARLOS runs without its Startup listener. Sent with one WARN per account, unless `email.credentials.require_encryption_key` is `true`, `yes` or `on`: then refused with "Email sender account cannot be used until the server encryption key is configured. Contact your administrator." |
 
 Every refusal is written to the audit log as
 `EmailManager.sendEmail.refusedCredentialKey`, with a reason: `keyMismatch` (the

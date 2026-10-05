@@ -319,16 +319,54 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should still refuse an SMTP account whose own password is encrypted when no key is available")
-        void shouldRefuseSmtpAccount_whenKeyMissingAndPasswordEncryptedBesidePlaintextLeftover() throws Exception {
+        @DisplayName("should still refuse an API account whose own API key is encrypted when no key is available")
+        void shouldRefuseApiAccount_whenKeyMissingAndApiKeyEncryptedBesidePlaintextLeftover() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
-            String encrypted = EmailConfigSecrets.encryptSecrets("{\"password\":\"plain-secret\"}");
-            EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
-                    "{\"api_key\":\"unused\"," + encrypted.substring(encrypted.indexOf('{') + 1));
+            String encrypted = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"sg-secret\"}");
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                    "{\"password\":\"unused\"," + encrypted.substring(encrypted.indexOf('{') + 1));
             removeKey();
             requireKey(false);
 
-            assertThat(emailManager.credentialKeyRefusal(smtp)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+            assertThat(emailManager.credentialKeyRefusal(sendGrid)).isEqualTo(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR);
+        }
+
+        @Test
+        @DisplayName("should not refuse an API account with no API key over a plaintext leftover password when no key is available")
+        void shouldAllowApiAccount_whenKeyMissingEnforcedAndOnlyCredentialIsPlaintextLeftover() {
+            removeKey();
+            requireKey(true);
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                    "{\"password\":\"stale-secret\"}");
+            injectDependency(sendGrid, "id", 20);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(sendGrid)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=20").contains("never uses").doesNotContain("stale-secret"));
+            }
+        }
+
+        @Test
+        @DisplayName("should say the SMTP password stays unencrypted while an unreadable leftover API key blocks the upgrade")
+        void shouldWarnPasswordStaysUnencrypted_whenUnusedApiKeyWasEncryptedUnderOldKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(true);
+            EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    "{\"password\":\"plain-secret\"," + stale.substring(stale.indexOf('{') + 1));
+            injectDependency(smtp, "id", 21);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(smtp)).isNull();
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=21").contains("never uses").contains("its password stays unencrypted"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("plain-secret", "old-key", "{ENC}", "{\""));
+            }
         }
 
         @Test
