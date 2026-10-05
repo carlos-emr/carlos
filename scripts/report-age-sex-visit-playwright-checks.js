@@ -20,6 +20,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { parseCsv } = require('./lib/export-content-helpers');
+const { acquireMysqlWorkflowLock } = require('./lib/mysql-workflow-lock');
 
 const JOINED = '1951-03-07';
 const VISIT_DATE = '1952-02-14';
@@ -51,6 +52,9 @@ async function tableCells(scope, selector) {
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
+  // Hold across shared snapshots, range checks, inserts, exports, and fixture restoration.
+  const releaseLock = await acquireMysqlWorkflowLock(s.config.mysql, 'report-age-sex-visit');
+  s.cleanup(releaseLock); // Registered first, therefore released after the workflow cleanup.
   const q = h.sqlString;
   const group = `PW${marker.slice(-8)}`;
   // The IS NULL flags ride along because mysql -B prints SQL NULL and the string
