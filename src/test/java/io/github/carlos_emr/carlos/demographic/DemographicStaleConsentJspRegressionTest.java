@@ -136,6 +136,37 @@ class DemographicStaleConsentJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should offer the confirm-directly box only for an implied record, disabled while it is an opt-out")
+    void shouldOfferExplicitConsentBox_onlyForImpliedRecords() throws Exception {
+        String section = consentSection();
+        int guard = section.indexOf("<c:if test=\"${ not empty patientConsent and not patientConsent.explicit }\">");
+        int box = section.indexOf("name=\"recordExplicit_${carlos:forHtmlAttribute(consentType.type)}\"");
+        assertThat(guard).as("implied-record guard").isGreaterThanOrEqualTo(0);
+        assertThat(box).as("checkbox inside the guard").isGreaterThan(guard);
+        int boxEnd = section.indexOf("/>", box);
+        String checkbox = section.substring(section.lastIndexOf("<input", box), boxEnd);
+        assertThat(checkbox)
+                .contains("type=\"checkbox\"")
+                .contains("value=\"1\"")
+                .contains("<c:if test=\"${ patientConsent.optout }\">disabled</c:if>");
+        assertThat(section.substring(boxEnd, section.indexOf("</c:if>", boxEnd + 2)))
+                .contains("<label for=\"recordExplicit_${carlos:forHtmlAttribute(consentType.type)}\">"
+                        + "<fmt:message key=\"demographic.demographiceditdemographic.confirmExplicitConsent\"/></label>");
+    }
+
+    @Test
+    @DisplayName("should mark an implied consent after the consented label on the edit form and the view")
+    void shouldMarkImpliedConsent_afterConsentedLabel() throws Exception {
+        String implied = "<fmt:message key=\"demographic.demographiceditdemographic.consentStatusConsented\"/>"
+                + "<c:if test=\"${ not patientConsent.explicit }\"> (<fmt:message key="
+                + "\"demographic.demographiceditdemographic.consentImplied\"/>)</c:if>"
+                + ":${carlos:forHtml(patientConsent.consentDate)}";
+        assertThat(Files.readString(CLINICAL_FORM_JSP, StandardCharsets.UTF_8)).contains(implied);
+        assertThat(Files.readString(resolveProjectPath(Path.of(
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp")), StandardCharsets.UTF_8)).contains(implied);
+    }
+
+    @Test
     @DisplayName("should define the warning text in every locale")
     void shouldDefineWarningText_inEveryLocale() throws Exception {
         for (String locale : List.of("en", "es", "fr", "pl", "pt_BR")) {
