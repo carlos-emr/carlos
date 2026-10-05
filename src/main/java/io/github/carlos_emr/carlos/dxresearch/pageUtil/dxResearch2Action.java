@@ -50,14 +50,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearch2Action extends ActionSupport {
 
-    /** An ICD-9 code written with its decimal point: three digits, V and two digits, or E and three digits. */
-    private static final Pattern DOTTED_ICD9 = Pattern.compile("([0-9]{3}|[Vv][0-9]{2}|[Ee][0-9]{3})\\.([0-9]{1,2})");
+    /** An ICD-9 code written with its decimal point: 151.9 or 250.01, V82.9 or V10.05, and E880.9. */
+    private static final Pattern DOTTED_ICD9 = Pattern.compile("[0-9]{3}\\.[0-9]{1,2}|[Vv][0-9]{2}\\.[0-9]{1,2}|[Ee][0-9]{3}\\.[0-9]");
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -208,12 +207,13 @@ public class dxResearch2Action extends ActionSupport {
     private String invalidCodeMessage(String code, String codingSystem,
             AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao) {
         if (AbstractCodeSystemDao.codingSystem.icd9.name().equals(codingSystem) && code.contains(".")) {
-            Matcher dotted = DOTTED_ICD9.matcher(code);
-            if (dotted.matches()) {
-                String withoutDecimal = dotted.group(1) + dotted.group(2);
-                if (csDao.findByCode(withoutDecimal) != null) {
+            String typed = code.strip();
+            if (DOTTED_ICD9.matcher(typed).matches()) {
+                AbstractCodeSystemModel<?> undotted = csDao.findByCode(typed.replace(".", ""));
+                if (undotted != null) {
+                    // Suggest the code as stored (V829, not v829); the lookup ignores letter case.
                     return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
-                            new String[]{code, withoutDecimal});
+                            new String[]{code, undotted.getCode()});
                 }
             }
             return getText("oscarResearch.oscarDxResearch.error.icd9WithDecimal", new String[]{code});
