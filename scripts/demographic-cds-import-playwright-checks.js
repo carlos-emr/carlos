@@ -29,7 +29,7 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
-const { runWorkflow } = require('./lib/workflow-session');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -172,8 +172,10 @@ async function workflow(s) {
   const v = fixtureValues(s.marker);
   const mixedFirst = 'Mixed } import';
   const mixedLast = `${s.marker}-B`;
+  const concurrentLast = `${s.marker}-C`;
   const owner = `(last_name=${h.sqlString(v.lastName)} AND first_name=${h.sqlString(v.firstName)})
-    OR (last_name=${h.sqlString(mixedLast)} AND first_name=${h.sqlString(mixedFirst)})`;
+    OR (last_name=${h.sqlString(mixedLast)} AND first_name=${h.sqlString(mixedFirst)})
+    OR (last_name=${h.sqlString(concurrentLast)} AND first_name=${h.sqlString(v.firstName)})`;
   const importedIds = () => s.sql.rows(`SELECT demographic_no FROM demographic WHERE (${owner}) ORDER BY demographic_no`).flat();
   s.cleanup(() => {
     for (const id of importedIds()) {
@@ -401,6 +403,35 @@ async function workflow(s) {
       }
     });
   }
+  await s.step('Concurrent uploads create one patient and refuse the duplicate without duplicating clinical rows', async () => {
+    const concurrentXml = buildCdsXml({...v, lastName: concurrentLast}, {first, last});
+    assertSchemaValid(concurrentXml);
+    const fields = await frame.locator('#importFile').evaluate(input => Object.fromEntries(
+      Array.from(new FormData(input.form)).filter(([, value]) => typeof value === 'string')));
+    h.assert(fields['CSRF-TOKEN'], 'The concurrent import has no session CSRF token');
+    const post = async () => {
+      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/form/importUpload'), {
+        multipart: {...fields, importFile: {name: `${s.marker}-concurrent.xml`, mimeType: 'text/xml', buffer: Buffer.from(concurrentXml)}},
+        timeout: 120000,
+      });
+      h.assert(response.status() === 200, `Concurrent upload answered HTTP ${response.status()}`);
+      const result = await response.json();
+      await response.dispose();
+      return [result.importedPatients, result.refusedPatients];
+    };
+    const results = await Promise.all([post(), post()]);
+    h.assert(JSON.stringify(results.sort((a, b) => a[0] - b[0])) === JSON.stringify([[0, 1], [1, 0]]),
+      'Concurrent imports did not report exactly one insertion and one duplicate refusal');
+    const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(concurrentLast)}
+      AND first_name=${h.sqlString(v.firstName)}`).flat();
+    h.assert(ids.length === 1, 'Concurrent imports created duplicate patients');
+    for (const table of ['drugs', 'allergies', 'casemgmt_note']) {
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${Number(ids[0])}`) === '1',
+        `Concurrent imports duplicated or omitted ${table}`);
+    }
+    await expectValue(s.sql, "SELECT IS_FREE_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())))", '1',
+      'A completed import retained its database lock');
+  });
 
 }
 

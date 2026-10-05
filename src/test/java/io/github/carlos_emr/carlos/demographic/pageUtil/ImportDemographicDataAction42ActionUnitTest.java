@@ -204,6 +204,33 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo("logout");
     }
 
+    private void prepareLockResult(int lockResult) throws Exception {
+        javax.sql.DataSource dataSource = mock(javax.sql.DataSource.class);
+        java.sql.Connection connection = mock(java.sql.Connection.class);
+        java.sql.PreparedStatement statement = mock(java.sql.PreparedStatement.class);
+        java.sql.ResultSet resultSet = mock(java.sql.ResultSet.class);
+        replaceSpringUtilsBean(javax.sql.DataSource.class, dataSource);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(org.mockito.ArgumentMatchers.anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true);
+        when(resultSet.getInt(1)).thenReturn(lockResult);
+    }
+
+    @Test
+    void shouldReturnRetryWarning_withoutProcessingFile_whenAnotherImportOwnsLock() throws Exception {
+        prepareLockResult(0);
+        action.setImportFile(Files.createFile(tempDir.resolve("waiting.xml")).toFile());
+        action.setImportFileFileName("waiting.xml");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        var json = new ObjectMapper().readTree(getMockResponse().getContentAsString());
+        assertThat(json.get("importedPatients").asInt()).isZero();
+        assertThat(json.get("refusedPatients").asInt()).isZero();
+        assertThat(json.get("importLog").isNull()).isTrue();
+        assertThat(json.get("warnings").get(0).asText()).contains("Another CDS import", "retry");
+        org.mockito.Mockito.verifyNoInteractions(mockNioFileManager);
+    }
+
     @Test
     @DisplayName("should set import response attributes when upload file and filename are present")
     void shouldSetImportResponseAttributes_whenUploadFileAndFilenameArePresent() throws Exception {
@@ -217,6 +244,8 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
 
         action.setImportFile(uploadFile.toFile());
         action.setImportFileFileName("patient.txt");
+
+        prepareLockResult(1);
 
         String result = executeAction(action);
 

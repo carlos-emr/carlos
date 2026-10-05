@@ -137,6 +137,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -249,6 +250,16 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             return SUCCESS;
         }
 
+        try (CdsImportLock importLock = CdsImportLock.acquire(SpringUtils.getBean(DataSource.class))) {
+            if (importLock == null) {
+                generateResponse(response, new ArrayList<>(List.of("Another CDS import is still running. Please retry this file after it finishes.")), null);
+                return NONE;
+            }
+            return importUploadedFile(loggedInInfo);
+        }
+    }
+
+    private String importUploadedFile(LoggedInInfo loggedInInfo) throws Exception {
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         List<Path> validXmlFiles = new ArrayList<>();
