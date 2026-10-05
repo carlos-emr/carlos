@@ -261,17 +261,17 @@
                                value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formPassword"/>:
+                    <td align="right" nowrap><label for="password"><fmt:message key="admin.securityrecord.formPassword"/>:</label>
                     </td>
-                    <td><input type="password" name="password" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"> <font
-                            size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
-                        <%=org.owasp.encoder.Encode.forHtml(op.getProperty("password_min_length"))%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</font>
+                    <td><input type="password" id="password" name="password" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"> <span
+                            style="font-size: x-small">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                        <%=org.owasp.encoder.Encode.forHtml(op.getProperty("password_min_length"))%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</span>
                         <div id="passwordLengthHelp"><fmt:message key="admin.securityupdate.msgMaximumCharacters"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></div></td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
+                    <td align="right"><label for="conPassword"><fmt:message key="admin.securityrecord.formConfirm"/>:</label>
                     </td>
-                    <td><input type="password" name="conPassword" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"></td>
+                    <td><input type="password" id="conPassword" name="conPassword" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"></td>
                 </tr>
                 <tr>
                     <td>
