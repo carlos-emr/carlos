@@ -329,6 +329,24 @@ async function workflow(s) {
     await popup.close();
   });
 
+  await s.step('the date popup prefers the manual override when a newer generated row is also active', async () => {
+    // Only the owned provider/date is touched; workflow cleanup also removes this row after a failure.
+    const duplicateId = sql.value(`INSERT INTO scheduledate (sdate,provider_no,available,priority,reason,hour,creator,status)
+      SELECT sdate,provider_no,'1','b',reason,hour,creator,'A' FROM scheduledate
+      WHERE provider_no=${q(owner)} AND sdate=${q(holidayDate)} AND status='D' ORDER BY id LIMIT 1;
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(duplicateId) && dateRows("status='A'").length === 2,
+      'The duplicate active-day fixture was not created');
+    const cell = settingFrame.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
+    const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'duplicate-date-popup', timeout: 20000});
+    await popup.locator('select[name="hour"]').waitFor();
+    h.assert(await popup.locator('input[name="available"][value="0"]').isChecked()
+      && await popup.locator('select[name="hour"]').inputValue() === templateName,
+      'A duplicate generated day hid the manual override');
+    await popup.close();
+    sql.execute(`DELETE FROM scheduledate WHERE id=${Number(duplicateId)} AND provider_no=${q(owner)}`);
+  });
+
   await s.step('Holiday Setting deletes the owned holiday', async () => {
     const popup = await holidayPopupAtTarget();
     await holidayBox(popup).check();

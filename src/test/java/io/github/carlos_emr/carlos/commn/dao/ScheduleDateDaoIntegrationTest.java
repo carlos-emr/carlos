@@ -155,6 +155,20 @@ public class ScheduleDateDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        void shouldPreferManualOverride_whenAnotherGeneratedRowIsActive() {
+            ScheduleDate manual = createScheduleDate("100001", date2, 'c', "Manual template");
+            createScheduleDate("100001", date2, 'b', "Newer generated template");
+            assertThat(scheduleDateDao.findByProviderNoAndDate("100001", date2).getId()).isEqualTo(manual.getId());
+        }
+
+        @Test
+        void shouldPreferNewestOverride_whenMultipleManualRowsAreActive() {
+            createScheduleDate("100001", date2, 'c', "Old manual template");
+            ScheduleDate latest = createScheduleDate("100001", date2, 'c', "Latest manual template");
+            assertThat(scheduleDateDao.findByProviderNoAndDate("100001", date2).getId()).isEqualTo(latest.getId());
+        }
+
+        @Test
         @DisplayName("date popup lookup ignores an inactive day and another provider's active day")
         void shouldReturnNull_whenOnlyThisProvidersDayIsInactive() {
             ScheduleDate inactive = scheduleDateDao.findByProviderNoAndDate("100001", date1);
