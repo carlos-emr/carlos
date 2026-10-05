@@ -470,12 +470,12 @@ async function run() {
     assert.equal(await history.locator('.chart-match-passage').textContent(), 'HTN');
     await history.locator('.chart-match-links a').click();
     assert.equal(await page.locator('#chart-entry-note-paraphrase').evaluate(el => el.open), true);
-    for (const draft of ['OA of the left knee', 'Left knee OA']) {
-      await history.locator('[name="entryText"]').fill(draft);
-      assert.equal(await history.locator('.chart-match-passage').textContent(), 'Left knee osteoarthritis.');
-    }
+    // A side marker makes matching exact-only: the same text still matches (final full stop aside),
+    // but a paraphrase with a side never does, since sorted terms cannot keep which side applies.
+    await history.locator('[name="entryText"]').fill('Left knee osteoarthritis');
+    assert.equal(await history.locator('.chart-match-passage').textContent(), 'Left knee osteoarthritis.');
     await page.screenshot({ path: path.join(runDir, 'paraphrased-chart-match.png'), fullPage: true });
-    for (const draft of ['Right knee OA', 'Bilateral knee OA', 'No hypertension', 'Asthma']) {
+    for (const draft of ['OA of the left knee', 'Left knee OA', 'Right knee OA', 'Bilateral knee OA', 'No hypertension', 'Asthma']) {
       await history.locator('[name="entryText"]').fill(draft);
       // Identical whole-entry negation can still match; positive asthma cannot match "No asthma".
       assert.equal(await history.locator('.chart-match-notice').isVisible(), draft === 'No hypertension');
