@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/demographic/addEditContact.jsp'), 'utf8');
-const script = [...jsp.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
+const script = [...jsp.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
   .map(match => match[1]).find(source => source.includes('function onSave('));
 assert.ok(script, 'The contact editor script is missing');
 
