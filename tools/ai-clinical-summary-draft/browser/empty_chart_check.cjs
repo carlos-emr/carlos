@@ -30,7 +30,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   const results = [];
-  let chart, csrf;
+  let chart, csrf, finished = false;
   try {
     const context = await newContext(browser, config);
     const schedule = await login(context, config, recorder);
@@ -38,6 +38,9 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       searchTerm: 'FAKE-EMPTY-CHART', preferredDemographicNo: patient, timeout: 60000,
     });
     chart = await openChart(context, masterPage, recorder, 60000);
+    // Opening the eChart takes a note lock. Read the session-wide token now so
+    // the finally block can release that lock after any later failure.
+    csrf = await chart.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const chartUrl = chart.url();
     const tabs = context.pages().length;
     await chart.getByRole('link', { name: 'Review chart updates', exact: true }).click();
@@ -54,7 +57,6 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded' }), link.click()]);
       assert.equal(await frame.locator('#chart-update-source').textContent(), source);
       assert.equal(await frame.locator('.chart-entry').count(), 0);
-      csrf = await frame.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       const started = Date.now();
       await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 1800000 }),
         frame.getByRole('button', { name: 'Generate new proposals', exact: true }).click({ timeout: 1800000 })]);
@@ -149,25 +151,32 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       .getByRole('button', { name: 'Close', exact: true }).click();
     assert.equal(context.pages().length, tabs);
     assert.equal(chart.url(), chartUrl);
+    finished = true;
   } finally {
     try {
-      if (chart && csrf) {
-        const noteId = sql.value(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998' ORDER BY id DESC LIMIT 1`);
-        if (noteId) {
-          assert.match(noteId, /^\d+$/);
-          const response = await chart.request.post(`${config.baseUrl}/CaseManagementEntry`, {
-            form: { method: 'releaseNoteLock', demographicNo: String(patient), noteId, 'CSRF-TOKEN': csrf },
-          });
-          assert.equal(response.status(), 200);
+      try {
+        if (chart && csrf) {
+          const noteId = sql.value(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998' ORDER BY id DESC LIMIT 1`);
+          if (noteId) {
+            assert.match(noteId, /^\d+$/);
+            const response = await chart.request.post(`${config.baseUrl}/CaseManagementEntry`, {
+              form: { method: 'releaseNoteLock', demographicNo: String(patient), noteId, 'CSRF-TOKEN': csrf },
+            });
+            assert.equal(response.status(), 200);
+          }
+          assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient}`), '0');
         }
-        assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient}`), '0');
+        assert.deepEqual(counts(), before);
+        const report = { chartNumber: fixture.chartNumber, demographicId: patient,
+          baselineCounts: before, afterCounts: counts(), results };
+        fs.writeFileSync(path.join(output, 'empty-chart-result.json'), JSON.stringify(report, null, 2) + '\n');
+        console.log(JSON.stringify(report, null, 2));
+        if (results.some(row => row.status !== 'generated')) process.exitCode = 2;
+      } catch (cleanup) {
+        // Keep the original failure visible; report a cleanup problem beside it instead.
+        if (finished) throw cleanup;
+        console.error(`Cleanup after an earlier failure also failed: ${cleanup.message}`);
       }
-      assert.deepEqual(counts(), before);
-      const report = { chartNumber: fixture.chartNumber, demographicId: patient,
-        baselineCounts: before, afterCounts: counts(), results };
-      fs.writeFileSync(path.join(output, 'empty-chart-result.json'), JSON.stringify(report, null, 2) + '\n');
-      console.log(JSON.stringify(report, null, 2));
-      if (results.some(row => row.status !== 'generated')) process.exitCode = 2;
     } finally { await browser.close(); }
   }
   } finally { sql.dispose(); }

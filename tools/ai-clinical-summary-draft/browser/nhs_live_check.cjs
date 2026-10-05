@@ -23,7 +23,19 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   const results = { agent: process.env.CHART_TEST_AGENT, patients: [], passed: false };
-  let page;
+  // Release this test user's eChart note lock, as the sibling chart checks do.
+  const releaseNoteLock = async ({ chart, patient, csrf }) => {
+    const noteId = sql.value(`SELECT note_id FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998' ORDER BY id DESC LIMIT 1`);
+    if (noteId) {
+      assert.match(noteId, /^\d+$/);
+      const response = await chart.request.post(`${config.baseUrl}/CaseManagementEntry`, {
+        form: { method: 'releaseNoteLock', demographicNo: String(patient), noteId, 'CSRF-TOKEN': csrf },
+      });
+      assert.equal(response.status(), 200);
+    }
+    assert.equal(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient} AND provider_no='999998'`), '0');
+  };
+  let page, lock;
   try {
     for (const fixture of fixtures) {
       assert(Number.isSafeInteger(fixture.demographicId) && fixture.demographicId > 0);
@@ -57,6 +69,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(new URL(masterPage.url()).searchParams.get('demographic_no'), String(patient));
       const chart = await openChart(context, masterPage, recorder, 60000);
       await chart.waitForLoadState('domcontentloaded');
+      // Opening the eChart takes a note lock; keep what the finally block needs to release it.
+      lock = { chart, patient, csrf: await chart.locator('input[name="CSRF-TOKEN"]').first().inputValue() };
       page = await context.newPage();
       const preview = `${config.baseUrl}/documentManager/AiDocumentSummary?documentId=${doc}`;
       assert.equal((await page.goto(preview)).status(), 200);
@@ -80,7 +94,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(count(), receiptsBefore);
       details.checks.push('real CSRF rejection', 'GET mutation rejection', 'controlled 403 access refusal');
       const generate = page.getByRole('button', { name: /Generate/ });
-      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 650000 }), generate.click()]);
+      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 1800000 }), generate.click()]);
       assert.equal(await page.locator('.alert-danger').count(), 0, 'Proposal generation must succeed');
       assert.equal(new URL(page.url()).pathname, new URL(config.baseUrl).pathname.replace(/\/$/, '') + '/documentManager/AiChartUpdates', 'Generation must redirect to GET');
       const proposals = page.locator('article.proposal');
@@ -152,6 +166,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-saved-mobile.png`), fullPage: true });
       details.checks.push('mobile layout');
+      await releaseNoteLock(lock);
+      lock = undefined;
       assertStrictPage(recorder);
       results.patients.push(details);
       console.log(`${fixture.fixture}: ${details.checks.length} checks passed`);
@@ -171,6 +187,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
     throw error;
   } finally {
     fs.writeFileSync(path.join(output, 'result.json'), JSON.stringify(results, null, 2) + '\n');
+    // Best effort after a failed check; never hide the original error.
+    if (lock) await releaseNoteLock(lock).catch(error => console.error(`Note lock release failed: ${error.message}`));
     await browser.close();
   }
   } finally { sql.dispose(); }
