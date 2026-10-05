@@ -304,6 +304,17 @@ async function workflow(s) {
       await form.locator('input[name="serviceDate"]').fill('12-31-2030');
       await form.locator('input[name="serviceTime"]').fill('10:30 AM');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
+      const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
+      invalid.serviceDate = '02-30-2030';
+      const csrf = await dashboard.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+      const rejected = await ctx.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/display/AssignTickler'),
+        {form: invalid, headers: {'CSRF-TOKEN': csrf}, maxRedirects: 0});
+      h.assert(rejected.status() === 400 && (await rejected.json()).success === 'false',
+        'An impossible service date was not rejected before saving');
+      await rejected.dispose();
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
+        'An invalid submission wrote ticklers');
+      // The valid form below reuses this same receipt after correcting the rejected field.
       const [response] = await Promise.all([
         dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.request().method() === 'POST'),
         dashboard.locator('#saveTicklerBtn').click(),

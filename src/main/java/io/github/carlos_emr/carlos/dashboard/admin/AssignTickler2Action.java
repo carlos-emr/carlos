@@ -109,11 +109,22 @@ public class AssignTickler2Action extends ActionSupport {
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
-        Boolean saved = TicklerSubmission.execute(request.getSession(false),
-                request.getParameter("ticklerSubmission"), request.getParameterMap(), () -> {
+        TicklerRequest parsed;
+        String submission;
+        try {
+            parsed = TicklerRequest.parse(request.getParameterMap());
+            submission = TicklerRequest.single(request.getParameterMap(), "ticklerSubmission");
+        } catch (IllegalArgumentException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            jsonObject.put("success", "false");
+            return writeResult(jsonObject);
+        }
+        parsed.tickler().setCreator(loggedInInfo.getLoggedInProviderNo());
+        Boolean saved = TicklerSubmission.execute(request.getSession(false), submission,
+                request.getParameterMap(), () -> {
                     TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
-                    ticklerHandler.createMasterTickler(request.getParameterMap());
-                    return ticklerHandler.addTickler(request.getParameter("demographics"));
+                    ticklerHandler.setMasterTickler(parsed.tickler());
+                    return ticklerHandler.addTickler(parsed.patients());
                 });
         if (saved == null) response.setStatus(HttpServletResponse.SC_CONFLICT);
         if (Boolean.TRUE.equals(saved)) {
@@ -122,6 +133,10 @@ public class AssignTickler2Action extends ActionSupport {
             jsonObject.put("success", "false");
         }
 
+        return writeResult(jsonObject);
+    }
+
+    private String writeResult(ObjectNode jsonObject) {
         try {
             JsonResponseWriter.write(response, jsonObject);
         } catch (IOException e) {
