@@ -968,13 +968,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    Opted Out:${carlos:forHtml(patientConsent.optoutDate)}
+                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"/>:${carlos:forHtml(patientConsent.optoutDate)}
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    Consented<c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}
+                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"/><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
