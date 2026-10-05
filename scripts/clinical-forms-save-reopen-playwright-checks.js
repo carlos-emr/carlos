@@ -140,6 +140,44 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false } = {}) {
       await entry.page.locator(`[name="${form.prose}"]`).first().waitFor({ state: 'visible' });
     });
 
+    if (form.key === 'DS') {
+      await attempt(entry, 'invalid dates and cancelled confirmations prevent writes without JavaScript errors', async () => {
+        const { page } = entry;
+        const dateInput = page.locator('[name="dischargeDate"]');
+        const save = page.getByRole('button', { name: 'Save', exact: true }).first();
+        const originalUrl = page.url();
+        let posts = 0;
+        const countPost = request => {
+          if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/form/formname')) posts++;
+        };
+        page.on('request', countPost);
+        try {
+          await page.locator(`[name="${form.prose}"]`).fill(entry.text);
+          await dateInput.fill('2026/02/30');
+          const invalid = await h.withExpectedDialogs(page, () => save.click());
+          h.assert(invalid.length === 1 && invalid[0].type === 'alert',
+            'An invalid date must show one validation alert before any save confirmation');
+          h.assert(await dateInput.inputValue() === '2026/02/30', 'Validation discarded the typed date');
+          h.assert(page.url() === originalUrl && posts === 0, 'Invalid-date validation submitted the form');
+          h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
+            'Invalid-date validation wrote a form record');
+          await dateInput.fill(DATE.value);
+          const cancelled = await h.withExpectedDialogs(page, () => save.click(), { accept: false });
+          h.assert(cancelled.length === 1 && cancelled[0].type === 'confirm',
+            'A valid date must reach exactly one cancellable save confirmation');
+          h.assert(page.url() === originalUrl && posts === 0, 'Cancelling Save submitted the form');
+          h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '0',
+            'Cancelling Save wrote a form record');
+          h.assert(await dateInput.inputValue() === DATE.value
+            && await page.locator(`[name="${form.prose}"]`).inputValue() === entry.text,
+          'Cancelling Save discarded the typed date or prose');
+          h.assertStrictPage(s.recorder, labels(form));
+        } finally {
+          page.off('request', countPost);
+        }
+      });
+    }
+
     if (form.key === 'MH1') {
       await attempt(entry, 'each real date is validated and cancelling Save and Exit preserves the unsaved form', async () => {
         const { page } = entry;
