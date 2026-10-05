@@ -348,16 +348,60 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @Test
-        @DisplayName("should say the SMTP password stays unencrypted while an unreadable leftover API key blocks the upgrade")
-        void shouldWarnPasswordStaysUnencrypted_whenUnusedApiKeyWasEncryptedUnderOldKey() throws Exception {
+        /** An SMTP account whose plaintext password sits beside an API key encrypted under an earlier key. */
+        private EmailConfig smtpWithUnreadableLeftover() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
             String stale = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
             EncryptionKeyTestSupport.seedFreshKey();
-            requireKey(true);
             EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
                     "{\"password\":\"plain-secret\"," + stale.substring(stale.indexOf('{') + 1));
             injectDependency(smtp, "id", 21);
+            return smtp;
+        }
+
+        @Test
+        @DisplayName("should refuse an SMTP password an unreadable leftover keeps unencrypted when enforcement is on")
+        void shouldRefuse_whenUnreadableLeftoverKeepsPasswordUnencryptedAndEnforced() throws Exception {
+            EmailConfig smtp = smtpWithUnreadableLeftover();
+            requireKey(true);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(smtp))
+                        .isEqualTo(EmailManager.CREDENTIAL_UNREADABLE_LEFTOVER_ERROR);
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("refused").contains("config id=21").contains("its password cannot be encrypted")
+                        .contains("Clear or re-enter the old credential"));
+                assertThat(capture.messages()).noneSatisfy(message -> assertThat(message)
+                        .containsAnyOf("plain-secret", "old-key", "{ENC}", "{\""));
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse an API key an unreadable leftover password keeps unencrypted when enforcement is on")
+        void shouldRefuseApiAccount_whenUnreadableLeftoverKeepsApiKeyUnencryptedAndEnforced() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"password\":\"stale-secret\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                    "{\"api_key\":\"sg-secret\"," + stale.substring(stale.indexOf('{') + 1));
+            injectDependency(sendGrid, "id", 22);
+            requireKey(true);
+
+            try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
+                assertThat(emailManager.credentialKeyRefusal(sendGrid))
+                        .isEqualTo(EmailManager.CREDENTIAL_UNREADABLE_LEFTOVER_ERROR);
+
+                assertThat(capture.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("config id=22").contains("its api_key cannot be encrypted"));
+            }
+        }
+
+        @Test
+        @DisplayName("should send, and say the SMTP password stays unencrypted, while an unreadable leftover blocks the upgrade and enforcement is off")
+        void shouldWarnPasswordStaysUnencrypted_whenUnusedApiKeyWasEncryptedUnderOldKey() throws Exception {
+            EmailConfig smtp = smtpWithUnreadableLeftover();
+            requireKey(false);
 
             try (LogCapture capture = LogCapture.forLogger(EmailManager.class)) {
                 assertThat(emailManager.credentialKeyRefusal(smtp)).isNull();
@@ -596,7 +640,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should send on the transport's own credential and leave the row as stored when an unused field is stale")
+        @DisplayName("should send on the transport's own credential and leave the row as stored when an unused field is stale and enforcement is off")
         void shouldSendWithoutUpgrade_whenUnusedFieldWasEncryptedUnderOldKey() throws Exception {
             EncryptionKeyTestSupport.seedFreshKey();
             String staleApiKey = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
@@ -607,7 +651,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
             EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL, details);
             injectDependency(smtp, "id", 12);
             EncryptionKeyTestSupport.seedFreshKey();
-            requireKey(true);
+            requireKey(false);
             when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtp);
 
             try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class,
@@ -639,6 +683,29 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 assertThat(transports.constructed()).isEmpty();
                 logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
                         eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyMissing"), eq("123"), eq("")));
+            }
+        }
+
+        @Test
+        @DisplayName("should audit unreadableLeftover, open no transport and leave the row as it is under enforcement")
+        void shouldAuditUnreadableLeftover_whenLeftoverKeepsPasswordUnencryptedAndEnforced() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            String stale = EmailConfigSecrets.encryptSecrets("{\"api_key\":\"old-key\"}");
+            EncryptionKeyTestSupport.seedFreshKey();
+            EmailConfig smtp = config(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.GMAIL,
+                    "{\"password\":\"plain-secret\"," + stale.substring(stale.indexOf('{') + 1));
+            injectDependency(smtp, "id", 12);
+            requireKey(true);
+            when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtp);
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=unreadableLeftover"), eq("123"), eq("")));
             }
         }
 

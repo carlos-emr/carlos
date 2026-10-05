@@ -124,6 +124,8 @@ public class EmailManager {
     private static final Set<String> OFF_VALUES = Set.of("false", "no", "off");
     static final String CREDENTIAL_KEY_MISMATCH_ERROR =
             "Email sender account credentials cannot be read with the server's current encryption key. Contact your administrator.";
+    static final String CREDENTIAL_UNREADABLE_LEFTOVER_ERROR =
+            "Email sender account holds an old credential the server's current encryption key cannot read. Contact your administrator.";
     private static final String EMAIL_AUDIT_CONTENT = "Email";
     private static final String UNKNOWN_NAME_PART = "Unknown";
     private static final String SENDER_NAME_PART = "Sender";
@@ -762,7 +764,10 @@ public class EmailManager {
      *       key, or that cannot be read because no key is available, is always refused: the send
      *       would fail anyway, and the likely cause (the key was lost and a new one generated)
      *       needs an administrator to restore the original key, not a retry. A leftover credential
-     *       the transport never reads, plaintext or encrypted, does not stop the send.</li>
+     *       the transport never reads, plaintext or encrypted, does not stop the send, with one
+     *       exception: when an unreadable leftover keeps the transport's plaintext credential from
+     *       being encrypted and {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on, the send is refused
+     *       until an administrator clears or re-enters the leftover.</li>
      *   <li>A plaintext credential the transport reads, with no key available, is refused only when
      *       {@value #REQUIRE_CREDENTIAL_KEY_PROPERTY} is on; otherwise it is reported once
      *       and sent. With a key it is encrypted by {@link #upgradeConfigCredentialsAtRest}, unless
@@ -808,11 +813,18 @@ public class EmailManager {
         // Only the credential this transport reads can stop its mail. A leftover it never reads,
         // such as an old password on an API account, is reported and the send proceeds.
         if (EmailConfigSecrets.encryptedSecretDecrypts(details, field)) {
+            // The leftover also stops the at-rest upgrade, so a plaintext credential beside it stays plaintext.
+            boolean ownPlaintext = EmailConfigSecrets.transportSecretState(details, field)
+                    == EmailConfigSecrets.TransportSecretState.PLAINTEXT;
+            if (ownPlaintext && CarlosProperties.getInstance().isPropertyActive(REQUIRE_CREDENTIAL_KEY_PROPERTY)) {
+                logger.error("Email send refused: sender config id={} holds a credential its transport never uses that "
+                        + "cannot be decrypted with the current {}, so its {} cannot be encrypted at rest, and {} requires "
+                        + "that. Clear or re-enter the old credential on this sender account.",
+                        id, EncryptionUtils.SECRET_KEY_ENV_VAR, field, REQUIRE_CREDENTIAL_KEY_PROPERTY);
+                return CREDENTIAL_UNREADABLE_LEFTOVER_ERROR;
+            }
             if (firstReport(id)) {
-                // The leftover also stops the at-rest upgrade, so a plaintext credential beside it stays plaintext.
-                String unencrypted = EmailConfigSecrets.transportSecretState(details, field)
-                        == EmailConfigSecrets.TransportSecretState.PLAINTEXT
-                        ? " Until then, its " + field + " stays unencrypted at rest." : "";
+                String unencrypted = ownPlaintext ? " Until then, its " + field + " stays unencrypted at rest." : "";
                 logger.warn("Sender config id={} holds a credential its transport never uses that cannot be "
                         + "decrypted with the current {}; remove it.{}", id, EncryptionUtils.SECRET_KEY_ENV_VAR, unencrypted);
             }
@@ -861,9 +873,14 @@ public class EmailManager {
     /**
      * The audit reason for a refusal: encrypted credentials with no key at all ({@code keyMissing})
      * are told apart from ones the current key cannot read ({@code keyMismatch}); plaintext
-     * credentials refused under enforcement are {@code keyRequired}.
+     * credentials refused under enforcement are {@code keyRequired}, and a plaintext credential an
+     * unreadable leftover keeps from being encrypted, refused under enforcement, is
+     * {@code unreadableLeftover}.
      */
     private static String credentialRefusalReason(String refusal) {
+        if (CREDENTIAL_UNREADABLE_LEFTOVER_ERROR.equals(refusal)) {
+            return "unreadableLeftover";
+        }
         if (!CREDENTIAL_KEY_MISMATCH_ERROR.equals(refusal)) {
             return "keyRequired";
         }
