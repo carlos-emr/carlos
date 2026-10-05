@@ -28,6 +28,7 @@ import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
@@ -38,17 +39,37 @@ class ChartUpdateReceiptStoreUnitTest {
     private final ChartUpdateReceiptStore store = new ChartUpdateReceiptStore();
     ChartUpdateReceiptStoreUnitTest() { ReflectionTestUtils.setField(store, "entityManager", em); }
 
-    @Test void shouldFailClosed_forMissingOrNonTransactionalTables() {
+    private Query stubEngines(List<String> result) {
         Query query = mock(Query.class);
         when(em.createNativeQuery(anyString(), eq(String.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
-        when(query.getResultList()).thenReturn(List.of("InnoDB"));
-        store.requireTransactionalTables(true, true);
-        verify(query).setParameter("tableName", "casemgmt_note_lock");
-        verify(query).setParameter("tableName", "eChart");
-        when(query.getResultList()).thenReturn(List.of("MyISAM"));
+        when(query.getResultList()).thenReturn(result);
+        return query;
+    }
+
+    private List<Object> checkedTables(boolean history, boolean legacyChart) {
+        Query query = stubEngines(List.of("InnoDB"));
+        store.requireTransactionalTables(history, legacyChart);
+        ArgumentCaptor<Object> tables = ArgumentCaptor.forClass(Object.class);
+        verify(query, atLeastOnce()).setParameter(eq("tableName"), tables.capture());
+        return tables.getAllValues();
+    }
+
+    @Test void shouldFailClosed_forMissingOrNonTransactionalTables() {
+        // Every table a write touches is checked; dropping one would let a partial write look atomic.
+        List<Object> history = List.of("clinical_chart_update_receipt", "demographic", "casemgmt_note", "casemgmt_issue",
+                "casemgmt_issue_notes", "casemgmt_note_link", "casemgmt_note_lock", "hash_audit");
+        assertThat(checkedTables(true, false)).containsExactlyElementsOf(history);
+        var legacy = new java.util.ArrayList<>(history);
+        legacy.add("eChart");
+        assertThat(checkedTables(true, true)).containsExactlyElementsOf(legacy);
+        for (boolean legacyChart : new boolean[]{false, true}) {
+            assertThat(checkedTables(false, legacyChart))
+                    .containsExactly("clinical_chart_update_receipt", "demographic", "tickler", "tickler_link");
+        }
+        stubEngines(List.of("MyISAM"));
         assertThatThrownBy(() -> store.requireTransactionalTables(false, false)).hasMessageContaining("transactional");
-        when(query.getResultList()).thenReturn(List.of());
+        stubEngines(List.of());
         assertThatThrownBy(() -> store.requireTransactionalTables(false, false)).hasMessageContaining("transactional");
     }
 

@@ -30,45 +30,55 @@ import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class ChartUpdateTicklerAccessUnitTest {
-    @Test void shouldPreserveCreatorAccess_whenAssigneeHasNoProgramRole() {
-        var manager = new TicklerManagerImpl();
-        var memberships = mock(ProgramProviderDAO.class);
-        var access = mock(ProgramAccessDAO.class);
-        var notes = mock(CaseManagementManager.class);
+    private final ProgramProviderDAO memberships = mock(ProgramProviderDAO.class);
+    private final CaseManagementManager notes = mock(CaseManagementManager.class);
+    private final TicklerManagerImpl manager = new TicklerManagerImpl();
+
+    ChartUpdateTicklerAccessUnitTest() {
         ReflectionTestUtils.setField(manager, "programProviderDAO", memberships);
-        ReflectionTestUtils.setField(manager, "programAccessDAO", access);
+        ReflectionTestUtils.setField(manager, "programAccessDAO", mock(ProgramAccessDAO.class));
         ReflectionTestUtils.setField(manager, "caseManagementManager", notes);
-        var role = new Secrole();
-        role.setRoleName("doctor");
-        var member = new ProgramProvider();
-        member.setRole(role);
-        when(memberships.getProgramProviderByProviderProgramId("101", 10016L)).thenReturn(List.of(member));
-        when(memberships.getProgramProviderByProviderProgramId("102", 10016L)).thenReturn(List.of());
         when(notes.convertProgramAccessListToMap(anyList())).thenReturn(Map.of());
+    }
+
+    // Viewer 101 opens a tickler assigned to 102; without a usable role match only the creator keeps access.
+    @ParameterizedTest(name = "viewer role {0}, assignee membership {1}, creator {2}: visible={3}")
+    @CsvSource({
+        "doctor,  none,     101, true",
+        "doctor,  none,     103, false",
+        "doctor,  roleless, 103, false",
+        "missing, roleless, 101, true",
+        "missing, roleless, 103, false",
+        "unnamed, roleless, 101, true"
+    })
+    void shouldPreserveCreatorAccess_whenAssigneeOrViewerHasNoProgramRole(String viewerRole, String assigneeMembership,
+            String creator, boolean visible) {
+        var member = new ProgramProvider();
+        member.setRole(switch (viewerRole) {
+            case "doctor" -> {
+                var role = new Secrole();
+                role.setRoleName("doctor");
+                yield role;
+            }
+            case "unnamed" -> new Secrole();
+            default -> null;
+        });
+        when(memberships.getProgramProviderByProviderProgramId("101", 10016L)).thenReturn(List.of(member));
+        when(memberships.getProgramProviderByProviderProgramId("102", 10016L))
+                .thenReturn("roleless".equals(assigneeMembership) ? List.of(new ProgramProvider()) : List.of());
         var tickler = new Tickler();
         tickler.setId(7);
         tickler.setProgramId(10016);
         tickler.setTaskAssignedTo("102");
-        tickler.setCreator("101");
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).containsExactly(tickler);
-        tickler.setCreator("103");
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).isEmpty();
-        var unconfiguredAssignee = new ProgramProvider();
-        when(memberships.getProgramProviderByProviderProgramId("102", 10016L)).thenReturn(List.of(unconfiguredAssignee));
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).isEmpty();
-        member.setRole(null);
-        tickler.setCreator("101");
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).containsExactly(tickler);
-        tickler.setCreator("103");
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).isEmpty();
-        member.setRole(new Secrole());
-        tickler.setCreator("101");
-        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016")).containsExactly(tickler);
+        tickler.setCreator(creator);
+        assertThat(manager.filterTicklersByAccess(List.of(tickler), "101", "10016"))
+                .isEqualTo(visible ? List.of(tickler) : List.of());
     }
 }

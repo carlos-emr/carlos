@@ -30,6 +30,8 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.List;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -52,7 +54,12 @@ class ReviewedChartUpdateServiceUnitTest {
         properties = mock(CarlosProperties.class);
         settings = mockStatic(CarlosProperties.class);
         settings.when(CarlosProperties::getInstance).thenReturn(properties);
-        when(properties.getProperty(anyString(), eq("false"))).thenReturn("true");
+        // Stub each flag by name so a renamed or added gate flag fails closed instead of being masked.
+        for (String flag : List.of(ChartUpdateProposals.ENABLED, DocumentSummaryService.ENABLED_PROPERTY,
+                ClinicalSummaryGenerationService.ENABLED_PROPERTY)) {
+            when(properties.getProperty(flag, "false")).thenReturn("true");
+        }
+        when(properties.getProperty("AbandonOldChart", "false")).thenReturn("false");
         when(user.getLoggedInProviderNo()).thenReturn("101");
         var provider = new Provider();
         provider.setProviderNo("101");
@@ -95,6 +102,7 @@ class ReviewedChartUpdateServiceUnitTest {
         verify(ticklers).addTicklerLink(eq(user), argThat(link -> link.getTableName().equals("DOC") && link.getTableId() == 42L));
         var order = inOrder(context, receipts, ticklers);
         order.verify(context).requireWrite(user, 3001, "tickler");
+        order.verify(receipts).requireTransactionalTables(false, true);
         order.verify(receipts).lockPatient(3001);
         order.verify(context).load(user, 42);
         order.verify(ticklers).addTickler(eq(user), any());
@@ -125,11 +133,16 @@ class ReviewedChartUpdateServiceUnitTest {
         verifyNoInteractions(receipts, ticklers, notes);
     }
 
-    @Test void shouldRejectApproval_whenDisabledOrWritePermissionRevoked() {
-        when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("false");
+    @ParameterizedTest
+    @ValueSource(strings = {ChartUpdateProposals.ENABLED, DocumentSummaryService.ENABLED_PROPERTY,
+            ClinicalSummaryGenerationService.ENABLED_PROPERTY})
+    void shouldRejectApproval_whenAnyRequiredFlagDisabled(String flag) {
+        when(properties.getProperty(flag, "false")).thenReturn("false");
         assertThatThrownBy(() -> apply(valid())).hasMessageContaining("disabled");
         verifyNoInteractions(receipts, ticklers, notes);
-        when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("true");
+    }
+
+    @Test void shouldRejectApproval_whenWritePermissionRevoked() {
         doThrow(new SecurityException()).when(context).requireWrite(user, 3001, "tickler");
         assertThatThrownBy(() -> apply(valid())).isInstanceOf(SecurityException.class);
         verifyNoInteractions(receipts, ticklers, notes);
@@ -275,7 +288,22 @@ class ReviewedChartUpdateServiceUnitTest {
         when(notes.getRoleName("101", "10016")).thenReturn("doctor");
         assertThat(apply(approval("Clinician verified history", "", "", "MedHistory")).target()).isEqualTo(456);
         verify(notes).saveNoteLink(argThat(link -> link.getNoteId() == 456L && link.getTableId() == 42L));
+        verify(receipts).requireTransactionalTables(true, true);
         verify(receipts).save(any());
         verifyNoInteractions(ticklers);
+    }
+
+    @Test void shouldSkipLegacyChartTable_whenOldChartAbandoned() {
+        when(properties.getProperty("AbandonOldChart", "false")).thenReturn("true");
+        prepare("history");
+        var issue = new Issue();
+        issue.setId(7L);
+        when(notes.getIssueByCode("MedHistory")).thenReturn(issue);
+        when(notes.saveNote(any(), any(), any(), any(), isNull(), any())).thenAnswer(call -> {
+            ((CaseManagementNote) call.getArgument(1)).setId(456L);
+            return "";
+        });
+        assertThat(apply(approval("Clinician verified history", "", "", "MedHistory")).target()).isEqualTo(456);
+        verify(receipts).requireTransactionalTables(true, false);
     }
 }

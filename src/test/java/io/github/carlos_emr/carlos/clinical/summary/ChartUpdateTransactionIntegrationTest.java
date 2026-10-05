@@ -140,7 +140,10 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
             // Bulk deletion leaves stale issue references in the persistence context.
             em.flush();
             em.clear();
-            for (var issue : createdIssues) em.remove(em.find(Issue.class, issue.getId()));
+            for (var issue : createdIssues) {
+                var managed = em.find(Issue.class, issue.getId());
+                if (managed != null) em.remove(managed);
+            }
             createdIssues.clear();
         });
     }
