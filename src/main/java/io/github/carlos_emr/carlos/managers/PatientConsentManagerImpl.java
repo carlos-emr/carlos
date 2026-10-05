@@ -561,7 +561,7 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
             case OPT_OUT:
                 addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, true);
                 return ChartConsentOutcome.APPLIED;
-            default:
+            case OPT_IN:
                 // Order matters: an implied opt-out switched to opt-in is flipped first, because
                 // the confirmation refuses an opt-out.
                 addEditConsentRecord(loggedinInfo, demographic_no, consentTypeId, true, false);
@@ -569,6 +569,9 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
                     return ChartConsentOutcome.EXPLICIT_NOT_RECORDED;
                 }
                 return ChartConsentOutcome.APPLIED;
+            default:
+                // NONE returned above; a choice added later must not fall into opting the patient in.
+                return ChartConsentOutcome.NO_CHANGE;
         }
     }
 

@@ -49,10 +49,10 @@ public final class ConsentNotSavedNotice {
     /** Request attribute holding the display names of the refused consent types, for the page. */
     public static final String NAMES_ATTRIBUTE = "consentNotSavedNames";
 
-    /** Comma-separated non-negative integers; bounded so a crafted link cannot grow the lookup. */
     /** The most consent types one notice names. */
     private static final int MAX_IDS = 50;
 
+    /** Comma-separated non-negative integers; bounded so a crafted link cannot grow the lookup. */
     private static final Pattern WELL_FORMED = Pattern.compile("\\d{1,9}(,\\d{1,9}){0," + (MAX_IDS - 1) + "}");
 
     private ConsentNotSavedNotice() {

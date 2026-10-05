@@ -468,7 +468,7 @@ public class DemographicUpdate2Action extends ActionSupport {
      * only while that record still decides the patient's consent; if a colleague has changed it
      * since the page was loaded, the consent change for that type is refused and nothing else is
      * affected. A form that posts neither field is applied without that check; one that posts only
-     * one of them is refused, as a shown record that cannot be read.</p>
+     * one of them, or one empty and the other not, is refused as a shown record that cannot be read.</p>
      *
      * @return the consent types whose consent change was refused; empty when none was
      */
@@ -477,58 +477,31 @@ public class DemographicUpdate2Action extends ActionSupport {
         List<ConsentType> refused = new ArrayList<>();
         for (ConsentType consentType : patientConsentManager.getActiveConsentTypes()) {
             String type = consentType.getType();
-            String consentRecord = request.getParameter(type);
-            ChartConsentRequest.Choice choice;
-            if (consentRecord != null) {
-                Boolean optOut = parseConsentChoice(consentRecord);
-                if (optOut == null) {
-                    logger.warn("DemographicUpdate2Action: ignoring an unrecognised choice for consent type id {}",
-                            consentType.getId());
-                    continue;
-                }
-                choice = optOut ? ChartConsentRequest.Choice.OPT_OUT : ChartConsentRequest.Choice.OPT_IN;
-            } else {
-                String delete = request.getParameter("deleteConsent_" + type);
-                if (!"1".equals(delete)) {
-                    if (delete != null && !delete.isEmpty() && !"0".equals(delete)) {
-                        logger.warn("DemographicUpdate2Action: ignoring an unrecognised clear flag for consent type id {}",
-                                consentType.getId());
-                    }
-                    continue;
-                }
-                choice = ChartConsentRequest.Choice.CLEAR;
+            ChartConsentRequest.Choice choice = readChoice(request, consentType);
+            if (choice == ChartConsentRequest.Choice.NONE) {
+                continue;
             }
-
-            String shownIdValue = request.getParameter("consentShownId_" + type);
-            String shownChoiceValue = request.getParameter("consentShownChoice_" + type);
-            // This page always posts both. Only one means the form is malformed, so the check is not
-            // skipped: the pair is read below and refused as unreadable.
-            boolean shownSent = shownIdValue != null || shownChoiceValue != null;
-            Integer shownId = null;
-            Boolean shownOptOut = null;
-            if (shownSent) {
-                try {
-                    shownId = parseShownId(shownIdValue);
-                    shownOptOut = parseShownChoice(shownChoiceValue);
-                } catch (IllegalArgumentException e) {
-                    // Without a readable shown record the choice cannot be checked, so it is not
-                    // applied. The values are not logged: they are raw request input.
-                    logger.warn("DemographicUpdate2Action: consent change refused, unreadable shown record for consent type id {}",
-                            consentType.getId());
-                    // Recorded against the patient too, as the manager records its own refusals.
-                    LogAction.addLogSynchronous(loggedInInfo, "DemographicUpdate2Action.saveConsents", "consent", null,
-                            demographicNo, " Demographic: " + demographicNo + " ConsentTypeId: " + consentType.getId()
-                                    + " refused: the consent the page showed could not be read");
-                    refused.add(consentType);
-                    continue;
-                }
+            ShownRecord shown;
+            try {
+                shown = readShownRecord(request, type);
+            } catch (IllegalArgumentException e) {
+                // Without a readable shown record the choice cannot be checked, so it is not
+                // applied. The values are not logged: they are raw request input.
+                logger.warn("DemographicUpdate2Action: consent change refused, unreadable shown record for consent type id {}",
+                        consentType.getId());
+                // Recorded against the patient too, as the manager records its own refusals.
+                LogAction.addLogSynchronous(loggedInInfo, "DemographicUpdate2Action.saveConsents", "consent", null,
+                        demographicNo, " Demographic: " + demographicNo + " ConsentTypeId: " + consentType.getId()
+                                + " refused: the consent the page showed could not be read");
+                refused.add(consentType);
+                continue;
             }
 
             boolean explicitRequested = choice == ChartConsentRequest.Choice.OPT_IN
                     && "1".equals(request.getParameter("recordExplicit_" + type));
             ChartConsentOutcome outcome = patientConsentManager.saveChartConsent(loggedInInfo, demographicNo,
-                    consentType.getId(),
-                    new ChartConsentRequest(choice, explicitRequested, shownSent, shownId, shownOptOut));
+                    consentType.getId(), new ChartConsentRequest(choice, explicitRequested, shown != null,
+                            shown == null ? null : shown.id(), shown == null ? null : shown.optOut()));
             if (outcome == ChartConsentOutcome.STALE) {
                 logger.warn("DemographicUpdate2Action: consent change refused, the record changed after the page was loaded, for consent type id {}",
                         consentType.getId());
@@ -543,6 +516,64 @@ public class DemographicUpdate2Action extends ActionSupport {
     }
 
     /**
+     * Reads one consent type's posted choice: the radio (0 opt in, 1 opt out) or, without one, the
+     * Clear flag. Anything else, including an unrecognised value, is {@code NONE}: the type is left
+     * unchanged, and the value is not logged because it is raw request input.
+     */
+    private static ChartConsentRequest.Choice readChoice(HttpServletRequest request, ConsentType consentType) {
+        String type = consentType.getType();
+        String consentRecord = request.getParameter(type);
+        if (consentRecord != null) {
+            ChartConsentRequest.Choice choice = parseConsentChoice(consentRecord);
+            if (choice == ChartConsentRequest.Choice.NONE) {
+                logger.warn("DemographicUpdate2Action: ignoring an unrecognised choice for consent type id {}",
+                        consentType.getId());
+            }
+            return choice;
+        }
+        String delete = request.getParameter("deleteConsent_" + type);
+        if ("1".equals(delete)) {
+            return ChartConsentRequest.Choice.CLEAR;
+        }
+        if (delete != null && !delete.isEmpty() && !"0".equals(delete)) {
+            logger.warn("DemographicUpdate2Action: ignoring an unrecognised clear flag for consent type id {}",
+                    consentType.getId());
+        }
+        return ChartConsentRequest.Choice.NONE;
+    }
+
+    /** The consent record the chart page showed for one type: both fields null when it showed none. */
+    private record ShownRecord(Integer id, Boolean optOut) {
+    }
+
+    /**
+     * Reads the record the page showed for one consent type, or returns null when the form posted
+     * neither field (an older form, applied without the check). The page always posts both, empty
+     * when it showed no record.
+     *
+     * @throws IllegalArgumentException when only one field was posted, either value cannot be read,
+     *                                  or one is empty and the other is not
+     */
+    private static ShownRecord readShownRecord(HttpServletRequest request, String type) {
+        String shownIdValue = request.getParameter("consentShownId_" + type);
+        String shownChoiceValue = request.getParameter("consentShownChoice_" + type);
+        if (shownIdValue == null && shownChoiceValue == null) {
+            return null;
+        }
+        if (shownIdValue == null || shownChoiceValue == null) {
+            throw new IllegalArgumentException("consent shown record incomplete");
+        }
+        Integer shownId = parseShownId(shownIdValue);
+        ChartConsentRequest.Choice shownChoice = parseShownChoice(shownChoiceValue);
+        Boolean shownOptOut = shownChoice == ChartConsentRequest.Choice.NONE
+                ? null : Boolean.valueOf(shownChoice == ChartConsentRequest.Choice.OPT_OUT);
+        if ((shownId == null) != (shownOptOut == null)) {
+            throw new IllegalArgumentException("consent shown record half empty");
+        }
+        return new ShownRecord(shownId, shownOptOut);
+    }
+
+    /**
      * Builds the chart page URL a save redirects to, naming the consent types whose consent change
      * was refused so the page can say so. Only consent type ids are added, nothing about the patient.
      */
@@ -552,11 +583,8 @@ public class DemographicUpdate2Action extends ActionSupport {
                 ConsentNotSavedNotice.parameterValue(consentNotSaved));
     }
 
-    /** Returns the id, or null for an empty value: the page showed no record. A missing value cannot be read. */
+    /** Returns the id, or null for an empty value: the page showed no record. */
     private static Integer parseShownId(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("consent shown id missing");
-        }
         String trimmed = value.trim();
         if (trimmed.isEmpty()) {
             return null;
@@ -567,31 +595,24 @@ public class DemographicUpdate2Action extends ActionSupport {
         return Integer.valueOf(trimmed);
     }
 
-    /**
-     * Returns true for opt-out, false for opt-in, or null for an empty value: the page showed no
-     * record. A missing value cannot be read.
-     */
-    private static Boolean parseShownChoice(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("consent shown choice missing");
+    /** Returns the choice the page showed, or {@code NONE} for an empty value: the page showed no record. */
+    private static ChartConsentRequest.Choice parseShownChoice(String value) {
+        if (value.trim().isEmpty()) {
+            return ChartConsentRequest.Choice.NONE;
         }
-        String trimmed = value.trim();
-        if (trimmed.isEmpty()) {
-            return null;
-        }
-        Boolean optOut = parseConsentChoice(trimmed);
-        if (optOut == null) {
+        ChartConsentRequest.Choice choice = parseConsentChoice(value);
+        if (choice == ChartConsentRequest.Choice.NONE) {
             throw new IllegalArgumentException("consent shown choice");
         }
-        return optOut;
+        return choice;
     }
 
-    /** Returns true for opt-out ("1"), false for opt-in ("0"), and null for anything else. */
-    private static Boolean parseConsentChoice(String value) {
+    /** Returns {@code OPT_OUT} for "1", {@code OPT_IN} for "0", and {@code NONE} for anything else. */
+    private static ChartConsentRequest.Choice parseConsentChoice(String value) {
         return switch (value.trim()) {
-            case "0" -> Boolean.FALSE;
-            case "1" -> Boolean.TRUE;
-            default -> null;
+            case "0" -> ChartConsentRequest.Choice.OPT_IN;
+            case "1" -> ChartConsentRequest.Choice.OPT_OUT;
+            default -> ChartConsentRequest.Choice.NONE;
         };
     }
 

@@ -497,6 +497,26 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
             assertRefusedAsUnreadable();
         }
 
+        @Test
+        @DisplayName("should refuse the type when the shown id is empty but a shown choice was sent")
+        void shouldRefuseConsentType_whenShownIdEmptyButChoiceSent() {
+            request.setParameter("email_consent", "0");
+            request.setParameter("consentShownId_email_consent", "");
+            request.setParameter("consentShownChoice_email_consent", "1");
+
+            assertRefusedAsUnreadable();
+        }
+
+        @Test
+        @DisplayName("should refuse the type when the shown choice is empty but a shown id was sent")
+        void shouldRefuseConsentType_whenShownChoiceEmptyButIdSent() {
+            request.setParameter("email_consent", "1");
+            request.setParameter("consentShownId_email_consent", "31");
+            request.setParameter("consentShownChoice_email_consent", " ");
+
+            assertRefusedAsUnreadable();
+        }
+
         /** A shown record posted with only one of its two fields is refused like an unreadable one. */
         private void assertRefusedAsUnreadable() {
             try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
