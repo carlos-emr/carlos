@@ -933,6 +933,55 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return failEdit with descmissing error when description is blank in edit mode")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenDescriptionMissing() {
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("456");
+        action.setDocDesc("");
+        action.setDocType("Consultant Report");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("descmissing", "dms.error.descriptionInvalid");
+    }
+
+    @Test
+    @DisplayName("should return failEdit with typemissing error when document type is blank in edit mode")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenDocumentTypeMissing() {
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("456");
+        action.setDocDesc("Consult note");
+        action.setDocType("");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("typemissing", "dms.error.typeMissing");
+    }
+
+    @Test
+    @DisplayName("should return failEdit with uploaderror when the request arrives without mode, function or functionId")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenUploadExceedsSizeLimit() {
+        // The action treats a request with no mode, function or functionId as an upload over the size limit.
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
     @DisplayName("should return failEdit when replacement upload is empty")
     @SuppressWarnings("unchecked")
     void shouldReturnFailEdit_whenEditReplacementIsEmpty() throws Exception {
