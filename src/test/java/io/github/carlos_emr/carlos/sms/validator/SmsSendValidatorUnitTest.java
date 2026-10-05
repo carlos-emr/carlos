@@ -108,8 +108,8 @@ class SmsSendValidatorUnitTest {
         assertThat(accepted.valid()).isTrue();
         assertThat(rejected.valid()).isFalse();
         assertThat(rejected.messages()).containsExactly(
-                "SMS message body is too long for one text message (uses 71 of 70 spaces; accented or special "
-                        + "characters lower the limit from 160 to 70)."
+                "SMS message body is too long for one text message (uses 71 of 70 spaces; some characters, "
+                        + "such as ê, ô, ç, curly quotes or emoji, lower the limit from 160 to 70)."
         );
     }
 

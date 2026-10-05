@@ -59,7 +59,8 @@ public class SmsSendValidator {
         String message = "SMS message body is too long for one text message (uses " + count.units() + " of "
                 + count.singleSegmentLimit() + " spaces";
         if (count.encoding() == SmsSegments.Encoding.UCS_2) {
-            message += "; accented or special characters lower the limit from 160 to 70";
+            // é, è, à and ù fit the 160 limit, so name letters that do not rather than "accented" ones.
+            message += "; some characters, such as ê, ô, ç, curly quotes or emoji, lower the limit from 160 to 70";
         } else if (count.units() > body.length()) {
             message += "; some characters, such as € { } [ ] ~ | ^ \\, take two spaces";
         }
