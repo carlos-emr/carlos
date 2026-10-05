@@ -10,6 +10,8 @@ const {createLogic} = require('../src/main/webapp/share/javascript/demographic/p
 
 const ROOT = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
+// Escapes every regular-expression metacharacter, so a key is matched as literal text.
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function logic(entries) {
   return createLogic(new Map(Object.entries(entries)));
@@ -144,7 +146,7 @@ test('has English text in all five bundles for every key the page lists', () => 
   for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
     const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
     for (const key of pageKeys()) {
-      const pattern = new RegExp(`^demographic\\.portal\\.${key.replace(/\./g, '\\.')}=(.+)$`, 'm');
+      const pattern = new RegExp(`^demographic\\.portal\\.${escapeRegExp(key)}=(.+)$`, 'm');
       const expected = english.match(pattern);
       const actual = bundle.match(pattern);
       assert.ok(expected, `en: ${key}`);
@@ -161,7 +163,7 @@ test('has text in every bundle for every label the page prints directly', () => 
   for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
     const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
     for (const key of keys) {
-      assert.match(bundle, new RegExp(`^${key.replace(/\./g, '\\.')}=.+$`, 'm'), `${locale}: ${key}`);
+      assert.match(bundle, new RegExp(`^${escapeRegExp(key)}=.+$`, 'm'), `${locale}: ${key}`);
     }
   }
 });
