@@ -157,7 +157,7 @@
                 currentValueInput.type = 'text';
                 currentValueInput.id = 'currentMeasurementValue';
                 currentValueInput.value = document.getElementById(elementId).value;
-                currentValueInput.addEventListener('keydown', function () { resetInstructions(measurementType); });
+                currentValueInput.addEventListener('input', function () { resetInstructions(measurementType); });
                 inputDiv.appendChild(currentValueInput);
                 inputDiv.appendChild(document.createTextNode(' '));
 

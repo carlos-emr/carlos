@@ -83,7 +83,7 @@ test('Save imports a selected existing measurement without duplicating it', () =
 test('editing an imported value enables a new measurement save', () => {
   const f = setup();
   f.context.setDemographicMeasurementModalValues('4.1', 'old instructions', '2026-02-01');
-  f.document.getElementById('currentMeasurementValue').listeners.keydown();
+  f.document.getElementById('currentMeasurementValue').listeners.input();
   f.document.getElementById('currentMeasurementValue').value = '4.2';
   f.click('meas-btn-save');
   assert.equal(f.requests.length, 2);
@@ -129,3 +129,14 @@ for (const failure of [{success:false}, null, 'network-error']) {
     closed(f);
   });
 }
+
+test('keyboard navigation after selecting history does not save a duplicate', () => {
+  const f = setup();
+  f.context.setDemographicMeasurementModalValues('4.1', 'in kg', '2026-02-01');
+  const input = f.document.getElementById('currentMeasurementValue');
+  if (input.listeners.keydown) input.listeners.keydown({key:'Tab'});
+  f.click('meas-btn-save');
+  assert.equal(f.target.value, '4.1');
+  assert.equal(f.requests.length, 1, 'Tab must not turn an unchanged import into a new measurement');
+  closed(f);
+});

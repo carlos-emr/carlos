@@ -53,6 +53,8 @@ async function workflow(s) {
     h.assert(sql.value(measurementRows) === count, 'Okay created a measurement');
     await weightLink().click();
     await form.locator('.meas-dialog-body a').filter({hasText:`${value} in kg (${observed}`}).click();
+    await form.locator('#currentMeasurementValue').focus();
+    await form.keyboard.press('Tab');
     await form.locator('.meas-btn-save').click();
     h.assert(await form.locator('#p1_wt1w').inputValue() === value, 'The selected measurement was not imported');
     h.assert(sql.value(measurementRows) === count, 'Importing an existing measurement created a duplicate');
