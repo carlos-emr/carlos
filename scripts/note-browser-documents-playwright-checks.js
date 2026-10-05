@@ -224,10 +224,9 @@ async function workflow(s) {
     h.assert(normalize(await stored.innerText()) === normalize(storedHistory),
       'The single expansion does not retain the latest complete stored history');
     h.assert(await stored.locator('em').count() === 0, 'Stored markup became HTML after loading multiple rows');
-    for (const text of texts) {
-      h.assert((await history.locator('body > div > div:first-child').allTextContents())
-        .some(value => normalize(value) === normalize(text)), 'A saved row lost its own revision text');
-    }
+    const rowTexts = (await history.locator('body > div > div:first-child').allTextContents()).map(normalize);
+    h.assert(JSON.stringify(rowTexts) === JSON.stringify(texts.map(normalize)),
+      'A saved row lost its own revision text or the rows are out of order');
   });
 }
 
