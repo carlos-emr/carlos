@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2017Record" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="prevention.reporting.calendar" var="rourkeCalendarLabel"/>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -166,17 +167,17 @@
         <td colspan="3">
             <input readonly type="text" id="p4_date18m" name="p4_date18m" ondblclick="resetDate(this)" size="10"
                    value="<%=UtilMisc.htmlEscape(props.getProperty("p4_date18m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p4_date18m_cal">
+            <button type="button" id="p4_date18m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
         <td colspan="4">
             <input readonly type="text" id="p4_date24m" name="p4_date24m" ondblclick="resetDate(this)" size="10"
                    value="<%=UtilMisc.htmlEscape(props.getProperty("p4_date24m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p4_date24m_cal">
+            <button type="button" id="p4_date24m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
         <td colspan="3">
             <input readonly type="text" id="p4_date48m" name="p4_date48m" ondblclick="resetDate(this)" size="10"
                    value="<%=UtilMisc.htmlEscape(props.getProperty("p4_date48m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p4_date48m_cal">
+            <button type="button" id="p4_date48m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
         <td class="column"><a><fmt:message key="encounter.formRourke1.msgDate"/></a></td>
     </tr>

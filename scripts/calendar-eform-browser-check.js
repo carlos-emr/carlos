@@ -82,7 +82,7 @@ const server = http.createServer(async (req, res) => {
     const rourke = await browser.newPage();
     const rourkeErrors = [];
     rourke.on('pageerror', error => rourkeErrors.push(error.message));
-    await rourke.setContent('<form id="frmP1"><input id="visit" readonly ondblclick="resetDate(this)"><button id="visit_cal" type="button">Calendar</button><input id="other"></form>');
+    await rourke.setContent('<form id="frmP1"><input id="visit" readonly ondblclick="resetDate(this)"><button id="visit_cal" type="button" aria-label="Calendar"><img alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></button><input id="other"></form>');
     await rourke.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
     // Inline the shipped rules, with their import already loaded above, so no network is needed.
     const calendarCss = fs.readFileSync(path.join(web, 'share/calendar/calendar.css'), 'utf8');
@@ -107,9 +107,24 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
     await rourke.locator('#visit').dblclick();
     assert.equal(await rourke.locator('#visit').inputValue(), '');
+    await rourke.locator('#other').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), '', 'Cleared date must remain empty after blur');
+    assert.equal(await rourke.locator('#visit_cal').isVisible(), true);
     await rourke.locator('#visit_cal').click();
     await rourke.locator('.flatpickr-calendar.open .flatpickr-day.today').click();
     assert.equal(await rourke.locator('#visit').inputValue(), stamped);
+    for (const key of ['Enter', 'Space']) {
+      await rourke.locator('#visit').focus();
+      await rourke.keyboard.press('Tab');
+      assert.equal(await rourke.locator('#visit_cal').evaluate(el => el === document.activeElement), true);
+      await rourke.keyboard.press(key);
+      await rourke.locator('.flatpickr-calendar.open').waitFor();
+      await rourke.keyboard.press('ArrowDown');
+      assert.equal(await rourke.locator('.flatpickr-day:focus').count(), 1);
+      await rourke.keyboard.press('Enter');
+      assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
+      assert.match(await rourke.locator('#visit').inputValue(), /^\d{2}\/\d{2}\/\d{4}$/);
+    }
     assert.deepEqual(rourkeErrors, []);
 
     // Production path: flatpickr and the French locale load asynchronously, so the setups are

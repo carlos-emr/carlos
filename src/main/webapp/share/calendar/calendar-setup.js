@@ -255,6 +255,14 @@ Calendar._doSetup = function (params) {
             e.preventDefault();
             e.stopPropagation();
             fp.toggle();
+            // Hand keyboard activation to a selectable day so arrow keys and Enter
+            // work even when allowInput prevents Flatpickr's input-key navigation.
+            if (params.clickOpens === false && e.detail === 0 && fp.isOpen && fp.calendarContainer) {
+                var day = fp.calendarContainer.querySelector(".flatpickr-day.selected:not(.flatpickr-disabled)")
+                    || fp.calendarContainer.querySelector(".flatpickr-day.today:not(.flatpickr-disabled)")
+                    || fp.calendarContainer.querySelector(".flatpickr-day:not(.flatpickr-disabled):not(.hidden)");
+                if (day) day.focus();
+            }
         });
     }
 

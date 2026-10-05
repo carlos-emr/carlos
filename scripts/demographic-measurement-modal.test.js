@@ -11,7 +11,7 @@ const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIn
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
 
-function setup(history = null) {
+function setup(history = null, saveResult = {success:true}) {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.classList = { add() {}, remove() {} }; }
     appendChild(child) { this.children.push(child); return child; }
@@ -31,7 +31,11 @@ function setup(history = null) {
   const requests = [];
   const jQuery = { each(data, callback) { for (const value of Object.values(data)) callback.call(value); }, ajax(options) {
     requests.push(options);
-    options.success(options.url.includes('saveMeasurement') ? {success:true} : (history || {'-1':'No Results Found'}));
+    if (options.url.includes('saveMeasurement') && saveResult === 'network-error') {
+      if (options.error) options.error();
+    } else {
+      options.success(options.url.includes('saveMeasurement') ? saveResult : (history || {'-1':'No Results Found'}));
+    }
   }};
   const context = vm.createContext({ document, jQuery, setTimeout() {}, requestAnimationFrame: callback => callback() });
   vm.runInContext(source, context);
@@ -99,6 +103,29 @@ for (const date of [Date.UTC(2026,0,8), {time:Date.UTC(2026,0,8)}, '2026-01-08T0
     f.click('meas-btn-save');
     assert.equal(f.target.value, '3.6');
     assert.equal(f.requests.length, 1, 'Importing history must not save a duplicate');
+    closed(f);
+  });
+}
+
+for (const dismissal of ['Escape', 'overlay']) {
+  test(`${dismissal} discards edits without saving or importing`, () => {
+    const f = setup();
+    if (dismissal === 'Escape') f.document.listeners.keydown({key:'Escape'});
+    else {
+      const overlay = f.body.find(element => element.className === 'meas-dialog-overlay');
+      overlay.listeners.click({target:overlay});
+    }
+    assert.equal(f.target.value, '3.4');
+    assert.equal(f.requests.length, 1);
+    closed(f);
+  });
+}
+for (const failure of [{success:false}, null, 'network-error']) {
+  test(`failed Save preserves the form value: ${JSON.stringify(failure)}`, () => {
+    const f = setup(null, failure);
+    f.click('meas-btn-save');
+    assert.equal(f.requests.length, 2);
+    assert.equal(f.target.value, '3.4');
     closed(f);
   });
 }

@@ -57,6 +57,18 @@ async function workflow(s) {
     h.assert(await form.locator('#p1_wt1w').inputValue() === value, 'The selected measurement was not imported');
     h.assert(sql.value(measurementRows) === count, 'Importing an existing measurement created a duplicate');
   });
+  await s.step('Escape and overlay dismissal discard measurement edits', async () => {
+    const count = sql.value(measurementRows);
+    for (const dismissal of ['Escape', 'overlay']) {
+      await weightLink().click();
+      await form.locator('#currentMeasurementValue').fill('9.9');
+      if (dismissal === 'Escape') await form.keyboard.press('Escape');
+      else await form.locator('.meas-dialog-overlay').click({position:{x:5,y:5}});
+      h.assert(await form.locator('.meas-dialog-overlay').count() === 0, 'Dismissal left the dialog open');
+      h.assert(await form.locator('#p1_wt1w').inputValue() === value, 'Dismissal imported an unaccepted edit');
+      h.assert(sql.value(measurementRows) === count, 'Dismissal saved a measurement');
+    }
+  });
   await s.step('double-click stamps and clears the visit date, survives blur, and retains the calendar button', async () => {
     const field = form.locator('#p1_date1w');
     h.assert(await field.inputValue() === '', 'The new visit already has a date');
@@ -67,11 +79,26 @@ async function workflow(s) {
     h.assert(await field.inputValue() === today, 'The stamped date was lost on blur');
     await field.dblclick();
     h.assert(await field.inputValue() === '', 'Double-click did not clear the stamped date');
+    await form.locator('#p1_wt1w').click();
+    h.assert(await field.inputValue() === '', 'The cleared date was restored on blur');
     await form.locator('#p1_date1w_cal').click();
     const selected = form.locator('.flatpickr-calendar.open .flatpickr-day.today');
     await selected.click();
     h.assert(await field.inputValue() === today, 'The calendar button did not select today');
-    date = today;
+    for (const key of ['Enter', 'Space']) {
+      await field.focus();
+      await form.keyboard.press('Tab');
+      const trigger = form.getByRole('button', {name:'Calendar', exact:true}).and(form.locator('#p1_date1w_cal'));
+      h.assert(await trigger.evaluate(el => el === document.activeElement), 'Calendar trigger is not in the tab order');
+      await form.keyboard.press(key);
+      await form.locator('.flatpickr-calendar.open').waitFor();
+      await form.keyboard.press('ArrowDown');
+      h.assert(await form.locator('.flatpickr-day:focus').count() === 1, 'Keyboard cannot reach a calendar day');
+      await form.keyboard.press('Enter');
+      h.assert(await form.locator('.flatpickr-calendar.open').count() === 0, 'Keyboard did not select a calendar day');
+      h.assert(/^\d{2}\/\d{2}\/\d{4}$/.test(await field.inputValue()), 'Keyboard selection lost the date');
+    }
+    date = await field.inputValue();
   });
   await s.step('form Save persists the date and imported weight and redisplays them', async () => {
     let request;

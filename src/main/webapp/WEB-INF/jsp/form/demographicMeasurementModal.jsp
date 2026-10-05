@@ -240,6 +240,8 @@
 
                 // Retain these input nodes: the dialog is detached before its callback runs.
                 showMeasurementDialog(bodyContent, function (save) {
+                    if (save === null) return; // Escape and overlay dismissal leave the form unchanged.
+                    let accepted = !save || existingMeasurementUsed;
                     if (save && !existingMeasurementUsed) {
                         // If the user clicks save, complete an ajax call that will save a new measurement record to the database
                         local_jQuery.ajax({
@@ -255,15 +257,19 @@
                             success: function (data) {
                                 // If the JSON data returned states success = true, display success message, else display failed
                                 if (data && data.success) {
+                                    accepted = true;
                                     showMeasurementToast("<fmt:message key='form.measurement.savedSuccessfully'/>", "success");
                                 } else {
                                     showMeasurementToast("<fmt:message key='form.measurement.saveFailed'/>", "error");
                                 }
+                            },
+                            error: function () {
+                                showMeasurementToast("<fmt:message key='form.measurement.saveFailed'/>", "error");
                             }
                         });
                     }
                     // After the desired measurement is selected and inserted into the input at the top, clicking OK or Save will close the modal and insert the value into the form field
-                    document.getElementById(elementId).value = currentValueInput.value;
+                    if (accepted) document.getElementById(elementId).value = currentValueInput.value;
                 });
             }
         });
@@ -287,11 +293,11 @@
 
     /**
      * Shows a confirm-style dialog with Save and Okay buttons.
-     * Calls callback(true) on Save, callback(false) on Okay.
+     * Calls callback(true) on Save, callback(false) on Okay, callback(null) on dismissal.
      * Supports keyboard dismissal (ESC cancels) and overlay-click to cancel.
      *
      * @param bodyNode - A DOM node to append as the dialog body content
-     * @param callback - Called with true on Save, false on Okay/Cancel
+     * @param callback - Called with true on Save, false on Okay, null on Cancel
      */
     function showMeasurementDialog(bodyNode, callback) {
         var overlay = document.createElement('div');
@@ -337,7 +343,7 @@
         // ESC key cancels the dialog
         function keyHandler(e) {
             if (e.key === 'Escape' || e.keyCode === 27) {
-                close(false);
+                close(null);
             }
         }
         document.addEventListener('keydown', keyHandler);
@@ -345,7 +351,7 @@
         // Click on the overlay background (outside the dialog) cancels
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) {
-                close(false);
+                close(null);
             }
         });
 

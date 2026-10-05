@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRourke2017Record" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="prevention.reporting.calendar" var="rourkeCalendarLabel"/>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -169,13 +170,13 @@
         <td class="column"><a><fmt:message key="encounter.formRourke1.msgDate"/></a></td>
         <td colspan="3"><input readonly type="text" id="p3_date9m" name="p3_date9m" ondblclick="resetDate(this)"
                                size="10" value="<%=UtilMisc.htmlEscape(props.getProperty("p3_date9m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p3_date9m_cal"></td>
+            <button type="button" id="p3_date9m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button></td>
         <td colspan="3"><input readonly type="text" id="p3_date12m" name="p3_date12m" ondblclick="resetDate(this)"
                                size="10" value="<%=UtilMisc.htmlEscape(props.getProperty("p3_date12m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p3_date12m_cal"></td>
+            <button type="button" id="p3_date12m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button></td>
         <td colspan="3"><input readonly type="text" id="p3_date15m" name="p3_date15m" ondblclick="resetDate(this)"
                                size="10" value="<%=UtilMisc.htmlEscape(props.getProperty("p3_date15m", ""))%>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p3_date15m_cal"></td>
+            <button type="button" id="p3_date15m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button></td>
     </tr>
     <tr id="growthAp3" align="center">
         <td class="column" rowspan="2">
