@@ -17,6 +17,7 @@ for (const [draft, chart] of [
   ['Hypertension', 'Asthma. Ruled out. Hypertension.'],
   ['Asthma', 'Family history:\nHTN\nAssessment:\nAsthma'],
   ['History: suspected asthma; diagnosis not yet confirmed.', 'HISTORY: SUSPECTED\n ASTHMA; DIAGNOSIS NOT YET CONFIRMED.'],
+  ['Pain after surgery', 'pain  after surgery'],
 ]) test(`finds local duplicate: ${draft} / ${chart}`, () => assert.ok(match(draft, chart)));
 for (const [draft, chart] of [
   ['Hypertension', 'No hypertension'], ['Hypertension', 'No\nHTN'],
@@ -56,6 +57,11 @@ for (const [draft, chart] of [
   ['Past pneumonia', 'Pneumonia'], ['Had pneumonia', 'Has pneumonia'],
   ['Acute kidney disease', 'Chronic kidney disease'],
   ['Review after surgery', 'Review before surgery'],
+  ['Pain after surgery', 'Surgery after pain'], ['Fall before syncope', 'Syncope before fall'],
+  ['Switched metoprolol to bisoprolol', 'Switched bisoprolol to metoprolol'],
+  ['Replaced metoprolol with bisoprolol', 'Replaced bisoprolol with metoprolol'],
+  ['Swapped ramipril for candesartan', 'Swapped candesartan for ramipril'],
+  ['Changed metformin then gliclazide', 'Changed gliclazide then metformin'],
   ['eGFR <60', 'eGFR >60'], ['Review in -1 weeks', 'Review in 1 weeks'],
   ['Measurement 0.5', 'Measurement 5'],
 ]) test(`keeps distinct: ${draft} / ${chart}`, () => assert.equal(match(draft, chart), null));

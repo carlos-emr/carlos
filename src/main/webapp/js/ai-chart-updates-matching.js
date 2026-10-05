@@ -65,8 +65,12 @@
             if (blockedHeading) continue;
             facts.push({ passage, key: 'exact:' + lower.replace(/\s+/g, ' ').trim() });
             if (excluded.test(lower)) continue;
-            // Do not detach a qualifier from one of several facts, or reverse causality.
+            // Do not detach a qualifier from one of several facts, or reverse causality or direction:
+            // sorted terms cannot tell 'Pain after surgery' from 'Surgery after pain', or which drug
+            // replaced which.
             if (/[,;]|\s\/\s|\b(?:and|or|but|because|due|secondary|caus(?:ed|ing)|related)\b/.test(lower) ||
+                    /\b(?:after|before|following|prior|since|until|from|to|into|than|vs|versus|then|instead)\b/.test(lower) ||
+                    /\b(?:switch|swap|chang|replac|convert|substitut)\w*/.test(lower) ||
                     (lower.match(/\b(?:left|right|bilateral)\b/g) || []).length > 1) continue;
             let canonical = lower.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '')
                 .replace(resetHeading, '');
