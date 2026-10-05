@@ -174,9 +174,13 @@ async function workflow(s) {
     const shellHelp = admin.locator('#helpLink a').first();
     h.assert(await shellHelp.getAttribute('data-help-url') === helpUrl, 'The shell Help ignores the saved clinic URL');
     await context.route('https://help.invalid/**', route => route.fulfill({status: 200, contentType: 'text/plain', body: 'Owned clinic help'}));
-    const popup = await s.popup(admin, shellHelp, 'settings-clinic-help');
-    h.assert(popup.url() === helpUrl, 'The shell Help popup did not open the stored URL');
-    await popup.close();
+    const adminUrl = admin.url();
+    const opened = await clickOpensPopupOrNavigates(admin, shellHelp,
+      {context, recorder: s.recorder, label: 'settings-clinic-help', timeout: TIMEOUT});
+    h.assert(opened.page.url() === helpUrl, 'The shell Help did not open the stored URL');
+    // popupPage reuses the named attachment window, which may be this Administration tab.
+    if (opened.isPopup) await opened.page.close();
+    else await admin.goto(adminUrl, {waitUntil: 'domcontentloaded'});
   });
   await s.step('A saved Help URL containing quote and markup characters stays literal', async () => {
     const value = `${helpUrl}?q='"><img src=x onerror=window.__unexpectedClinicHelp=1>`;
@@ -187,9 +191,12 @@ async function workflow(s) {
     const link = admin.locator('#helpLink a').first();
     h.assert(await link.getAttribute('data-help-url') === value, 'Quote or markup characters escaped the Help URL attribute');
     h.assert(await admin.evaluate(() => window.__unexpectedClinicHelp === undefined), 'Stored Help URL markup executed');
-    const popup = await s.popup(admin, link, 'settings-literal-help');
-    h.assert(popup.url() === new URL(value).href, 'The encoded Help URL opened a different destination');
-    await popup.close();
+    const adminUrl = admin.url();
+    const opened = await clickOpensPopupOrNavigates(admin, link,
+      {context, recorder: s.recorder, label: 'settings-literal-help', timeout: TIMEOUT});
+    h.assert(opened.page.url() === new URL(value).href, 'The encoded Help URL opened a different destination');
+    if (opened.isPopup) await opened.page.close();
+    else await admin.goto(adminUrl, {waitUntil: 'domcontentloaded'});
   });
 
   await s.step('The shell Help refuses executable and malformed stored URLs', async () => {
@@ -198,8 +205,9 @@ async function workflow(s) {
       sql.execute(`UPDATE property SET value=${h.sqlString(value)} WHERE name='resource_baseurl'`);
       await admin.reload({waitUntil: 'domcontentloaded'});
       const pages = context.pages().length;
+      const adminUrl = admin.url();
       await admin.locator('#helpLink a').first().click();
-      h.assert(context.pages().length === pages, 'An unsafe stored Help URL opened a popup');
+      h.assert(context.pages().length === pages && admin.url() === adminUrl, 'An unsafe stored Help URL opened a popup or navigated the shell');
       h.assert(await admin.evaluate(() => window.__unexpectedClinicHelp === undefined), 'An unsafe Help URL executed script');
     }
   });
