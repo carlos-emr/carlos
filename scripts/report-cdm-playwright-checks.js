@@ -149,6 +149,16 @@ async function workflow(s) {
     for (const [forward, prefix, checkbox, dateField, route] of invalidDate) {
       const page = await openScreen(s, group, forward);
       const row = await rowOf(page, prefix, type);
+      const calendar = page.locator('button[onclick*="type=startDateA"]');
+      h.assert((await calendar.getAttribute('aria-label')).trim().length > 0,
+        `${route} has an unnamed calendar control`);
+      await calendar.focus();
+      const [popup] = await Promise.all([page.waitForEvent('popup'), calendar.press('Enter')]);
+      await popup.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(popup, `${route} calendar`);
+      h.assert(new URL(popup.url()).searchParams.get('type') === 'startDateA',
+        `${route} keyboard calendar opened the wrong date field`);
+      await popup.close();
       await page.locator(`input[name="${checkbox}"][value="${row}"]`).check();
       if (forward === 'patientWhoMetGuideline') await page.locator('input[name="guidelineB"]').nth(row).fill('6');
       if (forward === 'patientInAbnormalRange') {
