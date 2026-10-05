@@ -242,7 +242,9 @@ Run the Java tests from the repository root:
 mvn -o -B -Dcheckstyle.skip=true '-Dtest=*ChartUpdate*UnitTest,*DocumentSummary*UnitTest,ChartUpdateTransactionIntegrationTest' test
 ```
 
-Verified in this worktree: 190 Python tests and 75 focused Java tests pass. The
+Both suites must pass; each run prints its own test count. The Python suite covers
+chart-update proposals and coverage, the document-summary pipeline, the agents and
+gateways, and fixture scoring. The
 Java tests include native tickler and signed-history persistence, source links,
 signature hash, durable receipt replay, and rollback after an injected receipt
 failure. Database tests use isolated H2, with the MySQL-specific engine check
@@ -272,10 +274,14 @@ doubles; this does not exercise the full Struts/login/database deployment.
 The native persistence/rollback tests above cover the database boundary separately.
 It does not start, stop, reconfigure or deploy to the installed/shared Tomcat.
 
-Nine browser scenarios cover generation without writes, blank required fields,
-escaped source/edited text, mobile overflow, dismissal, edited reminders, signed
-history, preservation of other cards' edits, refresh-safe redirects, durable replay, stale-source/chart rejection, expiry, an older tab after
-another tab refreshes the review, missing CSRF tokens and GET mutation rejection.
+The browser scenarios (the runner prints how many passed) cover generation without
+writes, prefilled dates and destinations, blank required fields, escaped source/edited
+text, mobile overflow, unavailable documents, the eChart modal with one-at-a-time
+review, the coverage audit, matching and paraphrased chart text, related suggestions,
+regeneration confirmation, dismissal, edited reminders, signed history, preservation
+of other cards' edits, refresh-safe redirects, restored pages, durable replay,
+stale-source/chart rejection, expiry, an older tab after another tab refreshes the
+review, missing CSRF tokens and GET mutation rejection.
 The runner terminates its own server and leaves logs plus desktop/mobile screenshots
 in its reported artifact directory. Only fixed synthetic text is used.
 
