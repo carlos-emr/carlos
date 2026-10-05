@@ -316,7 +316,7 @@
                                     </tr>
                                     <tr>
                                         <td>
-                                            <%-- CARLOS stores ICD-9 codes without the decimal point (151.9 is 1519), issue #3759 --%>
+                                            <%-- CARLOS stores almost all ICD-9 codes without the decimal point (151.9 is 1519), issue #3759 --%>
                                             <div class="form-text" id="icd9NoDecimalHint"><fmt:message key="oscarResearch.oscarDxResearch.icd9NoDecimalHint"/></div>
                                         </td>
                                     </tr>

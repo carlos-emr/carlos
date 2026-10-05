@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -267,7 +268,7 @@ class OscarResourcesBundleParseUnitTest {
 
     @Test
     @DisplayName("should translate the ICD-9 decimal-point hint and errors in every locale")
-    void shouldTranslateIcd9DecimalHint_inEveryLocale() throws Exception {
+    void shouldTranslateIcd9DecimalPointText_inEveryLocale() throws Exception {
         Properties english = loadBundle("en");
         for (String locale : LOCALES) {
             Properties bundle = loadBundle(locale);
@@ -280,16 +281,21 @@ class OscarResourcesBundleParseUnitTest {
                             .isNotEqualTo(english.getProperty(key));
                 }
             }
-            // The errors go through Struts' MessageFormat: a lone apostrophe would swallow the rest of the text.
-            String didYouMean = new java.text.MessageFormat(
-                    bundle.getProperty("oscarResearch.oscarDxResearch.error.icd9DidYouMean"))
-                    .format(new Object[]{"151.9", "1519"});
-            assertThat(didYouMean).as("formatted %s message", locale).contains("151.9").contains("1519")
-                    .doesNotContain("{");
+            // The hint goes through fmt:message without arguments, which prints a doubled apostrophe as is.
+            assertThat(bundle.getProperty("oscarResearch.oscarDxResearch.icd9NoDecimalHint"))
+                    .as("hint in %s", locale).doesNotContain("''");
+            // The errors go through Struts' MessageFormat: a lone apostrophe would swallow text, so each must
+            // format to its pattern with the doubled apostrophes undone and the arguments filled in.
+            for (String key : new String[]{ICD9_DECIMAL_KEYS[1], ICD9_DECIMAL_KEYS[2]}) {
+                String pattern = bundle.getProperty(key);
+                assertThat(new MessageFormat(pattern).format(new Object[]{"151.9", "1519"}))
+                        .as("formatted %s in %s", key, locale)
+                        .isEqualTo(pattern.replace("''", "'").replace("{0}", "151.9").replace("{1}", "1519"));
+            }
         }
     }
 
-    /** The local name of ICD-9 each translation uses, so a reader matches it to the coding-system list. */
+    /** The usual local abbreviation of ICD-9 in each language, pinned so the three keys stay consistent. */
     private static String icd9Name(String locale) {
         return switch (locale) {
             case "fr" -> "CIM-9";
@@ -304,12 +310,12 @@ class OscarResourcesBundleParseUnitTest {
     void shouldKeepMarkupOut_ofInvalidCodeMessage() throws Exception {
         for (String locale : LOCALES) {
             String pattern = loadBundle(locale).getProperty("errors.codeNotFound");
-            String formatted = new java.text.MessageFormat(pattern).format(new Object[]{"151.9", "icd9"});
+            String formatted = new MessageFormat(pattern).format(new Object[]{"151.9", "icd9"});
 
             assertThat(formatted).as("errors.codeNotFound in %s", locale)
                     .doesNotContain("<", "&#").contains("151.9").contains("icd9");
         }
-        assertThat(new java.text.MessageFormat(loadBundle("fr").getProperty("errors.codeNotFound"))
+        assertThat(new MessageFormat(loadBundle("fr").getProperty("errors.codeNotFound"))
                 .format(new Object[]{"151.9", "icd9"})).isEqualTo("151.9 n'est pas un code icd9 valide");
     }
 
