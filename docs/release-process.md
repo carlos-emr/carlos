@@ -190,6 +190,16 @@ The publication workflow is separate: it runs only for a protected CalVer tag or
 an explicit retry of an existing tag, rebuilds from the tagged commit, and never
 publishes a snapshot.
 
+## Build identity (About page)
+
+The build stamp CARLOS shows on the authenticated About page is the Maven
+project version of the deployed WAR (plus an optional CI job / build number),
+read from `carlos-build.properties` inside the WAR. It is not a configuration
+property and cannot be pinned by an operator override, and it is not shown to
+unauthenticated visitors on the login page; see `docs/build-identity.md`.
+A published release therefore shows its exact tag (for example
+`2026.08.0-alpha11`), and a maintenance snapshot shows the `-SNAPSHOT` version.
+
 ## Release assets and verification
 
 Each GitHub release contains:

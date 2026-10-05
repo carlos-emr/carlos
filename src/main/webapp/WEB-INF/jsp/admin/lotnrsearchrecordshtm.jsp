@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+  Purpose: Render the administrator's prevention lot-number search form.
+  Features: Keyword focus/normalization and repeated searches through the results
+  action, with a CSRF token for the POST form.
+  Parameters: The initial view requires no search parameters. The form submits
+  keyword and search_mode to LotNrSearchResults; session roles control access.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -91,6 +100,7 @@
     </head>
 
     <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <center>
         <table border="0" cellspacing="0" cellpadding="0" width="100%">
             <tr bgcolor="#486ebd">

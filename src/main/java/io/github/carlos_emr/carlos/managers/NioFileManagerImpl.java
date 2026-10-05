@@ -46,6 +46,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.EnumSet;
 
 import jakarta.servlet.ServletContext;
 
@@ -803,6 +806,28 @@ public class NioFileManagerImpl implements NioFileManager {
         return saveTempFile(fileName, os, null);
     }
 
+    @Override
+    // FindSecBugs PATH_TRAVERSAL_IN: validated single-component names under the verified application temp root.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "Fixed verified parent, validated filename components, and JDK-generated unique basename")
+    public Path createManagedTempFile(String prefix, String suffix) throws IOException {
+        String validatedPrefix = PathValidationUtils.validateStrictFileName(prefix);
+        String validatedSuffix = suffix == null ? ".tmp" : suffix;
+        PathValidationUtils.validatePathComponent("temp" + validatedSuffix, "temporary file suffix");
+        Path tempRoot = applicationTempParent();
+        try {
+            return Files.createTempFile(
+                    tempRoot,
+                    validatedPrefix,
+                    validatedSuffix,
+                    PosixFilePermissions.asFileAttribute(EnumSet.of(
+                            PosixFilePermission.OWNER_READ,
+                            PosixFilePermission.OWNER_WRITE)));
+        } catch (UnsupportedOperationException e) {
+            // Never create a PHI-bearing snapshot with unverified inherited permissions.
+            throw new IOException("Owner-only temporary files require POSIX permission support", e);
+        }
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public Path createTempFile(final String fileName, ByteArrayOutputStream os) throws IOException {
@@ -819,6 +844,38 @@ public class NioFileManagerImpl implements NioFileManager {
         }
 
         return Files.write(file, os.toByteArray());
+    }
+
+    /** {@inheritDoc} */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    @Override
+    public Path createTempFileFrom(final String fileName, Path source) throws IOException {
+        String sanitizedName = new File(fileName).getName();
+
+        Path directory = Files.createTempDirectory(applicationTempParent(), DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
+        Path file = directory.resolve(sanitizedName).normalize();
+
+        try {
+            file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
+            // Streamed, so the document's size never lands on the heap.
+            Files.copy(source, file, StandardCopyOption.REPLACE_EXISTING);
+            return file;
+        } catch (IOException | RuntimeException failure) {
+            // Files.copy may have created a partial document before failing. The caller has no
+            // path to clean up when this method throws, so remove both artifacts here.
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            try {
+                Files.deleteIfExists(directory);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
+        }
     }
 
     /**

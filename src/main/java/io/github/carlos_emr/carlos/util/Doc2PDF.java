@@ -84,7 +84,6 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
     private static final int INTERNAL_FETCH_CONNECT_TIMEOUT_MS = 5000;
     private static final int INTERNAL_FETCH_READ_TIMEOUT_MS = 30000;
-    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
     /**
      * Sends an HTTP 500 error response if the response has not yet been committed.
@@ -169,13 +168,13 @@ public class Doc2PDF {
         try {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
-            BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri);
-            if (in == null) {
-                throw new IOException("Failed to fetch JSP content from the given URI");
+            org.jsoup.nodes.Document doc;
+            try (BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri)) {
+                if (in == null) {
+                    throw new IOException("Failed to fetch JSP content from the given URI");
+                }
+                doc = Jsoup.parse(in, StandardCharsets.UTF_8.name(), uri);
             }
-
-            // Parse directly from InputStream with UTF-8 encoding and base URI
-            org.jsoup.nodes.Document doc = Jsoup.parse(in, StandardCharsets.UTF_8.name(), uri);
             configureJsoupForXhtml(doc);
 
             String cleanHtml = doc.html();
@@ -278,7 +277,7 @@ public class Doc2PDF {
      * servlet context path. External hosts, alternate schemes, fragments, user-info,
      * and cross-context paths are rejected before opening a connection.</p>
      *
-     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param jsessionid String the session ID sent in the cookie header for authentication
      * @param uri String the target URI to fetch
      * @return BufferedInputStream the response body, or null if the connection fails
      */
@@ -295,7 +294,7 @@ public class Doc2PDF {
      * Opens an internal same-application HTTP(S) connection with session authentication.
      *
      * @param request HttpServletRequest providing the allowed server name, port, and context path
-     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param jsessionid String the session ID sent in the cookie header for authentication
      * @param uri String the target URI to fetch
      * @return BufferedInputStream the response body, or null if the connection fails
      */
@@ -305,17 +304,24 @@ public class Doc2PDF {
 
         HttpURLConnection conn = null;
         try {
-            // Append jsessionid to the URL path because this is a server-side HTTP connection
-            // that does not share the browser's session cookie; the session ID must be passed
-            // via URL rewriting so the target JSP executes within the user's authenticated session.
             URI validatedUri = validateInternalFetchUri(request, uri);
-            URL url = appendSessionId(validatedUri, jsessionid).toURL();
+            String sessionCookie = sessionCookieHeader(request, jsessionid);
+            URL url = validatedUri.toURL();
 
             MiscUtils.getLogger().debug("Opening internal Doc2PDF fetch for validated same-application target");
 
             conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(INTERNAL_FETCH_CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(INTERNAL_FETCH_READ_TIMEOUT_MS);
+            // Session tracking is COOKIE-only. Never put credentials in a URL or
+            // forward them to a redirect target outside the validated application.
+            conn.setInstanceFollowRedirects(false);
+            conn.setRequestProperty("Cookie", sessionCookie);
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                logger.warn("Internal Doc2PDF fetch did not return HTTP 200");
+                conn.disconnect();
+                return null;
+            }
 
             // Wrap the stream so that closing it also disconnects the HTTP connection,
             // preventing connection pool leaks when the caller closes the returned stream.
@@ -376,6 +382,8 @@ public class Doc2PDF {
             throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector");
         }
 
+        validateInternalFetchTransport(target);
+
         int targetPort = effectivePort(target.getScheme(), target.getPort());
         int requestPort = effectivePort(request.getScheme(), getRequestLocalPort(request));
         if (targetPort != requestPort) {
@@ -400,6 +408,19 @@ public class Doc2PDF {
         }
 
         return target;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URI schemes in fail-closed transport validation")
+    private static void validateInternalFetchTransport(URI target) {
+        // Packaged nginx forwards to a loopback-only HTTP connector. Permit that
+        // same-host hop without relying on DNS; other connector names require TLS.
+        String targetHost = normalizeHost(target.getHost());
+        if ("http".equalsIgnoreCase(target.getScheme())
+                && !"127.0.0.1".equals(targetHost)
+                && !"::1".equals(targetHost)
+                && !"0:0:0:0:0:0:0:1".equals(targetHost)) {
+            throw new IllegalArgumentException("Internal HTTP fetches require a numeric loopback address");
+        }
     }
 
     private static boolean isAllowedInternalHost(HttpServletRequest request, String targetHost) {
@@ -470,50 +491,21 @@ public class Doc2PDF {
         return port;
     }
 
-    private static URI appendSessionId(URI uri, String jsessionid) throws URISyntaxException {
-        if (jsessionid == null || jsessionid.trim().isEmpty()) {
-            throw new URISyntaxException(String.valueOf(uri), "JSESSIONID must not be empty");
+    private static String sessionCookieHeader(HttpServletRequest request, String sessionId) {
+        // Tomcat session IDs (including an optional jvmRoute) use these characters.
+        // Reject separators/control characters before constructing an HTTP header.
+        if (sessionId == null || !sessionId.matches("[A-Za-z0-9._~-]+")) {
+            throw new IllegalArgumentException("Invalid internal session cookie value");
         }
-
-        String rawPath = uri.getRawPath();
-        if (rawPath == null || rawPath.isEmpty()) {
-            rawPath = "/";
+        String cookieName = request.getServletContext().getSessionCookieConfig().getName();
+        if (cookieName == null) {
+            cookieName = "JSESSIONID";
         }
-        String pathWithSession = rawPath + ";jsessionid=" + encodePathSegment(jsessionid);
-        StringBuilder rewrittenUri = new StringBuilder()
-                .append(uri.getScheme())
-                .append("://")
-                .append(uri.getRawAuthority())
-                .append(pathWithSession);
-        if (uri.getRawQuery() != null) {
-            rewrittenUri.append('?').append(uri.getRawQuery());
+        // This is an outbound request header, not a browser Set-Cookie response.
+        if (!org.apache.tomcat.util.http.parser.HttpParser.isToken(cookieName)) {
+            throw new IllegalArgumentException("Invalid internal session cookie name");
         }
-        return new URI(rewrittenUri.toString());
-    }
-
-    private static String encodePathSegment(String value) {
-        StringBuilder encoded = new StringBuilder();
-        for (byte b : value.getBytes(StandardCharsets.UTF_8)) {
-            int c = b & 0xff;
-            if (isUnreservedPathByte(c)) {
-                encoded.append((char) c);
-            } else {
-                encoded.append('%');
-                encoded.append(HEX_DIGITS[(c >> 4) & 0x0f]);
-                encoded.append(HEX_DIGITS[c & 0x0f]);
-            }
-        }
-        return encoded.toString();
-    }
-
-    private static boolean isUnreservedPathByte(int c) {
-        return (c >= 'A' && c <= 'Z')
-                || (c >= 'a' && c <= 'z')
-                || (c >= '0' && c <= '9')
-                || c == '-'
-                || c == '.'
-                || c == '_'
-                || c == '~';
+        return cookieName + "=" + sessionId;
     }
 
     /**

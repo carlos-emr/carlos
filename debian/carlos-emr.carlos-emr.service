@@ -16,6 +16,17 @@ Documentation=https://github.com/carlos-emr/carlos
 # already waits for the database to answer before handing off to Tomcat.
 Wants=mariadb.service network-online.target
 After=mariadb.service network-online.target
+# An installation whose database provisioning did not run leaves a marker and
+# no schema; carlos-emr-provision.service finishes the job and is ordered
+# before this unit. Wants, so it is pulled in by a manual `systemctl start`
+# too, and so that a provisioning run that cannot finish never stops the EMR
+# from starting. The unit is skipped in microseconds when there is no marker.
+Wants=carlos-emr-provision.service
+After=carlos-emr-provision.service
+
+# Disabling does not prevent a queued or manual start. Enforce the credential
+# guard on every start, including after a failed boot-time repair.
+ConditionPathExists=!/var/lib/carlos-emr/.seed-credential-live
 
 [Service]
 Type=exec
@@ -28,7 +39,40 @@ UMask=0027
 EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
+# No HOME override: the JVM reads user.home from passwd, and this unit no longer
+# launches a browser (the render Chromium runs under carlos-emr-chromedriver as
+# carlos-render with its own writable HOME). The old HOME=/var/lib/carlos-emr/browser
+# existed solely for the abandoned in-JVM browser spawn.
+# EFORM_RENDER_SANDBOX is NOT set here — it is set by
+# /usr/lib/systemd/system/carlos-emr.service.d/10-eform-renderer.conf, shipped by
+# carlos-emr-eform-renderer, so that the flag cannot outlive the browser unit that
+# satisfies it. Edit that file, not this one.
+#
+# Chromium's OS sandbox is the right posture for this component: the renderer
+# opens clinic-authored eForm HTML, the least trustworthy input this application
+# handles. The browser does NOT run under this unit. It runs sandboxed under
+# carlos-emr-chromedriver.service as the data-less carlos-render account, and
+# the JVM connects to it over loopback — so this unit's confinement
+# (RestrictNamespaces=yes, ProtectProc=invisible below) never has to be loosened
+# for rendering, and MUST NOT be: loosening it trades the PHI-handling Tomcat's
+# confinement for nothing, because no browser is spawned here any more. The
+# earlier in-JVM spawn architecture (and the failed attempts to make the sandbox
+# work under this unit's hardening) is recorded in PR #3543 and
+# docs/eform-browser-pdf-renderer.md; do not re-derive drop-ins that relax
+# RestrictNamespaces or ProtectProc from old revisions of this file.
 
+# Never start into a half-copied schema. While `carlos-ctl import-o19` is
+# mid-run the application must stay down: its startup listener writes rows
+# the import's row-parity gate rejects, and a live session could read a
+# half-copied chart. `carlos-ctl stop` leaves the unit ENABLED, so a reboot
+# during an import -- or a colleague's `systemctl start` -- would otherwise
+# start it as if nothing were happening (seen on the Ubuntu 26.04
+# rehearsal). ExecCondition= makes such a start a clean "condition failed"
+# skip, not a failure; the guard explains itself in the journal. The `+`
+# runs it with full privileges, outside this unit's sandbox: the ledger it
+# reads is root-only, and the guard reads one file and runs python3 on it.
+# The postinst consults the same file, so the two cannot drift apart.
+ExecCondition=+/usr/lib/carlos-emr/carlos-emr-o19-guard
 ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run
 # catalina.sh run execs the JVM, so systemd's SIGTERM reaches Java directly and
 # Tomcat performs its normal shutdown. 143 is 128+SIGTERM, which is what a JVM

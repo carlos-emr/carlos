@@ -106,6 +106,10 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+        // mockStatic stubs every LoggedInInfo static, so the require* variant the action now
+        // calls (#2499) returns null unless it is stubbed too.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(RelationshipsDao.class, relationshipsDao);

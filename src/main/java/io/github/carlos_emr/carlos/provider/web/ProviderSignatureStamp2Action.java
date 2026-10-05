@@ -107,7 +107,11 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         // check is read-only and only requires read privilege
         String requiredAccess = "check".equals(method) ? "r" : "w";
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", requiredAccess, null)) {
-            throw new SecurityException("missing required sec object (_pref)");
+            // JSON-API action: write a proper 403 response instead of propagating SecurityException,
+            // which Struts would convert to an HTML error page that the client cannot parse as JSON.
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            writeJson(response, "{\"success\":false,\"error\":\"missing required sec object (_pref)\"}");
+            return NONE;
         }
 
         if (!"POST".equalsIgnoreCase(request.getMethod()) && !"check".equals(method)) {
@@ -184,6 +188,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         } catch (IOException e) {
             MiscUtils.getLogger().error("Signature stamp upload I/O failed for provider {}", providerNo, e);
             writeJson(response, "{\"success\":false,\"error\":\"Upload failed\"}");
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Signature stamp upload path validation failed for provider {}", providerNo, e);
+            writeJson(response, "{\"success\":false,\"error\":\"Upload failed\"}");
         } catch (DataAccessException e) {
             MiscUtils.getLogger().error("Signature stamp upload DB save failed for provider {}", providerNo, e);
             writeJson(response, "{\"success\":false,\"error\":\"Could not save signature preference\"}");
@@ -244,6 +251,9 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
 
         } catch (IOException e) {
             MiscUtils.getLogger().error("Signature stamp save I/O failed for provider {}", providerNo, e);
+            writeJson(response, "{\"success\":false,\"error\":\"Save failed\"}");
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Signature stamp save path validation failed for provider {}", providerNo, e);
             writeJson(response, "{\"success\":false,\"error\":\"Save failed\"}");
         } catch (DataAccessException e) {
             MiscUtils.getLogger().error("Signature stamp save DB failed for provider {}", providerNo, e);

@@ -55,6 +55,14 @@ extensions:
       # propagating past the sanitizer boundary.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.io.File,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
 
+      # validateExistingPath(String path, File allowedDir) -> File
+      # Convenience overload of validateExistingPath(File, File) that constructs the
+      # File internally so call sites never build `new File(taintedPath)` themselves.
+      # Identical model to the File overload: the return value is bounded by
+      # allowedDir (Argument[1]), and the user-provided path string (Argument[0]) is
+      # intentionally NOT modelled as a flow source.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", false, "validateExistingPath", "(java.lang.String,java.io.File)", "", "Argument[1]", "ReturnValue", "taint", "manual"]
+
       # validateUpload(File sourceFile) -> File
       # Validates that the uploaded file (a framework-assigned temp path, not
       # user-controlled) resides in an allowed temp directory and returns the
@@ -124,6 +132,21 @@ extensions:
       # Opens upload content only after validateUpload(File) canonicalizes and
       # bounds the source path to an allowed temp directory.
       - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "openValidatedUploadInputStream", "(java.io.File)", "summary", "manual"]
+
+      # getRequiredDocumentDirectory() -> File
+      # Takes no arguments: resolves DOCUMENT_DIR from server configuration, requires
+      # it to be an existing directory, and returns its canonical File. Nothing
+      # user-controlled flows in, so there is no taint to summarise; modelled as
+      # neutral to suppress auto-generated models.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "getRequiredDocumentDirectory", "()", "summary", "manual"]
+
+      # validateExistingDocumentPath(String path) -> File
+      # Validates containment of path within DOCUMENT_DIR, which it resolves itself via
+      # getRequiredDocumentDirectory(). The allowed directory is therefore not an
+      # argument, and the only argument is the user-provided path, so there is no safe
+      # argument to model as the return source. Static, so no Argument[this] either -
+      # modelled as neutral for the same reason as EDocUtil.resolvePath below.
+      - ["io.github.carlos_emr.carlos.utility", "PathValidationUtils", "validateExistingDocumentPath", "(java.lang.String)", "summary", "manual"]
 
       # FaxManagerImpl.validateFilePath(String) -> void
       # Guard method that validates and throws on failure. No taint flows through.

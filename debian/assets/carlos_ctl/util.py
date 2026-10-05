@@ -24,11 +24,18 @@ BACKUP_ENV = os.path.join(CONF_DIR, "backup.env")
 SHARE = "/usr/share/carlos-emr"
 LIB = "/usr/lib/carlos-emr"
 WEBAPP = os.path.join(SHARE, "webapp", "carlos")
+# Vendored browser from carlos-emr-eform-renderer. Absent unless that package
+# is installed, so every reader must treat it as optional.
+CHROMIUM_DIR = os.path.join(LIB, "chromium")
+# Render browser service settings, 0640 root:carlos-render. Written by the
+# renderer package; absent unless it is installed.
+RENDER_BROWSER_ENV = os.path.join(CONF_DIR, "render-browser.env")
 STATE = "/var/lib/carlos-emr"
 
 _TTY = sys.stdout.isatty()
 RED, GREEN, YELLOW, RESET = (
-    ("\033[31m", "\033[32m", "\033[33m", "\033[0m") if _TTY else ("", "", "", "")
+    ("\033[31m", "\033[32m", "\033[33m", "\033[0m") if _TTY
+    else ("", "", "", "")
 )
 
 
@@ -63,6 +70,15 @@ def run(cmd: List[str], **kw) -> subprocess.CompletedProcess:
     root. Secrets travel via stdin or the environment, never argv.
     """
     kw.setdefault("text", True)
+    # NOT the ambient locale: text=True without an encoding uses
+    # locale.getpreferredencoding(), and this seam carries clinic data —
+    # client output, tar listings, server errors. Under LANG=C that
+    # decodes UTF-8 as mojibake (silently, into the archive CSVs) or
+    # raises UnicodeDecodeError on a document name. The client is pinned
+    # to utf8mb4, so UTF-8 is the known wire encoding.
+    if kw.get("text", True) and "encoding" not in kw:
+        kw["encoding"] = "utf-8"
+        kw.setdefault("errors", "replace")
     return subprocess.run(cmd, **kw)  # nosec B603
 
 
@@ -70,6 +86,28 @@ def out(cmd: List[str]) -> str:
     """Command stdout, stripped; empty string on failure."""
     cp = run(cmd, capture_output=True)
     return cp.stdout.strip() if cp.returncode == 0 else ""
+
+
+def reset_emr_start_limit() -> None:
+    """Clear carlos-emr.service's failed state and start-rate counter.
+
+    Call this before ANY deliberate start or restart of the EMR. The unit
+    carries StartLimitBurst=6 over StartLimitIntervalSec=30min to catch a crash
+    loop, but a single apt transaction restarts it three times (carlos-emr plus
+    the drugref and eform-renderer postinsts), and applying config changes means
+    restarting again. Those are all intentional, so without this systemd
+    eventually refuses one with "start-limit-hit" and the EMR is left down
+    behind a 502 with no automatic recovery.
+
+    Crash-loop protection is unaffected: Restart=on-failure with RestartSec=15s
+    still burns the same budget in about 90 seconds when the JVM will not stay
+    up, because nothing calls this in between those automatic restarts.
+
+    Best-effort and never fatal — a missing or masked unit must not turn a
+    working verb into an error.
+    """
+    run(["systemctl", "reset-failed", "carlos-emr.service"],
+        capture_output=True, check=False)
 
 
 def genrandom(length: int, alphabet: str) -> str:
@@ -82,6 +120,63 @@ def genpw() -> str:
     # losing a few bits of entropy is a far better trade than a quoting bug
     # in one of the four formats.
     return genrandom(32, string.ascii_letters + string.digits)
+
+
+# --- SQL --------------------------------------------------------------------
+# Why this tool builds SQL text at all, rather than binding parameters through
+# a driver: every database path it owns already needs the mariadb CLIENT, which
+# is a hard dependency of this package (see debian/control). Restoring a
+# clinic's mysqldump is a client job; so is running the DELIMITER-bearing fixup
+# scripts the roles step replays, and so is handing credentials over via
+# --defaults-extra-file instead of argv. Adding python3-pymysql on top would
+# not remove any of that -- it would add a second way to reach the database,
+# and a second set of connection and credential handling to get right, for
+# paths that must stay identical to what an operator can reproduce by hand from
+# the run's report. So the client stays, and interpolation is escaped here.
+#
+# ONE implementation, because four had already drifted: o19_preflight's copy
+# (which must stay separate -- that file is copied alone to a 2014-era OSCAR 19
+# server and may import nothing) had lost the NUL case. test_sql_escape_
+# contract.py now pins the two against each other.
+
+
+def sql_escape(value: str) -> str:
+    """Escape `value` for a single-quoted MySQL string literal.
+
+    Backslash, quote and NUL are the whole set that matters here, and the
+    reasons the rest do not are conditions this tool enforces rather than
+    assumes:
+
+    * ``"`` needs no escaping inside a single-quoted literal, and ANSI_QUOTES
+      -- which would change that -- is refused by the ETL pre-checks before
+      the first write (etl_precheck_problems), as is NO_BACKSLASH_ESCAPES,
+      which would break the backslash form entirely.
+    * newline and Ctrl-Z are legal inside a literal and survive this
+      tool's transport intact (measured); only the Windows client treats
+      Ctrl-Z specially, and this runs on Debian.
+    * CR is escaped, and NOT because the server minds it. Statements
+      reach the mariadb CLI two ways here: on stdin (the ETL's batches)
+      and as `-e` argv (dbops, and the smaller queries). The stdin path
+      strips the CR of a CRLF as a line terminator BEFORE the server
+      parses the statement -- inside a quoted literal too. Measured on
+      10.11: `'a\r\nb'` stored as `a\nb` through stdin, while a bare CR
+      and a lone LF both survived, and the same value through `-e`
+      arrived intact either way. So the escape is what the stdin path
+      needs and a no-op for `-e`, which is why one escape can serve
+      both. The clinic values that reach a hand-built literal are
+      role names and secObjPrivilege.objectName, and a role name silently
+      losing a byte is written into secObjPrivilege under a spelling that
+      no longer matches secUserRole.role_name -- grants that exist and
+      grant nothing, the exact drift `role_spelling_drift_sql` exists to
+      catch.
+    * NUL is escaped because the client refuses a raw NUL in a statement at
+      all, and values decoded from its batch output can carry one.
+
+    Identifiers do NOT come through here -- they are backtick-quoted by
+    o19etl.ident(), which is a different escape with a different rule.
+    """
+    return (value.replace("\\", "\\\\").replace("'", "\\'")
+            .replace("\0", "\\0").replace("\r", "\\r"))
 
 
 # --- Java .properties files -------------------------------------------------
@@ -112,7 +207,8 @@ def prop_get(path: str, key: str) -> Optional[str]:
     try:
         with open(path, encoding=PROPERTIES_ENCODING) as fh:
             for line in fh:
-                m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*)$", line.rstrip("\n"))
+                m = re.match(rf"^\s*{re.escape(key)}\s*=\s*(.*)$",
+                             line.rstrip("\n"))
                 if m:
                     found = m.group(1)
     except OSError:

@@ -183,7 +183,7 @@
     + "&x=" + SafeEncode.forUriComponent(request.getParameter("x"))
     + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
   if (request.getParameter("viewWeek") != null) {
-    displaypage += "&provider_no="
+    displaypage += "&weekView=true&provider_no="
       + SafeEncode.forUriComponent(appointmentProviderNo);
   }
   out.clear();

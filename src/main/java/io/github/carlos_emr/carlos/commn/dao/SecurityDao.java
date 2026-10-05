@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -47,6 +48,26 @@ public interface SecurityDao extends AbstractDao<Security> {
     List<Security> findByOneIdKey(String ssoKey);
 
     void updateOneIdKey(Security securityRecord);
+
+    /**
+     * Compare-and-set for the stored PIN.
+     *
+     * <p>Writes the new hash only while the row still holds {@code expectedPin}. PIN migration is
+     * deferred to the end of a login, so the record may have been changed in between by a
+     * self-service PIN change, an admin edit, or a concurrent migration on another node. A plain
+     * merge of the object read at authentication time would roll that newer value back to a hash of
+     * the old PIN, so the guard is applied in the UPDATE itself rather than read-then-write.</p>
+     *
+     * <p>This is a bulk update and therefore bypasses the persistence context; callers must
+     * synchronise any in-memory copy themselves.</p>
+     *
+     * @param securityNo    The security row id.
+     * @param expectedPin   The stored PIN value the caller validated against; must not be null.
+     * @param newPinHash    The replacement hash.
+     * @param pinUpdateDate The timestamp to record against the change.
+     * @return The number of rows updated: 1 on success, 0 when the stored PIN no longer matches.
+     */
+    int updatePinHashIfUnchanged(Integer securityNo, String expectedPin, String newPinHash, Date pinUpdateDate);
 
     List<Security> findByLikeUserName(String userName);
 

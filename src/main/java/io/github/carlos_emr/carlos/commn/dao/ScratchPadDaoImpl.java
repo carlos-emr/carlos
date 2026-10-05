@@ -32,6 +32,11 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import jakarta.persistence.LockModeType;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.Date;
+import java.util.Objects;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
@@ -40,8 +45,39 @@ import java.util.List;
 @Repository
 public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements ScratchPadDao {
 
+    private static final String PROVIDER_NO_PARAMETER = "providerNo";
+
     public ScratchPadDaoImpl() {
         super(ScratchPad.class);
+    }
+
+    @Override
+    @Transactional
+    public SaveResult saveIfCurrent(String providerNo, int expectedId, String text) {
+        if (expectedId < 0 || text == null) throw new IllegalArgumentException("Invalid scratchpad save");
+        // Lock the stable owner row, including the first save when no scratchpad
+        // row exists. Keep the revision check and insert in this transaction.
+        Provider owner = entityManager.find(Provider.class, providerNo, LockModeType.PESSIMISTIC_WRITE);
+        if (owner == null) throw new IllegalArgumentException("Scratchpad provider does not exist");
+        Query latest = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
+        latest.setParameter(PROVIDER_NO_PARAMETER, providerNo);
+        // A locking read observes the latest committed revision even when an
+        // outer transaction has already established a repeatable-read snapshot.
+        latest.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        ScratchPad current = getSingleResultOrNull(latest);
+        int currentId = current == null ? 0 : current.getId();
+        // A lost response can be retried with the old revision. If the intended
+        // text is already current, acknowledge it without a duplicate or conflict.
+        if (current != null && currentId >= expectedId && Objects.equals(current.getText(), text)) {
+            return new SaveResult(current, false);
+        }
+        if (currentId != expectedId) return new SaveResult(current, true);
+        ScratchPad saved = new ScratchPad();
+        saved.setProviderNo(providerNo);
+        saved.setText(text);
+        saved.setDateTime(new Date());
+        persist(saved);
+        return new SaveResult(saved, false);
     }
 
     @Override
@@ -62,7 +98,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
     public ScratchPad findByProviderNo(String providerNo) {
         Query query = createQuery("sp", "sp.providerNo = :providerNo AND sp.status=true order by sp.id DESC");
         query.setMaxResults(1);
-        query.setParameter("providerNo", providerNo);
+        query.setParameter(PROVIDER_NO_PARAMETER, providerNo);
         return getSingleResultOrNull(query);
     }
 
@@ -91,7 +127,7 @@ public class ScratchPadDaoImpl extends AbstractDaoImpl<ScratchPad> implements Sc
                 "  ) " +
                 "ORDER BY sp.dateTime DESC";
         Query query = entityManager.createQuery(sql);
-        query.setParameter("providerNo", providerNo);
+        query.setParameter(PROVIDER_NO_PARAMETER, providerNo);
         return query.getResultList();
     }
 }

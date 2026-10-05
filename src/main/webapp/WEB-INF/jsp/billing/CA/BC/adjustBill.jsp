@@ -67,6 +67,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
@@ -530,8 +531,8 @@
             r_doctor = "N/A";
             r_doctor_ohip = "000000";
         } else {
-            r_doctor = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd") == null ? "" : SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rd");
-            r_doctor_ohip = SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip") == null ? "" : SxmlMisc.getXmlContent(d.getFamilyDoctor(), "rdohip");
+            r_doctor = DemographicXml.referralDoctor(d.getFamilyDoctor()) == null ? "" : DemographicXml.referralDoctor(d.getFamilyDoctor());
+            r_doctor_ohip = DemographicXml.referralDoctorOhip(d.getFamilyDoctor()) == null ? "" : DemographicXml.referralDoctorOhip(d.getFamilyDoctor());
         }
 
         HCTYPE = d.getHcType() == null ? "" : d.getHcType();

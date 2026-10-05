@@ -55,15 +55,20 @@ class IncomingDocUtilUnitTest {
     /** On-disk name shaped like a browser download copy — spaces and parentheses included. */
     private static final String PARENTHESIZED_NAME = "2026_07_08_scan (1).pdf";
 
+    private static final String ALLOWED_FOLDERS_PROPERTY = "ALLOWED_INCOMING_DOC_FOLDERS";
+
     @TempDir
     Path incomingRoot;
 
     private String previousIncomingDocumentDir;
+    private String previousAllowedFolders;
 
     @BeforeEach
     void setUp() {
         previousIncomingDocumentDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        previousAllowedFolders = CarlosProperties.getInstance().getProperty(ALLOWED_FOLDERS_PROPERTY);
         CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", incomingRoot.toString());
+        CarlosProperties.getInstance().remove(ALLOWED_FOLDERS_PROPERTY);
     }
 
     @AfterEach
@@ -72,6 +77,11 @@ class IncomingDocUtilUnitTest {
             CarlosProperties.getInstance().remove("INCOMINGDOCUMENT_DIR");
         } else {
             CarlosProperties.getInstance().setProperty("INCOMINGDOCUMENT_DIR", previousIncomingDocumentDir);
+        }
+        if (previousAllowedFolders == null) {
+            CarlosProperties.getInstance().remove(ALLOWED_FOLDERS_PROPERTY);
+        } else {
+            CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, previousAllowedFolders);
         }
     }
 
@@ -298,5 +308,113 @@ class IncomingDocUtilUnitTest {
         IncomingDocUtil.deletePage("1", "Fax", pdf.getName(), "1");
 
         assertThat(IncomingDocUtil.getNumOfPages("1", "Fax", pdf.getName())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("should allow the shipped queue folders when no allowlist is configured")
+    void shouldAllowShippedFolders_whenAllowlistUnconfigured() {
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                .containsExactly("Fax", "Mail", "File", "Refile");
+        assertThat(IncomingDocUtil.getDefaultIncomingDocFolder()).isEqualTo("Fax");
+    }
+
+    @Test
+    @DisplayName("should resolve a queue path for every shipped folder")
+    void shouldResolveQueuePath_forEveryShippedFolder() {
+        for (String folder : IncomingDocUtil.getAllowedIncomingDocFolders()) {
+            assertThat(IncomingDocUtil.getIncomingDocumentFilePath("1", folder))
+                    .isEqualTo(incomingRoot.resolve("1").resolve(folder).toString());
+        }
+    }
+
+    @Test
+    @DisplayName("should resolve a queue path for a configured folder")
+    void shouldResolveQueuePath_forConfiguredFolder() {
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal, Mailbox");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders()).containsExactly("Portal", "Mailbox");
+        assertThat(IncomingDocUtil.getIncomingDocumentFilePath("1", "Portal"))
+                .isEqualTo(incomingRoot.resolve("1").resolve("Portal").toString());
+    }
+
+    @Test
+    @DisplayName("should reject a shipped folder when the configured allowlist drops it")
+    void shouldRejectShippedFolder_whenConfiguredAllowlistDropsIt() {
+        // A configured list replaces the shipped one rather than extending it, so an install
+        // can narrow where intake writes land.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal,Mailbox");
+
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Fax")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Fax"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid pdfDir");
+    }
+
+    @Test
+    @DisplayName("should follow the configured allowlist when choosing the default folder")
+    void shouldFollowConfiguredAllowlist_whenChoosingDefaultFolder() {
+        // The incoming-docs screen falls back to this folder on first load; a default the
+        // allowlist rejects would throw before the page rendered.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, "Portal,Mailbox");
+
+        String defaultFolder = IncomingDocUtil.getDefaultIncomingDocFolder();
+
+        assertThat(defaultFolder).isEqualTo("Portal");
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(defaultFolder)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should drop configured folder names that are not a single path component")
+    void shouldDropConfiguredFolderNames_whenNotASinglePathComponent() {
+        // Configuration must not be able to turn one path component into a subtree, and the
+        // surviving names have to stay usable: callers take the first one as the UI default.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY,
+                "Fax/Archive,Mail\\Archive,../escape,Portal");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders()).containsExactly("Portal");
+        assertThat(IncomingDocUtil.getDefaultIncomingDocFolder()).isEqualTo("Portal");
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Fax/Archive")).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Mail\\Archive")).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("../escape")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Fax/Archive"))
+                .isInstanceOf(FileValidationException.class);
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "../escape"))
+                .isInstanceOf(FileValidationException.class);
+    }
+
+    @Test
+    @DisplayName("should keep the shipped folders when the configured allowlist has nothing usable")
+    void shouldKeepShippedFolders_whenConfiguredAllowlistUnusable() {
+        // A typo that empties the list must not lock intake staff out of every queue.
+        CarlosProperties.getInstance().setProperty(ALLOWED_FOLDERS_PROPERTY, " , ,");
+
+        assertThat(IncomingDocUtil.getAllowedIncomingDocFolders())
+                .containsExactly("Fax", "Mail", "File", "Refile");
+    }
+
+    @Test
+    @DisplayName("should reject a folder that is not on the allowlist")
+    void shouldRejectFolder_whenNotOnAllowlist() {
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("Unknown")).isFalse();
+        assertThatThrownBy(() -> IncomingDocUtil.getIncomingDocumentFilePath("1", "Unknown"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid pdfDir");
+    }
+
+    @Test
+    @DisplayName("should reject a blank folder name for the allowlist check")
+    void shouldRejectBlankFolderName_forAllowlistCheck() {
+        // getIncomingDocumentFilePath treats null/empty as "the queue root"; the boolean check
+        // callers use to pick a UI default must not report that as an allowed folder.
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder(null)).isFalse();
+        assertThat(IncomingDocUtil.isAllowedIncomingDocFolder("")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should label the shipped folders and leave configured folders unlabelled")
+    void shouldLabelShippedFolders_andLeaveConfiguredFoldersUnlabelled() {
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Fax")).isEqualTo("dms.incomingDocs.fax");
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Refile")).isEqualTo("dms.incomingDocs.refile");
+        assertThat(IncomingDocUtil.getIncomingDocFolderLabelKey("Portal")).isNull();
     }
 }

@@ -79,7 +79,8 @@ def cmd_waf(argv) -> int:
     if sub == "status":
         print(f"rule engine: {_engine()}")
         print(f"policy:      {MAIN}")
-        print(f"exclusions:  {CONF_DIR}/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf")
+        print(f"exclusions:  {CONF_DIR}/modsecurity/local-exclusions-before-crs.conf (yours; ids 5000-5999)")
+        print(f"             {CONF_DIR}/modsecurity/local-exclusions-after-crs.conf  (yours; SecRuleUpdateTarget*)")
         print(f"audit log:   {AUDIT}")
         return 0
 
@@ -90,8 +91,8 @@ def cmd_waf(argv) -> int:
         _reload_or_rollback(prev, "still blocking. Fix the file and re-run.")
         warn("the WAF is now LOGGING ONLY and blocks nothing. This is a triage mode.")
         warn("collect the false positives with 'carlos-ctl waf tail', add exclusions to")
-        warn(f"{CONF_DIR}/modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf, then run")
-        warn("'carlos-ctl waf blocking'. Do not leave a PHI system in this state.")
+        warn(f"{CONF_DIR}/modsecurity/local-exclusions-before-crs.conf (or -after-crs.conf),")
+        warn("then run 'carlos-ctl waf blocking'. Do not leave a PHI system in this state.")
         return 0
 
     if sub == "blocking":

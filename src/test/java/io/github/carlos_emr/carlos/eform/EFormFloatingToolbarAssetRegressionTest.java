@@ -72,15 +72,36 @@ class EFormFloatingToolbarAssetRegressionTest {
     }
 
     @Test
-    @DisplayName("should block save on timer-compat failure without relying on the submit event")
-    void shouldBlockSave_whenTimerCompatibilityFailed() throws IOException {
+    @DisplayName("should warn but not block on timer-compat failure (advisory, matching the server gate)")
+    void shouldWarnNotBlock_whenTimerCompatibilityFailed() throws IOException {
         String toolbar = read(TOOLBAR_JS);
         String compat = read(RUNTIME_COMPAT_JS);
 
-        // HTMLFormElement.submit() fires no submit event, so the shim's capture-phase listener never
-        // sees the toolbar's save paths. remoteSave must consult the shim directly.
-        assertThat(compat).contains("status.shouldBlockSubmission");
-        assertThat(toolbar).contains("shouldBlockSubmission");
+        // A failed legacy timer is ADVISORY, not blocking: the server render treats
+        // timerCompatibilityFailure as advisory and delivers the document (see
+        // EFormRenderCompletenessReport.advisoryIssueCount). The client must not hard-block the
+        // print/save/fax paths, or the clinician can never reach the document the server would
+        // deliver. It warns via warnBeforeSubmission (HTMLFormElement.submit() fires no submit event,
+        // so remoteSave consults the shim directly) and proceeds.
+        assertThat(compat).contains("status.warnBeforeSubmission");
+        assertThat(toolbar).contains("warnBeforeSubmission");
+
+        // The old hard block must stay gone: neither the programmatic hook nor the capture-phase
+        // submit listener may cancel a submission on a timer failure.
+        assertThat(compat)
+                .as("the timer-failure block must not be reintroduced")
+                .doesNotContain("shouldBlockSubmission");
+        assertThat(toolbar).doesNotContain("shouldBlockSubmission");
+
+        // Scope the "no cancel" check to the capture-phase submit listener so an unrelated
+        // preventDefault elsewhere in the file (there is none today) could not mask a regression.
+        int listenerStart = compat.indexOf("warnOnSubmitAfterTimerFailure");
+        assertThat(listenerStart).as("capture-phase submit listener must exist").isNotNegative();
+        String listenerBody = compat.substring(listenerStart, compat.indexOf("}, true);", listenerStart));
+        assertThat(listenerBody)
+                .as("the submit listener must not cancel the submission for a timer failure")
+                .doesNotContain("preventDefault")
+                .doesNotContain("stopImmediatePropagation");
     }
 
     @Test

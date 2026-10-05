@@ -69,7 +69,7 @@ class PDFControllerUnitTest {
         URL url = loader.getResource("oscar/form/prop/bpmh_template_marked.pdf");
 
         pdfController = new PDFController(url.getPath());
-        pdfController.setOutputPath("/var/lib/OscarDocument");
+        pdfController.setOutputPath("/var/lib/CarlosDocument");
 
         demographic = new Demographic();
         demographic.setDemographicNo(12345);
@@ -101,7 +101,7 @@ class PDFControllerUnitTest {
     @Test
     @DisplayName("should return configured output path")
     void shouldReturnOutputPath_whenSet() {
-        assertThat(pdfController.getOutputPath()).isEqualTo("/var/lib/OscarDocument");
+        assertThat(pdfController.getOutputPath()).isEqualTo("/var/lib/CarlosDocument");
     }
 
     @Test

@@ -57,6 +57,7 @@ class FaxRecipientUnitTest {
 
         assertThat(recipient.getName()).isEqualTo("Jane Doe");
         assertThat(recipient.getFax()).isEqualTo("5551234567");
+        assertThat(recipient.getRawFax()).isEqualTo("(555) 123-4567");
     }
 
     @Test

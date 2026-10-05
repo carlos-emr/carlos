@@ -37,6 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -341,10 +342,10 @@
     }
     pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
-    boolean isWeekView = false;
+    boolean isWeekView = "true".equals(request.getParameter("weekView"));
     String provNum = request.getParameter("provider_no");
-    if (provNum != null) {
-        isWeekView = true;
+    if (provNum == null || provNum.isBlank()) {
+        isWeekView = false;
     }
     if (caisiView != null && "true".equals(caisiView)) {
         isWeekView = false;
@@ -556,7 +557,7 @@
             }
 
             function goWeekView(s) {
-                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
+                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&weekView=true&provider_no=" + s;
             }
 
             function goZoomView(s, n) {
@@ -1221,7 +1222,7 @@
                           style="display:none;"></form>
                 </span>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1229,7 +1230,7 @@
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup?urlfrom=" + request.getContextPath() + "/provider/providercontrol" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
 
                     if (isWeekView) {
-                        calendarUrl += URLEncoder.encode("&provider_no=" + provNum, "UTF-8");
+                        calendarUrl += URLEncoder.encode("&weekView=true&provider_no=" + provNum, "UTF-8");
                     }
                 %>
                 <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
@@ -1242,7 +1243,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -2004,7 +2005,7 @@
 
                                                                   String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
-                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          ? DemographicXml.userNotesText(dCust.getNotes())
                                                                           : "";
 
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
@@ -2140,10 +2141,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2198,10 +2199,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
