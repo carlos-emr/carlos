@@ -311,7 +311,7 @@ public abstract class PortalJsonAction extends ActionSupport {
     }
 
     /**
-     * Resolves the invitation workflow, or {@code null} when this deployment has no portal. It holds the
+     * Resolves the invitation workflow, or {@code null} when this deployment has the portal switched off. It holds the
      * portal client, so it follows the same rule as {@link #portalService()}.
      */
     PortalInviteDeliveryService inviteDeliveryService() {

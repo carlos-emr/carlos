@@ -10,14 +10,18 @@ run in CARLOS before signing.
 The portal is optional and off by default. It is used only when
 `patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
 setting it back to `false` switches the portal off without removing its
-credentials. With the portal off, no portal call is made. A portal JSON action
-that would call the portal (the panel read, invitation revoke, account unlock
-and access) answers 503 `portal_not_configured`, saying the portal is not
-switched on. Requests refused for their method, patient, action name,
-invitation id or privileges are refused as before (an account access request's
-`enabled` and `reason` are checked only once the portal is on), and invitation
-create and resend answer 503 `portal_invitation_unavailable` whether the portal
-is on or off. The email
+credentials. With the portal off, no portal call is made. The **Patient
+portal** entry on the patient record appears only while the portal is on. A
+portal JSON action that would call the portal (the panel read, invitation
+create, resend, recovery and revoke, account unlock and access) answers 503
+`portal_not_configured`, saying the portal is not switched on; an invitation is
+then neither prepared on the portal nor queued as an email. Requests refused for
+their method, patient, action name, invitation or delivery id, invitation details
+or privileges are refused as before (an account access request's `enabled` and
+`reason` are checked only once the portal is on). An invitation email whose
+delivery has not finished waits while the portal is off: Manage Emails still
+sends staff to the patient's portal page, which reports that the portal is not
+switched on. The email
 recovery page reports the portal as switched off or not set up correctly when a
 recovery is attempted. The rest of CARLOS is unaffected, with two exceptions.
 While `patient_portal.email.enabled=true`, every encrypted email is refused;
