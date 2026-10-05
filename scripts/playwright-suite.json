@@ -4694,8 +4694,8 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Fails at its last step ('Reviewed records the logged-in provider as the document reviewer...') on 2026.08: editDocument.jsp reviewed() tests reviewerId == 'null', but the null-safe encoder renders a NULL reviewer as '', so the first review raises the debug alert 'set extra', writes a DocumentExtraReviewer row and leaves document.reviewer empty.",
-      "fixtures": "Owns a patient and one unreviewed PDF (document row with reviewer NULL, ctl_document link, file under DOCUMENT_DIR); cleanup deletes the document, its link, its file and any DocumentExtraReviewer row for that document id, and asserts each gone. No global settings; safe to run concurrently."
+      "notes": "Regression #4262: first review records and displays the primary reviewer; an additional review preserves the original reviewer/date and records/displays the current provider without a debug alert or duplicate acknowledgement.",
+      "fixtures": "Owns a patient and two PDFs (one unreviewed, one reviewed by another existing active provider); cleanup removes both document rows, links, files and extra-reviewer rows and asserts they are gone. Requires a second active provider; no provider or global-setting changes."
     },
     {
       "name": "encoder-null-eform-lists",
