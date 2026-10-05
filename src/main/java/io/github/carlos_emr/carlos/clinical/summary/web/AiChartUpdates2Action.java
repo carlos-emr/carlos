@@ -69,14 +69,15 @@ public final class AiChartUpdates2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
+        // A switched-off feature answers 404 to every method, before anything else is read.
+        try { ChartUpdateContext.requireEnabled(); }
+        catch (IllegalStateException disabled) { response.sendError(404); return NONE; }
         boolean view = "view".equals(operation);
         if (view ? !List.of("GET", "HEAD").contains(request.getMethod()) : !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", view ? "GET, HEAD" : "POST");
             response.sendError(405);
             return NONE;
         }
-        try { ChartUpdateContext.requireEnabled(); }
-        catch (IllegalStateException disabled) { response.sendError(404); return NONE; }
         LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (user == null) throw new SecurityException("missing required sec object (_edoc)");
         int document;

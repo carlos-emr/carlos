@@ -29,6 +29,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.List;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -136,11 +138,23 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(context, generator, writer);
     }
 
-    @Test void shouldHideFeature_whenDisabled() throws Exception {
+    // The flag check comes first, so a switched-off feature never answers 405.
+    @ParameterizedTest
+    @CsvSource({"view,GET", "view,POST", "generate,POST", "generate,GET", "apply,GET", "dismiss,PUT"})
+    void shouldHideFeature_forEveryMethodWhenDisabled(String operation, String method) throws Exception {
         when(properties.getProperty(ChartUpdateProposals.ENABLED, "false")).thenReturn("false");
-        assertThat(action.generate()).isEqualTo("none");
+        request.setMethod(method);
+        String result = switch (operation) {
+            case "view" -> action.execute();
+            case "generate" -> action.generate();
+            case "apply" -> action.apply();
+            default -> action.dismiss();
+        };
+        assertThat(result).isEqualTo("none");
         assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getHeader("Allow")).isNull();
         verifyNoInteractions(context, generator, writer);
+        sessions.verifyNoInteractions();
     }
 
     @Test void shouldRejectRequest_whenSessionMissingOrDocumentDuplicated() throws Exception {
