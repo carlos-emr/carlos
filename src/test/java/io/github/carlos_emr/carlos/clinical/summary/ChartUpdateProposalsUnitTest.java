@@ -179,4 +179,15 @@ class ChartUpdateProposalsUnitTest {
         assertThatThrownBy(() -> generator.generate(SOURCE)).hasMessage("Proposals could not be generated or failed source validation. Nothing was saved.");
         assertThat(generator.generate(SOURCE)).isEmpty();
     }
+
+    @Test void shouldReportOutputLimit_whenModelRunsOutOfTokens() throws Exception {
+        var agent = mock(ClinicalSummaryAgent.class);
+        when(agent.requestBytes()).thenReturn(16000);
+        when(agent.generate(any())).thenThrow(new ClinicalSummaryOutputLimitException())
+                .thenReturn(JSON.readTree("{\"proposals\":[]}"));
+        var generator = new ChartUpdateProposals(agent);
+        assertThatThrownBy(() -> generator.generate(SOURCE)).isInstanceOf(ClinicalSummaryGenerationException.class)
+                .hasMessageContaining("output limit");
+        assertThat(generator.generate(SOURCE)).isEmpty();
+    }
 }

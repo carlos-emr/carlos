@@ -82,6 +82,9 @@ public final class ChartUpdateProposals {
                 output = object.deepCopy().without("coverage");
             }
             return validateReport(output, source);
+        } catch (ClinicalSummaryOutputLimitException truncated) {
+            // Truncated output is never validated; say why so the clinician can retry with a shorter document.
+            throw new ClinicalSummaryGenerationException("The model could not finish this document within its output limit. No partial proposals were generated.");
         } catch (IOException | RuntimeException invalid) {
             throw new ClinicalSummaryGenerationException("Proposals could not be generated or failed source validation. Nothing was saved.");
         } finally {
