@@ -87,6 +87,12 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
     private ProviderDao mockProviderDao;
 
     private ImportDemographicDataAction42Action action;
+    private org.mockito.MockedStatic<io.github.carlos_emr.carlos.utility.SpringUtils> lockBeans;
+
+    @org.junit.jupiter.api.AfterEach
+    void restoreLockLookup() {
+        if (lockBeans != null) lockBeans.close();
+    }
 
     @BeforeEach
     void setUp() throws Exception {
@@ -209,12 +215,27 @@ class ImportDemographicDataAction42ActionUnitTest extends CarlosWebTestBase {
         java.sql.Connection connection = mock(java.sql.Connection.class);
         java.sql.PreparedStatement statement = mock(java.sql.PreparedStatement.class);
         java.sql.ResultSet resultSet = mock(java.sql.ResultSet.class);
-        replaceSpringUtilsBean(javax.sql.DataSource.class, dataSource);
+        // Replacing the shared Spring singleton destroys its dependent EntityManagerFactory.
+        // Scope only this lookup to the action test and preserve the integration context.
+        lockBeans = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.SpringUtils.class,
+                org.mockito.Mockito.CALLS_REAL_METHODS);
+        lockBeans.when(() -> io.github.carlos_emr.carlos.utility.SpringUtils.getBean(javax.sql.DataSource.class))
+                .thenReturn(dataSource);
         when(dataSource.getConnection()).thenReturn(connection);
         when(connection.prepareStatement(org.mockito.ArgumentMatchers.anyString())).thenReturn(statement);
         when(statement.executeQuery()).thenReturn(resultSet);
         when(resultSet.next()).thenReturn(true);
         when(resultSet.getInt(1)).thenReturn(lockResult);
+    }
+
+    @Test
+    void shouldKeepSharedPersistenceOpen_whenPreparingImportLock() throws Exception {
+        var factory = applicationContext.getBean("entityManagerFactory", jakarta.persistence.EntityManagerFactory.class);
+        var source = applicationContext.getBean("dataSource");
+        prepareLockResult(0);
+        assertThat(factory.isOpen()).isTrue();
+        assertThat(applicationContext.getBean("entityManagerFactory")).isSameAs(factory);
+        assertThat(applicationContext.getBean("dataSource")).isSameAs(source);
     }
 
     @Test
