@@ -120,7 +120,7 @@ for (const [button, method] of cases) {
     run.click(button, form);
     assert.equal(run.requests.length, 2);
     run.requests[1].success();
-    assert.equal(run.hidden.length, 1);
+    assert.deepEqual(run.hidden, [`modal${button[0].toUpperCase()}${button.slice(1)}`]);
   });
 }
 
@@ -133,7 +133,7 @@ for (const success of [true, 'true', false, 'false', undefined]) {
     assert.equal(run.requests[0].dataType, 'json');
     run.requests[0].success({success});
     const saved = success === true || success === 'true';
-    assert.equal(run.hidden.length, saved ? 1 : 0);
+    assert.deepEqual(run.hidden, saved ? ['assignTickler'] : []);
     assert.equal(run.alerts.length, saved ? 0 : 1);
     run.requests[0].complete();
     assert.equal(run.buttons.get('saveTicklerBtn').disabled, false);

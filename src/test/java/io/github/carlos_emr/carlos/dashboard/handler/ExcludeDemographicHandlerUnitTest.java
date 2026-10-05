@@ -108,25 +108,32 @@ class ExcludeDemographicHandlerUnitTest extends CarlosUnitTestBase {
             Mockito.clearInvocations(mockDao);
         }
 
+        private void assertParsedIds(Integer... expected) {
+            var ids = org.mockito.ArgumentCaptor.forClass(Integer.class);
+            verify(mockDao, times(expected.length)).addKeyIfAbsentSince(anyString(), ids.capture(),
+                    anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(expected), ids.getAllValues());
+        }
+
         @Test
         @DisplayName("should parse plain comma-separated integers")
         void shouldParseCommaSeparatedIntegers() {
             handler.excludeDemoIds("1,2,3", "testIndicator");
-            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            assertParsedIds(1, 2, 3);
         }
 
         @Test
         @DisplayName("should parse bracket-wrapped integer array")
         void shouldParseBracketWrappedIntegers() {
             handler.excludeDemoIds("[10,20,30]", "testIndicator");
-            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            assertParsedIds(10, 20, 30);
         }
 
         @Test
         @DisplayName("should parse single integer without brackets")
         void shouldParseSingleInteger() {
             handler.excludeDemoIds("42", "testIndicator");
-            verify(mockDao, times(1)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            assertParsedIds(42);
         }
 
         @Test
@@ -189,7 +196,7 @@ class ExcludeDemographicHandlerUnitTest extends CarlosUnitTestBase {
         @DisplayName("should handle integers with whitespace")
         void shouldHandleIntegersWithWhitespace() {
             handler.excludeDemoIds(" 1 , 2 , 3 ", "testIndicator");
-            verify(mockDao, times(3)).addKeyIfAbsentSince(anyString(), anyInt(), anyString(), anyString(), org.mockito.ArgumentMatchers.any(java.util.Date.class));
+            assertParsedIds(1, 2, 3);
         }
 
         @Test
