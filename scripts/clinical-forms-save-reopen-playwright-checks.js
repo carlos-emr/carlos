@@ -70,12 +70,28 @@ async function assertShown(page, form, text, where) {
   }
 }
 
-async function workflow(s) {
+async function revealSavedForm(page, link) {
+  // Initial folding omits entries; collapsing an already-loaded list hides its li.
+  // The image owns the click handler in both cases, and its URL is locale-independent.
+  if (!await link.isVisible()) await page.locator('#forms img[src$="/expand.gif"]:visible').click();
+  await link.waitFor({ state: 'visible' });
+}
+
+async function workflow(s, { forms = FORMS, foldSavedForms = false } = {}) {
   const { sql, patient, provider, marker } = s;
   const results = [];
-  const registrations = FORMS.map(form => ({
+  const registrations = forms.map(form => ({
     form, name: `${marker} ${form.key}`, value: `${form.path}?fixture=${marker}&${form.query || ''}demographic_no=`,
   }));
+  // Extra owned aliases put the selected saved form beyond the navbar's first six
+  // entries without creating additional patient records or changing clinic settings.
+  if (foldSavedForms) {
+    const form = forms[0];
+    for (let i = 0; i < 8; i++) registrations.unshift({
+      form, name: `BC ${marker} ${i}`, fixtureOnly: true,
+      value: `${form.path}?fixture=${marker}&fold=${i}&demographic_no=`,
+    });
+  }
   s.cleanup(() => {
     sql.execute(FORMS.map(form => `DELETE FROM ${form.table} WHERE demographic_no=${patient}`).join(';'));
     h.assert(sql.value(`SELECT ${FORMS.map(form => `(SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient})`)
@@ -91,6 +107,7 @@ async function workflow(s) {
   // The shipped registrations are hidden on Ontario installs and enabling one would edit a demo
   // row, so the run registers its own marker-named entry pointing at the shipped form_value.
   for (const { form, name, value } of registrations) {
+    h.assert(name.length <= 30, 'The owned registration name exceeds encounterForm.form_name');
     sql.execute(`INSERT INTO encounterForm (form_value,form_name,form_table,hidden)
       SELECT ${h.sqlString(value)},${h.sqlString(name)},${h.sqlString(form.table)},COALESCE(MAX(hidden),0)+1 FROM encounterForm`);
   }
@@ -107,7 +124,7 @@ async function workflow(s) {
     }
   }
 
-  for (const registration of registrations) {
+  for (const registration of registrations.filter(item => !item.fixtureOnly)) {
     const { form, name } = registration;
     const entry = { form, name, text: `${marker} ${PROSE}${form.key === 'ANN' ? ' <follow-up>' : ''}` };
     results.push(entry);
@@ -252,10 +269,9 @@ async function workflow(s) {
     let page;
     await attempt(entry, 'reopening from the E-Chart restores the saved values', async () => {
       const link = fresh.locator(`#leftNavBar a[onclick*="formname=${entry.name}&"], #rightNavBar a[onclick*="formname=${entry.name}&"]`).first();
-      // The Forms module lists six entries and folds the rest behind its "N more items" arrow.
-      const more = fresh.locator('ul:has(a[onclick*="/form/forwardshortcutname"]) a[title$="more items"]').first();
-      if (!await link.count() && await more.count()) await more.click();
-      await link.waitFor({ state: 'attached' });
+      if (foldSavedForms) h.assert(!await link.isVisible(),
+        'The folded-navigation fixture did not put the saved form beyond the first page');
+      await revealSavedForm(fresh, link);
       page = await ui.clickOpensPopup(fresh, link, { context: s.context, recorder: s.recorder,
         label: `reopen-${form.key}`, timeout: 20000, position: { x: 8, y: 9 } });
       const params = new URL(page.url()).searchParams;
@@ -263,6 +279,23 @@ async function workflow(s) {
       h.assert(params.get('formId') === entry.id, 'The saved-form entry did not open the saved record');
       await assertShown(page, form, entry.text, 'The reopened form');
     });
+
+    if (foldSavedForms) {
+      await attempt(entry, 'a previously loaded and collapsed saved-form list expands and reopens the same record', async () => {
+        await page.close();
+        await fresh.locator('#forms img[src$="/collapse.gif"]:visible').first().click();
+        const link = fresh.locator(`#forms a[onclick*="formname=${entry.name}&"]`).first();
+        h.assert(await link.count() > 0 && !await link.isVisible(),
+          'The cached-list fixture did not retain a hidden saved-form anchor');
+        await revealSavedForm(fresh, link);
+        page = await ui.clickOpensPopup(fresh, link, { context: s.context, recorder: s.recorder,
+          label: `reopen-${form.key}`, timeout: 20000, position: { x: 8, y: 9 } });
+        const params = new URL(page.url()).searchParams;
+        h.assert(params.get('demographic_no') === patient && params.get('formId') === entry.id,
+          'Expanding the cached list opened a different patient or saved record');
+        await assertShown(page, form, entry.text, 'The reopened form from the cached list');
+      });
+    }
 
     if (form.print) {
       await attempt(entry, form.print.kind === 'pdf' ? 'Print Pdf answers a PDF carrying the saved prose'
@@ -310,17 +343,53 @@ async function workflow(s) {
       // Encounter forms are versioned: every Save inserts a new row (FrmRecordHelp.saveFormRecord)
       // and the chart reopens formId=latest, so the revision is the second row, not an overwrite.
       await attempt(entry, 'a second Save from the redisplayed form is accepted and files the revision as the next version', async () => {
+        h.assert(await entry.page.locator('script[src$="/csrfguard"]').count() === 1,
+          'The redisplayed form must load CSRFGuard exactly once');
+        await entry.page.waitForFunction(() => {
+          const token = document.querySelector('form input[name="CSRF-TOKEN"]');
+          return token && token.value.length > 0;
+        });
         const revised = `${entry.text} (revised)`;
         await entry.page.locator(`[name="${form.prose}"]`).first().fill(revised);
         const posted = entry.page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/form/formname'));
+        posted.catch(() => {});
         await h.withExpectedDialogs(entry.page, () => entry.page.getByRole('button', { name: 'Save', exact: true }).first().click());
-        h.assert((await posted).status() === 302, 'The second save was refused');
+        const response = await posted;
+        h.assert(response.status() === 302, 'The second save was refused');
         await expectValue(sql, `SELECT ${form.prose} FROM ${form.table} WHERE demographic_no=${patient}
           ORDER BY ${form.idColumn} DESC LIMIT 1`, revised, 'The second save did not store the revision');
         h.assert(sql.value(`SELECT COUNT(*) FROM ${form.table} WHERE demographic_no=${patient}`) === '2',
           'The second save did not file exactly one new version');
         h.assert(sql.value(`SELECT ${form.prose} FROM ${form.table} WHERE demographic_no=${patient}
           AND ${form.idColumn}=${entry.id}`) === entry.text, 'The second save altered the first saved version');
+        const columns = [form.idColumn, ...form.fields.map(field => field.name), 'provider_no'];
+        const [revision] = sql.rows(`SELECT ${columns.join(',')} FROM ${form.table}
+          WHERE demographic_no=${patient} ORDER BY ${form.idColumn} DESC LIMIT 1`);
+        const latest = revision[0];
+        form.fields.forEach((field, i) => h.assert(revision[i + 1] === field.stored,
+          `The revision did not preserve the stored ${field.name}`));
+        h.assert(revision[revision.length - 1] === provider,
+          'The revision is not attributed to the signed-in provider');
+        h.assert(latest !== entry.id, 'The revision did not get its own record ID');
+        await entry.page.waitForURL(url => url.pathname.endsWith('/form/forwardname')
+          && url.searchParams.get('formId') === latest, { waitUntil: 'domcontentloaded' });
+        await assertShown(entry.page, form, revised, 'The redisplayed revision');
+        const revisedChart = await s.context.newPage();
+        h.wireStrictPage(revisedChart, 'revision-chart', s.recorder);
+        await revisedChart.goto(chart.url(), { waitUntil: 'domcontentloaded' });
+        await waitForNavbars(revisedChart, 20000);
+        const saved = revisedChart.locator(`#forms a[onclick*="formname=${entry.name}&"]`).first();
+        await revealSavedForm(revisedChart, saved);
+        const reopened = await ui.clickOpensPopup(revisedChart, saved, {
+          context: s.context, recorder: s.recorder, label: `reopen-${form.key}`,
+          timeout: 20000, position: { x: 8, y: 9 },
+        });
+        const params = new URL(reopened.url()).searchParams;
+        h.assert(params.get('demographic_no') === patient && params.get('formId') === latest,
+          'The saved-form entry did not reopen the latest version for the owned patient');
+        await assertShown(reopened, form, revised, 'The reopened revision');
+        await reopened.close();
+        await revisedChart.close();
       });
     }
     if (entry.page && !entry.page.isClosed()) await entry.page.close();
