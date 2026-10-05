@@ -4634,8 +4634,23 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors.",
+      "notes": "Records each form independently and fails at the end for remaining release issues: Vascular Tracker and Annual print routes, and Discharge Summary/Mental Health Form 1 date validation. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening.",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "palliative-care-save-reopen",
+      "script": "scripts/palliative-care-save-reopen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Focused Palliative Care workflow: exact prose/date/provider, saved identity, forced folded-navbar reopening, second Save with CSRF protection, unchanged first version and latest-version reopening.",
+      "fixtures": "Owned workflow patient, Palliative Care rows and marker-named form registrations, including eight aliases forcing the saved entry beyond the first six. All removed; registrations are clinic-wide, so run EXCLUSIVE=1."
     },
     {
       "name": "billing-on-gst-css-benefit",
