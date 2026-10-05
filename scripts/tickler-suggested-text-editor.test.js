@@ -10,9 +10,10 @@ const jsp = fs.readFileSync(path.join(__dirname,
 const script = [...jsp.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
   .map(match => match[1]).find(code => code.includes('function addToList('))
   .replace(/<fmt:message\b[^>]*\/>/g, 'Empty');
+const emptyValue = jsp.match(/<option value="([^"]*)"><\/option>/)[1];
 const option = (value, text = value) => ({ value, text, className: 'existing-style', selected: true });
 function editor(value = '  Follow up <tomorrow>  ') {
-  const select = () => ({ options: [option('0', '')], selectedIndex: 0,
+  const select = () => ({ options: [option(emptyValue, '')], selectedIndex: 0,
     add(item) { this.options.push(item); }, remove(index) { this.options.splice(index, 1); } });
   const lists = { activeText: select(), inactiveText: select() };
   const input = { value, focused: false, focus() { this.focused = true; } };
@@ -28,7 +29,7 @@ for (const list of ['activeText', 'inactiveText']) {
     const { context, lists, input } = editor();
     context.addToList(list, 'newTextSuggest');
     assert.equal(lists[list].options.length, 1);
-    assert.equal(lists[list].options[0].value, '  Follow up <tomorrow>  ');
+    assert.equal(lists[list].options[0].value, 'text:  Follow up <tomorrow>  ');
     assert.equal(lists[list].options[0].text, '  Follow up <tomorrow>  ');
     assert.equal(input.value, '');
   });
@@ -37,7 +38,7 @@ for (const value of ['', ' \t ']) {
   test(`blank text ${JSON.stringify(value)} does not replace the empty-list placeholder`, () => {
     const { context, lists, input } = editor(value);
     context.addToList('activeText', 'newTextSuggest');
-    assert.deepEqual(lists.activeText.options.map(x => x.value), ['0']);
+    assert.deepEqual(lists.activeText.options.map(x => x.value), ['']);
     assert.equal(input.value, value);
     assert.equal(input.focused, true);
   });
@@ -46,8 +47,22 @@ test('moving the only real suggestion leaves a placeholder and preserves the des
   const { context, lists } = editor();
   lists.activeText.options = [option('11', 'Existing suggestion')];
   context.swap('activeText', 'inactiveText');
-  assert.deepEqual(lists.activeText.options.map(x => x.value), ['0']);
+  assert.deepEqual(lists.activeText.options.map(x => x.value), ['']);
   assert.deepEqual(lists.inactiveText.options.map(x => x.value), ['11']);
   assert.equal(lists.inactiveText.options[0].text, 'Existing suggestion');
   assert.equal(lists.inactiveText.options[0].className, 'existing-style');
+});
+
+test('literal zero survives another addition and moves independently of the empty placeholder', () => {
+  const { context, lists, input } = editor('0');
+  context.addToList('activeText', 'newTextSuggest');
+  input.value = 'Another suggestion';
+  context.addToList('activeText', 'newTextSuggest');
+  assert.deepEqual(lists.activeText.options.map(x => x.value), ['text:0', 'text:Another suggestion']);
+  lists.activeText.options[0].selected = true;
+  lists.activeText.options[1].selected = false;
+  context.swap('activeText', 'inactiveText');
+  assert.deepEqual(lists.activeText.options.map(x => x.value), ['text:Another suggestion']);
+  assert.deepEqual(lists.inactiveText.options.map(x => x.value), ['text:0']);
+  assert.equal(lists.inactiveText.options[0].text, '0');
 });

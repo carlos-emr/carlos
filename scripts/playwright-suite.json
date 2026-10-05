@@ -4449,9 +4449,10 @@
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD",
-        "EXCLUSIVE"
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
       ],
-      "fixtures": "Owned patient, suggested-text row and throwaway read-only tickler login. Existing inactive suggestions are temporarily activated to test an empty Inactive list and restored exactly; run EXCLUSIVE=1. The session is ended from a second context sharing the cookie."
+      "fixtures": "Owned patient, suggested-text row and throwaway read-only tickler login. Existing inactive suggestions are temporarily activated to test an empty Inactive list and restored exactly; run only on a disposable VM with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true. The session is ended from a second context sharing the cookie."
     },
     {
       "name": "workflow-tickler-suggested-text",

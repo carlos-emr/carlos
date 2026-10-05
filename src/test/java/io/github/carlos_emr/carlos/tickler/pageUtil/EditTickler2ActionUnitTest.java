@@ -383,4 +383,36 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(active.getCreateDate()).isEqualTo(new Date(1234));
         assertThat(inactive.getCreateDate()).isEqualTo(new Date(5678));
     }
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "11", "text:literal", "  Exact text  "})
+    void shouldPersistPrefixedLiteralText_withoutTreatingNumericTextAsAnId(String text) {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        request.setParameter("suggestionValueFormat", "prefixed");
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"", "text:" + text});
+        action.setInactiveText(new String[]{"text:" + text, "text: ", "text:"});
+
+        assertThat(action.execute()).isEqualTo("close");
+        ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+        verify(dao, org.mockito.Mockito.times(2)).persist(saved.capture());
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getSuggestedText)
+                .containsExactly(text, text);
+        assertThat(saved.getAllValues()).extracting(TicklerTextSuggest::getActive).containsExactly(true, false);
+        org.mockito.Mockito.verifyNoMoreInteractions(dao);
+        verify(dao, never()).merge(any());
+    }
+
+    @Test
+    void shouldPreserveLegacyTextPrefixes_whenNoNewFormatIsDeclared() {
+        TicklerTextSuggestDao dao = createAndRegisterMock(TicklerTextSuggestDao.class);
+        var action = new TestableEditTickler2Action();
+        action.setActiveText(new String[]{"text:literal"});
+        action.setInactiveText(new String[]{""});
+
+        assertThat(action.execute()).isEqualTo("close");
+        ArgumentCaptor<TicklerTextSuggest> saved = ArgumentCaptor.forClass(TicklerTextSuggest.class);
+        verify(dao).persist(saved.capture());
+        assertThat(saved.getValue().getSuggestedText()).isEqualTo("text:literal");
+    }
+
 }

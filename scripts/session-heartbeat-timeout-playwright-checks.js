@@ -23,7 +23,7 @@
  * suggested-text row (plus any row the save writes on this run's behalf), and a
  * throwaway login holding a marker role with only _appointment, _tickler and _msg r; all
  * removed and verified by cleanup. Existing inactive suggestions are temporarily activated
- * to establish an empty Inactive list, then restored exactly; run with EXCLUSIVE=1.
+ * to establish an empty Inactive list, then restored exactly; run only on a disposable VM with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true.
  * encounter/ViewTimeOut has no UI entry and is not
  * driven.
  */
@@ -73,6 +73,7 @@ async function searchTicklers(page, needle) {
 }
 
 async function workflow(s) {
+  h.assert(process.env.CARLOS_DISPOSABLE_VM === 'true', 'The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
   h.assert(process.env.EXCLUSIVE === '1', 'The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
   const { sql, context, config, recorder, patient, provider, marker } = s;
   const contexts = [];

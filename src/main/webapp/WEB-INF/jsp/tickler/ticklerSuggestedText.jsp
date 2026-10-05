@@ -66,7 +66,7 @@
     <script type="application/javascript">
         function setEmpty(selectbox) {
             var emptyTxt = "<fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.empty"/>";
-            var emptyVal = "0";
+            var emptyVal = "";
             var op = document.createElement("option");
             try {
                 selectbox.add(op);
@@ -83,11 +83,11 @@
             var opt;
 
             //if nothing or dummy is being transfered do nothing
-            if (src.selectedIndex == -1 || src.options[0].value == "0")
+            if (src.selectedIndex == -1 || src.options[0].value == "")
                 return;
 
             //if dst has dummy clobber it with new options
-            if (dst.options[0].value == "0")
+            if (dst.options[0].value == "")
                 dst.remove(0);
 
             for (var idx = src.options.length - 1; idx >= 0; --idx) {
@@ -123,17 +123,17 @@
             }
             var optionClass = dst.options.length ? dst.options[dst.options.length - 1].className : "";
             //if dst has dummy clobber it with new options
-            if (dst.options[0].value == "0")
+            if (dst.options[0].value == "")
                 dst.remove(0);
             var opt = document.createElement("option");
             try {  //ie method of adding option
                 dst.add(opt);
                 dst.options[dst.options.length - 1].text = src.value;
-                dst.options[dst.options.length - 1].value = src.value;
+                dst.options[dst.options.length - 1].value = "text:" + src.value;
                 dst.options[dst.options.length - 1].className = optionClass;
             } catch (e) { //firefox method of adding option
                 opt.text = src.value;
-                opt.value = src.value;
+                opt.value = "text:" + src.value;
                 opt.className = optionClass;
                 dst.add(opt, null);
                 dst.options[dst.options.length - 1].selected = false;
@@ -160,6 +160,7 @@
     <h3><fmt:message key="global.tickler"/> <fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest" method="post">
         <input type="hidden" name="method" value="updateTextSuggest">
+        <input type="hidden" name="suggestionValueFormat" value="prefixed">
         <table style="display: flex;justify-content: space-evenly;align-items: stretch;">
 
             <tr>
@@ -174,7 +175,7 @@
                         <% java.util.List<TicklerTextSuggest> activeTexts = ticklerTextSuggestDao.getActiveTicklerTextSuggests();
                             if (activeTexts.isEmpty()) {
                         %>
-                        <option value="0"></option>
+                        <option value=""></option>
                         <% } else {
 
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
@@ -201,7 +202,7 @@
                             java.util.List<TicklerTextSuggest> inactiveTexts = ticklerTextSuggestDao.getInactiveTicklerTextSuggests();
                             if (inactiveTexts.isEmpty()) {
                         %>
-                        <option value="0"></option>
+                        <option value=""></option>
                         <%
                         } else {
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
