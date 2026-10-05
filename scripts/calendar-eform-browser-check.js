@@ -77,6 +77,56 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.locator('#today').inputValue(), '29-Sep-2026');
     assert.deepEqual(errors, []);
 
+    // Rourke reserves its read-only field for a double-click shortcut; the separate icon
+    // must still open the picker, and the shortcut must keep the picker's state in sync.
+    const rourke = await browser.newPage();
+    const rourkeErrors = [];
+    rourke.on('pageerror', error => rourkeErrors.push(error.message));
+    await rourke.setContent('<form id="frmP1"><input id="visit" readonly ondblclick="resetDate(this)"><button id="visit_cal" type="button" aria-label="Calendar"><img alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></button><input id="other"></form>');
+    await rourke.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
+    // Inline the shipped rules, with their import already loaded above, so no network is needed.
+    const calendarCss = fs.readFileSync(path.join(web, 'share/calendar/calendar.css'), 'utf8');
+    await rourke.addStyleTag({content:calendarCss.replace(/^@import[^;]+;/m, '')});
+    await rourke.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
+    await rourke.evaluate(() => {window.Calendar = {_flatpickrReady:true};});
+    await rourke.addScriptTag({path:path.join(web, 'share/calendar/calendar-setup.js')});
+    const jsp = fs.readFileSync(path.join(web, 'WEB-INF/jsp/form/formrourke2017complete.jsp'), 'utf8');
+    for (const match of jsp.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) {
+      await rourke.addStyleTag({content:match[1]});
+    }
+    const start = jsp.indexOf('function resetDate(textbox)');
+    const end = jsp.indexOf('var ageUnits', start);
+    assert.ok(start >= 0 && end > start, 'Rourke date handler is missing');
+    await rourke.addScriptTag({content:jsp.slice(start, end)});
+    await rourke.evaluate(() => Calendar.setup({inputField:'visit', button:'visit_cal', ifFormat:'%d/%m/%Y', clickOpens:false}));
+    await rourke.locator('#visit').dblclick();
+    const stamped = await rourke.locator('#visit').inputValue();
+    assert.match(stamped, /^\d{2}\/\d{2}\/\d{4}$/);
+    await rourke.locator('#other').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), stamped);
+    assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
+    await rourke.locator('#visit').dblclick();
+    assert.equal(await rourke.locator('#visit').inputValue(), '');
+    await rourke.locator('#other').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), '', 'Cleared date must remain empty after blur');
+    assert.equal(await rourke.locator('#visit_cal').isVisible(), true);
+    await rourke.locator('#visit_cal').click();
+    await rourke.locator('.flatpickr-calendar.open .flatpickr-day.today').click();
+    assert.equal(await rourke.locator('#visit').inputValue(), stamped);
+    for (const key of ['Enter', 'Space']) {
+      await rourke.locator('#visit').focus();
+      await rourke.keyboard.press('Tab');
+      assert.equal(await rourke.locator('#visit_cal').evaluate(el => el === document.activeElement), true);
+      await rourke.keyboard.press(key);
+      await rourke.locator('.flatpickr-calendar.open').waitFor();
+      await rourke.keyboard.press('ArrowDown');
+      assert.equal(await rourke.locator('.flatpickr-day:focus').count(), 1);
+      await rourke.keyboard.press('Enter');
+      assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
+      assert.match(await rourke.locator('#visit').inputValue(), /^\d{2}\/\d{2}\/\d{4}$/);
+    }
+    assert.deepEqual(rourkeErrors, []);
+
     // Production path: flatpickr and the French locale load asynchronously, so the setups are
     // queued and replayed once both have arrived, still without rewriting the fields.
     const queued = await browser.newPage();

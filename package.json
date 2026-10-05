@@ -226,9 +226,11 @@
     "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
     "test:patient-set-cohort-playwright": "node scripts/patient-set-cohort-playwright-checks.js",
     "test:password-change-preferences-playwright": "node scripts/password-change-preferences-playwright-checks.js",
+    "test:password-spaces-playwright": "node scripts/password-spaces-playwright-checks.js",
     "test:account-lockout-unlock-playwright": "node scripts/account-lockout-unlock-playwright-checks.js",
     "test:encounter-templates-playwright": "node scripts/encounter-templates-playwright-checks.js",
     "test:admin-issue-editor-playwright": "node scripts/admin-issue-editor-playwright-checks.js",
+    "test:security-password-length-playwright": "node scripts/security-password-length-playwright-checks.js",
     "test:security-record-admin-playwright": "node scripts/security-record-admin-playwright-checks.js",
     "test:provider-record-admin-playwright": "node scripts/provider-record-admin-playwright-checks.js",
     "test:rx-print-profile-playwright": "node scripts/rx-print-profile-playwright-checks.js",
@@ -476,7 +478,9 @@
     "test:xss-poison-admin-detail-playwright": "node scripts/xss-poison-admin-detail-playwright-checks.js",
     "test:xss-poison-admin-users-billing-playwright": "node scripts/xss-poison-admin-users-billing-playwright-checks.js",
     "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js",
-    "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js"
+    "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
+    "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
+    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
