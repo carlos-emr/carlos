@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -98,12 +99,13 @@ class FormForwardNamed2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldIncludeResolvedInternalFormView() throws Exception {
+    void shouldForwardResolvedInternalFormView_throughTheCsrfInjectionDispatcher() throws Exception {
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockResponse).setContentType("text/html;charset=UTF-8");
-        verify(mockDispatcher).include(mockRequest, mockResponse);
+        verify(mockDispatcher).forward(mockRequest, mockResponse);
+        verify(mockDispatcher, never()).include(any(), any());
     }
 
     @Test

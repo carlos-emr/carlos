@@ -302,6 +302,7 @@
     "test:billing-on-reports-inr-eoy-playwright": "node scripts/billing-on-reports-inr-eoy-playwright-checks.js",
     "test:patient-swipe-card-search-playwright": "node scripts/patient-swipe-card-search-playwright-checks.js",
     "test:clinical-forms-save-reopen-playwright": "node scripts/clinical-forms-save-reopen-playwright-checks.js",
+    "test:palliative-care-save-reopen-playwright": "node scripts/palliative-care-save-reopen-playwright-checks.js",
     "test:billing-on-gst-css-benefit-playwright": "node scripts/billing-on-gst-css-benefit-playwright-checks.js",
     "test:encoder-null-document-review-playwright": "node scripts/encoder-null-document-review-playwright-checks.js",
     "test:encoder-null-eform-lists-playwright": "node scripts/encoder-null-eform-lists-playwright-checks.js",
