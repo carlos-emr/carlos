@@ -50,9 +50,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearch2Action extends ActionSupport {
+
+    /** An ICD-9 code written with its decimal point: three digits, V and two digits, or E and three digits. */
+    private static final Pattern DOTTED_ICD9 = Pattern.compile("([0-9]{3}|[Vv][0-9]{2}|[Ee][0-9]{3})\\.([0-9]{1,2})");
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -191,8 +196,9 @@ public class dxResearch2Action extends ActionSupport {
     /**
      * The message for a code the coding system does not know. CARLOS stores almost all ICD-9 codes without the
      * decimal point (151.9 is stored as 1519; the seeded 338.2 and 780.93 are exceptions and are found as typed),
-     * so an ICD-9 code typed with one gets that explained, and the same code without the point is suggested when
-     * it exists. Nothing is changed or added for the user: they re-enter it.
+     * so an ICD-9 code typed with one gets that explained. When the input is written like an ICD-9 code (151.9,
+     * V82.9, E880.9) and the same code without the point exists, that code is suggested. Nothing is changed or
+     * added for the user: they re-enter it.
      *
      * @param code         the code as entered; the page HTML-encodes the message
      * @param codingSystem the coding system it was looked up in
@@ -202,10 +208,13 @@ public class dxResearch2Action extends ActionSupport {
     private String invalidCodeMessage(String code, String codingSystem,
             AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao) {
         if (AbstractCodeSystemDao.codingSystem.icd9.name().equals(codingSystem) && code.contains(".")) {
-            String withoutDecimal = code.replace(".", "");
-            if (!withoutDecimal.isEmpty() && csDao.findByCode(withoutDecimal) != null) {
-                return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
-                        new String[]{code, withoutDecimal});
+            Matcher dotted = DOTTED_ICD9.matcher(code);
+            if (dotted.matches()) {
+                String withoutDecimal = dotted.group(1) + dotted.group(2);
+                if (csDao.findByCode(withoutDecimal) != null) {
+                    return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
+                            new String[]{code, withoutDecimal});
+                }
             }
             return getText("oscarResearch.oscarDxResearch.error.icd9WithDecimal", new String[]{code});
         }

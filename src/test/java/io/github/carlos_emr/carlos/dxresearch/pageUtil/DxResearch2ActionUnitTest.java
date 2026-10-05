@@ -189,6 +189,31 @@ class DxResearch2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should suggest a V code without its decimal point when that code exists")
+    void shouldSuggestCodeWithoutDecimal_whenIcd9VCodeHasDecimal() throws Exception {
+        when(mockIcd9Dao.findByCode("V829")).thenReturn(new Icd9());
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "V82.9");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9DidYouMean[V82.9, V829]");
+    }
+
+    @Test
+    @DisplayName("should explain the decimal point without a suggestion when the input is not written like an ICD-9 code")
+    void shouldNotSuggest_whenDottedInputIsNotAnIcd9Form() throws Exception {
+        when(mockIcd9Dao.findByCode("1519")).thenReturn(new Icd9());
+        dxResearch2Action keyed = actionShowingMessageKeys("icd9", "15.19");
+
+        assertThat(keyed.execute()).isEqualTo("failure");
+
+        assertThat(keyed.getActionErrors())
+                .containsExactly("oscarResearch.oscarDxResearch.error.icd9WithDecimal[15.19]");
+        verify(mockIcd9Dao, never()).findByCode("1519");
+    }
+
+    @Test
     @DisplayName("should explain the decimal point, and not look up an empty code, when the code is only a point")
     void shouldExplainDecimalPoint_whenIcd9CodeIsOnlyAPoint() throws Exception {
         dxResearch2Action keyed = actionShowingMessageKeys("icd9", ".");
