@@ -402,29 +402,29 @@ $(document).ready(function () {
         });
     });
 
-    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+    /** Preserve each confirmation form's route, operation and CSRF fields in one POST path. */
+    function submitSelectedPatientForm(button, event, modalId) {
         event.preventDefault();
-
         var patientIds = getSelectedPatientIds();
-
         if (patientIds.length < 1) {
             alert("At least one patient must be selected to perform this action.");
             return;
         }
-
-        var form = $(this).closest('form');
-        var url = form.attr('action');
+        var form = $(button).closest('form');
         var data = form.serializeArray();
         data.push({name: 'patientIds', value: patientIds.join(',')});
-
         $.ajax({
             type: 'POST',
-            url: url,
+            url: form.attr('action'),
             data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).toggle();
+            success: function () {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).toggle();
             }
         });
+    }
+
+    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+        submitSelectedPatientForm(this, event, "modalConfirmAddToDiseaseRegistry");
     });
 
     $("#excludePatientsChecked").on('click', function (event) {
@@ -441,26 +441,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientExclusion").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        if (patientIds.length < 1) {
-            alert("At least one patient must be selected to perform this action.");
-            return;
-        }
-        var form = $(this).closest('form');
-        var url = form.attr('action');
-        var data = form.serializeArray();
-        data.push({name: 'patientIds', value: patientIds.join(',')});
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientExclusion");
     });
 
     $("#patientStatusUpdateChecked").on('click', function (event) {
@@ -478,26 +459,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientStatusUpdate").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        if (patientIds.length < 1) {
-            alert("At least one patient must be selected to perform this action.");
-            return;
-        }
-        var form = $(this).closest('form');
-        var url = form.attr('action');
-        var data = form.serializeArray();
-        data.push({name: 'patientIds', value: patientIds.join(',')});
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientStatusUpdate");
     });
 
 })
