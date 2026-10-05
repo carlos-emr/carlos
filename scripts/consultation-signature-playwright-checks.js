@@ -129,6 +129,12 @@ function describePdf(bytes) {
   return {byteLength: bytes.length, images};
 }
 
+function assertSignaturePdf(pdf, signatureState, name) {
+  h.assert(signatureState.imageWidth > 0 && signatureState.imageHeight > 0
+    && pdf.images.some(image => image.width === signatureState.imageWidth && image.height === signatureState.imageHeight),
+  `${name}: print preview PDF does not embed an image with the displayed signature's dimensions`);
+}
+
 async function requestPrintPreview(page, fixture) {
   const preview = await page.evaluate(async () => {
     const form = document.getElementById('EctConsultationFormRequest2Form');
@@ -214,9 +220,7 @@ async function runScenario(context, config, scenario, fixture) {
     }
     const pdf = await requestPrintPreview(page, fixture);
     if (scenario.expectSignature) {
-      h.assert(pdf.images.length > 0, `${scenario.name}: print preview PDF has no embedded image`);
-      if (scenario.source) h.assert(pdf.images.some(image => image.width === STAMP_WIDTH && image.height === STAMP_HEIGHT),
-        `${scenario.name}: print preview PDF does not embed the owned signature`);
+      assertSignaturePdf(pdf, signatureState, scenario.name);
     } else if (fixture) {
       h.assert(!pdf.images.some(image => image.width === STAMP_WIDTH && image.height === STAMP_HEIGHT),
         `${scenario.name}: unsigned preview unexpectedly contains the owned stamp`);
@@ -330,4 +334,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {parseConsultSignatureScenarios, readSignatureState, describePdf, workflow};
+module.exports = {parseConsultSignatureScenarios, readSignatureState, describePdf, assertSignaturePdf, workflow};

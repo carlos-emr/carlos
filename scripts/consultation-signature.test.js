@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {parseConsultSignatureScenarios, readSignatureState, describePdf} = require('./consultation-signature-playwright-checks');
+const {parseConsultSignatureScenarios, readSignatureState, describePdf, assertSignaturePdf} = require('./consultation-signature-playwright-checks');
 
 test('no external IDs selects the owned fixture; an incomplete explicit fixture fails', () => {
   assert.deepEqual(parseConsultSignatureScenarios({}), []);
@@ -59,4 +59,11 @@ test('PDF stamp dimensions must belong to the same image, rather than a logo or 
     + '2 0 obj << /Width 173 /Height 53 >> stream\n/Subtype /Image\nendstream\nendobj\n'
     + '3 0 obj << /Subtype /Image /DecodeParms << /Predictor 15 /Columns 173 >> /Height 53 /Width 173 >> endobj');
   assert.deepEqual(describePdf(bytes).images, [{width: 20, height: 8}, {width: 173, height: 53}]);
+});
+
+test('explicit signed fixtures cannot pass when the PDF contains only an unrelated logo', () => {
+  const state = {imageWidth: 173, imageHeight: 53};
+  assert.throws(() => assertSignaturePdf({images: [{width: 20, height: 8}]}, state, 'explicit'), /signature's dimensions/);
+  assert.throws(() => assertSignaturePdf({images: []}, state, 'explicit'), /signature's dimensions/);
+  assert.doesNotThrow(() => assertSignaturePdf({images: [{width: 20, height: 8}, {width: 173, height: 53}]}, state, 'explicit'));
 });
