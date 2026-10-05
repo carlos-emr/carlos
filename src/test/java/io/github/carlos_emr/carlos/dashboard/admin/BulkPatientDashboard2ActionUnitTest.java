@@ -170,7 +170,10 @@ class BulkPatientDashboard2ActionUnitTest extends CarlosUnitTestBase {
     void shouldNotNotify_whenNoNewExclusionWasInserted() {
         request.setMethod("POST");
         request.setParameter("indicatorId", "42");
+        when(exclusions.getDrilldownIdentifier(42)).thenReturn("owned-indicator");
+        when(exclusions.excludeDemoIds(List.of(101, 102), "owned-indicator")).thenReturn(List.of());
         assertThat(action.excludePatients()).isNull();
+        verify(exclusions).excludeDemoIds(List.of(101, 102), "owned-indicator");
         verifyNoInteractions(messages);
     }
 
