@@ -52,11 +52,13 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * two cannot drift apart. SUCCESS and BLOCKED are written by the send itself. FAILED is included only
      * when the portal invitation attempt that names the email ended in state SEND_FAILED with outcome
      * SEND_REFUSED: the send writes that, and only after a definite "not sent" once the code went live
-     * (a refusal by the mail server, a refused connection or login, or a failure at the commit gate), and
+     * (a refusal by the mail server, a refused connection or login, or, rarely, a failure in the commit gate
+     * after the attempt was already recorded as committed), and
      * the state is terminal, so no step is still owed. Every attempt naming the email must be in that
      * state. Other FAILED rows stay untouched: staff abandonment, which can be written while the original
      * send is still running, ends its attempt ABANDONED; a permission refusal after the gate leaves it
-     * SEND_UNCERTAIN; and errors before the commit end it ABANDONED. PENDING and RESOLVED stay untouched.
+     * SEND_UNCERTAIN; a refused or unrecorded commit ends it ABANDONED; and an error before the gate leaves
+     * no attempt naming the email. PENDING and RESOLVED stay untouched.
      *
      * <p>The attempt table is read in a subquery rather than through its DAO so that selection and the
      * conditional update test the same rule atomically in one statement.
@@ -66,7 +68,6 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
             + "AND d.state = :refusedState AND d.outcome = :refusedOutcome) "
             + "AND NOT EXISTS (SELECT o.id FROM PatientPortalInviteDelivery o WHERE o.emailLogId = e.id "
             + "AND o.state <> :refusedState)))";
-
 
     /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
     @org.springframework.transaction.annotation.Transactional(

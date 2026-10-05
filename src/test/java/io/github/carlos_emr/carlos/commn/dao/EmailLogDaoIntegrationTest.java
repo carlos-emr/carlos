@@ -199,17 +199,22 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         // A permission refusal after the gate propagates, and settling leaves the attempt SEND_UNCERTAIN.
         Integer permissionRefused = failed(old, "Failed to send email (authorization failure)");
         attempt(permissionRefused, State.SEND_UNCERTAIN, Outcome.SEND_UNCONFIRMED);
-        // An error before the commit (consent, building, archiving) ends the attempt ABANDONED.
-        Integer beforeCommit = failed(old, "Failed to archive outbound email (I/O failure)");
-        attempt(beforeCommit, State.ABANDONED, Outcome.SEND_BLOCKED);
-        Integer failedWithoutOutcome = failed(old, null);
-        attempt(failedWithoutOutcome, State.SEND_FAILED, null);
-        Integer noAttempt = failed(old, "Failed to send email (SMTP recipient failure)");
+        // The portal refused to activate the code at the gate: the email is FAILED and the attempt, which
+        // names the email from QUEUED on, ends ABANDONED.
+        Integer commitRefused = failed(old, "Failed to send email (uncategorized delivery failure)");
+        attempt(commitRefused, State.ABANDONED, Outcome.COMMIT_REFUSED);
+        // An error before the gate (building, archiving, redacting) leaves no attempt naming the email.
+        Integer noAttempt = failed(old, "Failed to archive outbound email (I/O failure)");
+        // Transport returned but its FAILED write did not land, so the email is still PENDING.
         Integer stillPending = persisted(EmailLog.TransactionType.PORTAL_INVITE, old);
         entityManager.find(EmailLog.class, stillPending).setStatus(EmailLog.EmailStatus.PENDING);
         attempt(stillPending, State.SEND_FAILED, Outcome.SEND_REFUSED);
         Integer recentRefusal = failed(new Date(), null);
         attempt(recentRefusal, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        // Guards for states the code does not write today: SEND_FAILED without its outcome, and one
+        // email named by an attempt that is still open.
+        Integer failedWithoutOutcome = failed(old, null);
+        attempt(failedWithoutOutcome, State.SEND_FAILED, null);
         Integer sharedWithOpenAttempt = failed(old, null);
         attempt(sharedWithOpenAttempt, State.SEND_FAILED, Outcome.SEND_REFUSED);
         attempt(sharedWithOpenAttempt, State.COMMITTED, null);
@@ -218,8 +223,8 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
                 EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed", 0, 200))
                 .contains(refused)
-                .doesNotContain(abandoned, permissionRefused, beforeCommit, failedWithoutOutcome, noAttempt,
-                        stillPending, recentRefusal, sharedWithOpenAttempt);
+                .doesNotContain(abandoned, permissionRefused, commitRefused, noAttempt, stillPending,
+                        recentRefusal, failedWithoutOutcome, sharedWithOpenAttempt);
 
         EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
                 .getUltimateTargetObject(emailLogDao);

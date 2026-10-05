@@ -181,10 +181,14 @@ When cleanup does not happen because CARLOS stops mid-send or the body replaceme
 have settled: `SUCCESS` (transport returned), `BLOCKED` (consent refused dispatch), or `FAILED` when
 the invitation attempt that names the email ended `SEND_FAILED` with outcome `SEND_REFUSED`. The send
 writes that itself, and only after a definite "not sent" once the code went live: the mail server
-refused the message, the connection or login was refused, or the commit gate failed. The state is
-final. Every other `FAILED` row is excluded: staff abandonment can also write `FAILED` while the
-original preparation is still running (its attempt ends `ABANDONED`), a permission refusal after the
-gate leaves the attempt `SEND_UNCERTAIN`, and an error before the commit ends it `ABANDONED`.
+refused the message, the connection or login was refused, or, rarely, the commit gate failed after the
+attempt was already recorded as committed. These are all the definite not-sent outcomes after the code
+went live, as approved by Ben (decision D22 A): in every one nothing was sent and the sender has
+finished. The state is final. Every other `FAILED` row is excluded:
+staff abandonment can also write `FAILED` while the original preparation is still running (its attempt
+ends `ABANDONED`), a permission refusal after the gate leaves the attempt `SEND_UNCERTAIN`, a refused
+or unrecorded commit ends it `ABANDONED`, and an error before the gate leaves no attempt naming the
+email.
 It checks all ages, including expired codes, in batches of at most 200 ids. Cleanup runs
 at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
 rows, continuing from the preceding batch, then starts a new pass after reaching the end. A row must have been unchanged for 15 minutes. Both selection and the atomic
@@ -194,8 +198,9 @@ names, never credentials.
 
 **Remaining draft limitation (#4083):** an idle timestamp does not prove that a sender on another
 server has stopped. Unfinished or manually resolved emails, and failed ones whose attempt did not end
-`SEND_FAILED` (such as a staff-abandoned or permission-refused send), are excluded from automatic
-cleanup, regardless of age. This draft therefore does not promise a deadline for clearing every crash leftover,
+`SEND_FAILED` (such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`,
+or a failure before the gate that no attempt names), are excluded from automatic cleanup, regardless
+of age. This draft therefore does not promise a deadline for clearing every crash leftover,
 or that every email older than seven days is clear. These cases need a separate, verified maintenance
 procedure. Expiry of the portal token does not erase its saved body or existing database backups.
 

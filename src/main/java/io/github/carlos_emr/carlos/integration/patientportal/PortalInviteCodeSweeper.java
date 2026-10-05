@@ -46,9 +46,12 @@ import org.apache.logging.log4j.Logger;
  * the same idle cutoff, including startup: another server sharing the database may still be sending.
  * SUCCESS and BLOCKED emails qualify, and so do FAILED ones whose invitation attempt recorded a definite
  * "not sent" after its code went live (terminal SEND_FAILED, outcome SEND_REFUSED, written once the send
- * returned). Other failed sends (staff abandonment, which can be written while the original send is still
- * running, a permission refusal, or an error before the commit) and unfinished or manually resolved ones
- * are untouched.
+ * returned). That covers all definite not-sent outcomes after the code went live, as approved by Ben
+ * (decision D22 A, 2026-10-05): the mail server refusing the message, a refused connection or failed mail
+ * login, and, rarely, the commit gate failing after the attempt was recorded as committed. In every one
+ * nothing was sent and the sender has finished. Other failed sends (staff abandonment, which can be written
+ * while the original send is still running, a permission refusal, or an error before the commit) and
+ * unfinished or manually resolved ones are untouched.
  * Expired codes in settled emails are also removed. Bounded pages keep bodies out of application memory,
  * and each write rechecks the cutoff in case the email changed after selection.
  *
