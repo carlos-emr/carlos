@@ -303,9 +303,54 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
         void shouldSkipConsentType_whenChoiceUnrecognised() {
             request.setParameter("email_consent", "yes");
 
+            try (LogCapture capture = LogCapture.forLogger(DemographicUpdate2Action.class)) {
+                DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                verify(consentManager, never()).saveChartConsent(any(), anyInt(), anyInt(), any());
+                assertThat(capture.messages())
+                        .anySatisfy(message -> assertThat(message)
+                                .contains("ignoring an unrecognised choice for consent type id 7"))
+                        .noneSatisfy(message -> assertThat(message).contains("yes"));
+            }
+        }
+
+        @Test
+        @DisplayName("should apply the picked choice, not a clear, when the radio is picked again after Clear")
+        void shouldApplyRadio_whenClearFlagIsStillSet() {
+            // Clear sets the hidden flag to 1; picking a radio afterwards leaves it set.
+            request.setParameter("email_consent", "0");
+            request.setParameter("deleteConsent_email_consent", "1");
+
+            DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+            verify(consentManager).saveChartConsent(mockLoggedInInfo, 42, 7, unchecked(Choice.OPT_IN, false));
+        }
+
+        @Test
+        @DisplayName("should neither clear nor apply when the radio is unrecognised, whatever the clear flag says")
+        void shouldSkipConsentType_whenChoiceUnrecognisedAndClearFlagSet() {
+            request.setParameter("email_consent", "yes");
+            request.setParameter("deleteConsent_email_consent", "1");
+
             DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
 
             verify(consentManager, never()).saveChartConsent(any(), anyInt(), anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("should neither refuse nor audit unreadable shown fields when the choice is unrecognised")
+        void shouldNotRefuse_whenChoiceUnrecognisedAndShownFieldsUnreadable() {
+            request.setParameter("email_consent", "yes");
+            request.setParameter("consentShownId_email_consent", "31-secret");
+
+            try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+                List<ConsentType> refused =
+                        DemographicUpdate2Action.saveConsents(request, mockLoggedInInfo, 42, consentManager);
+
+                assertThat(refused).isEmpty();
+                verify(consentManager, never()).saveChartConsent(any(), anyInt(), anyInt(), any());
+                logAction.verifyNoInteractions();
+            }
         }
 
         @Test
@@ -517,7 +562,7 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
             assertRefusedAsUnreadable();
         }
 
-        /** A shown record posted with only one of its two fields is refused like an unreadable one. */
+        /** A shown record posted with only one of its two fields, or one of them empty, is refused like an unreadable one. */
         private void assertRefusedAsUnreadable() {
             try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
                 List<ConsentType> refused =

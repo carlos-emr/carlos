@@ -48,7 +48,7 @@ public record ChartConsentRequest(Choice choice, boolean explicitRequested, bool
         OPT_OUT,
         /** The Clear button: remove the patient's record of this consent. */
         CLEAR,
-        /** Nothing was posted for this consent type. */
+        /** Nothing to apply for this consent type: no choice was posted, or none the page offers. */
         NONE
     }
 }
