@@ -79,9 +79,13 @@ async function workflow(s) {
       request = await captureRequest(form, url => url.pathname.endsWith('/form/formname') && url.searchParams.get('submit') === 'save',
         () => form.locator('#frmP1 input[value="Save"]').first().click());
     });
-    h.assert(request.status === 200 && request.params.get('demographic_no') === patient, 'Form Save failed or posted another patient');
+    h.assert(request.status === 302 && request.params.get('demographic_no') === patient, 'Form Save failed or posted another patient');
+    await form.waitForURL(url => url.pathname.endsWith('/form/forwardname')
+      && url.searchParams.get('demographic_no') === patient, {waitUntil:'domcontentloaded'});
+    const savedId = new URL(form.url()).searchParams.get('formId');
+    h.assert(/^[1-9]\d*$/.test(savedId || ''), 'Form Save did not redirect to a persisted record');
     const isoDate = date.split('/').reverse().join('-');
-    await expectValue(sql, `SELECT COUNT(*)>0 FROM formRourke2017 WHERE demographic_no=${patient}
+    await expectValue(sql, `SELECT COUNT(*) FROM formRourke2017 WHERE ID=${Number(savedId)} AND demographic_no=${patient}
       AND p1_wt1w=${q(value)} AND p1_date1w=${q(isoDate)}`, '1', 'Form Save lost the visit date or weight');
     await form.waitForLoadState('domcontentloaded');
     h.assert(await form.locator('#p1_wt1w').inputValue() === value, 'Redisplay lost the weight');

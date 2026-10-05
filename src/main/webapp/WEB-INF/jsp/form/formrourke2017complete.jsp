@@ -710,6 +710,15 @@
 
     </script>
     <style>
+        @media screen {
+            /* Rourke reserves input double-clicks for its date shortcut. */
+            #frmP1 [id$="_cal"] {
+                display: inline-block;
+                cursor: pointer;
+                vertical-align: middle;
+            }
+        }
+
         .panel-page {
             display: flex;
             flex-direction: row;

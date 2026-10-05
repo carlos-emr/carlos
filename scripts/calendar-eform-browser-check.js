@@ -82,16 +82,23 @@ const server = http.createServer(async (req, res) => {
     const rourke = await browser.newPage();
     const rourkeErrors = [];
     rourke.on('pageerror', error => rourkeErrors.push(error.message));
-    await rourke.setContent('<input id="visit" readonly ondblclick="resetDate(this)"><button id="calendar">Calendar</button><input id="other">');
+    await rourke.setContent('<form id="frmP1"><input id="visit" readonly ondblclick="resetDate(this)"><button id="visit_cal" type="button">Calendar</button><input id="other"></form>');
+    await rourke.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
+    // Inline the shipped rules, with their import already loaded above, so no network is needed.
+    const calendarCss = fs.readFileSync(path.join(web, 'share/calendar/calendar.css'), 'utf8');
+    await rourke.addStyleTag({content:calendarCss.replace(/^@import[^;]+;/m, '')});
     await rourke.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
     await rourke.evaluate(() => {window.Calendar = {_flatpickrReady:true};});
     await rourke.addScriptTag({path:path.join(web, 'share/calendar/calendar-setup.js')});
     const jsp = fs.readFileSync(path.join(web, 'WEB-INF/jsp/form/formrourke2017complete.jsp'), 'utf8');
+    for (const match of jsp.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style\b[^>]*>/gi)) {
+      await rourke.addStyleTag({content:match[1]});
+    }
     const start = jsp.indexOf('function resetDate(textbox)');
     const end = jsp.indexOf('var ageUnits', start);
     assert.ok(start >= 0 && end > start, 'Rourke date handler is missing');
     await rourke.addScriptTag({content:jsp.slice(start, end)});
-    await rourke.evaluate(() => Calendar.setup({inputField:'visit', button:'calendar', ifFormat:'%d/%m/%Y', clickOpens:false}));
+    await rourke.evaluate(() => Calendar.setup({inputField:'visit', button:'visit_cal', ifFormat:'%d/%m/%Y', clickOpens:false}));
     await rourke.locator('#visit').dblclick();
     const stamped = await rourke.locator('#visit').inputValue();
     assert.match(stamped, /^\d{2}\/\d{2}\/\d{4}$/);
@@ -100,7 +107,7 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await rourke.locator('.flatpickr-calendar.open').count(), 0);
     await rourke.locator('#visit').dblclick();
     assert.equal(await rourke.locator('#visit').inputValue(), '');
-    await rourke.locator('#calendar').click();
+    await rourke.locator('#visit_cal').click();
     await rourke.locator('.flatpickr-calendar.open .flatpickr-day.today').click();
     assert.equal(await rourke.locator('#visit').inputValue(), stamped);
     assert.deepEqual(rourkeErrors, []);
