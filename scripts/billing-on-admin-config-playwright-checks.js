@@ -406,13 +406,29 @@ async function workflow(s) {
         await search.locator('form[name="codesearch"] input[name="codedesc"]').fill(token);
         await Promise.all([search.waitForNavigation(), search.locator('form[name="codesearch"] input[name="search1"]').click()]);
         h.assert(await search.locator('form[name="diagcode"] tbody tr').count() === 2, 'the search did not list exactly the two owned dx codes');
-        await search.locator(`form[name="diagcode"] input[name="${dxB}"]`).fill(`${dxDescB} edited`);
+        await search.locator(`form[name="diagcode"] input[name="desc_${dxB}"]`).fill(`${dxDescB} edited`);
         const [response] = await Promise.all([posted('/billing/CA/ON/BillingDigUpdate'),
           search.locator(`form[name="diagcode"] input[name="update"][value$=" ${dxB}"]`).click()]);
         h.assert(response.status() === 200, `BillingDigUpdate answered HTTP ${response.status()}`);
         await expectValue(sql, `SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxB)}`, `${dxDescB} edited`,
           'the description was not rewritten');
+        h.assert(sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxA)}`) === dxDescA,
+          'updating the diagnosis changed the other owned code');
+        h.assert(sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code IN (${h.sqlString(dxA)},${h.sqlString(dxB)})`) === '2',
+          'updating the diagnosis created another row');
+        await search.waitForLoadState('load');
+        h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'dx-search'), 'the diagnosis result raised a script error');
+        h.assert((await search.locator('h1').innerText()).includes('Successful'), 'the diagnosis result did not report success');
       } finally { await search.close().catch(() => {}); }
+      const reopened = await s.popup(correction, correction.locator('a[href="javascript:ScriptAttach()"]'), 'dx-reopen');
+      try {
+        await reopened.locator('form[name="codesearch"] input[name="codedesc"]').fill(token);
+        await Promise.all([reopened.waitForNavigation(), reopened.locator('form[name="codesearch"] input[name="search1"]').click()]);
+        h.assert(await reopened.locator(`form[name="diagcode"] input[name="desc_${dxB}"]`).inputValue() === `${dxDescB} edited`,
+          'reopening the diagnosis search did not show the saved description');
+        h.assert(await reopened.locator(`form[name="diagcode"] input[name="desc_${dxA}"]`).inputValue() === dxDescA,
+          'reopening the diagnosis search changed the other code description');
+      } finally { await reopened.close().catch(() => {}); }
     });
 
     await attempt('correction ▸ code Search ▸ Confirm attaches only to the selected row without saving the bill', async () => {
