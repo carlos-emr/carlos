@@ -181,6 +181,8 @@ async function workflow(s) {
             const loader = rowDisplay.locator('#cumulativeLab img[src$="/images/spinner.jpg"]').last();
             await loader.waitFor({ state: 'visible', timeout: TIMEOUT });
             await loader.evaluate(img => img.decode());
+            h.assert((await loader.locator('..').getByRole('status').innerText()).trim() === 'Loading ...',
+              'The loading indicator did not expose its localized status text');
             const bounds = await loader.boundingBox();
             h.assert(bounds && bounds.width === 100 && bounds.height === 77,
               'The row loading image did not retain the standard 100 by 77 pixel size');
@@ -194,6 +196,8 @@ async function workflow(s) {
       h.assert(response.status() === 200, `lab/ViewDisplayLabValue answered HTTP ${response.status()}`);
       const section = rowDisplay.locator('#cumulativeLab .preventionSection').filter({ hasText: test.name.slice(0, 8) }).last();
       await section.waitFor({ state: 'visible', timeout: TIMEOUT });
+      h.assert(await rowDisplay.locator('#cumulativeLab [role="status"]').count() === 0,
+        'Loaded lab results retained the temporary loading status');
       const shown = (await section.locator('.preventionProcedure p').allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim());
       h.assert(shown.length === 1 && shown[0].startsWith(`${test.value} ${DATE}`),
         `Row Display shows ${test.name} as ${JSON.stringify(shown)}`);
