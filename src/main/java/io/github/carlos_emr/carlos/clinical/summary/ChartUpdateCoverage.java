@@ -74,8 +74,13 @@ public final class ChartUpdateCoverage implements Serializable {
             String evidence = proposal.evidence();
             for (int at = source.indexOf(evidence); at >= 0; at = source.indexOf(evidence, at + evidence.length())) {
                 int end = at + evidence.length();
-                java.util.Arrays.fill(quoted, at, end, true);
                 found.add(new Range(at, end));
+            }
+            // A quotation alone has no occurrence provenance. Identical text elsewhere
+            // may belong to a negation, relative or different date. Keep ambiguous text
+            // visible for manual review instead of claiming every occurrence is covered.
+            if (found.size() == 1 && source.indexOf(evidence, found.getFirst().start() + 1) < 0) {
+                java.util.Arrays.fill(quoted, found.getFirst().start(), found.getFirst().end(), true);
             }
             occurrences.add(found);
         }

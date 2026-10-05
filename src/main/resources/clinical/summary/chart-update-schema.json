@@ -28,7 +28,8 @@
               "evidence": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 2000
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
               },
               "destination": {
                 "type": "string",
@@ -63,7 +64,8 @@
               "evidence": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 2000
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
               },
               "destination": {
                 "type": "string",
@@ -91,7 +93,8 @@
               "evidence": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 2000
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
               },
               "destination": {
                 "type": "string",
@@ -159,7 +162,8 @@
               "evidence": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 2000
+                "maxLength": 2000,
+                "description": "Structural character bound; the host also requires at most 2000 UTF-16 code units and an exact source quotation."
               },
               "reason": {
                 "type": "string",

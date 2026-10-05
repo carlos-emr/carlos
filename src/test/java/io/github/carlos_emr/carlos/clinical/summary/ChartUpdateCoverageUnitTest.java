@@ -86,8 +86,7 @@ class ChartUpdateCoverageUnitTest {
     }
 
     @Test void shouldAcceptAuditedSyntheticTrial_withAllRetainedQuotationsAndSections() throws Exception {
-        var evidence = JSON.readTree(java.nio.file.Files.readString(java.nio.file.Path.of(
-                "tools/ai-clinical-summary-draft/quality/2026-10-02/section-coverage-results.json")));
+        var evidence = JSON.readTree(java.nio.file.Files.readString(trialFixture()));
         int quotations = 0;
         for (var run : evidence.path("runs")) {
             String source = run.path("source").asText();
@@ -103,11 +102,40 @@ class ChartUpdateCoverageUnitTest {
         assertThat(quotations).isEqualTo(211);
     }
 
-    @Test void shouldCountRepeatedAndOverlappingQuotations_withoutHidingOtherSourceText() {
+    private java.nio.file.Path trialFixture() {
+        var directory = java.nio.file.Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).toAbsolutePath();
+        for (int depth = 0; directory != null && depth < 6; depth++, directory = directory.getParent()) {
+            var fixture = directory.resolve("tools/ai-clinical-summary-draft/quality/2026-10-02/section-coverage-results.json");
+            if (java.nio.file.Files.isRegularFile(fixture)) return fixture;
+        }
+        throw new IllegalStateException("Synthetic coverage fixture unavailable");
+    }
+
+    @Test void shouldKeepNegatedAndFamilyOccurrencesVisible_whenEvidenceHasNoSelectedOffset() {
+        for (String source : List.of("No Fever.\n\nFever.", "Patient history:\nAsthma.\n\nFamily history:\nAsthma.")) {
+            String evidence = source.contains("Fever") ? "Fever." : "Asthma.";
+            var coverage = ChartUpdateCoverage.parse(audit(source), source);
+            var rows = coverage.sections(source, List.of(new ChartUpdateProposals.Proposal("history", evidence)));
+            assertThat(rows.getFirst().get("gaps")).isEqualTo(List.of(source));
+        }
+    }
+
+    @Test void shouldTrustAuditOnlyOnDedicatedOrchestration_whenChoosingAnAdapter() {
+        var properties = new java.util.Properties();
+        properties.setProperty("clinical.ai_summary_generation.agent", "http");
+        assertThat(new HttpClinicalSummaryAgent(11435, "/v1/chart-update-proposals", "Generic", 2000).providesChartCoverageAudit()).isFalse();
+        assertThat(ClinicalSummaryAgents.configured(properties).providesChartCoverageAudit()).isFalse();
+        assertThat(ClinicalSummaryAgents.configuredDocument(properties).providesChartCoverageAudit()).isFalse();
+        assertThat(ClinicalSummaryAgents.configuredChartUpdates(properties).providesChartCoverageAudit()).isTrue();
+        properties.setProperty("clinical.ai_summary_generation.agent", "ollama");
+        assertThat(ClinicalSummaryAgents.configuredChartUpdates(properties).providesChartCoverageAudit()).isFalse();
+    }
+
+    @Test void shouldLeaveAmbiguousOccurrencesForReview_whenQuotationsRepeat() {
         String source = "Fact one. Fact two.\n\nFact one.\n\nOther.";
         var coverage = ChartUpdateCoverage.parse(audit(source), source);
         var rows = coverage.sections(source, List.of(new ChartUpdateProposals.Proposal("history", "Fact one."),
                 new ChartUpdateProposals.Proposal("history", "Fact one. Fact two.")));
-        assertThat(rows.getFirst().get("gaps")).isEqualTo(List.of("\n\nOther."));
+        assertThat(rows.getFirst().get("gaps")).isEqualTo(List.of("\n\nFact one.\n\nOther."));
     }
 }

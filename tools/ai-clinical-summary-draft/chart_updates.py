@@ -311,6 +311,10 @@ def resolve_ranges(raw, lines, source):
         excerpts = followup_items(evidence) if row['kind'] == 'tickler' else independent_items(evidence)
         for excerpt in excerpts:
             excerpt = preserve_preceding_context(excerpt, source, range_start)
+            # One unbounded paragraph must not discard unrelated valid facts. Never
+            # truncate context to make it fit: leave this source text in the audit gaps.
+            if len(excerpt.encode('utf-16-le')) // 2 > 2000:
+                continue
             # Context widening must not bypass the family-to-patient routing guard.
             family_heading = re.search(r'(?im)^\s*(?:Family (?:History|Hx)|FHx?|F/H)\s*(?::|-|$)', excerpt)
             relative = re.search(r'\b(?:family (?:history|hx)|fhx|mother|father|sister|brother|parent|daughter|son|maternal|paternal|grandmother|grandfather)\b', excerpt, re.I)

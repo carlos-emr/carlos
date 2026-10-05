@@ -331,8 +331,8 @@ byte budget and gateway deadline. Any failed request, malformed response, excess
 candidate count or missing reviewer decision stops generation without partial output.
 
 The service adds coverage metadata after all passes finish. Java validates its complete,
-ordered UTF-16 partition and exact rejected quotations. The configured HTTP service owns
-this processing audit. Direct Ollama completions cannot attest to multiple passes; their
+ordered UTF-16 partition and exact rejected quotations. The dedicated chart-update HTTP orchestration service owns
+this processing audit. Generic HTTP adapters do not claim this capability. Direct Ollama completions cannot attest to multiple passes; their
 coverage fields are ignored and the UI says that no audit is available. Older HTTP results
 remain usable with the same unavailable notice. Model, contract and implementation changes
 invalidate the synthetic gateway caches; older accepted quotations are never relabelled
@@ -341,8 +341,9 @@ as having passed the new omission check.
 The modal's **Document coverage review** shows each source section, links to retained
 suggestions, exact text fragments without a retained suggestion, and AI reviewer rejection
 reasons. Counts and gaps are derived locally from source quotations. Repeated occurrences
-of the same exact quotation link to the same suggestion; this is text coverage, not a count
-of facts. A retained quotation may itself contain additional facts requiring attention.
+of the same exact quotation link to the same suggestion but remain manual-review gaps: the
+quotation does not identify which occurrence was selected. A repeat may belong to a negation,
+relative or another date. This is text coverage, not a count of facts. A retained quotation may itself contain additional facts requiring attention.
 Gap fragments can lose surrounding context, so the entire section is shown beside them and
 they are never offered as standalone clinical assertions or approval actions. Rejection
 reasons are untrusted AI explanations, displayed as escaped text.
@@ -367,5 +368,6 @@ Source-boundary restoration preserves numeric/timestamp prefixes, unpunctuated s
 headings and adjacent signatures when needed. It stops at explicit patient/family section
 boundaries and reapplies family routing after expansion. A restored paragraph may contain
 more than one fact; its classification still needs full-source AI and clinician review.
-Unclear prescription/follow-up boundaries may be omitted from reminder suggestions and
+Oversized expanded candidates are withheld intact and remain source gaps; they do not
+block unrelated valid candidates. Unclear prescription/follow-up boundaries may be omitted from reminder suggestions and
 remain visible as source text in the audit.

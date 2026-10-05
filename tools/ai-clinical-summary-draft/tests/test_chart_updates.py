@@ -43,6 +43,9 @@ class ChartUpdatesTest(unittest.TestCase):
                           '2': self.source.splitlines(keepends=True)[1]},
                          json.loads(requests[0]['messages'][1]['content'])['segments'])
         self.assertEqual(3, len(requests))
+        self.assertEqual([{'kind': 'history', 'destination': '', 'start_id': 1, 'end_id': 1},
+                          {'kind': 'tickler', 'destination': '', 'start_id': 2, 'end_id': 2}],
+                         json.loads(requests[1]['messages'][1]['content'])['existing_candidates'])
         self.assertFalse(requests[0]['provider']['allow_fallbacks'])
         self.assertTrue(requests[0]['provider']['zdr'])
 

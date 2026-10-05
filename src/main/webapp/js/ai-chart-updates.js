@@ -45,6 +45,7 @@
             next.addEventListener('click', () => { if (index < cards.length - 1) { index++; show(true); } });
             document.querySelectorAll('[data-review-proposal]').forEach(link => {
                 link.addEventListener('click', event => {
+                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
                     const target = cards.findIndex(card => card.dataset.proposalKey === link.dataset.reviewProposal);
                     if (target < 0) return;
                     event.preventDefault();

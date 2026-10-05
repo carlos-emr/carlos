@@ -81,7 +81,7 @@ public final class ChartUpdateProposals {
             if (!agent.providesChartCoverageAudit() && output instanceof ObjectNode object && output.has("coverage")) {
                 output = object.deepCopy().without("coverage");
             }
-            return new Report(validate(output, source), ChartUpdateCoverage.parse(output.get("coverage"), source));
+            return validateReport(output, source);
         } catch (IOException | RuntimeException invalid) {
             throw new ClinicalSummaryGenerationException("Proposals could not be generated or failed source validation. Nothing was saved.");
         } finally {
@@ -90,9 +90,13 @@ public final class ChartUpdateProposals {
     }
 
     public static List<Proposal> validate(JsonNode output, String source) {
+        return validateReport(output, source).proposals();
+    }
+
+    private static Report validateReport(JsonNode output, String source) {
         ClinicalSummaryAgentProtocol.exactFields(output, output != null && output.has("coverage")
                 ? Set.of("proposals", "coverage") : Set.of("proposals"));
-        if (output.has("coverage")) ChartUpdateCoverage.parse(output.get("coverage"), source);
+        ChartUpdateCoverage coverage = ChartUpdateCoverage.parse(output.get("coverage"), source);
         JsonNode rows = output.path("proposals");
         if (!rows.isArray() || rows.size() > MAX_PROPOSALS) throw new IllegalArgumentException("Invalid proposals");
         List<Proposal> result = new ArrayList<>();
@@ -119,7 +123,7 @@ public final class ChartUpdateProposals {
             }
             result.add(new Proposal(kind, excerpt.asText(), destination));
         }
-        return List.copyOf(result);
+        return new Report(List.copyOf(result), coverage);
     }
 
     /** Require sentence/line boundaries so an agent cannot quote only "asthma" from "No asthma". */

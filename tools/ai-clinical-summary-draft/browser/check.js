@@ -359,6 +359,8 @@ async function run() {
     await audit.locator('.coverage-rejected > summary').click();
     assert.match(await audit.locator('.coverage-rejected').innerText(), /Untrusted explanation <script>/);
     assert.equal(await audit.locator('script, img').count(), 0);
+    await audit.getByRole('link', { name: 'Suggestion 3', exact: true }).dispatchEvent('click', { button: 0, ctrlKey: true });
+    assert.equal(await frame.locator('[data-review-position]').textContent(), '1 / 5');
     await audit.getByRole('link', { name: 'Suggestion 3', exact: true }).click();
     assert.equal(await frame.locator('[data-review-position]').textContent(), '3 / 5');
     assert.equal(await frame.locator('article.proposal:visible').getAttribute('data-kind'), 'review');

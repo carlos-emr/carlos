@@ -194,6 +194,17 @@ class ChartCoverageTest(unittest.TestCase):
                                         updates.source_segments(source), source)
         self.assertEqual(['GP follow-up\nBring summary'], [r['evidence'] for r in result['proposals']])
 
+    def test_oversized_restored_context_is_withheld_without_losing_other_candidates(self):
+        for prefix in ('x' * 2100, '😀' * 1050):
+            source = prefix + '\nPulse 80.\n\nIndependent fact.'
+            output = updates.resolve_ranges({'proposals': [
+                {'destination': 'Concerns', 'start_id': 2, 'end_id': 2},
+                {'destination': 'Concerns', 'start_id': 4, 'end_id': 4}]}, updates.source_segments(source), source)
+            self.assertEqual(['Independent fact.'], [r['evidence'] for r in output['proposals']])
+            # The coverage partition still contains the withheld paragraph verbatim.
+            lines = updates.source_segments(source)
+            updates.validate_coverage(updates.coverage_output(lines, updates.source_sections(lines), []), source)
+
     def test_candidate_limit_never_silently_truncates(self):
         rows = [{'kind': 'history', 'evidence': f'Fact {i}.'} for i in range(updates.MAX_PROPOSALS)]
         with self.assertRaisesRegex(ValueError, 'Combined proposal count'):
