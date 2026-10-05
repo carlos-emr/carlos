@@ -22,17 +22,37 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Channel;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
 import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService.Decision;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteSettings;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import org.mockito.MockedStatic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -183,6 +203,118 @@ class PatientPortalInviteDeliveryDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(deliveries.findByEmailLogId(987654).getId()).isEqualTo(queued);
         assertThat(deliveries.findByEmailLogId(987655)).isNull();
+    }
+
+    @Test
+    void shouldPersistAbandonmentOwnership_andRejectAResumedSender() {
+        Long id = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(id, State.PREPARING, State.QUEUED, row -> row.setPortalInviteId(41L));
+        deliveries.advance(id, State.QUEUED, State.ABANDONING,
+                row -> row.setOutcome(Outcome.ABANDONED_BY_STAFF));
+
+        assertThat(deliveries.find(id).getState()).isEqualTo(State.ABANDONING);
+        assertThat(deliveries.advance(id, State.QUEUED, State.COMMITTED, null)).isNull();
+        assertThat(deliveries.findUnfinishedByDemographic(PATIENT))
+                .extracting(PatientPortalInviteDelivery::getId).containsExactly(id);
+        assertThat(deliveries.advance(id, State.ABANDONING, State.ABANDONED, null)).isNotNull();
+    }
+
+    @Test
+    void shouldRejectAbandonmentOwnership_whenTheSenderAlreadyCommitted() {
+        Long id = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(id, State.PREPARING, State.QUEUED, null);
+        deliveries.advance(id, State.QUEUED, State.COMMITTED, null);
+
+        assertThat(deliveries.advance(id, State.QUEUED, State.ABANDONING, null)).isNull();
+        assertThat(deliveries.find(id).getState()).isEqualTo(State.COMMITTED);
+    }
+
+    @Test
+    @DisplayName("should preserve a commit refusal recorded after recovery reads a detached snapshot")
+    void shouldPreserveCurrentRefusal_whenRecoveryReadAnOlderDatabaseSnapshot() throws Exception {
+        Long id = deliveries.claim(attempt(PATIENT)).getId();
+        deliveries.advance(id, State.PREPARING, State.QUEUED, row -> row.setPortalInviteId(41L));
+        deliveries.release(id, State.QUEUED, State.QUEUED, null,
+                new Date(System.currentTimeMillis() - 20 * 60 * 1000L));
+        CountDownLatch snapshotRead = new CountDownLatch(1);
+        CountDownLatch continueRecovery = new CountDownLatch(1);
+        PatientPortalInviteDeliveryDao observedDao = mock(PatientPortalInviteDeliveryDao.class, delegatesTo(deliveries));
+        doAnswer(invocation -> {
+            PatientPortalInviteDelivery snapshot = deliveries.find(id);
+            assertThat(snapshot.getOutcome()).isNull();
+            snapshotRead.countDown();
+            if (!continueRecovery.await(10, TimeUnit.SECONDS)) {
+                throw new AssertionError("recovery was not released");
+            }
+            return snapshot;
+        }).when(observedDao).find(org.mockito.ArgumentMatchers.<Object>any());
+        PatientPortalSettings settings = mock(PatientPortalSettings.class);
+        when(settings.baseUrl()).thenReturn("https://portal.example");
+        when(settings.clinicId()).thenReturn("clinic-a");
+        EmailManager emailManager = mock(EmailManager.class);
+        PortalInviteDeliveryService service = new PortalInviteDeliveryService(mock(PatientPortalService.class),
+                settings, new PortalInviteSettings("https://portal.example", "clinic@example.invalid"),
+                emailManager, observedDao, mock(EmailConfigDao.class), mock(EmailLogDao.class));
+        var worker = Executors.newSingleThreadExecutor();
+        try {
+            var recovered = worker.submit(() -> {
+                // Static mocks are scoped to this worker; the test creates no audit rows outside cleanup.
+                try (MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
+                    return service.recover(mock(LoggedInInfo.class), new Demographic(PATIENT), id,
+                            Decision.ABANDON, mock(PatientPortalStaffContext.class));
+                }
+            });
+            assertThat(snapshotRead.await(10, TimeUnit.SECONDS)).isTrue();
+            deliveries.advance(id, State.QUEUED, State.QUEUED, row -> row.setOutcome(Outcome.COMMIT_REFUSED));
+            continueRecovery.countDown();
+            assertThat(recovered.get(10, TimeUnit.SECONDS).getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            PatientPortalInviteDelivery stored = deliveries.find(id);
+            assertThat(stored.getState()).isEqualTo(State.ABANDONED);
+            assertThat(stored.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            verifyNoInteractions(emailManager);
+        } finally {
+            continueRecovery.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("should allow only one competing sender or recovery transaction to claim a queued attempt")
+    void shouldAllowOnlyOneClaim_whenSenderAndRecoveryRaceInDatabaseTransactions() throws Exception {
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            for (int race = 0; race < 10; race++) {
+                Long id = deliveries.claim(attempt(PATIENT)).getId();
+                deliveries.advance(id, State.PREPARING, State.QUEUED, null);
+                CountDownLatch ready = new CountDownLatch(2);
+                CountDownLatch start = new CountDownLatch(1);
+                try {
+                    var sender = workers.submit(() -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("sender was not released");
+                        return deliveries.advance(id, State.QUEUED, State.COMMITTED, null);
+                    });
+                    var recovery = workers.submit(() -> {
+                        ready.countDown();
+                        if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("recovery was not released");
+                        return deliveries.advance(id, State.QUEUED, State.ABANDONING, null);
+                    });
+                    assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+                    start.countDown();
+                    PatientPortalInviteDelivery sent = sender.get(10, TimeUnit.SECONDS);
+                    PatientPortalInviteDelivery stopped = recovery.get(10, TimeUnit.SECONDS);
+                    assertThat((sent != null) ^ (stopped != null)).isTrue();
+                    assertThat(deliveries.find(id).getState())
+                            .isEqualTo(sent != null ? State.COMMITTED : State.ABANDONING);
+                } finally {
+                    start.countDown();
+                }
+            }
+        } finally {
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     private static PatientPortalInviteDelivery attempt(int demographicNo) {

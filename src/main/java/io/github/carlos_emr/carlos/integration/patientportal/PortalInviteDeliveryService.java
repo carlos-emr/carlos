@@ -44,13 +44,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.Logger;
@@ -67,12 +65,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * <pre>
  * PREPARING -> PREPARED -> QUEUED -> COMMITTED -> SENT
  *                                              -> SEND_FAILED | SEND_UNCERTAIN
- * PREPARED | QUEUED            -> ABANDONED (the prepared token is revoked)
- * PREPARING, portal refused    -> ABANDONED (nothing was prepared)
+ * before COMMITTED            -> ABANDONING -> ABANDONED (sending fenced before withdrawal)
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
- * staff, before COMMITTED      -> ABANDONED (the token, if any, is found and revoked)
- * staff, COMMITTED | SEND_UNCERTAIN -> SENT ("it arrived")
- *                                   -> REVOKING -> REVOKED ("it did not arrive", once the portal revoked)
+ * staff, COMMITTED | SEND_UNCERTAIN -> SENT (verified "it arrived")
+ * staff, SEND_UNCERTAIN        -> REVOKING -> REVOKED (confirmed code invalidation)
+ * failed withdrawal/revocation stays ABANDONING/REVOKING when its work is interrupted
  * </pre>
  *
  * <p>The ordering is the point. Committing before the email is durable could activate a token that
@@ -332,8 +329,11 @@ public class PortalInviteDeliveryService {
     /** @return the decisions that apply to the attempt's current state */
     public static List<Decision> decisionsFor(State state) {
         return switch (state) {
-            case PREPARING, PREPARED, QUEUED -> List.of(Decision.ABANDON);
-            case COMMITTED, SEND_UNCERTAIN -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
+            case PREPARING, PREPARED, QUEUED, ABANDONING -> List.of(Decision.ABANDON);
+            // COMMITTED may still have a paused sender between the gate and transport. Age cannot
+            // prove that it stopped; only an observed arrival can resolve it without racing dispatch.
+            case COMMITTED -> List.of(Decision.CONFIRM_SENT);
+            case SEND_UNCERTAIN -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
             // A revocation that was interrupted: only asking the portal again can finish it.
             case REVOKING -> List.of(Decision.CONFIRM_NOT_SENT);
             default -> List.of();
@@ -381,7 +381,15 @@ public class PortalInviteDeliveryService {
             throw exception;
         }
         long inviteId = issued.invite().id();
-        row = advance(row.getId(), State.PREPARING, State.PREPARED, r -> r.setPortalInviteId(inviteId));
+        PatientPortalInviteDelivery prepared =
+                deliveries.advance(row.getId(), State.PREPARING, State.PREPARED, r -> r.setPortalInviteId(inviteId));
+        if (prepared == null) {
+            // Recovery may claim a stalled preparation before its response arrives. Once fenced out,
+            // this sender must never store or send the code. Withdraw a late response as well.
+            discardLatePreparation(row.getId(), inviteId, staff);
+            throw new PortalInviteException(Reason.STATE_CHANGED);
+        }
+        row = prepared;
 
         String code = issued.inviteToken().expose();
         if (!PortalInviteEmailComposer.isPlausibleCode(code)) {
@@ -682,22 +690,25 @@ public class PortalInviteDeliveryService {
     /** Stops an attempt whose email never left, withdraws its code, and audits that as {@code auditedAs}. */
     private PatientPortalInviteDelivery abandonByStaff(LoggedInInfo user, PatientPortalInviteDelivery row,
             Demographic patient, PatientPortalStaffContext staff, String auditedAs) {
-        Long inviteId = row.getPortalInviteId();
-        if (inviteId == null && row.getState() == State.PREPARING) {
-            inviteId = findLostPreparation(row, patient, staff);
+        // Age only makes the button available. The durable claim, before any portal call,
+        // is what prevents a resumed sender from advancing to COMMITTED and dispatching.
+        Outcome initial = row.getState() == State.ABANDONING ? row.getOutcome() : Outcome.ABANDONED_BY_STAFF;
+        if (row.getState() == State.QUEUED) {
+            initial = stoppedAtCommit(row);
         }
-        Outcome outcome = Outcome.ABANDONED_BY_STAFF;
-        if (row.getState() == State.QUEUED && row.getSupersededInviteId() != null
-                && !replacedInviteStillPending(row, staff)) {
-            // A queued resend may have been activated without CARLOS recording it (a crash between the
-            // two), and activating it retired the earlier code. Its own code is still withdrawn, since the
-            // email never left, but the attempt says so, and the page warns that the earlier one may be gone.
-            outcome = Outcome.COMMIT_UNCONFIRMED;
+        PatientPortalInviteDelivery claimed = claimAbandonment(row.getId(), row.getState(), initial,
+                row.getPortalInviteId());
+        if (claimed == null) {
+            throw new PortalInviteException(Reason.STATE_CHANGED);
         }
-        PatientPortalInviteDelivery abandoned = tryAbandon(row.getId(), row.getState(),
-                outcome, inviteId, staff, row.getDemographicNo());
+        Long inviteId = claimed.getPortalInviteId();
+        if (inviteId == null) {
+            inviteId = findLostPreparation(claimed, patient, staff);
+        }
+        // A queued portal commit may still activate the replacement after a status read. Keep the
+        // warning that the patient's earlier code may have been retired even after withdrawing this one.
+        PatientPortalInviteDelivery abandoned = finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
         if (abandoned == null) {
-            // A colleague resolved it first, perhaps by withdrawing it too; their decision stands.
             throw new PortalInviteException(Reason.STATE_CHANGED);
         }
         audit(user, abandoned, auditedAs);
@@ -711,31 +722,12 @@ public class PortalInviteDeliveryService {
     }
 
     /**
-     * Whether the invitation a resend was to replace is still pending on the portal. The portal retires it
-     * and activates the replacement in one transaction, so while it is pending the resend was never
-     * activated and the patient's earlier code still works, whatever became of the new one. Read-only.
-     *
-     * @return {@code false} when it was retired or is not listed, or the portal cannot say
-     */
-    private boolean replacedInviteStillPending(PatientPortalInviteDelivery row, PatientPortalStaffContext staff) {
-        long replaced = row.getSupersededInviteId();
-        try {
-            return portal.listInvites(row.getDemographicNo(), staff).stream()
-                    .anyMatch(invite -> invite.id() == replaced && STATUS_PENDING.equals(invite.status()));
-        } catch (PatientPortalException exception) {
-            logger.warn("patient portal invitation status could not be read: kind={}", exception.kind());
-            return false;
-        }
-    }
-
-    /**
      * Names the preparation a lost prepare response may have left on the portal, so it can be withdrawn.
      *
      * <p>The portal discloses a preparation again only to the staff member who asked for it, with the same
      * chart details, so repeating the request works only for them and only while the chart is unchanged.
-     * Otherwise the preparation is found in the patient's invitation list: the portal holds at most one
-     * preparation per patient, so a prepared invitation that no other unfinished attempt claims is this
-     * one.
+     * Otherwise the patient's invitation list must name this exact delivery operation. A missing local
+     * invite id, even on an old attempt, never proves ownership of a preparation found on the portal.
      *
      * @return the invitation's id, or {@code null} when the portal holds no such preparation
      * @throws PatientPortalException when the portal cannot say, so the attempt stays open rather than be
@@ -760,22 +752,9 @@ public class PortalInviteDeliveryService {
             logger.warn("patient portal preparation could not be asked for again: {}",
                     exception.getClass().getSimpleName());
         }
-        Set<Long> claimed = new HashSet<>();
-        for (PatientPortalInviteDelivery other : unfinishedFor(row.getDemographicNo())) {
-            if (other.getId().equals(row.getId())) {
-                continue;
-            }
-            if (!isRecoverable(other)) {
-                // Another attempt is still running; a preparation seen now may be its own, not yet
-                // recorded. Guessing could withdraw a colleague's live invitation.
-                throw new PortalInviteException(Reason.STATE_CHANGED);
-            }
-            if (other.getPortalInviteId() != null) {
-                claimed.add(other.getPortalInviteId());
-            }
-        }
         return portal.listInvites(row.getDemographicNo(), staff).stream()
-                .filter(invite -> STATUS_PREPARED.equals(invite.status()) && !claimed.contains(invite.id()))
+                .filter(invite -> STATUS_PREPARED.equals(invite.status()))
+                .filter(invite -> row.getDeliveryOperationId().equals(invite.deliveryOperationId()))
                 .map(PatientPortalInviteDto::id)
                 .findFirst()
                 .orElse(null);
@@ -786,9 +765,9 @@ public class PortalInviteDeliveryService {
      * answering "it arrived" at the same moment cannot win after the code is already revoked. The claim
      * is {@link State#REVOKING}, which is not finished: the attempt reads as revoked only once the portal
      * has confirmed the code dead, so a crash in between leaves it open for staff to revoke again, never
-     * a finished attempt whose code is still live. Unless the code is confirmed dead, the claim is
-     * released in one place, whatever failed, and the attempt is left exactly as it was, idle time
-     * included, for staff to act on again.
+     * a finished attempt whose code is still live. Failures keep the claim, because a timed-out revoke
+     * can still apply remotely. Only proof that the patient already accepted the invitation permits
+     * restoring positive confirmation: that irreversible state cannot subsequently be revoked.
      */
     private PatientPortalInviteDelivery confirmNotSent(LoggedInInfo user, PatientPortalInviteDelivery row,
             PatientPortalStaffContext staff) {
@@ -796,19 +775,13 @@ public class PortalInviteDeliveryService {
         Outcome previousOutcome = row.getOutcome();
         Date previousUpdatedAt = row.getUpdatedAt();
         advance(row.getId(), previous, State.REVOKING, null);
-        CodeFate fate = null;
-        try {
-            fate = revokeCode(row, staff);
-        } finally {
-            if (fate != CodeFate.DEAD) {
-                // A used code means the email arrived. An attempt found mid-revocation offers no "it
-                // arrived", so it is released to the state that does.
-                State released = fate == CodeFate.USED && previous == State.REVOKING
-                        ? State.SEND_UNCERTAIN : previous;
-                deliveries.release(row.getId(), State.REVOKING, released, previousOutcome, previousUpdatedAt);
-            }
-        }
+        // A failed call may still revoke remotely. Keep REVOKING on every failure, including a
+        // retry failure, so neither an opposite decision nor an older request can release the claim.
+        CodeFate fate = revokeCode(row, staff);
         if (fate == CodeFate.USED) {
+            // ACCEPTED is immutable on the portal: no outstanding revoke can succeed after this proof.
+            State released = previous == State.REVOKING ? State.SEND_UNCERTAIN : previous;
+            deliveries.release(row.getId(), State.REVOKING, released, previousOutcome, previousUpdatedAt);
             throw new PortalInviteException(Reason.INVITE_ALREADY_USED);
         }
         // The code is dead; only now does the attempt read as revoked.
@@ -890,29 +863,84 @@ public class PortalInviteDeliveryService {
     /** As {@link #abandon}, but {@code null} when the attempt was no longer in {@code expected}. */
     private PatientPortalInviteDelivery tryAbandon(Long deliveryId, State expected, Outcome outcome,
             Long inviteId, PatientPortalStaffContext staff, int demographicNo) {
-        boolean revokeFailed = inviteId != null && !withdraw(demographicNo, inviteId, staff);
-        return deliveries.advance(deliveryId, expected, State.ABANDONED, r -> {
-            r.setOutcome(outcome);
-            r.setRevokeFailed(revokeFailed);
+        PatientPortalInviteDelivery claimed = claimAbandonment(deliveryId, expected, outcome, inviteId);
+        return claimed == null ? null : finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
+    }
+
+    /** Commits before remote work. ABANDONING never returns to a state from which a sender can dispatch. */
+    private PatientPortalInviteDelivery claimAbandonment(Long deliveryId, State expected, Outcome outcome,
+            Long inviteId) {
+        return deliveries.advance(deliveryId, expected, State.ABANDONING, r -> {
+            // A gate may record definite refusal after recovery read an older QUEUED snapshot.
+            // Preserve the current proof while holding the row lock.
+            r.setOutcome(expected == State.QUEUED && r.getOutcome() != null ? r.getOutcome() : outcome);
             if (inviteId != null) {
-                // Recovery of a lost prepare response learns the id only here; record which invitation
-                // was withdrawn, so the attempt names it like every other.
                 r.setPortalInviteId(inviteId);
             }
         });
     }
 
-    /** @return whether the portal withdrew the invitation; a failure leaves it to expire on its own */
-    private boolean withdraw(int demographicNo, long inviteId, PatientPortalStaffContext staff) {
-        try {
-            portal.revokeInvite(demographicNo, inviteId, staff);
-            return true;
-        } catch (PatientPortalException exception) {
-            // The attempt records only that the withdrawal failed; the log says why. The kind and the
-            // transport's fixed category name no patient data.
-            logger.warn("patient portal invitation could not be withdrawn: kind={}, cause={}", exception.kind(),
-                    exception.getCause() == null ? "none" : exception.getCause().getMessage());
-            return false;
+    private PatientPortalInviteDelivery finishAbandonment(PatientPortalInviteDelivery claimed, Outcome outcome,
+            Long inviteId, PatientPortalStaffContext staff) {
+        // Persist an id learned from a lost response before revocation, so a crash can retry that exact code.
+        if (inviteId != null && !inviteId.equals(claimed.getPortalInviteId())) {
+            claimed = deliveries.advance(claimed.getId(), State.ABANDONING, State.ABANDONING,
+                    r -> r.setPortalInviteId(inviteId));
+            if (claimed == null) {
+                return null;
+            }
+        }
+        CodeFate fate = null;
+        if (inviteId != null) {
+            try {
+                fate = revokeCode(claimed, staff);
+            } catch (PatientPortalException exception) {
+                logger.warn("patient portal invitation withdrawal remains unconfirmed: kind={}", exception.kind());
+                // The sender is fenced, but the code may still be live. Keep withdrawal retryable.
+                return deliveries.advance(claimed.getId(), State.ABANDONING, State.ABANDONING, r -> {
+                    r.setOutcome(outcome);
+                    r.setRevokeFailed(true);
+                });
+            }
+        }
+        Outcome finishedOutcome = fate == CodeFate.USED ? Outcome.CODE_ALREADY_USED : outcome;
+        return deliveries.advance(claimed.getId(), State.ABANDONING, State.ABANDONED, r -> {
+            // A late preparation can record its id while this request holds an older no-id snapshot.
+            // Check under the DAO row lock so its unfinished withdrawal cannot be erased.
+            if (inviteId == null && r.getPortalInviteId() != null) {
+                throw new PortalInviteException(Reason.STATE_CHANGED);
+            }
+            r.setOutcome(finishedOutcome);
+            r.setRevokeFailed(false);
+        });
+    }
+
+    /** A preparation that returned after abandonment can no longer reach the dispatch gate. */
+    private void discardLatePreparation(Long deliveryId, long inviteId,
+            PatientPortalStaffContext staff) {
+        PatientPortalInviteDelivery row = deliveries.find(deliveryId);
+        if (row == null || (row.getState() != State.ABANDONING && row.getState() != State.ABANDONED)) {
+            return;
+        }
+        if (row.getState() == State.ABANDONED && row.getPortalInviteId() != null) {
+            // This operation's code was already withdrawn or proved used. A duplicate late response
+            // cannot make the finished withdrawal uncertain again.
+            return;
+        }
+        // Persist the late response and reopen only an abandonment, before contacting the portal.
+        // Both states fence dispatch; uncertainty must remain visible and retryable.
+        for (State expected : List.of(State.ABANDONING, State.ABANDONED)) {
+            PatientPortalInviteDelivery claimed = deliveries.advance(deliveryId, expected, State.ABANDONING, r -> {
+                // Recheck under the row lock: another withdrawal may finish after our initial read.
+                if (expected == State.ABANDONED && r.getPortalInviteId() != null) {
+                    throw new PortalInviteException(Reason.STATE_CHANGED);
+                }
+                r.setPortalInviteId(inviteId);
+            });
+            if (claimed != null) {
+                finishAbandonment(claimed, claimed.getOutcome(), inviteId, staff);
+                return;
+            }
         }
     }
 

@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDao;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -59,8 +60,7 @@ class PortalInviteEmailComposer {
      * that email - a replacement is a fresh code through resend - so keeping a live account credential in
      * the outbox, where any reader of the patient's email history could reopen it, buys nothing.
      */
-    static final String CODE_FORGOTTEN =
-            "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
+    static final String CODE_FORGOTTEN = EmailLog.PORTAL_INVITE_BODY_FORGOTTEN;
 
     /**
      * The portal's codes are {@code secrets.token_urlsafe(32)}: 43 URL-safe base64 characters. The range
@@ -149,8 +149,8 @@ class PortalInviteEmailComposer {
                 + "2. Enter this invitation code: " + inviteCode + "\n"
                 + "3. Confirm your email address, date of birth and health card number, then choose a "
                 + "username and password.\n\n"
-                + "The code works once and expires " + CODE_LIFETIME.toDays() + " days after this email was "
-                + "sent. If you did not expect this email, you can ignore it: no account is created unless "
+                + "The code works once and is valid for up to " + CODE_LIFETIME.toDays() + " days. If "
+                + "you did not expect this email, you can ignore it: no account is created unless "
                 + "the code is used.\n\n"
                 + "This message was sent by your clinic. Please do not reply to it.\n";
     }

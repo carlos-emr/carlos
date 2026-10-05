@@ -168,7 +168,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThat(bodyAtSend)
                     .contains("https://portal.clinic.example/auth/activate\n")
                     .contains("invitation code: " + CODE)
-                    .contains("expires 7 days after this email was sent")
+                    .contains("is valid for up to 7 days")
                     .doesNotContain("activate?")
                     .doesNotContain("/auth/activate/" + CODE);
         }
@@ -403,7 +403,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
 
             assertThat(events).doesNotContain("send");
-            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getState()).isEqualTo(State.ABANDONING);
             assertThat(row.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
             assertThat(row.isRevokeFailed()).isTrue();
         }
@@ -594,16 +594,17 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery arrived = storedRow(State.COMMITTED, Duration.ofMinutes(16));
             PatientPortalInviteDelivery lost = storedRow(State.COMMITTED, Duration.ofMinutes(16));
             assertThat(PortalInviteDeliveryService.decisionsFor(State.COMMITTED))
-                    .containsExactly(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
+                    .containsExactly(Decision.CONFIRM_SENT);
 
             service.recover(user, patient(), arrived.getId(), Decision.CONFIRM_SENT, staff);
-            service.recover(user, patient(), lost.getId(), Decision.CONFIRM_NOT_SENT, staff);
+            assertThatThrownBy(() -> service.recover(user, patient(), lost.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.RECOVERY_NOT_ALLOWED));
 
             assertThat(arrived.getState()).isEqualTo(State.SENT);
             assertThat(arrived.getOutcome()).isEqualTo(Outcome.CONFIRMED_SENT);
-            assertThat(lost.getState()).isEqualTo(State.REVOKED);
-            assertThat(lost.getOutcome()).isEqualTo(Outcome.CONFIRMED_NOT_SENT);
-            verify(portal, org.mockito.Mockito.times(1)).revokeInvite(PATIENT, INVITE, staff);
+            assertThat(lost.getState()).isEqualTo(State.COMMITTED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
         }
 
         @Test
@@ -615,7 +616,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
 
             assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
-            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
+            assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
             verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
                     anyString(), any(Date.class));
@@ -821,7 +822,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                     new InviteRequest(Channel.EMAIL, false, false, null, true));
 
             assertThat(stuck.getState()).isEqualTo(State.ABANDONED);
-            assertThat(stuck.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
+            assertThat(stuck.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
             verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED),
                     anyString(), any(Date.class));
             InOrder order = inOrder(portal);
@@ -1093,71 +1094,23 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
             assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
-            // Asked before withdrawing: afterwards the portal would show the code revoked either way.
-            InOrder order = inOrder(portal);
-            order.verify(portal).listInvites(PATIENT, staff);
-            order.verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            verify(portal, never()).listInvites(PATIENT, staff);
         }
 
         @Test
-        @DisplayName("should record a plain stop when the portal shows the resend was never activated")
-        void shouldRecordAbandonedByStaff_whenTheResendWasNeverActivated() {
+        @DisplayName("should preserve replacement uncertainty even while the earlier invitation is still pending")
+        void shouldKeepReplacementWarning_whileThePortalCommitMayStillFinish() {
             PatientPortalInviteDelivery row = queuedResend();
             when(portal.listInvites(anyInt(), any()))
                     .thenReturn(List.of(invite(INVITE, "prepared"), invite(9L, "pending")));
-
-            PatientPortalInviteDelivery resolved =
-                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
-
-            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
-            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
-            verify(portal).revokeInvite(PATIENT, INVITE, staff);
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"revoked", "unlisted"})
-        @DisplayName("should record a plain stop while the earlier invitation is pending, whatever the new code's fate")
-        void shouldRecordAbandonedByStaff_whileTheEarlierInvitationIsPending(String newCode) {
-            // Only activating the replacement retires the earlier invitation, and the portal does both at once.
-            PatientPortalInviteDelivery row = queuedResend();
-            when(portal.listInvites(anyInt(), any())).thenReturn("revoked".equals(newCode)
-                    ? List.of(invite(INVITE, "revoked"), invite(9L, "pending"))
-                    : List.of(invite(9L, "pending")));
-
-            PatientPortalInviteDelivery resolved =
-                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
-
-            assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
-            assertThat(resolved.getOutcome()).isEqualTo(Outcome.ABANDONED_BY_STAFF);
-        }
-
-        @Test
-        @DisplayName("should warn when the portal no longer lists the earlier invitation")
-        void shouldRecordUnconfirmed_whenTheEarlierInvitationIsUnlisted() {
-            // The new code still reads as never activated, so only the earlier invitation's absence warns.
-            PatientPortalInviteDelivery row = queuedResend();
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "prepared")));
-
-            PatientPortalInviteDelivery resolved =
-                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
-
-            assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"unreachable", "refused"})
-        @DisplayName("should warn, and still stop the resend, when the portal cannot say whether it was activated")
-        void shouldRecordUnconfirmed_whenTheStatusCannotBeRead(String listing) {
-            PatientPortalInviteDelivery row = queuedResend();
-            when(portal.listInvites(anyInt(), any())).thenThrow("unreachable".equals(listing)
-                    ? PatientPortalException.ofTransportFailure("/invites", null)
-                    : PatientPortalException.ofStatus(403, "/invites", null));
-
+            // The remote commit could retire the old code immediately after any status lookup.
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
 
             assertThat(resolved.getState()).isEqualTo(State.ABANDONED);
             assertThat(resolved.getOutcome()).isEqualTo(Outcome.COMMIT_UNCONFIRMED);
+            verify(portal, never()).listInvites(PATIENT, staff);
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
         }
 
@@ -1175,7 +1128,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @CsvSource({
-                "ABANDON, QUEUED, state=ABANDONED&outcome=ABANDONED_BY_STAFF",
+                "ABANDON, QUEUED, state=ABANDONED&outcome=COMMIT_UNCONFIRMED",
                 "CONFIRM_SENT, SEND_UNCERTAIN, state=SENT&outcome=CONFIRMED_SENT",
                 "CONFIRM_NOT_SENT, SEND_UNCERTAIN, state=REVOKED&outcome=CONFIRMED_NOT_SENT"})
         @DisplayName("should audit each decision with the attempt, the patient and the codes it left")
@@ -1198,7 +1151,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
 
             logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.withdrawStale",
                     "PortalInviteDelivery", String.valueOf(stuck.getId()), String.valueOf(PATIENT),
-                    "state=ABANDONED&outcome=ABANDONED_BY_STAFF"));
+                    "state=ABANDONED&outcome=COMMIT_UNCONFIRMED"));
         }
 
         @Test
@@ -1247,7 +1200,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             verify(portal).revokeInvite(PATIENT, INVITE, staff);
             logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.abandon",
                     "PortalInviteDelivery", String.valueOf(row.getId()), String.valueOf(PATIENT),
-                    "state=ABANDONED&outcome=ABANDONED_BY_STAFF"));
+                    "state=ABANDONED&outcome=COMMIT_UNCONFIRMED"));
         }
 
         @Test
@@ -1358,7 +1311,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             injectDependency(row, "emailLogId", null);
             when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
                     .thenThrow(new PortalRequestPreparationException("provider name cannot be sent"));
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(preparedFor(88L, row.getDeliveryOperationId())));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
@@ -1386,7 +1339,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery row = lostPreparation();
             when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
                     .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another staff member"));
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(preparedFor(88L, row.getDeliveryOperationId())));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
@@ -1407,25 +1360,50 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
                     .isInstanceOf(PatientPortalException.class);
 
-            assertThat(row.getState()).isEqualTo(State.PREPARING);
+            assertThat(row.getState()).isEqualTo(State.ABANDONING);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(longs = {5, 960})
+        void shouldNotRevokeAnotherOperation_regardlessOfAgeOrMissingLocalId(long ageSeconds) {
+            PatientPortalInviteDelivery row = lostPreparation();
+            PatientPortalInviteDelivery running = storedRow(State.PREPARING, Duration.ofSeconds(ageSeconds));
+            injectDependency(running, "portalInviteId", null);
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another delivery is being prepared"));
+            when(portal.listInvites(anyInt(), any()))
+                    .thenReturn(List.of(preparedFor(88L, running.getDeliveryOperationId())));
+
+            assertThat(service.recover(user, patient(), row.getId(), Decision.ABANDON, staff).getState())
+                    .isEqualTo(State.ABANDONED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+            assertThat(running.getState()).isEqualTo(State.PREPARING);
+        }
+
+        @Test
+        void shouldNotGuess_whenANewAttemptPreparesDuringTheListing() {
+            PatientPortalInviteDelivery row = lostPreparation();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "conflict"));
+            when(portal.listInvites(anyInt(), any())).thenAnswer(invocation -> {
+                PatientPortalInviteDelivery running = storedRow(State.PREPARING, Duration.ZERO);
+                return List.of(preparedFor(88L, running.getDeliveryOperationId()));
+            });
+
+            assertThat(service.recover(user, patient(), row.getId(), Decision.ABANDON, staff).getState())
+                    .isEqualTo(State.ABANDONED);
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
         }
 
         @Test
-        @DisplayName("should refuse to guess while another attempt for the patient is still running")
-        void shouldRefuse_whenAnotherAttemptIsInFlight() {
+        void shouldNotGuess_whenThePortalOmitsTheOperationId() {
             PatientPortalInviteDelivery row = lostPreparation();
-            PatientPortalInviteDelivery running = storedRow(State.PREPARING, Duration.ofSeconds(5));
-            injectDependency(running, "portalInviteId", null);
             when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
-                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another delivery is being prepared"));
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "conflict"));
             when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
-
-            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
-                    .isInstanceOfSatisfying(PortalInviteException.class,
-                            exception -> assertThat(exception.reason()).isEqualTo(Reason.STATE_CHANGED));
+            service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
             verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
-            assertThat(row.getState()).isEqualTo(State.PREPARING);
         }
 
         @Test
@@ -1433,7 +1411,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         void shouldReportStateChanged_whenAColleagueWithdrewItFirst() {
             PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
             // The colleague's withdrawal lands between this request's read and its claim.
-            when(deliveries.advance(eq(row.getId()), eq(State.QUEUED), eq(State.ABANDONED), any()))
+            when(deliveries.advance(eq(row.getId()), eq(State.QUEUED), eq(State.ABANDONING), any()))
                     .thenAnswer(invocation -> {
                         row.setState(State.ABANDONED);
                         return null;
@@ -1454,7 +1432,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             injectDependency(other, "portalInviteId", 88L);
             when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
                     .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "another staff member"));
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(88L, "prepared")));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(preparedFor(88L, other.getDeliveryOperationId())));
 
             PatientPortalInviteDelivery resolved =
                     service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
@@ -1499,8 +1477,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should leave the attempt as it was when the portal refuses to revoke a code it lists as live")
-        void shouldReleaseTheClaim_whenTheRefusedCodeIsStillPending() {
+        @DisplayName("should keep revoking when the portal refuses to revoke a code it lists as live")
+        void shouldKeepTheClaim_whenTheRefusedCodeIsStillPending() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
             row.setOutcome(Outcome.SEND_UNCONFIRMED);
             doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite cannot be revoked"))
@@ -1510,7 +1488,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
                     .isInstanceOf(PatientPortalException.class);
 
-            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getState()).isEqualTo(State.REVOKING);
             assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_UNCONFIRMED);
             logActionMock.verifyNoInteractions();
         }
@@ -1553,10 +1531,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should leave an interrupted revocation unfinished, for staff to revoke again")
         void shouldLeaveTheAttemptRevoking_whenInterruptedBeforeTheRevoke() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
-            // As a crash between the claim and the revoke leaves it: nothing runs afterwards, the release included.
+            // A runtime interruption must also preserve the durable revocation claim.
             doThrow(new IllegalStateException("interrupted")).when(portal).revokeInvite(anyInt(), anyLong(), any());
-            when(deliveries.release(anyLong(), any(State.class), any(State.class), any(), any()))
-                    .thenThrow(new IllegalStateException("interrupted"));
 
             assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
                     .isInstanceOf(IllegalStateException.class);
@@ -1607,27 +1583,28 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should release the claim when the portal cannot revoke, so staff can try again at once")
-        void shouldReleaseTheClaim_whenTheRevokeFails() {
+        @DisplayName("should retain revocation ownership after failure, refusing opposite evidence")
+        void shouldKeepTheClaim_whenTheRevokeFails() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
             row.setOutcome(Outcome.SEND_UNCONFIRMED);
-            Date idleSince = row.getUpdatedAt();
             doThrow(PatientPortalException.ofTransportFailure("/revoke", null))
                     .when(portal).revokeInvite(anyInt(), anyLong(), any());
 
             assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
                     .isInstanceOf(PatientPortalException.class);
 
-            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getState()).isEqualTo(State.REVOKING);
             assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_UNCONFIRMED);
-            // The release changes nothing, so the 15-minute wait does not start again.
-            assertThat(row.getUpdatedAt()).isEqualTo(idleSince);
-            assertThat(service.isRecoverable(row)).isTrue();
+            assertThat(row.getUpdatedAt()).isEqualTo(Date.from(NOW));
+            assertThat(service.isRecoverable(row)).isFalse();
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.RECOVERY_NOT_ALLOWED));
         }
 
         @Test
-        @DisplayName("should release the claim when the portal refuses and then cannot say why")
-        void shouldReleaseTheClaim_whenTheStatusLookupFails() {
+        @DisplayName("should keep revoking when the portal refuses and then cannot say why")
+        void shouldKeepTheClaim_whenTheStatusLookupFails() {
             PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
             doThrow(PatientPortalException.ofStatus(409, "/revoke", "invite is accepted"))
                     .when(portal).revokeInvite(anyInt(), anyLong(), any());
@@ -1636,15 +1613,352 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
                     .isInstanceOf(PatientPortalException.class);
 
-            assertThat(row.getState()).isEqualTo(State.SEND_UNCERTAIN);
+            assertThat(row.getState()).isEqualTo(State.REVOKING);
             verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
         }
+    }
+
+    @Nested
+    @DisplayName("abandonment ownership and sender races")
+    class AbandonmentOwnership {
+        @ParameterizedTest
+        @EnumSource(value = State.class, names = {"PREPARING", "PREPARED", "QUEUED"})
+        void shouldNeverRevoke_whenTheSenderWinsBeforeRecoveryClaims(State previous) {
+            PatientPortalInviteDelivery row = storedRow(previous, Duration.ofMinutes(16));
+            when(deliveries.advance(eq(row.getId()), eq(previous), eq(State.ABANDONING), any()))
+                    .thenAnswer(invocation -> {
+                        // The sender advanced and delivered after recovery read its stale snapshot.
+                        row.setState(State.SENT);
+                        return null;
+                    });
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.STATE_CHANGED));
+
+            verifyNoInteractions(portal);
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+            assertThat(row.getState()).isEqualTo(State.SENT);
+        }
+
+        @Test
+        void shouldFenceDispatch_whenRecoveryWinsDuringCommit() {
+            when(portal.commitInviteDelivery(anyLong(), anyString(), anyString(), any())).thenAnswer(invocation -> {
+                // Pause the sender inside the portal call; recovery wins before its local COMMITTED write.
+                clock = NOW.plus(Duration.ofMinutes(16));
+                service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                return invite(INVITE, "pending");
+            });
+            org.mockito.Mockito.doAnswer(invocation -> {
+                assertThat(onlyRow().getState()).isEqualTo(State.ABANDONING);
+                return null;
+            }).when(portal).revokeInvite(anyInt(), anyLong(), any());
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(events).doesNotContain("send");
+            assertThat(bodyAtSend).isNull();
+        }
+
+        @Test
+        void shouldFenceCommit_whenRecoveryWinsBeforeTheDispatchGate() throws Exception {
+            when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                    .thenAnswer(invocation -> {
+                        clock = NOW.plus(Duration.ofMinutes(16));
+                        service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                        EmailManager.DispatchGate gate = invocation.getArgument(2);
+                        assertThatThrownBy(() -> gate.beforeDispatch(emailLog()))
+                                .isInstanceOf(EmailSendingException.class);
+                        return EmailSendResult.failed(emailLog(), true);
+                    });
+
+            assertThat(service.invite(user, patient(), staff, emailRequest()).getState())
+                    .isEqualTo(State.ABANDONED);
+            verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
+            assertThat(bodyAtSend).isNull();
+        }
+
+        @Test
+        void shouldKeepSendingFenced_andAllowRetryAfterInterruptedWithdrawal() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            when(portal.revokeInvite(anyInt(), anyLong(), any()))
+                    .thenThrow(new IllegalStateException("interrupted"))
+                    .thenReturn(invite(INVITE, "revoked"));
+
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOf(IllegalStateException.class);
+            assertThat(row.getState()).isEqualTo(State.ABANDONING);
+            assertThat(row.getState().isTerminal()).isFalse();
+            assertThat(PortalInviteDeliveryService.decisionsFor(row.getState())).containsExactly(Decision.ABANDON);
+            assertThat(deliveries.advance(row.getId(), State.QUEUED, State.COMMITTED, null)).isNull();
+
+            clock = NOW.plus(Duration.ofMinutes(16));
+            assertThat(service.recover(user, patient(), row.getId(), Decision.ABANDON, staff).getState())
+                    .isEqualTo(State.ABANDONED);
+        }
+
+        @Test
+        void shouldKeepWithdrawalRetryable_whenThePortalResponseIsLost() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            when(portal.revokeInvite(anyInt(), anyLong(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/revoke", null))
+                    .thenReturn(invite(INVITE, "revoked"));
+            PatientPortalInviteDelivery unresolved =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(unresolved.getState()).isEqualTo(State.ABANDONING);
+            assertThat(unresolved.isRevokeFailed()).isTrue();
+            assertThat(deliveries.advance(row.getId(), State.QUEUED, State.COMMITTED, null)).isNull();
+            clock = NOW.plus(Duration.ofMinutes(16));
+            PatientPortalInviteDelivery finished =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(finished.getState()).isEqualTo(State.ABANDONED);
+            assertThat(finished.isRevokeFailed()).isFalse();
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"superseded", "revoked"})
+        void shouldFinishWithdrawal_whenThePortalProvesTheCodeAlreadyDead(String status) {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "conflict"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, status)));
+            PatientPortalInviteDelivery finished =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(finished.getState()).isEqualTo(State.ABANDONED);
+            assertThat(finished.isRevokeFailed()).isFalse();
+        }
+
+        @Test
+        void shouldReportAccountActivation_whenThePortalProvesTheCodeUsed() {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            doThrow(PatientPortalException.ofStatus(409, "/revoke", "conflict"))
+                    .when(portal).revokeInvite(anyInt(), anyLong(), any());
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "accepted")));
+            PatientPortalInviteDelivery finished =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(finished.getState()).isEqualTo(State.ABANDONED);
+            assertThat(finished.getOutcome()).isEqualTo(Outcome.CODE_ALREADY_USED);
+            assertThat(finished.isRevokeFailed()).isFalse();
+            verify(emailManager, never()).addEmailNote(any(), any(), anyString());
+        }
+
+        @Test
+        void shouldPreserveLateWithdrawal_whenTheFinisherHasAnOlderSnapshot() {
+            PatientPortalInviteDelivery row = storedRow(State.PREPARING, Duration.ofMinutes(16));
+            row.setPortalInviteId(null);
+            when(deliveries.advance(eq(row.getId()), eq(State.PREPARING), eq(State.ABANDONING), any()))
+                    .thenAnswer(invocation -> {
+                        Consumer<PatientPortalInviteDelivery> change = invocation.getArgument(3);
+                        change.accept(row);
+                        row.setState(State.ABANDONING);
+                        // A real REQUIRES_NEW DAO returns a detached snapshot, not our shared map object.
+                        PatientPortalInviteDelivery snapshot = new PatientPortalInviteDelivery(
+                                row.getDeliveryOperationId(), PATIENT, row.getClinicId(), row.getPortalOrigin(),
+                                Channel.EMAIL, null, row.getRequestedBy());
+                        injectDependency(snapshot, "id", row.getId());
+                        snapshot.setState(State.ABANDONING);
+                        snapshot.setOutcome(row.getOutcome());
+                        return snapshot;
+                    });
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(409, "/prepare", "conflict"));
+            when(portal.listInvites(anyInt(), any())).thenAnswer(invocation -> {
+                // The lookup returns no code, while the original prepare returns to another sender.
+                // That sender persists its exact id, but its withdrawal response is lost.
+                row.setPortalInviteId(INVITE);
+                row.setRevokeFailed(true);
+                return List.of();
+            });
+            assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.ABANDON, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.STATE_CHANGED));
+            assertThat(row.getState()).isEqualTo(State.ABANDONING);
+            assertThat(row.getPortalInviteId()).isEqualTo(INVITE);
+            assertThat(row.isRevokeFailed()).isTrue();
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldPreserveCommitRefusal_whenRecoveryClaimsAQueuedAttempt(boolean recordedAfterRead) {
+            PatientPortalInviteDelivery row = storedRow(State.QUEUED, Duration.ofMinutes(16));
+            row.setOutcome(recordedAfterRead ? null : Outcome.COMMIT_REFUSED);
+            if (recordedAfterRead) {
+                when(deliveries.advance(eq(row.getId()), eq(State.QUEUED), eq(State.ABANDONING), any()))
+                        .thenAnswer(invocation -> {
+                            row.setOutcome(Outcome.COMMIT_REFUSED);
+                            Consumer<PatientPortalInviteDelivery> change = invocation.getArgument(3);
+                            change.accept(row);
+                            row.setState(State.ABANDONING);
+                            return row;
+                        });
+            }
+            PatientPortalInviteDelivery finished =
+                    service.recover(user, patient(), row.getId(), Decision.ABANDON, staff);
+            assertThat(finished.getState()).isEqualTo(State.ABANDONED);
+            assertThat(finished.getOutcome()).isEqualTo(Outcome.COMMIT_REFUSED);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldKeepResolvedCodeFinished_whenItsOriginalPreparationReturnsLate(boolean staleRead) {
+            AtomicLong preparations = new AtomicLong();
+            java.util.concurrent.atomic.AtomicReference<Date> resolvedAt = new java.util.concurrent.atomic.AtomicReference<>();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> {
+                        if (preparations.incrementAndGet() == 1) {
+                            clock = NOW.plus(Duration.ofMinutes(16));
+                            service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                            resolvedAt.set(onlyRow().getUpdatedAt());
+                            clock = NOW.plus(Duration.ofMinutes(17));
+                            if (staleRead) {
+                                PatientPortalInviteDelivery snapshot = new PatientPortalInviteDelivery(
+                                        onlyRow().getDeliveryOperationId(), PATIENT, "clinic-a",
+                                        "https://portal-api.clinic.example", Channel.EMAIL, null, "999998");
+                                snapshot.setState(State.ABANDONING);
+                                snapshot.setPortalInviteId(INVITE);
+                                org.mockito.Mockito.doReturn(snapshot).when(deliveries)
+                                        .find(org.mockito.ArgumentMatchers.<Object>any());
+                            }
+                        }
+                        return prepared(invocation.getArgument(4), null);
+                    });
+            when(portal.revokeInvite(anyInt(), anyLong(), any()))
+                    .thenReturn(invite(INVITE, "revoked"))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/revoke", null));
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.STATE_CHANGED));
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONED);
+            assertThat(onlyRow().getPortalInviteId()).isEqualTo(INVITE);
+            assertThat(onlyRow().isRevokeFailed()).isFalse();
+            assertThat(onlyRow().getUpdatedAt()).isEqualTo(resolvedAt.get());
+            verify(portal, org.mockito.Mockito.times(1)).revokeInvite(PATIENT, INVITE, staff);
+            assertThat(events).doesNotContain("send");
+        }
+
+        @Test
+        void shouldKeepLatePreparationRetryable_whenItsWithdrawalIsUnconfirmed() {
+            AtomicLong preparations = new AtomicLong();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> {
+                        if (preparations.incrementAndGet() > 1) {
+                            throw PatientPortalException.ofStatus(409, "/prepare", "conflict");
+                        }
+                        clock = NOW.plus(Duration.ofMinutes(16));
+                        service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                        return prepared(invocation.getArgument(4), null);
+                    });
+            when(portal.revokeInvite(anyInt(), anyLong(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/revoke", null))
+                    .thenReturn(invite(INVITE, "revoked"));
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOf(PortalInviteException.class);
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONING);
+            assertThat(onlyRow().getPortalInviteId()).isEqualTo(INVITE);
+            assertThat(onlyRow().isRevokeFailed()).isTrue();
+            assertThat(events).doesNotContain("send");
+            clock = NOW.plus(Duration.ofMinutes(32));
+            assertThat(service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff).getState())
+                    .isEqualTo(State.ABANDONED);
+        }
+
+        @Test
+        void shouldWithdrawLatePreparation_withoutStoringOrSendingIt() {
+            AtomicLong preparations = new AtomicLong();
+            when(portal.prepareInvite(anyInt(), anyString(), any(), anyString(), anyString(), any()))
+                    .thenAnswer(invocation -> {
+                        if (preparations.incrementAndGet() > 1) {
+                            throw PatientPortalException.ofStatus(409, "/prepare", "conflict");
+                        }
+                        // The original prepare response arrives only after recovery has found no code yet.
+                        clock = NOW.plus(Duration.ofMinutes(16));
+                        service.recover(user, patient(), onlyRow().getId(), Decision.ABANDON, staff);
+                        return prepared(invocation.getArgument(4), null);
+                    });
+
+            assertThatThrownBy(() -> service.invite(user, patient(), staff, emailRequest()))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            error -> assertThat(error.reason()).isEqualTo(Reason.STATE_CHANGED));
+            assertThat(onlyRow().getState()).isEqualTo(State.ABANDONED);
+            assertThat(onlyRow().getPortalInviteId()).isEqualTo(INVITE);
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
+            assertThat(events).doesNotContain("stored", "send");
+        }
+    }
+
+    @Test
+    void shouldRejectNegativeRecovery_whileCommittedSenderCanStillResume() throws Exception {
+        when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                .thenAnswer(invocation -> {
+                    EmailManager.DispatchGate gate = invocation.getArgument(2);
+                    gate.beforeDispatch(emailLog());
+                    clock = NOW.plus(Duration.ofMinutes(16));
+                    assertThatThrownBy(() -> service.recover(user, patient(), onlyRow().getId(),
+                            Decision.CONFIRM_NOT_SENT, staff))
+                            .isInstanceOfSatisfying(PortalInviteException.class,
+                                    error -> assertThat(error.reason()).isEqualTo(Reason.RECOVERY_NOT_ALLOWED));
+                    // The paused sender resumes into its single transport call.
+                    events.add("send");
+                    return EmailSendResult.accepted(emailLog(), true);
+                });
+        assertThat(service.invite(user, patient(), staff, emailRequest()).getState()).isEqualTo(State.SENT);
+        verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        assertThat(events).containsOnlyOnce("send");
+    }
+
+    @Test
+    void shouldPreservePositiveEvidence_whenCommittedSenderResumes() throws Exception {
+        when(emailManager.sendEmailWithResult(any(), any(), any(EmailManager.DispatchGate.class)))
+                .thenAnswer(invocation -> {
+                    EmailManager.DispatchGate gate = invocation.getArgument(2);
+                    gate.beforeDispatch(emailLog());
+                    clock = NOW.plus(Duration.ofMinutes(16));
+                    service.recover(user, patient(), onlyRow().getId(), Decision.CONFIRM_SENT, staff);
+                    return EmailSendResult.accepted(emailLog(), true);
+                });
+        PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+        assertThat(row.getState()).isEqualTo(State.SENT);
+        assertThat(row.getOutcome()).isEqualTo(Outcome.CONFIRMED_SENT);
+        verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), anyString());
+    }
+
+    @Test
+    void shouldNotReleaseANewerRevocation_whenAnOlderRetryFails() {
+        PatientPortalInviteDelivery row = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+        AtomicLong attempts = new AtomicLong();
+        when(portal.revokeInvite(anyInt(), anyLong(), any())).thenAnswer(invocation -> {
+            if (attempts.incrementAndGet() == 1) {
+                clock = NOW.plus(Duration.ofMinutes(16));
+                // A second request completes while the first request is still awaiting its response.
+                service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff);
+                throw PatientPortalException.ofTransportFailure("/revoke", null);
+            }
+            return invite(INVITE, "revoked");
+        });
+        assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_SENT, staff))
+                .isInstanceOf(PatientPortalException.class);
+        assertThat(row.getState()).isEqualTo(State.REVOKED);
+        verify(deliveries, never()).release(anyLong(), any(), any(), any(), any());
+        assertThatThrownBy(() -> service.recover(user, patient(), row.getId(), Decision.CONFIRM_SENT, staff))
+                .isInstanceOfSatisfying(PortalInviteException.class,
+                        error -> assertThat(error.reason()).isEqualTo(Reason.RECOVERY_NOT_ALLOWED));
+    }
+
+    private PatientPortalInviteDto preparedFor(long id, String operation) {
+        return new PatientPortalInviteDto(id, "clinic-a", PATIENT, "prepared", "999998", "Dr Example", 1,
+                NOW, "Dr Example", PATIENT_EXPIRY, null, null, operation);
     }
 
     // --- fixtures ----------------------------------------------------------------------------
 
     private PatientPortalInviteDelivery storedRow(State state, Duration idle) {
-        PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery("inv-stored", PATIENT,
+        PatientPortalInviteDelivery row = deliveries.claim(new PatientPortalInviteDelivery("inv-stored-" + (ids.get() + 1), PATIENT,
                 "clinic-a", "https://portal-api.clinic.example", Channel.EMAIL, null, "999998"));
         row.setState(state);
         row.setPortalInviteId(INVITE);
@@ -1773,7 +2087,10 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private Clock clockAtNow() {
-        return Clock.fixed(NOW, ZoneOffset.UTC);
+        Clock ticking = mock(Clock.class);
+        when(ticking.instant()).thenAnswer(invocation -> clock);
+        when(ticking.getZone()).thenReturn(ZoneOffset.UTC);
+        return ticking;
     }
 
     private static InviteRequest emailRequest() {

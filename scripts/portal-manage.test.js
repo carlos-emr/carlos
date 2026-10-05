@@ -5,10 +5,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const {createLogic} = require('../src/main/webapp/share/javascript/demographic/portal-manage');
 
 const ROOT = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
+// Escapes every regular-expression metacharacter, so a key is matched as literal text.
+const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function logic(entries) {
   return createLogic(new Map(Object.entries(entries)));
@@ -29,8 +32,7 @@ test('warns that an unconfirmed replacement may have taken the old code with it'
   const page = logic({'deliveries.replacementMayBeLost': 'The earlier one may not work.'});
   const resend = {state: 'abandoned', outcome: 'commit_unconfirmed', supersededInviteId: 7};
   const first = {state: 'abandoned', outcome: 'commit_unconfirmed', supersededInviteId: null};
-  // Stopped by staff while queued: the server records commit_unconfirmed unless the portal showed the
-  // replacement was never activated, and only then abandoned_by_staff.
+  // An attempt stopped before it queued cannot have activated the replacement.
   const stoppedBeforeActivation = {state: 'abandoned', outcome: 'abandoned_by_staff', supersededInviteId: 7};
   assert.ok(page.describe(resend).includes('The earlier one may not work.'));
   assert.ok(!page.describe(first).includes('The earlier one may not work.'));
@@ -139,10 +141,18 @@ test('has page text for every refusal code, except the one that carries its own 
   }
 });
 
-test('has English text in the bundle for every key the page lists', () => {
-  const bundle = read('src/main/resources/oscarResources_en.properties');
-  for (const key of pageKeys()) {
-    assert.match(bundle, new RegExp(`^demographic\\.portal\\.${key.replace(/\./g, '\\.')}=.+$`, 'm'), key);
+test('has English text in all five bundles for every key the page lists', () => {
+  const english = read('src/main/resources/oscarResources_en.properties');
+  for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
+    const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
+    for (const key of pageKeys()) {
+      const pattern = new RegExp(`^demographic\\.portal\\.${escapeRegExp(key)}=(.+)$`, 'm');
+      const expected = english.match(pattern);
+      const actual = bundle.match(pattern);
+      assert.ok(expected, `en: ${key}`);
+      assert.ok(actual, `${locale}: ${key}`);
+      assert.equal(actual[1], expected[1], `${locale}: ${key}`);
+    }
   }
 });
 
@@ -153,7 +163,61 @@ test('has text in every bundle for every label the page prints directly', () => 
   for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
     const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
     for (const key of keys) {
-      assert.match(bundle, new RegExp(`^${key.replace(/\./g, '\\.')}=.+$`, 'm'), `${locale}: ${key}`);
+      assert.match(bundle, new RegExp(`^${escapeRegExp(key)}=.+$`, 'm'), `${locale}: ${key}`);
     }
+  }
+});
+
+// Run the production closure with minimal DOM inputs. Expose its request boundary instead of
+// performing the initial panel load, so these checks exercise the actual CSRF-to-fetch behavior.
+function requestBoundary(ready, token) {
+  const requests = [];
+  const sandbox = {
+    URLSearchParams,
+    window: {csrfTokenReady: ready},
+    document: {
+      getElementById: id => id === 'portal-manage'
+        ? {dataset: {context: '/carlos', demographicNo: '123'}} : {addEventListener() {}},
+      querySelectorAll: () => [],
+      querySelector: () => token
+    },
+    fetch: async (url, options) => {
+      requests.push({url, options});
+      return {status: 200, json: async () => ({ok: true})};
+    }
+  };
+  const source = read('src/main/webapp/share/javascript/demographic/portal-manage.js');
+  assert.match(source, /    load\(\);\s*}\(\)\);\s*$/);
+  vm.runInNewContext(source.replace(/    load\(\);(?=\s*}\(\)\);\s*$)/,
+    '    globalThis.portalRequest = call;'), sandbox);
+  return {call: sandbox.portalRequest, requests};
+}
+
+test('waits for CSRF bootstrap before posting with its token', async () => {
+  let resolve;
+  const ready = new Promise(done => {resolve = done;});
+  const token = {value: ''};
+  const boundary = requestBoundary(ready, token);
+  const pending = boundary.call('POST', '/demographic/portalInvite', {method: 'create'});
+  await Promise.resolve();
+  assert.equal(boundary.requests.length, 0);
+  token.value = 'fixture-csrf';
+  resolve();
+  await pending;
+  assert.equal(boundary.requests.length, 1);
+  assert.equal(boundary.requests[0].options.headers['CSRF-TOKEN'], 'fixture-csrf');
+});
+
+test('sends no dependent POST when CSRF bootstrap rejects', async () => {
+  const boundary = requestBoundary(Promise.reject(new Error('bootstrap refused')), {value: 'stale'});
+  await assert.rejects(boundary.call('POST', '/demographic/portalInvite'), /bootstrap refused/);
+  assert.equal(boundary.requests.length, 0);
+});
+
+test('sends no dependent POST when the CSRF input or value is unavailable', async () => {
+  for (const token of [null, {value: ''}, {value: '  '}]) {
+    const boundary = requestBoundary(Promise.resolve(), token);
+    await assert.rejects(boundary.call('POST', '/demographic/portalInvite'), /CSRF token is unavailable/);
+    assert.equal(boundary.requests.length, 0);
   }
 });

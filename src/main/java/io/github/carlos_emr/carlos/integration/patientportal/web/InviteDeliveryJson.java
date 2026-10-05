@@ -35,7 +35,7 @@ import java.util.Locale;
  * The JSON shape of an invitation delivery attempt, shared by the invite and panel actions.
  *
  * <p>{@code outcome} is a stable code for why the attempt stands where it does, and {@code revokeFailed}
- * says an unused code could not be withdrawn and will expire on its own.
+ * says code withdrawal remains unconfirmed and can be retried while sending stays stopped.
  * {@code decisions} lists what staff may do now; it is empty until the attempt has been idle for
  * {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}, so a UI never offers an action the server
  * would refuse as too early, and always empty when {@code onCurrentConnection} is false: an attempt made
@@ -76,7 +76,8 @@ final class InviteDeliveryJson {
     /** Maps a refusal to the HTTP status a caller should see. */
     static int statusFor(Reason reason) {
         return switch (reason) {
-            case MISSING_EMAIL, INVALID_EMAIL, INCOMPLETE_DATE_OF_BIRTH, MISSING_HEALTH_CARD ->
+            case MISSING_EMAIL, INVALID_EMAIL, INCOMPLETE_DATE_OF_BIRTH, INVALID_DATE_OF_BIRTH,
+                    MISSING_HEALTH_CARD, INVALID_HEALTH_CARD ->
                     HttpServletResponse.SC_BAD_REQUEST;
             case DELIVERY_NOT_FOUND -> HttpServletResponse.SC_NOT_FOUND;
             case NOT_CONFIGURED, SENDER_UNAVAILABLE, CHANNEL_UNAVAILABLE -> HttpServletResponse.SC_SERVICE_UNAVAILABLE;

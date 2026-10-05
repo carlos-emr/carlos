@@ -131,7 +131,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
 ### Database
 
 - [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
-      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grants).
+      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grant).
 - [ ] The staging database is treated as disposable. It is at `V1.0.43` without the migrations
       `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
       cannot be upgraded once those migrations reach `develop`: rebuild it instead.
@@ -148,8 +148,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.43` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
-`_portal.account.unlock` with `admin`. Sending also needs `_email` write and `_edoc` write.
+`V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
+`V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
+`_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
 - [ ] Decide whether front-desk roles get `_portal.invite`. Without `_email` they can see and revoke
@@ -223,11 +224,14 @@ private key: redact the code in screenshots.
 - [ ] Stop the CARLOS mail relay and invite: the delivery shows the mail server refused the email,
       or that it may not have been sent, with what to do next. After the relay returns, a resend
       works and the patient receives only the new code.
-- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS and
-      login normally, then drop the connection during the message itself (after `DATA`) without
-      answering, and invite. A relay that drops the connection before login completes (at the
-      greeting, STARTTLS or login) gives *The mail server refused the email* instead, which offers
-      no decision. The delivery shows *The email may not have been sent*. After 15 minutes, the
+- [ ] Leave an attempt unfinished: have the CARLOS mail relay complete the greeting, STARTTLS,
+      login, `MAIL FROM` and `RCPT TO` normally, answer `DATA` with `354` and take the message,
+      then drop the connection without replying to the final `.`, and invite. The delivery shows
+      *The email may not have been sent*. An earlier failure usually gives *The mail server refused
+      the email* instead, which offers no decision: any drop at the greeting, STARTTLS or login, a
+      clean close in reply to `MAIL FROM` or `DATA`, or an error reply to any command before the
+      message. A connection reset at `MAIL FROM`, `RCPT TO` or `DATA`, or any drop at `RCPT TO`,
+      also leaves the outcome unknown. After 15 minutes, the
       Invitation deliveries panel offers **It arrived** and **It did not arrive; revoke it**, and
       resolving it behaves as described in `patient-portal-client-security.md`. Stopping the portal is not a way to reach this state:
       stopped before the invitation, no attempt is recorded; stopped while the invitation is being

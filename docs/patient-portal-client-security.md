@@ -89,8 +89,10 @@ email privilege the rest of CARLOS requires to create or close an outbox row. Se
 `_edoc` write, because every sent email is archived as a patient document. Both are checked before the
 portal is asked for anything, and the page shows only the controls the user's rights allow.
 
-`V1.0.43` grants `doctor` full `_portal.invite` and read-only `_portal.account`, because `doctor` is the
-only non-admin role the baseline grants `_email`. Unlocking a portal account stays with `admin`, where
+`V1.0.43` grants `doctor` full `_portal.invite`, because `doctor` is the only non-admin role the
+baseline grants `_email`. Read-only `_portal.account`, which the invitation panel uses to show whether
+the patient already has an account, comes from `V1.0.41`; `V1.0.43` does not grant it again, so a
+clinic that removed it keeps that choice. Unlocking a portal account stays with `admin`, where
 `V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
 in Administration > Security lets them see and revoke invitations, but not send one or resolve an
 unfinished delivery.
@@ -118,21 +120,23 @@ records each step in `patient_portal_invite_delivery` before the next network ca
 4. **Send.** The normal email stack sends the message, and the attempt records `SENT`, `SEND_FAILED`
    or `SEND_UNCERTAIN`.
 
-An attempt stopped before the commit is `ABANDONED`, and CARLOS revokes the prepared code on the
+Stopping an attempt before sending claims `ABANDONING`, and CARLOS revokes its code on the
 portal: a live preparation otherwise blocks every new invitation for the patient until it expires.
+Confirmed withdrawal finishes the attempt as `ABANDONED`; a failed withdrawal stays open for retry.
 After the commit, CARLOS never revokes on uncertainty; a refused send is fixed by a resend, which
 issues a new code and keeps the old one valid until the replacement is committed. The uncertain cases
 before the send are a commit whose answer is lost twice, and a commit the portal made that CARLOS could
 not record (a failed database write, or a crash, after which staff stop the attempt). CARLOS withdraws
 the new code, which never left, and records the commit as unconfirmed, never refused: since the portal
 may already have retired the old code while activating the new, the page tells staff that a replaced
-invitation may no longer work and a new one should be sent. When staff stop a queued resend, CARLOS
-first asks the portal whether the invitation it was to replace is still pending (the portal retires it
-and activates the replacement in one step), and records a plain stop if it is.
+invitation may no longer work and a new one should be sent. A queued attempt without a recorded
+commit refusal keeps activation unconfirmed when stopped by staff: a remote commit may still complete
+after a status lookup, so observing the earlier invitation pending cannot prove that its replacement
+was never activated. A recorded commit refusal is preserved under the database row lock, including
+when the gate records it after recovery has read an older snapshot.
 
 Why an attempt stands where it does is stored as an `outcome` code (`PatientPortalInviteDelivery.Outcome`),
-with a separate `revoke_failed` flag when an unused code could not be withdrawn and will expire on its
-own. The row holds no prose and nothing from a portal response; the staff page translates the codes.
+with a separate `revoke_failed` flag when code withdrawal remains unconfirmed and needs a retry. The row holds no prose and nothing from a portal response; the staff page translates the codes.
 
 The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
 placed in a URL, a log, or a browser-visible message.
@@ -140,10 +144,11 @@ placed in a URL, a log, or a browser-visible message.
 The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
 It lives in the outbox row only between the store and the send, which is the window the portal's
 contract requires; once the send resolves either way, or staff resolve an unfinished delivery, the
-stored body is replaced with a note saying the code is not kept. One exception: when the send fails
-before the portal activates the code (an archive or permission refusal, say), the code is withdrawn on
-the portal but can stay in that failed outbox row; it can no longer activate anything. The outbound
-email archive, a
+stored body is replaced with a note saying the code is not kept. `EmailManager` also attempts this
+body-only cleanup when a synchronous failure precedes the dispatch gate, including consent snapshot,
+archive or authorization failures. Cleanup failure preserves the send result and is logged without
+email content. Process crashes can still leave stored bodies; this finalizer does not guarantee
+cleanup after process death. The outbound email archive, a
 permanent patient document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
@@ -166,9 +171,31 @@ an SMS provider.
 
 An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
 staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
-not arrive; revoke it** after it. "It did not arrive" first marks the attempt `REVOKING`, which is
+not arrive; revoke it** once the send call has returned with an uncertain outcome (`SEND_UNCERTAIN`).
+A `COMMITTED` attempt may still have a paused sender and offers **It arrived** only. Confirm that
+choice from actual arrival evidence; it records that evidence without cancelling the sender or
+sending another email. A crash-stuck `COMMITTED` attempt cannot safely be marked not sent online:
+negative cleanup requires verified shutdown/quiescence of all sender nodes and separately authorized
+maintenance. This deliberately narrows the original recovery choices in #3854. Explicit **Revoke**
+is still available as intentional code invalidation; it does not claim that no email was sent and
+cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
+looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and
+sending; if the sender already advanced, stopping fails without revoking. The 15-minute wait only
+controls when recovery is offered and is not proof that a sender has stopped. An interrupted
+`ABANDONING` attempt stays unfinished and offers the same stop action again. A lost or refused
+withdrawal response also keeps that state, until a retry proves the code revoked or superseded.
+If the portal proves the invitation already activated an account, the stopped attempt records
+`CODE_ALREADY_USED`; it does not invent an email delivery confirmation or chart note. A preparation whose
+response arrives after that claim is discarded and withdrawn without sending. If replay cannot
+identify a lost preparation, list recovery matches its exact delivery operation id; it never guesses
+ownership from another attempt's age or missing invite id. No database row lock
+is held across a portal or email call. Deploy this recovery change to every CARLOS sender node
+together after draining or stopping existing sends: older nodes do not understand `ABANDONING`
+and retain the old recovery protocol. "It did not arrive" first marks the attempt `REVOKING`, which is
 unfinished, and marks it `REVOKED` only once the portal has confirmed the code dead; if that is
-interrupted, the attempt stays open and staff can revoke it again after the same wait. Recovery re-checks that the patient and the portal connection match
+interrupted or the call fails, the attempt stays `REVOKING` and staff can revoke it again after the
+same wait. A timeout can still apply remotely, so positive confirmation stays unavailable unless the
+portal proves the invitation was already accepted (an irreversible state that cannot be revoked). Recovery re-checks that the patient and the portal connection match
 the attempt, and the page offers no decision for an attempt made on another portal connection. Each
 decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
 delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the
