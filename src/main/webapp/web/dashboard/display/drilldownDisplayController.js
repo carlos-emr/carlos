@@ -358,7 +358,7 @@ $(document).ready(function () {
         var param = "demographics=" + demographics;
 
         if (demographics.length > 0) {
-            sendData($(this).attr('href'), param, "modal");
+            sendData("/web/dashboard/display/AssignTickler", param, "modal");
         } else {
             alert("Select at least 1 row to assign a Tickler.");
         }
@@ -406,8 +406,10 @@ $(document).ready(function () {
             return;
         }
 
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
+        var form = $(this).closest('form');
+        var url = form.attr('action');
+        var data = form.serializeArray();
+        data.push({name: 'patientIds', value: patientIds.join(',')});
 
         $.ajax({
             type: 'POST',
@@ -436,11 +438,14 @@ $(document).ready(function () {
         event.preventDefault();
 
         var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
+        if (patientIds.length < 1) {
+            alert("At least one patient must be selected to perform this action.");
+            return;
+        }
+        var form = $(this).closest('form');
+        var url = form.attr('action');
+        var data = form.serializeArray();
+        data.push({name: 'patientIds', value: patientIds.join(',')});
 
         $.ajax({
             type: 'POST',
@@ -470,11 +475,14 @@ $(document).ready(function () {
         event.preventDefault();
 
         var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
+        if (patientIds.length < 1) {
+            alert("At least one patient must be selected to perform this action.");
+            return;
+        }
+        var form = $(this).closest('form');
+        var url = form.attr('action');
+        var data = form.serializeArray();
+        data.push({name: 'patientIds', value: patientIds.join(',')});
 
         $.ajax({
             type: 'POST',
