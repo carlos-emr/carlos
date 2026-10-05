@@ -1,4 +1,36 @@
-<%-- edit-view.jsp: Read-only demographic display (extracted from demographiceditdemographic.jsp lines 1513-2609) --%>
+<%--
+    edit-view.jsp: read-only demographic display.
+
+    Purpose: renders the patient master record as read-only text. It is a fragment, included by
+    edit.jsp through <jsp:include>, and is never a routable page of its own; edit.jsp shows it until the
+    user switches the record into edit mode (edit-form-personal.jsp and edit-form-clinical.jsp).
+    Extracted from demographiceditdemographic.jsp (lines 1513-2609) when that page was split.
+
+    Features (sections, in page order): demographic identity (title, age, language, country of origin,
+    spoken language, SIN), other contacts and relationships (legacy list, or the NEW_CONTACTS_UI
+    variant), clinic status with the enrollment-history link, alerts, Rx interaction warning level,
+    paper chart indicator, privacy consents (only when privateConsentEnabled=true; recorded patient
+    consents are listed only with USE_NEW_PATIENT_CONSENT_MODULE=true and only for active consent
+    types), custom fields, contact information with phone and address history popups, health insurance,
+    internal providers with their next available appointment slots, patient clinic status, notes and
+    programs.
+
+    Parameters: reads no request parameters itself. It depends on request attributes that
+    DemographicEdit2Action publishes before edit.jsp includes it, chiefly "demographic",
+    "demographic_no", "demoExt", "demographicCust", "extArchives", "patientConsents", "providers",
+    "doctors", "nurses", "midwifes", "countryList", "pNames", "prov", "oscarProps" and the DAO/manager
+    beans the legacy scriptlets still look up by name. Session attributes "user" and "userrole"
+    identify the viewer. Property switches it honours include privateConsentEnabled,
+    privateConsentPrograms, USE_NEW_PATIENT_CONSENT_MODULE, NEW_CONTACTS_UI, EXTRA_DEMO_FIELDS,
+    showEmploymentStatus, showPrimaryCarePhysicianCheck, meditech_id and phu.hide.
+
+    Security: authorization is enforced by DemographicEdit2Action (_demographic read) before this
+    fragment renders. Everything shown here is PHI: encode every value for its output context with the
+    carlos encoder. nhpup.popup() assigns its argument to innerHTML, so text passed to it must be
+    HTML-encoded and then JavaScript-attribute-encoded (see the consent description popup).
+
+    @since 2026-04-04
+--%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
@@ -635,7 +667,7 @@
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
                           			<span class="popup label"
-                                          onmouseover="nhpup.popup(${ patientConsent.consentType.description },{'width':350} );">
+                                          onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
 									</span>
 

@@ -1,0 +1,29 @@
+{
+  "portal_commit": "c8d558dbffdc1c8bf701884b91e7310d1c05150c",
+  "description": "Synthetic RFC 8032 test key; generated with the portal staff_request_hash and Ed25519, checked independently by CARLOS tests.",
+  "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+  "issued_at": 1788955200,
+  "vectors": [
+    {
+      "method": "GET",
+      "uri": "https://portal.example/internal/carlos/patients/123/invites",
+      "body": "",
+      "request_hash": "6d47191cfe8bc24e4bafe9e67d5a3d09e20ae90e53f2687692c7eebe3a5caaa7",
+      "assertion": "eyJpc3MiOiJjYXJsb3MiLCJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtaW50ZXJuYWwtYXBpIiwiaWF0IjoxNzg4OTU1MjAwLCJleHAiOjE3ODg5NTUyNjAsImp0aSI6IjdkZmFiZmE1LTllNDYtNGEwYi04OGU3LWM1YzBkYzFkZmRhMiIsInByb3ZpZGVyX2lkIjoiOTk5OTk4IiwicHJvdmlkZXJfbmFtZSI6IkRyIMWBdWthc3og5p2OIiwiY2xpbmljX2lkIjoiY2xpbmljLWEiLCJraWQiOiJwcmltYXJ5IiwicmVxdWVzdF9oYXNoIjoiNmQ0NzE5MWNmZThiYzI0ZTRiYWZlOWU2N2Q1YTNkMDllMjBhZTkwZTUzZjI2ODc2OTJjN2VlYmUzYTVjYWFhNyIsInBlcm1pc3Npb25zIjpbInBvcnRhbC5hY2NvdW50LnVubG9jayIsInBvcnRhbC5pbnZpdGUubWFuYWdlIl19.H94TFwMUx3IMvsd5GG7sZDeSHz2meD730IiC8cJVdkT4UnAL3bGkspGn8pISh3mmQxNtx9HVbpUIJGAs1aFNDA"
+    },
+    {
+      "method": "POST",
+      "uri": "https://portal.example/port%C3%A9/internal/carlos/patients/123/portal-account/access?b=two%20words&a=%2F&a=1",
+      "body": "{\"enabled\":false,\"reason\":\"café 李\"}",
+      "request_hash": "bab8f3554b00c24845eb46ed27f211ea0f4893c93492e67de8fbd1c15e1413f7",
+      "assertion": "eyJpc3MiOiJjYXJsb3MiLCJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtaW50ZXJuYWwtYXBpIiwiaWF0IjoxNzg4OTU1MjAwLCJleHAiOjE3ODg5NTUyNjAsImp0aSI6IjdkZmFiZmE1LTllNDYtNGEwYi04OGU3LWM1YzBkYzFkZmRhMiIsInByb3ZpZGVyX2lkIjoiOTk5OTk4IiwicHJvdmlkZXJfbmFtZSI6IkRyIMWBdWthc3og5p2OIiwiY2xpbmljX2lkIjoiY2xpbmljLWEiLCJraWQiOiJwcmltYXJ5IiwicmVxdWVzdF9oYXNoIjoiYmFiOGYzNTU0YjAwYzI0ODQ1ZWI0NmVkMjdmMjExZWEwZjQ4OTNjOTM0OTJlNjdkZThmYmQxYzE1ZTE0MTNmNyIsInBlcm1pc3Npb25zIjpbInBvcnRhbC5hY2NvdW50LnVubG9jayIsInBvcnRhbC5pbnZpdGUubWFuYWdlIl19.vfyhKiY11D6Mc7xoUzXBGJmUvsCNPu3yLufYknJ4gEb25teJBd2Pn4fnOKfSQk0BVxnnVtFpY38R1LqX6UURAw"
+    },
+    {
+      "method": "GET",
+      "uri": "https://portal.example/internal/carlos/contact-reviews?limit=10&offset=20",
+      "body": "",
+      "request_hash": "93f1a962b33d733547ab00e2495b71c806d566ee867fedfffd16cd9c02a84bd2",
+      "assertion": "eyJpc3MiOiJjYXJsb3MiLCJhdWQiOiJjYXJsb3MtcGF0aWVudC1wb3J0YWwtaW50ZXJuYWwtYXBpIiwiaWF0IjoxNzg4OTU1MjAwLCJleHAiOjE3ODg5NTUyNjAsImp0aSI6IjdkZmFiZmE1LTllNDYtNGEwYi04OGU3LWM1YzBkYzFkZmRhMiIsInByb3ZpZGVyX2lkIjoiOTk5OTk4IiwicHJvdmlkZXJfbmFtZSI6IkRyIMWBdWthc3og5p2OIiwiY2xpbmljX2lkIjoiY2xpbmljLWEiLCJraWQiOiJwcmltYXJ5IiwicmVxdWVzdF9oYXNoIjoiOTNmMWE5NjJiMzNkNzMzNTQ3YWIwMGUyNDk1YjcxYzgwNmQ1NjZlZTg2N2ZlZGZmZmQxNmNkOWMwMmE4NGJkMiIsInBlcm1pc3Npb25zIjpbInBvcnRhbC5hY2NvdW50LnVubG9jayIsInBvcnRhbC5pbnZpdGUubWFuYWdlIl19.iXAFaLwQjGgkipu_pvwIQAGHxFyxLFJQm-wFBxkT6ix2qwLpjaa0O_q4HJ4BB2FvDb4SxOXrFH2Ly-IeN-vfAA"
+    }
+  ]
+}
