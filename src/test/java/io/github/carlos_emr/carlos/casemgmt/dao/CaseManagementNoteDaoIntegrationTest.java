@@ -716,7 +716,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                     new Date(timestamp.getTime() - 1000));
             for (CaseManagementNote note : List.of(first, second, earlier)) {
                 note.setUuid(uuid);
-                caseManagementNoteDAO.updateNote(note);
+                caseManagementNoteDAO.saveNote(note);
             }
             hibernateTemplate.flush();
             entityManager.clear();
