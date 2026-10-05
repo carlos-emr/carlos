@@ -415,6 +415,25 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should discard prepared attachments when the patient is missing")
+    void shouldDropAttachments_whenPatientIsMissing() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("transactionType", "DIRECT");
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY,
+                new ArrayList<>(List.of(new EmailAttachment())));
+        request.getSession().setAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY, "7");
+        EmailSend2Action action = sendingAction(request);
+
+        action.sendDirectEmail();
+
+        ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmail(any(), sent.capture());
+        assertThat(sent.getValue().getAttachments()).isEmpty();
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_LIST_SESSION_KEY)).isNull();
+        assertThat(request.getSession().getAttribute(EmailSend2Action.ATTACHMENT_OWNER_SESSION_KEY)).isNull();
+    }
+
+    @Test
     @DisplayName("should send attachments prepared for the same patient")
     void shouldKeepAttachments_whenPreparedForSamePatient() {
         MockHttpServletRequest request = new MockHttpServletRequest();
