@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -177,6 +178,8 @@ final class ClinicalSummaryGenerationPipeline {
     }
 
     private void run(ObjectNode snapshot, ObjectNode request, boolean cachePart, List<JsonNode> outputs) throws IOException {
+        // Agent HTTP calls ignore interrupts, so a cancelled pass stops before starting its next call.
+        if (Thread.currentThread().isInterrupted()) throw new InterruptedIOException("Generation interrupted");
         ObjectNode part = snapshot.deepCopy();
         part.set("sources", request.get("sources").deepCopy());
         for (String field : List.of("claims", "sections", "coverage", "fact_ledger", "validation")) part.putArray(field);
