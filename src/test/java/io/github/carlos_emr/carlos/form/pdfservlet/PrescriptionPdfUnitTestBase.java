@@ -51,7 +51,6 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -79,7 +78,6 @@ import static org.mockito.ArgumentMatchers.isNull;
  * pick them up through SpringUtils.
  */
 public abstract class PrescriptionPdfUnitTestBase extends CarlosUnitTestBase {
-
 
     protected static final int SCRIPT_ID = 1;
     protected static final int DEMOGRAPHIC_NO = 1;
@@ -169,7 +167,7 @@ public abstract class PrescriptionPdfUnitTestBase extends CarlosUnitTestBase {
     /**
      * Makes script {@value #SCRIPT_ID} carry stored signature {@value #SIGNATURE_ID} for patient
      * {@value #DEMOGRAPHIC_NO}, readable by a caller with {@code _rx} read privilege. Fax requests
-     * need this: the servlet refuses to fax an unsigned prescription.
+     * need this: the fax action refuses to fax an unsigned prescription.
      */
     protected void stubStoredSignature() throws Exception {
         stubStoredSignature("999998");
@@ -209,6 +207,14 @@ public abstract class PrescriptionPdfUnitTestBase extends CarlosUnitTestBase {
                 .thenReturn(true);
         // The fax also heads the page with the demographic record, so faxing needs _demographic READ.
         when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(true);
+    }
+
+    /** Lets the caller fax prescriptions for patient {@value #DEMOGRAPHIC_NO}, without stubbing any record. */
+    protected void grantFaxRights() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenReturn(true);
         when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq(SecurityInfoManager.WRITE), isNull()))
                 .thenReturn(true);
@@ -265,29 +271,6 @@ public abstract class PrescriptionPdfUnitTestBase extends CarlosUnitTestBase {
         return out.toByteArray();
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     /**
      * The demographic row of patient {@value #DEMOGRAPHIC_NO}, as the record holds it. Every value
      * here is deliberately different from what {@link #createFaxRequest()} posts, so an assertion
@@ -307,57 +290,6 @@ public abstract class PrescriptionPdfUnitTestBase extends CarlosUnitTestBase {
         demographic.setBirthDay(new GregorianCalendar(1980, 2, 4));
         when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenReturn(demographic);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     /** The prescriber 999998 and the clinic row RxProviderData composes the clinic header from. */
     protected void stubPrescriberClinic() {

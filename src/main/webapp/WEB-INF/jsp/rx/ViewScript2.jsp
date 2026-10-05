@@ -109,9 +109,9 @@
             ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
 
             /**
-             * The first candidate the fax/print servlet would accept as a script id, or "" when none
-             * qualify. This mirrors FrmCustomedPDFServlet.parsePositiveInt EXACTLY — 1-10 digits that
-             * parse to a positive {@code int} — so a value the servlet rejects (0, or a 10-digit value
+             * The first candidate the fax action and print servlet would accept as a script id, or "" when none
+             * qualify. This mirrors PrescriptionPdfComposer.parsePositiveInt EXACTLY — 1-10 digits that
+             * parse to a positive {@code int} — so a value the server rejects (0, or a 10-digit value
              * above Integer.MAX_VALUE such as 9999999999) can never "win" over a later valid source
              * and reintroduce the unsigned-fax failure this helper prevents. Used to resolve the
              * scriptId across the server-resolved request attribute and displayed stash.
@@ -124,7 +124,7 @@
                                 return candidate;
                             }
                         } catch (NumberFormatException ignored) {
-                            // > Integer.MAX_VALUE: the servlet would reject it, so skip to the next.
+                            // > Integer.MAX_VALUE: the server would reject it, so skip to the next.
                         }
                     }
                 }
@@ -217,7 +217,7 @@
                 for (int i = 0; i < sites.size(); i++) {
                     Site s = sites.get(i);
                     vecAddressName.add(s.getName());
-                    // One composer for this block on both ends: FrmCustomedPDFServlet parses the
+                    // One composer for this block on both ends: PrescriptionPdfComposer parses the
                     // chosen block back out of scAddress AND recomputes the blocks this prescriber was
                     // offered, so a fax cannot carry a clinic header the request made up.
                     String addressHtml = RxSatelliteClinicAddress.html(encodedDoctorName, s.getName(), s.getAddress(),
@@ -354,7 +354,7 @@
 
             /*
              * The most recent Additional Notes save, so a fax can wait for it. A fax renders
-             * additNotes from the STORED prescription row (FrmCustomedPDFServlet.bindFaxContentToRecord
+             * additNotes from the STORED prescription row (PrescriptionPdfComposer.bindFaxContentToRecord
              * replaces the posted value, deliberately, so a caller cannot print arbitrary text above
              * another prescriber's signature). addNotes() saves that row with a fire-and-forget
              * fetch, and the textarea's own onchange fires as focus leaves it for the Fax button --
@@ -877,7 +877,7 @@
             signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
-            // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
+            // Faxing persists a FaxJob, so RxFaxPrescription2Action requires _rx WRITE for the script's
             // patient; gate the Fax buttons on the same right so the page never offers a fax the
             // server will refuse (a read-only reprint of a signed script would otherwise show an
             // enabled Fax button and then a refusal).
@@ -893,7 +893,7 @@
             // 500 on the whole print/fax page rather than a disabled button. Any failure leaves the
             // gate false: Fax off, page still renders.
             // BOTH halves of the gate — may-I-fax and is-it-signed — must describe the SAME
-            // prescription, the one scriptIdForFax names, because that is the row the servlet signs
+            // prescription, the one scriptIdForFax names, because that is the row the fax action signs
             // from. Reading the permission from the persisted row and the signature from the session
             // stash would let a stash holding a different script decide whether Fax lights up.
             boolean canFaxScript = false;
@@ -922,13 +922,13 @@
                 canFaxScript = false;
                 faxTargetSigned = false;
             }
-            // The third condition on the Fax buttons: the servlet refuses a fax whose destination is
+            // The third condition on the Fax buttons: the fax action refuses a fax whose destination is
             // not usable ("Valid fax number not found!"). Computed once here so the server-rendered
             // disabled state and the JavaScript gate cannot drift apart — the initial markup must
             // already reflect it, or the buttons render live until the first signature-pad event
-            // fires and a click in that window submits a fax the servlet rejects.
+            // fires and a click in that window submits a fax the fax action rejects.
             //
-            // Use the same provider-aware validator as the servlet. A destination may be
+            // Use the same provider-aware validator as the fax action. A destination may be
             // dialable through SRFax but not legacy middleware (or the reverse).
             java.util.Set<String> usableFaxSenderNumbers = new java.util.HashSet<>();
             List<FaxConfig> faxConfigs = java.util.Collections.emptyList();
@@ -1234,7 +1234,7 @@
             var hasFaxSenderAccount = <%= hasFaxSenderAccount ? "true" : "false" %>;
             var canFaxScript = <%= canFaxScript ? "true" : "false" %>;
             // The script already carries a stored signature (the prescriber's stamp applied on write,
-            // or a signature saved earlier). The fax servlet signs from it whenever no fresh pad
+            // or a signature saved earlier). The fax action signs from it whenever no fresh pad
             // capture is present, so pad strokes or Clear must not grey out Fax for such a script.
             var hasStoredSignature = <%= faxTargetSigned ? "true" : "false" %>;
             <% } %>

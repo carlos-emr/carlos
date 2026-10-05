@@ -80,6 +80,24 @@ public class PrescriptionFaxService {
     }
 
     /**
+     * True when the caller may fax prescriptions for the patient the request names: {@code _rx} WRITE on that
+     * patient and global {@code _fax} WRITE. It reads only {@code demographic_no} (role-wide when absent or
+     * malformed) and never the script id, so a refusal says nothing about whether a script exists. A patient
+     * directive that refuses the check counts as no. The record-based checks
+     * ({@link #isFaxDeniedByPrivilege}) still apply to every caller who passes.
+     */
+    public boolean mayFaxForRequestedPatient(LoggedInInfo loggedInInfo, String demographicNo) {
+        String patient = demographicNo != null && demographicNo.matches("[0-9]{1,10}") ? demographicNo : null;
+        try {
+            return securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.WRITE, patient)
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null);
+        } catch (PatientDirectiveException e) {
+            logger.warn("A directive refused the fax permission check ({})", e.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    /**
      * True only when the prescription exists with a patient and the caller may READ it but lacks
      * {@code _rx} WRITE for that patient, {@code _demographic} READ for that patient, or global
      * {@code _fax} WRITE. A missing session, absent row, or a caller without READ is NOT reported as a
@@ -107,7 +125,7 @@ public class PrescriptionFaxService {
                         || !securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null));
         } catch (PatientDirectiveException e) {
             // hasPrivilege rethrows PatientDirectiveException (SecurityInfoManagerImpl); unguarded it
-            // would crash the servlet instead of refusing the fax. Answer "not denied HERE" so the
+            // would fail the fax with a 500 instead of refusing it. Answer "not denied HERE" so the
             // request falls through to resolveSignatureImage, whose own guard withholds the signature
             // and produces the generic "not signed" reply. Nothing is authorized by this answer — it
             // only declines to emit the specific permission wording, which is right under a directive:
@@ -146,14 +164,21 @@ public class PrescriptionFaxService {
      * file is never overwritten. Every target is resolved and validated before the first write, and on
      * any failure the files this call created are removed again.
      *
+     * @param pdfid the document id, 1-128 of {@code [a-zA-Z0-9_-]}; anything else is refused before any write
      * @throws FileAlreadyExistsException when a target already exists, as a replay of a queued job would
      *                                    find; its artifacts are left untouched
-     * @throws IOException                when a directory is invalid or a write fails
+     * @throws IOException                when a write fails
+     * @throws IllegalArgumentException   when {@code pdfid} is not a valid document id
+     * @throws SecurityException          when a configured directory or a target path is rejected by
+     *                                    {@link PathValidationUtils}
      */
     // FindSecBugs PATH_TRAVERSAL_IN: every target is resolved under a configured directory by PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "every target is resolved under a configured directory by PathValidationUtils before use")
     public PreparedFaxFiles prepareFaxFiles(String documentDir, String pdfid, String pdfFile, String faxNo,
             ByteArrayOutputStream baosPDF) throws IOException {
+        if (pdfid == null || !pdfid.matches("[a-zA-Z0-9_-]{1,128}")) {
+            throw new IllegalArgumentException("Invalid fax document id");
+        }
         // Resolve and validate EVERY target before the first write. A bad spool directory must not
         // leave a valid-looking orphan in DOCUMENT_DIR that rejects a retry of the same attempt id.
         File baseDirFile = PathValidationUtils.resolveConfiguredDirectory(documentDir, "DOCUMENT_DIR");

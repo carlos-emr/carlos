@@ -60,7 +60,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -641,7 +640,7 @@ public class PrescriptionPdfComposer {
      *       table, overridden by the prescriber's own rxAddress/rxPhone/faxnumber preferences),
      *       composed as the preview composes its {@code clinicName}; the printed fax is the
      *       clinic's official number, never the outgoing line the request names in
-     *       {@code clinicFax} (that value still selects the sending line in {@code service()}). The preview's other branch — a program
+     *       {@code clinicFax} (that value still selects the sending line in the fax action). The preview's other branch — a program
      *       address from an {@code infirmaryView_programAddress} attribute — has no remaining
      *       setter in CARLOS, so it is not reproduced here. A satellite clinic ({@code useSC=true})
      *       is honoured only when the posted {@code scAddress}
@@ -679,7 +678,7 @@ public class PrescriptionPdfComposer {
         // The header's "Fax:" is the clinic's OFFICIAL fax number -- the clinic row's fax, or the
         // prescriber's own "faxnumber" preference, exactly as RxProviderData resolves it for the
         // preview -- not the outgoing line. The request's clinicFax is the fax_config line the fax
-        // is SENT from; service() still reads that from the original request to pick the line, but
+        // is SENT from; the fax action still reads that from the original request to pick the line, but
         // an outgoing line is only that, and it must not print as the pharmacy's call-back number.
         bound.put("clinicFax", clinic == null ? "" : nz(clinic.getClinicFax()));
 

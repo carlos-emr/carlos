@@ -6,7 +6,7 @@
  * Rx stamp-signed fax: the document is the RECORD, not the request.
  *
  * Browser regression check for the three record-binding guarantees of the
- * signed prescription fax (FrmCustomedPDFServlet.bindFaxContentToRecord and
+ * signed prescription fax (PrescriptionPdfComposer.bindFaxContentToRecord and
  * rx/ViewScript2.jsp, PR #3606). It drives the real UI to write and stamp-sign
  * a prescription, faxes it the way a clinician does, and then reads the PDF the
  * servlet wrote to DOCUMENT_DIR and asserts on the text actually rendered:
@@ -857,7 +857,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
   } else if (!/fax-success/i.test(body)) {
     // Classify the response; never quote it. An error page can carry patient-identifying content
     // and findings are printed and persisted.
-    findings.push({ label: 'ui-fax', type: 'not-successful', text: /fax-failure/i.test(body) ? 'the servlet reported fax-failure' : 'the response carried neither fax-success nor fax-failure' });
+    findings.push({ label: 'ui-fax', type: 'not-successful', text: /fax-failure/i.test(body) ? 'the fax action reported fax-failure' : 'the response carried neither fax-success nor fax-failure' });
   }
   return pdfId;
 }
@@ -909,7 +909,7 @@ async function faxWithForgedIdentity(page, scriptId) {
     return null;
   }
   if (!/fax-success/i.test(result.body)) {
-    findings.push({ label: 'forged-fax', type: 'not-successful', text: /fax-failure/i.test(result.body) ? 'the servlet reported fax-failure for the forged-identity POST' : 'the forged-identity POST response carried neither fax-success nor fax-failure' });
+    findings.push({ label: 'forged-fax', type: 'not-successful', text: /fax-failure/i.test(result.body) ? 'the fax action reported fax-failure for the forged-identity POST' : 'the forged-identity POST response carried neither fax-success nor fax-failure' });
     return null;
   }
   return pdfId;

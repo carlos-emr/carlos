@@ -22,9 +22,7 @@
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
-import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
@@ -979,7 +977,7 @@ class PrescriptionPdfComposerUnitTest extends PrescriptionPdfUnitTestBase {
     }
 
     @Test
-    void shouldDecodeSatelliteFieldsOnlyAfterSplittingStructure() {
+    void shouldDecodeSatelliteFields_afterSplittingStructure() {
         String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
                 "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
                 "T&eacute;l", "Fax");
@@ -991,7 +989,7 @@ class PrescriptionPdfComposerUnitTest extends PrescriptionPdfUnitTestBase {
     }
 
     @Test
-    void shouldBindAndParseConfiguredSatelliteDelimiterTextWithoutInventingLines() throws Exception {
+    void shouldParseConfiguredDelimiterText_withoutInventingLines() throws Exception {
         String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
         MockHttpServletRequest request = createFaxRequest();
         stubStoredSignature();

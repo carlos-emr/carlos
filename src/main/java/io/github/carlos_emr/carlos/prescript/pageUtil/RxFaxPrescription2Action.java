@@ -34,7 +34,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.openpdf.text.pdf.PdfReader;
-import org.owasp.encoder.Encode;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
@@ -118,6 +117,15 @@ public class RxFaxPrescription2Action extends ActionSupport {
         Prescription prescription;
         HttpServletRequest pdfRequest;
         try {
+            // Refuse a caller without the right to fax prescriptions for the patient the request names before
+            // the script is even looked up. This uses only demographic_no, never scriptId, so the refusal says
+            // nothing about whether a script exists (issue #3108: no Rx/fax privilege -> 403).
+            if (!prescriptionFaxService.mayFaxForRequestedPatient(loggedInInfo, req.getParameter("demographic_no"))) {
+                reportRefusal(res, HttpServletResponse.SC_FORBIDDEN,
+                        "Error: you do not have permission to fax this prescription.");
+                return;
+            }
+
             // The prescription named by scriptId is loaded ONCE here and shared by the privilege
             // pre-check, the signature gate and the fax content binding below.
             prescription = prescriptionPdfComposer.requestedPrescription(req);
@@ -269,7 +277,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
                     logger.error("Prescription fax was queued, but the legacy SENT audit entry failed ({})",
                             e.getClass().getSimpleName());
                 }
-                writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + SafeEncode.forHtml(pharmaName) + " (" + Encode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
+                writer.println("<div id='fax-success' style='color:green;'><h3>Fax successfully generated</h3><p>" + SafeEncode.forHtml(pharmaName) + " (" + SafeEncode.forHtml(faxNo) + ")</p><br><p>This window will close after follow-up processing completes.</p></div>");
             }
             writer.flush();
 
@@ -320,7 +328,7 @@ public class RxFaxPrescription2Action extends ActionSupport {
     private static void reportRefusal(HttpServletResponse res, int status, String message) throws IOException {
         res.setStatus(status);
         PrintWriter writer = res.getWriter();
-        writer.println("<div id='fax-failure'><h3>" + message + "</h3></div>");
+        writer.println("<div id='fax-failure'><h3>" + SafeEncode.forHtml(message) + "</h3></div>");
         writer.flush();
     }
 

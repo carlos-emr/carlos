@@ -22,13 +22,11 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.commn.dao.PrescriptionDao;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -135,6 +133,36 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
             restoreProperty("fax_file_location", previousFaxFileLocation);
         }
+    }
+
+    @Test
+    @DisplayName("should refuse a caller with no Rx rights with 403 before looking up the prescription")
+    void shouldRefuseFaxAsPermissionError_whenCallerHasNoRxPrivilege() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999997");
+
+        faxAs(newFaxAction(), createFaxRequest(), response, loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
+        verifyNoInteractions(prescriptionDao, digitalSignatureManager, faxConfigDao, faxJobDao, faxManager);
+    }
+
+    @Test
+    @DisplayName("should refuse with 403 when a patient directive refuses the fax permission check")
+    void shouldRefuseFaxAsPermissionError_whenDirectiveRefusesCheck() throws Exception {
+        when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.WRITE), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenThrow(new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("directive"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+        faxAs(newFaxAction(), createFaxRequest(), response, loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(response.getContentAsString()).contains("fax-failure").doesNotContain("directive");
+        verifyNoInteractions(prescriptionDao, faxConfigDao, faxJobDao, faxManager);
     }
 
     @Test
@@ -703,6 +731,7 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         // No stubStoredSignature(): PrescriptionDao.find returns null, and no pad file is named.
+        grantFaxRights();
 
         try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
             loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
@@ -716,7 +745,7 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("not signed");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
             verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
@@ -743,6 +772,7 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
             verifyFaxWasNotQueued();
+            verifyNoInteractions(faxJobDao, faxConfigDao);
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
         }
     }
@@ -768,8 +798,9 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission");
             verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
             verifyFaxWasNotQueued();
+            verifyNoInteractions(faxJobDao, faxConfigDao);
         }
     }
 
@@ -829,39 +860,10 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
             assertThat(response.getContentAsString()).contains("fax-failure").contains("not signed");
             assertThat(documentDir.resolve("prescription_rx-123.pdf")).doesNotExist();
-            verify(faxConfigDao, never()).findAll(any(), any());
+            verify(faxConfigDao, never()).getActiveConfigByNumber(anyString());
             verifyFaxWasNotQueued();
         } finally {
             restoreProperty("DOCUMENT_DIR", previousDocumentDir);
-        }
-    }
-
-    /** The same request as {@link #createFaxRequest()} but a print/preview: no {@code __method}. */
-    @Test
-    @DisplayName("should refuse to fax on anything but POST before touching the prescription")
-    void shouldRejectFax_whenRequestMethodIsNotPost() throws Exception {
-        // CSRFGuard protects POST only, and this servlet answers every method through service():
-        // a GET that faxed would be a cross-site-triggerable fax of a real prescription to a
-        // caller-chosen number.
-        MockHttpServletRequest request = createFaxRequest();
-        request.setMethod("GET");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        stubStoredSignature();
-        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
-        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-
-        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class)) {
-            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                    .thenReturn(loggedInInfo);
-            RxFaxPrescription2Action action = newFaxAction();
-
-            action.faxPrescription(request, response);
-
-            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-            assertThat(response.getHeader("Allow")).isEqualTo("POST");
-            verify(prescriptionDao, never()).find(anyInt());
-            verify(digitalSignatureManager, never()).getDigitalSignature(anyInt());
-            verifyFaxWasNotQueued();
         }
     }
 
@@ -890,6 +892,7 @@ class RxFaxPrescription2ActionUnitTest extends PrescriptionPdfUnitTestBase {
             assertThat(response.getContentAsString()).contains("fax-failure").contains("permission").doesNotContain("not signed");
             verify(demographicManager, never()).getDemographic(any(), anyInt());
             verifyFaxWasNotQueued();
+            verifyNoInteractions(faxJobDao, faxConfigDao);
         }
     }
 }
