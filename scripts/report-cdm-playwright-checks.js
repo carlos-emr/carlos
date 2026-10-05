@@ -245,7 +245,7 @@ async function workflow(s) {
     s.cleanup(() => {
       fixture.cleanup();
       if (roleNo) {
-        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName='_appointment';
+        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg');
           DELETE FROM secRole WHERE role_no=${roleNo} AND role_name=${q(role)}`);
         h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'An owned role grant remains');
         h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_no=${roleNo}`) === '0', 'The owned no-report role remains');
@@ -256,11 +256,13 @@ async function workflow(s) {
     roleNo = sql.value(`INSERT INTO secRole (role_name, description) VALUES (${q(role)}, 'Owned report denial fixture'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(roleNo), 'No role ID was returned');
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-      VALUES (${q(role)},'_appointment','r',0,${q(provider)});
+      VALUES (${q(role)},'_appointment','r',0,${q(provider)}), (${q(role)},'_msg','r',0,${q(provider)});
       DELETE FROM secUserRole WHERE provider_no=${q(fixture.providerNo)};
       INSERT INTO secUserRole (provider_no, role_name, activeyn, lastUpdateDate) VALUES (${q(fixture.providerNo)}, ${q(role)}, 1, NOW())`);
     h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}
       AND objectName='_appointment' AND privilege='r'`) === '1', 'The schedule-only grant was not stored exactly');
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName='_report'`) === '0',
+      'The denial fixture unexpectedly has report access');
     const context = await h.newContext(s.context.browser(), s.config);
     s.cleanup(() => context.close());
     const schedule = await h.login(context, {...s.config, testUser: fixture.username}, s.recorder, {label: 'cdm-no-report'});
