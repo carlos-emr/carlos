@@ -9,7 +9,7 @@ const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp
 const fields = ['startDate', 'endDate'].map(id => ({id, addEventListener() {}}));
 const form = {elements: {startDate: fields[0], endDate: fields[1]}, addEventListener() {}};
 const pickers = [];
-const initializer = jsp.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+const initializer = jsp.match(/<script>\s*([\s\S]*?)<\/script>/i)[1];
 vm.runInNewContext(initializer, {
   document: {getElementById: id => id === 'psrForm' ? form : undefined},
   flatpickr: (field, options) => pickers.push({field, options}),
