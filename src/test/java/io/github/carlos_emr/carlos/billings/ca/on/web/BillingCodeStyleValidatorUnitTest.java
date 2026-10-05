@@ -26,7 +26,7 @@ class BillingCodeStyleValidatorUnitTest {
     @ValueSource(strings = {" ", ";;;", "color", "color:", "color:#12", "color:#12345", "color:#1234567", "color:unknown",
             "color:red!important", "background:url(https://example.invalid)", "color:expression(alert(1))",
             "color:r\\65 d", "color:red/*comment*/", "color:red;position:fixed", "font-size:-10px", "font-weight:10000",
-            "text-decoration:garbage", "font-size:12px trailing", "color:red;broken"})
+            "text-decoration:garbage", "font-size:12px trailing", "color:red;broken", "color:blac\u212a;", "bac\u212aground-color:red;", "color:red\0;"})
     void shouldRejectUnsupportedOrMalformedInput(String text) {
         assertThat(BillingCodeStyleValidator.isSupported(text)).isFalse();
     }

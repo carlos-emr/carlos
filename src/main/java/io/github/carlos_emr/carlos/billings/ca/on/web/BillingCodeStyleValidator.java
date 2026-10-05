@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
-import java.util.Locale;
+import com.google.common.base.Ascii;
 import java.util.Set;
 
 /** Validates the presentation declarations supported by the billing style editor without rewriting them. */
@@ -26,13 +26,17 @@ final class BillingCodeStyleValidator {
     /** Accepts complete declarations only; callers retain the original text on both success and error. */
     static boolean isSupported(String text) {
         if (text == null || text.isBlank() || text.length() > 4096) return false;
+        // CSS keywords here are ASCII. Do not accept Unicode confusables or control
+        // characters that trim/case conversion could hide while the original text is stored.
+        if (text.chars().anyMatch(ch -> ch > 0x7e || (ch < 0x20
+                && ch != '\t' && ch != '\r' && ch != '\n' && ch != '\f'))) return false;
         boolean found = false;
         for (String declaration : text.split(";")) {
             if (declaration.isBlank()) continue;
             int colon = declaration.indexOf(':');
             if (colon < 1) return false;
-            String property = declaration.substring(0, colon).trim().toLowerCase(Locale.ROOT);
-            String value = declaration.substring(colon + 1).trim().toLowerCase(Locale.ROOT);
+            String property = Ascii.toLowerCase(declaration.substring(0, colon).trim());
+            String value = Ascii.toLowerCase(declaration.substring(colon + 1).trim());
             boolean supported = switch (property) {
                 case "color", "background-color" -> COLORS.contains(value)
                         || value.matches("#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})");
