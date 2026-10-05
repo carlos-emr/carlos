@@ -29,10 +29,14 @@
 package io.github.carlos_emr.carlos.www.admin;
 
 import java.nio.charset.StandardCharsets;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PasswordPolicy;
 
-/** Password validation before any Security Records edit is applied. */
+/**
+ * Password validation before any Security Records edit is applied.
+ * @since 2026-10-05
+ */
 public final class SecurityUpdatePasswordValidator {
     /** Matches the other account-password forms without truncating entered text. */
     public static final int MAX_PASSWORD_LENGTH = 32;
@@ -51,6 +55,9 @@ public final class SecurityUpdatePasswordValidator {
      * @param properties configured password-complexity requirements
      * @return a localization key on rejection, otherwise null; never credential data
      */
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "The asterisk value is the existing edit-form sentinel that retains the stored hash; "
+                    + "it is not an authentication credential or a newly stored password")
     public static String validate(String password, String confirmation, CarlosProperties properties) {
         if (password == null || password.isEmpty()) return "admin.securityaddsecurity.msgPasswordInvalid";
         if (!password.equals(confirmation)) return "admin.securityrecord.msgPasswordNotConfirmed";
