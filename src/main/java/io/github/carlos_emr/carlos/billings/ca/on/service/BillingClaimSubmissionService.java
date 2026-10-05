@@ -33,6 +33,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -61,13 +62,22 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class BillingClaimSubmissionService {
+    private static final String PAYMENT_METHOD_PARAMETER = "payMethod";
+    private static final String DISCOUNT_PARAMETER = "discount";
+    private static final String TOTAL_PAYMENT_PARAMETER = "total_payment";
+    private static final String TOTAL_DISCOUNT_PARAMETER = "total_discount";
+    private static final String TOTAL_PARAMETER = "total";
+
     private static final Logger _logger = MiscUtils.getLogger();
     private final BillingOnClaimPersister claimPersister;
     private final BillingOnLookupService lookupService;
+    private final BillingServiceDao billingServiceDao;
 
-    BillingClaimSubmissionService(BillingOnClaimPersister claimPersister, BillingOnLookupService lookupService) {
+    BillingClaimSubmissionService(BillingOnClaimPersister claimPersister, BillingOnLookupService lookupService,
+                                  BillingServiceDao billingServiceDao) {
         this.claimPersister = claimPersister;
         this.lookupService = lookupService;
+        this.billingServiceDao = billingServiceDao;
     }
 
     public record SaveResult(boolean saved, int billingId) {}
@@ -139,6 +149,9 @@ public class BillingClaimSubmissionService {
     @SuppressWarnings("rawtypes")
     SaveResult addABillingRecord(ArrayList val) {
         BillingClaimHeaderDto claim1Obj = (BillingClaimHeaderDto) val.get(0);
+        // Review-page validation can be bypassed by a stale or crafted final save request.
+        // Recheck private codes before any header, item or payment is written.
+        validatePrivateCodes(BillingClaimSubmission.fromLegacy(val));
         int billingNo = claimPersister.addOneClaimHeaderRecord(claim1Obj);
         if (billingNo == 0) {
             _logger.error("addABillingRecord failed: claim header persist returned billingNo=0");
@@ -156,6 +169,24 @@ public class BillingClaimSubmissionService {
 
         throw new BillingValidationException(
                 "No billing item envelope for billing # " + billingNo);
+    }
+
+    private void validatePrivateCodes(BillingClaimSubmission submission) {
+        for (BillingClaimItemDto item : submission.items()) {
+            String code = item.serviceCode();
+            if (code == null || !code.trim().startsWith("_")) {
+                continue;
+            }
+            String program = submission.header().payProgram();
+            if (program == null || !program.matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+                throw new BillingValidationException("Save rejected: private service codes require a private billing program.");
+            }
+            String serviceDate = normalizeRequiredDateParam(item.serviceDate(), "service_date");
+            if (billingServiceDao.findBillingCodesByCodeAndTerminationDate(
+                    code.trim(), java.sql.Date.valueOf(serviceDate)).isEmpty()) {
+                throw new BillingValidationException("Save rejected: a private service code is not active on the service date. Return to edit the bill.");
+            }
+        }
     }
 
     /**
@@ -183,6 +214,17 @@ public class BillingClaimSubmissionService {
         boolean ret = false;
 
         Map<String, String> val = getPrivateBillExtObj(requestData);
+        if (isSettlePrint(requestData)) {
+            BillingClaimSubmission submission = BillingClaimSubmission.fromLegacy(claimEnvelope);
+            BigDecimal discount = submission.items().stream()
+                    .map(item -> BillingMoney.parseNonNegativeAmount(item.discount(), DISCOUNT_PARAMETER))
+                    .reduce(BillingMoney.zeroAmount(), BigDecimal::add);
+            // Use the same derived amounts as the header/items, not the review's
+            // hidden totals (which may still be zero when Settle & Print is clicked).
+            val.put(TOTAL_PAYMENT_PARAMETER, submission.header().paid());
+            val.put(TOTAL_DISCOUNT_PARAMETER, BillingMoney.format(discount));
+            val.put(TOTAL_PARAMETER, submission.header().total());
+        }
         ret = claimPersister.add3rdBillExt(val, billingId, claimEnvelope);
         if (!ret) {
             _logger.error("addPrivateBillExtRecord failed for billingId={} while updating claim envelope",
@@ -272,17 +314,43 @@ public class BillingClaimSubmissionService {
 
     // ret - ArrayList claimheader1data, itemdata
     ArrayList getBillingClaimObj(HttpServletRequest requestData) {
-        ArrayList ret = new ArrayList();
         BillingClaimHeaderDto claim1Header = getClaimHeader1Obj(requestData);
-        ret.add(claim1Header);
         BillingClaimItemDto[] itemData = getItemObj(requestData);
-
-        List aL = new ArrayList();
-        for (int i = 0; i < itemData.length; i++) {
-            aL.add(itemData[i]);
+        BillingClaimSubmission submission = new BillingClaimSubmission(claim1Header, List.of(itemData));
+        if (isSettlePrint(requestData)) {
+            submission = settlePrivateInvoice(submission);
         }
-        ret.add(aL);
-        return ret;
+        return submission.toLegacyArrayList();
+    }
+
+    private boolean isSettlePrint(HttpServletRequest request) {
+        return "SETTLE_PRINT".equals(request.getParameter("billingAction"));
+    }
+
+    /** Derive full settlement from the reviewed item amounts before any writes occur. */
+    private BillingClaimSubmission settlePrivateInvoice(BillingClaimSubmission submission) {
+        if (!submission.header().payProgram().matches(BillingOnConstants.BILLINGMATCHSTRING_3RDPARTY)) {
+            throw new BillingValidationException("Settle & Print requires a private billing program.");
+        }
+        BigDecimal total = BillingMoney.zeroAmount();
+        BigDecimal paid = BillingMoney.zeroAmount();
+        List<BillingClaimItemDto> settledItems = new ArrayList<>();
+        for (BillingClaimItemDto item : submission.items()) {
+            BigDecimal fee = BillingMoney.parseNonNegativeAmount(item.fee(), "fee");
+            BigDecimal discount = BillingMoney.parseNonNegativeAmount(item.discount(), DISCOUNT_PARAMETER);
+            if (discount.compareTo(fee) > 0) {
+                throw new BillingValidationException("The discount cannot exceed the service fee. Return to edit the bill.");
+            }
+            BigDecimal itemPaid = fee.subtract(discount);
+            total = total.add(fee);
+            paid = paid.add(itemPaid);
+            settledItems.add(item.withPaid(BillingMoney.format(itemPaid)));
+        }
+        if (total.compareTo(BillingMoney.parseNonNegativeAmount(submission.header().total(), TOTAL_PARAMETER)) != 0) {
+            throw new BillingValidationException("The invoice total must match the service fees. Return to edit the bill.");
+        }
+        return new BillingClaimSubmission(submission.header().withStatus("S").withPaid(BillingMoney.format(paid)),
+                settledItems);
     }
 
     // ret - ArrayList claimheader1data, itemdata
@@ -338,8 +406,8 @@ public class BillingClaimSubmissionService {
 
         // acc_num - billing no
         claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        // Claim payee is the MOH recipient code; payment-method IDs belong to payment/ext records.
+        claim1Header = claim1Header.withPayee(BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));
@@ -361,16 +429,16 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withBillingTime(
                 normalizeOptionalTimeParam(val.getParameter("start_time"), "start_time"));
         claim1Header = claim1Header.withUpdateDateTime(UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss"));
-        claim1Header = claim1Header.withTotal(val.getParameter("total"));
+        claim1Header = claim1Header.withTotal(val.getParameter(TOTAL_PARAMETER));
         String submit = getDefaultSpace(val.getParameter("submit"));
         String paid = "";
         if (submit.equalsIgnoreCase("Settle")) {
-            paid = val.getParameter("total");
+            paid = val.getParameter(TOTAL_PARAMETER);
         } else if (submit.equalsIgnoreCase("Save & Print Invoice")
                 || submit.equalsIgnoreCase("Settle & Print Invoice")
                 || submit.equalsIgnoreCase("Save")
                 || submit.equalsIgnoreCase("Save & Add Another Bill")) {
-            paid = val.getParameter("total_payment");
+            paid = val.getParameter(TOTAL_PAYMENT_PARAMETER);
         }
         claim1Header = claim1Header.withPaid(paid);
         claim1Header = claim1Header.withStatus(getStatus(submit, val.getParameter("xml_billtype")));
@@ -442,8 +510,8 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
         // acc_num - billing no
         claim1Header = claim1Header.withPayProgram(getPayProgram(val.getParameter("xml_billtype"), val.getParameter("hc_type")));
-        claim1Header = claim1Header.withPayee(val.getParameter("payMethod") != null ? val.getParameter("payMethod")
-                : BillingOnConstants.CLAIMHEADER1_PAYEE);
+        // Claim payee is the MOH recipient code; payment-method IDs belong to payment/ext records.
+        claim1Header = claim1Header.withPayee(BillingOnConstants.CLAIMHEADER1_PAYEE);
         claim1Header = claim1Header.withReferralNumber(val.getParameter("referralCode"));
 
         claim1Header = claim1Header.withFacilityNumber(prefix(requiredParam(val, "xml_location"), "xml_location", 4));
@@ -512,7 +580,7 @@ public class BillingClaimSubmissionService {
             claimItem[i] = claimItem[i].withDx2(getDefaultSpace(val.getParameter("dxCode2")));
             claimItem[i] = claimItem[i].withPaid(getDefaultSpace(val.getParameter("payment")));
             claimItem[i] = claimItem[i].withRefund(getDefaultSpace(val.getParameter("refund")));
-            claimItem[i] = claimItem[i].withDiscount(getDefaultSpace(val.getParameter("discount")));
+            claimItem[i] = claimItem[i].withDiscount(getDefaultSpace(val.getParameter(DISCOUNT_PARAMETER)));
             claimItem[i] = claimItem[i].withStatus("O");
         }
         return claimItem;
@@ -522,18 +590,18 @@ public class BillingClaimSubmissionService {
         Map<String, String> valsMap = new HashMap<String, String>();
         valsMap.put("demographic_no", val.getParameter("demographic_no"));
         valsMap.put("billTo", val.getParameter("billto"));
-        valsMap.put("total_discount", val.getParameter("total_discount"));
+        valsMap.put(TOTAL_DISCOUNT_PARAMETER, val.getParameter(TOTAL_DISCOUNT_PARAMETER));
         valsMap.put("remitTo", val.getParameter("remitto"));
-        valsMap.put("total", val.getParameter("gstBilledTotal"));
-        valsMap.put("total_payment", val.getParameter("total_payment"));
+        valsMap.put(TOTAL_PARAMETER, val.getParameter("gstBilledTotal"));
+        valsMap.put(TOTAL_PAYMENT_PARAMETER, val.getParameter(TOTAL_PAYMENT_PARAMETER));
         valsMap.put("refund", val.getParameter("refund"));
         valsMap.put("provider_no", val.getParameter("provider_no"));
         valsMap.put("gst", val.getParameter("gst"));
 
-        if (val.getParameter("payMethod") != null) {
-            valsMap.put("payMethod", val.getParameter("payMethod"));
+        if (val.getParameter(PAYMENT_METHOD_PARAMETER) != null) {
+            valsMap.put(PAYMENT_METHOD_PARAMETER, val.getParameter(PAYMENT_METHOD_PARAMETER));
         } else {
-            valsMap.put("payMethod", "1");
+            valsMap.put(PAYMENT_METHOD_PARAMETER, "1");
         }
         return valsMap;
     }
@@ -569,12 +637,16 @@ public class BillingClaimSubmissionService {
     }
 
     // HCP/WCB/RMB/NOT/PAT/...
+    // hcType comes straight off the request and is absent whenever the patient
+    // has no health-card province on file, so it is compared constant-first: an
+    // ODP claim for such a patient used to NPE here and fail the save with a
+    // bare 500 instead of the out-of-province (RMB) routing the null implies.
     private String getPayProgram(String val, String hcType) {
         String ret = prefix(requiredValue(val, "xml_billtype"), "xml_billtype", 3);
         if (val.startsWith("PAT")) {
             ret = BillingOnConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
-            ret = hcType.equals("ON") ? "HCP" : "RMB";
+            ret = "ON".equals(hcType) ? "HCP" : "RMB";
         } else if (val.startsWith("BON")) {
             ret = "HCP";
         }

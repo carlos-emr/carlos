@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction.IssueDisplay;
 import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean;
@@ -82,7 +84,6 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.text.ParseException;
 import java.util.*;
-import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class CaseManagementEntry2Action extends ActionSupport implements SessionAware {
@@ -226,8 +227,38 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return edit();
     }
 
-    public String setUpMainEncounter() {
+    static Integer parseEncounterMessageId(String value) {
+        if (StringUtils.isBlank(value)) return null;
+        int id = Integer.parseInt(value);
+        if (id <= 0) throw new NumberFormatException("Message ID must be positive");
+        return id;
+    }
+
+    /**
+     * Prepares the chart page, loading a nonblank msgId for the current demographic into
+     * the encounterMessage request attribute after access/link checks.
+     * @return chart layout result, or NONE after a controlled invalid/missing-message response
+     * @throws java.io.IOException if sending an error response fails
+     */
+    public String setUpMainEncounter() throws java.io.IOException {
         String demono = getDemographicNo(request);
+        Integer messageId;
+        try {
+            messageId = parseEncounterMessageId(request.getParameter("msgId"));
+        } catch (NumberFormatException _) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid encounter message ID");
+            return NONE;
+        }
+        if (messageId != null) {
+            try {
+                String text = SpringUtils.getBean(io.github.carlos_emr.carlos.messenger.service.MessageEncounterService.class)
+                        .load(LoggedInInfo.getLoggedInInfoFromSession(request), messageId, Integer.parseInt(demono));
+                request.setAttribute("encounterMessage", text);
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Encounter message no longer exists");
+                return NONE;
+            }
+        }
         logger.debug("client Image?");
 
         //get client image
@@ -272,7 +303,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Unable to parse encounter program identifier ({})", e.getClass().getSimpleName());
         }
 
         request.setAttribute("demoName", getDemoName(demono));
@@ -396,23 +427,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // get the last temp note?
         else if (tmpsavenote != null && !forceNote.equals("true")) {
             logger.debug("tempsavenote is NOT NULL");
-            if (tmpsavenote.getNoteId() > 0) {
-                session.setAttribute("newNote", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                request.setAttribute("noteId", String.valueOf(tmpsavenote.getNoteId()));
-                note = caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId()));
-                logger.debug("Restoring " + String.valueOf(note.getId()));
+            CaseManagementNote original = tmpsavenote.getNoteId() != null && tmpsavenote.getNoteId() > 0
+                    ? caseManagementMgr.getNote(String.valueOf(tmpsavenote.getNoteId())) : null;
+            note = restoreDraftNote(original, tmpsavenote.getNote(), providerNo, demono);
+            if (original == null) {
+                // Keep the draft text even if its original note no longer exists. Render it
+                // as a new note so the save and lock paths do not reuse the orphaned ID.
+                session.setAttribute("newNote", "true");
+                session.setAttribute("issueStatusChanged", "false");
+                request.setAttribute("noteId", "0");
             } else {
-                session.setAttribute("newNote", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                session.setAttribute("issueStatusChanged", "false"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                note = new CaseManagementNote();
-                note.setProviderNo(providerNo);
-                Provider prov = new Provider();
-                prov.setProviderNo(providerNo);
-                note.setProvider(prov);
-                note.setDemographic_no(demono);
+                session.setAttribute("newNote", "false");
+                request.setAttribute("noteId", String.valueOf(note.getId()));
             }
 
-            note.setNote(tmpsavenote.getNote());
             logger.debug("Restored temp note id={} noteLength={}",
                     LogSafe.sanitize(String.valueOf(note.getId())),
                     note.getNote() == null ? 0 : note.getNote().length());
@@ -679,14 +707,32 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return note;
     }
 
-    private static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
+    /** Restore draft content without discarding text when the referenced note is missing. */
+    static CaseManagementNote restoreDraftNote(CaseManagementNote original, String draftText,
+                                               String providerNo, String demographicNo) {
+        CaseManagementNote restored = original;
+        if (restored == null) {
+            restored = new CaseManagementNote();
+            restored.setProviderNo(providerNo);
+            Provider provider = new Provider();
+            provider.setProviderNo(providerNo);
+            restored.setProvider(provider);
+            restored.setDemographic_no(demographicNo);
+        } else if (!Objects.equals(demographicNo, restored.getDemographic_no())) {
+            throw new SecurityException("Draft references a note outside this patient chart");
+        }
+        restored.setNote(draftText == null ? "" : draftText);
+        return restored;
+    }
+
+    static synchronized CasemgmtNoteLock isNoteEdited(Long note_id, Integer demographicNo, String providerNo, String ipAddress, String sessionId) {
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
         CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.findByNoteDemo(demographicNo, note_id);
 
         //We determine the lock status of the note
         if (casemgmtNoteLock != null) {
             //it has a lock; check if lock is same user
-            if (casemgmtNoteLock.getProviderNo().equals(providerNo)) {
+            if (Objects.equals(casemgmtNoteLock.getProviderNo(), providerNo)) {
                 //Same user has this note open elsewhere
                 casemgmtNoteLock.setLockedBySameUser(true);
             } else if (note_id != 0) {
@@ -804,7 +850,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, demoNo, programId);
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -907,7 +953,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                         appointmentDao.merge(appointment);
                     }
                 } catch (Exception e) {
-                    logger.error("Couldn't parse appointmentNo: {}", LogSafe.sanitize(appointmentNo), e);
+                    logger.error("Unable to parse encounter appointment identifier ({})", e.getClass().getSimpleName());
                 }
             }
         } else if (!note.isSigned() && (archived == null || !archived.equalsIgnoreCase("true"))) {
@@ -1018,29 +1064,48 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             boolean extChanged = false;
             List<CaseManagementNoteExt> cmeList = caseManagementNoteExtDao.getExtByNote(Long.valueOf(noteId));
 
+            // EVERY ROW A KEY HOLDS, NOT JUST THE FIRST. getExtByNote() orders id desc, so the
+            // first match is the NEWEST row, and this loop used to stop there. A note that already
+            // carries several rows for one key can hold different values in them, and
+            // NotesService.getNote() reads to the end of that list, so it reports the OLDEST.
+            // Submitting the value the newest row already held therefore looked like "nothing
+            // changed": the save returned early below, the reconciliation further down never ran,
+            // and the chart went on showing the older value. Walking every row makes disagreement
+            // between them a change in its own right.
             extNames:
             for (int i = 0; i < extNames.length; i++) {
                 boolean extKeyMatched = false;
 
-                String val = request.getParameter(extNames[i]);
+                String submitted = request.getParameter(extNames[i]);
+                // Resolved once per key: the date fields are normalised for comparison, and
+                // re-normalising an already-normalised value on a second row would compare the
+                // wrong thing.
+                String comparableDate = i <= 2 ? partialFullDate(submitted, partialDateFormat(submitted)) : null;
+                String comparableValue = i <= 2 ? partialDateFormat(submitted) : submitted;
+                // A date the write loop below would discard cannot change anything. A null format
+                // is an empty or malformed submission, and writePartialDate() skips exactly that,
+                // so counting it as a change would re-save an otherwise unchanged note.
+                if (i <= 2 && comparableValue == null) continue;
                 for (CaseManagementNoteExt cme : cmeList) {
                     if (!cme.getKeyVal().equals(extKeys[i])) continue;
 
-                    if (i <= 2) {
-                        if (!nullEmptyEqual(cme.getDateValueStr(), partialFullDate(val, partialDateFormat(val)))) {
-                            extChanged = true;
-                            break extNames;
-                        }
-                        val = partialDateFormat(val);
+                    if (i <= 2 && !nullEmptyEqual(cme.getDateValueStr(), comparableDate)) {
+                        extChanged = true;
+                        break extNames;
                     }
-                    if (!nullEmptyEqual(cme.getValue(), val)) {
+                    if (!nullEmptyEqual(cme.getValue(), comparableValue)) {
                         extChanged = true;
                         break extNames;
                     }
                     extKeyMatched = true;
-                    break;
                 }
-                if (filled(val) && !extKeyMatched) { // new ext value(s) added
+                // THE SUBMITTED VALUE, NOT THE COMPARISON FORM. partialDateFormat() returns the
+                // EMPTY STRING for a full YYYY-MM-DD date -- that is its marker for "full
+                // precision" -- so comparableValue is "" exactly when the clinician typed a
+                // complete date. Testing it here would read a newly added full date as nothing
+                // added, and the early return below would then discard it. comparableValue exists
+                // only to compare against a stored row's precision marker.
+                if (filled(submitted) && !extKeyMatched) { // new ext value(s) added
                     extChanged = true;
                     break extNames;
                 }
@@ -1048,6 +1113,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             // if note has not changed don't save
             note = this.caseManagementMgr.getNote(noteId);
+            // THE NOTE MUST BE IN THE CHART WHOSE LOCK WAS CHECKED. noteId comes from the request,
+            // and everything below rewrites that note -- its text, signer, archived flag and every
+            // extension row -- so a note from another patient's chart is refused here rather than
+            // trusted because this patient's lock is held.
+            if (note == null || !Objects.equals(demo, note.getDemographic_no())) {
+                throw new SecurityException("CPP note save references a note outside this patient chart");
+            }
             if (strNote.equals(note.getNote()) && !issueChange.equals("true") && !extChanged && (archived == null || archived.equalsIgnoreCase("false")))
                 return null;
         }
@@ -1079,7 +1151,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
             role = "0";
         }
 
@@ -1291,19 +1363,65 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute("lastSavedNoteString", savedStr); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         /* save extra fields */
-        CaseManagementNoteExt cme = new CaseManagementNoteExt();
-        cme.setNoteId(note.getId());
+        // One synchronized value per extension key of this note: a key with no casemgmt_note_ext
+        // row gets exactly one inserted; a key that already has rows -- including legacy
+        // duplicates, see below -- has every one of them updated in place, none added or removed.
+        //
+        // saveNoteExt() is a JPA persist(), and it commits its own transaction, so reusing one
+        // entity across the keys leaves it DETACHED with an id assigned by the time the second
+        // key is written: Hibernate raises PersistentObjectException, surfaced as
+        // EntityExistsException, and the whole save answers HTTP 500 with the second key never
+        // stored. That is issue #3739 -- a CPP item given both a start date and a resolution
+        // date could not be saved or archived at all, and the box repainted as "Error: 500".
+        // (Inside a single persistence context the same reuse is absorbed instead, collapsing
+        // the keys into the first row; CaseManagementCppExtPersistenceIntegrationTest pins that
+        // half, and scripts/cpp-note-extension-archive-playwright-checks.js pins the 500.)
+        // Allocating per key is not enough on its own either: saveNote()
+        // merges an existing note rather than revising it under a fresh id, so a note keeps its
+        // id across edits and a plain persist() per save piles a second row onto every key.
+        //
+        // Notes saved before that was fixed can already carry several rows for one key, and the
+        // readers disagree about which of them counts: getExtByNote() orders id desc, so the first
+        // match is the NEWEST, while NotesService.getNote() assigns from every row it walks and
+        // ends on the OLDEST. (The change-detection loop above used to stop at that first match,
+        // which is why a note whose duplicates disagreed could decline to save at all; it now
+        // walks every row.)
+        // Updating just one of a duplicate set would leave the other readers on a stale value,
+        // so every row for the key is written. That is deliberately not a delete: pruning the
+        // extras is a data migration, and a note save is no place to drop clinical history.
+        Map<String, List<CaseManagementNoteExt>> extByKey = new HashMap<>();
+        for (CaseManagementNoteExt existing : caseManagementNoteExtDao.getExtByNote(note.getId())) {
+            extByKey.computeIfAbsent(existing.getKeyVal(), k -> new ArrayList<>()).add(existing);
+        }
         for (int i = 0; i < extNames.length; i++) {
             String val = request.getParameter(extNames[i]);
             if (filled(val)) {
-                cme.setKeyVal(extKeys[i]);
-                cme.setDateValue((Date) null);
-                cme.setValue(null);
+                // Resolve the new state on a detached carrier first. A malformed date has to
+                // leave the stored rows exactly as they were, and mutating a managed entity
+                // before knowing that would blank it through dirty checking even though nothing
+                // is saved.
+                CaseManagementNoteExt resolved = new CaseManagementNoteExt();
                 if (i <= 2) {
-                    if (writePartialDate(val, cme)) caseManagementMgr.saveNoteExt(cme);
+                    if (!writePartialDate(val, resolved)) continue;
                 } else {
-                    cme.setValue(val);
+                    resolved.setValue(val);
+                }
+
+                List<CaseManagementNoteExt> rows = extByKey.get(extKeys[i]);
+                if (rows == null || rows.isEmpty()) {
+                    CaseManagementNoteExt cme = new CaseManagementNoteExt();
+                    cme.setNoteId(note.getId());
+                    cme.setKeyVal(extKeys[i]);
+                    cme.setValue(resolved.getValue());
+                    cme.setDateValue(resolved.getDateValue());
                     caseManagementMgr.saveNoteExt(cme);
+                    extByKey.put(extKeys[i], new ArrayList<>(List.of(cme)));
+                } else {
+                    for (CaseManagementNoteExt cme : rows) {
+                        cme.setValue(resolved.getValue());
+                        cme.setDateValue(resolved.getDateValue());
+                        caseManagementMgr.updateNoteExt(cme);
+                    }
                 }
             }
         }
@@ -1332,8 +1450,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return "listCPPNotes";
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /** Bind a new note to this chart's appointment, without changing an existing note's visit. */
+    static int resolveNoteAppointmentNo(CaseManagementNote note, String requestAppointmentNo,
+                                        String sessionAppointmentNo,
+                                        java.util.function.IntFunction<Appointment> findAppointment) {
+        if (note.getId() != null && note.getId() > 0) return note.getAppointmentNo();
+        String candidate = requestAppointmentNo != null ? requestAppointmentNo : sessionAppointmentNo;
+        if (candidate == null || !candidate.matches("[0-9]{1,9}") || "0".equals(candidate)) return 0;
+        int appointmentNo = Integer.parseInt(candidate);
+        Appointment appointment = findAppointment.apply(appointmentNo);
+        if (appointment == null || !String.valueOf(appointment.getDemographicNo()).equals(note.getDemographic_no())) {
+            return 0;
+        }
+        return appointmentNo;
+    }
+
+    private void bindNoteAppointment(CaseManagementNote note, HttpSession session) {
+        EctSessionBean encounter = (EctSessionBean) session.getAttribute("EctSessionBean");
+        note.setAppointmentNo(resolveNoteAppointmentNo(note, request.getParameter("appointmentNo"),
+                encounter == null ? null : encounter.appointmentNo,
+                id -> SpringUtils.getBean(OscarAppointmentDao.class).find(id)));
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: compares on/persist/null/empty form flags and sentinels, not provider identities or secrets.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive form flags and null/empty sentinels; provider identities and secrets are not case-folded")
     private long noteSave() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -1355,6 +1495,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         noteTxt = StringUtils.trimToNull(noteTxt);
         if (noteTxt == null || noteTxt.equals("")) return -1L;
 
+        bindNoteAppointment(note, session);
         note.setNote(noteTxt);
 
         Provider provider = loggedInInfo.getLoggedInProvider();
@@ -1516,7 +1657,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         // update appointment and add verify message to note if verified
-        EctSessionBean sessionBean = (EctSessionBean) session.getAttribute("EctSessionBean");
         String verifyStr = request.getParameter("verify");
         boolean verify = false;
         if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
@@ -1539,10 +1679,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setUpdate_date(now);
 
-        if (sessionBean.appointmentNo != null && sessionBean.appointmentNo.length() > 0) {
-            note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
-        }
-
         note = caseManagementMgr.saveCaseManagementNote(
                 loggedInInfo, note, issuelist, cpp, ongoing, verify, request.getLocale(), now,
                 userName, providerNo, request.getRemoteAddr(), lastSavedNoteString);
@@ -1561,7 +1697,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         return note.getId();
@@ -1785,6 +1921,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             newNote = false;
         }
 
+        bindNoteAppointment(note, session);
         String observationDate = request.getParameter("obsDate");
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         if (observationDate != null && !observationDate.equals("")) {
@@ -1823,7 +1960,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             role = String.valueOf((programManager.getProgramProvider(note.getProviderNo(), note.getProgram_no())).getRole().getId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Error ({})", e.getClass().getSimpleName());
             role = "0";
         }
 
@@ -1904,7 +2041,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         try {
             this.caseManagementMgr.deleteTmpSave(providerNo, note.getDemographic_no(), note.getProgram_no());
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         session.setAttribute(sessionName, sessionFrm); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
@@ -1916,6 +2053,10 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         session.setAttribute(varName, false); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("ajaxsave", note.getId());
         request.setAttribute("origNoteId", noteId);
+        // noteIssueList.jsp renders the saved text into the read-only view through
+        // ${noteTxt}; EL reads scoped attributes, not request parameters, so without this
+        // the view of a note saved on switch came up empty until the chart was reloaded.
+        request.setAttribute("noteTxt", noteTxt);
 
         String logAction;
         if (newNote) {
@@ -1957,14 +2098,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             return Objects.equals(casemgmtNoteLock.getSessionId(), casemgmtNoteLockSession.getSessionId())
                 && Objects.equals(currentSessionId, casemgmtNoteLockSession.getSessionId());
         } catch (Exception e) {
-            logger.warn("Lock check failed unexpectedly", e);
+            logger.warn("Lock check failed unexpectedly ({})", e.getClass().getSimpleName());
             return false;
         }
     }
 
     private void releaseNoteLock(String providerNo, Integer demographicNo, Long noteId) {
         logger.debug("REMOVING LOCK FOR PROVIDER " + providerNo + " DEMO " + demographicNo + " NOTE ID " + noteId);
-        casemgmtNoteLockDao.remove(providerNo, demographicNo, noteId);
+        casemgmtNoteLockDao.removeForSession(providerNo, demographicNo, noteId, request.getSession().getId());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -2125,7 +2266,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             logger.debug("CANCEL P:" + providerNo + " D:" + demo + " PROG:" + programNo);
             this.caseManagementMgr.deleteTmpSave(providerNo, demo, programNo);
         } catch (Exception e) {
-            logger.warn("Warning", e);
+            logger.warn("Warning ({})", e.getClass().getSimpleName());
         }
 
         return "windowClose";
@@ -2683,10 +2824,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         String noteid = request.getParameter("noteId");
 
+        // The note text is rendered by showHistory.jsp through the null-safe encoder with
+        // line breaks preserved (carlos:forHtmlContentWithBreaks). Splicing "<br/>" into
+        // the stored text here forced the view to emit it raw, which made a stored
+        // "</p><script>" in a note execute in the history popup.
         List<CaseManagementNote> history = caseManagementMgr.getHistory(noteid);
-        for (CaseManagementNote caseManagementNote : history) {
-            caseManagementNote.setNote(caseManagementNote.getNote().replace("\n", "<br/>"));
-        }
         request.setAttribute("history", history);
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
         request.setAttribute("title", props.getString("encounter.noteHistory.title"));
@@ -2785,7 +2927,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             caseManagementMgr.deleteTmpSave(providerNo, demographicNo, programId);
             caseManagementMgr.tmpSave(providerNo, demographicNo, programId, noteId, note);
         } catch (Exception e) {
-            logger.warn("AutoSave Error: " + e);
+            logger.warn("Encounter autosave failed ({})", e.getClass().getSimpleName());
         }
 
         this.getCaseNote().setNote(note);
@@ -2847,7 +2989,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
                 textStr = this.caseManagementMgr.getNote(noteIds[idx]).getNote();
             }
-            textStr = Encode.forHtml(textStr).replace("\n", "<br>");
+            textStr = SafeEncode.forHtmlContent(textStr).replace("\n", "<br>");
+            // textStr is SafeEncode.forHtmlContent output followed only by fixed br tags.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             out.println(textStr);
             out.println("<br><br>");
         }
@@ -2879,16 +3023,16 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         pEndDate = request.getParameter("pEndDate");
         pType = request.getParameter("pType");
 
-        if (pStartDate != null && !pStartDate.isEmpty()) {
-            Date startDate = CachedDateFormats.parse(pStartDate, DD_MMM_YYYY_PATTERN);
-            cStartDate = Calendar.getInstance();
-            cStartDate.setTime(startDate);
-        }
-
-        if (pEndDate != null && !pEndDate.isEmpty()) {
-            Date endDate = CachedDateFormats.parse(pEndDate, DD_MMM_YYYY_PATTERN);
-            cEndDate = Calendar.getInstance();
-            cEndDate.setTime(endDate);
+        try {
+            if ("dates".equals(pType)) {
+                cStartDate = ChartPrintDateRange.parseDialogDate(pStartDate, LocaleUtils.resolveBundleLocale(request));
+                cEndDate = ChartPrintDateRange.parseDialogDate(pEndDate, LocaleUtils.resolveBundleLocale(request));
+                ChartPrintDateRange.from(cStartDate, cEndDate);
+            }
+        } catch (IllegalArgumentException _) {
+            response.reset();
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid print date range");
+            return null;
         }
 
         boolean printAllNotes = "ALL_NOTES".equals(ids);
@@ -2912,7 +3056,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // IOException/SecurityException all fire pre-write), so the response is still uncommitted
             // here. Surface a real error instead of an empty HTTP-200 PDF (CLAUDE.md Direct-Response
             // Actions). If the merge failed mid-stream the response is committed and we can only log.
-            logger.error("Encounter chart print failed", e);
+            logger.error("Encounter chart print failed ({})", e.getClass().getSimpleName());
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate the chart print");
@@ -3005,7 +3149,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 strNewDate = CachedDateFormats.format(tempDate, DD_MMM_YYYY_PATTERN, request.getLocale());
 
             } catch (ParseException ex) {
-                MiscUtils.getLogger().error("Error", ex);
+                MiscUtils.getLogger().error("Error ({})", ex.getClass().getSimpleName());
             }
         }
 

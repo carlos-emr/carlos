@@ -175,6 +175,7 @@ function initializeQSArray() {
     qsParm['dboperation'] = null;
     qsParm['viewall'] = null;
     qsParm['provider_no'] = null;
+    qsParm['weekView'] = null;
 }
 
 function getQSValues() {
@@ -272,6 +273,9 @@ function getLocation(id, multiplier) {
     }
     if (qsParm['provider_no']) {
         destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
+    }
+    if (qsParm['weekView'] === 'true') {
+        destination += '&weekView=true';
     }
 
     window.location = destination;
@@ -535,7 +539,7 @@ var warningText = document.createElement("span");
 warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
 var changePasswordLink = document.createElement("a");
 changePasswordLink.className = "btn btn-sm btn-warning";
-changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
+changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewProviderChangePassword";
 changePasswordLink.textContent = '${carlos:forJavaScript(changePasswordLabel)}';
 warning.appendChild(warningText);
 warning.appendChild(changePasswordLink);

@@ -28,7 +28,34 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Preview2.jsp: prescription print preview.
+
+    Purpose: renders the printable prescription for the current Rx session:
+    clinic and practitioner header, patient block, drug lines and signature.
+    ViewScript2.jsp loads it into its preview frame for printing.
+
+    Features:
+    - Reads the prescription from the request's per-patient RxSessionBean
+      (RxSessionBeanResolver). With no bean for that patient the page redirects
+      to error.html instead of rendering.
+    - The prescription text and practitioner number are encoded for their
+      context (html or htmlAttribute) (#3873). Some older clinic header fields
+      are still written unencoded and need the same treatment.
+    - The hidden rx_no_newlines field carries the plain-text prescription that
+      ViewScript2.jsp copies into the encounter note when pasting to the eChart.
+
+    Parameters:
+    - scriptId: optional; the saved prescription to preview.
+
+    Reached through the rx/ViewPreview2 gate action (struts-prescription.xml).
+
+    @since 2004-02-05
+--%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscar" %>
@@ -55,7 +82,7 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
-    String scriptid = request.getParameter("scriptId");
+    RxPreviewSnapshot previewSnapshot = (RxPreviewSnapshot) request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE);
     String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
     RxSessionBean bean = null;
 %>
@@ -124,13 +151,18 @@
         </style>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
         <c:if test="${empty RxSessionBean}">
             <% response.sendRedirect("error.html"); %>
         </c:if>
-        <c:if test="${not empty sessionScope.RxSessionBean}">
+        <c:if test="${not empty pageScope.RxSessionBean}">
             <%
                 // Directly access the RxSessionBean from the session
-                bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+                bean = RxRequestedPatientAccess.resolveAuthorised(request, "_rx", "r");
                 if (bean != null && !bean.isValid()) {
                     response.sendRedirect("error.html");
                     return; // Ensure no further JSP processing
@@ -138,7 +170,6 @@
             %>
         </c:if>
 
-            <%--<link rel="stylesheet" type="text/css" href="styles.css">--%>
             <%--<script type="text/javascript" language="Javascript">--%>
             <%--	--%>
 
@@ -157,16 +188,19 @@
     <%
         Date rxDate = RxUtil.Today();
 //String rePrint = request.getParameter("rePrint");
-        String rePrint = (String) request.getSession().getAttribute("rePrint");
-//String rePrint = (String)request.getSession().getAttribute("rePrint");
+        // Reprint state is per patient (#3908): only a reprint loaded for the patient this request
+        // resolved to renders here, never another open window's reprint.
+        RxReprintWorkspace.Entry reprintEntry = previewSnapshot == null ? RxReprintWorkspace.findForRequest(request, session, bean.getDemographicNo()) : null;
+        String rePrint = previewSnapshot != null
+                ? ("true".equals(request.getParameter("rePrint")) ? "true" : "")
+                : reprintEntry != null ? "true" : null;
         RxProviderData.Provider provider;
         String signingProvider;
-        if (rePrint != null && rePrint.equalsIgnoreCase("true")) {
-            bean = (RxSessionBean) session.getAttribute("tmpBeanRX");
+        if (previewSnapshot != null || reprintEntry != null) {
+            bean = previewSnapshot != null ? previewSnapshot.bean() : reprintEntry.bean();
             signingProvider = bean.getStashItem(0).getProviderNo();
             rxDate = bean.getStashItem(0).getRxDate();
             provider = new RxProviderData().getProvider(signingProvider);
-//    session.setAttribute("tmpBeanRX", null);
             String ip = request.getRemoteAddr();
             //LogAction.addLog((String) session.getAttribute("user"), LogConst.UPDATE, LogConst.CON_PRESCRIPTION, String.valueOf(bean.getDemographicNo()), ip);
         } else {
@@ -316,7 +350,8 @@
             showPatientDOB = true;
         }
     %>
-    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form">
+    <form action="${pageContext.request.contextPath}/form/formname" method="post" id="preview2Form"
+          data-script-id="<carlos:encode value='<%= bean.getStashSize() > 0 ? bean.getStashItem(0).getScript_no() : "" %>' context="htmlAttribute"/>">
         <input type="hidden" name="demographic_no" value="<%=bean.getDemographicNo()%>"/>
         <table>
             <tr>
@@ -373,8 +408,15 @@
 
                                             request.setAttribute("phone", finalPhone);
                                         %>
+                                        <%-- clinicTitle joins its lines with <br>; the PDF wants real line breaks. This is a
+                                             tag ATTRIBUTE, and the JSP spec unescapes "\\" to "\" inside attribute values, so the
+                                             former replaceAll("(<br>)", "\\\n") reached Java as "\\n": a replacement string of
+                                             backslash + n, which regex replacement reads as an escaped literal 'n'. Every <br>
+                                             became the letter n and the faxed clinic header rendered as one glued line
+                                             ("ClinicnAddressnCity"). A literal replace with a plain "\n" has no escaping layer
+                                             to fall through. --%>
                                         <input type="hidden" name="clinicName"
-                                               value="<carlos:encode value='<%= clinicTitle.replaceAll("(<br>)","\\\n") %>' context="htmlAttribute"/>"/>
+                                               value="<carlos:encode value='<%= clinicTitle.replace("<br>", "\n") %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" name="clinicPhone"
                                                value="<carlos:encode value='<%= finalPhone %>' context="htmlAttribute"/>"/>
                                         <input type="hidden" id="finalFax" name="clinicFax" value=""/>
@@ -406,8 +448,8 @@
                                        value="<%= SafeEncode.forHtmlAttribute(patient.getFirstName())+ " " +SafeEncode.forHtmlAttribute(patient.getSurname()) %>"/>
                                 <input type="hidden" name="patientDOB"
                                        value="<carlos:encode value='<%= patientDOBStr %>' context="htmlAttribute"/>"/>
-                                <input type="hidden" name="pharmaFax" value="<%=pharmaFax%>"/>
-                                <input type="hidden" name="pharmaName" value="<%=pharmaName%>"/>
+                                <input type="hidden" name="pharmaFax" value="<carlos:encode value='<%= pharmaFax %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="pharmaName" value="<carlos:encode value='<%= pharmaName %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="pracNo" value="<carlos:encode value='<%= pracNo %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="showPatientDOB" value="<%=showPatientDOB%>"/>
                                 <input type="hidden" name="pdfId" id="pdfId" value=""/>
@@ -444,7 +486,7 @@
                                         <%= provider.getClinicCity() %>&nbsp;&nbsp;<%=provider.getClinicProvince()%>&nbsp;&nbsp;
                                         <%= provider.getClinicPostal() %>
                                         <% if (provider.getPractitionerNo() != null && !provider.getPractitionerNo().equals("")) { %>
-                                        <br><fmt:message key="RxPreview.PractNo"/>:<%= provider.getPractitionerNo() %>
+                                        <br><fmt:message key="RxPreview.PractNo"/>:<carlos:encode value='<%= provider.getPractitionerNo() %>'/>
                                         <% } %>
                                         <br>
                                         <%
@@ -562,8 +604,8 @@
 
                                     if (bean.getStashSize() > 0 && Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
                                         startimageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=" + bean.getStashItem(0).getDigitalSignatureId();
-                                    } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
-                                        // Only apply the stamp on new prescriptions; reprints use the stored digital signature only.
+                                    } else if (previewSnapshot == null && !"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
+                                        // Persisted previews always use the saved signature, regardless of caller-supplied rePrint.
                                         // When the signing provider differs from the session user, request the actual signing provider's stamp.
                                         startimageUrl = request.getContextPath() + "/provider/providerSignatureImage?providerNo=" + SafeEncode.forUriComponent(signingProvider);
                                     }
@@ -619,7 +661,7 @@
                                 &nbsp; <carlos:encode value='<%= doctorName %>' context="html"/>
                                 <% if (pracNo != null && !pracNo.equals("") && !pracNo.equalsIgnoreCase("null")) { %>
                                 <br>
-                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <%= pracNo%>
+                                &nbsp;<fmt:message key="RxPreview.PractNo"/> <carlos:encode value='<%= pracNo %>'/>
                                 <% } %>
                             </td>
                         </tr>
@@ -703,7 +745,8 @@
 
                         <input type="hidden" name="rx"
                                value="<carlos:encode value='<%= strRxForPdf %>' context="htmlAttribute"/>"/>
-                        <input type="hidden" name="rx_no_newlines" value="<%= strRxNoNewLines.toString() %>"/>
+                        <input type="hidden" name="rx_no_newlines"
+                               value="<carlos:encode value='<%= strRxNoNewLines.toString() %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="additNotes" value=""/>
                         </tbody>
                     </table>

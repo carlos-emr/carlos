@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <div id="confirmModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
@@ -47,6 +48,9 @@
 
 
 
+<%-- Token handling for the confirm modal's POSTs; idempotent when the
+     Administration shell has already loaded it. --%>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 <script>
 // Everything below is jQuery-based, and five of the seven eForm pages that
 // include this footer load no jQuery of their own -- they work only because the
@@ -82,7 +86,28 @@ $(document).ready(function() {
         e.stopPropagation(); // Stop the contentLink handler from also firing
         var confirmForm = $(this).data('confirmForm');
         if (confirmForm && confirmForm.length) {
-            confirmForm.submit();
+            if (typeof window.carlosSubmitForm === 'function') {
+                // Trigger submit exactly as .submit() did, so the event still
+                // bubbles to delegated handlers and the inline onsubmit runs.
+                // jQuery ends a non-prevented trigger by calling the element's
+                // own submit(); that one call is routed to the helper, which
+                // waits for a pending CSRF token and refuses (with an alert)
+                // rather than send a token-less POST CSRFGuard would 403 (#4130).
+                var formEl = confirmForm[0];
+                formEl.submit = function () {
+                    delete formEl.submit;
+                    window.carlosSubmitForm(formEl);
+                };
+                try {
+                    confirmForm.trigger('submit');
+                } finally {
+                    delete formEl.submit;
+                }
+            } else {
+                // Without the helper this panel form has no token, and the POST
+                // would only be refused (403): say so and send nothing (#4130).
+                alert('This page did not finish loading. Please reload it and try again.');
+            }
         }
         bootstrap.Modal.getOrCreateInstance(document.getElementById('confirmModal')).hide();
     });
@@ -94,7 +119,7 @@ $(document).ready(function() {
          in place only invited the pattern being copied back. --%>
 
     // Exclude #dataConfirmed from contentLink handler
-    $(document).on("click", 'a.contentLink:not(#dataConfirmed)', function(e) {
+    $(document).on("click", '#dynamic-content a.contentLink:not(#dataConfirmed)', function(e) {
         var href = $(this).attr("href");
         // Only AJAX-load a real URL. Several eForm admin controls are
         // href="javascript:void(0);" anchors that do their work in their own

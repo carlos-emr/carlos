@@ -11,10 +11,17 @@ import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class LogActionUnitTest {
@@ -40,6 +47,50 @@ class LogActionUnitTest {
                         && "view".equals(log.getAction())
                         && "document".equals(log.getContent())
                         && "123".equals(log.getContentId())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPropagatePersistenceFailure_fromStrictAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        RuntimeException failure = new IllegalStateException("synthetic persistence failure");
+        doThrow(failure).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatThrownBy(() -> LogAction.addLogStrict(loggedInInfo(), "read", "LabEmbeddedDocument", "456",
+                "123", "segment=1,group=0,disposition=inline")).isSameAs(failure);
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && "read".equals(log.getAction())
+                        && "LabEmbeddedDocument".equals(log.getContent())
+                        && "456".equals(log.getContentId())
+                        && Integer.valueOf(123).equals(log.getDemographicId())
+                        && "segment=1,group=0,disposition=inline".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromBestEffortAuditFallback() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        // Saturated executor: the best-effort addLog falls back to a synchronous persist.
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        assertThatCode(() -> LogAction.addLog(loggedInInfo(), "read", "LabEmbeddedDocument", "456", "123", "data"))
+                .doesNotThrowAnyException();
+
+        verify(oscarLogDao).persist(any());
+    }
+
+    private static LoggedInInfo loggedInInfo() {
+        LoggedInInfo info = mock(LoggedInInfo.class);
+        Provider provider = mock(Provider.class);
+        when(info.getLoggedInProvider()).thenReturn(provider);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        when(info.getIp()).thenReturn("127.0.0.1");
+        return info;
     }
 
     @Test

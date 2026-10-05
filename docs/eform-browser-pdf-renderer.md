@@ -90,7 +90,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > (`--js-flags=--max-old-space-size=256`) and the renderer-process fan-out
 > (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
 > process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
-> `carlos-emr-chromedriver` unit additionally carries a cgroup ceiling for the whole browser tree
+> `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
 > (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
 > OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
 > fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
@@ -108,8 +108,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > orphans are reaped.
 
 > **Runbook: provision the browser before using eForm PDF workflows.** Run a chromedriver as its
-> own service and point `eform_pdf_browser_service_url` at it (the `.deb` does both via
-> `carlos-emr-eform-renderer`); set `eform_pdf_browser_chromium_path` to the browser binary the
+> own service and point `eform_pdf_browser_service_url` at it (the `carlos-emr` `.deb` does
+> both; before 2026.08.0-alpha14 that was the separate `carlos-emr-eform-renderer` package); set `eform_pdf_browser_chromium_path` to the browser binary the
 > driver should launch. CARLOS never spawns a chromedriver itself. It probes the renderer at
 > startup and logs a warning if it is unavailable, but continues deploying so other application
 > workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
@@ -144,8 +144,8 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
-  `carlos-emr-chromedriver` service, which the `carlos-emr-eform-renderer` package installs
-  and starts. Elsewhere, run one yourself before the webapp deploys.
+  `carlos-emr-render-browser` service, which the `carlos-emr` package installs and starts (it
+  carries the pinned Chromium, which is why that package is amd64-only). Elsewhere, run one yourself before the webapp deploys.
 
   **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
   renderers with an unprivileged user namespace. A chromedriver the application spawns
@@ -342,7 +342,7 @@ web server. The account split is the control.
 it. A wedged session is ended by `quit()`, escalating to a targeted `DELETE` of that exact session id
 over a fresh short-deadline connection; the id is captured at session creation because
 `RemoteWebDriver.quit()` clears its own even when the quit fails. The backstop of last resort is now
-`systemctl stop carlos-emr-chromedriver`, which tears down the driver and every browser it launched.
+`systemctl stop carlos-emr-render-browser`, which tears down the driver and every browser it launched.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
 chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). By default
@@ -699,15 +699,16 @@ log. Check both, in this order:
 sudo carlos-ctl logs | grep -i renderer
 
 # 2. What did the browser itself say? Separate unit, separate journal.
-sudo systemctl status carlos-emr-chromedriver
-sudo journalctl -u carlos-emr-chromedriver -n 50
+sudo systemctl status carlos-emr-render-browser
+sudo journalctl -u carlos-emr-render-browser -n 50
 ```
 
 At startup the application probes the browser exactly once and reports the outcome. That report is
 visible at default verbosity **only because `log4j2.xml` gives this package its own INFO level** —
-the root logger defaults to ERROR (`LOG_VERBOSITY`), which previously hid a passing probe entirely
-and hid the summary line of a failing one. If you are reading logs from a build that predates that,
-raise `LOG_VERBOSITY` to `info` before concluding the probe did not run.
+the root logger defaults to WARN (`LOG_VERBOSITY`; it was ERROR in builds before 2026.09), and
+either default hid a passing probe entirely because the probe reports at INFO. If you are reading
+logs from a build that predates the per-package level, raise `LOG_VERBOSITY` to `info` before
+concluding the probe did not run.
 
 The line to look for is:
 
@@ -720,7 +721,7 @@ Anything else is a real finding. The two worth recognising:
 | What you see | What it means |
 |---|---|
 | `Chromium session creation exceeded the 30s startup budget` | The application reached chromedriver but could not get a usable session. Usually the browser cannot start — check its own journal, not this one. |
-| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-chromedriver`, and check `eform_pdf_browser_service_url`. |
+| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-render-browser`, and check `eform_pdf_browser_service_url`. |
 | `eForm browser renderer startup check is OFF` | The probe is disabled (`eform_pdf_browser_startup_check=off`). Expected in test contexts; on a deployment it means failures will surface at first print instead. |
 
 Two things the messages deliberately will **not** tell you, so do not go looking for them there. The
@@ -834,6 +835,7 @@ npm run test:eform-admin-playwright
 npm run test:eform-render-playwright
 npm run test:eform-saved-render-playwright
 npm run test:eform-test-pattern-playwright
+npm run test:eform-apcache-renderer-playwright
 npm run test:eform-rtl-attachment-routes-playwright
 npm run test:eform-rtl-attachment-types-playwright
 npm run test:eform-rtl-attachment-behavior-playwright
@@ -847,6 +849,20 @@ attachment family: a document, a lab result, an HRM report, another eForm, and a
 are each attached to their own letter and must show on the saved letter and add pages to the PDF
 from both download paths (toolbar Download and the form's `print=true` PDF button). It needs the
 demo document files and the HRM report fixture described in the smoke-test runbook.
+
+`eform-apcache-renderer` is the one that exercises the capability-scoped APCache bridge
+(`EFormApCacheForPdfGenerationServlet`) end to end rather than through the servlet's unit tests. Its
+fixture fills fields through `APCache.js` lookups, so the headless render must fetch the values
+through the bridge: the check asserts the PDF text carries them, and that a form which also looks up
+an AP key the server does not configure is withheld behind the missing-content approval page (with
+a non-zero "Failed content resources" count and no key name) rather than rendered with a blank
+field. On a packaged install, `APCACHE_JOURNAL_UNIT=carlos-emr` additionally pins the servlet's
+WARN line (key and reason, no fdid, no throwable, no values) and `APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos`
+probes the servlet without a grant (401 on loopback, 403/405 on POST, refused through the front door).
+It also pins the save result view: the form action `EForm` writes carries
+`efmfid`/`efmdemographic_no` rather than `fid`/`demographic_no`, and the interactive lookup route
+(`eform/efmformapconfig_lookup`, via `ApCacheLookupParameterResolver`) accepts both spellings, so
+the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid".
 
 ### 3. Look at the PDF
 

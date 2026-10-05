@@ -21,9 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `EditFlowsheet.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Flowsheet customization editor: lists, adds, hides and restores measurements for
+  clinic, provider or patient scope. Headings and navigation use the saved template name.
+  Parameters: flowsheet identifier, scope, demographic (for patient scope), view preferences.
+  @since 2026-07-07
 --%>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
@@ -210,10 +211,9 @@
     }
 
     String flowsheet = temp;
-    String displayNameValue = (String) request.getAttribute("displayName");
-    if (displayNameValue == null || displayNameValue.isEmpty()) {
-        displayNameValue = request.getParameter("displayName");
-    }
+    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+    // Resolve from the saved template: customization POSTs do not carry its display name.
+    String displayNameValue = templateConfig.getDisplayName(flowsheet);
     if (displayNameValue == null) displayNameValue = "";
     String encodedDisplayNameForUri = SafeEncode.forUriComponent(displayNameValue);
     String encodedDisplayNameForJsUri = SafeEncode.forJavaScript(SafeEncode.forUriComponent(displayNameValue));
@@ -233,7 +233,6 @@
         return;
     }
     String scope = request.getParameter("scope");
-    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
     Hashtable<String, String> flowsheetNames = templateConfig.getFlowsheetDisplayNames();
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
@@ -278,12 +277,7 @@
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Fav and touch icons -->
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-    <link rel="shortcut icon" href="ico/favicon.png">
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 
@@ -421,7 +415,11 @@
                         tracker = "&tracker=slim";
                     }
 
-                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet";
+                    // When Edit Flowsheet was opened from the Health Tracker (&htracker)
+                    // the back button has to return there, not to the plain flowsheet view.
+                    String flowsheetPath = request.getParameter("htracker") != null
+                            ? "encounter/oscarMeasurements/ViewHealthTracker"
+                            : "encounter/oscarMeasurements/ViewTemplateFlowSheet";
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<carlos:encode value='<%= demographic %>' context="uriComponent"/>&template=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/><%=tracker%>"
@@ -429,7 +427,7 @@
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<carlos:encode value='<%= flowsheet %>' context="html"/>)</span>
+Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNameValue %>' context="html"/>(<carlos:encode value='<%= flowsheet %>' context="html"/>)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {
@@ -698,6 +696,11 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction" method="post">
+                        <%-- Round-trips the Health Tracker origin so FlowSheetCustom2Action's
+                             result lands back on the tracker instead of the flowsheet view. --%>
+                        <%if (request.getParameter("htracker") != null) {%>
+                        <input type="hidden" name="htracker" value="<carlos:encode value='<%= module %>' context="htmlAttribute"/>"/>
+                        <%}%>
                         <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>

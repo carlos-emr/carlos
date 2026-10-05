@@ -29,6 +29,8 @@ import io.github.carlos_emr.carlos.commn.dao.IchppccodeDao;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,5 +101,42 @@ class BillingCodeSearchViewModelAssemblerUnitTest {
         assertThat(desc1.getValue()).isEqualTo("B11%");
         assertThat(code2.getValue()).isEqualTo("C22%");
         assertThat(desc2.getValue()).isEqualTo("C22%");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "document.forms[1].elements['servicecode0'].value",
+        "document.forms[1].elements['servicecode11'].value",
+        "document.forms[0].elements['serviceCode0'].value",
+        "document.forms[0].elements['serviceCode11'].value",
+        "document.serviceform.xml_other1.value"
+    })
+    void shouldPreserveSupportedAttachmentTarget(String target) {
+        BillingServiceDao dao = mock(BillingServiceDao.class);
+        when(dao.search_service_code(anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString())).thenReturn(List.of());
+        var assembler = new BillingCodeSearchViewModelAssembler(dao, mock(IchppccodeDao.class));
+        var model = assembler.assembleService("A00", "", "", target);
+        assertThat(model.getNameFSafe()).isEqualTo(target);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "document.forms[1].elements['servicecode0'].value;alert(1)",
+        "document.forms[1].elements['servicecode0\\'];alert(1)//'].value",
+        "document.forms[1].elements['servicecode0'].innerHTML",
+        "document.forms[2].elements['servicecode0'].value",
+        "document.forms[1].elements['demographic_no'].value",
+        "document.forms[1].elements['servicecode0'].value\n",
+        "document.forms[alert(1)].elements['servicecode0'].value",
+        "<script>alert(1)</script>"
+    })
+    void shouldRejectExecutableOrUnsupportedAttachmentTarget(String target) {
+        BillingServiceDao dao = mock(BillingServiceDao.class);
+        when(dao.search_service_code(anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString())).thenReturn(List.of());
+        var assembler = new BillingCodeSearchViewModelAssembler(dao, mock(IchppccodeDao.class));
+        var model = assembler.assembleService("A00", "", "", target);
+        assertThat(model.getNameFSafe()).isEmpty();
     }
 }

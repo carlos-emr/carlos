@@ -141,6 +141,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -150,7 +151,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String PATIENTID = "Patient";
@@ -181,24 +182,24 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
-    ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-    AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-    AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
-    CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
-    DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
-    DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
-    DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
-    ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-    PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
-    DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
-    OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
-    PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-    ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-    MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
-    DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
+    transient ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
+    transient AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
+    transient AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
+    transient CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
+    transient DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
+    transient DrugReasonDao drugReasonDao = (DrugReasonDao) SpringUtils.getBean(DrugReasonDao.class);
+    transient DemographicArchiveDao demoArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
+    transient ProviderDataDao providerDataDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
+    transient PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
+    transient DemographicExtDao demographicExtDao = (DemographicExtDao) SpringUtils.getBean(DemographicExtDao.class);
+    transient OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
+    transient PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    transient ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
+    transient MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
+    transient IssueDAO issueDao = SpringUtils.getBean(IssueDAO.class);
+    transient DemographicContactDao contactDao = (DemographicContactDao) SpringUtils.getBean(DemographicContactDao.class);
 
-    private final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
+    private final transient NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
     private LabUploadWs labUpload = new LabUploadWs();
 
@@ -270,7 +271,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         File safeDir = (File) servletContext.getAttribute("jakarta.servlet.context.tempdir"); // Use a safe directory
         try {
             filePath = PathValidationUtils.validateExistingPath(filePath.toFile(), safeDir).toPath();
-        } catch (SecurityException e) {
+        } catch (SecurityException _) {
             throw new IllegalArgumentException("Invalid file path: Access outside the allowed directory is not permitted.");
         }
 
@@ -2296,7 +2297,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 	                    			drug.setGcnSeqNo(dm.drugId + "");
                             }
                         }
-                    } catch (Exception e) {
+                    } catch (Exception _) {
                         logger.warn("Error looking up DIN");
                     }
                 }
@@ -2634,7 +2635,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
                         try {
                             hrmDocProvider.setSignedOffTimestamp(f.parse(reviewDateTime));
-                        } catch (ParseException e) {
+                        } catch (ParseException _) {
 
                         }
 
@@ -2883,6 +2884,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
             //CARE ELEMENTS
             CareElements[] careElems = patientRec.getCareElementsArray();
+            // NRTF shares the 67536-3 neurological exam code with FTLS; CARLOS exports add a
+            // NewCategory marker naming each NRTF screening by its ordinal among the record's
+            // 67536-3 screenings (document order), so it can be told apart here.
+            CdsNeurologicalExam.NrtfMarkers nrtfMarkers = CdsNeurologicalExam.readNrtfMarkers(patientRec.getNewCategoryArray());
+            int neurologicalExamOrdinal = 0;
             for (int i = 0; i < careElems.length; i++) {
                 CareElements ce = careElems[i];
                 cdsDt.Height[] heights = ce.getHeightArray();
@@ -3046,7 +3052,14 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                             ImportExportMeasurements.saveMeasurements("FTE", demographicNo, admProviderNo, dataField, dateObserved);
                             addOneEntry(CAREELEMENTS);
                         } else if (ds.getExamCode().equals(ExamCode.X_67536_3)) {
-                            ImportExportMeasurements.saveMeasurements("FTLS", demographicNo, admProviderNo, dataField, dateObserved);
+                            String nrtfResult = nrtfMarkers.claim(neurologicalExamOrdinal++, ds);
+                            if (nrtfResult != null) {
+                                // Keep the recorded value as exported, even when empty: an NRTF saved
+                                // without a value must not come back as a positive "Yes" finding.
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.NRTF, demographicNo, admProviderNo, nrtfResult, dateObserved);
+                            } else {
+                                ImportExportMeasurements.saveMeasurements(CdsNeurologicalExam.FTLS, demographicNo, admProviderNo, dataField, dateObserved);
+                            }
                             addOneEntry(CAREELEMENTS);
                         }
                     }
@@ -3087,6 +3100,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             String extraCategoryData = "";
             for (int i = 0; i < newCategories.length; i++) {
                 NewCategory ce = newCategories[i];
+                if (CdsNeurologicalExam.isNrtfMarkerCategory(ce)) {
+                    // Already consumed by the care element import above; not uncategorized data.
+                    continue;
+                }
 
                 Util.addLine("Uncategorized Data: ", ce.getCategoryName() + " : " + ce.getCategoryDescription());
                 for (int x = 0; x < ce.getResidualInfoArray().length; x++) {
@@ -3359,7 +3376,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             try {
                 File withExt = PathValidationUtils.validateGeneratedChildPath(candidate.getName() + contentType, candidate.getParentFile());
                 return tryValidateExisting(withExt, allowedRoot, originalPath);
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 logger.warn("Skipping report candidate with invalid generated name");
                 return null;
             }
@@ -3715,7 +3732,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dtfp);
             return "";
@@ -3738,7 +3755,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             } else {
                 return "";
             }
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3752,7 +3769,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -3766,7 +3783,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             if (dfp.getYearMonth() != null) return PartialDate.YEARMONTH;
             else if (dfp.getYearOnly() != null) return PartialDate.YEARONLY;
             else return "";
-        } catch (Exception e) {
+        } catch (Exception _) {
             // cannot depend on export source sending well formatted dates.
             logger.warn("Invalid date. Returning empty value " + dfp);
             return "";
@@ -4483,28 +4500,28 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy");
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATETIME_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
         try {
             SimpleDateFormat sdf = new SimpleDateFormat(DateFormatUtils.ISO_DATE_FORMAT.getPattern());
             return (sdf.parse(s));
-        } catch (Exception e) {
+        } catch (Exception _) {
             // okay we couldn't parse it, we'll try another format
         }
 
@@ -4563,6 +4580,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         }
     }
 
+    /** The handlers whose last lab number a CDS lab import can route to the patient. */
+    static boolean isImportableLabHandler(MessageHandler handler) {
+        return handler instanceof CMLHandler || handler instanceof GDMLHandler || handler instanceof MDSHandler
+                || handler instanceof ExcellerisOntarioHandler || handler instanceof PATHL7Handler;
+    }
+
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private void importLabs(LoggedInInfo loggedInInfo, LaboratoryResults[] labResultArr) {
@@ -4588,59 +4611,53 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                 HL7CreateFile hl7CreateFile = new HL7CreateFile(demographic);
                 String observationMsg = hl7CreateFile.generateHL7(Arrays.asList(reportResults));
 
-                InputStream formFileIs = null;
-                InputStream localFileIs = null;
-
                 Integer labNo = null;
                 try {
                     String type = hl7CreateFile.LAB_TYPE;
 
                     InputStream stream = new ByteArrayInputStream(observationMsg.replace("\r", "\r\n").getBytes(StandardCharsets.UTF_8));
                     String filePath = Utilities.saveFile(stream, filename);
-                    File file = PathValidationUtils.validateExistingPath(new File(filePath), PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR"));
+                    if (filePath == null) {
+                        // Utilities.saveFile returns null when the write failed and the partial file
+                        // was removed; surface it through the enclosing import-error handling.
+                        throw new IllegalStateException("Unable to save lab file for demographic import");
+                    }
+                    File file = PathValidationUtils.validateExistingDocumentPath(filePath);
 
-                    localFileIs = new FileInputStream(file);
-
-                    int checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), localFileIs, admProviderNo);
-
-                    if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-                        logger.debug("File uploaded successfully");
-                        logger.debug("Type: {}", type);
-                        MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
-                        if (msgHandler != null) {
-                            logger.debug("MESSAGE HANDLER " + msgHandler.getClass().getName());
+                    MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
+                    logger.debug("Type: {}", type);
+                    if (!isImportableLabHandler(msgHandler)) {
+                        FileUploadCheck.discardUnreferenced(file, PathValidationUtils.getRequiredDocumentDirectory());
+                        importErrors.add("Unregcognized lab facility: " + type);
+                    } else {
+                        // The checksum commits with the parsed lab or not at all: a parse that fails
+                        // or returns nothing rolls both back, so re-importing is not skipped as a
+                        // duplicate, and a failed duplicate lookup is reported as an error instead of
+                        // silently skipping the lab. The generated file is removed unless the stored
+                        // lab may reference it.
+                        AtomicReference<Integer> parsedLabNo = new AtomicReference<>();
+                        FileUploadCheck.StoreOutcome stored = FileUploadCheck.storeSavedFileIfNew(file,
+                                PathValidationUtils.getRequiredDocumentDirectory(), file.getName(), admProviderNo,
+                                checksumId -> {
+                                    if (msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath,
+                                            checksumId, "") == null) {
+                                        return false;
+                                    }
+                                    parsedLabNo.set(msgHandler.getLastLabNo());
+                                    return true;
+                                });
+                        if (stored == FileUploadCheck.StoreOutcome.STORED) {
+                            labNo = parsedLabNo.get();
+                            logger.info("successfully added lab");
+                            addOneEntry(LABS);
+                        } else if (stored == FileUploadCheck.StoreOutcome.REJECTED) {
+                            importErrors.add("Error adding lab");
                         }
-
-                        if (msgHandler instanceof CMLHandler && ((CMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((CMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof GDMLHandler && ((GDMLHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((GDMLHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof MDSHandler && ((MDSHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((MDSHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof ExcellerisOntarioHandler && ((ExcellerisOntarioHandler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((ExcellerisOntarioHandler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else if (msgHandler instanceof PATHL7Handler && ((PATHL7Handler) msgHandler).parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, "") != null) {
-                            labNo = ((PATHL7Handler) msgHandler).getLastLabNo();
-                            logger.info("successfully added lab");
-                            addOneEntry(LABS);
-                        } else {
-                            importErrors.add("Unregcognized lab facility: " + type);
-                        }
+                        // ALREADY_RECORDED: the same lab content was imported before; skipped as before.
                     }
                 } catch (Exception e) {
                     logger.error("Error: ", e);
                     importErrors.add("Error adding lab");
-                } finally {
-                    IOUtils.closeQuietly(formFileIs);
-                    IOUtils.closeQuietly(localFileIs);
                 }
 
 
@@ -4923,7 +4940,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             UploadedFile uploaded = uploadedFiles.get(0);
             try {
                 this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
-            } catch (SecurityException e) {
+            } catch (SecurityException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFile = null;
                 this.importFileFileName = null;
@@ -4931,7 +4948,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             }
             try {
                 this.importFileFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
-            } catch (FileValidationException e) {
+            } catch (FileValidationException _) {
                 this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
                 this.importFileFileName = null;
             }

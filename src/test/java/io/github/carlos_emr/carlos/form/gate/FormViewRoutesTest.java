@@ -91,4 +91,20 @@ class FormViewRoutesTest {
                 .isEqualTo("/WEB-INF/jsp/form/formannual.jsp");
         assertThat(FormViewRoutes.resolveInternalViewFromFormLink("../formannual.jsp")).isNull();
     }
+    @Test
+    void shouldResolveExtensionlessFormLink_whenViewIsAllowed() {
+        assertThat(FormViewRoutes.resolveInternalViewFromFormLink("formrourke2017complete"))
+                .isEqualTo("/WEB-INF/jsp/form/formrourke2017complete.jsp");
+        assertThat(FormViewRoutes.resolveInternalViewFromFormLink("formrourke2017complete.jsp"))
+                .isEqualTo("/WEB-INF/jsp/form/formrourke2017complete.jsp");
+    }
+
+    @Test
+    void shouldRejectExtensionlessFormLink_whenViewIsUnknownOrUnsafe() {
+        for (String link : new String[] {null, "", "unknown", "../formrourke2017complete",
+                "formrourke2017complete?x=1", "/WEB-INF/web.xml", "formSaveAndExit"}) {
+            assertThat(FormViewRoutes.resolveInternalViewFromFormLink(link)).as(link).isNull();
+        }
+    }
+
 }

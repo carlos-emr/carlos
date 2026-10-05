@@ -56,7 +56,17 @@ elif ! docker tag "$IMAGE" carlos-tomcat-dev 2>"$error_log"; then
   echo "Image was pulled but could not be tagged as carlos-tomcat-dev:"
   cat "$error_log"
 else
-  echo "pulled=true" >> "$GITHUB_OUTPUT"
-  echo "reason=success" >> "$GITHUB_OUTPUT"
-  echo "Successfully pulled pre-built image!"
+  # Preserve the release branch's JDK compatibility check in the shared action.
+  want="$(sed -n 's:.*<release>\([0-9][0-9]*\)</release>.*:\1:p' pom.xml | head -1)"
+  got="$(docker run --rm --entrypoint java carlos-tomcat-dev -version 2>&1 \
+         | sed -n '1s/.*version "\([0-9][0-9]*\).*/\1/p')"
+  if [ -n "$want" ] && [ "$got" != "$want" ]; then
+    echo "pulled=false" >> "$GITHUB_OUTPUT"
+    echo "reason=not-found" >> "$GITHUB_OUTPUT"
+    echo "Pre-built image has JDK ${got:-unknown}, this tree needs JDK $want - building locally."
+  else
+    echo "pulled=true" >> "$GITHUB_OUTPUT"
+    echo "reason=success" >> "$GITHUB_OUTPUT"
+    echo "Successfully pulled pre-built image (JDK ${got:-unknown})!"
+  fi
 fi

@@ -38,6 +38,7 @@ import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReportFragmentViewModel;
+import io.github.carlos_emr.carlos.billings.ca.report.UnbilledReportStatusParameters;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
@@ -78,8 +79,10 @@ public class BillingReportFragmentViewModelAssembler {
      * fragment to populate; the others default to empty lists.
      *
      * @param request live request — supplies {@code xml_vdate},
-     *                {@code xml_appointment_date}, {@code providerview}
-     * @param reportAction one of "billed" / "unsettled" / "billob" / "flu"
+     *                {@code xml_appointment_date}, {@code providerview}, and
+     *                for "unbilled" the {@code includeNoShow} /
+     *                {@code includeCancelled} checkboxes
+     * @param reportAction one of "unbilled" / "billed" / "unsettled" / "billob" / "flu"
      * @return populated view model
      */
     public BillingReportFragmentViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo, String reportAction) {
@@ -131,8 +134,12 @@ public class BillingReportFragmentViewModelAssembler {
 
     private List<BillingReportFragmentViewModel.UnbilledRow> loadUnbilledRows(
             String providerView, Date dateBegin, Date dateEnd, HttpServletRequest request) {
+        // No-Show and Cancelled visits are excluded unless the user opts in, so
+        // this screen agrees with the ON new-report unbilled list (issue #3960).
         List<io.github.carlos_emr.carlos.commn.model.Appointment> bs =
-                appointmentDao.search_unbill_history_daterange(providerView, dateBegin, dateEnd);
+                appointmentDao.findUnbilledAppointments(providerView, dateBegin, dateEnd,
+                        UnbilledReportStatusParameters.includeNoShow(request),
+                        UnbilledReportStatusParameters.includeCancelled(request));
         List<BillingReportFragmentViewModel.UnbilledRow> rows = new ArrayList<>();
         if (bs == null) return rows;
         String defaultView = io.github.carlos_emr.CarlosProperties.getInstance()
@@ -145,10 +152,18 @@ public class BillingReportFragmentViewModelAssembler {
             String demoName = nullToEmpty(a.getName());
             String userNo = nullToEmpty(a.getProviderNo());
             String apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
-            String apptTime = ConversionUtils.toDateString(a.getStartTime());
+            String apptTime = ConversionUtils.toTimeString(a.getStartTime());
             String reason = nullToEmpty(a.getReason());
 
-            String popupUrl = "/billing?billForm="
+            // The .jspf hands popupUrl straight to popupPage() without adding the
+            // context path, so it has to be baked in here — CARLOS deploys under
+            // /carlos and a root-relative URL 404s at the host root.
+            // billRegion pins the cross-province router (Billing2Action) to the
+            // Ontario branch. Without it the router falls back to the
+            // deployment-wide `billregion` property, and an install that never
+            // set it lands on billingBC.jsp — which queries BC-only tables the
+            // Ontario schema does not have, producing "CARLOS Error: 500".
+            String popupUrl = request.getContextPath() + "/billing?billRegion=ON&billForm="
                     + java.net.URLEncoder.encode(defaultView, java.nio.charset.StandardCharsets.UTF_8)
                     + "&hotclick=&appointment_no=" + apptNo
                     + "&demographic_name="

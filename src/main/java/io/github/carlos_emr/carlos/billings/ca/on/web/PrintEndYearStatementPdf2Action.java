@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.io.IOException;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -36,9 +38,9 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 /**
  * Streams the end-year-statement PDF for the {@code summary} previously
  * stashed by {@link SearchEndYearStatement2Action} on the session. If
- * nothing has been searched yet, raises an i18n action error and forwards
- * back to the form JSP. On success returns {@code null} so Struts skips
- * result-rendering — the PDF body is already on the wire.
+ * nothing has been searched yet, sends HTTP 400. Rendering failures send HTTP
+ * 500 before the response is committed. Always returns {@code NONE} after
+ * handling the response so Struts cannot append a page to the PDF.
  *
  * <p>Split out of the legacy {@code PatientEndYearStatement2Action#handlePdf}
  * so the {@code endYearStatement/pdf} URL has a single responsibility.</p>
@@ -59,7 +61,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
     }
 
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -72,20 +74,23 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
         PatientEndYearStatementSummary summary =
                 (PatientEndYearStatementSummary) request.getSession().getAttribute("summary");
         if (summary == null) {
-            addActionError(getText("error.billingReport.invalidPatientName"));
-            return "failure";
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, getText("error.billingReport.invalidPatientName"));
+            return NONE;
         }
         try {
             statementService.writePdfResponse(
                     response, PDF_FILENAME_BASE, summary,
                     getFromDateParam(), getToDateParam());
         } catch (PatientEndYearStatementService.Failure ex) {
-            addActionError(getText(ex.reason().i18nKey()));
             PatientEndYearStatements.logFailure(ex, request.getParameter("demographicNoParam"));
-            return "failure";
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, getText(ex.reason().i18nKey()));
+            }
+            return NONE;
         }
         // Bypass Struts result-rendering — the PDF body is already on the wire.
-        return null;
+        return NONE;
     }
 
     private String firstNameParam;

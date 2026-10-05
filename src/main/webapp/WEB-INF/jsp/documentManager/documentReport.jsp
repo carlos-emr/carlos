@@ -231,6 +231,37 @@
                 }
             }
 
+            /**
+             * Copies the CSRFGuard token the client script injected into this page's own
+             * (combine-PDF) form into a dynamically built one.
+             *
+             * CSRFGuard injects into forms that exist when its script runs; a form created and
+             * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
+             * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
+             * what deleting a document from this page did.
+             *
+             * Adapted from MultiPageDocDisplay.jsp's helper of the same name, not identical to
+             * it: that one warns and lets the caller submit regardless, while this one returns
+             * false on a missing or empty token so submitDocAction can abort and tell the user
+             * to reload. Keep the two in mind together if either changes.
+             */
+            function appendCsrfToken(form) {
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!csrfEl || !csrfEl.value) {
+                    // Fail closed. Submitting anyway only trades a silent no-op for CSRFGuard's
+                    // 403 error page, which is the failure this helper exists to prevent; tell
+                    // the user to reload instead, so the action can actually be retried.
+                    console.warn('CSRF token not found on page; document action not submitted.');
+                    return false;
+                }
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+                return true;
+            }
+
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
@@ -259,6 +290,10 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                if (!appendCsrfToken(form)) {
+                    showListAlert(msgCsrfTokenMissing);
+                    return;
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -272,7 +307,13 @@
                 }
             }
 
-            var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            <fmt:message key="dms.documentReport.msgNoDocSelected" var="noDocSelectedText"/>
+            var msgNoDocSelected = '${carlos:forJavaScript(noDocSelectedText)}';
+            <%-- Emitted through forJavaScript: a translation containing an apostrophe or a
+                 backslash would otherwise terminate this string literal and break the whole
+                 script block, taking the delete/undelete handlers down with it. --%>
+            <fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="csrfTokenMissingText"/>
+            var msgCsrfTokenMissing = '${carlos:forJavaScript(csrfTokenMissingText)}';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.
@@ -348,17 +389,23 @@
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 
-                if (update === "true"
-                        && window.opener
-                        && !window.opener.closed
-                        && window.opener.URLs
-                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
-                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
-                } else if (update === "true") {
-                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
-                    // skip silently in the UI but leave a console trace for debugging.
-                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
+                if (update !== "true") return;
+                var parent = window.opener;
+                if (parent && !parent.closed) {
+                    // The current E-Chart exposes reloadNav, not the legacy URLs map.
+                    // This upload callback targets only its Documents module.
+                    if (parentId === "docs" && typeof parent.reloadNav === "function"
+                            && parent.document.getElementById("docs")) {
+                        parent.reloadNav("docs");
+                        return;
+                    }
+                    if (parent.URLs && Object.prototype.hasOwnProperty.call(parent.URLs, parentId)
+                            && typeof parent.popLeftColumn === "function") {
+                        parent.popLeftColumn(parent.URLs[parentId], parentId, parentId);
+                        return;
+                    }
                 }
+                console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
             }
 
             window.closeWindow = function() {
@@ -374,6 +421,7 @@
             }
 
             jQuery(document).ready(function () {
+                setup();
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
                     columnDefs: [{orderable: false, targets: [0, 8]}],
@@ -381,7 +429,7 @@
                         [-1, 10, 20, 50, 100, 200],
                         ['All', 10, 20, 50, 100, 200]
                     ],
-                    order: [[6, 'dsc']],
+                    order: [[6, 'desc']],
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
@@ -474,6 +522,10 @@
 
                 for (int i = 0; i < categories.size(); i++) {
                     String currentkey = (String) categoryKeys.get(i);
+                    // The heading carries the patient's (or provider's) name, so the Browse link
+                    // sends a stable scope token instead: categories[0] is always the private list
+                    // and categories[1] (provider module only) the public one.
+                    String currentScope = (i == 0) ? "private" : "public";
                     ArrayList category = (ArrayList) categories.get(i);
             %>
                 <div class="doclist card">
@@ -520,7 +572,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>">
+                                        href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<%= currentScope %><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -755,7 +807,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs" context="javaScriptAttribute"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="/documentManager/combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>

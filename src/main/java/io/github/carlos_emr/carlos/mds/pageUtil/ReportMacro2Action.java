@@ -29,6 +29,9 @@
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import java.io.IOException;
+import java.util.Set;
+import java.util.Map;
+import java.util.EnumMap;
 import java.util.Calendar;
 
 import jakarta.servlet.ServletException;
@@ -38,10 +41,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
+import io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentParameters;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -71,7 +75,7 @@ public class ReportMacro2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerDao ticklerDao = SpringUtils.getBean(TicklerDao.class);
-    private TicklerLinkDao ticklerLinkDao = SpringUtils.getBean(TicklerLinkDao.class);
+    private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
@@ -79,6 +83,11 @@ public class ReportMacro2Action extends ActionSupport {
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         ObjectNode result = objectMapper.createObjectNode();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
@@ -93,13 +102,13 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macro name provided");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
 
-        boolean success = false;
+        MacroOutcome outcome = MacroOutcome.notRun();
 
         //find and run specific macro
         if (up != null && !StringUtils.isEmpty(up.getValue())) {
@@ -108,7 +117,12 @@ public class ReportMacro2Action extends ActionSupport {
                 for (int x = 0; x < macros.size(); x++) {
                     ObjectNode macro = (ObjectNode) macros.get(x);
                     if (name.equals(macro.get("name").asText())) {
-                        success = runMacro(macro, request);
+                        // Nothing stops a provider defining two macros with the same name, and
+                        // every match runs. Combining the outcomes rather than keeping the last
+                        // one means an acknowledgement by an earlier entry is still reported —
+                        // otherwise a later non-acknowledging entry would hide it and the inbox
+                        // would keep showing a lab that had been acknowledged.
+                        outcome = outcome.combinedWith(runMacroOutcome(macro, request));
                     }
                 }
             }
@@ -116,16 +130,78 @@ public class ReportMacro2Action extends ActionSupport {
             result.put("success", false);
             result.put("error", "No macros defined in provider preferences");
             response.getWriter().write(result.toString());
-            return null;
+            return NONE;
         }
 
 
-        result.put("success", success);
+        result.put("success", outcome.success());
+        // Reported separately from success because a macro need not acknowledge anything: one
+        // that only files a tickler runs perfectly and leaves the lab NEW. The inbox uses this
+        // flag, not success, to decide whether to drop the item from its list and counters.
+        result.put("acknowledged", outcome.acknowledged());
+        result.put("clearedCount", outcome.clearedCount());
         response.getWriter().write(result.toString());
-        return null;
+        return NONE;
     }
 
+    /**
+     * What running one macro did.
+     *
+     * @param success      the macro ran to completion
+     * @param acknowledged it contained an acknowledge action AND that action was applied
+     * @param clearedCount how many routing rows the acknowledgement took out of the NEW state —
+     *                     the reviewed lab plus each older version filed with it. The inbox
+     *                     counters count routing rows, so the browser needs this number rather
+     *                     than assuming one per acknowledged item.
+     */
+    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+        static MacroOutcome notRun() {
+            return new MacroOutcome(false, false, 0);
+        }
+
+        static MacroOutcome failed() {
+            return new MacroOutcome(false, false, 0);
+        }
+
+        static MacroOutcome ran(boolean acknowledged, int clearedCount) {
+            return new MacroOutcome(true, acknowledged, clearedCount);
+        }
+
+        /**
+         * Folds in another entry that ran under the same macro name in the same request.
+         *
+         * clearedCount takes the larger rather than the sum: every entry acts on the one
+         * segmentID this request named, so two acknowledging entries clear the SAME routing
+         * rows and the second only re-stamps what the first already took out of NEW. Adding
+         * them would tell the browser to move the badge twice for one chain.
+         */
+        MacroOutcome combinedWith(MacroOutcome other) {
+            return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
+                    Math.max(clearedCount, other.clearedCount()));
+        }
+    }
+
+    /**
+     * Retained for callers that only care whether the macro ran.
+     *
+     * @deprecated use {@link #runMacroOutcome(ObjectNode, HttpServletRequest)}; the inbox needs
+     *             to know whether the macro ACKNOWLEDGED, which a bare success cannot say.
+     */
+    @Deprecated
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
+        return runMacroOutcome(macro, request).success();
+    }
+
+    /**
+     * Executes the configured macro effects for the session provider, including optional
+     * acknowledgement of the trusted report chain and creation of linked patient ticklers.
+     * The caller must have passed the POST and lab-write authorization checks.
+     * @param macro parsed macro configuration
+     * @param request authorized request containing the report and demographic identifiers
+     * @return success, acknowledgement flag, and actual cleared routing-row count
+     * @throws RuntimeException if malformed configuration or an underlying mutation fails
+     */
+    protected MacroOutcome runMacroOutcome(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro {}", LogSafe.sanitize(macro.get("name").asText("")));
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
@@ -135,106 +211,153 @@ public class ReportMacro2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        boolean acknowledged = false;
+        int clearedCount = 0;
+
+        // The tickler's lab attachment is validated first, before the acknowledgement mutates
+        // the routing rows: segmentID, labType and demographicNo are all request values, and a
+        // macro whose attachment would be refused must not acknowledge anything either.
+        Tickler pendingTickler = null;
+        Map<DocumentType, Set<String>> pendingAttachment = null;
+        if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
+            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
+
+            if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
+                // The lab is attached through the attachment service (#3984), which requires
+                // _tickler write on the patient, _lab read, and proves the lab is routed to that
+                // patient under its own source. The checks run before any side effect so a
+                // refused attachment leaves neither an empty tickler nor an acknowledged lab.
+                pendingAttachment = new EnumMap<>(DocumentType.class);
+                pendingAttachment.put(DocumentType.LAB, Set.of(TicklerAttachmentParameters.labValue(labType, segmentID)));
+                try {
+                    pendingTickler = buildTickler(jTickler, Integer.parseInt(demographicNo), providerNo);
+                    ticklerAttachmentService.requireAttachable(loggedInInfo, pendingTickler.getDemographicNo(), pendingAttachment);
+                } catch (SecurityException | IllegalArgumentException refused) {
+                    logger.warn("Lab macro not run: lab attachment refused ({})",
+                            refused.getClass().getSimpleName());
+                    return MacroOutcome.failed();
+                }
+            } else {
+                logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
+            }
+        }
+
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab {}:{}", LogSafe.sanitize(labType), LogSafe.sanitize(segmentID)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
-            String comment = jAck.get("comment").asText();
+            String comment = macro.path("acknowledge").path("comment").asText("");
             if (StringUtils.isBlank(segmentID)) {
                 logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", LogSafe.sanitize(labType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-                return false;
+                return MacroOutcome.failed();
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", LogSafe.sanitize(segmentID), LogSafe.sanitize(labType), e);
-                return false;
+                logger.error("Cannot acknowledge lab: invalid segment identifier ({})", e.getClass().getSimpleName());
+                return MacroOutcome.failed();
             }
-            CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
+            logger.info("Acknowledging lab from reviewed macro");
+            // Acknowledge the reviewed version AND file the older versions of the same lab.
+            // Filing the older versions is what removes the collapsed row from the inbox: the
+            // inbox shows one row per accession chain, so a macro that only stamped the newest
+            // version left the row behind pointing at the previous version, and the lab looked
+            // like the macro had done nothing. Same routine as the Acknowledge button.
+            clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
+                    skipComment(providerNo), request.getParameter("multiID"));
 
-            // Audit log for lab acknowledgment
-            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
-                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
-                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            // The routing transaction has already completed. A separate audit failure
+            // must not hide the committed outcome or invite a duplicate macro retry.
+            try {
+                LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                    "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
+            } catch (RuntimeException auditFailure) {
+                logger.error("Lab macro acknowledgement completed but audit logging failed ({})",
+                        auditFailure.getClass().getSimpleName());
+            }
+            acknowledged = true;
         }
-        if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
-            ObjectNode jTickler = (ObjectNode) macro.get("tickler");
+        if (pendingTickler != null) {
+            logger.info("Sending Tickler");
+            Tickler t = pendingTickler;
+            ticklerDao.persist(t);
 
-            if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
-                logger.info("Sending Tickler");
-                Tickler t = new Tickler();
-                t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
-                t.setDemographicNo(Integer.parseInt(demographicNo));
-                t.setMessage(jTickler.get("message").asText());
-                t.setCreator(providerNo);
-
-                // Set future service date if quantity and timeUnits are provided
-                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
-                    // Validate that quantity and timeUnits are not null
-                    if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
-                        try {
-                            Calendar cal = Calendar.getInstance();
-                            int qty = Integer.parseInt(jTickler.get("quantity").asText());
-                            int code = Integer.parseInt(jTickler.get("timeUnits").asText());
-
-                            // Validate that quantity is positive (negative values would create past-dated ticklers)
-                            if (qty <= 0) {
-                                logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
-                            } else {
-                                // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
-                                boolean validCode = false;
-                                switch (code) {
-                                    case 1:  // days
-                                        cal.add(Calendar.DATE, qty);
-                                        validCode = true;
-                                        break;
-                                    case 7:  // weeks
-                                        cal.add(Calendar.WEEK_OF_YEAR, qty);
-                                        validCode = true;
-                                        break;
-                                    case 30:  // months
-                                        cal.add(Calendar.MONTH, qty);
-                                        validCode = true;
-                                        break;
-                                    case 365:  // years
-                                        cal.add(Calendar.YEAR, qty);
-                                        validCode = true;
-                                        break;
-                                    default:
-                                        logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
-                                        break;
-                                }
-                                // Only set service date if code was valid
-                                if (validCode) {
-                                    t.setServiceDate(cal.getTime());
-                                }
-                            }
-                        } catch (NumberFormatException e) {
-                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
-                        }
-                    } else {
-                        logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
-                    }
-                }
-                ticklerDao.persist(t);
-
-                // Audit log for tickler creation
+            // The tickler exists already; audit availability must not prevent its
+            // link from being created or mask the preceding acknowledgement.
+            try {
                 LogAction.addLogSynchronous(providerNo, LogConst.ADD,
                     "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
                     LogConst.CON_MDS_LAB, loggedInInfo.getIp());
-
-                TicklerLink tl = new TicklerLink();
-                tl.setTableId(Long.valueOf(segmentID));
-                tl.setTableName(labType);
-                tl.setTicklerNo(t.getId());
-                ticklerLinkDao.persist(tl);
-            } else {
-                logger.info("Cannot sent tickler. Not enough information in macro definition. providers taskAssignedTo and message");
+            } catch (RuntimeException auditFailure) {
+                logger.error("Lab macro tickler created but audit logging failed ({})",
+                        auditFailure.getClass().getSimpleName());
             }
 
+            ticklerAttachmentService.syncAttachments(loggedInInfo, t, pendingAttachment);
         }
 
-        return true;
+        return MacroOutcome.ran(acknowledged, clearedCount);
+    }
+
+    /**
+     * Builds the macro's tickler from its definition: assignee, message, creator and, when the
+     * macro carries a valid quantity and time unit, a future service date. Nothing is persisted.
+     */
+    private static Tickler buildTickler(ObjectNode jTickler, int demographicNo, String providerNo) {
+        Tickler t = new Tickler();
+        t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
+        t.setDemographicNo(demographicNo);
+        t.setMessage(jTickler.get("message").asText());
+        t.setCreator(providerNo);
+
+            // Set future service date if quantity and timeUnits are provided
+            if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                // Validate that quantity and timeUnits are not null
+                if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
+                    try {
+                        Calendar cal = Calendar.getInstance();
+                        int qty = Integer.parseInt(jTickler.get("quantity").asText());
+                        int code = Integer.parseInt(jTickler.get("timeUnits").asText());
+
+                        // Validate that quantity is positive (negative values would create past-dated ticklers)
+                        if (qty <= 0) {
+                            logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
+                        } else {
+                            // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
+                            boolean validCode = false;
+                            switch (code) {
+                                case 1:  // days
+                                    cal.add(Calendar.DATE, qty);
+                                    validCode = true;
+                                    break;
+                                case 7:  // weeks
+                                    cal.add(Calendar.WEEK_OF_YEAR, qty);
+                                    validCode = true;
+                                    break;
+                                case 30:  // months
+                                    cal.add(Calendar.MONTH, qty);
+                                    validCode = true;
+                                    break;
+                                case 365:  // years
+                                    cal.add(Calendar.YEAR, qty);
+                                    validCode = true;
+                                    break;
+                                default:
+                                    logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
+                                    break;
+                            }
+                            // Only set service date if code was valid
+                            if (validCode) {
+                                t.setServiceDate(cal.getTime());
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro ({})", e.getClass().getSimpleName());
+                    }
+                } else {
+                    logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
+                }
+            }
+        return t;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

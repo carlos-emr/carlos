@@ -32,7 +32,7 @@ healthcare application handling PHI.
 Semgrep runs two scans in `.github/workflows/semgrep.yml`:
 
 - `semgrep ci --sarif --output semgrep.sarif` runs the Semgrep Cloud policy, including Semgrep Pro rules when `SEMGREP_APP_TOKEN` is configured.
-- `semgrep scan --config .semgrep/jsp-scriptlet-xss-carlos.yml --sarif --output semgrep-carlos.sarif` runs CARLOS sanitizer-aware JSP checks that recognize project encoders.
+- `semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif` runs every CARLOS sanitizer-aware rule under `.semgrep/` — JSP scriptlet XSS, CRLF log injection, and path traversal — recognizing project encoders and `PathValidationUtils`/`LogSafe` sanitizers. See `.semgrep/README.md` for the full rule list and the built-in Semgrep Cloud rules each one replaces.
 
 ### False-positive handling
 
@@ -43,9 +43,59 @@ Use the narrowest control that preserves useful coverage:
 3. Disable exact built-in rules in Semgrep Cloud only when a CARLOS rule fully replaces their coverage. `.semgrep/README.md` lists the rules intended for policy disablement.
 4. For isolated already-safe findings from still-useful built-in rules, use rule-specific `nosemgrep: <rule-id>` comments at the finding site.
 
-Semgrep CI honors `nosemgrep` by treating those findings as ignored, but Semgrep still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py semgrep.sarif` before uploading the Semgrep Cloud SARIF. This removes only explicitly suppressed results from the GitHub upload; unsuppressed Semgrep Pro findings still appear in Code Scanning.
+Semgrep honors `nosemgrep` by treating those findings as ignored, but still includes them in SARIF with `result.suppressions`. GitHub Code Scanning creates PR alerts from uploaded SARIF results, so the workflow runs `scripts/filter_suppressed_sarif.py` separately on both `semgrep.sarif` and `semgrep-carlos.sarif` before their uploads. This removes only explicitly suppressed results; unsuppressed Cloud and CARLOS findings still appear in Code Scanning. Both filters also run when an earlier scan fails but produces a report.
 
 Do not use broad `.semgrepignore` entries, blanket rule disables, or bare `nosemgrep` comments to clear PR noise unless a narrower option is impossible and the rationale is documented.
+
+## Reviewed 2026.08 exceptions
+
+The October 2026 review covered 111 alert IDs: 105 false positives and six
+intentional regression-fixture exceptions. Source changes are matched to
+`release/2026.08`; the original alerts were reported on `main`. These are counts
+of reviewed alerts, including duplicate reports at the same source location,
+not a promise about the result count of a future scan.
+
+The 92 Semgrep reports use exact-rule comments at the reported expression, or
+remove misleading SQL examples from comments. Multiline test SQL templates
+place their suppression comments **inside JavaScript interpolations**, so the
+comments do not become SQL or alter the fixture data. The existing SARIF filter
+removes only results marked suppressed by Semgrep. No file or rule is globally
+excluded.
+
+The 14 SpotBugs reports are addressed by method-scoped, justified annotations
+for domain comparisons and the renderer header rejection gate, by naming the
+blank PNG byte array as image data, and by comparing the same SHA-256 lab-content
+digests with `MessageDigest.isEqual`. The note-save annotation belongs on
+`noteSave`, not its appointment-binding helper. These changes preserve file
+validation, authorization, logging, fixture assertions and exception handling.
+
+The six deliberate fixtures are the ECB receiver tests (27421, 27422), MD5
+protocol tests (27427, 27428, 27440), and the 0755-to-0700 directory regression
+(27443). Their exceptions do not apply to production cryptography or permissions.
+
+## CodeQL exceptions
+
+This repository uses GitHub's CodeQL default setup. Source comments such as
+`# codeql[...]` or `// codeql[...]` do **not** suppress its findings. Keep the
+analysis enabled and use GitHub's
+[per-alert dismissal with a recorded reason](https://docs.github.com/en/code-security/code-scanning/managing-code-scanning-alerts/resolving-code-scanning-alerts)
+for the following reviewed exceptions. The source comments document the
+reasoning; the dismissal is GitHub state, not a directive activated by merging
+this file. Do not exclude the entire test module or turn off these queries.
+
+| Alert | Disposition | Evidence and scope |
+| --- | --- | --- |
+| [27453](https://github.com/carlos-emr/carlos/security/code-scanning/27453) | False positive | `UploadTemplates2Action` gets the file from `UploadedFilesAware`; its setter is unannotated and Struts 7.1.1 requires parameter annotations. The read uses the canonical `validateUpload` result. This does not justify treating the one-argument helper as a general sanitizer for client-selected paths. |
+| [27430](https://github.com/carlos-emr/carlos/security/code-scanning/27430) | False positive | `TempEnv.write_conf` writes placeholder credentials and generated test keys in a temporary fixture tree, not live secrets. |
+| [27431](https://github.com/carlos-emr/carlos/security/code-scanning/27431) | False positive | The sessionless OSCAR regression removes those placeholder credentials from its temporary configuration. |
+| [27421](https://github.com/carlos-emr/carlos/security/code-scanning/27421) | Used in tests | The envelope regression intentionally reproduces the legacy receiver's ECB decryption using generated keys and synthetic messages. |
+| [27422](https://github.com/carlos-emr/carlos/security/code-scanning/27422) | Used in tests | The fake receiver intentionally implements the same legacy ECB protocol; production crypto findings remain in scope. |
+
+Re-review an exception when its input source or security boundary changes;
+reopen the corresponding CodeQL alert if its justification no longer holds.
+Source suppressions take effect only on branches that contain them and have
+been rescanned; release fixes must follow the normal forward-merge/promotion
+process to affect `main`.
 
 ---
 
@@ -146,12 +196,24 @@ Suppresses known false positives:
 > `@SuppressFBWarnings` annotations carrying a justification, **plus an adjacent `//` comment** —
 > see [SpotBugs exclusions](#spotbugs) below.
 
+The incoming-document capacity page uses a method-local `XSS_SERVLET`
+suppression because its two dynamic values already use OWASP encoding for
+HTML text and quoted attributes. Its regression parses hostile context-path
+markup and verifies that it remains one inert script URL, without injected
+elements or event handlers. Preview reloads require exact `GET`; case-folded
+or mutating method names receive no preview reload script. The separate incoming
+page-edit waiting response is emitted only before mutation admission and preserves
+the original POST fields, CSRF token and source revision. An uncertain result or
+a revision conflict never uses that automatic retry path.
+
 **Maven profile**: `spotbugs` (defined in `pom.xml`)
 
-- SpotBugs Maven Plugin: 4.9.3.0
-- SpotBugs Engine: 4.9.3
+- SpotBugs Maven Plugin: 4.10.2.0 — held here deliberately; 4.10.4.x requires Maven >= 3.8.9,
+  which the `carlos-tomcat-dev` image cannot supply from apt on noble. See the rationale comment
+  on the plugin declaration in `pom.xml`.
+- SpotBugs Engine: 4.10.2
 - Find Security Bugs: 1.14.0
-- `spotbugs-annotations` 4.9.3 (`provided` scope, in `pom.xml`) — supplies
+- `spotbugs-annotations` 4.10.2 (`provided` scope, in `pom.xml`) — supplies
   `edu.umd.cs.findbugs.annotations.SuppressFBWarnings` for per-site suppression
 - Effort: `Max` (deepest analysis)
 - Threshold: `Low` (report everything, filter via exclude file)

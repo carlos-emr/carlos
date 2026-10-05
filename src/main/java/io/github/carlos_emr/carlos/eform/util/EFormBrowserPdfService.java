@@ -184,6 +184,10 @@ public class EFormBrowserPdfService {
     private static final java.util.regex.Pattern CONSOLE_LEADING_LOCATION_PATTERN =
             java.util.regex.Pattern.compile(
             "^\\s*(?:\\[redacted-(?:url|path)\\]\\s+)?(\\d{1,7}):(\\d{1,7})\\b");
+    private static final java.util.regex.Pattern SCRIPT_MIME_REFUSAL_PATTERN =
+            java.util.regex.Pattern.compile(
+                    "Refused to execute script from '([^']+)' because its MIME type \\('[^']+'\\) "
+                    + "is not executable, and strict MIME type checking is enabled\\.");
     static final Duration BACKSTOP_TIMEOUT = Duration.ofSeconds(5);
     /**
      * How long the late-session reaper waits for an abandoned session-create to finish. Longer than
@@ -192,10 +196,11 @@ public class EFormBrowserPdfService {
     static final Duration LATE_SESSION_REAP_TIMEOUT = Duration.ofSeconds(90);
     static final Duration DRIVER_START_TIMEOUT = Duration.ofSeconds(30);
 
-    /** Bounded well below Tomcat's worker pool so renders can never saturate request threads. */
+    /** Bound both active browsers and waiting servlet threads, leaving workers for renderer callbacks. */
     private static final int MAX_CONCURRENT_RENDERS = 2;
     private static final Duration RENDER_SLOT_WAIT = Duration.ofSeconds(30);
     private static final Semaphore RENDER_SLOTS = new Semaphore(MAX_CONCURRENT_RENDERS, true);
+    private static final Semaphore RENDER_WAITERS = new Semaphore(2 * MAX_CONCURRENT_RENDERS);
 
     /**
      * Filename prefix of the renderer's output PDF. The {@link RenderedEformPdf} guard keys on it
@@ -445,6 +450,15 @@ public class EFormBrowserPdfService {
      * print CSS. It deliberately does NOT set {@code width: max-content} or {@code overflow: visible}
      * (those were raster screenshot hacks); native print lays the form out at its natural width.
      *
+     * <p>The zero page margin is a default, not a policy. A document that publishes
+     * {@code data-carlos-page-margin} on its {@code <body>} gets that margin instead, via a second
+     * style element appended AFTER this one — the cascade order matters, because this stylesheet is
+     * itself appended to {@code <head>} at print time and would otherwise beat any {@code @page}
+     * rule the document authored. Today the Rich Text Letter is the only caller: the editor stores
+     * {@code body.innerHTML} alone, so the {@code .rtl} template's {@code @page} rule is lost at
+     * save time and {@link EFormRenderPdfHtmlComposer} re-declares it on the render surface.
+     * Scanned-background forms publish nothing and keep the zero margin they depend on.</p>
+     *
      * <p>It also deliberately does NOT paint a background colour onto {@code <html>}. Observed
      * behaviour: with {@code html.style.background = 'white'} set here, a form whose scanned
      * background is an {@code <img>} at {@code position:absolute; z-index:-1} — the standard eForm
@@ -496,6 +510,24 @@ public class EFormBrowserPdfService {
             + "    }\n"
             + "  `;\n"
             + "  document.head.appendChild(cleanupStyle);\n"
+            + "}\n"
+            // A document that declares its own paper margin opts out of the zero-margin baseline.
+            // Only the Rich Text Letter does today: the editor stores body.innerHTML alone, so the
+            // .rtl template's own `@page { margin: 2cm }` is gone by render time and the composer
+            // re-declares it on <body>. The baseline above is appended to <head> at print time, so
+            // on a specificity tie it is LAST and wins; this override has to be appended after it.
+            // The value is re-validated here rather than trusted: this runs inside a stylesheet.
+            + "const declaredPageMargin = document.body\n"
+            + "  ? (document.body.getAttribute('data-carlos-page-margin') || '').trim()\n"
+            + "  : '';\n"
+            + "const pageMarginIsSafe = /^(?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))"
+            + "(?: (?:0|\\d{1,3}(?:\\.\\d{1,3})?(?:cm|mm|in|pt|pc|px|em|rem|%))){0,3}$/\n"
+            + "  .test(declaredPageMargin);\n"
+            + "if (pageMarginIsSafe && !document.getElementById('eform-browser-pdf-page-margin')) {\n"
+            + "  const marginStyle = document.createElement('style');\n"
+            + "  marginStyle.id = 'eform-browser-pdf-page-margin';\n"
+            + "  marginStyle.textContent = '@page { margin: ' + declaredPageMargin + '; }';\n"
+            + "  document.head.appendChild(marginStyle);\n"
             + "}\n"
             + "const body = document.body;\n"
             + "if (body) {\n"
@@ -924,8 +956,8 @@ public class EFormBrowserPdfService {
 
         SlotAcquisition acquisition = acquireRenderSlot(RENDER_SLOTS, RENDER_SLOT_WAIT);
         if (acquisition == SlotAcquisition.TIMED_OUT) {
-            // Load-shed: all render slots were busy for the full wait. Log so a maintainer can see the
-            // renderer is saturated (fdid only — no PHI, no render URL/token).
+            // No render started: either the bounded waiting queue was already full or the
+            // admitted caller reached its deadline (fdid only — no PHI, no render URL/token).
             logger.warn("Browser eForm renderer at capacity ({} concurrent slots); rejecting render for fdid={}",
                     MAX_CONCURRENT_RENDERS, fdid);
             // Retryable: the renderer itself is healthy, every slot is just momentarily busy. Marked
@@ -1464,7 +1496,7 @@ public class EFormBrowserPdfService {
                     RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
             if (isServiceUnreachable(e)) {
                 logger.error("The eForm render browser service is not reachable. Start it "
-                        + "(systemctl status carlos-emr-chromedriver) or correct {} in carlos.properties.",
+                        + "(systemctl status carlos-emr-render-browser) or correct {} in carlos.properties.",
                         SERVICE_URL_PROPERTY);
                 throw browserServiceUnavailable();
             }
@@ -1565,7 +1597,7 @@ public class EFormBrowserPdfService {
                 // reaper may keep the late session's browser alive for up to LATE_SESSION_REAP_TIMEOUT.
                 // Under repeated start-timeouts (a memory-starved host — the same condition that causes
                 // them) live browser TREES can therefore briefly exceed MAX_CONCURRENT_RENDERS. Total
-                // browser-tree MEMORY stays bounded regardless: the carlos-emr-chromedriver unit's
+                // browser-tree MEMORY stays bounded regardless: the carlos-emr-render-browser unit's
                 // MemoryHigh/MemoryMax cgroup ceiling covers every tree the driver spawned, so the
                 // overshoot cannot compound the pressure that caused it. Holding the slot until the
                 // reaper resolves would close the gap but moves slot ownership across threads —
@@ -1618,7 +1650,7 @@ public class EFormBrowserPdfService {
      *
      * <p>The residual hole is honest and documented: if the interrupt or a connection failure means
      * the id never arrives, no targeted teardown is possible and
-     * {@code systemctl restart carlos-emr-chromedriver} is the backstop. A timed-out session has not
+     * {@code systemctl restart carlos-emr-render-browser} is the backstop. A timed-out session has not
      * navigated yet, so it is an {@code about:blank} browser holding no clinical data.
      */
     private static void reapLateSession(Future<RendererBrowser> pending,
@@ -1743,7 +1775,7 @@ public class EFormBrowserPdfService {
             } else {
                 logger.warn("Force-delete of browser eForm renderer session {} was refused (HTTP {}). "
                         + "A browser holding a rendered page may still be running; "
-                        + "systemctl restart carlos-emr-chromedriver clears it.",
+                        + "systemctl restart carlos-emr-render-browser clears it.",
                         sessionId, response.statusCode());
             }
         } catch (InterruptedException interrupted) {
@@ -1752,7 +1784,7 @@ public class EFormBrowserPdfService {
         } catch (RuntimeException | java.io.IOException e) {
             logger.warn("Unable to force-delete browser eForm renderer session {}: type={} error={}. "
                     + "A browser holding a rendered page may still be running; "
-                    + "systemctl restart carlos-emr-chromedriver clears it.",
+                    + "systemctl restart carlos-emr-render-browser clears it.",
                     sessionId, e.getClass().getName(),
                     RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }
@@ -2007,13 +2039,18 @@ public class EFormBrowserPdfService {
      * needed any): its {@code height} is pinned to the printed page height so the div's flow extent
      * can never exceed one page (a fractional-height background otherwise spills a mostly-blank
      * page and shifts every later field off its background — the "extra blank pages between pages,
-     * checkboxes misaligned" corpus regression), {@code overflow: hidden} clips content past the
-     * page box exactly as the region capture did, {@code margin: 0} removes inter-page gaps, and
+     * checkboxes misaligned" corpus regression), a clip path limits painting to the measured
+     * page region, {@code margin: 0} removes inter-page gaps, and
      * {@code break-after: page} forces each div onto its own printed page. The LAST div instead gets
      * {@code break-after: auto} so a form whose final div carries an authored inline
      * {@code page-break-after: always} does not emit a trailing blank page ({@code !important} in an
      * author stylesheet outranks a non-important inline declaration, so these rules win over inline
      * authored styles in both directions).</p>
+     *
+     * <p>The measured region can be wider than the authored div (for example, a 750px container
+     * with an 850px background). Overflow clipping at the div's width silently truncates clinical
+     * content despite a correctly sized PDF page. Keep the authored width so percentage-positioned
+     * fields do not move, and clip at the measured region instead.</p>
      *
      * <p>Sizes are px (Chromium converts to the PDF's points at 96dpi), matching the legacy raster
      * path's {@code px * 72/96} page boxes. Returns empty CSS for an empty list (never injected).</p>
@@ -2048,7 +2085,10 @@ public class EFormBrowserPdfService {
             }
             css.append(" height: ").append(cssPx(page.height())).append(" !important;")
                     .append(" margin: 0 !important;")
-                    .append(" overflow: hidden !important;")
+                    .append(" overflow: visible !important;")
+                    .append(" clip-path: polygon(0 0, ").append(cssPx(page.width())).append(" 0, ")
+                    .append(cssPx(page.width())).append(' ').append(cssPx(page.height()))
+                    .append(", 0 ").append(cssPx(page.height())).append(") !important;")
                     .append(" break-inside: avoid !important;")
                     .append(" break-after: ").append(last ? "auto" : "page").append(" !important; }\n");
         }
@@ -2125,7 +2165,7 @@ public class EFormBrowserPdfService {
         try {
             for (LogEntry entry : driver.manage().logs().get(LogType.BROWSER)) {
                 if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
-                        && !isResourceLoadConsoleEntry(entry.getMessage())
+                        && !isResourceLoadConsoleEntry(entry.getMessage(), scan.duplicateScriptFailureUrls())
                         && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
                     severeConsoleEntries++;
                     if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS
@@ -2222,7 +2262,8 @@ public class EFormBrowserPdfService {
 
     /**
      * True for Chrome console entries reporting a resource load failure ("Failed to load
-     * resource: ..."). Resource failures are gated <em>type-aware</em> by the network scan
+     * resource: ..."), or a MIME refusal for a script whose failed duplicate is verified by the
+     * network scan. Resource failures are gated <em>type-aware</em> by the network scan
      * ({@link NetworkGateScan#failedSubresources()} — render-critical types drive an operator WARN
      * (advisory by default; see the strict-gate switch), speculative loads such as favicons
      * deliberately do not), so counting them in the console
@@ -2232,12 +2273,31 @@ public class EFormBrowserPdfService {
      * pattern is inspected; console text is still never logged.
      */
     static boolean isResourceLoadConsoleEntry(String message) {
+        return isResourceLoadConsoleEntry(message, Set.of());
+    }
+
+    static boolean isResourceLoadConsoleEntry(String message, Set<String> duplicateScriptFailureUrls) {
         // Substring match on Chrome's emission (phrase + colon). Residual risk, mirroring the CSP
         // matcher below: a form's own console.error that happens to contain the exact phrase is
         // reclassified as a resource-load entry, suppressing only that form's JS-error signal —
         // resource failures stay gated type-aware by the network scan and egress stays gated by
         // the dead proxy plus event replay, so nothing is bypassed.
-        return message != null && message.contains("Failed to load resource:");
+        if (message == null) {
+            return false;
+        }
+        if (message.contains("Failed to load resource:")) {
+            return true;
+        }
+        // Chrome also logs a SEVERE MIME refusal when a bare duplicate script URL returns the
+        // HTML 404 page. The same script loaded successfully through the eForm asset route, and
+        // the network scan has already classified that exact URL as a duplicate failure.
+        // Correlate with that evidence: a 200 response with a wrong MIME type must still count as
+        // a page error, since the network scan would otherwise see a successful script request.
+        java.util.regex.Matcher mimeRefusal = SCRIPT_MIME_REFUSAL_PATTERN.matcher(message);
+        if (!mimeRefusal.find()) {
+            return false;
+        }
+        return duplicateScriptFailureUrls.contains(mimeRefusal.group(1));
     }
 
     /**
@@ -2303,11 +2363,16 @@ public class EFormBrowserPdfService {
      * and enters the user-approval report.
      * {@code disallowedRequests} (off-origin HTTP, already blocked by the dead proxy) and
      * {@code failedSubresources} contains only known non-content failures and is advisory by
-     * default; strict mode also rejects it.
+     * default; strict mode also rejects it. {@code duplicateScriptFailureUrls} records only
+     * exact failed script URLs whose assets loaded as JavaScript elsewhere, to correlate Chrome's
+     * MIME-refusal console message with the already-adjudicated duplicate resource failure.
      */
     record NetworkGateScan(int disallowedRequests, Integer mainDocumentStatus, int failedSubresources,
             int parseFailures, int liveChannelAttempts, int failedCriticalSubresources,
-            int nonReadRequests) {
+            int nonReadRequests, Set<String> duplicateScriptFailureUrls) {
+        NetworkGateScan {
+            duplicateScriptFailureUrls = Set.copyOf(duplicateScriptFailureUrls);
+        }
     }
 
     /**
@@ -2318,6 +2383,21 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> RENDER_CRITICAL_RESOURCE_TYPES =
             Set.of("Document", "Image", "Script", "Stylesheet", "Font", "Media", "XHR", "Fetch");
+
+    // JavaScript MIME essences from https://mimesniff.spec.whatwg.org/#javascript-mime-type.
+    // Include historical types used by clinic assets; a 200 HTML/login response proves no script
+    // loaded and must never license suppressing a duplicate's MIME refusal.
+    private static final Set<String> JAVASCRIPT_MIME_TYPES = Set.of(
+            "application/ecmascript", "application/javascript", "application/x-ecmascript",
+            "application/x-javascript", "text/ecmascript", "text/javascript", "text/javascript1.0",
+            "text/javascript1.1", "text/javascript1.2", "text/javascript1.3", "text/javascript1.4",
+            "text/javascript1.5", "text/jscript", "text/livescript", "text/x-ecmascript", "text/x-javascript");
+
+    private static boolean isJavaScriptMimeType(String mimeType) {
+        int parameters = mimeType.indexOf(';');
+        String essence = parameters < 0 ? mimeType : mimeType.substring(0, parameters);
+        return JAVASCRIPT_MIME_TYPES.contains(com.google.common.base.Ascii.toLowerCase(essence.trim()));
+    }
 
     /**
      * Render-critical types that carry data rather than a named file.
@@ -2350,6 +2430,10 @@ public class EFormBrowserPdfService {
      */
     private static final Set<String> PRESENTATION_RESOURCE_TYPES = Set.of("Stylesheet", "Font");
 
+    private record ResourceIdentity(String name, String type) { }
+
+    private record CriticalResourceFailure(String name, String url, String type) { }
+
     /**
      * Replays raw CDP performance-log messages: counts egress attempts to any origin other than
      * the allowed loopback origin, records the status of the first main-frame document response,
@@ -2379,8 +2463,8 @@ public class EFormBrowserPdfService {
      * off a local disk) and once through {@code ${oscar_image_path}} (so it resolves when served) —
      * and the bare reference is expected to 404 over HTTP. Counting that by-design 404 as missing
      * content blocked forms whose assets were demonstrably present and executing. Matching is on the
-     * filename alone and requires an observed 2xx, so a genuinely absent file still blocks: nothing
-     * else would have loaded it.</p>
+     * filename and CDP resource type, with an observed 2xx or cached 304. A successful script
+     * cannot prove that an image with the same filename loaded.</p>
      *
      * <p>The classification is therefore deferred to a second pass. CDP events are replayed from a
      * buffered log in arrival order, so the 404 for a filename can be seen before the 200 for it;
@@ -2396,8 +2480,9 @@ public class EFormBrowserPdfService {
         int failedCriticalSubresources = 0;
         int nonReadRequests = 0;
         java.util.Map<String, String> requestUrlsById = new java.util.HashMap<>();
-        java.util.Set<String> loadedResourceNames = new java.util.HashSet<>();
-        List<String> criticalFailureNames = new ArrayList<>();
+        java.util.Set<ResourceIdentity> loadedResources = new java.util.HashSet<>();
+        java.util.Set<String> duplicateScriptFailureUrls = new java.util.HashSet<>();
+        List<CriticalResourceFailure> criticalFailures = new ArrayList<>();
         for (String rawEntry : rawEntries) {
             JsonNode message = parsePerformanceMessage(rawEntry);
             if (message == null) {
@@ -2461,8 +2546,9 @@ public class EFormBrowserPdfService {
                         // then dropped from the report entirely — the document shipped complete with
                         // that whole batch of fields blank.
                         failedCriticalSubresources++;
-                    } else if (criticalFailureNames.size() < MAX_TRACKED_REQUEST_URLS) {
-                        criticalFailureNames.add(resourceBasename(responseUrl));
+                    } else if (criticalFailures.size() < MAX_TRACKED_REQUEST_URLS) {
+                        criticalFailures.add(new CriticalResourceFailure(resourceBasename(responseUrl),
+                                responseUrl, resourceType));
                     } else {
                         // Past the bound, classify immediately as missing content: dropping the
                         // entry would silently undercount failures.
@@ -2470,12 +2556,15 @@ public class EFormBrowserPdfService {
                     }
                 } else if (RENDER_CRITICAL_RESOURCE_TYPES.contains(resourceType)
                         && isLoaded(status)
-                        && loadedResourceNames.size() < MAX_TRACKED_REQUEST_URLS) {
+                        && (!"Script".equals(resourceType)
+                            || isJavaScriptMimeType(params.path("response").path("mimeType").asText("")))
+                        && loadedResources.size() < MAX_TRACKED_REQUEST_URLS) {
                     // A 2xx, or a 304 which means the browser already holds the bytes. A redirect is
                     // neither and must never license downgrading a failure for the same filename.
+                    // Scripts also need executable MIME evidence, including cached responses.
                     String loadedName = resourceBasename(responseUrl);
                     if (loadedName != null) {
-                        loadedResourceNames.add(loadedName);
+                        loadedResources.add(new ResourceIdentity(loadedName, resourceType));
                     }
                 }
             } else if ("Network.loadingFailed".equals(method)
@@ -2487,25 +2576,33 @@ public class EFormBrowserPdfService {
                 if (PRESENTATION_RESOURCE_TYPES.contains(params.path("type").asText(""))
                         || isContainmentBlockedResource(failedUrl, allowedOrigin)) {
                     failedSubresources++;
-                } else if (criticalFailureNames.size() < MAX_TRACKED_REQUEST_URLS) {
-                    criticalFailureNames.add(resourceBasename(failedUrl));
+                } else if (DATA_RESOURCE_TYPES.contains(params.path("type").asText(""))) {
+                    failedCriticalSubresources++;
+                } else if (criticalFailures.size() < MAX_TRACKED_REQUEST_URLS) {
+                    criticalFailures.add(new CriticalResourceFailure(resourceBasename(failedUrl),
+                            failedUrl, params.path("type").asText("")));
                 } else {
                     failedCriticalSubresources++;
                 }
             }
         }
-        // Second pass: a failure whose filename also loaded successfully in this render is a
+        // Second pass: a failure whose filename and type also loaded successfully in this render is a
         // by-design duplicate reference, not missing content. An unknown filename (no URL recorded
         // for the requestId) can never be matched, so it stays blocking — fail closed.
-        for (String failedName : criticalFailureNames) {
-            if (failedName != null && loadedResourceNames.contains(failedName)) {
+        for (CriticalResourceFailure failure : criticalFailures) {
+            if (failure.name() != null
+                    && loadedResources.contains(new ResourceIdentity(failure.name(), failure.type()))) {
                 failedSubresources++;
+                if ("Script".equals(failure.type()) && failure.url() != null) {
+                    duplicateScriptFailureUrls.add(failure.url());
+                }
             } else {
                 failedCriticalSubresources++;
             }
         }
         return new NetworkGateScan(disallowedRequests, mainDocumentStatus, failedSubresources,
-                parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests);
+                parseFailures, liveChannelAttempts, failedCriticalSubresources, nonReadRequests,
+                duplicateScriptFailureUrls);
     }
 
     /**
@@ -2589,25 +2686,37 @@ public class EFormBrowserPdfService {
             value = value.substring(0, queryStart);
             for (String parameter : query.split("&")) {
                 int separator = parameter.indexOf('=');
-                if (separator > 0 && "imagefile".equals(parameter.substring(0, separator))) {
-                    try {
-                        name = URLDecoder.decode(
-                                parameter.substring(separator + 1), StandardCharsets.UTF_8);
-                    } catch (IllegalArgumentException e) {
-                        // A malformed percent sequence cannot identify an asset; fall through to
-                        // the path segment rather than matching on a half-decoded value.
-                        name = null;
+                try {
+                    String parameterName = URLDecoder.decode(
+                            separator < 0 ? parameter : parameter.substring(0, separator), StandardCharsets.UTF_8);
+                    if ("imagefile".equals(parameterName)) {
+                        // Explicitly missing values and repeated parameters cannot prove an asset
+                        // identity. Decode names too, matching servlet query-parameter semantics.
+                        if (separator < 0 || name != null) {
+                            return null;
+                        }
+                        name = URLDecoder.decode(parameter.substring(separator + 1), StandardCharsets.UTF_8);
                     }
-                    break;
+                } catch (IllegalArgumentException e) {
+                    // A malformed query cannot prove that an asset loaded.
+                    return null;
                 }
             }
         }
-        if (name == null || name.isEmpty()) {
-            name = value;
+        if (name == null) {
+            // Select the path segment before decoding, and decode exactly once. URLDecoder uses
+            // form-query rules, so protect literal path pluses from becoming spaces.
+            String segment = value.substring(value.lastIndexOf('/') + 1);
+            try {
+                name = URLDecoder.decode(segment.replace("+", "%2B"), StandardCharsets.UTF_8);
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
         }
-        int lastSlash = name.lastIndexOf('/');
-        if (lastSlash >= 0) {
-            name = name.substring(lastSlash + 1);
+        // Neither a decoded query value nor a decoded path segment may name a nested path.
+        // Do not strip separators: doing so could make a rejected asset request match a loaded file.
+        if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
+            return null;
         }
         return name.isEmpty() ? null : name;
     }
@@ -2748,7 +2857,8 @@ public class EFormBrowserPdfService {
 
     /**
      * Outcome of competing for one of the bounded render slots: {@code ACQUIRED} within the wait,
-     * {@code TIMED_OUT} with every slot busy for the full wait, or {@code INTERRUPTED} when the
+     * {@code TIMED_OUT} when the waiting queue is full or the admission deadline expires,
+     * or {@code INTERRUPTED} when the
      * waiting thread was interrupted (shutdown) before a slot was taken. Distinguishing the last two
      * lets the caller give correct operator guidance — capacity load-shed (retry) versus an aborted
      * render (no retry) — rather than collapsing both into a single boolean {@code false}.
@@ -2756,9 +2866,24 @@ public class EFormBrowserPdfService {
     enum SlotAcquisition { ACQUIRED, TIMED_OUT, INTERRUPTED }
 
     static SlotAcquisition acquireRenderSlot(Semaphore slots, Duration wait) {
+        return acquireRenderSlot(slots, RENDER_WAITERS, wait);
+    }
+
+    /** Custom semaphores let concurrency tests exercise the real admission policy in isolation. */
+    static SlotAcquisition acquireRenderSlot(Semaphore slots, Semaphore waiting, Duration wait) {
         try {
-            return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
-                    ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
+            // A timed zero probe respects FIFO fairness and the interrupted flag. A free
+            // browser needs no waiting token; untimed tryAcquire would barge past a queue.
+            if (slots.tryAcquire(0, TimeUnit.MILLISECONDS)) return SlotAcquisition.ACQUIRED;
+            // Only a small bounded set may occupy servlet threads while waiting. Chromium
+            // needs other servlet threads to load its token-authorized page and resources.
+            if (!waiting.tryAcquire()) return SlotAcquisition.TIMED_OUT;
+            try {
+                return slots.tryAcquire(wait.toMillis(), TimeUnit.MILLISECONDS)
+                        ? SlotAcquisition.ACQUIRED : SlotAcquisition.TIMED_OUT;
+            } finally {
+                waiting.release();
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return SlotAcquisition.INTERRUPTED;
@@ -2999,7 +3124,8 @@ public class EFormBrowserPdfService {
         if (!retiredPath.isBlank()) {
             logger.warn("eform_pdf_browser_chromedriver_path is RETIRED and ignored: CARLOS no "
                     + "longer spawns chromedriver. Run chromedriver as a service and set {} "
-                    + "instead (the .deb's carlos-emr-eform-renderer package does both).",
+                    + "instead (the carlos-emr .deb does both: it bundles the browser and runs "
+                    + "the carlos-emr-render-browser service).",
                     SERVICE_URL_PROPERTY);
         }
         try {

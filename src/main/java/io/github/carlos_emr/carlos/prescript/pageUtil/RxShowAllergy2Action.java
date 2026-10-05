@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
@@ -52,6 +54,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import org.owasp.encoder.Encode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -90,15 +94,27 @@ public final class RxShowAllergy2Action extends ActionSupport {
      * <li>direction - String direction to move ("up" or "down")</li>
      * </ul>
      *
-     * @return String NONE (redirect handled manually)
+     * @return String NONE (redirect handled manually, or 405 for a non-POST request)
      * @throws RuntimeException if redirect fails
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String reorder() {
+        // Reordering rewrites the patient's allergy positions, so it is POST-only: CSRFGuard does not
+        // check GET, and a link or image tag must not be able to reorder a chart (#3908). The
+        // display and allergyData paths of this action stay GET-compatible.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String demoNoParam = request.getParameter("demographicNo");
@@ -107,11 +123,6 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
         reorder(request);
         try {
-            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoParam);
-            if (patient != null) {
-                // demoNoParam validated as numeric at method entry
-                request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-            }
             response.sendRedirect(request.getContextPath() + "/rx/showAllergy?demographicNo=" + Encode.forUriComponent(demoNoParam));
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -150,7 +161,7 @@ public final class RxShowAllergy2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
         String method = request.getParameter("method");
@@ -169,44 +180,38 @@ public final class RxShowAllergy2Action extends ActionSupport {
         }
 
         String user_no = (String) request.getSession().getAttribute("user");
-        String demo_no = request.getParameter("demographicNo");
         String view = request.getParameter("view");
 
-        if (demo_no == null) {
+        // The patient must be named: a missing one keeps the old "failure" page, and a malformed,
+        // non-positive or conflicting one (demographicNo=1&demographic_no=2) is a bad request. "0"
+        // used to pass the digits check and fail inside activate() with a 500 (#3908).
+        int demographicNo = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNo == RxSessionBeanResolver.NOT_REQUESTED) {
             return "failure";
         }
-        if (!demo_no.matches("\\d{1,9}")) {
-            return "failure";
+        if (demographicNo <= 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
+        // Opening allergies activates the patient's Rx session, which later patient-less Rx pages
+        // fall back to: authorise this patient (patient-level _allergy read and record access)
+        // before anything is activated, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo, "_allergy", "r");
         // Setup bean
-        RxSessionBean bean;
-
-        if (request.getSession().getAttribute("RxSessionBean") != null) {
-            bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if ((bean.getProviderNo() != user_no) || (bean.getDemographicNo() != Integer.parseInt(demo_no))) {
-                bean = new RxSessionBean();
-            }
-
-        } else {
-            bean = new RxSessionBean();
-        }
-
-
-        bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(demo_no));
+        // Per-patient state (#3875). The old code compared providerNo Strings with != and so
+        // replaced the bean (and wiped the staged drafts) every time allergies were opened.
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNo, user_no);
         if (view != null) {
             bean.setView(view);
         }
-
-        // demographicNo validated via Integer.parseInt(); bean setters use validated values
-        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 
         if (patient == null) {
             return "failure";
         }
-        request.getSession().setAttribute("Patient", patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Not stored in the session any more: ShowAllergies2.jsp loads the patient for this
+        // request's bean through RxSessionBeanResolver.resolvePatient (#3875).
         return "success";
     }
 
@@ -220,72 +225,74 @@ public final class RxShowAllergy2Action extends ActionSupport {
      *
      * @param loggedInInfo LoggedInInfo object containing user session details and security information.
      */
-    private void getAllergyData(LoggedInInfo loggedInInfo) {
-        boolean rxShowAllAllergyWarnings = systemPreferencesDao.isReadBooleanPreference(SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
-
-        String atcCode = request.getParameter("atcCode");
-        String id = request.getParameter("id");
-        String disabled = CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false");
-        if (disabled.equals("false")) {
-
-            ObjectMapper objectMapper = new ObjectMapper();
-            RxSessionBean rxSessionBean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            Allergy[] allergies = RxPatientData.getPatient(loggedInInfo, rxSessionBean.getDemographicNo()).getActiveAllergies();
-
-            Allergy[] allergyWarnings = null;
-            RxDrugData drugData = new RxDrugData();
-
-            try {
-                allergyWarnings = drugData.getAllergyWarnings(atcCode, allergies);
-
-
-                Allergy highestSeverityAllergy = null;
-
-                ObjectNode result = objectMapper.createObjectNode();
-                result.put("id", id);
-                ArrayNode allergyResultArray = objectMapper.createArrayNode();
-                if (allergyWarnings != null && allergyWarnings.length > 0) {
-                    highestSeverityAllergy = allergyWarnings[0];
-                    for (Allergy allergy : allergyWarnings) {
-                        ObjectNode allergyResult = objectMapper.createObjectNode();
-                        allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
-                        allergyResult.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
-                        allergyResult.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
-                        if (rxShowAllAllergyWarnings) {
-                            int highestSeverity = Integer.parseInt(highestSeverityAllergy.getSeverityOfReaction());
-                            int thisSeverity = Integer.parseInt(allergy.getSeverityOfReaction());
-                            if (thisSeverity > highestSeverity) {
-                                highestSeverityAllergy = allergy;
-                            }
-                        } else {
-                            allergyResultArray.add(allergyResult);
-                        }
-                    }
+    private void getAllergyData(LoggedInInfo loggedInInfo) throws IOException {
+        // The check reads the named patient's allergies: authorise that patient before anything is
+        // read, outside the catch-all below so a refusal is a 403 and not a "check failed" (#3908).
+        String requestedPatient = request.getParameter("demographicNo");
+        if (requestedPatient != null && requestedPatient.matches("[1-9]\\d{0,8}")) {
+            RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    Integer.parseInt(requestedPatient), "_allergy", "r");
+        }
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode result = mapper.createObjectNode();
+        result.put("id", request.getParameter("id"));
+        ArrayNode warnings = result.putArray("results");
+        ArrayNode unchecked = result.putArray("unchecked");
+        result.put("checkComplete", false);
+        Allergy[] allergies = new Allergy[0];
+        try {
+            if (!"false".equals(CarlosProperties.getInstance().getProperty("rx.disable_allergy_warnings", "false"))) {
+                result.put("disabled", true);
+            } else {
+                String demographicNo = request.getParameter("demographicNo");
+                if (demographicNo == null || !demographicNo.matches("[1-9]\\d{0,8}")) {
+                    throw new IllegalArgumentException("A valid patient is required for the allergy check");
                 }
-                if (rxShowAllAllergyWarnings && highestSeverityAllergy != null) {
-                    ObjectNode allergyResult = objectMapper.createObjectNode();
-                    allergyResult.put("DESCRIPTION", StringUtils.trimToEmpty(highestSeverityAllergy.getDescription()));
-                    allergyResult.put("reaction", StringUtils.trimToEmpty(highestSeverityAllergy.getReaction()));
-                    allergyResult.put("severity", StringUtils.trimToEmpty(highestSeverityAllergy.getSeverityOfReactionDesc()));
-                    allergyResultArray.add(allergyResult);
+                // Another prescribing tab can replace the shared RxSessionBean. The
+                // request must identify the patient whose page initiated this check.
+                allergies = RxPatientData.getPatient(loggedInInfo, Integer.parseInt(demographicNo)).getActiveAllergies();
+                List<Allergy> missing = new ArrayList<>();
+                Allergy[] matches = new RxDrugData().getAllergyWarnings(request.getParameter("atcCode"), allergies, missing);
+                boolean highestOnly = systemPreferencesDao.isReadBooleanPreference(
+                        SystemPreferences.RX_PREFERENCE_KEYS.rx_show_highest_allergy_warning);
+                Allergy highest = null;
+                for (Allergy allergy : matches) {
+                    if (!highestOnly) warnings.add(allergyJson(mapper, allergy));
+                    if (highest == null || severity(allergy) > severity(highest)) highest = allergy;
                 }
-                result.set("results", allergyResultArray);
-
-                response.setContentType("application/json");
-                response.getOutputStream().write(result.toString().getBytes());
-
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error in getAllergyData", e);
-                try {
-                    ObjectNode errorResult = objectMapper.createObjectNode();
-                    errorResult.put("id", id);
-                    errorResult.set("results", objectMapper.createArrayNode());
-                    response.setContentType("application/json");
-                    response.getOutputStream().write(objectMapper.writeValueAsBytes(errorResult));
-                } catch (IOException ioe) {
-                    MiscUtils.getLogger().error("Error writing empty allergy JSON response", ioe);
-                }
+                if (highestOnly && highest != null) warnings.add(allergyJson(mapper, highest));
+                // An unresolved allergen is not a negative allergy check. Keep every unresolved
+                // entry even when the preference limits confirmed matches to highest severity.
+                for (Allergy allergy : missing) unchecked.add(allergyJson(mapper, allergy));
+                result.put("checkComplete", missing.isEmpty());
             }
+        } catch (Exception error) {
+            MiscUtils.getLogger().error("Unable to complete prescription allergy check", error);
+            result.put("checkFailed", true);
+            result.put("checkComplete", false);
+            unchecked.removeAll();
+            for (Allergy allergy : allergies) unchecked.add(allergyJson(mapper, allergy));
+        }
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getOutputStream().write(mapper.writeValueAsBytes(result));
+    }
+
+    private static ObjectNode allergyJson(ObjectMapper mapper, Allergy allergy) {
+        ObjectNode item = mapper.createObjectNode();
+        item.put("DESCRIPTION", StringUtils.trimToEmpty(allergy.getDescription()));
+        item.put("reaction", StringUtils.trimToEmpty(allergy.getReaction()));
+        item.put("severity", StringUtils.trimToEmpty(allergy.getSeverityOfReactionDesc()));
+        return item;
+    }
+
+    private static int severity(Allergy allergy) {
+        try {
+            int level = Integer.parseInt(allergy.getSeverityOfReaction());
+            return level >= 1 && level <= 3 ? level : 0; // 5 means No Reaction.
+        } catch (NumberFormatException _) {
+            return 0;
         }
     }
 
@@ -324,6 +331,10 @@ public final class RxShowAllergy2Action extends ActionSupport {
             MiscUtils.getLogger().warn("Invalid demographicNo for allergy reorder");
             return;
         }
+        // Reordering changes this patient's allergy list: patient-level _allergy update and record
+        // access, not only the global check above (#3908).
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo,
+                Integer.parseInt(demographicNo), "_allergy", "u");
         String allergyIdParam = request.getParameter("allergyId");
         if (allergyIdParam == null || !allergyIdParam.matches("\\d{1,9}")) {
             MiscUtils.getLogger().warn("Invalid allergyId for allergy reorder");

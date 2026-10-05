@@ -16,8 +16,8 @@ The endpoint is consumed by the prescription module for drug search, dosing, ATC
 
 | Container | Image | Internal Port | Host Port |
 |-----------|-------|---------------|-----------|
-| `carlos-tomcat-dev` | Tomcat 11 + JDK 21 (CARLOS app) | 8080 | 8080 |
-| `carlos-drugref-dev` | Tomcat 11 + JDK 21 (drugref2.war) | 8080 | 8180 |
+| `carlos-tomcat-dev` | Tomcat 11 + JDK 25 (CARLOS app) | 8080 | 8080 |
+| `carlos-drugref-dev` | Tomcat 11 + JDK 25 (drugref2.war) | 8080 | 8180 |
 | `carlos-mariadb-dev` | MariaDB | 3306 | 3306 |
 
 Both Tomcat instances listen on container port 8080 — there is no conflict because they run in separate containers on the `carlos-network` bridge. CARLOS resolves `drugref` via Docker's internal DNS.

@@ -191,11 +191,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 
         <!-- Fav and touch icons -->
-        <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-        <link rel="shortcut icon" href="ico/favicon.png">
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
         <style type="text/css">
             div.ImmSet {
@@ -486,7 +482,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
+                <%-- The Health Tracker opens this page with &htracker so "back" returns to the
+                     tracker rather than dropping the clinician on the plain flowsheet view. --%>
+                <%String backRoute = request.getParameter("htracker") != null
+                        ? "/encounter/oscarMeasurements/ViewHealthTracker"
+                        : "/encounter/oscarMeasurements/ViewTemplateFlowSheet";%>
+                <a href="<%= request.getContextPath() %><%= backRoute %>?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
                    title="go back to <carlos:encode value='<%= temp %>' context="htmlAttribute"/>">&lt;&lt; <carlos:encode value='<%= flowSheet %>' context="html"/>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <carlos:encode value='<%= flowSheet %>' context="htmlAttribute"/>"></a>

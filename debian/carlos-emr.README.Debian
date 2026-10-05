@@ -33,20 +33,78 @@ Contents
 0. Getting the packages
 -----------------------
 
-Release builds of both packages are attached to every CARLOS GitHub release
+Release builds of the packages (carlos-emr for amd64 and carlos-emr-drugref)
+are attached to every CARLOS
+GitHub release
 (https://github.com/carlos-emr/carlos/releases) by the "Debian Packages"
 workflow, alongside their .sha256 checksums and build-provenance
 attestations. The carlos-emr package on a release ships that release's own
-published WAR byte for byte. Verify, then install:
+published WAR's application payload, with the Debian build identity stamped
+in carlos-build.properties and the explicit package-only jdbc-defaults.properties
+resource described below. All other EMR WAR entries remain unchanged.
 
-  sha256sum -c carlos-emr_<version>_all.deb.sha256
+The Debian MariaDB default appends useInformationSchema=false to the JDBC URL
+only when no explicit (including URL-encoded) useInformationSchema option exists.
+Connector/J's default MySQL keyword query references
+INFORMATION_SCHEMA.KEYWORDS.RESERVED, which MariaDB does not provide; Hibernate
+otherwise boots using incomplete fallback metadata. This setting keeps JDBC
+metadata enabled using Connector/J's alternate metadata implementation. The
+ordinary WAR's jdbc-defaults.properties is empty and keeps normal driver defaults.
+Existing /etc/carlos-emr/carlos.properties is preserved: an explicit
+ db_default_use_information_schema=true
+changes the optional default, while
+ db_default_use_information_schema=
+(empty) disables it. Existing explicit URL options and explicit driver connection
+properties retain their normal precedence. The timezone behavior is unchanged.
+Restart the EMR after an operator change. JVM -D properties do not override these
+Spring placeholders. An older operator file without this key receives the package
+default on upgrade without having its URL or credentials rewritten for this fix.
+
+Fetching them from a shell (a server has no browser; from WSL this is far
+easier than copying files across): on the release page, right-click each
+asset and copy its link address, or build the URLs from the tag. <tag> is the
+release tag as GitHub shows it (2026.08.0-alpha14); <version> is that tag as
+it appears in the asset names, with every '-' written as '.' (2026.08.0.alpha14);
+<ctl-version> is the carlos-ctl release the CARLOS release re-attaches (for example 1.1.1):
+
+  R=https://github.com/carlos-emr/carlos/releases/download/<tag>
+  wget $R/carlos-emr_<version>_amd64.deb $R/carlos-emr_<version>_amd64.deb.sha256 \
+       $R/carlos-emr-drugref_<version>_all.deb $R/carlos-emr-drugref_<version>_all.deb.sha256 \
+       $R/carlos-ctl_<ctl-version>_all.deb $R/carlos-ctl_<ctl-version>_all.deb.sha256
+
+Verify, then install:
+
+  sha256sum -c carlos-emr_<version>_amd64.deb.sha256
   sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-  sudo apt install ./carlos-emr_<version>_all.deb ./carlos-emr-drugref_<version>_all.deb \
-      ./carlos-emr-eform-renderer_<version>_amd64.deb
+  sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
+  sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
+      ./carlos-emr-drugref_<version>_all.deb ./carlos-ctl_<ctl-version>_all.deb
 
-carlos-emr-eform-renderer is optional but strongly recommended: it carries the
-browser that renders saved eForms to PDF, and eForm print, fax and archive do
-not work without it. Leave it out only if the site does not use eForms.
+Releases up to and including 2026.08.0-alpha13 publish carlos-emr as _all.deb
+and the renderer as a real carlos-emr-eform-renderer_<version>_amd64.deb; adjust
+the names above for those. Releases 2026.08.0-alpha14 through alpha17 also
+attached an empty transitional carlos-emr-eform-renderer_<version>_all.deb;
+later releases do not build it.
+
+On releases up to and including 2026.08.0-alpha12 the .sha256 files name the
+package with the build-time '~' spelling (carlos-emr_2026.08.0~alpha12_all.deb)
+while GitHub stores the asset with a '.', so `sha256sum -c` reports "No such
+file or directory" on an intact download. For those older releases,
+translate the filename in each downloaded checksum before checking it (the
+digest is unchanged), for example:
+
+  sed 's/~/./g' carlos-emr_2026.08.0.alpha12_all.deb.sha256 | sha256sum -c -
+
+Repeat for drugref and the renderer and require an OK result for every package
+before installing. Later releases record the published name directly.
+
+carlos-emr is built for amd64 only: it carries the pinned Chromium that renders
+saved eForms to PDF (eForm print, fax and archive have no other path), run as
+the carlos-emr-render-browser service. carlos-emr-eform-renderer, the separate
+renderer package through 2026.08.0-alpha13, is replaced by carlos-emr and is
+no longer built, not even as a transitional package; see "Upgrading from
+2026.08.0-alpha13 or earlier" below. A transitional copy left installed by
+alpha14 through alpha17 owns no files and can be removed at any time.
 
 apt normally prints this while installing a local .deb, and it is harmless:
 
@@ -71,10 +129,18 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
                                          and read-only to the service account
   /usr/share/carlos-emr/webapp/drugref2/ DrugRef2 (carlos-emr-drugref)
   /usr/share/carlos-emr/schema/          the Flyway migration set, readable
+  /usr/share/carlos-emr/o19-manifest/    the OSCAR 19 import manifests (JSON;
+                                         read by carlos-ctl import-o19)
   /usr/lib/carlos-emr/                   the administrative helpers
   /usr/lib/carlos-emr/chromium/          the eForm PDF browser and its
-                                         chromedriver (carlos-emr-eform-renderer)
-  /usr/sbin/carlos-ctl                    the administration command
+                                         chromedriver (run by the
+                                         carlos-emr-render-browser service)
+  /usr/sbin/carlos-ctl                    the administration command -- the
+                                         separate carlos-ctl package, which
+                                         carlos-emr depends on (its code is
+                                         under /usr/lib/carlos-ctl; through
+                                         2026.08.0~alpha15 it was part of
+                                         carlos-emr)
 
   /etc/carlos-emr/carlos-emr.env         site settings; yours to edit
   /etc/carlos-emr/carlos.properties      application configuration + credentials
@@ -140,6 +206,14 @@ upgrade, compare them against the current reference copies in
                   repository, its passphrase, or the backup credential. A
                   compromise of the EMR therefore cannot destroy or decrypt
                   the backups you would recover from.
+  carlos-render   the eForm render browser (carlos-emr-render-browser.service):
+                  chromedriver and the Chromium it launches, on loopback only.
+                  A member of NO group, including `carlos`: it owns nothing
+                  but a scratch home (/var/lib/carlos-emr/renderer) and cannot
+                  read patient documents or any credential. Its unit is the
+                  only one on the host allowed to create namespaces, which is
+                  what lets Chromium keep its own sandbox; see
+                  /usr/lib/sysusers.d/carlos-emr.conf for the full reasoning.
   www-data        nginx, the only process listening on a public interface.
   mysql           MariaDB, listening on loopback only.
 
@@ -164,9 +238,25 @@ where, certificate validity, the security headers, whether the WAF actually
 blocks a probe attack, schema state, and backup freshness. Start there.
 
 The database migrations seed one administrator account, `carlosdoc`, whose
-password hash is published in the CARLOS source repository. The package
-replaces that password and PIN with random values at install time and writes
-them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+password hash is published in the CARLOS source repository. When the
+installer's "replace the seeded administrator password" question is accepted
+(the default), the package replaces that password and PIN with random values
+and writes them to /etc/carlos-emr/initial-admin.txt (mode 0600, root only).
+Declining the question leaves the published credential in the database and
+keeps the EMR stopped and disabled. To complete that installation, run
+
+  sudo dpkg-reconfigure carlos-emr
+
+and accept seeded-password replacement. This also clears the credential
+guard and restores service startup after provisioning succeeds. Running
+bootstrap-admin alone replaces the credential but does not clear that guard
+or restore service startup.
+
+On an already completed installation, `sudo carlos-ctl bootstrap-admin`
+generates a new administrator password and PIN. The verb takes no options:
+exactly one of -h, --help or help prints its usage without running it, and
+any other argument (or anything after the help word) is refused rather than
+ignored.
 
 That account arrives flagged for a FORCED PASSWORD RESET — the state the
 migrations seed it in, which this package deliberately keeps. Your first login
@@ -236,10 +326,105 @@ request or response bodies (SecAuditLogParts ABFHZ). That is the PHI decision
 described under "Log retention", and it is checkable on a running system:
 every record has `request.headers` and no `request.body`.
 
+Reaching the server by IP address, and when you must not
+
+Most clinics run this on their own LAN and reach it at its address on the
+practice subnet. That is supported, and the package makes it work: CRS rule
+920350 ("Host header is a numeric IP address") would otherwise score 3 of the
+5-point inbound threshold on EVERY request from such a client, leaving 2 points
+of headroom in which a single further rule match blocks ordinary clinical work
+with a bare 403 and no application log line. Packaged rule 1090 removes 920350
+for a request that BOTH arrives from a SOURCE address in a private, loopback or
+link-local range (10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, ::1,
+fc00::/7, fe80::/10) AND carries no forwarding header, so a LAN-local
+deployment starts each request with the full 5 points. The source address is
+the peer nginx accepted the connection from, not a header, so an off-network
+client cannot claim it.
+
+Carrier-grade NAT space (100.64/10) is deliberately NOT in that list: RFC 6598
+shared address space belongs to the ISP and unrelated subscribers can sit in
+it, so it is not a private-network trust boundary. A site that deliberately
+runs a mesh VPN in that range and wants the exemption should add it in its own
+local-exclusions-before-crs.conf, as its own decision.
+
+A request arriving from a PUBLIC source address is deliberately NOT exempt:
+that is the case 920350 exists for (an internet scanner sweeping a range by
+IP), and the exemption would be worthless if it could be claimed from outside.
+
+  So: if this server is reachable from outside the practice network and people
+  reach it BY IP ADDRESS, give it a DNS name and have them use the name.
+
+An internet-exposed install used by public IP keeps the standing 3 points and
+the 2-point headroom, and its users will see occasional unexplained 403s on
+ordinary clinical work — a saved form or a refreshed panel failing with no
+error in the application log. A DNS name removes the whole class of problem,
+and you need one anyway for a real (non-self-signed) TLS certificate: see
+section 4.
+
+IF YOU FRONT THIS DEPLOYMENT WITH ANOTHER PROXY, CDN OR LOAD BALANCER, read
+this. That hop connects from its own address, which in the usual layout is
+RFC1918 — so REMOTE_ADDR stops being the client and becomes the proxy. Rule
+1090 requires the absence of any forwarding header precisely so the standard
+case cannot launder internet clients into the exemption. It matches header
+NAMES by prefix — ANY X-Forwarded-* header, plus X-Real-IP, Forwarded and Via
+— rather than a fixed list, because the family is open-ended in practice
+(X-Forwarded-Prefix, -Scheme, -Ssl, -Uri and vendor variants are all in live
+use) and a proxy falling outside a list would be read as a direct connection.
+A front end that sets NONE of those headers is the case this does NOT catch:
+its public clients would still reach the exemption, and closing that is your
+job, below. The same test means a clinic running its own internal proxy that
+stamps those headers on LAN traffic loses the exemption; that errs toward more
+inspection, and such a site can restore it deliberately in its own
+local-exclusions file. This is the same premise the packaged rate limits
+already depend on — they key on the TCP peer and collapse into one shared
+bucket behind an unconfigured front end (see conf.d/carlos-emr-limits.conf).
+Either way the answer is the same: configure set_real_ip_from/real_ip_header
+for the front end, confirm with "carlos-ctl waf tail" that 920350 behaves as
+you expect, and if in doubt disable this exemption in your own
+local-exclusions file.
+
 CARLOS is a large application of OSCAR lineage and a clinical workflow you use
 may trip a rule the packaged exclusions do not cover. The package already ships
 clinical-workflow exclusions for the known free-text and base64 routes (see
 REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf, ids 1000-1999 — package-managed).
+
+Understand WHY that list exists, because it tells you what to expect. The CRS
+content signatures cannot distinguish a clinician's prose from an attack: at
+paranoia level 1 a sentence-ending semicolon ("Reviewed labs; find attached the
+CBC") scores 10 against a threshold of 5 on the Unix and Windows command-
+injection rules alone, and a note that simply BEGINS with a pasted internal
+PACS link scores on the RFI rule. The shipped exclusions unhook those signature
+families from the specific free-text arguments of the specific clinical
+workflows — encounter notes and the chart print, referrals, prescriptions,
+appointments, the patient Alert and Notes, preventions, lab-review comments,
+messages, ticklers and the rest of the survey in ids 1010 and 1100-1199 — and,
+through a GENERATED companion file, from the narrative cells of the encounter
+forms (Rourke, BCAR, the mental-health assessments and the rest:
+REQUEST-901-FORM-PROSE-EXCLUSIONS-BEFORE-CRS.conf, ids 1200-1399, one rule per
+save route and form class). The two report-authoring tools whose input IS SQL
+-- Query By Example (and its favourites) and the Report by Template editor --
+are exempted from the SQLi family on their specific arguments (ids 1400-1402;
+the template document from the XSS family too). The application checks the
+statement shape itself: before any QBE query runs (a favourite is stored text
+that only ever runs through that same check), and when a template is saved as
+well as before it runs. Those application checks are the only control on these
+arguments: the WAF no longer inspects them, malicious SQL included. Two things are left
+inspected ON PURPOSE. The
+survey rules (1100-1199) and the generated form rules (1200-1399) keep the XSS
+family ON every argument they exempt, so raw HTML markup pasted into a
+referral or a master-record note still answers 403: that layer is defence in
+depth for legacy views that render stored text. (The encounter note, 1010, and
+the routes whose argument IS an HTML document by design -- the Rich Text
+Letter and the eForm editors, 1045-1070 -- do unhook it; their comments say
+why.) And two groups of form cells stay fully inspected because the only way to
+exempt them would apply to every route: the Vascular Tracker's bracketed
+value(...) cells and the growth-chart and chart-checklist per-row cells
+(comment_<n>, descOther<n>). A 403 on one of those is this gap, not a defect;
+the reasoning is in docs/ui-tests/deb-install-validation.md. Decide
+deliberately whether your site needs them, and if so add the narrowest
+exclusion that works to your own local-exclusions-before-crs.conf and record
+why you made that trade.
+
 For anything else, the supported response is: reproduce it, read
 `carlos-ctl waf tail` for the rule id and the matched variable, and add the
 NARROWEST exclusion that works to one of YOUR OWN exclusion files:
@@ -313,22 +498,64 @@ coerced rather than rejected, and zero dates are accepted. Enabling
 STRICT_TRANS_TABLES is a genuine data-integrity improvement and a genuine
 application-compatibility risk; validate it on a copy of your data first.
 
+The billing province decides which migrations run. The carlos-emr/province
+debconf question takes `on`, `bc` or `other`, and CARLOS_PROVINCE in
+/etc/carlos-emr/carlos-emr.env records the answer. `on` and `bc` apply
+common + their own province location and render billregion=ON / BC.
+
+`other` is an ALIAS for `on`, for a clinic in a province CARLOS does not
+implement billing for: it applies exactly the Ontario migrations and renders
+billregion=ON, so the deployment is an Ontario one in every respect. It is a
+separate answer only so the installer does not make such a clinic claim to be
+in Ontario; nothing downstream distinguishes the two.
+
+The province is fixed at FIRST INSTALL. `dpkg-reconfigure carlos-emr` still
+shows the question, but the answer is not written back — pointing Flyway at a
+different province's migrations against an existing schema would create a
+different set of tables and leave the application failing its boot-time
+validation. Changing province means a fresh database.
+
 Adopting an existing pre-Flyway (OSCAR 19 / OpenO) database is a two-step
 operation and NOT what `db-migrate` does on its own:
 
-  sudo carlos-ctl db-baseline          stamp the history at the full genesis
+  sudo carlos-ctl db-baseline          adopt the schema and stamp the genesis
   sudo carlos-ctl db-migrate           apply only the forward deltas
 
 The baseline is stamped at 1.0.2, not 1. Stamping at 1 would make Flyway re-run
 the province migrations, and those DROP and recreate province tables — data
 loss.
 
+Stamping at 1.0.2 ASSERTS that common V1 and the province V1.0.1/V1.0.2 are
+already satisfied, and on a genuine OSCAR 19 datadir that assertion is false:
+it forked before most of those columns existed. So db-baseline first reconciles
+the live schema up to the genesis DDL in the deployed WAR (CREATE TABLE IF NOT
+EXISTS / ALTER TABLE ... ADD COLUMN IF NOT EXISTS — no-ops on anything already
+present), then clears the two things that stop a real clinic's forward
+migrations: rows colliding with V1.0.5's unguarded icd10 seed, and legacy
+OHIP/MCEDT billing filenames that violate the UNIQUE indexes V1.0.11/V1.0.12
+add. Nothing is overwritten without being copied to a carlos_adopt_backup_*
+table first. Run it with --dry-run to see the plan, or --stamp-only for the
+bare Flyway stamp and no reconciliation.
+
+Do not skip it. Without the reconciliation the install LOOKS healthy —
+db-migrate reports success and db-validate passes, because validate compares
+the history against the WAR's migrations, not the live schema against either —
+and then fails at the first login with "unable to process login at this time".
+
+The whole procedure, from the encrypted dump onwards, is in
+docs/oscar19-legacy-adoption.md.
+
 The demonstration dataset. Answering yes to the carlos-emr/install-demo-data
 debconf question (default: no) loads a fictitious practice into the freshly
 migrated database — about 3000 fake patients whose names all carry a FAKE-
 prefix, demonstration providers, appointments, notes, labs, prescriptions,
-and 60 clearly-fake referral specialists. The postinst runs the same verb an
-administrator can run by hand:
+60 clearly-fake referral specialists, and a small set of synthetic
+Administration fixtures (labelled "Local Test -": billing CSS styles, an
+inbox forwarding rule, patient-independent eForms, referral doctors, a
+report template, query favourites, appointment types and prevention lot
+numbers) so the data-backed Administration screens are not empty. The
+fixtures add no login: the demo load never introduces security rows. The
+postinst runs the same verb an administrator can run by hand:
 
   sudo carlos-ctl demo-data
 
@@ -503,12 +730,31 @@ sequence has been exercised end to end (DROP DATABASE and back):
 8. Upgrades
 -----------
 
-`apt upgrade` of this package stops the application FIRST (the packaging's
+Upgrading this package -- `sudo apt install --no-remove` of the newer release
+files, as in section 0; a plain `apt upgrade` does nothing, because these
+packages are not served from an apt repository -- stops the application FIRST (the packaging's
 preinst stops the service and timers before unpack — replacing the exploded
 webapp underneath a running JVM is not safe), replaces the webapp, re-renders
 the derived configuration, runs `carlos-ctl db-migrate`, and starts the
 service again. Plan the maintenance window for the whole operation: unpack of
-the ~400 MB webapp plus migration plus the ~2-minute redeploy.
+the ~400 MB webapp plus migration plus the ~2-minute redeploy. The application
+deploys ONCE per apt transaction, even though carlos-emr and carlos-emr-drugref
+both need it restarted: both activate the carlos-emr-restart dpkg trigger, and
+the restart runs after every package in the transaction is configured. apt
+returns only after the application (and DrugRef, if installed) answers, so a
+`carlos-ctl check` straight afterwards reflects the finished system.
+
+Upgrading from 2026.08.0-alpha13 or earlier: the eForm renderer, then its own
+package, is now part of carlos-emr, and no transitional package is shipped,
+so apt must remove the old renderer package. Run the upgrade WITHOUT
+--no-remove and check that carlos-emr-eform-renderer is the only package apt
+proposes to remove. The render token carries over: the postinst moves it from
+/etc/carlos-emr/render-browser.env to /etc/carlos-emr/renderer.env, and the
+browser now runs as carlos-emr-render-browser.service with its home in
+/var/lib/carlos-emr/renderer. Removing or purging the old renderer package,
+now or later, touches none of those -- though purging the removed old
+renderer later runs its old script, which re-applies the configuration and restarts
+the EMR once, so do it outside clinic hours.
 
 Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
@@ -588,7 +834,7 @@ and in backup.env, to your own obligations.
   sudo carlos-ctl logs -n 200          application server log
   sudo carlos-ctl logs -f              follow it live
   sudo journalctl -u nginx -n 100      front door
-  sudo journalctl -u carlos-emr-chromedriver -n 100
+  sudo journalctl -u carlos-emr-render-browser -n 100
                                        the eForm render browser (its OWN unit —
                                        it does not log to the application log)
   sudo journalctl -u mariadb -n 100    the database
@@ -603,7 +849,7 @@ Which log holds what
                                        journal for carlos-emr.service; the same
                                        content is on disk under
                                        /var/log/carlos-emr/tomcat/.
-    journalctl -u carlos-emr-chromedriver
+    journalctl -u carlos-emr-render-browser
                                        the browser that renders eForms to PDF.
                                        Separate service, separate journal — a
                                        render failure often leaves nothing in the
@@ -618,12 +864,102 @@ Which log holds what
   troubleshooting is fine; put it back afterwards, because DEBUG on this
   application can put request parameters — which is to say PHI — into the log.
 
+Schema setup reports that indexes or columns were already present
+  Fresh installs create the baseline schema and then run the same guarded
+  migrations used for upgrades. Some indexes and columns already exist in that
+  baseline. The installer summarizes those successful no-ops in one line:
+
+    schema setup: 7 index(es) and 21 column(s) were already present; kept their existing definitions.
+
+  The counts can differ by schema. This replaces MariaDB's confusing duplicate
+  key-name (1061) and column-name (1060) warning lines. It does not suppress
+  duplicate DATA errors (1062), other warnings or failed SQL statements. A
+  migration that fails still needs investigation; follow its recovery message.
+
+The install "succeeded" but nothing works: no schema, EMR stopped, DrugRef silent
+  `carlos-ctl check` reports "this installation never finished", or the database
+  section says the schema has NO tables. Finish the install:
+
+    sudo carlos-ctl finish-install
+
+  Why this can happen with an apt run that reported no error: every provisioning
+  step in the postinst is deliberately non-fatal. A database that is unreachable
+  must not leave dpkg half-configured, because that would block the other CARLOS
+  packages and anything else in the same transaction. So the failure is reported
+  on stderr, the transaction succeeds, and on a front end that never showed you
+  stderr the install simply looks finished.
+
+  When the state directory is writable, the failed install is recorded in
+  /var/lib/carlos-emr/.install-incomplete. Interactive installers also show a
+  critical debconf error; unattended installers must inspect the command output
+  and run carlos-ctl check. If writing the marker fails, fix the filesystem and
+  run finish-install manually: an automatic boot retry is not assured.
+
+  finish-install returns nonzero if configuration, database settings, accounts,
+  migration, credential replacement, requested demo data or nginx recovery fails.
+  Recovery starts nginx if stopped and verifies the configured ports before
+  clearing the pending state; init-config alone leaves a stopped nginx stopped.
+  If the CARLOS site is missing, run dpkg-reconfigure carlos-emr to restore it.
+  CARLOS_BIND_IP must be an IPv4 or IPv6 address (for example 127.0.0.1 or
+  ::1), not a hostname; invalid input is rejected before rendering or reload.
+  It preserves
+  the pending state so you can fix the reported cause and run the same command
+  again. A populated schema that fails validation is NEVER migrated at boot;
+  arrange a verified backup and have the administrator review the Flyway error
+  before running the manual repair. Do not delete clinical databases to retry.
+
+  Check `journalctl -u mariadb` for the database outage's cause. Memory pressure
+  is one possibility, not a diagnosis: `journalctl -k` records kernel OOM kills.
+  An 8 GB allocation alone does not establish why provisioning was interrupted.
+
+  DrugRef is a second webapp in the EMR's Tomcat, so a stopped application server
+  also stops drug lookups. Its dataset is loaded by the separate DrugRef package.
+  If finish-install says that database is empty, run:
+
+    sudo dpkg-reconfigure carlos-emr-drugref
+    sudo carlos-ctl check
+
+  If it reports existing tables WITHOUT _carlos_seed_complete, the dataset may
+  be from an older installation or an interrupted seed. Back it up and ask the
+  administrator to verify it before reloading; reconfigure deliberately leaves
+  populated databases alone. Test a prescribing lookup after recovery.
+
+  A failed seeded-password replacement stops and disables the EMR and leaves a
+  guard that also blocks manual starts. finish-install checks containment and
+  reports an error if it cannot verify it. A successful retry re-enables the
+  service and removes the guard; boot recovery also queues its start.
+
+  That guard is a file under /var/lib/carlos-emr, and disabling a unit does not
+  stop a manual `systemctl start`. So if the guard itself cannot be written —
+  a full or read-only /var — the recovery masks carlos-emr.service instead, and
+  says so: the mask is then the only thing standing between an internet-facing
+  EMR and the administrator password published in the CARLOS source repository.
+  A later successful finish-install unmasks the unit for you. Do not unmask it
+  by hand before that credential has actually been replaced.
+
+  While `carlos-ctl import-o19` is copying an OSCAR 19 database, finish-install
+  refuses and says so; at boot it records that and waits. Nothing is lost —
+  resume the import (`carlos-ctl import-o19 ... --resume`), and the install
+  finishes itself at the next boot.
+
+  Only one provisioning run at a time. The boot-time provisioner, an operator
+  running finish-install, and the package's own configure (an unattended upgrade
+  or a dpkg-reconfigure) all provision with the same commands, and any two of
+  them would otherwise generate an administrator credential each; they share one
+  lock. A second run by hand is refused with a message naming the first — wait
+  for it, then confirm with `carlos-ctl check`. At boot the recovery leaves the
+  work to whoever holds the lock, and a configure that cannot take it — held
+  for five minutes, or a lock file it cannot even open on a read-only or full
+  /var — provisions nothing and records the install as unfinished, so it is
+  completed later rather than racing. A host with no flock(1) provisions as it
+  did before the lock existed.
+
 eForm print, fax or archive fails
   Those three are the only workflows that need a browser, and it runs as its own
   service. Check, in this order:
 
-    sudo systemctl status carlos-emr-chromedriver
-    sudo journalctl -u carlos-emr-chromedriver -n 50
+    sudo systemctl status carlos-emr-render-browser
+    sudo journalctl -u carlos-emr-render-browser -n 50
     sudo carlos-ctl logs | grep -i "renderer"
 
   At startup the application probes the browser once and says so. Look for
@@ -632,19 +968,55 @@ eForm print, fax or archive fails
   application could not drive the browser, and the browser's own journal is
   where the reason will be.
 
-  Note the application logs at ERROR by default (LOG_VERBOSITY). The renderer's
-  own messages are exempted from that so the probe result is visible without
-  turning up logging everywhere; nothing else in the application is.
+  The application logs at WARN by default (LOG_VERBOSITY raises or lowers it;
+  DEBUG can put request parameters, which is to say PHI, into the journal, so
+  put it back afterwards). The renderer's startup probe reports at INFO and is
+  exempted from the default so its result is visible without turning up
+  logging everywhere. An action that dies in an exception its module maps to
+  the error page is logged at ERROR with its stack trace and an incident
+  reference, and the error page the clinician sees shows that same reference
+  (an authorization refusal is a WARN line and a 403, with its reference).
+  Earlier builds mapped these to the error page silently, which is why "it
+  just did nothing" reports had no trace to go with them. A failure in a
+  module with no such mapping (the provider module maps only authorization
+  refusals) still takes the container's error path: HTTP 500, logged with its
+  stack trace, but with no reference on the page. To find the entry behind a
+  reference:
 
-  If the renderer package is not installed at all, that is expected and the
-  application says so once at startup rather than failing a print later.
+      carlos-ctl logs | grep '<reference>'
+
+  The render browser ships inside carlos-emr. Only a development build made
+  with SKIP_EFORM_RENDERER lacks it; the application then says so once at
+  startup rather than failing a print later.
 
 The application will not start
   Almost always the schema gate or the database. `carlos-ctl db-info` shows the
   migration state; `systemctl status mariadb` shows the database.
 
+  If the unit is dead rather than failing to serve, check whether it exhausted
+  its restart limit: the unit gives up after six failures in thirty minutes
+  (StartLimitBurst) and then stays down until it is started by hand. An
+  out-of-memory exit loops exactly that way, because the JVM is run with
+  -XX:+ExitOnOutOfMemoryError. `journalctl -u carlos-emr` shows the exits and
+  `systemctl reset-failed carlos-emr` clears the limit once the cause is fixed.
+  Give the machine enough memory for the configured heap (CARLOS_JAVA_XMX in
+  /etc/carlos-emr/carlos-emr.env) plus MariaDB's 1 GB buffer pool and the
+  operating system, or lower the heap and run `carlos-ctl restart`.
+
+The check says the JVM runs as `tomcat`, or something answers on port 8080
+  The distribution's tomcat11 SERVICE package is installed. CARLOS does not use
+  it — it runs its own private instance as the `carlos` account on
+  127.0.0.1:18080 — and that second container listens on every interface with
+  no TLS, no WAF and no rate limit. Remove it: `sudo apt purge tomcat11`.
+  Current packages refuse the combination outright (Conflicts: tomcat11).
+
 A page returns 403 and the application log shows nothing
-  That is the WAF, not the application. `carlos-ctl waf tail` shows why.
+  That is the WAF, not the application. `carlos-ctl waf tail` shows why. If it
+  happens intermittently on ordinary clinical work, check how clinicians reach
+  this server: rule 920350 spends 3 of the 5-point budget on every request that
+  arrives by IP from off the practice network, leaving little room before an
+  unrelated signature blocks. See "Reaching the server by IP address, and when
+  you must not" under section 5.
 
 Login redirects to http:// or the session is lost
   Tomcat's RemoteIpValve has stopped trusting nginx, so the application no

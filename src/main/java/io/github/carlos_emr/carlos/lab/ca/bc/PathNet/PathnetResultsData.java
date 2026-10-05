@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet;
 
+
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.*;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.*;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -38,8 +39,6 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
-import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -70,48 +69,29 @@ public class PathnetResultsData {
      */
     // Populates labs for consult request
     public ArrayList<LabResultData> populatePathnetResultsData(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     public ArrayList<LabResultData> populatePathnetResultsDataEForm(String demographicNo, String fdid, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
-            EFormDocs c = (EFormDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs for consult response
     public ArrayList<LabResultData> populatePathnetResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
-        List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
-        for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
-            ConsultDocs c = (ConsultDocs) o[0];
-            LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            lbData.labPatientId = "" + c.getDocumentNo();
-            attachedLabs.add(lbData);
-        }
+        java.util.Set<String> attachedLabs = LabResultData.attachedLabKeys(consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId)), demographicNo);
         List<Object[]> labsBCP = hl7MsgDao.findByDemographicAndLabType(ConversionUtils.fromIntString(demographicNo), "BCP");
         return populatePathnetResultsData(attachedLabs, labsBCP, attached);
     }
 
     // Populates labs private shared method
-    private ArrayList<LabResultData> populatePathnetResultsData(List<LabResultData> attachedLabs, List<Object[]> labsBCP, boolean attached) {
+    private ArrayList<LabResultData> populatePathnetResultsData(java.util.Set<String> attachedLabs, List<Object[]> labsBCP, boolean attached) {
         ArrayList<LabResultData> labResults = new ArrayList<LabResultData>();
         try {
             LabResultData lbData = new LabResultData(LabResultData.EXCELLERIS);
-            LabResultData.CompareId c = lbData.getComparatorId();
 
             for (Object[] o : labsBCP) {
                 Hl7Message m = (Hl7Message) o[0];
@@ -123,13 +103,13 @@ public class PathnetResultsData {
                 lbData.dateTime = findPathnetObservationDate(lbData.segmentID);
                 lbData.discipline = findPathnetDisipline(lbData.segmentID);
 
-                if (attached && Collections.binarySearch(attachedLabs, lbData, c) >= 0) labResults.add(lbData);
-                else if (!attached && Collections.binarySearch(attachedLabs, lbData, c) < 0) labResults.add(lbData);
+                if (attached && attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
+                else if (!attached && !attachedLabs.contains(LabResultData.labKey(lbData.labType, lbData.segmentID))) labResults.add(lbData);
 
                 lbData = new LabResultData(LabResultData.EXCELLERIS);
             }
         } catch (Exception e) {
-            logger.error("exception in CMLPopulate:", e);
+            logger.error("exception in CMLPopulate: ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -217,7 +197,7 @@ public class PathnetResultsData {
                 labResults.add(lbData);
             }
         } catch (Exception e) {
-            logger.error("exception in pathnetPopulate", e);
+            logger.error("exception in pathnetPopulate ({})", e.getClass().getSimpleName());
         }
         return labResults;
     }
@@ -257,19 +237,39 @@ public class PathnetResultsData {
         }
     }
 
+    /**
+     * Finds the accession's report versions within the legacy four-month date window.
+     * @param labId reviewed PathNet message identifier
+     * @return comma-separated matching message identifiers, or labId when no accession/date
+     *         is available or lookup fails; may be empty when no candidate matches
+     */
     public String getMatchingLabs(String labId) {
+        return getMatchingLabs(labId, false);
+    }
+
+    /**
+     * Resolves a source version chain, optionally propagating lookup failures for atomic mutations.
+     * @param labId selected report identifier
+     * @param failOnLookupError true when fallback to only the selected version would hide a partial operation
+     * @return versions in clinical order
+     */
+    public String getMatchingLabs(String labId, boolean failOnLookupError) {
         String ret = "";
         String accessionNum = "";
-        String labDate = "";
+        Date labDate = null;
         int monthsBetween = 0;
 
         try {
             // find the accession number
-            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labDate))) {
+            for (Object[] o : hl7OrcDao.findFillerAndStatusChageByMessageId(ConversionUtils.fromIntString(labId))) {
                 String fillerOrderNumber = String.valueOf(o[0]);
-                Date date = (Date) o[1];
                 accessionNum = justGetAccessionNumber(fillerOrderNumber);
-                labDate = ConversionUtils.toDateString(date);
+                labDate = (Date) o[1];
+            }
+
+            // No matching lab/accession means no version chain, not a wildcard search.
+            if (accessionNum.isBlank() || labDate == null) {
+                return labId;
             }
 
             Hl7PidDao pidDao = SpringUtils.getBean(Hl7PidDao.class);
@@ -279,7 +279,7 @@ public class PathnetResultsData {
                 Date resultsReportStatusChange = (Date) o[1];
 
                 Date dateA = resultsReportStatusChange;
-                Date dateB = UtilDateUtilities.StringToDate(labDate, "yyyy-MM-dd HH:mm:ss");
+                Date dateB = labDate;
                 if (dateA.before(dateB)) {
                     monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
                 } else {
@@ -294,7 +294,8 @@ public class PathnetResultsData {
                 }
             }
         } catch (Exception e) {
-            logger.error("exception in PathnetResultsData", e);
+            if (failOnLookupError) throw new IllegalStateException("Lab version lookup failed", e);
+            logger.error("exception in PathnetResultsData ({})", e.getClass().getSimpleName());
             return labId;
         }
         return ret;
@@ -341,7 +342,7 @@ public class PathnetResultsData {
             }
 
         } catch (Exception e) {
-            logger.error("exception in MDSResultsData", e);
+            logger.error("exception in MDSResultsData ({})", e.getClass().getSimpleName());
         }
         return ret.toString();
     }

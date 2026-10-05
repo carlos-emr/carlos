@@ -1,16 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Fictitious OntarioMD HRM 1.1.2 report for the demo dataset.
-
-  The demo snapshot ships HRMDocument rows for demographic 1 (FAKE-Jacky FAKE-Jones) but not the
-  report files they reference, so HRMReportParser cannot parse them, HRMUtil.listHRMDocuments()
-  drops them, and the Rich Text Letter / consultation attach popups show "No HRM documents
-  available". Copy this file to the reportFile name of one of those rows (see
-  docs/ui-tests/deb-install-validation.md, fixture (e)) to make the HRM attachment family testable.
-
-  Every value here is invented. The TextContent marker (SEED-HRM-ATTACHMENT-MARKER) is what
-  scripts/eform-rtl-attachment-pdf-playwright-checks.js looks for in the merged PDF.
--->
+<!-- Fictitious demo HRM report. No real clinical data. -->
 <OmdCds xmlns="cds" xmlns:cdsd="cds_dt">
   <PatientRecord>
     <Demographics>
@@ -27,14 +16,14 @@
         </cdsd:LegalName>
       </Names>
       <DateOfBirth>
-        <cdsd:FullDate>1980-01-01</cdsd:FullDate>
+        <cdsd:FullDate>1985-06-15</cdsd:FullDate>
       </DateOfBirth>
       <HealthCard>
         <cdsd:Number>0000000000</cdsd:Number>
         <cdsd:Version>XX</cdsd:Version>
         <cdsd:ProvinceCode>CA-ON</cdsd:ProvinceCode>
       </HealthCard>
-      <Gender>F</Gender>
+      <Gender>M</Gender>
       <UniqueVendorIdSequence>1</UniqueVendorIdSequence>
       <PersonStatusCode>A</PersonStatusCode>
     </Demographics>

@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -74,13 +75,18 @@
     PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 %>
 
+<%-- Rx state is per patient (#3875): expose this request's bean where the page's EL expects it. --%>
+<%-- No bean for the request's patient (none named and none open, a patient whose Rx is not open,
+     or a malformed/conflicting demographicNo): redirect and stop here, before any scriptlet below
+     dereferences the bean (#3908). --%>
+<% { RxSessionBean rxResolvedBean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r"); if (rxResolvedBean != null) { pageContext.setAttribute("RxSessionBean", rxResolvedBean); } else { response.sendRedirect("error.html"); return; } } %>
 <c:if test="${empty RxSessionBean}">
     <% response.sendRedirect("error.html"); %>
 </c:if>
-<c:if test="${not empty sessionScope.RxSessionBean}">
+<c:if test="${not empty pageScope.RxSessionBean}">
     <%
         // Directly access the RxSessionBean from the session
-        bean = (RxSessionBean) session.getAttribute("RxSessionBean");
+        bean = RxRequestedPatientAccess.resolveAuthorised(request, "_allergy", "r");
         if (bean != null && !bean.isValid()) {
             response.sendRedirect("error.html");
             return; // Ensure no further JSP processing
@@ -88,7 +94,7 @@
     %>
 </c:if>
 <%
-    RxPatientData.Patient patient = (RxPatientData.Patient) session.getAttribute("Patient");
+    RxPatientData.Patient patient = RxSessionBeanResolver.resolvePatient(request);
     request.setAttribute("patient", patient);
     SecurityManager securityManager = new SecurityManager();
 %>
@@ -99,6 +105,8 @@
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
+        <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">
@@ -135,19 +143,12 @@
                     //--> unbind first to avoid multiple binds.
                     $(".deleteAllergyLink").unbind("click");
                     $(".modifyAllergyLink").unbind("click");
-                    $("#searchResultsContainer a").unbind("click");
                     $(".DivContentSectionHead a img").unbind("click");
 
-                    //--> action for selecting from search results.
-                    $("#searchResultsContainer div[id $= '_content'] a").on("click", function (event) {
-                        event.preventDefault();
-                        // override the old addReaction with the new addReaction2
-                        var path = "${ pageContext.servletContext.contextPath }/rx/addReaction2"
-                        var param = this.href.split("?")[1];
-
-                        sendSearchRequest(path, param, "#addAllergyDialogue");
-                        $("#searchResultsContainer").html("");
-                    });
+                    <%-- Selecting a search result is handled by the inline onclick="submitAddReaction(...)"
+                         carried on the anchors that ChooseAllergy2.jsp renders, not by a delegated handler
+                         here. Those anchors are href="javascript:void(0)" with the drugref id/type/description
+                         in data- attributes, so there is no query string left on this.href to parse. --%>
 
                     //--> delete allergy.
                     $(".deleteAllergyLink").on("click", function (event) {
@@ -285,10 +286,62 @@
 
             }); //--> end document ready
 
+            <%--
+                Entry point for the anchors in the AJAX-loaded search results.
+
+                ChooseAllergy2.jsp is rendered both as a standalone page and, here, as an HTML
+                fragment: renderSearchResults() lifts only its #searchResultsContainer element out
+                of the response, so ChooseAllergy2's own <script> block and its hidden
+                #addReactionForm never reach this DOM. The anchors' onclick therefore resolves
+                against THIS page, and without a definition here every click on a search result
+                died with "submitAddReaction is not defined" and the allergy could not be added.
+
+                The full-page copy in ChooseAllergy2.jsp posts a form; this copy keeps the user on
+                the allergy page and loads the reaction dialogue over AJAX instead.
+            --%>
+            function submitAddReaction(actionUrl, id, type, name) {
+                $(".highLightButton").removeClass("highLightButton");
+                // The fragment's anchors still point at the legacy /rx/addReaction route; this page
+                // has always driven the addReaction2 dialogue, so normalize onto it.
+                var path = (actionUrl || "").replace(/\/rx\/addReaction$/, "/rx/addReaction2");
+                if (path.indexOf("/rx/addReaction2") < 0) {
+                    path = "${ pageContext.servletContext.contextPath }/rx/addReaction2";
+                }
+                var param = "ID=" + encodeURIComponent(id)
+                    + "&type=" + encodeURIComponent(type)
+                    + "&name=" + encodeURIComponent(name);
+
+                sendSearchRequest(path, param, "#addAllergyDialogue");
+                $("#searchResultsContainer").html("");
+            }
+
+            <%-- The NKDA guard has to see through encodeURIComponent(): submitAddReaction() and
+                 addCustomAllergy() percent-encode the name, while the NKDA button passes paramNKDA
+                 verbatim. Decode before matching so both spellings are caught. --%>
+            function paramHasNKDA(param) {
+                const raw = String(param);
+                if (raw.indexOf(paramNKDA) >= 0) {
+                    return true;
+                }
+                // Only decode when the payload actually looks URL-encoded; other requests
+                // (e.g., jsonData=...) may legitimately contain a literal '%'.
+                if (!/%[0-9A-Fa-f]{2}|\+/.test(raw)) {
+                    return false;
+                }
+                try {
+                    return decodeURIComponent(raw.replace(/\+/g, " ")).indexOf(paramNKDA) >= 0;
+                } catch (e) {
+                    return false;
+                }
+            }
+
             //--> AJAX the data to the server.
             function sendSearchRequest(path, param, target) {
+                if (param === undefined || param === null) {
+                    return;
+                }
                 var iNKDA = document.forms.searchAllergy2.iNKDA.value;
-                if (param.indexOf(paramNKDA) >= 0) {
+                if (paramHasNKDA(param)) {
                     var hasDrugAllergy = document.forms.searchAllergy2.hasDrugAllergy.value;
                     if (hasDrugAllergy === "true") {
                         alert("Active drug allergy exists!");
@@ -378,10 +431,11 @@
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    confirm("Adding custom allergy: " + name);
-                    sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
-                        "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
-                    $("input[value='Custom Allergy']").addClass("highLightButton");
+                    if (confirm("Adding custom allergy: " + name)) {
+                        sendSearchRequest("${ pageContext.servletContext.contextPath }/rx/addReaction2",
+                            "ID=0&type=0&name=" + encodeURIComponent(name), "#addAllergyDialogue");
+                        $("input[value='Custom Allergy']").addClass("highLightButton");
+                    }
                 }
             }
 
@@ -439,7 +493,7 @@
                 <table>
                     <tr class="DivCCBreadCrumbs">
                         <td>
-                            <a href="${pageContext.request.contextPath}/rx/searchDrug"><fmt:message key="SearchDrug.title"/></a>
+                            <a href="${pageContext.request.contextPath}/rx/searchDrug?demographicNo=<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"><fmt:message key="SearchDrug.title"/></a>
                             &nbsp;&gt;&nbsp;
                             <b><fmt:message key="EditAllergies.title"/></b>
                         </td>

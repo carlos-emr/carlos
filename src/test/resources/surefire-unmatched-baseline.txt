@@ -29,7 +29,6 @@ io.github.carlos_emr.carlos.casemgmt.web.ClientImage2ActionTest
 io.github.carlos_emr.carlos.clinical.gate.ViewClinical2ActionTest
 io.github.carlos_emr.carlos.clinical.StrutsClinicalConfigTest
 io.github.carlos_emr.carlos.commn.dao.EFormReportToolDaoImplTest
-io.github.carlos_emr.carlos.commn.model.UserPropertyScheduleNavigationModeTest
 io.github.carlos_emr.carlos.commn.service.BillingInvoiceTemplateCompileTest
 io.github.carlos_emr.carlos.commn.web.Contact2ActionTest
 io.github.carlos_emr.carlos.commn.web.DxresearchReport2ActionTest
@@ -57,7 +56,6 @@ io.github.carlos_emr.carlos.documentManager.actions.DocumentRefile2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUndelete2ActionTest
 io.github.carlos_emr.carlos.documentManager.actions.DocumentUpload2ActionFilenameValidationTest
 io.github.carlos_emr.carlos.documentManager.actions.ManageDocument2ActionTest
-io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManagerImplTest
 io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentRead2ActionTest
 io.github.carlos_emr.carlos.documentManager.gate.ViewDocumentReportRead2ActionTest
 io.github.carlos_emr.carlos.documentManager.IncomingDocUtilPathValidationTest
@@ -92,7 +90,6 @@ io.github.carlos_emr.carlos.flowsheet.Flowsheet2ActionTest
 io.github.carlos_emr.carlos.form.gate.FormViewRoutesTest
 io.github.carlos_emr.carlos.form.gate.ViewForm2ActionTest
 io.github.carlos_emr.carlos.form.pageUtil.FormForwardNamed2ActionTest
-io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2ActionTest
 io.github.carlos_emr.carlos.i18n.MasterDemographicRecordKeysTest
 io.github.carlos_emr.carlos.i18n.OscarResourcesBundleParseTest
 io.github.carlos_emr.carlos.i18n.RourkeI18nKeysTest
@@ -104,11 +101,7 @@ io.github.carlos_emr.carlos.lab.gate.ViewInsideLabUpload2ActionTest
 io.github.carlos_emr.carlos.library.eforms.gate.ViewSignatureControl2ActionTest
 io.github.carlos_emr.carlos.oscarWorkflow.gate.ViewWorkFlowList2ActionTest
 io.github.carlos_emr.carlos.PMmodule.web.admin.PmmoduleJspMigrationActionRoutingTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxAddAllergy2ActionTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxDeleteAllergy2ActionTest
 io.github.carlos_emr.carlos.prescript.pageUtil.RxManagePharmacy2ActionTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxRePrescribe2ActionTest
-io.github.carlos_emr.carlos.prescript.pageUtil.RxSearchPatient2ActionTest
 io.github.carlos_emr.carlos.prescript.pageUtil.RxShowAllergy2ActionTest
 io.github.carlos_emr.carlos.prescript.util.SimpleXmlRpcClientTest
 io.github.carlos_emr.carlos.prevention.gate.PreventionGate2ActionTest

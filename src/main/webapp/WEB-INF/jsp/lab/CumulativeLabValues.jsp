@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+  Purpose: Display cumulative laboratory values for the selected patient.
+  Features: Lab-type selection and an asynchronous row-display refresh that waits
+  for CSRF readiness. Readiness/token failures display an alert; CarlosAjax.updater
+  renders successful and failed response bodies in the new row container.
+  Parameters: demographic_no identifies the patient; the row-display request also
+  carries the selected lab type and display options. Session roles control lab access.
+  @since 2026-09-17
+--%>
+
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.Objects" %>
 <%@page
@@ -39,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="encounter.LeftNavBar.msgLoading" var="labLoadingMessage"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -142,16 +153,31 @@
             }
 
 
-            function addLabToProfile2(labType, testName, identCode) {
+            async function addLabToProfile2(labType, testName, identCode) {
+                try {
+                    if (window.csrfTokenReady) await window.csrfTokenReady;
+                    var token = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (!token || !token.value) throw new Error('Missing request token');
+                } catch (error) {
+                    alert('Unable to load the lab values. Reload this window and try again.');
+                    return;
+                }
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
-                img.setAttribute('src', '<%= request.getContextPath() %>/images/osx-pinwheel.gif');
+                img.setAttribute('src', '${carlos:forJavaScript(pageContext.request.contextPath)}/images/spinner.jpg');
+                img.width = 100;
+                img.height = 77;
+                img.alt = '';
 
-                newNode.appendChild(img)
+                newNode.appendChild(img);
+                var loadingStatus = document.createElement('span');
+                loadingStatus.setAttribute('role', 'status');
+                newNode.appendChild(loadingStatus);
                 var ran_number = Math.round(Math.random() * 1000000);
                 newNode.setAttribute('id', 'd' + ran_number);
                 document.getElementById('cumulativeLab').appendChild(newNode);
+                loadingStatus.textContent = '${carlos:forJavaScript(labLoadingMessage)}';
 
                 var url = "<%= request.getContextPath() %>/lab/ViewDisplayLabValue";
                 var ran_number = Math.round(Math.random() * 1000000);
@@ -185,6 +211,7 @@
     </head>
 
     <body class="BodyStyle">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">

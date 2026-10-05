@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -63,6 +64,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.*;
 
 import org.apache.struts2.ActionSupport;
@@ -105,6 +107,9 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String execute() {
+        // This mutation has its own write authorization and typed outcome, including for callers
+        // without read permission. Dispatch it before the legacy read-only view gate.
+        if ("updateDocStatusInQueue".equals(request.getParameter("method"))) return updateDocStatusInQueue();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -123,8 +128,6 @@ public class DmsInboxManage2Action extends ActionSupport {
             return isDocumentLinkedToDemographic();
         } else if ("isLabLinkedToDemographic".equals(mtd)) {
             return isLabLinkedToDemographic();
-        } else if ("updateDocStatusInQueue".equals(mtd)) {
-            return updateDocStatusInQueue();
         } else if ("getDocumentsInQueues".equals(mtd)) {
             return getDocumentsInQueues();
         }
@@ -355,12 +358,16 @@ public class DmsInboxManage2Action extends ActionSupport {
         //Tries to convert the end date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
         try {
             endDate = sdf.parse(endDateStr);
-            endDate.setTime(endDate.getTime() + ((1000 * 3600 * 24) - 1));
+            // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
+            ZoneId clinicZone = ZoneId.systemDefault();
+            endDate = Date.from(endDate.toInstant().atZone(clinicZone).toLocalDate()
+                    .plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
         } catch (Exception e) {
             endDate = null;
         }
 
-        logger.debug("Got dates: " + startDate + "-" + endDate + " out of " + startDateStr + "-" + endDateStr);
+        logger.debug("Got dates: {}-{} out of {}-{}", LogSafe.sanitizeObject(startDate), LogSafe.sanitizeObject(endDate),
+                LogSafe.sanitize(startDateStr), LogSafe.sanitize(endDateStr));
 
         Boolean isAbnormal = null;
         if ("abnormal".equals(view)) {
@@ -525,7 +532,8 @@ public class DmsInboxManage2Action extends ActionSupport {
                 labdocs.add(labMap.get(labNums.get(j)));
             }
         }
-        logger.debug("labdocs.size()=" + labdocs.size());
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         /* find all data for the index.jsp page */
         Hashtable patientDocs = new Hashtable();
@@ -626,7 +634,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         List<String> normals = ab_NormalDoc.get("normal");
         List<String> abnormals = ab_NormalDoc.get("abnormal");
 
-        logger.debug("labdocs.size()=" + labdocs.size());
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         // set attributes
         request.setAttribute("pageNum", page);
@@ -683,7 +692,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         String demoId = null;
         try {
             String docId = request.getParameter("docId");
-            logger.debug("DocId:" + docId);
+            logger.debug("DocId:{}", LogSafe.sanitize(docId));
             if (docId != null) {
                 docId = docId.trim();
                 if (docId.length() > 0) {
@@ -691,7 +700,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                     demoId = doc.getModuleId();
 
                     if (demoId != null) {
-                        logger.debug("DemoId:" + demoId);
+                        logger.debug("DemoId:{}", LogSafe.sanitize(demoId));
                         Integer demographicId = Integer.parseInt(demoId);
                         if (demographicId > 0) {
                             logger.debug("Success true");
@@ -747,11 +756,79 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String updateDocStatusInQueue() {
-        String docid = request.getParameter("docid");
-        if (docid != null && !docid.isEmpty()) {
-            queueDocumentLinkDAO.setStatusInactive(Integer.parseInt(docid));
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            writeQueueCompletion(405, false, false, null);
+            return NONE;
         }
-        return null;
+        String[] selections = request.getParameterValues("docid");
+        if (selections == null || selections.length != 1
+                || !IncomingDocumentCapacityResponse.positiveId(selections[0])) {
+            writeQueueCompletion(400, false, false, null);
+            return NONE;
+        }
+        String documentId = selections[0];
+        int number = Integer.parseInt(documentId);
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        int[] completion = {-1};
+        try {
+            IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            transaction.executeWithoutResult(status -> {
+                // Until afterCompletion confirms rollback, a failed commit has an unknown outcome.
+                completion[0] = org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN;
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int result) { completion[0] = result; }
+                        });
+                if (SpringUtils.getBean(DocumentDao.class).findForPageMutation(number) == null) {
+                    throw new SecurityException("Document is not available");
+                }
+                // Other sessions wait on the document row; recheck actual ownership after waiting.
+                IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+                List<QueueDocumentLink> affected = queueDocumentLinkDAO.getQueueFromDocument(number).stream()
+                        .filter(link -> link.getStatus() != null && !"I".equals(link.getStatus())).toList();
+                // Completion removes the document from every queue. Visibility in just one queue
+                // cannot authorize changing a second, inaccessible queue. Check all before writing.
+                for (QueueDocumentLink link : affected) {
+                    IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, info, String.valueOf(link.getQueueId()));
+                }
+                for (QueueDocumentLink link : affected) {
+                    link.setStatus("I");
+                    queueDocumentLinkDAO.merge(link);
+                }
+            });
+        } catch (RuntimeException failure) {
+            boolean accepted = completion[0] != -1
+                    && completion[0] != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
+            int status = accepted ? 500 : failure instanceof SecurityException ? 403 : 500;
+            logger.warn("Document queue completion was not confirmed", failure);
+            writeQueueCompletion(status, false, accepted, number);
+            return NONE;
+        }
+        // Keep response-writing errors outside the transaction catch: the commit already succeeded.
+        writeQueueCompletion(200, true, true, number);
+        return NONE;
+    }
+
+    private void writeQueueCompletion(int status, boolean success, boolean accepted, Integer document) {
+        ObjectNode result = objectMapper.createObjectNode().put("success", success).put("accepted", accepted)
+                .put("retryable", false);
+        if (document != null) result.put("document", document);
+        if (!success) result.put("error", accepted
+                ? "Queue completion outcome is unconfirmed; do not submit again" : "Queue completion was refused");
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            response.getOutputStream().write(result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException failure) {
+            logger.error("Could not report document queue completion outcome", failure);
+            if (!response.isCommitted()) response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
     }
 
     // return a hastable containing queue id to queue name, a hashtable of queue id and a list of document nos.

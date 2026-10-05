@@ -32,8 +32,8 @@ package io.github.carlos_emr.carlos.lab.ca.all.web;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.text.SimpleDateFormat;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -62,8 +62,12 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 public class SubmitLabByForm2Action extends ActionSupport {
+    private static final int STORAGE_NOT_STARTED = -1;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,9 +90,13 @@ public class SubmitLabByForm2Action extends ActionSupport {
      * Process a lab form submission: validate privileges, construct a Lab with its LabTest entries,
      * generate an HL7 message, save and register the HL7 file, and invoke the configured message handler.
      *
-     * @return the Struts result name "manage"
+     * Storage and handler exceptions are logged and reported according to transaction completion.
+     *
+     * @return {@link #NONE} after redirecting a completed or uncertain storage attempt,
+     *         or after rejecting a non-POST request with HTTP 405;
+     *         or "manage" with errors when storage was rejected, rolled back or never started
      * @throws SecurityException if the current user lacks the required "_lab" write privilege
-     * @throws Exception for parse, I/O, or handler invocation errors that are propagated to the caller
+     * @throws Exception for form-field parsing or file I/O errors before storage begins
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use.
     // FindSecBugs PREDICTABLE_RANDOM: Math.random only adds a local HL7 filename suffix.
@@ -96,11 +104,16 @@ public class SubmitLabByForm2Action extends ActionSupport {
     @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "PREDICTABLE_RANDOM"}, justification = "PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use. PREDICTABLE_RANDOM: Math.random only creates a local HL7 filename suffix, not a secret, token, or authorization decision")
     public String saveManage() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         logger.info("in save lab from form");
         String labName = request.getParameter("labname");
@@ -185,15 +198,9 @@ public class SubmitLabByForm2Action extends ActionSupport {
 
         //generate the HL7 from the Lab object.
         String hl7 = generateHL7(lab);
-        // Log HL7 metadata at INFO (MSH segment contains system metadata, not PHI).
-        // Full HL7 content is NOT logged to avoid PHI exposure from PID/OBX segments.
+        // Request-derived HL7 content, including MSH fields, must not enter logs.
         if (hl7 != null) {
-            int firstSep = hl7.indexOf('\r');
-            if (firstSep <= 0) {
-                firstSep = hl7.indexOf('\n');
-            }
-            String mshSegment = firstSep > 0 ? hl7.substring(0, firstSep) : "[MSH extraction failed]";
-            logger.info("HL7 generated (length={}, MSH={})", hl7.length(), LogSafe.sanitize(mshSegment, 400)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.info("HL7 generated for lab submission");
         } else {
             logger.error("HL7 generation returned null for lab submission");
             addActionError("Failed to generate lab result. Please verify all required fields and try again.");
@@ -205,51 +212,82 @@ public class SubmitLabByForm2Action extends ActionSupport {
         ByteArrayInputStream is = new ByteArrayInputStream(hl7.getBytes());
         String filePath = Utilities.saveFile(is, filename);
         is.close();
-        File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        File file = PathValidationUtils.validateExistingPath(new File(filePath), uploadDir);
-
-        int checkFileUploadedSuccessfully;
-        try (FileInputStream fis = new FileInputStream(file)) {
-            checkFileUploadedSuccessfully = FileUploadCheck.addFile(file.getName(), fis, providerNo);
+        if (filePath == null) {
+            // Utilities.saveFile returns null when the write failed and the partial file was removed.
+            logger.error("Lab file save returned no path; aborting lab submission");
+            addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
         }
+        File uploadDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        File file = PathValidationUtils.validateExistingPath(filePath, uploadDir);
 
-        if (checkFileUploadedSuccessfully != FileUploadCheck.UNSUCCESSFUL_SAVE) {
-            logger.info("filePath {}", LogSafe.sanitize(filePath)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            logger.info("Type :{}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
-            if (msgHandler == null) {
-                logger.warn("outcome=error — no message handler found for lab type {}", LogSafe.sanitize(labName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        MessageHandler msgHandler = HandlerClassFactory.getHandler(labName);
+        if (msgHandler == null) {
+            FileUploadCheck.discardUnreferenced(file, uploadDir);
+            addActionError(getText("oscarMDS.createLab.submitError"));
+            return manage();
+        }
+        FileUploadCheck.StoreOutcome outcome;
+        AtomicInteger storageCompletion = new AtomicInteger(STORAGE_NOT_STARTED);
+        try {
+            // The generated HL7 file is removed unless the stored lab may reference it.
+            outcome = FileUploadCheck.storeSavedFileIfNew(file, uploadDir,
+                    file.getName(), providerNo, checksumId -> {
+                        // Observe the owned storage transaction before any lab writes. Exception
+                        // types alone cannot distinguish rollback from a lost commit acknowledgement.
+                        storageCompletion.set(TransactionSynchronization.STATUS_UNKNOWN);
+                        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                @Override
+                                public void afterCompletion(int status) {
+                                    storageCompletion.set(status);
+                                }
+                            });
+                        }
+                        String parsed = msgHandler.parse(loggedInInfo, getClass().getSimpleName(),
+                                file.getPath(), checksumId, ipAddr);
+                        Integer labNo = msgHandler.getLastLabNo();
+                        if (parsed == null || labNo == null || labNo <= 0) {
+                            return false;
+                        }
+                        new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
+                        return true;
+                    });
+        } catch (Exception e) {
+            logger.error("Lab submission storage raised an exception: {}", LogSafe.exceptionTrace(e));
+            int completion = storageCompletion.get();
+            if (completion == STORAGE_NOT_STARTED || completion == TransactionSynchronization.STATUS_ROLLED_BACK) {
                 addActionError(getText("oscarMDS.createLab.submitError"));
                 return manage();
             }
-            logger.info("MESSAGE HANDLER {}", msgHandler.getClass().getName());
-            String parseResult = msgHandler.parse(loggedInInfo, getClass().getSimpleName(), filePath, checkFileUploadedSuccessfully, ipAddr);
-            if (parseResult != null) {
-                logger.info("outcome=success");
-                Integer labNo = msgHandler.getLastLabNo();
-                if (labNo == null) {
-                    logger.error("Parsed lab is missing a lab number; skipping provider routing");
-                    addActionError(getText("oscarMDS.createLab.submitError"));
-                    return manage();
-                }
-
-                try {
-                    new ProviderLabRouting().routeMagic(labNo, providerNo, "HL7");
-                    addActionMessage(getText("oscarMDS.createLab.submitSuccess"));
-                } catch (RuntimeException e) {
-                    logger.error("Provider routing failed for lab {}", labNo, e);
-                    addActionError(getText("oscarMDS.createLab.submitError"));
-                }
-            } else {
-                logger.warn("outcome=null — lab handler returned null; lab may not have been saved");
-                addActionError(getText("oscarMDS.createLab.submitError"));
-            }
-        } else {
-            logger.info("outcome=uploaded previously");
-            addActionError(getText("oscarMDS.createLab.submitDuplicate"));
+            // A commit acknowledgement can fail after the lab was stored. A refresh of this
+            // POST would generate different HL7 and could duplicate it, just as on success.
+            return redirectToForm(completion == TransactionSynchronization.STATUS_COMMITTED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.UNKNOWN);
         }
 
+        if (outcome == FileUploadCheck.StoreOutcome.STORED
+                || outcome == FileUploadCheck.StoreOutcome.ALREADY_RECORDED) {
+            // A reloaded POST regenerates timestamped HL7 and evades checksum deduplication.
+            // Redirect only after storage/commit completes, carrying a notice without PHI.
+            return redirectToForm(outcome == FileUploadCheck.StoreOutcome.STORED
+                    ? ManualLabSubmissionReceipt.Outcome.STORED : ManualLabSubmissionReceipt.Outcome.ALREADY_RECORDED);
+        }
+        addActionError(getText("oscarMDS.createLab.submitError"));
         return manage();
+    }
+
+    /** Redirects a completed storage attempt without putting clinical data or session IDs in the URL. */
+    // FindSecBugs UNVALIDATED_REDIRECT: The container supplies the context path. The route is fixed
+    // and the UUID is server-generated. No request parameter controls the destination.
+    // See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Container context path, fixed application route and server-generated UUID; no request parameter controls the destination")
+    private String redirectToForm(ManualLabSubmissionReceipt.Outcome outcome) {
+        String receipt = ManualLabSubmissionReceipt.save(request.getSession(), outcome);
+        response.setStatus(HttpServletResponse.SC_SEE_OTHER);
+        response.setHeader("Location", request.getContextPath()
+                + "/oscarMDS/ViewCreateLab?submission=" + receipt);
+        return NONE;
     }
 
 	/**

@@ -70,6 +70,10 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Verify image selection regression checks
+      shell: bash
+      run: python3 scripts/ci/test_pull_image.py
+
     - name: Log in to Container Registry
       uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
       with:

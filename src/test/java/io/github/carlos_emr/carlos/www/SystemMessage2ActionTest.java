@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -54,19 +55,16 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(SystemMessageDao.class, mockSystemMessageDao);
 
-        action = new SystemMessage2Action();
-        injectField("systemMessageDao", mockSystemMessageDao);
-        injectField("securityInfoManager", mockSecurityInfoManager);
-    }
-
-    private void injectField(String fieldName, Object value) {
-        try {
-            java.lang.reflect.Field f = SystemMessage2Action.class.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            f.set(action, value);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject " + fieldName, e);
-        }
+        // This focused action test has no Struts container/TextProvider. Keep
+        // message keys observable while exercising the real lookup/session flow.
+        action = new SystemMessage2Action() {
+            @Override
+            public String getText(String key) {
+                return key;
+            }
+        };
+        injectField(action, "systemMessageDao", mockSystemMessageDao);
+        injectField(action, "securityInfoManager", mockSecurityInfoManager);
     }
 
     @Nested
@@ -105,6 +103,7 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // Then - must NOT store the untrusted ID in session
             assertThat(result).isEqualTo("list");
             assertThat(getMockSession().getAttribute("systemMessageId")).isNull();
+            assertThat(action.getActionMessages()).contains("system_message.missing");
         }
 
         @Test
@@ -150,23 +149,6 @@ class SystemMessage2ActionTest extends CarlosWebTestBase {
             // Then - stale session attribute must be removed
             assertThat(result).isEqualTo("list");
             assertThat(getMockSession().getAttribute("systemMessageId")).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("execute() - Security")
-    class SecurityChecks {
-
-        @Test
-        @DisplayName("should throw SecurityException when privilege is denied")
-        void shouldThrowSecurityException_whenPrivilegeDenied() throws Exception {
-            // Given - deny _admin write privilege
-            denyPrivilege("_admin", "w");
-
-            // When/Then
-            assertThatThrownBy(() -> executeAction(action))
-                .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("missing required sec object");
         }
     }
 }

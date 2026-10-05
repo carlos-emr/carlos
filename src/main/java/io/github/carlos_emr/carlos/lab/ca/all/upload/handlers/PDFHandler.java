@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -115,8 +116,7 @@ public class PDFHandler implements MessageHandler {
 
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(filePath);
-            targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+            File targetFile = PathValidationUtils.validateExistingPath(filePath, baseDir);
 
             // Verify the file exists and is a regular file
             if (!targetFile.exists() || !targetFile.isFile()) {
@@ -162,7 +162,7 @@ public class PDFHandler implements MessageHandler {
             if ((batchPDFProviderNo != null) && !batchPDFProviderNo.isEmpty()) {
 
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
-                providerInboxRoutingDao.addToProviderInbox(batchPDFProviderNo, Integer.parseInt(doc_no), "DOC");
+                providerInboxRoutingDao.addToProviderInboxStrict(batchPDFProviderNo, Integer.parseInt(doc_no), "DOC");
 
                 //Add to default queue for now, not sure how or if any other queues can be used anyway (MAB)                 
                 QueueDocumentLinkDao queueDocumentLinkDAO = (QueueDocumentLinkDao) SpringUtils.getBean(QueueDocumentLinkDao.class);
@@ -173,7 +173,9 @@ public class PDFHandler implements MessageHandler {
                 String[] providers = providerStr.trim().split(" ");
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
                 for (String provider : providers) {
-                    providerInboxRoutingDao.addToProviderInbox(provider, Integer.parseInt(doc_no), "DOC");
+                    // Strict routing rejects a blank recipient; repeated spaces in the service name are not recipients.
+                    if (provider.isBlank()) continue;
+                    providerInboxRoutingDao.addToProviderInboxStrict(provider, Integer.parseInt(doc_no), "DOC");
                 }
             }
         } catch (FileNotFoundException e) {

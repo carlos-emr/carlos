@@ -18,6 +18,7 @@
 package io.github.carlos_emr.carlos.utility.tld;
 
 import java.io.IOException;
+import java.util.Locale;
 
 import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
@@ -53,6 +54,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>{@code html} / {@code htmlContent} → {@link SafeEncode#forHtmlContent(String)}</li>
  *   <li>{@code htmlAttribute} → {@link SafeEncode#forHtmlAttribute(String)}</li>
  *   <li>{@code htmlUnquotedAttribute} → {@link SafeEncode#forHtmlUnquotedAttribute(String)}</li>
+ *   <li>{@code htmlWithBreakMarkers} → {@link SafeEncode#forHtmlContentWithBreakMarkers(String)}
+ *       (HL7 lab text whose {@code <br />} markers and newlines must render as line breaks)</li>
  *   <li>{@code forHtml} (legacy alias) → {@link SafeEncode#forHtml(String)}</li>
  *   <li>{@code javaScript} / {@code js} → {@link SafeEncode#forJavaScript(String)}</li>
  *   <li>{@code javaScriptAttribute} → {@link SafeEncode#forJavaScriptAttribute(String)}</li>
@@ -115,10 +118,13 @@ public class CarlosEncodeTag extends TagSupport {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private static void encode(JspWriter out, String ctx, String val) throws IOException, JspException {
         // Lowercase compare makes "html", "Html", "HTML", "hTML" equivalent.
-        switch (ctx.toLowerCase()) {
+        switch (ctx.toLowerCase(Locale.ROOT)) {
             case "html":
             case "htmlcontent":
                 SafeEncode.forHtmlContent(out, val);
+                return;
+            case "htmlwithbreakmarkers":
+                SafeEncode.forHtmlContentWithBreakMarkers(out, val);
                 return;
             case "forhtml":
                 SafeEncode.forHtml(out, val);
@@ -176,7 +182,7 @@ public class CarlosEncodeTag extends TagSupport {
             default:
                 throw new JspException(
                         "carlos:encode: unknown context '" + ctx + "'. "
-                                + "Valid contexts: html, htmlAttribute, htmlUnquotedAttribute, "
+                                + "Valid contexts: html, htmlWithBreakMarkers, htmlAttribute, htmlUnquotedAttribute, "
                                 + "javaScript, javaScriptAttribute, javaScriptBlock, javaScriptSource, "
                                 + "uri, uriComponent, cssString, cssUrl, "
                                 + "xml, xmlAttribute, xmlContent, xmlComment, cdata, java.");

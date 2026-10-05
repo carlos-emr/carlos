@@ -27,14 +27,19 @@ import jakarta.persistence.PersistenceContext;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -88,6 +93,122 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
         entityManager.clear();
         return dao.find(log.getId());
+    }
+
+    private int createRecentPatient() throws Exception {
+        Demographic patient = new Demographic();
+        EntityDataGenerator.generateTestDataForModelClass(patient);
+        patient.setPatientStatus(Demographic.PatientStatus.AC.name());
+        entityManager.persist(patient);
+        entityManager.flush();
+        return patient.getDemographicNo();
+    }
+
+    @Test
+    @DisplayName("should sort persisted recent patients with NULL and blank providers without dropping rows")
+    void shouldSortRecentPatients_whenProviderIsMissing() throws Exception {
+        int assigned = createRecentPatient();
+        int missing = createRecentPatient();
+        int blank = createRecentPatient();
+        entityManager.find(Demographic.class, assigned).setProviderNo("999998");
+        entityManager.find(Demographic.class, missing).setProviderNo(null);
+        entityManager.find(Demographic.class, blank).setProviderNo("");
+        entityManager.flush();
+        createOscarLog(assigned, "recent", "read", "demographic", "assigned", new Date(3000));
+        createOscarLog(missing, "recent", "read", "demographic", "missing", new Date(2000));
+        createOscarLog(blank, "recent", "read", "demographic", "blank", new Date(1000));
+        entityManager.clear();
+
+        List<Demographic> patients = new ArrayList<>();
+        for (Integer id : dao.getRecentDemographicsAccessedByProvider("recent", 0, 3)) {
+            patients.add(entityManager.find(Demographic.class, id));
+        }
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(assigned, missing, blank);
+        assertThat(patients).extracting(Demographic::getProviderNo).containsExactly("999998", null, "");
+
+        patients.sort(Demographic.ProviderNoComparator);
+
+        assertThat(patients).extracting(Demographic::getDemographicNo).containsExactly(missing, blank, assigned);
+    }
+
+    @Test
+    @DisplayName("should exclude missing patients before recent-patient pagination without deleting history")
+    void shouldExcludeMissingPatients_beforeRecentPatientPagination() throws Exception {
+        int first = createRecentPatient();
+        int second = createRecentPatient();
+        int missing = Integer.MAX_VALUE;
+        createOscarLog(first, "recent", "read", "demographic", "1", new Date(1000));
+        createOscarLog(second, "recent", "read", "demographic", "2", new Date(2000));
+        createOscarLog(first, "recent", "read", "demographic", "3", new Date(3000));
+        createOscarLog(missing, "recent", "read", "demographic", "4", new Date(4000));
+        createOscarLog(second, "other", "read", "demographic", "5", new Date(5000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 2)).containsExactly(first, second);
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 1, 1)).containsExactly(second);
+        assertThat(dao.findByDemographicId(missing)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("should return no recent patients when only stale or non-patient audit entries exist")
+    void shouldReturnNoRecentPatients_whenOnlyStaleHistoryExists() throws Exception {
+        createOscarLog(Integer.MAX_VALUE, "recent", "read", "demographic", "1");
+        createOscarLog(null, "recent", "read", "login", "2");
+        createOscarLog(-1, "recent", "read", "login", "3");
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 3)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should exclude active merge sources before pagination and retain undone merges")
+    void shouldExcludeMergeSources_beforeRecentPatientPagination() throws Exception {
+        int head = createRecentPatient();
+        int source = createRecentPatient();
+        DemographicMerged merge = new DemographicMerged();
+        merge.setDemographicNo(source);
+        merge.setMergedTo(head);
+        merge.setDeleted(0);
+        entityManager.persist(merge);
+        entityManager.flush();
+        int mergeId = merge.getId();
+        createOscarLog(head, "recent", "read", "demographic", "1", new Date(1000));
+        createOscarLog(source, "recent", "read", "demographic", "2", new Date(2000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(head);
+        assertThat(dao.findByDemographicId(source)).hasSize(1);
+        entityManager.find(DemographicMerged.class, mergeId).setDeleted(1);
+        entityManager.flush();
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(source);
+    }
+
+    @Test
+    @DisplayName("should exclude soft-deleted patients before recent-patient pagination and retain history")
+    void shouldExcludeSoftDeletedPatients_beforeRecentPatientPagination() throws Exception {
+        int visible = createRecentPatient();
+        int deleted = createRecentPatient();
+        entityManager.find(Demographic.class, deleted).setPatientStatus(Demographic.PatientStatus.DE.name());
+        entityManager.flush();
+        createOscarLog(visible, "recent", "read", "demographic", "1", new Date(1000));
+        createOscarLog(deleted, "recent", "read", "demographic", "2", new Date(2000));
+
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(visible);
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 1, 1)).isEmpty();
+        assertThat(dao.findByDemographicId(deleted)).hasSize(1);
+        assertThat(entityManager.find(Demographic.class, deleted).getPatientStatus()).isEqualTo("DE");
+    }
+
+    @Test
+    @DisplayName("should retain a valid recent patient with a persisted NULL status")
+    void shouldRetainRecentPatient_whenPersistedStatusIsNull() throws Exception {
+        int patient = createRecentPatient();
+        createOscarLog(patient, "recent", "read", "demographic", "1", new Date(1000));
+        // The Java getter normalizes null to an empty string. Write an actual SQL
+        // NULL to exercise SQL three-valued logic rather than that getter behavior.
+        entityManager.createNativeQuery("update demographic set patient_status = null where demographic_no = ?1")
+                .setParameter(1, patient).executeUpdate();
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.createNativeQuery("select patient_status from demographic where demographic_no = ?1")
+                .setParameter(1, patient).getSingleResult()).isNull();
+        assertThat(dao.getRecentDemographicsAccessedByProvider("recent", 0, 1)).containsExactly(patient);
     }
 
     @Nested
@@ -172,6 +293,40 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("findForReport")
     class FindForReport {
+
+        @ParameterizedTest
+        @CsvSource({
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, unrestricted",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, provider",
+                "2004-02-29 00:00:00, 2004-03-01 00:00:00, site",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, unrestricted",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, provider",
+                "2003-12-31 00:00:00, 2004-01-02 00:00:00, site"
+        })
+        @Tag("query")
+        @DisplayName("should include the start and exclude next midnight for every report provider scope")
+        void shouldUseHalfOpenDateWindow_forEveryProviderScope(String startText, String endText, String scope)
+                throws Exception {
+            Date start = Timestamp.valueOf(startText);
+            Date endExclusive = Timestamp.valueOf(endText);
+            createOscarLog(null, "edge", "read", "admin", "before", new Date(start.getTime() - 1_000));
+            OscarLog first = createOscarLog(null, "edge", "read", "admin", "start", start);
+            OscarLog middle = createOscarLog(null, "edge", "read", "admin", "middle", new Date(start.getTime() + 43_200_000));
+            OscarLog last = createOscarLog(null, "edge", "read", "admin", "last", new Date(endExclusive.getTime() - 1_000));
+            createOscarLog(null, "edge", "read", "admin", "next-midnight", endExclusive);
+            createOscarLog(null, "edge", "read", "admin", "after", new Date(endExclusive.getTime() + 1_000));
+            createOscarLog(null, "edge", "read", "login", "other-content", start);
+            if (!"unrestricted".equals(scope)) {
+                createOscarLog(null, "outside", "read", "admin", "other-provider", start);
+            }
+
+            List<OscarLog> result = dao.findForReport(start, endExclusive, "admin",
+                    "provider".equals(scope) ? "edge" : null,
+                    "site".equals(scope) ? List.of("edge") : null);
+
+            assertThat(result).extracting(OscarLog::getId)
+                    .containsExactly(last.getId(), middle.getId(), first.getId());
+        }
 
         @Test
         @Tag("query")

@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -76,6 +77,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.web.context.WebApplicationContext;
@@ -167,7 +169,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid uploaded document file", e);
+            MiscUtils.getLogger().error("Invalid uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -198,7 +200,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             expectedFileSize = validatedUploadSize(validatedSource);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
+            MiscUtils.getLogger().error("Failed to determine uploaded document file size ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -234,7 +236,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             // global securityError mapping, and securityError.jsp sets no status. The XHR
             // client treats anything under 400 as success, so a rejected upload would be
             // reported to the user as "Upload complete".
-            MiscUtils.getLogger().error("Failed to write uploaded document file", e);
+            MiscUtils.getLogger().error("Failed to write uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -292,7 +294,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid PDF page count file path", e);
+            MiscUtils.getLogger().error("Invalid PDF page count file path ({})", e.getClass().getSimpleName());
             return numOfPage;
         }
 
@@ -304,7 +306,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (PdfReader reader = new PdfReader(filePath.toString())) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to count document pages", e);
+            MiscUtils.getLogger().error("Failed to count document pages ({})", e.getClass().getSimpleName());
         }
         return numOfPage;
     }
@@ -332,7 +334,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "Redirects are same-origin application paths; Locale.ROOT module folding uses a closed ASCII allowlist and rejects all non-matching tokens")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -346,21 +348,21 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("editDocumentNo", "");
             return "failEdit";
         } else if (this.getMode().equals("add")) {
+            // Match the report's closed module allowlist, preventing database
+            // collation aliases from bypassing the demographic authorization branch.
+            String module = this.getFunction() == null ? "" : this.getFunction().trim().toLowerCase(Locale.ROOT);
+            if (!List.of("demographic", "provider", "providers").contains(module)) {
+                throw new SecurityException("Invalid document target module");
+            }
+            this.setFunction(module);
+            if ("demographic".equals(module)) {
+                IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager,
+                        LoggedInInfo.getLoggedInInfoFromSession(request), this.getFunctionId() == null ? null : this.getFunctionId().trim());
+            }
             // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
-                String contextPath = request.getContextPath();
-                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
-                redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
-                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
-                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
-                // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(this.getParentAjaxId())) {
-                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
-                    appendQueryParameter(redirect, "updateParent", "true");
-                }
                 try {
-                    response.sendRedirect(redirect.toString());
+                    response.sendRedirect(buildAddSuccessRedirect());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -376,6 +378,36 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         } else {
             return editDocument(request);
         }
+    }
+
+    /**
+     * Builds the post-add redirect back to the document report.
+     *
+     * <p>Extracted from {@link #execute2()} to keep that method's cognitive complexity within the
+     * project's limit; the query it assembles is unchanged. Every value goes through
+     * {@link #appendQueryParameter} so it is URI-component encoded.
+     *
+     * @return an application-relative redirect target
+     */
+    private String buildAddSuccessRedirect() {
+        StringBuilder redirect = new StringBuilder(
+                request.getContextPath() + "/documentManager/ViewDocumentReport");
+        redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
+        appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+        appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+        appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
+        // if we're called with parent ajax id inform jsp that parent needs to be updated
+        if (filled(this.getParentAjaxId())) {
+            appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+            appendQueryParameter(redirect, "updateParent", "true");
+        }
+        // A redirect starts a new request, so the schedule-shell flag the add form posted is gone
+        // unless it is re-appended here. Without it the provider lands back on the document list
+        // with the navigation header tabs missing.
+        if (ScheduleNav.isActive(request)) {
+            appendQueryParameter(redirect, ScheduleNav.PARAM, ScheduleNav.ENABLED);
+        }
+        return redirect.toString();
     }
 
     /**
@@ -455,7 +487,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             newDoc.setContentType(this.docFileContentType);
 
-            if (fileName2.toLowerCase().endsWith(".pdf")) {
+            if (fileName2 != null && fileName2.regionMatches(true, fileName2.length() - 4, ".pdf", 0, 4)) {
                 newDoc.setContentType("application/pdf");
                 int numberOfPages = countNumOfPages(fileName2);
                 newDoc.setNumberOfPages(numberOfPages);
@@ -547,7 +579,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("docerrors", errors);
             return false;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add uploaded document", e);
+            MiscUtils.getLogger().error("Failed to add uploaded document ({})", e.getClass().getSimpleName());
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
@@ -571,6 +603,10 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
+        // Outside the form-error catch: a denied source must never render its edit
+        // JSP or reach content, reviewer, audit or metadata mutations.
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), this.getMode());
 
         try {
             if (this.getDocDesc().length() == 0) {
@@ -664,7 +700,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     addActionError(getText("dms.error.uploadError"));
                     throw new IOException("Failed to write uploaded document");
                 }
-                if (fileName.toLowerCase().endsWith(".pdf")) {
+                if (fileName != null && fileName.regionMatches(true, fileName.length() - 4, ".pdf", 0, 4)) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
                     newDoc.setNumberOfPages(numberOfPages);
@@ -708,7 +744,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            MiscUtils.getLogger().error("Failed to edit document", e);
+            MiscUtils.getLogger().error("Failed to edit document ({})", e.getClass().getSimpleName());
             return "failEdit";
         }
         return "successEdit";
@@ -819,7 +855,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to store document file in database", e);
+            MiscUtils.getLogger().error("Failed to store document file in database ({})", e.getClass().getSimpleName());
         } finally {
             IOUtils.closeQuietly(fin);
         }
@@ -872,7 +908,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             } catch (FileValidationException e) {
                 // Filename rejected at bind time. Store the error key so execute methods can
                 // surface a user-friendly form error rather than leaving docFile null silently.
-                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename", e);
+                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename ({})", e.getClass().getSimpleName());
                 this.docFileBindErrorKey = "filenameinvalid";
             }
             // SecurityException from validateUpload is intentionally not caught — a source file
@@ -954,7 +990,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
             return true;
         } catch (IOException e) {
-            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
+            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check ({})", e.getClass().getSimpleName());
             return false;
         }
     }

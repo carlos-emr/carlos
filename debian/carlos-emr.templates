@@ -9,6 +9,14 @@ Description: Host name clinicians will use to reach CARLOS EMR:
  you intend to use a Let's Encrypt certificate, this name must resolve in
  public DNS to this machine before you run "carlos-ctl cert acme".
  .
+ Reaching this server by IP address instead of by name is supported for
+ clients on the practice LAN, and the packaged firewall rules allow for it.
+ It is NOT suitable from outside that network: a client arriving from a public
+ address starts every request part-way to the firewall's blocking threshold,
+ and clinicians will see occasional unexplained 403 errors on ordinary work
+ with nothing in the application log. If people will reach this server from
+ outside the practice network, give it a DNS name and have them use the name.
+ .
  You can change it later in /etc/carlos-emr/carlos-emr.env followed by
  "carlos-ctl init-config".
 
@@ -16,6 +24,8 @@ Template: carlos-emr/bind-ip
 Type: string
 Default: 0.0.0.0
 Description: Address the CARLOS EMR front door should listen on:
+ Enter an IPv4 or IPv6 address, not a host name. For IPv6 loopback use ::1.
+ .
  0.0.0.0 serves every network interface, which is what a clinic server
  normally needs.
  .
@@ -28,15 +38,18 @@ Description: Address the CARLOS EMR front door should listen on:
 
 Template: carlos-emr/province
 Type: select
-Choices: on, bc
+Choices: on, bc, other
 Default: on
 Description: Billing province:
  CARLOS implements provincial billing for Ontario (on) and British Columbia
  (bc). This choice selects which database migrations are applied and which
- billing behaviour the application uses.
+ billing behaviour the application uses. A clinic anywhere else answers other
+ (the third choice): that installs the Ontario schema and billing
+ configuration, which is the supported deployment for a province CARLOS does
+ not implement natively.
  .
- It CANNOT be changed afterwards: the two provinces create different tables,
- and switching means starting again from an empty database.
+ It CANNOT be changed afterwards: on and bc create different tables, and
+ switching means starting again from an empty database.
 
 Template: carlos-emr/tls-mode
 Type: select
@@ -130,3 +143,24 @@ Description: CARLOS EMR is installed
  /usr/share/doc/carlos-emr/README.Debian before putting patient data on this
  system — in particular the sections on backups, which are stored on this host
  only until you configure an offsite repository.
+
+Template: carlos-emr/install-incomplete
+Type: error
+Description: CARLOS EMR is installed but is NOT ready to use
+ The package could not finish all requested database provisioning steps.
+ The schema, administrator credential, database settings or requested demo data
+ may be incomplete. The EMR and prescribing lookups may be unavailable.
+ .
+ Read the installation output for the failed step. When the filesystem is
+ writable, it is also recorded in /var/lib/carlos-emr/.install-incomplete.
+ Existing data is preserved; do not delete databases to retry this repair.
+ .
+ Fix the reported cause, then finish the install with:
+ .
+ sudo carlos-ctl finish-install
+ .
+ It checks database settings, accounts, the schema, the administrator credential
+ and the demonstration dataset if requested. A failed step returns an error and
+ keeps the install pending. Boot retries require the marker and never migrate
+ a populated schema that fails validation. Check the result with
+ "sudo carlos-ctl check"; follow any separate DrugRef recovery instructions.

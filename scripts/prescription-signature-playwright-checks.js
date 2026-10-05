@@ -25,14 +25,21 @@
  * Browser regression check for adding a prescription signature.
  *
  * The script logs in, initializes the prescription session for an existing
- * prescription, clears any existing signature association for the duration of
- * the run, uploads a new signature using the production upload endpoint, saves
- * it through /rx/saveDigitalSignature, verifies the live preview reloads the
- * signature image, then rebuilds the prescription view and verifies the stored
- * signature is persisted on the preview.
+ * unsigned prescription, uploads a new signature using the production upload
+ * endpoint, saves it through /rx/saveDigitalSignature, verifies the live
+ * preview reloads the signature image, then rebuilds the prescription view and
+ * verifies the stored signature is persisted on the preview. The uploaded
+ * association is cleared after the check. Set PRESCRIPTION_SIGNATURE_CLEANUP=true
+ * with local MYSQL_HOST/USER/PASSWORD/DATABASE settings to remove this run's
+ * unreferenced signature row and encrypted image as well.
  *
  * Required fixture:
  *   PRESCRIPTION_SCRIPT_ID=123 npm run test:prescription-signature-playwright
+ *
+ * The fixture must have at least one drugs row and must be unsigned
+ * (prescription.digital_signature_id IS NULL). Use a disposable local fixture;
+ * for the standard throwaway VM, script 45 can be reset with:
+ *   UPDATE prescription SET digital_signature_id = NULL WHERE script_no = 45;
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -46,6 +53,9 @@
  */
 
 const { chromium } = require('playwright');
+const { browserErrorClass } = require('./browser-error-class');
+const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
+const { localFixtureSql, deleteOwnedPrescriptionSignature } = require('./local-fixture-cleanup');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -71,13 +81,20 @@ if (prescriptionPharmacyId && !/^\d+$/.test(prescriptionPharmacyId)) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -112,17 +129,12 @@ function isExpectedConsoleNoise(message) {
     && /\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=\d+/.test(location.url || '');
 }
 
-function isExpectedPageError(error) {
-  const text = error.stack || error.message || '';
-  return /Cannot set properties of null \(setting 'innerHTML'\)/.test(text) && /expandPreview/.test(text);
-}
-
 function wirePage(page, label) {
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
     if (status >= 400 && !isExpectedMissingAsset(status, responseUrl)) {
-      findings.push({ label, type: 'http', status, url: responseUrl });
+      findings.push({ label, type: 'http', status });
     }
   });
   page.on('console', (message) => {
@@ -131,17 +143,14 @@ function wirePage(page, label) {
       return;
     }
     if (message.type() === 'error' || /(ReferenceError|TypeError|SyntaxError|Cannot read|Cannot set)/i.test(text)) {
-      findings.push({ label, type: `console:${message.type()}`, text, location: message.location() });
+      findings.push({ label, type: 'console-error' });
     }
   });
   page.on('pageerror', (error) => {
-    if (isExpectedPageError(error)) {
-      return;
-    }
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+    findings.push({ label, type: 'pageerror', errorClass: browserErrorClass(error) });
   });
   page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
+    findings.push({ label, type: 'dialog' });
     await dialog.accept();
   });
 }
@@ -152,8 +161,6 @@ async function assertNoErrorPage(page, label) {
     findings.push({
       label,
       type: 'error-page',
-      url: page.url(),
-      body: bodyText.replace(/\s+/g, ' ').slice(0, 500),
     });
   }
 }
@@ -172,7 +179,7 @@ async function login(context) {
     page.locator('input[type="submit"], button[type="submit"]').first().click(),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'login', url: page.url() });
+  visited.push({ label: 'login' });
   await assertNoErrorPage(page, 'login');
   return page;
 }
@@ -181,16 +188,17 @@ async function choosePrescriptionPatient(page) {
   const params = new URLSearchParams({ demographicNo: prescriptionDemographicNo });
   await gotoApp(page, `/rx/choosePatient?${params.toString()}`);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: 'choose-patient', url: page.url() });
+  visited.push({ label: 'choose-patient' });
   await assertNoErrorPage(page, 'choose-patient');
 }
 
 async function postReprintSession(page) {
-  const result = await page.evaluate(async ({ scriptId }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection // scriptId is numeric-validated before this call; data is passed as a serialized argument, not string-interpolated into the function body.
+  const result = await page.evaluate(async ({ scriptId, demographicNo }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection // scriptId and demographicNo are numeric-validated before this call; data is passed as a serialized argument, not string-interpolated into the function body.
     const csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
     const csrfToken = csrfEl ? csrfEl.value || '' : '';
     const body = new URLSearchParams({
       scriptNo: scriptId,
+      demographicNo,
       rand: String(Math.floor(Math.random() * 10001)),
     });
     if (csrfToken) {
@@ -209,13 +217,47 @@ async function postReprintSession(page) {
     });
     return {
       status: response.status,
-      contentType: response.headers.get('content-type') || '',
-      text: await response.text(),
+      redirected: response.redirected,
     };
-  }, { scriptId: prescriptionScriptId });
-  if (result.status !== 200) {
-    throw new Error(`Prescription reprint session setup returned HTTP ${result.status}: ${result.text.slice(0, 300)}`);
+  }, { scriptId: prescriptionScriptId, demographicNo: prescriptionDemographicNo });
+  if (result.redirected) {
+    throw new Error(`Prescription reprint session setup redirected (HTTP ${result.status}); check the login and permissions.`);
   }
+  if (result.status === 404) {
+    // Current reprint handlers reject an empty, missing or foreign script before opening the
+    // preview. Unlike hasPreview=false, this response cannot distinguish those fixture causes.
+    throw new Error(`Prescription ${prescriptionScriptId} cannot be reprinted for demographic ${prescriptionDemographicNo} `
+      + '(HTTP 404): the script may be missing, belong to another patient, or have no owned drug rows. '
+      + 'Choose an unsigned disposable fixture with matching prescription and drug ownership: '
+      + `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+      + `WHERE p.demographic_no=${prescriptionDemographicNo} AND d.demographic_no=${prescriptionDemographicNo} `
+      + 'AND p.digital_signature_id IS NULL.');
+  }
+  if (result.status !== 200) {
+    throw new Error(`Prescription reprint session setup returned HTTP ${result.status}`);
+  }
+}
+
+async function checkEmptyPrescriptionPrint(page) {
+  await choosePrescriptionPatient(page);
+  const countQuery = `SELECT COUNT(*) FROM prescription WHERE demographic_no=${prescriptionDemographicNo}`;
+  const before = process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true' ? localFixtureSql(countQuery) : null;
+  await gotoApp(page, '/rx/viewScript');
+  await assertNoErrorPage(page, 'empty-prescription-view');
+  const state = await page.evaluate(() => {
+    const button = document.getElementById('printButton');
+    const state = { hasPreview: window.hasPreview, framePresent: !!document.getElementById('preview'),
+      printDisabled: !!button && button.disabled, helperPresent: typeof window.printIframe === 'function' };
+    if (state.helperPresent) window.printIframe();
+    return state;
+  });
+  if (state.hasPreview !== false || state.framePresent || !state.printDisabled || !state.helperPresent) {
+    throw new Error('Empty prescription must disable Print and safely handle a programmatic print attempt');
+  }
+  if (before !== null && localFixtureSql(countQuery) !== before) {
+    throw new Error('Viewing an empty prescription must not create an orphan prescription row');
+  }
+  visited.push({ label: 'empty-prescription-print-guard', databaseUnchanged: before === null ? 'not-checked' : true });
 }
 
 async function openPrescriptionView(page, label) {
@@ -226,11 +268,49 @@ async function openPrescriptionView(page, label) {
     viewParams.set('pharmacyId', prescriptionPharmacyId);
   }
   await gotoApp(page, `/rx/viewScript?${viewParams.toString()}`);
-  await page.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
+  await waitForPreviewOrExplain(page);
   await previewFrame(page);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label, url: page.url() });
+  visited.push({ label });
   await assertNoErrorPage(page, label);
+}
+
+/**
+ * Adapted from Michael Yingbull's PR #3753 (7a1f1f3): diagnose an empty preview only
+ * when the completed print page says hasPreview=false. Slow renders keep the full 30s budget;
+ * login/error pages retain the original timeout. Never include rendered clinical text.
+ */
+async function waitForPreviewOrExplain(page) {
+  const preview = page.locator('#preview');
+  const inspect = () => page.evaluate(() => ({
+    frameAttached: !!document.querySelector('#preview'),
+    complete: document.readyState === 'complete',
+    serverFoundDrugs: typeof window.hasPreview === 'boolean' ? window.hasPreview : null,
+  }));
+  const emptyPrescriptionError = () => new Error(
+    `Prescription ${prescriptionScriptId} rendered a completed print page with hasPreview=false and no preview frame. `
+    + 'Choose an unsigned disposable prescription with owned drug rows: '
+    + `SELECT MAX(p.script_no) FROM prescription p JOIN drugs d ON d.script_no=p.script_no `
+    + `WHERE p.demographic_no=${prescriptionDemographicNo} AND d.demographic_no=${prescriptionDemographicNo} `
+    + 'AND p.digital_signature_id IS NULL.',
+  );
+  try {
+    await preview.waitFor({state: 'attached', timeout: 5000});
+    return;
+  } catch (error) { /* Inspect the page before diagnosing a missing frame. */ }
+  const settled = await inspect();
+  if (settled.complete && !settled.frameAttached && settled.serverFoundDrugs === false) {
+    throw emptyPrescriptionError();
+  }
+  try {
+    await preview.waitFor({state: 'attached', timeout: 25000});
+  } catch (error) {
+    const final = await inspect();
+    if (final.complete && !final.frameAttached && final.serverFoundDrugs === false) {
+      throw emptyPrescriptionError();
+    }
+    throw error;
+  }
 }
 
 async function previewFrame(page) {
@@ -242,8 +322,7 @@ async function previewFrame(page) {
   try {
     await frame.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
   } catch (error) {
-    const bodyText = await frame.locator('body').innerText().catch(() => '');
-    throw new Error(`Prescription preview did not render #signature at ${frame.url()}: ${bodyText.replace(/\s+/g, ' ').slice(0, 500)}`);
+    throw new Error('Prescription preview did not render the signature element');
   }
   return frame;
 }
@@ -293,9 +372,12 @@ async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
   }
 
   const csrfToken = await readCsrfToken(page);
+  // Names the prescribing window's patient, as ViewScript2's setDigitalSignatureToRx does: the
+  // server refuses (409) a signature write that does not name the script's patient (#3908).
   const form = {
     method: 'saveDigitalSignature',
     scriptId: prescriptionScriptId,
+    demographicNo: prescriptionDemographicNo,
   };
   if (signatureId) {
     form.digitalSignatureId = signatureId;
@@ -313,9 +395,8 @@ async function savePrescriptionSignatureAssociation(page, digitalSignatureId) {
     form,
     headers,
   });
-  const text = await response.text();
-  if (response.status() !== 200) {
-    throw new Error(`Saving prescription signature association returned HTTP ${response.status()}: ${text.slice(0, 300)}`);
+  if (response.status() !== 200 || response.headers()['x-carlos-signature-write'] !== 'written') {
+    throw new Error(`Saving prescription signature association returned HTTP ${response.status()}`);
   }
 }
 
@@ -378,12 +459,12 @@ async function uploadPrescriptionSignature(page) {
     });
     const text = await response.text();
     if (response.status !== 200) {
-      throw new Error(`SaveSignatureUpload returned HTTP ${response.status}: ${text.slice(0, 300)}`);
+      throw new Error(`SaveSignatureUpload returned HTTP ${response.status}`);
     }
     const doc = new DOMParser().parseFromString(text, 'text/html');
     const signatureId = (doc.querySelector('input[name="signatureId"]') || {}).value || '';
     if (!/^\d+$/.test(signatureId)) {
-      throw new Error(`SaveSignatureUpload did not return a numeric signatureId: ${text.slice(0, 300)}`);
+      throw new Error('SaveSignatureUpload did not return a numeric signatureId');
     }
     return { signatureId, signatureKey };
   }, { demographicNo: prescriptionDemographicNo });
@@ -406,14 +487,20 @@ async function refreshLivePreview(page) {
 async function runPrescriptionSignatureCheck(context) {
   const page = await context.newPage();
   wirePage(page, 'prescription-signature');
-  let originalSignatureId = '';
   let uploadedSignatureId = '';
   let associationCleared = false;
 
   try {
+    if (process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true') {
+      // Check the explicitly enabled local database access before creating a signature.
+      localFixtureSql('SELECT 1');
+    }
+    await checkEmptyPrescriptionPrint(page);
     await openPrescriptionView(page, 'initial-prescription-view');
     const initialPreview = await readPreviewSignature(page, { requireLoaded: false });
-    originalSignatureId = initialPreview.storedSignatureId;
+    if (initialPreview.storedSignatureId) {
+      throw new Error('PRESCRIPTION_SCRIPT_ID must refer to an unsigned disposable fixture');
+    }
 
     await savePrescriptionSignatureAssociation(page, null);
     associationCleared = true;
@@ -422,36 +509,47 @@ async function runPrescriptionSignatureCheck(context) {
 
     const upload = await uploadPrescriptionSignature(page);
     uploadedSignatureId = upload.signatureId;
-    await savePrescriptionSignatureAssociation(page, uploadedSignatureId);
+    const association = await page.evaluate(async (signatureId) => {
+      const pending = associateSavedSignature({ storedImageUrl:
+        `/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=${signatureId}` }, faxScriptNo);
+      const lockedWhilePending = signatureAssociationPending && shouldDisableFaxControls();
+      await pending;
+      return { lockedWhilePending, saved: isSignatureSaved, failed: signatureAssociationFailed,
+        pending: signatureAssociationPending };
+    }, uploadedSignatureId);
+    if (!association.lockedWhilePending || !association.saved || association.failed || association.pending) {
+      throw new Error('Signature association UI did not enforce pending-to-confirmed fax gating');
+    }
     const livePreview = await refreshLivePreview(page);
 
     await openPrescriptionView(page, 'stored-prescription-view');
     const storedPreview = await readPreviewSignature(page);
     if (storedPreview.storedSignatureId !== uploadedSignatureId) {
-      throw new Error(`Expected stored preview signature id ${uploadedSignatureId}, got ${storedPreview.storedSignatureId || 'none'} from ${storedPreview.src}`);
+      throw new Error('Stored preview did not use the uploaded signature');
     }
     if (!/source=signature_stored/.test(storedPreview.src)) {
-      throw new Error(`Expected stored preview image after reload, got ${storedPreview.src}`);
+      throw new Error('Expected stored preview image after reload');
     }
 
     return {
-      scriptId: prescriptionScriptId,
-      demographicNo: prescriptionDemographicNo,
-      pharmacyId: prescriptionPharmacyId,
-      originalSignatureId,
-      uploadedSignatureId,
-      livePreview,
-      storedPreview,
+      signatureMatched: true,
+      livePreview: { width: livePreview.width, height: livePreview.height },
+      storedPreview: { width: storedPreview.width, height: storedPreview.height },
     };
   } finally {
     if (associationCleared || uploadedSignatureId) {
       try {
-        await savePrescriptionSignatureAssociation(page, originalSignatureId || null);
+        await savePrescriptionSignatureAssociation(page, null);
+        if (uploadedSignatureId && process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true') {
+          deleteOwnedPrescriptionSignature(uploadedSignatureId, prescriptionDemographicNo);
+        } else if (uploadedSignatureId) {
+          console.warn('Created signature retained: enable PRESCRIPTION_SIGNATURE_CLEANUP with local MYSQL settings for full teardown');
+        }
       } catch (error) {
         findings.push({
           label: 'prescription-signature:restore',
           type: 'restore-error',
-          text: error.stack || error.message,
+          text: 'Could not completely restore the prescription signature fixture',
         });
       }
     }
@@ -460,30 +558,37 @@ async function runPrescriptionSignatureCheck(context) {
 }
 
 (async () => {
+  const cancellation = createGracefulSignalCancellation();
   const launchOptions = {
     headless: true,
+    handleSIGINT: false,
+    handleSIGTERM: false,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  let browser;
   try {
+    browser = await chromium.launch(launchOptions);
+    cancellation.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 
-    const result = await runPrescriptionSignatureCheck(context);
+    const result = await cancellation.run(() => runPrescriptionSignatureCheck(context));
     console.log(JSON.stringify({ visited, result, findings }, null, 2));
-    const blockingFindings = findings.filter((finding) => finding.type !== 'dialog');
-    if (blockingFindings.length) {
+    if (findings.length) {
       process.exitCode = 1;
     }
   } finally {
-    await browser.close();
+    try { if (browser) await browser.close(); } finally { cancellation.dispose(); }
   }
 })().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
+  // The cause is what makes a one-line failure diagnosable; a fixture guard ("must refer
+  // to an unsigned disposable fixture") and a browser timeout print identically without it.
+  console.error('Prescription signature validation failed');
+  console.error(error && (error.stack || error.message || String(error)));
+  process.exitCode = error.exitCode || 1;
 });

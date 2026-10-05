@@ -88,7 +88,7 @@ class AppointmentJspRoutingTest {
         assertThat(editRepeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmenteditrepeatbooking\"");
         assertThat(editRepeat).doesNotContain("action=\"appointmenteditrepeatbooking.jsp\"");
 
-        assertThat(repeat).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentrepeatbooking\"");
+        assertThat(repeat).contains("<jsp:forward page=\"/WEB-INF/jsp/appointment/appointmenteditrepeatbooking.jsp\"/>");
         assertThat(repeat).doesNotContain("action=\"appointmentrepeatbooking.jsp\"");
 
         assertThat(groupRecords).contains("action=\"<%=request.getContextPath() %>/appointment/appointmentgrouprecords\"");

@@ -21,9 +21,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -33,7 +37,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import io.github.carlos_emr.OscarDocumentCreator;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperExportManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperReport;
 import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementInvoice;
@@ -65,7 +73,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *       lookup yields zero or many candidates so the action can surface a
  *       specific i18n error.</li>
  *   <li>{@link #aggregateInvoices} — for the resolved patient, iterate the
- *       PAT-status billings in the date range, walk their items, and tally
+ *       non-deleted PAT billings in the date range, walk their items, and tally
  *       invoiced/paid totals into a {@link PatientEndYearStatementSummary}.</li>
  *   <li>{@link #writePdfTo} — render the JasperReports PDF to the response
  *       output stream. This is the path that previously held a
@@ -80,11 +88,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {
 
+    // These are bundled classpath resources, not configurable external filesystem locations.
+    @SuppressWarnings("java:S1075")
     private static final String JASPER_REPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_report.jrxml";
-    private static final String JASPER_SUBREPORT_DIR =
-            "/oscar/oscarBilling/ca/on/reports/";
+    @SuppressWarnings("java:S1075")
+    private static final String JASPER_SUBREPORT_PATH =
+            "/oscar/oscarBilling/ca/on/reports/end_year_statement_subreport.jrxml";
     private static final String PAT_BILLING_TYPE = "PAT";
+    private static final String REPORT_ERROR_KEY = "errors.billing.ca.on.database";
 
     private final BillingONCHeader1Dao headerDao;
     private final BillingONItemDao itemDao;
@@ -156,8 +168,8 @@ public class PatientEndYearStatementService {
      */
     public Result aggregateInvoices(Demographic demographic, Date fromDate, Date toDate) {
         List<PatientEndYearStatementInvoice> invoices = new ArrayList<>();
-        double totalInvoiced = 0;
-        double totalPaid = 0;
+        BigDecimal totalInvoiced = BigDecimal.ZERO;
+        BigDecimal totalPaid = BigDecimal.ZERO;
         int invoiceCount = 0;
 
         try {
@@ -169,13 +181,13 @@ public class PatientEndYearStatementService {
             List<Integer> invoiceIds = headers.stream()
                     .map(BillingONCHeader1::getId)
                     .toList();
-            Map<Integer, List<BillingONItem>> itemsByInvoice = itemDao.findByCh1IdsExcludingDeletedAndSettled(invoiceIds)
+            Map<Integer, List<BillingONItem>> itemsByInvoice = itemDao.findByCh1IdsExcludingDeleted(invoiceIds)
                     .stream()
                     .collect(Collectors.groupingBy(BillingONItem::getCh1Id));
             for (Object[] row : rows) {
                 BillingONCHeader1 header = (BillingONCHeader1) row[0];
-                double paid = header.getPaid().doubleValue();
-                double invoiced = header.getTotal().doubleValue();
+                BigDecimal paid = header.getPaid();
+                BigDecimal invoiced = header.getTotal();
 
                 List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
                 for (BillingONItem item : itemsByInvoice.getOrDefault(header.getId(), List.of())) {
@@ -185,11 +197,11 @@ public class PatientEndYearStatementService {
 
                 invoices.add(new PatientEndYearStatementInvoice(
                         header.getId(), header.getBillingDate(),
-                        String.valueOf(invoiced), String.valueOf(paid),
+                        formatMoney(invoiced), formatMoney(paid),
                         services));
 
-                totalInvoiced += invoiced;
-                totalPaid += paid;
+                totalInvoiced = totalInvoiced.add(invoiced);
+                totalPaid = totalPaid.add(paid);
                 invoiceCount++;
             }
         } catch (RuntimeException e) {
@@ -204,8 +216,8 @@ public class PatientEndYearStatementService {
                 .address(demographic.getAddress() + " "
                         + demographic.getCity() + " " + demographic.getProvince())
                 .phone(demographic.getPhone() + " " + demographic.getPhone2())
-                .invoiced(Utility.toCurrency(totalInvoiced))
-                .paid(Utility.toCurrency(totalPaid))
+                .invoiced(formatMoney(totalInvoiced))
+                .paid(formatMoney(totalPaid))
                 .count(Integer.toString(invoiceCount))
                 .fromDate(fromDate)
                 .toDate(toDate)
@@ -222,8 +234,8 @@ public class PatientEndYearStatementService {
      *
      * @param fromDateParam ISO date string echoed into the report header
      * @param toDateParam   ISO date string echoed into the report header
-     * @throws Failure {@link Reason#DATABASE_ERROR} if no JDBC connection
-     *                 can be acquired
+     * @throws Failure {@link Reason#DATABASE_ERROR} if no JDBC connection can be acquired,
+     *                 or {@link Reason#PDF_ERROR} if compilation, filling or export fails
      */
     // JasperReports needs a raw java.sql.Connection to execute the report's
     // embedded SQL queries; routing through the JPA EntityManager would
@@ -231,33 +243,53 @@ public class PatientEndYearStatementService {
     // connection acquisition.
     public void writePdfTo(OutputStream out, PatientEndYearStatementSummary summary,
                            String fromDateParam, String toDateParam) {
-        OscarDocumentCreator osc = new OscarDocumentCreator();
         HashMap<String, Object> reportParams = buildReportParams(summary, fromDateParam, toDateParam);
-
-        InputStream reportStream = osc.getDocumentStream(JASPER_REPORT_PATH);
         try {
+            JasperReport report = compileReport(JASPER_REPORT_PATH);
+            reportParams.put("SUBREPORT", compileReport(JASPER_SUBREPORT_PATH));
             try (Connection dbConn = LegacyJdbcQuery.getConnection()) {
-                osc.fillDocumentStream(reportParams, out, "pdf", reportStream, dbConn);
-            } catch (SQLException ex) {
-                throw new Failure(Reason.DATABASE_ERROR, ex);
+                var filledReport = JasperFillManager.fillReport(report, reportParams, dbConn);
+                JasperExportManager.exportReportToPdfStream(filledReport, out);
             }
-        } finally {
-            org.apache.commons.io.IOUtils.closeQuietly(reportStream);
+        } catch (SQLException ex) {
+            throw new Failure(Reason.DATABASE_ERROR, ex);
+        } catch (JRException | IOException | RuntimeException ex) {
+            throw new Failure(Reason.PDF_ERROR, ex);
         }
     }
 
+    private static JasperReport compileReport(String path) throws IOException, JRException {
+        try (InputStream report = PatientEndYearStatementService.class.getResourceAsStream(path)) {
+            if (report == null) {
+                throw new IOException("Missing statement template: " + path);
+            }
+            return JasperCompileManager.compileReport(report);
+        }
+    }
+
+    private static String formatMoney(BigDecimal amount) {
+        return amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
     /**
-     * Convenience wrapper for the action: writes Content-Type / disposition
-     * headers to {@code response} and then calls {@link #writePdfTo}.
+     * Render and validate the complete PDF before setting download headers or
+     * touching the servlet output stream. Generation failures leave the response clean.
      */
     public void writePdfResponse(jakarta.servlet.http.HttpServletResponse response,
                                  String filenameWithoutExt,
                                  PatientEndYearStatementSummary summary,
                                  String fromDateParam,
                                  String toDateParam) {
+        var buffer = new ByteArrayOutputStream();
+        writePdfTo(buffer, summary, fromDateParam, toDateParam);
+        byte[] pdf = buffer.toByteArray();
+        if (pdf.length < 5 || !"%PDF-".equals(new String(pdf, 0, 5, StandardCharsets.US_ASCII))) {
+            throw new Failure(Reason.PDF_ERROR, new IOException("Statement renderer returned invalid PDF data"));
+        }
         configurePdfResponseHeaders(response, filenameWithoutExt);
+        response.setContentLength(pdf.length);
         try {
-            writePdfTo(response.getOutputStream(), summary, fromDateParam, toDateParam);
+            response.getOutputStream().write(pdf);
         } catch (IOException e) {
             throw new Failure(Reason.IO_ERROR, e);
         }
@@ -276,7 +308,6 @@ public class PatientEndYearStatementService {
         p.put("invoiceCount", summary.getCount());
         p.put("totalInvoiced", summary.getInvoiced());
         p.put("totalPaid", summary.getPaid());
-        p.put("SUBREPORT_DIR", JASPER_SUBREPORT_DIR);
         return p;
     }
 
@@ -306,8 +337,9 @@ public class PatientEndYearStatementService {
     public enum Reason {
         PATIENT_NOT_FOUND("error.billingReport.invalidPatientName"),
         PATIENT_NOT_UNIQUE("error.billingReport.notSelectivePatientName"),
-        DATABASE_ERROR("errors.billing.ca.on.database"),
-        IO_ERROR("errors.billing.ca.on.database");
+        DATABASE_ERROR(REPORT_ERROR_KEY),
+        IO_ERROR(REPORT_ERROR_KEY),
+        PDF_ERROR(REPORT_ERROR_KEY);
 
         private final String i18nKey;
 

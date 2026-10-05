@@ -32,6 +32,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -137,6 +138,11 @@
     eForm.setFormHtml(LegacyMeasurementHistory.embed(
             eForm.getFormHtml(), eForm, measurementsPermitted));
 
+    // A rendering is a new editing opportunity; a replay of its POST keeps the original identity.
+    if (!"-1".equals(eForm.getDemographicNo())) {
+        eForm.setSubmissionToken(EFormSubmissionGuard.issue(session, eForm.getFid(), eForm.getDemographicNo()));
+    }
+
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
      * Ordering is very important.
@@ -157,6 +163,11 @@
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
 
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    eForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    eForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    eForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
+
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
 
@@ -167,6 +178,9 @@
     eForm.addHiddenInputElement("demographicNo", eForm.getDemographicNo());
     eForm.addHiddenInputElement("fdid", fdid);
     eForm.addHiddenInputElement("fid", eForm.getFid());
+    // Saved instance: supply its persisted subject. Admin preview (fid branch): the form was loaded
+    // from the catalog, whose subject is the template's description rather than a letter subject.
+    eForm.ensureSubjectInput(fid == null ? eForm.getFormSubject() : "");
 
     // Add EForm error message
     eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));

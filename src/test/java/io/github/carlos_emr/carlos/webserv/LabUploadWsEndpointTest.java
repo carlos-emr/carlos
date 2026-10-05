@@ -1,0 +1,237 @@
+/**
+ * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.webserv;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
+import java.io.InputStream;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.lab.FileUploadCheck;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+/**
+ * SOAP-level endpoint tests for {@link LabUploadWs} using CXF local transport.
+ *
+ * <p>These tests verify the full CXF JAX-WS pipeline for lab upload operations:
+ * SOAP envelope marshalling/unmarshalling, WSDL processing, and response
+ * serialization. Due to the heavy use of static helpers ({@link CarlosProperties},
+ * {@link FileUploadCheck}, {@link HandlerClassFactory}, {@link Utilities}), these
+ * tests use {@link MockedStatic} to isolate file I/O and database operations.</p>
+ *
+ * @since 2026-03-31
+ * @see CarlosSoapTestBase
+ */
+@Tag("unit")
+@Tag("endpoint")
+@Tag("soap")
+@DisplayName("LabUploadWs SOAP endpoint tests")
+class LabUploadWsEndpointTest extends CarlosSoapTestBase {
+
+    @Mock
+    private CarlosProperties carlosProperties;
+
+    @Mock
+    private MessageHandler messageHandler;
+
+    private MockedStatic<CarlosProperties> carlosPropertiesMock;
+    private MockedStatic<FileUploadCheck> fileUploadCheckMock;
+    private MockedStatic<HandlerClassFactory> handlerClassFactoryMock;
+    private MockedStatic<Utilities> utilitiesMock;
+
+    private LabUploadWs ws;
+    private io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager transactions;
+
+    @Override
+    protected Object getServiceBean() {
+        ws = new LabUploadWs();
+        return ws;
+    }
+
+    @Override
+    protected Class<?> getServiceInterface() {
+        return LabUploadWs.class;
+    }
+
+    @BeforeEach
+    void setUpMocks() {
+        transactions = new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager();
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactions);
+        carlosPropertiesMock = mockStatic(CarlosProperties.class);
+        fileUploadCheckMock = mockStatic(FileUploadCheck.class);
+        handlerClassFactoryMock = mockStatic(HandlerClassFactory.class);
+        utilitiesMock = mockStatic(Utilities.class);
+
+        carlosPropertiesMock.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+        when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(System.getProperty("java.io.tmpdir") + "/");
+    }
+
+    @AfterEach
+    void tearDownStaticMocks() {
+        if (utilitiesMock != null) utilitiesMock.close();
+        if (handlerClassFactoryMock != null) handlerClassFactoryMock.close();
+        if (fileUploadCheckMock != null) fileUploadCheckMock.close();
+        if (carlosPropertiesMock != null) carlosPropertiesMock.close();
+    }
+
+    /** Tests for the uploadCLS SOAP operation. */
+    @Nested
+    @DisplayName("uploadCLS operation")
+    class UploadCLS {
+
+        @Test
+
+        @DisplayName("should return success JSON when lab upload succeeds")
+        void shouldReturnSuccessJson_whenLabUploadSucceeds() {
+            fileUploadCheckMock.when(() -> FileUploadCheck.storeSavedFileIfNew(any(java.io.File.class),
+                            any(java.io.File.class), anyString(), anyString(), any(FileUploadCheck.ContentStore.class)))
+                .thenAnswer(invocation -> invocation.<FileUploadCheck.ContentStore>getArgument(4).store(1)
+                        ? FileUploadCheck.StoreOutcome.STORED : FileUploadCheck.StoreOutcome.REJECTED);
+            handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("CLS"))
+                .thenReturn(messageHandler);
+            when(messageHandler.parse(any(LoggedInInfo.class), anyString(), anyString(), anyInt(), anyString()))
+                .thenReturn("audit-info");
+
+            LabUploadWs proxy = createClient(LabUploadWs.class);
+            String result = proxy.uploadCLS("test_lab.hl7", "MSH|content", "999");
+
+            assertThat(result)
+                .contains("\"success\":1")
+                .contains("audit-info");
+        }
+
+        @Test
+        @DisplayName("should return failure JSON when filename contains path traversal")
+        void shouldReturnFailureJson_whenFilenameContainsPathTraversal() {
+            LabUploadWs proxy = createClient(LabUploadWs.class);
+            String result = proxy.uploadCLS("../etc/passwd", "content", "999");
+
+            assertThat(result).contains("\"success\":0");
+        }
+
+        @Test
+        @DisplayName("should return failure JSON when filename is empty")
+        void shouldReturnFailureJson_whenFilenameIsEmpty() {
+            LabUploadWs proxy = createClient(LabUploadWs.class);
+            String result = proxy.uploadCLS("", "content", "999");
+
+            assertThat(result).contains("\"success\":0");
+        }
+    }
+
+    /** Tests for the uploadPDF SOAP operation. */
+    @Nested
+    @DisplayName("uploadPDF operation")
+    class UploadPDF {
+
+        @Test
+
+        @DisplayName("should return success JSON when PDF upload succeeds")
+        void shouldReturnSuccessJson_whenPdfUploadSucceeds() {
+            utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString()))
+                .thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "test.pdf").getPath());
+            handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC"))
+                .thenReturn(messageHandler);
+            when(messageHandler.parse(any(LoggedInInfo.class), anyString(), anyString(), anyInt(), anyString()))
+                .thenReturn("{\"success\":1,\"message\":\"\"}");
+
+            LabUploadWs proxy = createClient(LabUploadWs.class);
+            String result = proxy.uploadPDF("report.pdf", "PDF-content".getBytes(), "999");
+
+            assertThat(result).contains("\"success\":1");
+            assertThat(transactions.commits).isEqualTo(1);
+        }
+
+        @Test
+        void shouldReturnFailureAndRollBack_whenPdfHandlerRejectsUpload() {
+            utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString())).thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "synthetic.pdf").getPath());
+            handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC")).thenReturn(messageHandler);
+            when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+                assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                return null;
+            });
+            String result = createClient(LabUploadWs.class).uploadPDF("synthetic.pdf", "SYNTHETIC".getBytes(), "999");
+            assertThat(result).contains("\"success\":0");
+            assertThat(transactions.rollbacks).isEqualTo(1);
+            assertThat(transactions.commits).isZero();
+        }
+
+        @Test
+        void shouldRemoveSavedPdf_whenPdfHandlerRejectsUpload() throws Exception {
+            java.nio.file.Path documentDir = java.nio.file.Files.createTempDirectory("carlos-4086-");
+            java.nio.file.Path saved = java.nio.file.Files.writeString(documentDir.resolve("DocUpload.synthetic.1.pdf"), "%PDF-1.4");
+            try {
+                when(carlosProperties.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+                fileUploadCheckMock.when(() -> FileUploadCheck.discardOnRollback(any(), any())).thenCallRealMethod();
+                fileUploadCheckMock.when(() -> FileUploadCheck.discardUnreferenced(any(), any())).thenCallRealMethod();
+                utilitiesMock.when(() -> Utilities.savePdfFile(any(InputStream.class), anyString())).thenReturn(saved.toString());
+                handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("PDFDOC")).thenReturn(messageHandler);
+                when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+
+                String result = createClient(LabUploadWs.class).uploadPDF("synthetic.pdf", "SYNTHETIC".getBytes(), "999");
+
+                assertThat(result).contains("\"success\":0");
+                // No document row references the PDF after the rollback, so it is not left behind.
+                assertThat(saved).doesNotExist();
+            } finally {
+                java.nio.file.Files.deleteIfExists(saved);
+                java.nio.file.Files.deleteIfExists(documentDir);
+            }
+        }
+    }
+
+    @Test
+    void shouldRollBackGeneratedDocuments_whenFhirHandlerRejectsUpload() {
+        utilitiesMock.when(() -> Utilities.saveFile(any(InputStream.class), anyString())).thenReturn(new java.io.File(System.getProperty("java.io.tmpdir"), "synthetic.json").getPath());
+        handlerClassFactoryMock.when(() -> HandlerClassFactory.getHandler("FHIR_COMMUNICATION_REQUEST")).thenReturn(messageHandler);
+        java.util.concurrent.atomic.AtomicInteger completion = new java.util.concurrent.atomic.AtomicInteger(-1);
+        when(messageHandler.parse(any(), anyString(), anyString(), anyInt(), anyString())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCompletion(int status) { completion.set(status); }
+                    });
+            return null;
+        });
+        String result = createClient(LabUploadWs.class).uploadDocumentReference("synthetic.json", "SYNTHETIC".getBytes(), "999");
+        assertThat(result).contains("\"success\":0");
+        assertThat(completion.get()).isEqualTo(org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+        assertThat(transactions.commits).isZero();
+    }
+}

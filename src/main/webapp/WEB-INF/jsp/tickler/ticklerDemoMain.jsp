@@ -47,6 +47,9 @@
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String user_no = (String) session.getAttribute("user");
+    // URI-encoded once for the javascript:reportWindow(...) attachment links below; the
+    // encoded form is also safe inside the JS string and the surrounding HTML attribute.
+    String userNoParam = SafeEncode.forUriComponent(user_no);
     int nItems = 0;
     String strLimit1 = "0";
     String strLimit2 = "5";
@@ -90,6 +93,7 @@
 %>
 <%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -102,8 +106,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%
@@ -112,7 +116,7 @@
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 
-    TicklerLinkDao ticklerLinkDao = (TicklerLinkDao) SpringUtils.getBean(TicklerLinkDao.class);
+    TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
 %>
 
 
@@ -382,14 +386,29 @@
             function setup() {
 
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-                var Url = window.opener.URLs;
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
 
-                if (update == "true" && parentId != "" && !window.opener.closed) {
-                    window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;
-                    window.opener.updateNeeded = true;
-                } else if (update == "true" && parentId == "" && !window.opener.closed)
-                    window.opener.location.reload();
+                // window.opener is null whenever this page is reached by direct navigation, a
+                // bookmark, or a browser that severs the opener (COOP, rel=noopener, popup
+                // blockers). Read it once and bail out before touching it, so the page still
+                // renders instead of throwing out of onload (#3731). The dead `var Url =
+                // window.opener.URLs` that used to sit here was the throw site; nothing read it.
+                var opener = window.opener;
+                if (!opener || opener.closed || update != "true") {
+                    return;
+                }
+
+                if (parentId != "") {
+                    // The opener is a same-origin CARLOS window, but it may have navigated away
+                    // from the encounter page that owns encForm, so the form may not be there.
+                    var encForm = opener.document.forms['encForm'];
+                    if (encForm && encForm.elements['reloadDiv']) {
+                        encForm.elements['reloadDiv'].value = parentId;
+                    }
+                    opener.updateNeeded = true;
+                } else {
+                    opener.location.reload();
+                }
             }
 
 
@@ -852,6 +871,10 @@
                             List<Tickler> ticklers = demoViewDemographicNo == null
                                     ? java.util.Collections.<Tickler>emptyList()
                                     : ticklerManager.search_tickler_bydemo(loggedInInfo, demoViewDemographicNo, ticklerview, ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
+                            // One attachment query for the page and one name lookup per patient,
+                            // rather than a query and a lab/HRM/form reload for every row.
+                            java.util.Map<Integer, List<TicklerAttachmentData>> attachmentsByTickler =
+                                    ticklerAttachmentService.listAttachments(loggedInInfo, ticklers);
                             String rowColour = "lilac";
                             for (Tickler t : ticklers) {
                                 Demographic d = demographicDao.getDemographicById(t.getDemographicNo());
@@ -948,42 +971,60 @@
                             <TD ROWSPAN="1"
                                 class="<%=cellColour%>"><%=String.valueOf(t.getStatus()).equals("A") ? "Active" : String.valueOf(t.getStatus()).equals("C") ? "Completed" : String.valueOf(t.getStatus()).equals("D") ? "Deleted" : String.valueOf(t.getStatus())%>
                             </TD>
-                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=t.getMessage()%>
+                            <TD ROWSPAN="1" class="<%=cellColour%>"><%=SafeEncode.forHtmlContent(t.getMessage())%>
 
                                 <%
-                                    List<TicklerLink> linkList = ticklerLinkDao.getLinkByTickler(t.getId().intValue());
-                                    if (linkList != null) {
-                                        for (TicklerLink tl : linkList) {
-                                            String type = tl.getTableName();
+                                    // Attachments come from the ticklerdocs store (#3984). Lab rows carry
+                                    // their source so the right viewer opens; encounter forms need the
+                                    // form name, resolved once per patient, because the id alone cannot
+                                    // address a form. Types the reader may not open are not linked.
+                                    for (TicklerAttachmentData attachment : attachmentsByTickler.getOrDefault(t.getId(), java.util.Collections.<TicklerAttachmentData>emptyList())) {
+                                        String attachmentId = SafeEncode.forUriComponent(attachment.getDocumentId());
+                                        String href = null;
+                                        if (attachment.isViewable()) {
+                                            switch (attachment.getDocumentType()) {
+                                                case DOC:
+                                                    href = request.getContextPath() + "/documentManager/ManageDocument?method=display&doc_no=" + attachmentId
+                                                            + "&providerNo=" + userNoParam + "&searchProviderNo=" + userNoParam + "&status=";
+                                                    break;
+                                                case HRM:
+                                                    href = request.getContextPath() + "/hospitalReportManager/Display?id=" + attachmentId;
+                                                    break;
+                                                case EFORM:
+                                                    href = request.getContextPath() + "/eform/efmshowform_data?fdid=" + attachmentId;
+                                                    break;
+                                                case FORM:
+                                                    Integer formDemographicNo = t.getDemographicNo();
+                                                    String formName = attachment.getFormName();
+                                                    if (formName != null) {
+                                                        href = request.getContextPath() + "/form/forwardshortcutname?formname=" + SafeEncode.forUriComponent(formName)
+                                                                + "&demographic_no=" + SafeEncode.forUriComponent(String.valueOf(formDemographicNo))
+                                                                + "&formId=" + attachmentId;
+                                                    }
+                                                    break;
+                                                case LAB:
+                                                default:
+                                                    String labType = attachment.getLabType();
+                                                    String labQuery = "?segmentID=" + attachmentId + "&providerNo=" + userNoParam + "&searchProviderNo=" + userNoParam + "&status=";
+                                                    if (LabResultData.isMDS(labType)) {
+                                                        href = request.getContextPath() + "/oscarMDS/ViewSegmentDisplay" + labQuery;
+                                                    } else if (LabResultData.isCML(labType)) {
+                                                        href = request.getContextPath() + "/lab/CA/ON/ViewCMLDisplay" + labQuery;
+                                                    } else if (labType == null || LabResultData.isHL7TEXT(labType)) {
+                                                        href = request.getContextPath() + "/lab/CA/ALL/ViewLabDisplay" + labQuery;
+                                                    } else {
+                                                        href = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay" + labQuery;
+                                                    }
+                                                    break;
+                                            }
+                                        }
+                                        if (href != null) {
                                 %>
-
+                                <a href="javascript:reportWindow('<%=SafeEncode.forJavaScript(href)%>')" title="<carlos:encode value='<%= attachment.getDisplayName() %>' context="htmlAttribute"/>">ATT</a>
                                 <%
-                                    if (LabResultData.isMDS(type)) {
+                                        } else {
                                 %>
-                                <a href="javascript:reportWindow('SegmentDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isCML(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/ViewCMLDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isHL7TEXT(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isDocument(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
-                                <%
-                                } else if (LabResultData.isHRM(type)) {
-                                %>
-                                <a href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=tl.getTableId()%>')">ATT</a>
-                                <%
-                                } else {
-                                %>
-                                <a href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/ViewLabDisplay?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')">ATT</a>
-                                <%
-                                    }
-                                %>
+                                <span title="<fmt:message key="tickler.attachments.restricted"/>">ATT</span>
                                 <%
                                         }
                                     }
@@ -1003,12 +1044,18 @@
                             Set<TicklerComment> tcomments = t.getComments();
                             if (ticklerEditEnabled && !tcomments.isEmpty()) {
                                 for (TicklerComment tc : tcomments) {
+                                    // TicklerComment.provider is @NotFound(IGNORE): a legacy comment whose
+                                    // provider row is gone loads with a null provider. Render a blank name
+                                    // rather than letting one orphaned comment abort the whole page.
+                                    Provider commentProvider = tc.getProvider();
+                                    String commentProviderName = commentProvider == null ? ""
+                                            : SafeEncode.forHtmlContent(commentProvider.getLastName()) + ","
+                                              + SafeEncode.forHtmlContent(commentProvider.getFirstName());
                         %>
                         <tr>
                             <td width="3%" ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td width="12%" ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>"><%=tc.getProvider().getLastName()%>
-                                ,<%=tc.getProvider().getFirstName()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>"><%=commentProviderName%>
                             </td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <% if (tc.isUpdateDateToday()) { %>
@@ -1021,7 +1068,7 @@
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
                             <td ROWSPAN="1" class="<%=cellColour%>"></td>
-                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%=tc.getMessage()%>
+                            <td ROWSPAN="1" class="<%=cellColour%>" colspan="3"><%=SafeEncode.forHtmlContent(tc.getMessage())%>
                             </td>
 
                         </tr>

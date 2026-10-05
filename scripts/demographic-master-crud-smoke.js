@@ -6,13 +6,15 @@
  * Prerequisites:
  *   - CARLOS is running locally, usually at http://localhost:8080/carlos
  *   - Playwright is available in node_modules or globally
- *   - A Chromium executable exists at CHROMIUM_PATH or Playwright's default browser
+ *   - A Chromium executable exists at CHROME_PATH (legacy: CHROMIUM_PATH) or Playwright's default browser
  *
  * Useful env vars:
  *   BASE_URL=http://localhost:8080/carlos
- *   CARLOS_USER=carlosdoc
- *   CARLOS_PASSWORD=carlos2026
- *   CARLOS_PIN=2026
+ *   TEST_USER=carlosdoc
+ *   TEST_PASSWORD=carlos2026
+ *   TEST_PIN=2026
+ *   CARLOS_USER / CARLOS_PASSWORD / CARLOS_PIN remain accepted as legacy aliases
+ *   CHROME_PATH=/path/to/chrome-or-chromium
  *   HEADLESS=false
  *   KEEP_OPEN=true
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
@@ -22,14 +24,15 @@ const { chromium } = require('playwright');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
-  username: process.env.CARLOS_USER || 'carlosdoc',
-  password: process.env.CARLOS_PASSWORD || 'carlos2026',
-  pin: process.env.CARLOS_PIN || '2026',
+  username: process.env.TEST_USER || process.env.CARLOS_USER || 'carlosdoc',
+  password: process.env.TEST_PASSWORD || process.env.CARLOS_PASSWORD || 'carlos2026',
+  pin: process.env.TEST_PIN || process.env.CARLOS_PIN || '2026',
   // Empty by default so Playwright uses its own bundled chromium; a pinned
   // build path (e.g. the devcontainer's) would break on any other install
-  // (deb, CI) where that exact revision is not present. Override CHROMIUM_PATH
-  // only to force a specific binary (e.g. the packaged eForm-render chromium).
-  chromiumPath: process.env.CHROMIUM_PATH || '',
+  // (deb, CI) where that exact revision is not present. Override CHROME_PATH
+  // (or legacy CHROMIUM_PATH) only to force a specific binary, such as the
+  // packaged eForm-render Chromium.
+  chromiumPath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
   headless: process.env.HEADLESS !== 'false',
   keepOpen: process.env.KEEP_OPEN === 'true',
   timeout: Number(process.env.PLAYWRIGHT_TIMEOUT || 30000),
@@ -57,13 +60,20 @@ const results = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -196,13 +206,17 @@ async function searchByName(searchPage, keyword) {
 }
 
 async function createDemographic(searchPage) {
-  const createLink = searchPage.locator('a', { hasText: /Create Demographic/i }).first();
-  if (!await createLink.count()) {
-    throw new Error('Could not find Create Demographic link after no-results search');
+  // The search landing page has a link; search results use a CSRF-protected
+  // POST form for the same action. Exercise the control on the actual page.
+  const createControl = searchPage.locator('.createNew a, .createNew button').filter({
+    hasText: /Create Demographic/i,
+  }).first();
+  if (!await createControl.count()) {
+    throw new Error('Could not find Create Demographic control after no-results search');
   }
   await Promise.all([
     searchPage.waitForLoadState('domcontentloaded').catch(() => {}),
-    createLink.click(),
+    createControl.click(),
   ]);
   await searchPage.waitForTimeout(1000);
   if (!await expectNoErrorPage(searchPage, 'open create demographic form')) return null;

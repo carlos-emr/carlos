@@ -105,6 +105,11 @@ function rejectEmbeddedCredentials(parsed) {
   return parsed;
 }
 
+function isExactLoopback(rawHost) {
+  const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
+  return new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']).has(host);
+}
+
 const config = {
   baseUrl: rejectEmbeddedCredentials(validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos')),
   chromePath: process.env.CHROME_PATH || '',
@@ -235,7 +240,12 @@ const recorder = createRecorder();
 
 async function main() {
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({ viewport: { width: 1360, height: 1100 } });
+  const context = await browser.newContext({
+    // A packaged standalone install begins with a self-signed certificate.
+    // Remote targets explicitly opted into above must still prove their TLS.
+    ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
+    viewport: { width: 1360, height: 1100 },
+  });
   let page;
   const existing = { accountNumber: '', accountName: '', senderEmail: '', faxNumber: '' };
 

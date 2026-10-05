@@ -279,6 +279,7 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
@@ -711,69 +712,14 @@
 
             <%}%>
 
-            function add2url(txt) {
-                var reasonLabel = "reason=";
-                var encTypeLabel = "encType=";
-                var beg = encURL.indexOf(reasonLabel);
-                beg += reasonLabel.length;
-                var end = encURL.indexOf("&", beg);
-                var part1 = encURL.substring(0, beg);
-                var part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                beg = encURL.indexOf(encTypeLabel);
-                beg += encTypeLabel.length;
-                end = encURL.indexOf("&", beg);
-                part1 = encURL.substring(0, beg);
-                part2 = encURL.substr(end);
-                encURL = part1 + encodeURI(txt) + part2;
-                popupEChart(710, 1024, encURL);
-                return false;
-            }
-
-            function customReason() {
-                var txtInput;
-                var list = document.getElementById("listCustom");
-                if (list.style.display == "block")
-                    list.style.display = "none";
-                else {
-                    list.style.display = "block";
-                    txtInput = document.getElementById("txtCustom");
-                    txtInput.focus();
-                }
-
-                return false;
-            }
-
-            function grabEnterCustomReason(event) {
-
-                var txtInput = document.getElementById("txtCustom");
-                if (window.event && window.event.keyCode == 13) {
-                    add2url(txtInput.value);
-                } else if (event && event.which == 13) {
-                    add2url(txtInput.value);
-                }
-
-                return true;
-            }
-
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
-                var form = document.createElement('form');
-                form.method = 'post';
-                form.action = '<%= request.getContextPath() %>/demographic/ViewAddDemoToPatientSet';
-                form.target = 'addpsetwin';
-                var fields = {demoNo: demoNo, patientSet: patientSet};
-                for (var key in fields) {
-                    var input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = fields[key];
-                    form.appendChild(input);
-                }
-                document.body.appendChild(form);
-                window.open('', 'addpsetwin', 'width=50,height=50');
-                form.submit();
-                document.body.removeChild(form);
+                // Open the popup inside the change handler (popup blockers), then
+                // post into it. carlosPostForm attaches the CSRF token, which
+                // CSRFGuard cannot inject into a runtime-built form in time (#4130).
+                var popup = window.open('', 'addpsetwin', 'width=50,height=50');
+                carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/demographic/ViewAddDemoToPatientSet',
+                    {demoNo: demoNo, patientSet: patientSet}, {target: 'addpsetwin', popup: popup});
             }
 
             </security:oscarSec>
@@ -896,12 +842,12 @@
 
             function updateEnrolledTo() {
                 var rosterSelect = document.getElementById("roster_status");
-                if (rosterSelect.getValue() == "RO") {
+                if (rosterSelect.value == "RO") {
                     if (document.getElementById("enrolledTo").value != document.getElementById("mrp").value && confirm(i18n.msgConfirmEnrolledToMRP)) {
                         document.getElementById("enrolledTo").value = document.getElementById("mrp").value;
                     }
                 } else {
-                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.getValue()))) {
+                    if (document.getElementById("enrolledTo").value != "" && confirm(i18n.msgConfirmClearEnrolledTo.replace('{0}', rosterSelect.value))) {
                         document.getElementById("enrolledTo").value = "";
                     }
                 }
@@ -1275,7 +1221,7 @@
                             <tr>
                                 <td>
                                     <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=private')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
                             </tr>
                             <%}%>
                         </special:SpecialPlugin>

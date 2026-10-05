@@ -42,8 +42,12 @@ class RxAllergyCsrfJspRegressionTest {
 
     private static final Path ADD_REACTION_JSP = projectRoot()
             .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "AddReaction2.jsp"));
+    private static final Path SHOW_ALLERGIES_JSP = projectRoot()
+            .resolve(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "rx", "ShowAllergies2.jsp"));
+    // Per-patient Rx state (#3875): the patient comes from the request's Rx bean, not a shared
+    // session attribute.
     private static final String PATIENT_LOOKUP = "RxPatientData.Patient patient = "
-            + "(RxPatientData.Patient) request.getSession().getAttribute(\"Patient\");";
+            + "RxSessionBeanResolver.resolvePatient(request);";
     private static final String MISSING_PATIENT_GUARD = "if (patient == null) { "
             + "response.sendError(HttpServletResponse.SC_FORBIDDEN); return; }";
 
@@ -87,6 +91,15 @@ class RxAllergyCsrfJspRegressionTest {
                 .singleElement();
     }
 
+    @Test
+    @DisplayName("custom allergy confirmation should gate the add-reaction request")
+    void shouldNotRequestCustomAllergyForm_whenConfirmationIsCancelled() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+
+        assertThat(jsp).contains("if (confirm(\"Adding custom allergy: \" + name)) { "
+                + "sendSearchRequest(\"${ pageContext.servletContext.contextPath }/rx/addReaction2\",");
+    }
+
     private static Element addAllergyForm() throws IOException {
         Document document = Jsoup.parse(readAddReactionJsp());
         Element form = document.selectFirst("form#RxAddAllergyForm");
@@ -120,7 +133,8 @@ class RxAllergyCsrfJspRegressionTest {
                     .toURI());
             Path current = Files.isRegularFile(location) ? location.getParent() : location;
             while (current != null) {
-                if (Files.isRegularFile(current.resolve("src/main/webapp/WEB-INF/jsp/rx/AddReaction2.jsp"))) {
+                if (Files.isRegularFile(current.resolve("src/main/webapp/WEB-INF/jsp/rx/AddReaction2.jsp"))
+                        && Files.isRegularFile(current.resolve("src/main/webapp/WEB-INF/jsp/rx/ShowAllergies2.jsp"))) {
                     return current;
                 }
                 current = current.getParent();

@@ -1,3 +1,518 @@
+carlos-emr (2026.09.0~snapshot26) resolute; urgency=medium
+
+  * The empty transitional carlos-emr-eform-renderer package is no longer
+    built or attached to releases; only 2026.08.0~alpha14 through alpha17
+    shipped it. carlos-emr keeps its Breaks/Replaces on the old renderer, so
+    an upgrade from 2026.08.0~alpha13 or earlier still takes over its files,
+    but apt now removes the old package instead of upgrading it: run that
+    upgrade without --no-remove. A transitional copy already installed owns
+    no files and can stay or be removed.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 28 Sep 2026 23:06:10 +0000
+
+carlos-emr (2026.09.0~snapshot25) resolute; urgency=medium
+
+  * The carlos-ctl administration command is its own package now, built from
+    carlos-emr/carlos-ctl, and carlos-emr depends on it (carlos-ctl >= 1.1.0).
+    This package no longer ships /usr/sbin/carlos-ctl, the carlosctl alias,
+    /usr/lib/carlos-emr/carlos_ctl or the carlos-ctl(8) man page; the new
+    package takes those paths over on upgrade from a 2026.08.0~alpha15 or
+    earlier release (carlos-ctl Breaks/Replaces carlos-emr << 2026.08.0~alpha16~;
+    a pre-split developer snapshot must be removed first), and this postinst
+    removes the bytecode cache the old copy left behind. The operator's install and upgrade command is
+    unchanged apart from one more file: carlos-ctl_<version>_all.deb, which
+    every carlos release re-attaches from the pinned carlos-ctl release
+    (debian/carlos-ctl.pin, debian/fetch-carlos-ctl.sh).
+  * The OSCAR 19 import manifests ship as data with this package, under
+    /usr/share/carlos-emr/o19-manifest/ (JSON with a format version), rather
+    than as modules inside the CLI: they describe this package's schema, so
+    a migration that touches an imported table regenerates them here and
+    never needs a CLI release. The generator writes debian/assets/o19-manifest/.
+  * carlos-emr-provision.service starts /usr/sbin/carlos-ctl finish-install.
+  * python3-bcrypt, iproute2, procps and the jq recommendation moved to
+    carlos-ctl; python3, curl and mariadb-client stay (the postinst, the
+    import guard and the backup job use them directly).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 26 Sep 2026 15:24:19 +0000
+
+carlos-emr (2026.09.0~snapshot24) resolute; urgency=medium
+
+  * carlos-emr is now Architecture: amd64 and carries the eForm renderer
+    itself: the pinned Chromium and chromedriver under
+    /usr/lib/carlos-emr/chromium, the render browser service, the
+    carlos-render account, the AppArmor profile and the carlos-emr.service
+    drop-in that enables the browser sandbox. Saved-eForm print, fax and
+    archive have no non-browser fallback, so an EMR installed without the
+    browser was an EMR with three broken workflows; it was already the case
+    that the renderer (and so a complete install) ran only on x86-64.
+  * The render browser runs under NEW names: carlos-emr-render-browser.service
+    (was carlos-emr-chromedriver), /etc/carlos-emr/renderer.env (was
+    render-browser.env) and /var/lib/carlos-emr/renderer (was .../render).
+    Those three are exactly what the old carlos-emr-eform-renderer package's
+    purge script deletes or disables, and that purge can come at any time
+    after the upgrade, so reusing them left a merged install one `apt purge`
+    away from broken eForm printing. The postinst moves the existing url-base
+    token across (the running configuration stays valid), removes the old
+    browser home (Chromium scratch and crash dumps), and stops and forgets
+    the old unit, whose driver still holds the port.
+  * carlos-emr-eform-renderer becomes an empty transitional package
+    (Architecture: all, Section: oldlibs), kept only so the documented
+    --no-remove upgrade from 2026.08.0~alpha13 or earlier upgrades the old
+    renderer instead of stopping on its removal. carlos-emr Breaks the
+    pre-merge versions at a fixed version (<< 2026.08.0~alpha14~, so a later
+    release does not also break an installed transitional package) and
+    Replaces every older version.
+  * One application deploy per apt transaction. carlos-emr and
+    carlos-emr-drugref both used to (re)start the shared Tomcat, so every
+    install or upgrade deployed the ~400 MB webapp twice. Both now activate a
+    carlos-emr-restart dpkg trigger (interest-noawait), and the triggered
+    carlos-emr postinst restarts and waits once, after every package is
+    configured; dpkg keeps the trigger pending if a transaction is
+    interrupted. It starts the EMR only if a configure asked for it or it was
+    already running, so a DrugRef-only reinstall still leaves a stopped EMR
+    alone. DrugRef's removal uses the same trigger. Outside dpkg
+    (dpkg-reconfigure) both restart inline as before.
+  * Renderer provisioning (the move off the old names, the url-base token)
+    and the render browser restart wait for the provisioning lock like
+    init-config: a configure that cannot take it leaves the renderer alone
+    and says to re-run dpkg-reconfigure carlos-emr.
+  * A configure that holds the EMR back (schema not ready, seeded credential
+    live) records a veto the carlos-emr-restart trigger honours while the
+    unit is down, so carlos-emr-drugref's activation of the same trigger
+    cannot restart a failed unit into a schema the boot gate refuses.
+  * carlos-ctl check asks dpkg whether the installed carlos-emr ships the
+    browser, so a SKIP_EFORM_RENDERER build installed over a full one is
+    reported as the documented NOTE (naming the leftover renderer.env)
+    rather than as a damaged payload. That upgrade also purges the render
+    browser's now-unitless enablement (wants symlink, deb-systemd-helper
+    state) that the full build's debhelper snippet had recorded.
+  * carlos-emr-drugref (Architecture: all) now depends on carlos-emr
+    (>= ${source:Version}, << ${source:Version}.1~) rather than
+    (= ${binary:Version}), the binNMU-safe form for an arch-all package
+    depending on an arch-any one; carlos-emr recommends it with
+    (= ${source:Version}).
+  * The renderer's provisioning moved into the carlos-emr postinst. One
+    behaviour changed: an AppArmor profile that cannot be loaded on a kernel
+    that restricts unprivileged user namespaces used to fail the renderer's
+    configure; it is now reported as an ERROR and by `carlos-ctl check`
+    (which FAILs until the profile loads) instead of leaving the whole EMR and
+    DrugRef unconfigured over one subsystem. It is deliberately not recorded
+    in the install-incomplete marker, which finish-install would clear
+    without repairing the renderer. apparmor.service loads the profile at the
+    next boot regardless. `carlos-ctl check` also now FAILs on a partial
+    render payload instead of mistaking it for a SKIP_EFORM_RENDERER build.
+    A configure that generates a new render token restarts (not merely
+    starts) the EMR, so a running JVM never keeps a stale url-base.
+  * Fix: every warning the carlos-emr and carlos-emr-drugref postinsts print
+    after taking the provisioning lock was being discarded. The lock was
+    opened with `exec 9>"$LOCK" 2>/dev/null`, and under dash a redirection
+    attached to `exec` is permanent, so stderr stayed on /dev/null for the
+    rest of the script ("the application server did not start", the nginx
+    failure warnings, ...). A failed open also exited the script instead of
+    deferring provisioning as documented. The open is now probed in a
+    subshell and performed with no redirection of its own.
+  * carlos-emr-drugref's postinst now starts MariaDB and waits for it (bounded,
+    60 seconds) before provisioning. It probed once, immediately after
+    carlos-emr's configure had restarted MariaDB to apply its settings;
+    losing that race skipped the DrugRef account, grants and seed load while
+    configure still succeeded, so prescribing lookups returned nothing until
+    a manual dpkg-reconfigure. If MariaDB still does not answer, the warning
+    says what was skipped and a running EMR is left alone. It now declares
+    its own curl dependency.
+  * Bounded waits in both postinsts use a deadline on the monotonic clock: an
+    attempt count with a 10-second probe timeout could hold dpkg for 15
+    minutes behind a message that said five, and date +%s moves with NTP
+    steps.
+  * Fix: carlos-ctl, the WAF policy and README.Debian told operators to
+    "reinstall carlos-emr" / `apt install --reinstall carlos-emr` / `apt
+    upgrade`, none of which does anything for packages installed from release
+    files rather than an apt repository. They now name the release file
+    (sudo apt install --reinstall ./carlos-emr_<version>_amd64.deb).
+  * SKIP_EFORM_RENDERER=1 now builds carlos-emr without the renderer payload
+    (browser, unit, profile and drop-in) instead of dropping a binary package;
+    `carlos-ctl check` reports such a development build as a NOTE.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Thu, 24 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot23) resolute; urgency=medium
+
+  * Adopting a legacy OSCAR 19 / OpenO database now actually works. `db-baseline`
+    stamps the history at the full genesis, which ASSERTS that common V1 and the
+    province V1.0.1/V1.0.2 are already satisfied -- but Flyway's baseline command
+    only writes that history row, it never executes V1__baseline_schema.sql. On a
+    datadir that forked before those columns existed the assertion was false and
+    nothing caught it: db-migrate reported success, db-validate passed (it
+    compares the history against the WAR, not the live schema against either),
+    and the install failed at the first login with "Unknown column
+    's1_0.mfaSecret'". db-baseline now reconciles the live schema up to the
+    genesis DDL carried in the deployed WAR first, with CREATE TABLE IF NOT
+    EXISTS and ALTER TABLE ... ADD COLUMN IF NOT EXISTS, so the pass is a no-op
+    on anything already present and safe to repeat.
+  * db-baseline also prepares the adopted DATA for the forward migrations, which
+    previously stopped twice on a real clinic import. Rows colliding with the one
+    seed statement in V1.0.5 that is missing INSERT IGNORE are copied aside and
+    cleared so the migration can lay down its canonical icd10 rows (V1.0.5 ships
+    in published tags, so its checksum is unchanged). Legacy OHIP/MCEDT billing
+    filenames that violate the UNIQUE indexes added by V1.0.11/V1.0.12 are
+    suffixed rather than deleted -- they are genuinely distinct submissions
+    sharing a filename that does not encode the year -- with the value actually
+    submitted to the Ministry preserved in a carlos_adopt_backup_* table.
+    Reject suffixes too wide for a legacy column during planning, and guard
+    the UPDATE against truncation while permitting an exactly fitting suffix.
+  * db-baseline no longer refuses when the installer's own db-migrate populated
+    flyway_schema_history before the legacy dump replaced the tables. That
+    history is renamed aside rather than dropped when no BASELINE marker exists
+    and genesis tables or columns are missing. A BASELINE history is also parked
+    if it records successful Ontario V1.0.11/V1.0.12 index creation but a required
+    billing UNIQUE constraint is absent. Genesis gaps alone preserve older
+    adoptions; equivalent renamed indexes count and metadata failures abort.
+    Province compatibility is checked before any planning or stamping, including
+    --stamp-only; opposite or mixed province schemas fail.
+  * New db-baseline options: --dry-run prints the whole plan and changes nothing,
+    --stamp-only keeps the previous bare-stamp behaviour. Both appear in the
+    top-level help. The adoption runbook uses OpenSSL's interactive passphrase
+    prompt and keeps the encrypted source archive when removing plaintext.
+  * The billing disambiguation pins each row's `timestamp`. Both billing tables
+    declare it ON UPDATE current_timestamp(), so rewriting the filename would
+    otherwise replace the clinic's record of when it submitted with the adoption
+    date -- and on billing_on_filename that column is the ORDER BY the ranking
+    itself depends on. Nothing backs that column up, so it is preserved in place.
+  * Adoption pins the session sql_mode to empty before reconciling. Seven genesis
+    columns default to '0000-00-00', which a sql_mode carrying NO_ZERO_DATE or
+    TRADITIONAL rejects part way through the pass; the packaged drop-in already
+    sets sql_mode="" but is only read at server start.
+  * A legacy reference row whose code differs from the one the migration will
+    replace it with is now MOVED rather than dropped, where dropping it would
+    lose the code. icd10.id carries no meaning -- dxresearch stores the code
+    string with no foreign key to it, and no application query selects by id --
+    so a code that exists nowhere else is kept by re-homing its row to a fresh
+    id above both the live maximum and every key the seed writes, with
+    AUTO_INCREMENT pushed past them. A code that also lives outside the
+    collision range, or among the canonical replacements, survives the
+    migration anyway and its row is replaced as before. Each move is reported
+    individually (14902->15972) and the original id is recorded in the backup
+    table; there is nothing left for the operator to reconcile.
+  * Reference-row moves require an exact backup of every column, preserving
+    the original-id audit trail when a backup from another import remains.
+    Code-survival checks use MariaDB's collation so case, trailing spaces and
+    batch escaping cannot introduce duplicate lookup results. Reserve the
+    auto-increment range before moving rows so interrupted runs can resume.
+    Include codes restored by INSERT IGNORE at vacant keys when deciding
+    which displaced rows need moving, avoiding duplicate code lookups.
+  * A seed collision is only cleared for a migration Flyway will actually run.
+    Re-running db-baseline against a database that had already been adopted and
+    migrated deleted the 1070 canonical icd10 rows V1.0.5 had laid down, and the
+    db-migrate that followed had nothing pending to restore them -- while
+    db-validate still passed, because it compares the history against the WAR
+    rather than the data. Found by a full install-and-adopt rehearsal in a
+    container, not by review.
+  * The duplicate re-check that gates the UNIQUE indexes now fails the run when
+    the query cannot be answered, instead of reading an unanswerable query as
+    zero and stamping anyway. Seed rows are only cleared when the live primary
+    key really is the single leading integer column the parsed key comes from,
+    the backup copy names its columns rather than binding by position, and a
+    legacy row whose code differs from the canonical replacement is reported
+    before anything is deleted.
+  * Summarize expected existing-index/column notes during schema creation instead
+    of showing them as duplicate-key/column warnings. Preserve all other warnings
+    and migration errors; published migration SQL and checksums are unchanged.
+    Test the logging boundary against the WAR's Flyway API during package builds.
+  * An installation that could not provision its database no longer looks like
+    a successful one. Every database step in the package's configuration is
+    deliberately non-fatal -- a database that is unreachable must not leave
+    dpkg half-configured and block the other CARLOS packages, or anything else
+    in the same apt transaction -- so the diagnosis went to stderr and apt
+    still reported success. On a front end that never showed that stderr, the
+    result was a host that looked installed and had no clinical schema at all,
+    with nothing that ever retried: a reboot left it exactly as broken.
+    Reported by an alpha tester whose install ended with no tables in the
+    clinical database.
+  * The installer now records what it could not do in
+    /var/lib/carlos-emr/.install-incomplete and raises a critical debconf error
+    for interactive front ends. Unattended installs must check the recorded
+    state and command output.
+  * A new "carlos-ctl finish-install" resumes provisioning where the installer
+    stopped -- the MariaDB settings, the least-privilege accounts, the schema,
+    the seeded administrator credential and the demonstration dataset if the
+    install asked for one -- and then starts the EMR. It is idempotent, and it
+    fails closed the same way the installer does if the published carlosdoc
+    credential cannot be replaced. It also reports a drug reference database
+    that the same failure left unseeded, and names the command that loads it.
+  * Recovery now checks every required/requested step, retains incomplete state
+    on failure, verifies credential containment and re-enablement, and identifies
+    DrugRef datasets without a seed-completion marker. Marker I/O failures are
+    reported explicitly; they do not silently turn failure into completion.
+    Add behavioral failure/retry tests and clearer administrator instructions.
+  * carlos-emr-provision.service runs that once at each boot, ordered before
+    carlos-emr.service, so an install interrupted by a database that went away
+    completes by itself. It is skipped outright when there is no marker, and it
+    refuses to migrate a schema that already has tables: an upgrade migration
+    stays an operator decision taken after a verified backup.
+  * Only one recovery runs at a time. The boot-time provisioner and an operator
+    could previously both pass the schema checks and both generate an
+    administrator credential, leaving the saved credentials file naming the
+    other run's password; finish-install now holds an exclusive lock for the
+    life of the run and refuses a second one. When the credential guard file
+    itself cannot be written -- a full or read-only /var -- the unit is masked
+    rather than only disabled, because disabling does not stop a manual start;
+    a later successful recovery unmasks it. A failure before the credential has
+    been replaced now says so, rather than leaving an operator to assume the
+    published password is already gone.
+  * The package's own configure joins that lock too, with flock(1). Only
+    serializing recovery against recovery left the real race open: an
+    unattended upgrade or a dpkg-reconfigure can overlap the boot-time
+    provisioner. A configure that cannot take the lock within five minutes
+    provisions nothing and records the install as unfinished, and a boot-time
+    recovery that finds the lock held leaves the work to whoever holds it
+    rather than failing its unit.
+  * The DrugRef package's configure takes that lock too: db-users provisions
+    both packages' accounts and rewrites both properties files with the
+    passwords it generates, so an overlapping run could leave the database
+    holding one generated password and a properties file naming the other.
+  * A credential guard that had to fall back to masking the unit is now also
+    detected on a host with no running systemd -- a chroot or golden-image
+    build -- so a retry there cannot clear the recovery marker and ship an
+    image whose EMR is masked for its first real boot.
+  * "carlos-ctl check" reports an unfinished install first, before the dozen
+    unrelated-looking failures it causes, and names the command that fixes it.
+    Its table count no longer reports a query that FAILED as a database with no
+    tables, and DrugRef not answering on loopback while the EMR is stopped is
+    now reported as what it is -- DrugRef shares that application server --
+    instead of pointing at the DrugRef deployment.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 13 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot22) resolute; urgency=medium
+
+  * Saving a provider's encounter-note template (Administration > Provider
+    Templates) no longer trips the web application firewall on ordinary
+    clinical prose. The template body is exempted per argument on its own
+    route, on the same terms as the other free-text fields; the template name
+    and every other argument stay inspected, and a probe injection is still
+    blocked.
+  * Printing the chart no longer stops the encounter note's draft autosave.
+    The print is a form submit whose response is a download, and the browser
+    fires the page-hide event for it even though the chart stays open; the
+    chart released its note lock on that event, so every autosave after a
+    print answered 409 and the status line said the note was being edited in
+    another window. The lock is now held across the print.
+  * The front door no longer answers 502 to the first save or print after a
+    short pause. nginx kept a pooled connection to Tomcat idle for up to 60s
+    while Tomcat closed it at 20s, so a POST issued in that window landed on a
+    connection being closed, and nginx does not retry a POST. The pool now
+    gives up an idle connection at 15s, before Tomcat does.
+  * Two browser checks now guard the chart print and the free-text saves
+    through the packaged front door. One prints a chart whose note carries
+    each phrase the firewall is known to misread, once per print selection,
+    and requires a PDF back rather than any 200; the other replays a
+    consultation request and the patient's Alert and Notes with the same
+    phrases. Both prove something only on a packaged install, and the
+    validation runbook says how to run them and what they write.
+  * The packaging README now describes the encounter-form firewall coverage
+    as it is -- generated per form, with the two cell groups that remain
+    inspected named -- instead of calling the forms uncovered.
+  * A new consultation request with no consultant chosen is saved again. With
+    the Health Care Team bridge off (the shipped carlos.properties default) the
+    save looked the consultant up with a null id, which the persistence layer
+    rejects, and the request died in the framework's silent error mapping:
+    nothing stored, nothing logged, and the "form could not be printed" alert.
+    Editing a request with a blank consultant no longer inserts an empty
+    specialist row and points the request at it; it clears the consultant.
+    That alert now says the request could not be saved or printed, and the
+    form's own rejections (a malformed id, a request that is not this
+    patient's) come back to the form with their message instead of falling
+    through to the generic error page for want of an "input" result.
+  * Uncaught exceptions that a module maps to the error page are logged at
+    ERROR with their stack trace and an incident reference instead of being
+    mapped there silently; the error page shows the same reference and answers
+    500 (403, and a WARN line, for an authorization refusal), and nothing about
+    the failure beyond that reference reaches the browser or the log line's
+    request detail. A module's own typed mappings (the billing validation,
+    file-write and data-load pages) keep their message and status. Modules
+    without a generic mapping still use the container error path. The application's default log level is WARN rather than
+    ERROR. The
+    "property is missing" warning is reported once per key per start, not on
+    every page render, so WARN stays readable; Hibernate's per-column
+    deprecation notice is held at ERROR for the same reason. LOG_VERBOSITY
+    still overrides the default.
+  * The free-text browser check now requires the consultation save to answer
+    with its confirmation redirect, so a request the front door accepted but
+    the application then discarded fails the check instead of passing as
+    "not a 403". It files one request per phrase; the runbook gives the
+    cleanup SQL keyed on the run stamp.
+  * Printing a chart with its labs includes the labs again. Each lab was
+    rendered under the document directory and then refused by the embedding
+    step, which admits temp locations only, so every lab was silently left
+    out of the printed chart and the refusal was logged with a file name
+    built from the patient's name. The labs are now rendered as temp files,
+    removed one by one as the print proceeds, and the log line carries no
+    name. The spurious "failed to delete temporary print PDF" warning on
+    every chart print is gone with it.
+  * Experimental OSCAR 19 clinic migration: `carlos-ctl import-o19` imports an
+    OSCAR 19 backup into a stock initial deploy (manifest-driven ETL, an
+    archive schema for everything CARLOS no longer models, documents restore
+    with blocking reconciliation, roles and privilege reconciliation, and a
+    reviewed properties fragment), and `carlos-ctl o19-preflight` runs the
+    go/no-go feasibility check on its own. Both are experimental: a
+    migration's output needs a technical review before clinical use. See
+    docs/o19-import-deb.md.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 12 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot21) resolute; urgency=medium
+
+  * Searching for an allergy and clicking a result now records it. The allergy
+    page loads the picker's results over AJAX and lifts only the results
+    element out of the response, so the script block that defines the click
+    handler never arrived with them: every click died with "submitAddReaction
+    is not defined" and a second error from a delegated handler still parsing a
+    query string off an href that no longer has one. The page now carries the
+    handler itself. The search POST was always a clean 200, which is why this
+    looked like a working page until a result was clicked.
+  * Prescribing now warns about allergies that were typed rather than picked
+    out of the drug reference. DrugRef checked an allergy against the drug only
+    when the allergy carried a reference category, and skipped category 0 -- the
+    one CARLOS writes for every "Custom Allergy" and the one the demonstration
+    dataset seeds its PENICILLINS allergies with. Prescribing amoxicillin to a
+    patient recorded as allergic to PENICILLINS produced no alert and no error.
+    A typed allergen name is now resolved against the drug reference by exact
+    name and checked as whichever categories carry it; a name the reference does
+    not know is reported as unchecked rather than as no allergy. This half of
+    the fix lives in DrugRef, so it needs carlos-emr-drugref built at or past
+    the revision in debian/drugref.pin, which this upload moves.
+  * Acknowledged labs now leave the inbox. A lab arrives as a chain of versions
+    sharing one accession number and the inbox shows a single row for the newest
+    of them, so an acknowledgement has to file the older versions or the row
+    simply comes back pointing at the previous version. The Acknowledge button
+    did that; a lab macro did not, so a macro-acknowledged lab stayed in the
+    inbox. Both paths now go through one routine, which also re-derives the
+    version chain server side when the browser did not post a usable one and no
+    longer throws an ArrayIndexOutOfBoundsException (reported as a failed
+    acknowledgement) when the posted chain describes a different lab.
+  * A lab macro that is not configured to close its window now tells the inbox
+    what it did. Previously it acknowledged the lab silently and the inbox was
+    never refreshed. Document macros gained the same notification, which they
+    never had.
+  * The inbox Documents/Labs/HRMs counters now drop an acknowledged item
+    straight away. They are painted from hidden fields that only a full page
+    reload refreshed, so the badges kept counting labs the clinician had already
+    acknowledged.
+
+  * Clinical prose in an encounter note no longer trips the web application
+    firewall. The note body travels under four parameter names on the note
+    route -- the serialized chart form, the draft autosave, the save that runs
+    when unsaved text is left for another note, and the CPP editor -- and only
+    the last was exempt from the rule groups that read prose as an attack, so
+    a note containing something as ordinary as a pasted link with
+    "&cmd" in its query string, or one that simply begins with a pasted PACS
+    link on an internal IP address, was answered 403 at the front door. That broke
+    the note save, silently stopped its autosave, and made saving a Social
+    History or other CPP item report "403 ... your session has expired" on an
+    item that had in fact already saved. Exclusion 1010 now covers every
+    clinician free-text argument on that route, each one individually and only
+    on POST, including the save that runs when a note with unsaved text is
+    left for another note or for a new one; the WAF still blocks a probe
+    injection.
+  * That same save-on-switch no longer cuts an encounter note off at its first
+    "&" -- "H&P", or a pasted link with "&cmd=" in it, arrived truncated on the
+    server -- and no longer turns a "+" into a space. The same cut-off is fixed
+    on the patient page's custom telephone-encounter reason and the document
+    description templates.
+  * The same firewall false positive is closed on the rest of the free-text
+    clinical fields: consultation requests, ticklers, prescriptions and
+    allergies, preventions, document and lab comments, HRM, messenger and
+    patient email, appointment reasons and notes, master-record notes and
+    alerts, billing comments, fax cover comments and program notes. Each is
+    exempted per argument on its own route; the firewall still inspects every
+    other argument, keeps its script-injection rules on all of them, and still
+    blocks a probe injection. The four fields whose
+    names carry a row number (measurement comments, manual lab notes, contact
+    notes, waiting-list notes) are exempted by an anchored name pattern
+    instead, since the firewall cannot list them. The encounter forms (Rourke,
+    antenatal, mental health, palliative care and the rest) are covered by a
+    generated per-form list of their narrative cells, keyed on each form's
+    save route and form class; a regression test keeps that list in step
+    with the form pages. Two groups of cells are left inspected on purpose,
+    because the only way to exempt them would apply to every route: the
+    Vascular Tracker's bracketed cell names, which the firewall cannot list
+    per route (and whose form cannot be submitted on this line anyway, see
+    below), and the growth-chart and chart-checklist per-row cells, whose
+    generic names (comment_<n>) a prescription field shares, so exempting
+    them globally would weaken an unrelated route. The Rh-injection page
+    (form/addRhInjection.jsp) posts its
+    typed "other" reason as reason and reasonOtherText to the prevention route,
+    and both are exempted there.
+  * Reading a measurement definition file (the Vascular Tracker's, or one
+    given to the measurement-type import) no longer fails on its validation
+    rules, which were bound to an untyped list. The Vascular Tracker form
+    itself remains unusable on this line for reasons unrelated to the
+    firewall (its shortcut, setup and save actions were never finished for
+    the current framework); that is a form migration, not part of this
+    change, and is described in docs/ui-tests/deb-install-validation.md.
+  * Opening an encounter form from the chart for a patient who has never had
+    that form no longer fails with an error page: the shortcut now opens a
+    new form. The Discharge Summary also opens at a clinic that does not use
+    programs.
+  * Saving an encounter form validates it against that form's own measurement
+    definitions. The save read a process-wide list that holds whichever
+    definition file was read last anywhere on the server, so a form saved
+    while another provider was opening a different form could be checked
+    against the other form's rules. The save and the setup step now each read
+    the file they were given.
+  * Leaving a note with unsaved text for another note, or for a new one, now
+    shows the saved note in place. The refresh that runs after that save never
+    received the note text, so the note came back as an empty box until the
+    chart was reloaded, and for a brand-new note the refresh then failed on an
+    element it looked up under the wrong name. Reopening a saved note for
+    editing also escapes the text it puts into the editor, so a note holding
+    something like "</textarea>" cannot become markup when the next clinician
+    opens it. Both script-built note boxes now carry an accessible label.
+  * Editing a patient's note or date on a waiting list saves again. The page
+    named its row fields plainly, so the update's row selectors came out as
+    "waitingListBean[undefined]" and every update fell through to a
+    re-numbering of the list; the fields now carry their row index and their
+    current values, as the update expects. An update posted without a usable
+    list id, or a row edit missing its patient number or date, is now refused
+    rather than run against an empty id or quietly turned into a re-numbering.
+  * The legacy encounter-note entry view, the note history popup, the legacy
+    tickler list, the prescription record and reason comments, and the
+    demographic alert and notes boxes now encode the text they put back on
+    the page. With the firewall no longer reading that note as a
+    script attack, the application's own output encoding is what keeps a
+    stored "</textarea><script>" from running on the next open of that view.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 06 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot20) resolute; urgency=medium
+
+  * Consultation faxing is enabled by default and its flag is a real boolean.
+    The two buttons that start a consultation fax were rendered by a tag that
+    compared consultation_fax_enabled against the literal string "yes", while
+    every other reader of the key accepted true/yes/on -- so true enabled the
+    whole workflow except the buttons that launch it. The buttons now go
+    through the same boolean check as the rest of the page.
+  * New installations receive the new true default. Upgrades preserve the
+    persistent consultation_fax_enabled value because an exact false line may
+    be an operator's deliberate choice, not an untouched stock default. Legacy
+    yes/no/on/off spellings are rewritten to true/false without changing their
+    meaning. Sending still needs an active account under Administration >
+    Faxes > Configure Fax and the _fax security object.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 05 Sep 2026 00:00:00 +0000
+
+carlos-emr (2026.09.0~snapshot19) resolute; urgency=medium
+
+  * The install wizard's billing-province question offers a third answer,
+    "other", below Ontario and British Columbia, for a clinic in a province
+    CARLOS does not implement billing for. It is an alias for the Ontario
+    answer: the same common+on migrations and the same billregion=ON, so the
+    deployment is an Ontario one in every respect and nothing downstream
+    distinguishes the two. It exists so the installer no longer requires such
+    a clinic to claim a province it is not in. CARLOS_PROVINCE records the
+    answer verbatim and remains fixed at first install.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Thu, 03 Sep 2026 03:12:17 +0000
+
 carlos-emr (2026.09.0~snapshot18) resolute; urgency=medium
 
   * Document upload name collisions retain their recoverable JSON response but

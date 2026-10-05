@@ -23,10 +23,10 @@ package io.github.carlos_emr.carlos.tickler.manager;
 
 import io.github.carlos_emr.carlos.commn.dao.TicklerCommentDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.managers.TicklerManagerImpl;
 import io.github.carlos_emr.carlos.tickler.TicklerUnitTestBase;
@@ -79,7 +79,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
     private TicklerCommentDao mockTicklerCommentDao;
 
     @Mock
-    private TicklerLinkDao mockTicklerLinkDao;
+    private TicklerDocsDao mockTicklerDocsDao;
 
     private TicklerManagerImpl ticklerManager;
 
@@ -101,7 +101,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         injectDependency(ticklerManager, "ticklerDao", mockTicklerDao);
         injectDependency(ticklerManager, "ticklerUpdateDao", mockTicklerUpdateDao);
         injectDependency(ticklerManager, "ticklerCommentDao", mockTicklerCommentDao);
-        injectDependency(ticklerManager, "ticklerLinkDao", mockTicklerLinkDao);
+        injectDependency(ticklerManager, "ticklerDocsDao", mockTicklerDocsDao);
         injectDependency(ticklerManager, "securityInfoManager", mockSecurityInfoManager);
     }
 
@@ -258,11 +258,11 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         void shouldBatchLoadProviderTicklers_whenLabHasMultipleLinks() {
             // Given
             when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
-            List<TicklerLink> links = List.of(createLink(10), createLink(20));
+            List<TicklerDocs> links = List.of(createLink(10), createLink(20));
             Tickler ticklerOne = createTestTicklerWithId(10);
             Tickler ticklerTwo = createTestTicklerWithId(20);
 
-            when(mockTicklerLinkDao.getLinkByTableId("HL7", 321L)).thenReturn(links);
+            when(mockTicklerDocsDao.findByLab(321, "HL7")).thenReturn(links);
             when(mockTicklerDao.findByTicklerNosAssignedTo(List.of(10, 20), TEST_PROVIDER, TEST_DEMO_NO))
                     .thenReturn(List.of(ticklerOne, ticklerTwo));
 
@@ -279,11 +279,11 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
         @DisplayName("should batch load lab ticklers for any provider")
         void shouldBatchLoadLabTicklers_whenAnyProviderIsRequested() {
             // Given
-            List<TicklerLink> links = List.of(createLink(30), createLink(40));
+            List<TicklerDocs> links = List.of(createLink(30), createLink(40));
             Tickler ticklerOne = createTestTicklerWithId(30);
             Tickler ticklerTwo = createTestTicklerWithId(40);
 
-            when(mockTicklerLinkDao.getLinkByTableId("HL7", 654L)).thenReturn(links);
+            when(mockTicklerDocsDao.findByLab(654, "HL7")).thenReturn(links);
             when(mockTicklerDao.findByTicklerNosDemo(List.of(30, 40), TEST_DEMO_NO))
                     .thenReturn(List.of(ticklerOne, ticklerTwo));
 
@@ -296,15 +296,33 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
             verify(mockTicklerDao, never()).findByTicklerNoDemo(anyInt(), anyInt());
         }
 
+        @Test
+        @DisplayName("should leave out a lab's ticklers when tickler read is denied for their patient")
+        void shouldOmitLabTicklers_whenTicklerReadDeniedForPatient() {
+            // The entry check proves the global right only; the patient-specific denial wins.
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+            Tickler tickler = createTestTicklerWithId(10);
+            tickler.setDemographicNo(TEST_DEMO_NO);
+            when(mockTicklerDocsDao.findByLab(321, "HL7")).thenReturn(List.of(createLink(10)));
+            when(mockTicklerDao.findByTicklerNosAssignedTo(List.of(10), TEST_PROVIDER, TEST_DEMO_NO)).thenReturn(List.of(tickler));
+            when(mockTicklerDao.findByTicklerNosDemo(List.of(10), TEST_DEMO_NO)).thenReturn(List.of(tickler));
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_tickler", "r", String.valueOf(TEST_DEMO_NO))).thenReturn(false);
+
+            assertThat(ticklerManager.getTicklerByLabId(mockLoggedInInfo, 321, TEST_DEMO_NO)).isEmpty();
+            assertThat(ticklerManager.getTicklerByLabIdAnyProvider(mockLoggedInInfo, 321, TEST_DEMO_NO)).isEmpty();
+        }
+
         /**
-         * Creates a minimal tickler link for linked-lab lookup tests.
+         * Creates a minimal ticklerdocs lab attachment for linked-lab lookup tests.
          *
          * @param ticklerNo Integer the linked tickler identifier
-         * @return TicklerLink the simulated link row
+         * @return TicklerDocs the simulated attachment row
          */
-        private TicklerLink createLink(Integer ticklerNo) {
-            TicklerLink link = new TicklerLink();
-            link.setTicklerNo(ticklerNo);
+        private TicklerDocs createLink(Integer ticklerNo) {
+            TicklerDocs link = new TicklerDocs();
+            link.setTicklerId(ticklerNo);
+            link.setDocType(TicklerDocs.DOCTYPE_LAB);
+            link.setLabType("HL7");
             return link;
         }
     }

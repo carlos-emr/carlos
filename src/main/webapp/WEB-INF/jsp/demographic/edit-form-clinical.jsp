@@ -1319,12 +1319,12 @@
                                                                     <td width="7%" align="right"><b><fmt:message key="demographic.demographiceditdemographic.formAlert"/>: </b>
                                                                     </td>
                                                                     <td><textarea name="alert" style="width: 100%"
-                                                                                  rows="8"><%=alert%></textarea></td>
+                                                                                  rows="8"><%=SafeEncode.forHtmlContent(alert)%></textarea></td>
 
                                                                     <td align="right"><b><fmt:message key="demographic.demographiceditdemographic.formNotes"/>: </b>
                                                                     </td>
                                                                     <td><textarea name="notes" style="width: 100%"
-                                                                                  rows="8"><%=notes%></textarea>
+                                                                                  rows="8"><%=SafeEncode.forHtmlContent(notes)%></textarea>
                                                                     </td>
                                                                 </tr>
                                                             </table>

@@ -28,6 +28,31 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    AddMeasurementData.jsp — flowsheet measurement entry (and single-reading edit/delete) form.
+
+    Purpose:
+      Renders one input row per requested measurement type for a patient, opened from the
+      encounter flowsheets. Posts to encounter/Measurements2 to save, or to
+      encounter/oscarMeasurements/DeleteData2 when an existing reading (id) is being deleted.
+
+    Features:
+      - Master observation date/time that applies to every row on the page.
+      - Validation-driven dropdowns: when a measurement type's validation rule is an enumerated
+        pattern (e.g. Yes/No/NA, Provided/Revised/Reviewed), MeasurementDropdownOptions turns the
+        rule into the option list instead of a free-text box.
+      - Legacy values: a stored reading that is no longer one of the rule's options (e.g. an AACP
+        "Yes" recorded before the Provided/Revised/Reviewed rule) is shown as a selected, disabled
+        option, so editing the row neither hides nor silently rewrites the historical value.
+
+    Request parameters:
+      demographic_no  patient whose flowsheet is being updated
+      measurement     one or more measurement type codes to render (repeatable)
+      id              existing measurement id when editing/deleting a single reading
+      template        flowsheet template name used to look up type definitions and customizations
+
+    @since 2006-02-14
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -45,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ValidationsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -492,12 +518,34 @@
                                 <select id="<%="inputValue-"+ctr%>"
                                         name="<%= "inputValue-" + ctr %>">
                                     <option value=""></option>
-                                    <% String[] opts = validations.getName().contains("/") ? validations.getName().split("/") : validations.getRegularExp().split("\\|");
+                                    <% List<String> opts = MeasurementDropdownOptions.forValidation(validations);
+                                        boolean legacyValue = MeasurementDropdownOptions.isLegacyValue(opts, val);
                                         for (String opt : opts) {%>
                                     <option value="<carlos:encode value='<%= opt %>' context="htmlAttribute"/>"  <%=sel(opt, val)%>><carlos:encode value='<%= opt %>' context="html"/>
                                     </option>
-                                    <% }%>
+                                    <% }
+                                        // A value recorded under an earlier validation rule (e.g. AACP "Yes"/"No"
+                                        // before Provided/Revised/Reviewed, issue #3893) matches no option. Show it
+                                        // selected so an existing reading still displays; disabled so it cannot be
+                                        // chosen for a new reading.
+                                        //
+                                        // Being disabled, it is deliberately NOT submitted, and nothing depends on it:
+                                        //  - viewing a saved reading (id set): the whole form is disabled and only
+                                        //    Delete posts (to DeleteData2, which reads deleteCheckbox, not the value);
+                                        //  - a value bounced back after validation errors: a legacy value can only
+                                        //    arrive by bypassing this dropdown, and the server already rejected it
+                                        //    against the current rule, so re-submitting it would fail again.
+                                        // Re-saving it would also duplicate an old reading as new data, so no hidden
+                                        // inputValue-* carries it. An empty inputValue-* is skipped by
+                                        // EctMeasurements2Action, so nothing is saved unless a current option is chosen.
+                                        if (legacyValue) { %>
+                                    <option value="<carlos:encode value='<%= val %>' context="htmlAttribute"/>" selected disabled><carlos:encode value='<%= val %>' context="html"/>
+                                    </option>
+                                    <% } %>
                                 </select>
+                                <% if (legacyValue) { %>
+                                <span class="legacyValueNote" id="<%="legacyValueNote-"+ctr%>">Recorded under an earlier option list; shown for reference only and not saved again.</span>
+                                <% } %>
                                 <%} else if (validations != null && validations.getName().startsWith("Integer")) { %>
                                 <select id="<%= "inputValue-" + ctr %>"
                                         name="<%= "inputValue-" + ctr %>">

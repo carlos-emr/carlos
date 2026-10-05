@@ -31,8 +31,12 @@
     Rendered by ViewBillingReportCenter2Action which:
       - enforces _report r privilege
       - redirects admin/doctor roles to the new-report dashboard
-      - resolves the provider-list select rows + the three echoed
-        parameters into ${reportCenterModel}.
+      - resolves the provider-list select rows and echoed filters into ${reportCenterModel}.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Form parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
     Pure presentation here — no DAO lookups inline.
     @since 2006
 --%>
@@ -118,6 +122,17 @@
             <div class="form-check form-check-inline">
                 <input class="form-check-input" type="radio" name="reportAction" value="flu">
                 <label class="form-check-label">FLU</label>
+            </div>
+
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <div class="form-check form-check-inline" style="margin-left:10px;">
+                <input class="form-check-input" type="checkbox" id="includeNoShow" name="includeNoShow" value="true">
+                <label class="form-check-label" for="includeNoShow"><fmt:message key="billing.unbilled.includeNoShow"/></label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="includeCancelled" name="includeCancelled" value="true">
+                <label class="form-check-label" for="includeCancelled"><fmt:message key="billing.unbilled.includeCancelled"/></label>
             </div>
 
             &nbsp;&nbsp;Provider

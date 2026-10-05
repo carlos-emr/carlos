@@ -99,14 +99,17 @@ class DocumentUndelete2ActionTest extends CarlosUnitTestBase {
             .isInstanceOf(SecurityException.class);
     }
 
-    @Test
-    @DisplayName("should return methodNotAllowed on GET")
-    void shouldReturnMethodNotAllowed_onGet() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS", "TRACE", "post", "PoSt", "POſT"})
+    @DisplayName("should return methodNotAllowed on every non-POST verb")
+    void shouldReturnMethodNotAllowed_onNonPost(String verb) throws Exception {
         grantAdmin(true);
         grantEdocWrite(true);
-        mockRequest.setMethod("GET");
+        mockRequest.setMethod(verb);
         action.setUndelDocumentNo("42");
         assertThat(action.execute()).isEqualTo("methodNotAllowed");
+        assertThat(mockResponse.getHeader("Allow")).isEqualTo("POST");
+        assertThat(action.undeleted).isEmpty();
     }
 
     @Test
@@ -118,6 +121,27 @@ class DocumentUndelete2ActionTest extends CarlosUnitTestBase {
         action.execute();
         assertThat(action.undeleted).containsExactly("42");
         assertThat(mockResponse.getRedirectedUrl()).contains("ViewDocumentReport");
+    }
+
+    @Test
+    @DisplayName("should keep scheduleNav on the redirect when posted from the schedule shell")
+    void shouldKeepScheduleNav_whenPostedFromScheduleShell() throws Exception {
+        grantAdmin(true);
+        grantEdocWrite(false);
+        mockRequest.addParameter("scheduleNav", "1");
+        action.setUndelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).contains("scheduleNav=1");
+    }
+
+    @Test
+    @DisplayName("should omit scheduleNav from the redirect outside the schedule shell")
+    void shouldOmitScheduleNav_whenNotInScheduleShell() throws Exception {
+        grantAdmin(true);
+        grantEdocWrite(false);
+        action.setUndelDocumentNo("42");
+        action.execute();
+        assertThat(mockResponse.getRedirectedUrl()).doesNotContain("scheduleNav");
     }
 
     @Test

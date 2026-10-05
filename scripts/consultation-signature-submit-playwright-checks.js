@@ -44,9 +44,11 @@
  *                                                     eForm image dir (default: 999998)
  *   CONSULT_MISSING_STAMP_PROVIDER_NO=<providerNo>   Provider with no stamp PNG, used to assert
  *                                                     the warning flow (default: 99999)
- *   CONSULT_UNSIGNED_REQUEST_ID=<id>          Existing consultation with no signature;
- *                                             required for stamp-update and stamp-print-preview
- *                                             scenarios (those scenarios are skipped when absent)
+ *   CONSULT_APPLICATION_TEMP_DIR=<path>      Installed java.io.tmpdir/carlos-temp for exact PDF cleanup
+ *
+ * Creates its own requests, reuses its unsigned warning request for update/preview,
+ * and removes owned requests, related signatures and identified preview files in finally.
+ * Existing consultations are never updated. MYSQL_* follows the shared harness contract.
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
@@ -63,6 +65,10 @@
  */
 
 const { chromium } = require('playwright');
+const {createSqlRunner, readConfig} = require('./lib/playwright-harness');
+const {createConsultationSubmitFixture} = require('./lib/consultation-submit-fixture');
+const {createGracefulSignalCancellation} = require('./graceful-signal-cancellation');
+let fixture;
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -73,7 +79,8 @@ const consultDemoNo = process.env.CONSULT_DEMO_NO || '';
 const consultServiceId = process.env.CONSULT_SERVICE_ID || '';
 const stampProviderNo = process.env.CONSULT_STAMP_PROVIDER_NO || '999998';
 const missingStampProviderNo = process.env.CONSULT_MISSING_STAMP_PROVIDER_NO || '99999';
-const unsignedRequestId = process.env.CONSULT_UNSIGNED_REQUEST_ID || '';
+// The missing-stamp create scenario owns the unsigned request used below.
+let unsignedRequestId = '';
 
 if (!/^\d+$/.test(consultDemoNo)) {
   throw new Error('CONSULT_DEMO_NO must be set to a numeric demographic number');
@@ -96,12 +103,19 @@ const visited = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -215,7 +229,8 @@ async function getCsrfToken(context) {
 }
 
 async function postConsultation(context, formParams, csrfToken, label) {
-  const form = Object.assign({}, formParams, { 'CSRF-TOKEN': csrfToken });
+  const form = Object.assign({}, formParams, { 'CSRF-TOKEN': csrfToken,
+    reasonForConsultation: fixture.reason(label) });
   const response = await context.request.post(appUrl('/encounter/RequestConsultation'), {
     form,
     headers: {
@@ -324,6 +339,7 @@ async function requestPrintPreviewWithStamp(page) {
   }
 
   const pdfBytes = Buffer.from(payload.consultPDF, 'base64');
+  fixture.capturePdf(pdfBytes);
   if (pdfBytes.length < 100 || pdfBytes.slice(0, 4).toString('ascii') !== '%PDF') {
     throw new Error(`Print preview response was not a valid PDF (length ${pdfBytes.length})`);
   }
@@ -395,6 +411,7 @@ async function runStampCreateWarning(context, csrfToken) {
     throw new Error(`${label}: server error page returned after consultation create with no stamp`);
   }
 
+  unsignedRequestId = fixture.requestId(label);
   return { redirectUrl: finalUrl, signatureNotApplied: true, warningAlertPresent: true };
 }
 
@@ -471,8 +488,13 @@ async function runStampPrintPreview(context) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const cancellation = createGracefulSignalCancellation();
+  let browser;
+  let sql;
   try {
+    sql = createSqlRunner(readConfig().mysql);
+    fixture = createConsultationSubmitFixture(sql, consultDemoNo, process.env.CONSULT_APPLICATION_TEMP_DIR);
+    browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
@@ -482,6 +504,7 @@ async function runStampPrintPreview(context) {
 
     const scenarios = [];
 
+    cancellation.throwIfCancelled();
     // Scenario 1: stamp-create-happy
     if (stampAvailable) {
       try {
@@ -495,6 +518,7 @@ async function runStampPrintPreview(context) {
       scenarios.push({ name: 'stamp-create-happy', skipped: true, reason: `No stamp file for provider ${stampProviderNo}` });
     }
 
+    cancellation.throwIfCancelled();
     // Scenario 2: stamp-create-warning (no stamp needed — uses non-existent provider 99999)
     try {
       const result = await runStampCreateWarning(context, csrfToken);
@@ -504,7 +528,8 @@ async function runStampPrintPreview(context) {
       scenarios.push({ name: 'stamp-create-warning', skipped: false, error: err.message });
     }
 
-    // Scenario 3: stamp-update (requires CONSULT_UNSIGNED_REQUEST_ID and stamp)
+    cancellation.throwIfCancelled();
+    // Scenario 3: stamp-update on the owned unsigned request
     if (stampAvailable && unsignedRequestId) {
       try {
         const result = await runStampUpdate(context, csrfToken);
@@ -516,11 +541,12 @@ async function runStampPrintPreview(context) {
     } else {
       const reason = !stampAvailable
         ? `No stamp file for provider ${stampProviderNo}`
-        : 'CONSULT_UNSIGNED_REQUEST_ID not set';
+        : 'Owned unsigned create scenario did not succeed';
       scenarios.push({ name: 'stamp-update', skipped: true, reason });
     }
 
-    // Scenario 4: stamp-print-preview (requires CONSULT_UNSIGNED_REQUEST_ID and stamp)
+    cancellation.throwIfCancelled();
+    // Scenario 4: stamp-print-preview on the same owned request
     if (stampAvailable && unsignedRequestId) {
       try {
         const result = await runStampPrintPreview(context);
@@ -532,7 +558,7 @@ async function runStampPrintPreview(context) {
     } else {
       const reason = !stampAvailable
         ? `No stamp file for provider ${stampProviderNo}`
-        : 'CONSULT_UNSIGNED_REQUEST_ID not set';
+        : 'Owned unsigned create scenario did not succeed';
       scenarios.push({ name: 'stamp-print-preview', skipped: true, reason });
     }
 
@@ -543,7 +569,11 @@ async function runStampPrintPreview(context) {
       process.exitCode = 1;
     }
   } finally {
-    await browser.close();
+    try { await browser?.close(); }
+    finally {
+      try { fixture?.cleanup(); }
+      finally { sql?.dispose(); cancellation.dispose(); }
+    }
   }
 })().catch((error) => {
   console.error(error.stack || error.message);

@@ -41,6 +41,7 @@
  *   TEST_PIN=2026
  *   EFORM_CONSULT_DEMOGRAPHIC_NO=1
  *   EFORM_CONSULT_SCREENSHOT_DIR=/tmp
+ *   LIBRARY_EFORM_NAME='Signature trick' (optional stored form with BGImage1/BGImage2)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
@@ -49,6 +50,7 @@ const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -65,10 +67,6 @@ const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0
 // a different form; when the named form is absent the probe is skipped (with a
 // note) so the main documented acceptance workflow still runs everywhere.
 const libraryEformName = process.env.LIBRARY_EFORM_NAME || 'Signature trick';
-const libraryEformExpectedTemplateImages = [
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM11.png',
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM21.png',
-];
 
 const badResponses = [];
 const consoleIssues = [];
@@ -84,6 +82,9 @@ function assert(condition, message) {
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
@@ -223,7 +224,7 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     const contentType = response.headers()['content-type'] || '';
-    if (/\/eform\/displayImage(?:\.do)?\?imagefile=/.test(responseUrl)) {
+    if (imageIdentity(responseUrl, baseUrl.href) !== null) {
       displayImageResponses.push({ label, status, url: responseUrl, contentType });
     }
     // getPdf() POSTs to /previewDocs with method=renderEFormPDF in the body
@@ -263,10 +264,16 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(testPin);
+  }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === testPin, 'login PIN field changed before submit');
   }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
@@ -344,8 +351,9 @@ async function findExistingLibraryEform(context, formName) {
       const body = await page.locator('body').innerText().catch(() => '');
       throw new Error(`eForm manager page did not render its table (#eformTbl absent) — not a form-absent condition. body: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
     }
-    const row = page.locator('#eformTbl tbody tr', { hasText: formName }).first();
+    const row = page.locator('#eformTbl tbody tr').filter({ has: page.getByRole('link', { name: formName, exact: true }) });
     await row.waitFor({ state: 'visible', timeout: 15000 });
+    assert(await row.count() === 1, `Expected one exact library form named ${formName}`);
     const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
     const match = editHref && editHref.match(/fid=([^&'"]+)/);
     assert(match && match[1], `Could not extract existing library fid for ${formName}`);
@@ -355,7 +363,7 @@ async function findExistingLibraryEform(context, formName) {
   }
 }
 
-async function readManagerTemplateHtml(context, fid) {
+async function readManagerTemplateBackgrounds(context, fid) {
   const requestContext = await request.newContext({
     storageState: await context.storageState(),
     ignoreHTTPSErrors: true,
@@ -363,30 +371,42 @@ async function readManagerTemplateHtml(context, fid) {
   try {
     const response = await requestContext.get(appUrl(`/eform/efmformmanageredit?fid=${encodeURIComponent(fid)}`));
     assert(response.ok(), `Could not fetch manager template HTML for fid ${fid}: ${response.status()}`);
-    return await response.text();
+    const editorHtml = await response.text();
+    const parserPage = await context.newPage();
+    try {
+      // DOMParser keeps the editor response and stored template inert. The
+      // textarea value is HTML-decoded by the browser before parsing the form.
+      // The callback is a fixed local function; HTML is a serialized argument parsed as inert DOM, never executable source.
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
+      const snapshot = await parserPage.evaluate(storedBackgroundSnapshot, editorHtml);
+      return expectedBackgrounds(snapshot);
+    } finally {
+      await parserPage.close();
+    }
   } finally {
     await requestContext.dispose();
   }
 }
 
-async function probeExistingLibraryEform(context, fid) {
+async function probeExistingLibraryEform(context, fid, expected) {
+  const responseStart = displayImageResponses.length;
   const page = await openAddEform(context, fid);
   try {
     await assertNotErrorPage(page, 'existing library eForm add page');
-    const bodyHtml = await page.locator('body').innerHTML();
-    const bgImageCount = await page.locator('#BGImage1, #BGImage2').count();
     const fieldCount = await page.locator('#FormName input, #FormName textarea, #FormName select').count();
-    assert(bgImageCount >= 2, `Existing library eForm fid=${fid} did not render both background images`);
-    await assertImageLoaded(page, '#BGImage1', `existing library eForm fid=${fid} background image 1`);
-    await assertImageLoaded(page, '#BGImage2', `existing library eForm fid=${fid} background image 2`);
+    await page.waitForFunction(() => ['BGImage1', 'BGImage2'].every((id) => {
+      const image = document.getElementById(id);
+      return image && image.complete && image.naturalWidth > 100 && image.naturalHeight > 100;
+    }), null, { timeout: 30000 });
+    const actual = await page.evaluate(() => ['BGImage1', 'BGImage2'].map((id) => {
+      const images = document.querySelectorAll(`[id="${id}"]`);
+      const image = images[0];
+      return { id, count: images.length, complete: image?.complete, width: image?.naturalWidth,
+        height: image?.naturalHeight, src: image?.currentSrc || image?.src };
+    }));
+    const proof = assertLibraryBackgrounds(expected, actual, displayImageResponses.slice(responseStart), baseUrl.href);
     await screenshot(page, 'consult-acceptance-library-eform-runtime');
-    return {
-      bgImageCount,
-      fieldCount,
-      bodyHasPainBackground: /Regional_Community_Pain/i.test(bodyHtml),
-      bodyHasDisplayImage: bodyHtml.includes('displayImage'),
-      renderSurfaceUsable: bgImageCount >= 2 && bodyHtml.includes('displayImage'),
-    };
+    return { ...proof, fieldCount };
   } finally {
     await page.close();
   }
@@ -544,36 +564,16 @@ async function openNewConsultation(context) {
 
 async function prepareConsultationForm(page) {
   await assertNotErrorPage(page, 'consultation form page');
-  const specialistSelect = page.locator('#specialist');
-  assert(await specialistSelect.count(), 'Consultation page did not render the specialist selector');
-  const options = await specialistSelect.locator('option').evaluateAll((nodes) => nodes
-    .map((node) => ({ value: node.value, text: (node.textContent || '').trim() }))
-    .filter((option) => option.value && option.value !== '-1'));
-
-  let submitMode = 'button';
-  if (options.length > 0) {
-    await specialistSelect.selectOption(options[0].value);
-    await page.waitForFunction(() => {
-      const serviceField = document.forms.EctConsultationFormRequest2Form && document.forms.EctConsultationFormRequest2Form.service;
-      return serviceField && serviceField.value && serviceField.value !== '0';
-    }, { timeout: 15000 });
-  } else {
-    const serviceWasSet = await page.evaluate(() => {
-      const form = document.forms.EctConsultationFormRequest2Form;
-      if (!form || !form.service) {
-        return false;
-      }
-      const services = Array.isArray(window.consultationServices) ? window.consultationServices : [];
-      const usable = services.find((service) => service && String(service.id || '') !== '' && String(service.id) !== '-1');
-      form.service.value = usable ? String(usable.id) : '57';
-      return form.service.value && form.service.value !== '0';
-    });
-    assert(serviceWasSet, 'Consultation page did not expose a usable service id for fallback submission');
-    submitMode = 'programmatic';
+  for (const [inputSelector, hiddenSelector] of [['#serviceInput', '#service'], ['#specialistInput', '#specialist']]) {
+    await page.locator(inputSelector).click();
+    const option = page.locator('ul.ui-autocomplete:visible li.ui-menu-item').first();
+    await option.waitFor({ state: 'visible', timeout: 15000 });
+    await option.click();
+    const selectedId = await page.locator(hiddenSelector).inputValue();
+    assert(/^\d+$/.test(selectedId) && selectedId !== '0', `${inputSelector} did not populate its selected ID`);
   }
 
   await page.locator('textarea[name="appointmentNotes"]').fill(`Playwright consultation note ${Date.now()}`);
-  return submitMode;
 }
 
 async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
@@ -634,12 +634,8 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
         throw error;
       });
     if (libraryFid) {
-      const libraryTemplateHtml = await readManagerTemplateHtml(context, libraryFid);
-      assert(libraryTemplateHtml.includes('${oscar_image_path}'), `Existing library eForm ${libraryEformName} did not retain oscar_image_path image references`);
-      for (const imageName of libraryEformExpectedTemplateImages) {
-        assert(libraryTemplateHtml.includes(imageName), `Existing library eForm ${libraryEformName} template did not retain expected background image ${imageName}`);
-      }
-      libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid);
+      const backgrounds = await readManagerTemplateBackgrounds(context, libraryFid);
+      libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid, backgrounds);
     } else {
       console.log(`[skip] Library eForm "${libraryEformName}" is not in this database's eForm library; skipping the stored image-layer template probe (set LIBRARY_EFORM_NAME to probe a different form).`);
     }
@@ -676,10 +672,17 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     }
     assert(eformPreviewResponses.some((response) => response.status === 200), `Consultation attachment preview never produced a 200 renderEFormPDF response: ${JSON.stringify(eformPreviewResponses, null, 2)}`);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
-    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label));
+    // A raw stored eForm has no icon declaration, so Chromium probes the
+    // origin-root favicon outside the CARLOS context. The HTTP recorder already
+    // permits only its 404; mirror that exact exception for the console event.
+    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label)
+      && !(issue.type === 'error'
+        && /Failed to load resource.*404/i.test(issue.text || '')
+        && issue.location && issue.location.url === `${baseUrl.origin}/favicon.ico`));
     assert(renderConsoleIssues.length === 0, `unexpected render-surface browser console failures: ${JSON.stringify(renderConsoleIssues, null, 2)}`);
 
-    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, reused that same saved eForm in the consultation attachment workflow, and probed the existing Signature trick library form for its stored image-layer template');
+    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, and reused that same saved eForm in the consultation attachment workflow');
+    if (libraryRuntimeProbe) console.log(`PASS stored library form ${libraryEformName} rendered both exact background images from its template`);
     console.log(`Imported fid=${importedFid}, saved fdid=${fdid}, consultation request id=n/a (consultation attachment fallback), library fid=${libraryFid}, library runtime probe=${JSON.stringify(libraryRuntimeProbe)}, synthetic background responses=${JSON.stringify(syntheticBackgroundResponses)}`);
     console.log(`Screenshots written under ${screenshotDir}`);
   } finally {

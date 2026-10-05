@@ -22,6 +22,7 @@
  */
 
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -39,8 +40,14 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_CRUD_${Date.now()}`;
-const createdMessage = `${stamp} created through add UI`;
-const editedMessage = `${stamp} edited through edit UI`;
+// Both messages BEGIN with a pasted internal PACS link whose query string carries "&cmd",
+// the ordinary clinical text that the packaged WAF's CRS scores as an attack (931100 on a
+// value that starts with an IP-address URL, 932110 on "&cmd"). Through the packaged front
+// door on :443 this is what proves the tickler routes accept clinician prose (exclusions 1104
+// and 1105); through bare Tomcat nothing inspects it. Keep the link first and keep "&cmd" in it.
+const CLINICAL_TEXT_THE_WAF_SCORES = "http://10.0.0.5/pacs/study?id=1&cmd=view f/u imaging;";
+const createdMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} created through add UI`;
+const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through edit UI`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
@@ -48,13 +55,20 @@ const consoleIssues = [];
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
+  if (parsed.username || parsed.password) {
+    throw new Error('BASE_URL must not embed a username or password');
+  }
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
   }
 
   const host = parsed.hostname.toLowerCase();
   const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -119,13 +133,12 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp });
 }
 
 function getTicklerRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
+  // The stamp sits after the scoring text, so match it anywhere in the message.
+  const escapedStamp = escapeSql(`%${stamp}%`);
   const out = sql(
     `SELECT tickler_no, status, priority, task_assigned_to, DATE(service_date), message`
       + ` FROM tickler WHERE message LIKE '${escapedStamp}' ORDER BY tickler_no`

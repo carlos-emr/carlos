@@ -38,7 +38,8 @@
 //     - FGLC: "Flu shot given?" - No = patient not vaccinated (risk)
 //     - EYEE: "Eye exam done?" - No = retinopathy screening gap
 //     - FTE:  "Foot exam done?" - No = neuropathy/ulcer screening gap
-//     - FTLS: "Foot sensation normal?" - No = possible neuropathy
+//     - FTLS: "Foot sensation normal?" (10g monofilament) - No = possible neuropathy
+//     - NRTF: "Vibration sense normal?" (128Hz tuning fork, D1) - No = possible neuropathy
 //   And from chf.xml:
 //     - FGLC, EYEE, FTE, FTLS: same Yes/No items
 //
@@ -53,8 +54,8 @@
 //   <item> in the XML has its own ds_rules attribute that points here.
 //
 // Referenced By:
-//   - XML configs: diabetesFlowsheet.xml (FGLC, EYEE, FTE, FTLS items),
-//     chf.xml (same items) - all with ds_rules="diab-C-no-is-high.drl"
+//   - XML configs: diabetesFlowsheet.xml (FGLC, EYEE, FTE, FTLS, NRTF items),
+//     chf.xml (FGLC, EYEE, FTE, FTLS items) - all with ds_rules="diab-C-no-is-high.drl"
 //   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //
 // Fact Class:

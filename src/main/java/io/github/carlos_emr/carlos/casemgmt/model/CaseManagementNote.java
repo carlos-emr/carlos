@@ -115,7 +115,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
                 from casemgmt_note cmn
                 join (select max(note_id) as note_id from casemgmt_note
-                where demographic_no = :demographicNo and observation_date >= :startDate and observation_date <= :endDate group by uuid) recent on recent.note_id = cmn.note_id
+                where demographic_no = :demographicNo and observation_date >= :startDate and observation_date < :endDate group by uuid) recent on recent.note_id = cmn.note_id
                 order by cmn.observation_date asc
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentLimit", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
@@ -699,6 +699,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     @jakarta.persistence.Column(name = "appointmentNo")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyAppointmentNumberConverter.class)
 
 
     public int getAppointmentNo() {

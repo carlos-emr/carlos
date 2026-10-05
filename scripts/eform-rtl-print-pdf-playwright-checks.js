@@ -17,16 +17,19 @@
  * way a clinician drives them, against a running CARLOS (devcontainer Tomcat or a packaged install
  * through nginx). It covers the defects that shipped green through every other check:
  *
- *   1. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) produce a real PDF download
- *      (they used to be a plain Save: the print flag was never posted, and the server had no mapped
- *      result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it after
- *      the download like a plain Submit;
- *   2. the toolbar's Download produces a real PDF for the letter just typed;
- *   3. the toolbar's Print ("Save and then print") prints the EDITOR IFRAME and then saves a new
- *      letter (typing never set the dirty flag before, so nothing was saved);
- *   4. the form's "Submit & Print" prints the iframe and submits through the CSP timer shim;
- *   5. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
- *   6. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
+ *   1. Save PDF Only produces a real PDF download and retains the editor window;
+ *   2. toolbar Download produces the same packet;
+ *   3. the form's own "PDF" / "Submit & PDF" buttons (printControl.js) still produce a real PDF
+ *      download (they used to be a plain Save: the print flag was never posted, and the server had
+ *      no mapped result for it anyway); "PDF" leaves the window open, "Submit & PDF" auto-closes it
+ *      after the download like a plain Submit. The floating toolbar hides these buttons, so the
+ *      check dispatches their click: forms and scripts that call them remain supported;
+ *   4. Print Only PDF prints current unsaved editor content without saving or navigating;
+ *   5. regular Print invokes the editor iframe and saves, and the form's own "Submit & Print"
+ *      (PrintSaveButton, also hidden by the toolbar) prints the iframe and submits through the CSP
+ *      timer shim;
+ *   6. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
+ *   7. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
  *      stays editable (any template other than blank.rtl used to be served with a sandbox CSP).
  *
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
@@ -112,11 +115,19 @@ function editorFrame(page) {
 
 async function typeLetter(page, text = LETTER_TEXT) {
   const frame = editorFrame(page);
+  // Contenteditable can render typed spaces as non-breaking ones, so compare as plain text.
+  const plainText = () => frame.evaluate(() => document.body.innerText.replace(/\u00a0/g, ' '));
+  const before = await plainText();
   await frame.locator('body').click();
   await page.keyboard.press('End');
   await page.keyboard.type(text);
   const html = await frame.evaluate(() => document.body.innerHTML);
-  assert(html.includes('Playwright RTL check'), `typed text did not land in the editor: ${html.slice(0, 200)}`);
+  const landed = await plainText();
+  // Check the text this call typed, not a marker an earlier save may already have put in the
+  // letter: the editor must have grown by the typed text and hold one more copy of it.
+  const occurrences = (haystack) => haystack.split(text).length - 1;
+  assert(landed.length >= before.length + text.length && occurrences(landed) === occurrences(before) + 1,
+    `typed text did not land in the editor (${before.length} -> ${landed.length} chars): ${html.slice(0, 200)}`);
   return html;
 }
 
@@ -129,11 +140,27 @@ async function openNewLetter(context, recorder, fid, label) {
   return page;
 }
 
+// The legacy printControl.js / template buttons are hidden behind the floating toolbar, so a user
+// click cannot reach them; a dispatched click still runs their handlers exactly as a form's own
+// script calling them would.
+const dispatchClick = (locator) => locator.dispatchEvent('click');
+
+/** Waits (bounded) until the Node-side print recorder has seen `count` print() calls. */
+async function waitForPrints(printLog, count, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (printLog.length < count && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 /** Clicks a control that ends in a browser download and returns the saved PDF's bytes. */
-async function clickAndDownloadPdf(page, locator, label) {
+async function clickAndDownloadPdf(page, locator, label, trigger = (target) => target.click()) {
   const downloadPromise = page.waitForEvent('download', { timeout: 120000 });
-  await locator.click();
-  const download = await downloadPromise;
+  const saveResponsePromise = page.waitForResponse(
+    (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 120000 });
+  await trigger(locator);
+  const [download, saveResponse] = await Promise.all([downloadPromise, saveResponsePromise]);
+  assert(saveResponse.status() < 400, `${label}: addEForm answered HTTP ${saveResponse.status()}`);
   // buildArtifactPath keeps the file under the validated artifact directory and creates it.
   const target = buildArtifactPath(config.screenshotDir, `rtl-${label}-${Date.now()}`, '.pdf');
   await download.saveAs(target);
@@ -147,10 +174,10 @@ async function clickAndDownloadPdf(page, locator, label) {
 }
 
 /** Clicks a control whose handler ends in a save, and waits for that save's response and result page. */
-async function clickAndAwaitSave(page, locator) {
+async function clickAndAwaitSave(page, locator, trigger = (target) => target.click()) {
   const saveResponse = page.waitForResponse(
     (r) => r.url().includes('/eform/addEForm') && r.request().method() === 'POST', { timeout: 60000 });
-  await locator.click();
+  await trigger(locator);
   const response = await saveResponse;
   assert(response.status() < 400, `save POST to addEForm answered HTTP ${response.status()} (a WAF 403 means the letter was lost)`);
   await page.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
@@ -217,21 +244,54 @@ async function savedFdid(page) {
     step('toolbar Download saves the letter and downloads a real PDF', dl1.bytes.length > 1024, `${dl1.name}, ${dl1.bytes.length} bytes, fdid ${fdidAfterDownload}`);
     await screenshot(page, config.screenshotDir, 'rtl-print-pdf-after-download');
 
-    // ---------- 3. Saved letter page: the form's own PDF button ----------
+    // ---------- 3. Saved letter page: Save PDF Only in the toolbar menu ----------
     const storedLetter = await page.locator('#Letter').inputValue();
     step('saved letter stores the typed text with saveRTL() escaping', storedLetter === escapeLikeSaveRTL(typed) || storedLetter.includes(escapeLikeSaveRTL('"chest pain" & <cough>')), storedLetter.slice(0, 120));
     const reopened = await editorFrame(page).evaluate(() => document.body.innerHTML);
     step('saved letter reopens in the editor as markup', reopened.includes('Playwright RTL check') && reopened.includes('&amp; &lt;cough&gt;'), reopened.slice(0, 120));
-    const dl2 = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button');
+    await page.locator("#remotePrintOptions summary").click();
+    const dl2 = await clickAndDownloadPdf(page, page.locator("#remoteSavePdfButton"), "toolbar-save-pdf");
     const fdidAfterPdfButton = await savedFdid(page);
-    step('form "PDF" button downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
+    step('Save PDF Only downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
     // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
     // Wait past that countdown before asserting, or the check would pass vacuously.
     await page.waitForTimeout(6500);
+    step('Save PDF Only leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+
+    // ---------- 3a. Saved letter page: the form's own "PDF" button (printControl.js, print=true) ----------
+    const dlLegacyPdf = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button', dispatchClick);
+    const fdidAfterLegacyPdf = await savedFdid(page);
+    step('form "PDF" button downloads a real PDF', dlLegacyPdf.bytes.length > 1024, `${dlLegacyPdf.name}, ${dlLegacyPdf.bytes.length} bytes, fdid ${fdidAfterLegacyPdf}`);
+    // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
+    await page.waitForTimeout(6500);
     step('form "PDF" button leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
 
-    // ---------- 3b. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
-    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button');
+    // ---------- 3b. Print Only uses current unsaved editor content without a chart save ----------
+    const currentLetter = 'Current unsaved print-only letter';
+    await typeLetter(page, currentLetter);
+    printLog.length = 0;
+    const printOnlySaves = [];
+    const recordSave = request => {
+      if (request.method() === 'POST' && /\/eform\/addEForm/.test(request.url())) printOnlySaves.push(request.url());
+    };
+    page.on('request', recordSave);
+    const beforePrintOnlyUrl = page.url();
+    await page.locator('#remotePrintOptions summary').click();
+    await page.locator('#remotePrintPdfButton').click();
+    // Observe the print itself rather than guessing how long it takes, then keep sampling well past
+    // the legacy string-timer submit shim (1 s, see "Submit & Print" below): a regression that
+    // saved on a timer after printing would otherwise escape a short window.
+    await waitForPrints(printLog, 1);
+    await page.waitForTimeout(2500);
+    page.off('request', recordSave);
+    step('Print Only PDF prints current unsaved editor text', printLog.length === 1 && !printLog[0].isTop && printLog[0].body.includes(currentLetter), '');
+    step('Print Only PDF never saves or navigates', printOnlySaves.length === 0 && page.url() === beforePrintOnlyUrl && (await savedFdid(page)) === fdidAfterLegacyPdf, '');
+    step('Print Only PDF preserves the dirty flag and editable letter', (await page.evaluate(() => window.needToConfirm)) === true
+      && await page.locator('#remotePrintButton').isVisible()
+      && await editorFrame(page).evaluate((text) => document.body.innerText.includes(text), currentLetter), '');
+
+    // ---------- 3c. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
+    const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button', dispatchClick);
     const fdidAfterSubmitPdf = await savedFdid(page);
     step('form "Submit & PDF" button downloads a real PDF', dl3.bytes.length > 1024, `${dl3.name}, ${dl3.bytes.length} bytes, fdid ${fdidAfterSubmitPdf}`);
     // A submission: the result page sets isSuccess_Autoclose, so the toolbar closes the window
@@ -261,7 +321,7 @@ async function savedFdid(page) {
     const printSave = page.locator('input[name="PrintSaveButton"]');
     // The form's own button submits through a 1s string timer (the CSP shim), so wait for the save
     // itself rather than for whatever load state the still-current page happens to report.
-    await clickAndAwaitSave(page, printSave);
+    await clickAndAwaitSave(page, printSave, dispatchClick);
     step('"Submit & Print" prints the editor iframe', printLog.length === 1 && !printLog[0].isTop, '');
     await assertNotErrorPage(page, 'rtl-form-print');
     const fdidAfterFormPrint = await savedFdid(page);

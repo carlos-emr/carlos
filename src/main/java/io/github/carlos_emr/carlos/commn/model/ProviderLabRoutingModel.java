@@ -55,6 +55,13 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
     @Column(name = "lab_type")
     private String labType;
 
+    /** Patient whose MRP rule solely created access; null retains independent assignments. */
+    private Integer mrpDemographicNo;
+
+    public Integer getMrpDemographicNo() { return mrpDemographicNo; }
+
+    public void setMrpDemographicNo(Integer mrpDemographicNo) { this.mrpDemographicNo = mrpDemographicNo; }
+
     public ProviderLabRoutingModel() {
         //default
     }
@@ -70,6 +77,7 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
 
     public ProviderLabRoutingModel(ProviderLabRoutingModel providerLabRoutingModel) {
         this.id = providerLabRoutingModel.getId();
+        this.mrpDemographicNo = providerLabRoutingModel.getMrpDemographicNo();
         this.providerNo = providerLabRoutingModel.getProviderNo();
         this.labNo = providerLabRoutingModel.getLabNo();
         this.status = providerLabRoutingModel.getStatus();
@@ -115,7 +123,9 @@ public class ProviderLabRoutingModel extends AbstractModel<Integer> implements S
     }
 
     public void setComment(String comment) {
-        this.comment = StringUtils.trimToNull(comment);
+        // Clinical acknowledgement text is literal; identifier normalization does
+        // not apply to intentional whitespace or case in a clinician's comment.
+        this.comment = comment;
     }
 
     public Date getTimestamp() {

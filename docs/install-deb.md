@@ -1,7 +1,7 @@
 # Installing CARLOS on a single server (Debian packages)
 
 This is the supported way to run CARLOS EMR on one Ubuntu machine: three
-Debian packages that install the application, its database, an nginx +
+Debian packages (plus one empty transitional package for upgrades) that install the application, its database, an nginx +
 ModSecurity web application firewall, HTTPS, scheduled encrypted backups, and
 an administration tool — a working, secured EMR from `apt install`.
 
@@ -12,19 +12,48 @@ an administration tool — a working, secured EMR from `apt install`.
 
 | Package | What it provides |
 |---|---|
-| `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), nightly restic backups with a weekly restore drill, and the `carlos-ctl` admin CLI |
+| `carlos-emr` | CARLOS on a dedicated Tomcat 11 instance, MariaDB with least-privilege accounts, an nginx front door running ModSecurity 3 + OWASP CRS in blocking mode, HTTPS (self-signed by default, Let's Encrypt on request), and nightly restic backups with a weekly restore drill |
+| `carlos-ctl` | The `carlos-ctl` administration command (`check`, logs, restarts, schema migrations, certificates, the WAF, backups, the OSCAR 19 import). Its own package, built and released from [carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl); `carlos-emr` depends on it, and every CARLOS release re-attaches the pinned `carlos-ctl` release so one download page carries the whole install |
 | `carlos-emr-drugref` | DrugRef2, the drug and drug-interaction reference CARLOS queries when prescribing — co-deployed, loopback-only, with the Health Canada Drug Product Database seed loaded on install |
-| `carlos-emr-eform-renderer` | The sandboxed browser service that renders saved eForms to PDF for print, fax and archive |
 
 ## Requirements
 
-- Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 21 / MariaDB
-  11.8 / nginx stack).
+- Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
+  11.8 / nginx stack) on **x86-64 (amd64)**. `carlos-emr` carries the pinned
+  Chromium that renders eForms to PDF, which exists only for amd64.
 - One dedicated server or VM. As a starting point: 4+ CPU cores, 8 GB RAM
   (2 GB JVM heap + 1 GB database buffer pool by default — both tunable),
   and disk sized for your document store plus backups.
 - Root access. The *installation* uses root; the *running system* does not —
   every long-lived component runs as an unprivileged account.
+- The `universe` component enabled and the package lists current. Four of the
+  dependencies (`tomcat11-common`, `libtomcat11-java`, `modsecurity-crs`,
+  `libnginx-mod-http-modsecurity`) live in `universe` (`openjdk-25-jre-headless`
+  is in `main`), and
+  without it the install stops on unmet dependencies before anything is
+  configured. It is enabled by default on Ubuntu Server.
+
+### Do not install the `tomcat11` package
+
+CARLOS runs its **own private Tomcat instance** and installs everything it
+needs for one. It depends on `tomcat11-common` and `libtomcat11-java` — the
+distribution's Tomcat *code*, so container security updates keep arriving
+through `apt` — and then runs a container of its own:
+`CATALINA_BASE=/var/lib/carlos-emr/catalina`, as the unprivileged `carlos`
+account, with its connector bound to `127.0.0.1:18080` behind the
+nginx + ModSecurity front door, serving an application tree the EMR's own
+account cannot write to.
+
+Installing the `tomcat11` *service* package on top of that ("CARLOS is a Java
+webapp, so it must need Tomcat") starts a **second, unrelated** container as
+the `tomcat` user listening on `*:8080` — every interface, with no TLS, WAF,
+or rate limiting. This creates an additional network service outside the
+packaged front door; it does not serve the CARLOS application by default.
+It also competes for the memory the EMR's heap was sized against.
+
+The packages therefore refuse the combination (`Conflicts: tomcat11`): if it
+is already installed, `apt` will offer to remove it. If it hosts another
+application, move that application to a separate host before proceeding.
 
 ### Before you start — a five-minute pre-flight
 
@@ -46,25 +75,71 @@ Each of these is much easier to fix now than mid-install:
 
 Every CARLOS [GitHub release](https://github.com/carlos-emr/carlos/releases)
 carries the `.deb` files, their `.sha256` checksums, and build-provenance
-attestations (the `carlos-emr` package ships that release's published WAR,
-byte for byte). Download all three, verify, install:
+attestations (the `carlos-emr` package deploys the published WAR's application
+payload, with its Debian build identity stamped in `carlos-build.properties`
+and the explicit MariaDB metadata default in `jdbc-defaults.properties`;
+the `carlos-ctl` package is the release of
+[carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl) the CARLOS
+release pins, re-attached as is). Download all three, verify, install:
 
 ```bash
-sha256sum -c carlos-emr_<version>_all.deb.sha256
+sudo apt update
+sha256sum -c carlos-emr_<version>_amd64.deb.sha256
+sha256sum -c carlos-ctl_<ctl-version>_all.deb.sha256
 sha256sum -c carlos-emr-drugref_<version>_all.deb.sha256
-sha256sum -c carlos-emr-eform-renderer_<version>_amd64.deb.sha256
-sudo apt install ./carlos-emr_<version>_all.deb \
-                 ./carlos-emr-drugref_<version>_all.deb \
-                 ./carlos-emr-eform-renderer_<version>_amd64.deb
+sudo apt install --no-remove ./carlos-emr_<version>_amd64.deb \
+                 ./carlos-ctl_<ctl-version>_all.deb \
+                 ./carlos-emr-drugref_<version>_all.deb
 ```
 
-Three packages, and it is worth knowing what each is for:
+`<version>` is the release's Debian version as it appears in the asset name,
+with dots throughout — for example `2026.08.0.alpha14`, giving
+`carlos-emr_2026.08.0.alpha14_amd64.deb`. `<ctl-version>` is the `carlos-ctl`
+release's own version (for example `1.1.0`): the two packages version
+independently, and the CARLOS release page carries the `carlos-ctl` file it
+was tested with. To verify provenance, `gh attestation verify` each file
+against the repository that built it:
+
+```bash
+gh attestation verify carlos-emr_<version>_amd64.deb --repo carlos-emr/carlos
+gh attestation verify carlos-ctl_<ctl-version>_all.deb --repo carlos-emr/carlos-ctl
+```
+
+> **Releases up to and including 2026.08.0-alpha15** shipped `carlos-ctl`
+> inside `carlos-emr`; there is no separate file to download for them, and
+> upgrading from one of them needs the `carlos-ctl` file in the same command
+> (see [Upgrades](#upgrades)).
+
+> **Releases up to and including 2026.08.0-alpha13** name the packages
+> differently: `carlos-emr_<version>_all.deb`, and the renderer as a real
+> package, `carlos-emr-eform-renderer_<version>_amd64.deb`. From
+> 2026.08.0-alpha14 the renderer is part of `carlos-emr`, which is therefore
+> `_amd64`. Releases 2026.08.0-alpha14 through alpha17 also carried an empty
+> transitional `carlos-emr-eform-renderer_<version>_all.deb`; later releases do
+> not build it. If one is installed it does nothing and can be removed with
+> `sudo apt remove carlos-emr-eform-renderer`.
+
+> **Releases up to and including 2026.08.0-alpha12:** the `.sha256` files
+> record the build-time name, which spells the pre-release with a tilde
+> (`carlos-emr_2026.08.0~alpha12_all.deb`), while GitHub rewrites that tilde to
+> a dot when it stores the asset. `sha256sum -c` therefore fails with
+> `No such file or directory` even though the download is intact. Compare the
+> digests directly instead:
+>
+> ```bash
+> sha256sum carlos-emr_<version>_all.deb
+> cat carlos-emr_<version>_all.deb.sha256
+> ```
+>
+> Later releases record the published name and verify normally.
+
+What each package is for:
 
 | Package | What it does | Leave it out? |
 |---|---|---|
-| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups. | No. |
+| `carlos-emr` | The EMR itself: application, database schema, nginx front door, WAF, TLS, backups, and the browser that turns saved eForms into PDFs (eForm print, fax and archive have no other path). | No. |
+| `carlos-ctl` | The administration command; `carlos-emr` depends on it (its installer runs `carlos-ctl` verbs). | No — apt refuses to install `carlos-emr` without it. |
 | `carlos-emr-drugref` | Drug and interaction lookups when prescribing. | Only if you never prescribe — searches return nothing without it. |
-| `carlos-emr-eform-renderer` | The browser that turns saved eForms into PDFs. | Only if the clinic does not use eForms — **there is no fallback**, so eForm print, fax and archive simply do not work without it. |
 
 apt may print this while installing local files. It is harmless:
 
@@ -96,14 +171,31 @@ does not.
 
 ![Host name question](images/install/01-server-name.png)
 
+> **Reaching the server by IP address.** Clients on the practice LAN may use the
+> server's IP instead of a name — that is the common clinic setup and the
+> packaged WAF rules account for it (rule 1090 exempts private-range clients
+> from CRS 920350, which would otherwise spend 3 of the 5-point anomaly budget
+> on every request). Clients arriving from a **public** address get no such
+> exemption, by design: they start each request part-way to the blocking
+> threshold, so users see occasional unexplained `403` errors on ordinary
+> clinical work with nothing in the application log. **If anyone will reach this
+> server from outside the practice network, give it a DNS name and have them use
+> the name** — which is also what a real TLS certificate is issued for. See
+> "The web application firewall" in `README.Debian` for the full reasoning.
+
 **2. Listen address** — `0.0.0.0` serves every interface (the usual clinic
 setup); `127.0.0.1` keeps it local while staging or behind a separate proxy.
 The application server and database always listen on loopback only.
 
 ![Listen address question](images/install/02-bind-ip.png)
 
-**3. Billing province** — Ontario (`on`) or British Columbia (`bc`).
-**This one is permanent** — the two provinces create different tables.
+**3. Billing province** — Ontario (`on`), British Columbia (`bc`), or `other`.
+Pick `other` for a clinic anywhere else: it installs the Ontario schema and
+billing configuration, so the deployment is an Ontario one in every respect —
+it exists as a separate answer only so you are not asked to claim a province
+you are not in. **This one is permanent** — `on` and `bc` create different
+tables, and although `dpkg-reconfigure` will show the question again, the
+answer is not written back.
 
 ![Billing province question](images/install/03-province.png)
 
@@ -178,7 +270,7 @@ Then confirm the eForm render browser specifically, because `carlos-ctl check`
 covers the EMR rather than that service:
 
 ```bash
-sudo systemctl status carlos-emr-chromedriver          # should be active
+sudo systemctl status carlos-emr-render-browser          # should be active
 sudo carlos-ctl logs | grep -i "renderer startup check"
 ```
 
@@ -195,7 +287,7 @@ one is the most common way to conclude "nothing is logged":
 ```bash
 sudo carlos-ctl logs -n 200        # the EMR and Tomcat  (= journalctl -u carlos-emr)
 sudo carlos-ctl logs -f            # follow it live
-sudo journalctl -u carlos-emr-chromedriver -n 50   # the eForm render browser
+sudo journalctl -u carlos-emr-render-browser -n 50   # the eForm render browser
 sudo journalctl -u nginx -n 50     # TLS and the front door
 sudo tail -f /var/log/carlos-emr/modsec/modsec_audit.log   # the WAF
 ```
@@ -251,17 +343,109 @@ The loop is: edit the file, run the verb beside it.
 | `/etc/carlos-emr/modsecurity/` (WAF policy, site exclusions) | `sudo carlos-ctl waf reload` |
 
 `carlos-ctl --help` lists every verb; `man carlos-ctl` documents them, and
-**[docs/carlos-ctl.md](carlos-ctl.md)** is the same reference readable here
-on GitHub, with a walkthrough of the post-install configuration files. The
+**[docs/carlos-ctl.md](https://github.com/carlos-emr/carlos-ctl/blob/main/docs/carlos-ctl.md)**
+in the carlos-ctl repository is the same reference readable on GitHub, with
+a walkthrough of the post-install configuration files. The
 tool shares its name, language, and overlapping verb set (`check`, `db`,
 `db-migrate`, `db-users`, `backup full|verify|status`, `cert-renew`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
 
+### Incoming document storage
+
+The filesystems containing `DOCUMENT_DIR`, the incoming queues under
+`INCOMINGDOCUMENT_DIR`, and their `*_deleted` recycle directories must support
+hard links. The CARLOS service account needs permission to create private staging
+directories, publish files and remove the source. Incoming files and the document
+store can be on different filesystems: filing prepares a complete copy on the
+destination filesystem before publishing it. Reserve space for one full copy per
+concurrent filing or recycle operation, in addition to PDF-edit scratch space.
+
+Publication never replaces an existing destination. Filing and recycling choose
+an unused filename; extraction reports an existing output name for the operator
+to resolve. Copy, storage-capacity or unsupported-hard-link failures preserve the
+queued source. If source removal fails after publication, CARLOS attempts to remove
+only its own published copy. Cleanup failures are logged and require inspection;
+they do not justify deleting another document or resubmitting an uncertain filing.
+
+Sessions in one CARLOS JVM wait fairly when editing or filing the same incoming
+file. The server bounds waiting requests so a busy document cannot occupy every
+request thread; additional callers receive an explicitly unaccepted capacity
+response and wait in the browser before retrying the same request. Uncontended
+files remain available even when the waiting queue is full. This source coordination does not span
+multiple application JVMs sharing one incoming queue. Capacity refusals explicitly
+confirmed as unaccepted can retry automatically; an uncertain or partial filing
+requires checking the patient's documents before another submission.
+
+Normal completion removes private `.carlos-publication-*` staging directories.
+An abrupt shutdown can leave staging or a published copy requiring reconciliation.
+Stop incoming work and compare the source, destination and document record before
+removing an artifact or retrying; these directories are not automatically reaped.
+
+### eForm rendering waits
+
+Each application JVM permits two active browser renders and four waiting render
+requests. Additional sessions receive an unaccepted capacity response and wait in
+the browser before retrying. Keeping the server queue small leaves request threads
+available for active renderers to load the form and its resources.
+
+Download and archive continuations retry the already-saved eForm; they do not
+repeat its clinical save. An omission approval keeps its original two-minute
+lifetime while capacity is unavailable. A one-use capacity receipt remains valid
+for two minutes from its own issuance, bound to the same session, provider,
+patient, form and operation. If omission consent expires during the waiting
+page's delay, the continuation renders without that consent and prompts again for
+any missing content. Expired, missing or spent receipts do not restart an archive.
+
 ### Upgrades
 
 An upgrade is `apt install` of the newer packages — same command as the
-install. The schema migrates before the service restarts, your configuration
+install. Supply the main package and each companion that is already installed,
+all from the same release: DrugRef depends on the matching main-package
+version. For the standard installation this means all three files (the
+`carlos-ctl` file too: if the release pins the `carlos-ctl` version you
+already have, apt reports it as already the newest and moves on).
+If you intentionally omitted DrugRef, supply only the packages you use and
+add `--no-install-recommends` to keep it absent.
+Offering only a newer main package
+can cause apt to propose removing a companion. Keep `--no-remove` so that
+proposal fails instead of removing prescription lookup.
+
+**Upgrading from 2026.08.0-alpha15 or earlier** (when `carlos-ctl` was
+part of `carlos-emr`): the `carlos-ctl_<ctl-version>_all.deb` file must be in
+the same command. The new `carlos-emr` depends on it, so without the file apt
+refuses the whole transaction up front and the old install keeps running —
+nothing is half-upgraded. With it, apt unpacks `carlos-ctl` (which takes over
+`/usr/sbin/carlos-ctl`, `carlosctl` and the man page from the old
+`carlos-emr`), then the new `carlos-emr`, and configures them in that order,
+so the installer's own `carlos-ctl` calls find the new command. `carlos-emr`
+and `carlos-ctl` can be upgraded separately afterwards: a CLI fix ships as a
+`carlos-ctl` release alone (its install touches no database and restarts
+nothing), and a newer `carlos-emr` alone works whenever the installed
+`carlos-ctl` satisfies its `Depends` floor. A `carlos-ctl` install is
+refused while an OSCAR 19 import is in progress on the host; finish or
+clean up the import first. `apt remove carlos-emr` leaves `carlos-ctl`
+installed; it then answers every verb with "carlos-emr is not installed".
+
+**Upgrading from 2026.08.0-alpha13 or earlier** (when the renderer was its own
+`_amd64` package and `carlos-emr` was `_all`): the new `carlos-emr` replaces
+the old `carlos-emr-eform-renderer` package, and no transitional package is
+shipped any more, so apt has to remove the old one. Run the upgrade command
+**without** `--no-remove` and check that the only package apt proposes to
+remove is `carlos-emr-eform-renderer`. The browser and the existing render
+token move into `carlos-emr`: the token file is now
+`/etc/carlos-emr/renderer.env` and the service `carlos-emr-render-browser` (it
+was `render-browser.env` and `carlos-emr-chromedriver`). Removing or purging
+the old renderer package cannot affect them. One side effect: purging the
+removed old renderer later (`sudo apt purge carlos-emr-eform-renderer`) runs
+its old script, which re-applies the configuration and restarts the EMR once
+(about two minutes), so do that outside clinic hours. An install that already
+has the empty transitional package from 2026.08.0-alpha14 through alpha17 can
+keep it or remove it; it owns no files.
+
+The application's ~2-minute redeploy happens once per upgrade, even with DrugRef
+in the same command, and `apt` returns only once the application answers.
+The schema migrates before the service restarts, your configuration
 files are never overwritten, and the application refuses to start against a
 schema it was not built for rather than failing mid-consultation. Two habits
 make upgrades boring:
@@ -287,9 +471,14 @@ the host's own configured name back to it.
 For evaluation, training, and development installs, the installer can fill
 the new database with a fictitious practice: about 3000 fake patients (every
 name carries a `FAKE-` prefix), demonstration providers, appointments,
-clinical notes, labs, prescriptions, and 60 clearly-fake referral
-specialists. Answer **yes** to the `Load the FICTITIOUS demonstration
-dataset?` question during install, or run it later by hand:
+clinical notes, labs, prescriptions, 60 clearly-fake referral specialists,
+and a small set of synthetic Administration fixtures (labelled
+`Local Test -`: billing CSS styles, an inbox forwarding rule,
+patient-independent eForms, referral doctors, a report template, query
+favourites, appointment types and prevention lot numbers) so the data-backed
+Administration screens have something to show. Answer **yes** to the
+`Load the FICTITIOUS demonstration dataset?` question during install, or run
+it later by hand:
 
 ```bash
 sudo carlos-ctl demo-data
@@ -311,11 +500,13 @@ What it does — and refuses to do:
 - **No removal short of destruction.** The only supported way to get the
   demonstration data out is `carlos-ctl destroy-data` and re-provisioning.
 
-A note on credentials: the demonstration data works with the seeded
-`carlosdoc` account. If you accepted the default *replace the seeded
-administrator password* question, log in with the random credentials from
-`/etc/carlos-emr/initial-admin.txt`; on a disposable demo box you may prefer
-to decline that question and keep the well-known development credentials.
+A note on credentials: the demonstration data adds no login accounts (the
+`locktest` account the devcontainer seeds for lock testing is deliberately
+not shipped) and works with the seeded `carlosdoc` account. If you accepted
+the default *replace the seeded administrator password* question, log in
+with the random credentials from `/etc/carlos-emr/initial-admin.txt`; on a
+disposable demo box you may prefer to decline that question and keep the
+well-known development credentials.
 
 A system holding this dataset contains publicly-known demonstration content
 and must **never** hold real patient information.
@@ -332,14 +523,19 @@ sudo carlos-ctl check
 
 | Symptom | Where to look | Usual cause |
 |---|---|---|
+| Install reported no error, but `carlos-ctl check` says the installation never finished, or that the database has **no tables** | `sudo carlos-ctl finish-install`, then `journalctl -u mariadb` | One or more provisioning steps failed or did not run; read the recorded reason and installation output. Those steps are deliberately non-fatal (a database problem must not leave dpkg half-configured), so apt still reports success. `finish-install` completes the install — schema, accounts, administrator credential, demo data if you asked for it — and returns nonzero while any requested step is unfinished. Boot retries require the marker and never migrate a populated invalid schema. If the DrugRef database is empty, also run `sudo dpkg-reconfigure carlos-emr-drugref`, then `sudo carlos-ctl check`. Existing DrugRef tables without a completion marker need a backup and administrator review before any reload |
+| Drug lookups silent **and** the EMR is stopped | `sudo carlos-ctl check` | One failure, not two: DrugRef is a second webapp in the EMR's Tomcat, so it answers nothing while the EMR is not running. Fix the EMR first |
 | Browser cannot connect at all | `sudo journalctl -u nginx -n 50` | nginx not running, or the listen address is `127.0.0.1` while you are connecting remotely |
 | Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `sudo carlos-ctl cert acme <email>` |
 | "502 Bad Gateway" or a long spinner right after install/restart | `sudo carlos-ctl logs -f` | The webapp takes about two minutes to deploy; if it never comes up, the log says why |
 | Login rejected with the seeded credentials | `sudo cat /etc/carlos-emr/initial-admin.txt` | Using the repository's published dev password instead of the generated one. Also: the PIN must be exactly four digits — a longer PIN fails with a message blaming the *password* |
-| Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl bootstrap-admin` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `bootstrap-admin` re-enables the unit automatically; then `sudo systemctl start carlos-emr` |
+| `carlos-ctl check` says `carlos-emr is not running`, and `journalctl -u carlos-emr` shows the unit start, exit and restart several times before giving up | `sudo journalctl -u carlos-emr -n 200`, then `free -h` | The unit exhausted its restart limit (six failures in thirty minutes) and stays down until started by hand; an out-of-memory exit loops exactly this way, because the JVM runs with `-XX:+ExitOnOutOfMemoryError`. Give the machine enough memory for the heap (`CARLOS_JAVA_XMX` in `/etc/carlos-emr/carlos-emr.env`) plus MariaDB and the OS, or lower the heap, then `sudo systemctl reset-failed carlos-emr && sudo carlos-ctl restart` |
+| Something answers on port `8080`, or an older `carlos-ctl check` reported the JVM running as `tomcat` | `dpkg -l tomcat11` | The distribution's `tomcat11` *service* package is installed. CARLOS does not use it and current packages refuse to coexist with it (see [Do not install the `tomcat11` package](#do-not-install-the-tomcat11-package)): `sudo apt purge tomcat11` |
+| Install finished but the EMR is stopped, and `carlos-ctl check` says the unit is DISABLED | `sudo carlos-ctl check`, then `sudo carlos-ctl finish-install` | The installer could not replace the seeded `carlosdoc` credential (published in the source repository), so it stopped and disabled the service rather than expose the EMR with a known administrator password. It stays disabled across reboots on purpose. A successful `finish-install` verifies the credential, re-enables the unit, removes the start guard and starts the EMR |
 | A specific page or action fails, but nothing in the application log | `sudo carlos-ctl waf tail` | The WAF blocked the request before it reached the application — the tail explains which rule and why |
-| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-chromedriver -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
+| eForm print/fax produces no PDF, application log silent | `sudo journalctl -u carlos-emr-render-browser -n 50` | The render browser is its own service with its own journal; if it cannot start, eForm rendering fails by design |
 | Drug search returns nothing when prescribing | `sudo carlos-ctl check` (DrugRef probe) | `carlos-emr-drugref` not installed, or its service is down |
+| Administration > Update Drugref reports a failed update, or stays "updating" | The message on that page; `sudo journalctl -u carlos-emr \| grep -E 'DrugRef (database update\|updateDB failed)'` | The Tomcat JVM has no outbound HTTPS to `www.canada.ca` (proxy not passed via `CARLOS_JAVA_OPTS`, see `/usr/share/doc/carlos-emr-drugref/README.Debian`). A failed run keeps the previous drug data |
 | "no space left on device" anywhere | `df -h /var` | Database, document store and the local backup tier all live under `/var` — grow the disk or move backups offsite |
 
 ## The full operator reference
@@ -354,6 +550,43 @@ compliance decision, and the decisions marked **DECIDE THIS**:
 /usr/share/doc/carlos-emr-drugref/README.Debian
 man carlos-ctl
 ```
+
+## Stored-document page operation recovery
+
+Splitting, rotating, and removing a first page prepare a closed PDF in an
+owner-only `.document-pages-*` directory inside `DOCUMENT_DIR`. This requires
+the document filesystem to support POSIX permissions, hard links, and atomic
+replacement. A split is published as `split-<random UUID>.pdf`; its database
+document number remains the identifier used by the application. Do not infer
+document counts or database identities from filenames.
+
+The application deletes its private staging after a confirmed success or a
+confirmed rollback. Database and filesystem publication are separate commits.
+An uncertain commit or failed rollback retains the private directory and logs
+its location. A `recovery.txt` file, when writable, identifies the destination;
+`original.pdf` preserves pre-edit bytes for replacements and `published.pdf`
+preserves the edited bytes. A split keeps its completed `prepared.pdf`.
+
+**Exclude `.document-pages-*` from generic scratch/age-based cleanup.** A
+retained directory can contain clinical recovery evidence, including after a
+process crash before `recovery.txt` was written. Do not delete it, restore its
+original automatically, or repeat the submission. An operator must preserve
+the directory, confirm the current destination inode/content and corresponding
+document, patient, queue, and provider-routing rows, then reconcile the outcome
+before removing the recovery copy. Perform recovery with affected document
+work paused; never overwrite a file that now belongs to another operation.
+
+Only an explicit pre-acceptance capacity response permits automatic retry.
+All uncertain responses keep the browser's page selection visible and prevent
+duplicate submission. Cache-invalidation failures refuse quick page edits
+before replacing the source; render workers cannot republish old pages while
+the edit owns its source lease.
+
+Page edits carry the SHA-256 revision observed by the viewer. If another user
+changes that document first, the application refuses the old selection before
+changing the file or database. Reload and review the current pages before
+submitting a new selection. Retrying an old selection against a newly fetched
+revision can target different clinical content and must not be automated.
 
 ## Other installation methods
 

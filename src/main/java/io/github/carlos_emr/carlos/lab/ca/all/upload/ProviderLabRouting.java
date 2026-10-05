@@ -41,35 +41,34 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author wrighd
  */
 public class ProviderLabRouting {
 
-    Logger logger = MiscUtils.getLogger();
     private ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
 
     public ProviderLabRouting() {
     }
 
     public void route(String labId, String provider_no, Connection conn, String labType) throws SQLException {
-        route(Integer.parseInt(labId), provider_no, conn, labType);
+        // The legacy connection is intentionally unused; preserve the same validated-id
+        // contract and Spring-managed routing transaction as the other string overload.
+        route(labId, provider_no, labType);
     }
 
     public void route(int labId, String provider_no, String labType) throws SQLException {
@@ -90,48 +89,107 @@ public class ProviderLabRouting {
         routeMagic(labId, provider_no, labType);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Creates missing provider routing and forwarding rows in the acknowledgement lock domain.
+     * Existing clinical routing status is preserved on repeated delivery.
+     * @param labId report identifier
+     * @param provider_no destination provider identifier
+     * @param labType exact routing type
+     */
     public void routeMagic(int labId, String provider_no, String labType) {
-        ForwardingRules fr = new ForwardingRules();
-        CarlosProperties props = CarlosProperties.getInstance();
-        String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        // Keep the report lock through commit, but see rows committed by its previous owner
+        // under MariaDB 11.8's default innodb_snapshot_isolation=ON.
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        transaction.executeWithoutResult(status -> {
+            providerLabRoutingDao.lockRoutingReport(labId);
+            routeInTransaction(labId, provider_no, labType);
+        });
+    }
 
-        ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-        List<ProviderLabRoutingModel> routings = dao.findByLabNoAndLabTypeAndProviderNo(labId, labType, provider_no);
+    private void routeInTransaction(int labId, String providerNo, String labType) {
+        routeInTransaction(labId, providerNo, labType, null, new LinkedHashSet<>());
+    }
 
-        if (routings.isEmpty()) {
-            String status = fr.getStatus(provider_no);
-            ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
-
-            ProviderLabRoutingModel p = new ProviderLabRoutingModel();
-            p.setProviderNo(provider_no);
-            p.setLabNo(labId);
-            p.setStatus(status);
-            p.setLabType(labType);
-            providerLabRoutingDao.persist(p);
-
-            //forward lab to specified providers
-            for (int j = 0; j < forwardProviders.size(); j++) {
-                logger.info("FORWARDING PROVIDER: " + ((forwardProviders.get(j)).get(0)));
-                routeMagic(labId, ((forwardProviders.get(j)).get(0)), labType);
-            }
-
-            // If the lab has already been sent to this providers check to make sure that
-            // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the carlos.properties file
-        } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
-            List<ProviderLabRoutingModel> moreRoutings = dao.findByLabNoTypeAndStatus(labId, labType, "N");
-            if (!moreRoutings.isEmpty()) {
-                ProviderLabRoutingModel plr = providerLabRoutingDao.findByLabNoAndLabType(labId, labType);
-                if (plr != null) {
-                    plr.setStatus("N");
-                    plr.setTimestamp(new Date());
-                    providerLabRoutingDao.merge(plr);
+    private boolean routeInTransaction(int labId, String providerNo, String labType,
+                                       Integer demographicNo, Set<String> visited) {
+        if (!visited.add(providerNo)) return false;
+        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, providerNo);
+        boolean created = routings.isEmpty();
+        boolean promoted = false;
+        if (!created && demographicNo == null) {
+            for (ProviderLabRoutingModel row : routings) {
+                if (row.getMrpDemographicNo() != null) {
+                    row.setMrpDemographicNo(null);
+                    providerLabRoutingDao.merge(row);
+                    promoted = true;
                 }
             }
         }
+        if (!created && !promoted) return false;
+        ForwardingRules rules = new ForwardingRules();
+        if (created) {
+            ProviderLabRoutingModel row = new ProviderLabRoutingModel();
+            row.setProviderNo(providerNo);
+            row.setLabNo(labId);
+            row.setStatus(rules.getStatus(providerNo, labType));
+            row.setLabType(labType);
+            row.setMrpDemographicNo(demographicNo);
+            providerLabRoutingDao.persist(row);
+        }
+        // Explicit visited state also terminates cycles when promoting automatic assignments.
+        for (ArrayList<String> recipient : rules.getProviders(providerNo, labType)) {
+            routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited);
+        }
+        return created;
+    }
 
+    /**
+     * Revokes obsolete rule-owned access and adds the current patient's MRP under the report lock.
+     * Callers matching multiple versions must hold all report locks in numeric order first.
+     * @return whether the direct MRP routing was created
+     */
+    public boolean reconcileMrpRouting(int labId, String labType, Integer demographicNo, String providerNo) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return Boolean.TRUE.equals(transaction.execute(status -> {
+            providerLabRoutingDao.lockRoutingReport(labId);
+            Set<String> desired = new LinkedHashSet<>();
+            if (demographicNo != null && providerNo != null) collectRecipients(providerNo, labType, desired);
+            for (ProviderLabRoutingModel row : providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType)) {
+                if (row.getMrpDemographicNo() != null
+                        && (!Objects.equals(demographicNo, row.getMrpDemographicNo())
+                            || !desired.contains(row.getProviderNo()))) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            }
+            boolean created = false;
+            if (!desired.isEmpty()) {
+                Set<String> visited = new LinkedHashSet<>();
+                for (String recipient : desired) {
+                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited);
+                    if (recipient.equals(providerNo)) created = added;
+                }
+                // An existing direct MRP assignment must not prevent a newly configured
+                // forwarding recipient from receiving this matched report. Existing rows
+                // retain their acknowledgement and independent-assignment provenance.
+                for (ProviderLabRoutingModel row : providerLabRoutingDao.findRoutingForUpdate(labId, labType, "0")) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            } else if (providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType).isEmpty()) {
+                routeInTransaction(labId, "0", labType);
+            }
+            return created;
+        }));
+    }
+
+    private void collectRecipients(String providerNo, String labType, Set<String> recipients) {
+        if (!recipients.add(providerNo)) return;
+        for (ArrayList<String> recipient : new ForwardingRules().getProviders(providerNo, labType)) {
+            collectRecipients(recipient.get(0), labType, recipients);
+        }
     }
 
     public static Hashtable<String, Object> getInfo(String lab_no) {
@@ -150,44 +208,23 @@ public class ProviderLabRouting {
         return info;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Routes a legacy string report id through the same locked transaction as normal delivery.
+     *
+     * @param labId numeric report identifier
+     * @param provider_no destination provider identifier
+     * @param labType exact routing type
+     * @throws SQLException if the report identifier is not a valid integer; no routing is attempted
+     */
     public void route(String labId, String provider_no, String labType) throws SQLException {
-        ForwardingRules fr = new ForwardingRules();
-        CarlosProperties props = CarlosProperties.getInstance();
-        String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
-
-        ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-        List<ProviderLabRoutingModel> rs = providerLabRoutingDao.getProviderLabRoutingForLabProviderType(Integer.parseInt(labId), provider_no, labType);
-
-        if (!rs.isEmpty()) {
-            String status = fr.getStatus(provider_no);
-            ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
-
-            ProviderLabRoutingModel newRouted = new ProviderLabRoutingModel();
-            newRouted.setProviderNo(provider_no);
-            newRouted.setLabNo(Integer.parseInt(labId));
-            newRouted.setLabType(labType);
-            newRouted.setStatus(status);
-
-            providerLabRoutingDao.persist(newRouted);
-
-            //forward lab to specified providers
-            for (int j = 0; j < forwardProviders.size(); j++) {
-                logger.info("FORWARDING PROVIDER: " + ((forwardProviders.get(j)).get(0)));
-                route(labId, ((forwardProviders.get(j)).get(0)), labType);
-            }
-
-            // If the lab has already been sent to this providers check to make sure that
-            // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the carlos.properties file
-        } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
-            rs = providerLabRoutingDao.getProviderLabRoutingForLabAndType(Integer.parseInt(labId), labType);
-            if (rs.isEmpty()) {
-                providerLabRoutingDao.updateStatus(Integer.parseInt(labId), labType);
-            }
+        final int numericLabId;
+        try {
+            numericLabId = Integer.parseInt(labId);
+        } catch (NumberFormatException invalidId) {
+            // Preserve the checked failure contract without echoing the supplied identifier.
+            throw new SQLException("Invalid numeric lab identifier");
         }
-
+        routeMagic(numericLabId, provider_no, labType);
     }
 
     public static HashMap<String, Object> getInfo(String lab_no, String lab_type) {

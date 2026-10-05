@@ -54,6 +54,44 @@ import org.junit.jupiter.api.Test;
 @DisplayName("FaxStatusUpdater Unit Tests")
 class FaxStatusUpdaterTest extends CarlosUnitTestBase {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"status-persist", "error-persist", "credential", "runtime"})
+    @DisplayName("should bound backend diagnostic failures while retaining the polling sweep")
+    void shouldKeepBackendDiagnosticsPrivate_whenStatusProcessingFails(String scenario) throws FaxProviderException {
+        FaxJob fax = createFaxJob(40, FAX_LINE_H, FaxJob.STATUS.SENT, 4001L);
+        FaxConfig config = createActiveFaxConfig(40, FAX_LINE_H);
+        when(faxJobDao.getInprogressFaxesByJobId()).thenReturn(Collections.singletonList(fax));
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_H)).thenReturn(config);
+        var failure = new IllegalArgumentException("PRIVATE_BACKEND_MESSAGE", new IllegalStateException("PRIVATE_BACKEND_CAUSE"));
+        switch (scenario) {
+            case "credential" -> when(faxProviderClientFactory.getClient(config)).thenThrow(
+                    new IllegalStateException("PRIVATE_BACKEND_MESSAGE", failure));
+            case "runtime" -> when(faxProviderClientFactory.getClient(config)).thenThrow(failure);
+            case "status-persist", "error-persist" -> {
+                when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+                if ("error-persist".equals(scenario)) {
+                    when(faxProviderClient.fetchFaxStatus(config, fax)).thenThrow(
+                            new FaxProviderException("PRIVATE_BACKEND_PROVIDER", failure, 503));
+                } else {
+                    FaxJob updated = new FaxJob();
+                    updated.setStatus(FaxJob.STATUS.COMPLETE);
+                    when(faxProviderClient.fetchFaxStatus(config, fax)).thenReturn(updated);
+                }
+                doThrow(failure).when(faxJobDao).merge(fax);
+            }
+            default -> throw new AssertionError("Unexpected test scenario");
+        }
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxStatusUpdater.class)) {
+            faxStatusUpdater.updateStatus();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Exception"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_BACKEND");
+            assertThat(logs.events()).isNotEmpty().allMatch(event -> event.getThrown() == null);
+        }
+        if (!"status-persist".equals(scenario)) {
+            assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
+        }
+    }
+
     private static final String FAX_LINE_A = "6045551234";
     private static final String FAX_LINE_B = "6045559999";
     private static final String FAX_LINE_C = "6045550000";
@@ -217,7 +255,7 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
         // Then - first fax status enum unchanged but statusString replaced, second fax fully updated
         assertThat(failingFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(failingFax.getStatusString())
-                .isEqualTo("Status check failed: Provider API timeout");
+                .isEqualTo("Status check failed. Delivery status has not been confirmed.");
         assertThat(succeedingFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
         assertThat(succeedingFax.getStatusString()).isEqualTo("Sent successfully");
         verify(faxJobDao).merge(failingFax);
@@ -306,15 +344,20 @@ class FaxStatusUpdaterTest extends CarlosUnitTestBase {
         when(faxConfigDao.getConfigByNumber(FAX_LINE_H)).thenReturn(config);
         when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
         when(faxProviderClient.fetchFaxStatus(config, fax))
-                .thenThrow(new FaxProviderException("API rate limit exceeded"));
+                .thenThrow(new FaxProviderException("PRIVATE_STATUS_MESSAGE", new IllegalStateException("PRIVATE_STATUS_CAUSE")));
 
-        // When
-        faxStatusUpdater.updateStatus();
+        // When: provider details must not enter persisted UI status or diagnostic logs.
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxStatusUpdater.class)) {
+            faxStatusUpdater.updateStatus();
+            assertThat(logs.messages()).anyMatch(message -> message.contains("Failed to update fax status"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_STATUS");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+        }
 
         // Then - status enum unchanged, statusString replaced (not appended) to prevent unbounded growth
         assertThat(fax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
         assertThat(fax.getStatusString())
-                .isEqualTo("Status check failed: API rate limit exceeded");
+                .isEqualTo("Status check failed. Delivery status has not been confirmed.");
         verify(faxJobDao).merge(fax);
     }
 

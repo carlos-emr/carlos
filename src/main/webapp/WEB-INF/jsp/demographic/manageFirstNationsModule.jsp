@@ -66,6 +66,23 @@
         demoExt = demographicExtDao.getAllValuesForDemo(Integer.valueOf(demographic_no));
     }
     pageContext.setAttribute("demoExt", demoExt);
+
+    // demographicExt.value is free-form TEXT, but the First Nation Status <select>
+    // below picks its selected option with `eq 12` style comparisons. EL coerces
+    // BOTH sides of those to Long, so any stored ethnicity that is not a number
+    // throws ELException and 500s the whole master record — the same untrusted
+    // field this page HTML-attribute encodes elsewhere. Normalize once here:
+    // unparseable becomes null, and `null eq 12` is simply false in EL.
+    Long ethnicityCode = null;
+    if (demoExt != null && demoExt.get("ethnicity") != null) {
+        try {
+            ethnicityCode = Long.valueOf(demoExt.get("ethnicity").trim());
+        } catch (NumberFormatException ignored) {
+            ethnicityCode = null;
+        }
+    }
+    pageContext.setAttribute("ethnicityCode", ethnicityCode);
+
     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
     LookupList firstNationCommunities = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "firstNationCommunity");
     pageContext.setAttribute("firstNationCommunities", firstNationCommunities);
@@ -79,6 +96,20 @@
 <script type="text/javascript">
     //<!--
     document.addEventListener('DOMContentLoaded', function () {
+
+        // True once the user has explicitly chosen "--" in the community select.
+        // The blank option makes an empty community a legitimate choice, so the
+        // status-number auto-fill below must not overwrite a deliberate clear; it
+        // still fills a community that was simply never set.
+        //
+        // The flag lives only in this page, so rebuild it from what was saved: entering a
+        // 10-digit status number fills an empty community, so a record saved with such a
+        // number and an empty community holds a deliberate clear. Without this, the first
+        // blur after a reload wrote the band prefix back and the next save undid the clear.
+        var savedStatusNumber = document.querySelector("[name='statusNumOrig']");
+        var savedCommunity = document.getElementById('fNationCom');
+        var communityClearedByUser = !!(savedCommunity && !savedCommunity.value
+            && savedStatusNumber && savedStatusNumber.value.length == 10);
 
         // all that is needed is a full band number OR a Band Name/number, Family Number
         // and family position.
@@ -95,8 +126,14 @@
                     family = number.substring(3, 8);
                     familyPostion = number.substring(8, 10);
 
-                    if (!document.getElementById('fNationCom').value) {
-                        document.getElementById('fNationCom').value = band;
+                    // fNationCom is rendered only when showBandNumberOnly is off
+                    // (see the property check further down), so every access to it
+                    // has to tolerate its absence.
+                    var communityField = document.getElementById('fNationCom');
+                    if (communityField && !communityField.value) {
+                        if (!communityClearedByUser) {
+                            communityField.value = band;
+                        }
                     }
                     if (!document.getElementById('fNationFamilyNumber').value) {
                         document.getElementById('fNationFamilyNumber').value = family;
@@ -124,10 +161,18 @@
             }
         });
 
-        document.getElementById('fNationCom').addEventListener('change', function () {
-            var selectedOption = document.getElementById('fNationCom').options[document.getElementById('fNationCom').selectedIndex];
-            document.getElementById('labelfNationCom').value = selectedOption.text.trim();
-        })
+        // Same guard, and it matters more here: an unguarded addEventListener on a
+        // null element threw a TypeError out of this DOMContentLoaded handler under
+        // showBandNumberOnly, which is the one configuration the element is absent
+        // in -- taking every listener registered after it down with it.
+        var communitySelect = document.getElementById('fNationCom');
+        if (communitySelect) {
+            communitySelect.addEventListener('change', function () {
+                var selectedOption = communitySelect.options[communitySelect.selectedIndex];
+                document.getElementById('labelfNationCom').value = selectedOption.text.trim();
+                communityClearedByUser = !communitySelect.value;
+            });
+        }
 
     });
     //-->
@@ -136,15 +181,15 @@
 <%--<tr><td colspan="2">First Nations (INAC)</td></tr>--%>
 <tr>
 
-    <td align="right" class="label"><strong>Status Number:</strong></td>
+    <td align="right" class="label"><strong><label for="statusNum">Status Number:</label></strong></td>
 
     <td align="left">
         <%--
             Official title is band number. Left key value as status number so that
             older users can roll back.
          --%>
-        <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${ demoExt["statusNum"] }">
-        <input type="hidden" name="statusNumOrig" value="${ demoExt["statusNum"] }">
+        <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${carlos:forHtmlAttribute(demoExt['statusNum'])}">
+        <input type="hidden" name="statusNumOrig" value="${carlos:forHtmlAttribute(demoExt['statusNum'])}">
     </td>
     <% if (!CarlosProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
     <td align="right" class="label disableStyle">
@@ -152,8 +197,10 @@
     </td>
     <td align="left">
         <select id="fNationCom" name="fNationCom">
+            <%-- Community is optional; do not silently assign the first lookup item. --%>
+            <option value="">--</option>
             <c:forEach items="${firstNationCommunities.items}" var="firstNationCommunity">
-                <option value="${firstNationCommunity.value}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
+                <option value="${carlos:forHtmlAttribute(firstNationCommunity.value)}" ${firstNationCommunity.value eq demoExt["fNationCom"] ? 'selected' : '' }>
                     ${carlos:forHtml(firstNationCommunity.label)}
                 </option>
             </c:forEach>
@@ -169,16 +216,16 @@
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyNumber" name="fNationFamilyNumber"
-               value="${ demoExt["fNationFamilyNumber"] }">
-        <%--	    	<input type="hidden" name="fNationFamilyNumberOrig" value="${ demoExt["fNationFamilyNumber"] }">--%>
+               value="${carlos:forHtmlAttribute(demoExt['fNationFamilyNumber'])}">
+        <%--	    	<input type="hidden" name="fNationFamilyNumberOrig" value="${carlos:forHtmlAttribute(demoExt['fNationFamilyNumber'])}">--%>
     </td>
     <td align="right" class="label disableStyle">
         <strong>Family Position:</strong>
     </td>
     <td align="left">
         <input type="text" id="fNationFamilyPosition" name="fNationFamilyPosition"
-               value="${ demoExt["fNationFamilyPosition"] }">
-        <%--	    	<input type="hidden" name="fNationFamilyPositionOrig" value="${ demoExt["fNationFamilyPosition"] }">--%>
+               value="${carlos:forHtmlAttribute(demoExt['fNationFamilyPosition'])}">
+        <%--	    	<input type="hidden" name="fNationFamilyPositionOrig" value="${carlos:forHtmlAttribute(demoExt['fNationFamilyPosition'])}">--%>
     </td>
 </tr>
 
@@ -187,20 +234,19 @@
     <td align="left">
 
         <select name="ethnicity">
-            <option value="-1" ${ demoExt['ethnicity'] eq -1 ? 'selected' : '' } >Not Set</option>
-            <option value="1" ${ demoExt['ethnicity'] eq 1 ? 'selected' : '' } >On-reserve</option>
-            <option value="2" ${ demoExt['ethnicity'] eq 2 ? 'selected' : '' } >Off-reserve</option>
-            <option value="3" ${ demoExt['ethnicity'] eq 3 ? 'selected' : '' } >Non-status On-reserve</option>
-            <option value="4" ${ demoExt['ethnicity'] eq 4 ? 'selected' : '' } >Non-status Off-reserve</option>
-            <option value="5" ${ demoExt['ethnicity'] eq 5 ? 'selected' : '' } >Metis</option>
-            <option value="6" ${ demoExt['ethnicity'] eq 6 ? 'selected' : '' } >Inuit</option>
-            <option value="11" ${ demoExt['ethnicity'] eq 11 ? 'selected' : '' } >Homeless</option>
-            <option value="12" ${ demoExt['ethnicity'] eq 12 ? 'selected' : '' } >Out of Country Residents</option>
-            <option value="13" ${ demoExt['ethnicity'] eq 13 ? 'selected' : '' } >Other</option>
+            <option value="-1" ${ ethnicityCode eq -1 ? 'selected' : '' } >Not Set</option>
+            <option value="1" ${ ethnicityCode eq 1 ? 'selected' : '' } >On-reserve</option>
+            <option value="2" ${ ethnicityCode eq 2 ? 'selected' : '' } >Off-reserve</option>
+            <option value="3" ${ ethnicityCode eq 3 ? 'selected' : '' } >Non-status On-reserve</option>
+            <option value="4" ${ ethnicityCode eq 4 ? 'selected' : '' } >Non-status Off-reserve</option>
+            <option value="5" ${ ethnicityCode eq 5 ? 'selected' : '' } >Metis</option>
+            <option value="6" ${ ethnicityCode eq 6 ? 'selected' : '' } >Inuit</option>
+            <option value="11" ${ ethnicityCode eq 11 ? 'selected' : '' } >Homeless</option>
+            <option value="12" ${ ethnicityCode eq 12 ? 'selected' : '' } >Out of Country Residents</option>
+            <option value="13" ${ ethnicityCode eq 13 ? 'selected' : '' } >Other</option>
         </select>
-        <input type="hidden" name="ethnicityOrig" value="${ demoExt["ethnicity"] }"/>
+        <input type="hidden" name="ethnicityOrig" value="${carlos:forHtmlAttribute(demoExt['ethnicity'])}"/>
     </td>
     <td><!-- padding --></td>
     <td><!-- padding --></td>
 </tr>
-

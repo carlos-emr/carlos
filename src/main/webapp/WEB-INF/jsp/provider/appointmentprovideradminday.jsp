@@ -341,10 +341,10 @@
     }
     pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
-    boolean isWeekView = false;
+    boolean isWeekView = "true".equals(request.getParameter("weekView"));
     String provNum = request.getParameter("provider_no");
-    if (provNum != null) {
-        isWeekView = true;
+    if (provNum == null || provNum.isBlank()) {
+        isWeekView = false;
     }
     if (caisiView != null && "true".equals(caisiView)) {
         isWeekView = false;
@@ -556,7 +556,7 @@
             }
 
             function goWeekView(s) {
-                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
+                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&weekView=true&provider_no=" + s;
             }
 
             function goZoomView(s, n) {
@@ -1221,7 +1221,7 @@
                           style="display:none;"></form>
                 </span>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1229,7 +1229,7 @@
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup?urlfrom=" + request.getContextPath() + "/provider/providercontrol" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
 
                     if (isWeekView) {
-                        calendarUrl += URLEncoder.encode("&provider_no=" + provNum, "UTF-8");
+                        calendarUrl += URLEncoder.encode("&weekView=true&provider_no=" + provNum, "UTF-8");
                     }
                 %>
                 <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
@@ -1242,7 +1242,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -1537,7 +1537,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
@@ -1749,7 +1749,7 @@
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
@@ -1793,7 +1793,10 @@
                                         <!-- caisi infirmary view exteion add -->
                                         <!--  fffffffffffffffffffffffffffffffffffffffffff-->
                                         <caisi:isModuleLoad moduleName="caisi">
-                                            <jsp:include page="infirmarydemographiclist.jspf"/>
+                                            <jsp:include page="infirmarydemographiclist.jsp">
+                                                <jsp:param name="userAvail" value="<%= userAvail %>"/>
+                                                <jsp:param name="strDate" value="<%= strDate %>"/>
+                                            </jsp:include>
                                         </caisi:isModuleLoad>
 
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -2386,7 +2389,7 @@
 
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
-                                                            <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager?id=<%=demographic_no%>'
+                                                            <a href="${pageContext.servletContext.contextPath}/PMmodule/ClientManager?id=<%=demographic_no%>"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 

@@ -70,9 +70,18 @@ public final class LogSafe {
      * Precompiled control-character pattern reused by every
      * {@link #sanitizeForDisplay(String)} call so the regex isn't recompiled
      * per billing validation error message.
+     *
+     * <p>Java's {@code \p{Cntrl}} is ASCII-only without {@code UNICODE_CHARACTER_CLASS}
+     * ({@code [\u0000-\u001F\u007F]}), so the three non-ASCII characters that Unicode
+     * text processors treat as line boundaries are listed explicitly: U+0085 NEXT LINE
+     * (a C1 control, and a line terminator for {@code java.util.regex} and most
+     * Unicode-aware log viewers) plus U+2028/U+2029. Leaving any of them in place would
+     * let attacker-supplied text forge a log line even after sanitization, which is the
+     * CWE-117 barrier {@code .semgrep/crlf-injection-logs-carlos.yml} models this helper
+     * as providing.</p>
      */
     private static final java.util.regex.Pattern CONTROL_CHARS =
-            java.util.regex.Pattern.compile("[\\p{Cntrl}\\u2028\\u2029]");
+            java.util.regex.Pattern.compile("[\\p{Cntrl}\\u0085\\u2028\\u2029]");
 
     /**
      * Per-segment path parameters can carry bearer identifiers such as {@code ;jsessionid}.
@@ -93,6 +102,39 @@ public final class LogSafe {
      * overload, the bound is {@code maxLength * ENCODING_EXPANSION_FACTOR} instead.
      */
     static final int MAX_ENCODED_LENGTH = DEFAULT_MAX_LENGTH * ENCODING_EXPANSION_FACTOR;
+
+    /**
+     * Bounded diagnostic trace containing exception types and code locations only. Never calls
+     * Throwable.toString/getMessage or attaches the original throwable to a logging event: those
+     * paths can expose clinical values in nested causes and suppressed exceptions.
+     */
+    public static String exceptionTrace(Throwable failure) {
+        StringBuilder trace = new StringBuilder();
+        appendExceptionTrace(failure, "", trace, new java.util.IdentityHashMap<>());
+        return trace.toString();
+    }
+
+    private static void appendExceptionTrace(Throwable failure, String relation, StringBuilder trace,
+                                             java.util.IdentityHashMap<Throwable, Boolean> seen) {
+        if (failure == null) return;
+        if (seen.containsKey(failure) || seen.size() >= 16) {
+            trace.append("\n[repeated or truncated exception]");
+            return;
+        }
+        seen.put(failure, Boolean.TRUE);
+        trace.append("\n").append(relation).append(failure.getClass().getName());
+        StackTraceElement[] frames = failure.getStackTrace();
+        for (int i = 0; i < Math.min(frames.length, 32); i++) {
+            trace.append("\n  at ").append(sanitize(frames[i].toString(), 500));
+        }
+        if (frames.length > 32) trace.append("\n  [remaining frames omitted]");
+        appendExceptionTrace(failure.getCause(), "Caused by: ", trace, seen);
+        Throwable[] suppressed = failure.getSuppressed();
+        for (int i = 0; i < Math.min(suppressed.length, 8); i++) {
+            appendExceptionTrace(suppressed[i], "Suppressed: ", trace, seen);
+        }
+        if (suppressed.length > 8) trace.append("\n[remaining suppressed exceptions omitted]");
+    }
 
     private LogSafe() {
         // utility class — no instances
@@ -174,7 +216,8 @@ public final class LogSafe {
     /**
      * Sanitizes a {@code String} value for inclusion in a user-facing
      * exception message that will be rendered to a JSP. Strips ASCII
-     * control characters and truncates, but does <em>not</em> Java-escape
+     * control characters plus the non-ASCII line boundaries U+0085, U+2028
+     * and U+2029, and truncates, but does <em>not</em> Java-escape
      * printable characters — so quotes/backslashes/non-ASCII appear as
      * themselves rather than as {@code "} / {@code \\} / {@code é}.
      *

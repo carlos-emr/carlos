@@ -52,6 +52,15 @@ class WaitingListJspMigrationRegressionTest {
         Path.of("src/main/webapp/WEB-INF/jsp/waitinglist/DisplayPatientWaitingList.jsp");
 
     @Test
+    @DisplayName("should attribute-encode translated waiting-list field labels")
+    void shouldEncodeAccessibleLabels_whenTranslationsContainSpecialCharacters() throws IOException {
+        String jsp = Files.readString(DISPLAY_WAITING_LIST_JSP, StandardCharsets.UTF_8);
+        assertThat(jsp).contains("aria-label=\"${carlos:forHtmlAttribute(waitingListNoteLabel)}\"")
+                .contains("aria-label=\"${carlos:forHtmlAttribute(waitingListDateLabel)}\"")
+                .doesNotContain("aria-label=\"<fmt:message");
+    }
+
+    @Test
     @DisplayName("demographic update JSP should POST to Add2WaitingList without leaking note or date in the URL")
     void demographicUpdateJspShouldPostToAdd2WaitingList_doWithoutLeakingNoteOrDate() throws IOException {
         String jsp = Files.readString(DEMOGRAPHIC_UPDATE_JSP, StandardCharsets.UTF_8);

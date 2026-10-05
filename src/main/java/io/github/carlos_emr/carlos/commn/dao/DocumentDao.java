@@ -43,6 +43,12 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
 public interface DocumentDao extends AbstractDao<Document> {
 
+    /** Updates only the page count, preserving concurrent classification/metadata edits. */
+    void updatePageCount(Integer documentNo, int pageCount);
+
+    /** Current metadata/classification under a row lock for document publication. */
+    Document findForPageMutation(Integer documentNo);
+
     public enum Module {
         DEMOGRAPHIC;
 

@@ -821,6 +821,38 @@ public class NioFileManagerImpl implements NioFileManager {
         return Files.write(file, os.toByteArray());
     }
 
+    /** {@inheritDoc} */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
+    @Override
+    public Path createTempFileFrom(final String fileName, Path source) throws IOException {
+        String sanitizedName = new File(fileName).getName();
+
+        Path directory = Files.createTempDirectory(applicationTempParent(), DEFAULT_GENERIC_TEMP + System.currentTimeMillis());
+        Path file = directory.resolve(sanitizedName).normalize();
+
+        try {
+            file = PathValidationUtils.validateExistingPath(file.toFile(), directory.toFile()).toPath();
+            // Streamed, so the document's size never lands on the heap.
+            Files.copy(source, file, StandardCopyOption.REPLACE_EXISTING);
+            return file;
+        } catch (IOException | RuntimeException failure) {
+            // Files.copy may have created a partial document before failing. The caller has no
+            // path to clean up when this method throws, so remove both artifacts here.
+            try {
+                Files.deleteIfExists(file);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            try {
+                Files.deleteIfExists(directory);
+            } catch (IOException | RuntimeException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
+        }
+    }
+
     /**
      * Deletes a validated temporary file. Existing targets must resolve to approved temp
      * directories through {@link PathValidationUtils}; missing approved temp files return

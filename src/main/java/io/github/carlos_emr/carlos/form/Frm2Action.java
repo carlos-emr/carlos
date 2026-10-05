@@ -82,6 +82,41 @@ public final class Frm2Action extends ActionSupport {
         String actionForward = where;
         boolean saveSuccess = Boolean.FALSE;
         String formClassName = request.getParameter("form_class");
+        try {
+            rec = new FrmRecordFactory().factory(formClassName);
+        } catch (RuntimeException ex) {
+            // factory() only absorbs the reflective checked exceptions, so a record whose
+            // constructor or static initializer throws (e.g. a missing Spring bean) escapes it.
+            // That used to be caught by the method-level catch and forwarded to "failure";
+            // keep that outcome now that the lookup runs ahead of the try block.
+            log.error("Could not instantiate form {}", LogSafe.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            request.setAttribute("saveSuccess", saveSuccess);
+            return actionForward;
+        }
+
+        // factory() returns null by design: it is the guard on reflective instantiation and
+        // refuses any class not on ALLOWED_FORM_CLASSES, as well as one that fails to
+        // instantiate. Every use of rec below dereferences it, so a refused class raised a
+        // NullPointerException that the catch at the end of this method downgraded to the
+        // "failure" forward — surfacing to the clinician as "CARLOS Error: 500" for what is
+        // really a request naming a form this build cannot service. The chart can reach this:
+        // the form selector offers ALPHA and formAlpha carries rows, but no FrmAlphaRecord
+        // exists. Answer it as a client error and stop, rather than resolving a named result
+        // after the response is written (see the direct-response contract in CLAUDE.md).
+        // Issue #3735. This runs before formId / demographic_no are parsed so a malformed
+        // request naming an unsupported class is still refused with 400 rather than a 500.
+        if (rec == null) {
+            log.warn("Unsupported form class {}", LogSafe.sanitize(formClassName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            // The rejected class name is logged, not echoed: it is attacker-controllable
+            // request input and the container renders this message into an error page.
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "unsupported form");
+            } catch (IOException e) {
+                log.error("Could not send 400 for unsupported form class", e);
+            }
+            return NONE;
+        }
+
         String submitType = request.getParameter("submit");
         String id = request.getParameter("formId");
         Integer formId = null;
@@ -99,8 +134,6 @@ public final class Frm2Action extends ActionSupport {
 
             Integer demographicNo = Integer.parseInt(request.getParameter("demographic_no").trim());
 
-            FrmRecordFactory recorder = new FrmRecordFactory();
-            rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
             log.info("SUBMIT {}", LogSafe.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -266,15 +299,35 @@ public final class Frm2Action extends ActionSupport {
              */
             if (newID > -1) {
                 String strAction = rec.findActionValue(submitType);
-                actionForward = strAction;
-                actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
-                if (actionForward.startsWith(SAVE_ACTION_PREFIX)) {
+                String actionUrl = rec.createActionURL(strAction, strAction, demographicNo + "", "" + newID);
+                if (actionUrl.startsWith(SAVE_ACTION_PREFIX)) {
                     sendForwardNameRedirect(forwardNameRedirectUrl(
                             request.getContextPath(),
                             request.getParameter("form_link"),
-                            actionForward));
+                            actionUrl));
                     return null;
                 }
+                // A STRUTS 2 RESULT IS A NAME, NOT A PATH. createActionURL() builds a Struts 1
+                // style forward -- "printAll?demographic_no=1&formId=6" -- which was returned
+                // verbatim as the result name. No <result> is called that, so every print ended
+                // as "No result defined for action ... and result printAll?demographic_no=..."
+                // and the clinician got the error page instead of the PDF (issue #3735). The
+                // save branch above is the one case that still needs the built URL, because it
+                // redirects through /form/forwardname; every other action forwards internally,
+                // and the forward carries this request's own parameters -- demographic_no,
+                // formId, form_class, __title, __template and __cfgfile are all in the POST that
+                // FrmPDFServlet reads -- so the identifiers in the discarded query string were
+                // never what carried them.
+                actionForward = strAction;
+                // THE FORWARD CARRIES THE POST'S OWN formId, AND ON A FIRST SAVE THAT IS STILL 0.
+                // FrmPDFServlet reads the record by req.getParameter("formId") and only then
+                // overlays the posted fields, so printing a brand-new form loaded the blank
+                // defaults: anything the JSP does not post -- an unchecked box, and
+                // FrmLabReq07Record's clientRefNo, which it generates only for a positive id --
+                // came out of the printer wrong. The result locations append ${savedFormId}, and a
+                // forward's own query string takes precedence over the request's parameters of the
+                // same name, so the servlet sees the row that was just written.
+                savedFormId = newID;
             }
 
         } catch (Exception ex) {
@@ -287,6 +340,19 @@ public final class Frm2Action extends ActionSupport {
         request.setAttribute("saveSuccess", saveSuccess);
 
         return actionForward;
+    }
+
+    /**
+     * The id of the record this request wrote, for the result locations to forward with.
+     *
+     * <p>Zero until a save happens, which is the same value the request already carries, so a path
+     * that saves nothing forwards unchanged.</p>
+     */
+    private int savedFormId;
+
+    /** Read by the {@code ${savedFormId}} in struts-form.xml's print and graph result locations. */
+    public int getSavedFormId() {
+        return savedFormId;
     }
 
     static String forwardNameRedirectUrl(String contextPath, String formLink, String actionForward) {

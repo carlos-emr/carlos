@@ -66,8 +66,12 @@ public class FormForwardNamed2Action extends ActionSupport {
             return NONE;
         }
 
+        // Redisplay through the same FORWARD filters as a newly opened form.
+        // An INCLUDE bypasses CSRFGuard script injection, leaving the next Save
+        // without its token. Keep the HTML media type explicit as well.
+        response.setContentType("text/html;charset=UTF-8");
         request.getRequestDispatcher(internalView + "?demographic_no=" + demographicNo)
-                .include(request, response);
+                .forward(request, response);
         return NONE;
     }
 }

@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.ScheduleNav" %>
 <%--This is included in documentReport.jsp - wasn't meant to be displayed as a separate page --%>
 <%
     String user_no = (String) session.getAttribute("user");
@@ -133,6 +134,13 @@
             }
         }
     }
+
+// Schedule navigation shell. documentReport.jsp renders the shared header only when the request
+// carries scheduleNav=1, and every submit below LEAVES the current request (a forward on a
+// validation failure, a redirect on success), so the flag has to travel with the form or the
+// provider lands back on the document list with the navigation header tabs gone.
+    boolean showScheduleNav = ScheduleNav.isActive(request);
+    String scheduleNavQuerySuffix = showScheduleNav ? "&" + ScheduleNav.PARAM + "=" + ScheduleNav.ENABLED : "";
 
     // Determine which panel to open on load based on errors or mode
     boolean openDocPanel = (request.getAttribute("docerrors") != null) || "add".equals(mode);
@@ -298,6 +306,12 @@
             <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>">
             <input type="hidden" name="curUser" value="<carlos:encode value='<%= curUser %>' context="htmlAttribute"/>">
             <input type="hidden" name="appointmentNo" value="<carlos:encode value='<%= formdata.getAppointmentNo() %>' context="htmlAttribute"/>"/>
+            <% if (showScheduleNav) { %>
+            <%-- Carries the schedule shell across both outcomes: the failAdd forward reads it back
+                 as a request parameter, and AddEditDocument2Action re-appends it to the success
+                 redirect. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
 
             <div class="mb-3">
                 <label for="docType"><fmt:message key="dms.addDocument.labelType"/></label>
@@ -388,7 +402,7 @@
                        value="<fmt:message key='dms.addDocument.btnAdd'/>">
                 <input type="button" name="Button" class="btn btn-warning"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>'">
             </div>
         </form>
     </div>
@@ -413,6 +427,10 @@
             <input type="hidden" name="observationDate" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context="htmlAttribute"/>">
             <input type="hidden" name="appointmentNo" value="<carlos:encode value='<%= formdata.getAppointmentNo() %>' context="htmlAttribute"/>"/>
             <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>">
+            <% if (showScheduleNav) { %>
+            <%-- AddEditHtml2Action redirects back to the report; the flag has to survive the hop. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
 
             <div class="mb-3">
                 <label for="docType1"><fmt:message key="dms.addDocument.labelLinkType"/></label>
@@ -478,7 +496,13 @@
             <div class="mb-3">
                 <label for="html"><fmt:message key="dms.addDocument.labelLink"/></label>
                 <div class="input-group">
-                    <input type="text" id="html" name="html" class="form-control"
+                    <%-- type="text" + inputmode="url" rather than type="url": a schemeless entry such as
+                         www.example.org is valid here (AddEditHtml2Action prepends https://), but the
+                         browser's type="url" validation would block it. The server-side scheme
+                         allowlist in DocumentLink is authoritative. --%>
+                    <input type="text" inputmode="url" autocomplete="url" id="html" name="html"
+                           placeholder="https://www.example.org"
+                           class="form-control<c:if test="${ linkhtmlerrors['urlinvalid'] != null || linkhtmlerrors['urlmissing'] != null }"> is-invalid</c:if>"
                            value="<carlos:encode value='<%= formdata.getHtml() %>' context="htmlAttribute"/>" onfocus="checkDefaultValue(this)">
                     <input type="hidden" name="mode" value="addLink">
                     <input class="btn btn-primary" type="submit" name="Submit"
@@ -489,7 +513,7 @@
             <div class="d-flex gap-2 mb-2">
                 <input class="btn btn-warning" type="button" name="Button"
                        value="<fmt:message key='global.btnCancel'/>"
-                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>'">
+                       onclick="window.location='<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>'">
             </div>
 
         </form>
