@@ -213,6 +213,44 @@ async function workflow(s) {
     h.assert(!texts.some(text => body.includes(text)), 'A refused history request exposed clinical text');
     await response.dispose();
   });
+  await s.step('Both tickler dialogs open history for their patient and note', async () => {
+    const message = `${marker} history tickler`;
+    let ticklerId;
+    s.cleanup(() => {
+      if (!/^[1-9]\d*$/.test(ticklerId || '')) return;
+      sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id=${ticklerId} AND note_id=${noteId};
+        DELETE FROM tickler WHERE tickler_no=${ticklerId} AND demographic_no=${patient} AND message=${h.sqlString(message)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${ticklerId}`) === '0',
+        'The owned history tickler was not removed');
+    });
+    ticklerId = sql.value(`INSERT INTO tickler
+      (demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
+      VALUES (${patient},${h.sqlString(message)},'A',NOW(),NOW(),${h.sqlString(provider)},'Normal',${h.sqlString(provider)});
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(ticklerId), 'The history tickler fixture was not created');
+    sql.execute(`INSERT INTO casemgmt_note_link (table_name,table_id,note_id) VALUES (10,${ticklerId},${noteId})`);
+    for (const route of ['ViewTicklerMain', 'ViewTicklerDemoMain']) {
+      const page = await s.context.newPage();
+      await h.gotoApp(page, s.config.baseUrl, `/tickler/${route}?demoview=${patient}&ticklerview=A`);
+      if (route === 'ViewTicklerMain') {
+        await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
+        await page.locator('#ticklerResults tbody tr').filter({hasText: message}).locator('a.noteDialogLink').click();
+      } else {
+        await page.locator(`a[onclick*="openNoteDialog('${patient}','${ticklerId}')"]`).click();
+      }
+      await page.locator('#note-form').waitFor({state: 'visible'});
+      const popup = await s.popup(page, page.locator('#tickler_note_revision_url'), `${route}-history`);
+      const params = new URL(popup.url()).searchParams;
+      h.assert(params.get('demographicNo') === patient && params.get('noteId') === noteId,
+        `${route} omitted or changed the history patient/note`);
+      await popup.locator('h3', {hasText: 'Note Revision History'}).waitFor();
+      h.assert((await popup.locator('.note-text-history-content').innerText()).includes(texts[0]),
+        `${route} did not show the earlier saved note text`);
+      await popup.close();
+      await page.close();
+    }
+  });
+
   await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
     // Tickler amendments retain the UUID in separate rows, each with cumulative history.
     // Seed two older rows after the original note/document paths have completed.

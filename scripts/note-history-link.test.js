@@ -24,3 +24,24 @@ for (const [patient, note] of [['101', '501'], ['101&noteId=999', '501&demograph
     assert.deepEqual([...url.searchParams], [['method', 'notehistory'], ['noteId', note], ['demographicNo', patient]]);
   });
 }
+
+const ticklerSource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/ticklerNoteDialog.js'), 'utf8');
+for (const [patient, note] of [['101', '501'], ['101&noteId=999', '501&demographicNo=999']]) {
+  test(`tickler history carries the dialog patient and note: ${patient}`, () => {
+    const elements = {
+      tickler_note_demographicNo: {value: patient},
+      tickler_note_noteId: {value: ''},
+      tickler_note_revision_url: {setAttribute(name, value) { this[name] = value; }},
+    };
+    let opened;
+    const sandbox = {document: {getElementById: id => elements[id]}, window: {open: url => { opened = url; }}};
+    vm.createContext(sandbox);
+    vm.runInContext(ticklerSource, sandbox);
+    sandbox.applyTicklerNoteFields({noteId: note}, '/carlos');
+    assert.equal(elements.tickler_note_noteId.value, note);
+    vm.runInContext(`(function() { ${elements.tickler_note_revision_url.onclick} })()`, sandbox);
+    const url = new URL(opened, 'https://example.invalid');
+    assert.equal(url.pathname, '/carlos/CaseManagementEntry');
+    assert.deepEqual([...url.searchParams], [['method', 'notehistory'], ['noteId', note], ['demographicNo', patient]]);
+  });
+}

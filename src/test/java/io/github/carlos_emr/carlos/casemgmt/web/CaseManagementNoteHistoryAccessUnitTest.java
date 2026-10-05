@@ -46,6 +46,7 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         manager = mock(CaseManagementManager.class);
         action.caseManagementMgr = manager;
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(true);
         security = mock(SecurityInfoManager.class);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("101"))).thenReturn(true);
@@ -69,6 +70,24 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(user, object, "r", "101")).thenReturn(false);
         assertRefused();
         verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldRefuseHistory_whenPatientIsOutsideDomainAndHasNoReferral() {
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(false);
+        assertRefused();
+        verify(manager).isClientReferredInProgramDomain("4249", "101");
+        verify(manager, never()).getNote(anyString());
+        verify(manager, never()).getHistory(anyString());
+    }
+
+    @Test
+    void shouldRenderHistory_whenPatientIsReferredIntoProviderDomain() {
+        when(manager.isClientInProgramDomain("4249", "101")).thenReturn(false);
+        when(manager.isClientReferredInProgramDomain("4249", "101")).thenReturn(true);
+        assertThat(action.notehistory()).isEqualTo("showHistory");
+        assertThat(request.getAttribute("history")).isEqualTo(List.of(note));
+        assertThat(response.getStatus()).isEqualTo(200);
     }
 
     @Test

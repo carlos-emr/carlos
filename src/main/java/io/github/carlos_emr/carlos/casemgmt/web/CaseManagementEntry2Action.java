@@ -2829,6 +2829,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 || !securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demono)) {
             return refuseNoteHistory();
         }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        if (!caseManagementMgr.isClientInProgramDomain(providerNo, demono)
+                && !caseManagementMgr.isClientReferredInProgramDomain(providerNo, demono)) {
+            return refuseNoteHistory();
+        }
         CaseManagementNote selectedNote = caseManagementMgr.getNote(noteId.toString());
         if (selectedNote == null || !demono.equals(selectedNote.getDemographic_no())) {
             return refuseNoteHistory();
