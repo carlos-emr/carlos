@@ -273,7 +273,7 @@
                                                                           onclick="javascript:return onPrint();"/>
                     <input type="button"
                            value="<fmt:message key='encounter.formFemaleAnnual.btnPrintPage'/>"
-                           onclick="javascript: popupPage(700,950,'formannualfemaleprint?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
+                           onclick="javascript: popupPage(700,950,'<%= request.getContextPath() %>/form/formannualfemaleprint?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>')"/>
                 </td>
                 <td align='right'><a
                         href="javascript: popupPage(700,950,'<%= request.getContextPath() %>/decision/annualreview/annualreviewplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');"><fmt:message key='encounter.formFemaleAnnual.btnAnnualReview'/></a></td>
