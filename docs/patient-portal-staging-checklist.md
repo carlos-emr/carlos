@@ -127,7 +127,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
 ### Database
 
 - [ ] Flyway applied `V1.0.41` (portal security objects), `V1.0.42` (portal email delivery
-      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grants).
+      columns on `emailLog`) and `V1.0.43` (invitation delivery table and default grant).
 - [ ] The staging database is treated as disposable. It is at `V1.0.43` without the migrations
       `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
       cannot be upgraded once those migrations reach `develop`: rebuild it instead.
@@ -144,8 +144,9 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 ### Who can do what
 
-`V1.0.43` gives the `doctor` role `_portal.invite` (full) and `_portal.account` (read), and leaves
-`_portal.account.unlock` with `admin`. Sending also needs `_email` write and `_edoc` write.
+`V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
+`V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
+`_edoc` write.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
 - [ ] Decide whether front-desk roles get `_portal.invite`. Without `_email` they can see and revoke

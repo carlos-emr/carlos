@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
   state VARCHAR(32) NOT NULL,
   portal_invite_id BIGINT NULL,
   superseded_invite_id BIGINT NULL,
-  email_log_id INT NULL,
+  email_log_id BIGINT NULL,
   requested_by VARCHAR(16) NOT NULL,
   outcome VARCHAR(32) NULL,
   revoke_failed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -55,8 +55,8 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
 -- can complete an invitation today.
 --
 -- `_portal.invite` is granted in full: issuing, resending, revoking and resolving a delivery are one
--- job. `_portal.account` is granted read-only, so the panel can show whether the patient already has
--- an account without making every doctor able to disable one. `_portal.account.unlock` is deliberately
+-- job. `_portal.account` read is not granted again here: V1.0.41 already gives it to `doctor`, and a
+-- clinic may have deliberately removed it since. `_portal.account.unlock` is deliberately
 -- NOT granted: V1.0.41 split it out because clearing a lockout forces a password reset on the patient,
 -- and nothing in the invitation workflow needs it.
 --
@@ -65,5 +65,4 @@ CREATE TABLE IF NOT EXISTS patient_portal_invite_delivery (
 -- not send one or resolve an unfinished delivery, both of which write to the email outbox. Grant it in
 -- Administration > Security where a clinic wants that.
 INSERT IGNORE INTO secObjPrivilege (roleUserGroup, objectName, privilege, priority, provider_no) VALUES
-    ('doctor', '_portal.invite', 'x', 0, '999998'),
-    ('doctor', '_portal.account', 'r', 0, '999998');
+    ('doctor', '_portal.invite', 'x', 0, '999998');
