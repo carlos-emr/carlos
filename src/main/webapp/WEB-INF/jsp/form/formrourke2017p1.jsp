@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Render page 1 of the Rourke Baby Record 2017.
+    Features: Patient information, visit measurements and calendar-button date selection.
+    Parameters: Included by the complete form with frmProperties and frmRecord request attributes.
+    @since 2026-07-07
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/rourke-tag.tld" prefix="rourke" %>
@@ -58,6 +64,7 @@
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="prevention.reporting.calendar" var="rourkeCalendarLabel"/>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -193,7 +200,7 @@
                     <fmt:message key="encounter.formRourke1.msgStartOfPregnancy"/>:
                     <input type="text" id="c_startOfGestation" name="c_startOfGestation" size="6" maxlength="7"
                            value="<carlos:encode value='<%= props.getProperty("c_startOfGestation", "") %>' context="htmlAttribute"/>">
-                    <img src="<%= request.getContextPath() %>/images/cal.gif" id="c_startOfGestation_cal">
+                    <button type="button" id="c_startOfGestation_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
                     &nbsp;&nbsp; <fmt:message key="encounter.formRourke1.msgLenght"/>:
                     <input type="text" ondblclick="htEnglish2Metric(this);" name="c_length" size="6" maxlength="6"
                            value="<carlos:encode value='<%= props.getProperty("c_length", "") %>' context="htmlAttribute"/>"/>
@@ -291,17 +298,17 @@
         <td colspan="3">
             <input readonly type="text" id="p1_date1w" name="p1_date1w" size="10" ondblclick="resetDate(this)"
                    value="<carlos:encode value='<%= props.getProperty("p1_date1w", "") %>' context="htmlAttribute"/>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p1_date1w_cal">
+            <button type="button" id="p1_date1w_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
         <td colspan="3">
             <input readonly type="text" id="p1_date2w" name="p1_date2w" size="10" ondblclick="resetDate(this)"
                    value="<carlos:encode value='<%= props.getProperty("p1_date2w", "") %>' context="htmlAttribute"/>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p1_date2w_cal">
+            <button type="button" id="p1_date2w_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
         <td colspan="3">
             <input readonly type="text" id="p1_date1m" name="p1_date1m" size="10" ondblclick="resetDate(this)"
                    value="<carlos:encode value='<%= props.getProperty("p1_date1m", "") %>' context="htmlAttribute"/>"/>
-            <img src="<%= request.getContextPath() %>/images/cal.gif" id="p1_date1m_cal">
+            <button type="button" id="p1_date1m_cal" aria-label="<carlos:encode value='${rourkeCalendarLabel}' context='htmlAttribute'/>"><img src="<%= request.getContextPath() %>/images/cal.gif" alt=""></button>
         </td>
     </tr>
     <tr align="center" id="growthAp1">
@@ -1477,6 +1484,7 @@
 <p style="font-size: 8pt;"><fmt:message key="encounter.formRourke2009.footer"/><br/></p>
 <script type="text/javascript">
     Calendar.setup({
+        clickOpens: false,
         inputField: "c_startOfGestation",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
@@ -1485,6 +1493,7 @@
         step: 1
     });
     Calendar.setup({
+        clickOpens: false,
         inputField: "p1_date1w",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
@@ -1493,6 +1502,7 @@
         step: 1
     });
     Calendar.setup({
+        clickOpens: false,
         inputField: "p1_date2w",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
@@ -1501,6 +1511,7 @@
         step: 1
     });
     Calendar.setup({
+        clickOpens: false,
         inputField: "p1_date1m",
         ifFormat: "%d/%m/%Y",
         showsTime: false,
