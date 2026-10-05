@@ -358,7 +358,7 @@ $(document).ready(function () {
         var param = "demographics=" + demographics;
 
         if (demographics.length > 0) {
-            sendData($(this).attr('href'), param, "modal");
+            sendData("/web/dashboard/display/AssignTickler", param, "modal");
         } else {
             alert("Select at least 1 row to assign a Tickler.");
         }
@@ -368,7 +368,13 @@ $(document).ready(function () {
     $("#saveTicklerBtn").on('click', function (event) {
         event.preventDefault();
         if (checkFields()) {
-            sendData("/web/dashboard/display/AssignTickler", $("#ticklerAddForm").serialize(), "close")
+            // DOMPurify removes name="method" to prevent form-property clobbering.
+            // Supply this fixed operation explicitly without relaxing sanitization.
+            var data = $("#ticklerAddForm").serializeArray().filter(function (field) {
+                return field.name !== 'method';
+            });
+            data.push({name: 'method', value: 'saveTickler'});
+            sendData("/web/dashboard/display/AssignTickler", data, "close");
         }
     });
 
@@ -396,27 +402,29 @@ $(document).ready(function () {
         });
     });
 
-    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+    /** Preserve each confirmation form's route, operation and CSRF fields in one POST path. */
+    function submitSelectedPatientForm(button, event, modalId) {
         event.preventDefault();
-
         var patientIds = getSelectedPatientIds();
-
         if (patientIds.length < 1) {
             alert("At least one patient must be selected to perform this action.");
             return;
         }
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
+        var form = $(button).closest('form');
+        var data = form.serializeArray();
+        data.push({name: 'patientIds', value: patientIds.join(',')});
         $.ajax({
             type: 'POST',
-            url: url,
+            url: form.attr('action'),
             data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).toggle();
+            success: function () {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).toggle();
             }
         });
+    }
+
+    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+        submitSelectedPatientForm(this, event, "modalConfirmAddToDiseaseRegistry");
     });
 
     $("#excludePatientsChecked").on('click', function (event) {
@@ -433,23 +441,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientExclusion").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientExclusion");
     });
 
     $("#patientStatusUpdateChecked").on('click', function (event) {
@@ -467,23 +459,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientStatusUpdate").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientStatusUpdate");
     });
 
 })
