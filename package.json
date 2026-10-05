@@ -478,6 +478,7 @@
     "test:xss-poison-admin-users-billing-playwright": "node scripts/xss-poison-admin-users-billing-playwright-checks.js",
     "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js",
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
+    "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js"
   },
   "dependencies": {
