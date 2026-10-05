@@ -6,6 +6,12 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Channel;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.Outcome;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery.State;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -17,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -178,6 +185,98 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(row.getTimestamp().getTime()).isEqualTo(old.getTime());
         assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
                 cutoff, "code removed")).isZero();
+    }
+
+    @Test
+    @DisplayName("should include a FAILED email only when its invitation attempt recorded a definite not-sent")
+    void shouldIncludeFailedEmail_onlyWhenItsAttemptRecordedARefusal() {
+        Date old = new Date(System.currentTimeMillis() / 1000 * 1000 - 60L * 60 * 1000);
+        Date cutoff = new Date(System.currentTimeMillis() - 15L * 60 * 1000);
+        Integer refused = failed(old, null);
+        attempt(refused, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        Integer abandoned = failed(old, "Staff stopped this delivery; the invitation email was never sent.");
+        attempt(abandoned, State.ABANDONED, Outcome.ABANDONED_BY_STAFF);
+        // A permission refusal after the gate propagates, and settling leaves the attempt SEND_UNCERTAIN.
+        Integer permissionRefused = failed(old, "Failed to send email (authorization failure)");
+        attempt(permissionRefused, State.SEND_UNCERTAIN, Outcome.SEND_UNCONFIRMED);
+        // An error before the commit (consent, building, archiving) ends the attempt ABANDONED.
+        Integer beforeCommit = failed(old, "Failed to archive outbound email (I/O failure)");
+        attempt(beforeCommit, State.ABANDONED, Outcome.SEND_BLOCKED);
+        Integer failedWithoutOutcome = failed(old, null);
+        attempt(failedWithoutOutcome, State.SEND_FAILED, null);
+        Integer noAttempt = failed(old, "Failed to send email (SMTP recipient failure)");
+        Integer stillPending = persisted(EmailLog.TransactionType.PORTAL_INVITE, old);
+        entityManager.find(EmailLog.class, stillPending).setStatus(EmailLog.EmailStatus.PENDING);
+        attempt(stillPending, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        Integer recentRefusal = failed(new Date(), null);
+        attempt(recentRefusal, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        Integer sharedWithOpenAttempt = failed(old, null);
+        attempt(sharedWithOpenAttempt, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        attempt(sharedWithOpenAttempt, State.COMMITTED, null);
+        entityManager.flush();
+
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed", 0, 200))
+                .contains(refused)
+                .doesNotContain(abandoned, permissionRefused, beforeCommit, failedWithoutOutcome, noAttempt,
+                        stillPending, recentRefusal, sharedWithOpenAttempt);
+
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+        assertThat(target.replaceBodyIfUnchangedBefore(abandoned, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isZero();
+        assertThat(target.replaceBodyIfUnchangedBefore(sharedWithOpenAttempt,
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed")).isZero();
+        assertThat(target.replaceBodyIfUnchangedBefore(refused, EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, "code removed")).isOne();
+    }
+
+    @Test
+    @DisplayName("should clear a refused invitation's code in a sweep and leave abandoned and pending ones alone")
+    void shouldClearRefusedInvitation_whenSweeping() {
+        Date old = new Date(System.currentTimeMillis() / 1000 * 1000 - 60L * 60 * 1000);
+        Integer refused = failed(old, "Failed to send email (SMTP recipient failure)");
+        attempt(refused, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        Integer abandoned = failed(old, "Staff stopped this delivery; the invitation email was never sent.");
+        attempt(abandoned, State.ABANDONED, Outcome.ABANDONED_BY_STAFF);
+        Integer stuck = persisted(EmailLog.TransactionType.PORTAL_INVITE, old);
+        entityManager.find(EmailLog.class, stuck).setStatus(EmailLog.EmailStatus.PENDING);
+        attempt(stuck, State.COMMITTED, null);
+        entityManager.flush();
+        // The production update runs in its own transaction; use the target so it sees this fixture.
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+
+        int cleared = new PortalInviteCodeSweeper(target)
+                .forgetLeftoverCodes(PortalInviteDeliveryService.RECOVERY_MIN_AGE);
+
+        assertThat(cleared).isEqualTo(1);
+        entityManager.clear();
+        EmailLog refusedRow = entityManager.find(EmailLog.class, refused);
+        assertThat(refusedRow.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        assertThat(refusedRow.getBody()).isEqualTo(EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
+        assertThat(refusedRow.getTimestamp().getTime()).isEqualTo(old.getTime());
+        assertThat(entityManager.find(EmailLog.class, abandoned).getBody()).isEqualTo("Body");
+        assertThat(entityManager.find(EmailLog.class, stuck).getBody()).isEqualTo("Body");
+    }
+
+    private Integer failed(Date timestamp, String errorMessage) {
+        Integer id = persisted(EmailLog.TransactionType.PORTAL_INVITE, timestamp);
+        EmailLog row = entityManager.find(EmailLog.class, id);
+        row.setStatus(EmailLog.EmailStatus.FAILED);
+        row.setErrorMessage(errorMessage);
+        entityManager.flush();
+        return id;
+    }
+
+    private void attempt(Integer emailLogId, State state, Outcome outcome) {
+        PatientPortalInviteDelivery attempt = new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), 1,
+                "clinic-a", "https://portal.example", Channel.EMAIL, null, "999998");
+        attempt.setState(state);
+        attempt.setOutcome(outcome);
+        attempt.setEmailLogId(emailLogId);
+        entityManager.persist(attempt);
+        entityManager.flush();
     }
 
     private Integer persisted(EmailLog.TransactionType type, Date timestamp) {

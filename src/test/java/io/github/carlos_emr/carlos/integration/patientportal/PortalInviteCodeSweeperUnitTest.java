@@ -67,6 +67,17 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the 15-minute cadence and use the staff recovery wait as its idle cutoff")
+    void shouldKeepFifteenMinuteCadence_andRecoveryIdleCutoff() {
+        assertThat(PortalInviteCodeSweeper.INTERVAL).isEqualTo(Duration.ofMinutes(15));
+        assertThat(PortalInviteDeliveryService.RECOVERY_MIN_AGE).isEqualTo(Duration.ofMinutes(15));
+        sweeper.run();
+        verify(emailLogs).findIdsByTransactionTypeChangedBeforeWithOtherBody(TransactionType.PORTAL_INVITE,
+                Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)),
+                PortalInviteEmailComposer.CODE_FORGOTTEN, 0, 200);
+    }
+
+    @Test
     @DisplayName("should retry after a transient database outage without a new invitation")
     void shouldRetry_whenAnEarlierScheduledRunFails() {
         when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),

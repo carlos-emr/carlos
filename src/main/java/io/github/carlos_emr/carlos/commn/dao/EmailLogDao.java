@@ -75,8 +75,11 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
 
     /**
      * Lists at most {@code limit} uncleared, transport-settled emails before the cutoff, after the id.
-     * SUCCESS proves transport returned; BLOCKED proves consent refused it before dispatch. FAILED
-     * can also be written by staff abandonment, so it is excluded alongside PENDING and RESOLVED.
+     * SUCCESS proves transport returned; BLOCKED proves consent refused it before dispatch. FAILED counts
+     * only when the portal invitation attempt naming the email recorded a definite "not sent" after its
+     * code went live (terminal state SEND_FAILED, outcome SEND_REFUSED); other FAILED rows, such as staff
+     * abandonment, which can be written while the original send is still running, stay excluded
+     * alongside PENDING and RESOLVED.
      */
     List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
             Date changedBefore, String body, int afterId, int limit);

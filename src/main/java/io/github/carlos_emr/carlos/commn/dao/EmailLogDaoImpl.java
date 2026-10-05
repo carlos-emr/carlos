@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 
 /**
  * Data Access Object implementation for managing EmailLog entities in the OpenO EMR system.
@@ -45,6 +46,27 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
  */
 @Repository
 public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailLogDao {
+
+    /**
+     * Whether an email's transport is known to be over, shared by the selection and the update so the
+     * two cannot drift apart. SUCCESS and BLOCKED are written by the send itself. FAILED is included only
+     * when the portal invitation attempt that names the email ended in state SEND_FAILED with outcome
+     * SEND_REFUSED: the send writes that, and only after a definite "not sent" once the code went live
+     * (a refusal by the mail server, a refused connection or login, or a failure at the commit gate), and
+     * the state is terminal, so no step is still owed. Every attempt naming the email must be in that
+     * state. Other FAILED rows stay untouched: staff abandonment, which can be written while the original
+     * send is still running, ends its attempt ABANDONED; a permission refusal after the gate leaves it
+     * SEND_UNCERTAIN; and errors before the commit end it ABANDONED. PENDING and RESOLVED stay untouched.
+     *
+     * <p>The attempt table is read in a subquery rather than through its DAO so that selection and the
+     * conditional update test the same rule atomically in one statement.
+     */
+    private static final String SETTLED = "(e.status IN :settledStatuses OR (e.status = :failed "
+            + "AND EXISTS (SELECT d.id FROM PatientPortalInviteDelivery d WHERE d.emailLogId = e.id "
+            + "AND d.state = :refusedState AND d.outcome = :refusedOutcome) "
+            + "AND NOT EXISTS (SELECT o.id FROM PatientPortalInviteDelivery o WHERE o.emailLogId = e.id "
+            + "AND o.state <> :refusedState)))";
+
 
     /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
     @org.springframework.transaction.annotation.Transactional(
@@ -230,12 +252,10 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
             Date changedBefore, String body, int afterId, int limit) {
-        return entityManager.createQuery("SELECT e.id FROM EmailLog e WHERE e.transactionType = :type "
-                        + "AND e.status IN :settledStatuses AND e.timestamp < :changedBefore AND e.id > :afterId "
-                        + "AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class)
+        return withSettledParameters(entityManager.createQuery("SELECT e.id FROM EmailLog e WHERE "
+                        + "e.transactionType = :type AND " + SETTLED + " AND e.timestamp < :changedBefore "
+                        + "AND e.id > :afterId AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class))
                 .setParameter("type", type)
-                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
-                        EmailLog.EmailStatus.BLOCKED))
                 .setParameter("changedBefore", changedBefore)
                 .setParameter("afterId", afterId)
                 .setParameter("body", encodeBody(Objects.requireNonNull(body, "body")))
@@ -247,16 +267,22 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
             String replacement) {
-        return entityManager.createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id "
-                        + "AND e.transactionType = :type AND e.status IN :settledStatuses AND e.timestamp < :changedBefore "
-                        + "AND (e.body IS NULL OR e.body <> :body)")
+        return withSettledParameters(entityManager.createQuery("UPDATE EmailLog e SET e.body = :body "
+                        + "WHERE e.id = :id AND e.transactionType = :type AND " + SETTLED
+                        + " AND e.timestamp < :changedBefore AND (e.body IS NULL OR e.body <> :body)"))
                 .setParameter("id", id)
                 .setParameter("type", type)
-                .setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS,
-                        EmailLog.EmailStatus.BLOCKED))
                 .setParameter("changedBefore", changedBefore)
                 .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
                 .executeUpdate();
+    }
+
+    private static <Q extends Query> Q withSettledParameters(Q query) {
+        query.setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS, EmailLog.EmailStatus.BLOCKED));
+        query.setParameter("failed", EmailLog.EmailStatus.FAILED);
+        query.setParameter("refusedState", PatientPortalInviteDelivery.State.SEND_FAILED);
+        query.setParameter("refusedOutcome", PatientPortalInviteDelivery.Outcome.SEND_REFUSED);
+        return query;
     }
 
     /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */

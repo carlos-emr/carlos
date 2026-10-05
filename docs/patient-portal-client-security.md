@@ -178,8 +178,13 @@ email content. Process crashes can still leave stored bodies; this finalizer doe
 cleanup after process death.
 
 When cleanup does not happen because CARLOS stops mid-send or the body replacement fails, CARLOS retries cleanup for emails whose transport is known to
-have settled: `SUCCESS` (transport returned) or `BLOCKED` (consent refused dispatch). `FAILED` is
-excluded because staff abandonment can also write it while the original preparation is still running.
+have settled: `SUCCESS` (transport returned), `BLOCKED` (consent refused dispatch), or `FAILED` when
+the invitation attempt that names the email ended `SEND_FAILED` with outcome `SEND_REFUSED`. The send
+writes that itself, and only after a definite "not sent" once the code went live: the mail server
+refused the message, the connection or login was refused, or the commit gate failed. The state is
+final. Every other `FAILED` row is excluded: staff abandonment can also write `FAILED` while the
+original preparation is still running (its attempt ends `ABANDONED`), a permission refusal after the
+gate leaves the attempt `SEND_UNCERTAIN`, and an error before the commit ends it `ABANDONED`.
 It checks all ages, including expired codes, in batches of at most 200 ids. Cleanup runs
 at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
 rows, continuing from the preceding batch, then starts a new pass after reaching the end. A row must have been unchanged for 15 minutes. Both selection and the atomic
@@ -188,8 +193,9 @@ retried on a later pass without requiring another invitation; logs contain count
 names, never credentials.
 
 **Remaining draft limitation (#4083):** an idle timestamp does not prove that a sender on another
-server has stopped. Failed, unfinished, or manually resolved emails are excluded from automatic cleanup,
-regardless of age. This draft therefore does not promise a deadline for clearing every crash leftover,
+server has stopped. Unfinished or manually resolved emails, and failed ones whose attempt did not end
+`SEND_FAILED` (such as a staff-abandoned or permission-refused send), are excluded from automatic
+cleanup, regardless of age. This draft therefore does not promise a deadline for clearing every crash leftover,
 or that every email older than seven days is clear. These cases need a separate, verified maintenance
 procedure. Expiry of the portal token does not erase its saved body or existing database backups.
 
@@ -260,8 +266,8 @@ same wait. A timeout can still apply remotely, so positive confirmation stays un
 portal proves the invitation was already accepted (an irreversible state that cannot be revoked). Recovery re-checks that the patient and the portal connection match
 the attempt, and the page offers no decision for an attempt made on another portal connection. Each
 decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
-delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the
-background.
+delivery id, the patient, and the state and outcome codes it left; never the code. Recovery itself never
+runs in the background; only the code cleanup described above does, and it changes no attempt.
 
 An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
 invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that
