@@ -68,6 +68,7 @@ public class ScheduleDateDaoIntegrationTest extends CarlosTestBase {
         sd.setProviderNo(providerNo);
         sd.setDate(date);
         sd.setPriority(priority);
+        sd.setAvailable('1');
         sd.setHour(hour);
         sd.setStatus('A');
         sd.setReason("Test schedule");
@@ -125,6 +126,41 @@ public class ScheduleDateDaoIntegrationTest extends CarlosTestBase {
             ScheduleDate found = scheduleDateDao.findByProviderNoAndDate("100001", date1);
             assertThat(found).isNotNull();
             assertThat(found.getHour()).isEqualTo("09:00-17:00");
+        }
+
+        @Test
+        @DisplayName("date popup lookup finds a generated template only for the requested provider")
+        void shouldFindGeneratedDay_forRequestedProvider() {
+            createScheduleDate("100002", date2, 'b', "Other provider template");
+            ScheduleDate found = scheduleDateDao.findByProviderNoAndDate("100001", date2);
+            assertThat(found.getPriority()).isEqualTo('b');
+            assertThat(found.getHour()).isEqualTo("08:00-12:00");
+        }
+
+        @Test
+        @DisplayName("date popup lookup reloads an active override instead of its superseded generated row")
+        void shouldFindActiveOverride_whenGeneratedDayIsSuperseded() {
+            ScheduleDate generated = scheduleDateDao.findByProviderNoAndDate("100001", date2);
+            generated.setStatus('D');
+            scheduleDateDao.merge(generated);
+            ScheduleDate manual = createScheduleDate("100001", date2, 'c', "Manual template");
+            manual.setAvailable('0');
+            manual.setReason("Away");
+            scheduleDateDao.merge(manual);
+            ScheduleDate found = scheduleDateDao.findByProviderNoAndDate("100001", date2);
+            assertThat(found.getId()).isEqualTo(manual.getId());
+            assertThat(found.getHour()).isEqualTo("Manual template");
+            assertThat(found.getAvailable()).isEqualTo('0');
+            assertThat(found.getReason()).isEqualTo("Away");
+        }
+
+        @Test
+        @DisplayName("date popup lookup ignores an inactive day and another provider's active day")
+        void shouldReturnNull_whenOnlyThisProvidersDayIsInactive() {
+            ScheduleDate inactive = scheduleDateDao.findByProviderNoAndDate("100001", date1);
+            inactive.setStatus('D');
+            scheduleDateDao.merge(inactive);
+            assertThat(scheduleDateDao.findByProviderNoAndDate("100001", date1)).isNull();
         }
 
         @Test

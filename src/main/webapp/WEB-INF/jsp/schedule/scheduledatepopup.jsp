@@ -35,6 +35,8 @@
 <%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplate" %>
 <%
     ScheduleTemplateDao scheduleTemplateDao = SpringUtils.getBean(ScheduleTemplateDao.class);
@@ -46,7 +48,6 @@
 
 
 
-<jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
 <%
     String year = request.getParameter("year");
     String month = MyDateFormat.getDigitalXX(Integer.parseInt(request.getParameter("month")));
@@ -57,12 +58,14 @@
     String submitSave = scheduleBundle.getString("schedule.scheduledatepopup.btnSave");
     String submitDelete = scheduleBundle.getString("schedule.scheduledatepopup.btnDelete");
     strCreator = scheduleBundle.getString("schedule.scheduledatepopup.me");
-    HScheduleDate aHScheduleDate = (HScheduleDate) scheduleDateBean.get(year + "-" + month + "-" + day);
-    if (aHScheduleDate != null) {
-        available = aHScheduleDate.available.compareTo("1") == 0 ? "checked" : "";
-        strHour = aHScheduleDate.hour;
-        strReason = aHScheduleDate.reason;
-        strCreator = aHScheduleDate.creator;
+    // The session map contains manual overrides only; read the active day for this provider.
+    ScheduleDate scheduleDate = SpringUtils.getBean(ScheduleDateDao.class).findByProviderNoAndDate(
+            request.getParameter("provider_no"), MyDateFormat.getSysDate(year + "-" + month + "-" + day));
+    if (scheduleDate != null) {
+        available = scheduleDate.getAvailable() == '1' ? "checked" : "";
+        strHour = scheduleDate.getHour();
+        strReason = scheduleDate.getReason();
+        strCreator = scheduleDate.getCreator();
     }
 
 %>

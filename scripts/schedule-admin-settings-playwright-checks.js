@@ -316,6 +316,19 @@ async function workflow(s) {
     await h.assertNotErrorPage(f, 'calendar after the date popup saved');
   });
 
+  await s.step('the date popup reloads the saved manual override and its template', async () => {
+    const cell = settingFrame.locator(`a[onclick*="/schedule/DatePopup"][onclick*="&day=${hDay}&"]`);
+    const popup = await ui.clickOpensPopup(admin, cell, {context, recorder, label: 'manual-date-popup', timeout: 20000});
+    await popup.locator('select[name="hour"]').waitFor();
+    h.assert(await popup.locator('input[name="available"][value="0"]').isChecked(),
+      'The saved unavailable override did not reload');
+    h.assert(await popup.locator('select[name="hour"]').inputValue() === templateName,
+      'The manual override lost its template');
+    h.assert(JSON.stringify(dateRows()) === JSON.stringify([['1', templateName, 'D'], ['0', templateName, 'A']]),
+      'Opening the manual override changed its schedule rows');
+    await popup.close();
+  });
+
   await s.step('Holiday Setting deletes the owned holiday', async () => {
     const popup = await holidayPopupAtTarget();
     await holidayBox(popup).check();
@@ -432,14 +445,13 @@ async function workflow(s) {
 
   await s.step('edit forms reload what was saved: an apostrophe code description and a generated day\'s template', async () => {
     const problems = [];
-    // scheduledatepopup.jsp reads the session scheduleDateBean, which CreateDate fills BEFORE it
-    // generates the week-setting dates, so a just-generated day opens with the first template.
+    // Assert the generated-day selection after preserving the other positive workflow checks.
     if (deferred.datePopupHour !== templateName) {
       problems.push('the date popup for a day the week setting just scheduled did not preselect that day\'s template');
     }
     const popup = await codePopup();
     const form = popup.locator('form[name="addtemplatecode"]');
-    const desc = `${marker} O'Neil`;
+    const desc = `${marker} O'Neil \"<>&`;
     await form.locator('#code').fill(code);
     await form.locator('#description').fill(desc);
     await form.locator('#bookinglimit').fill('1');
