@@ -32,6 +32,9 @@ async function openAddForm(s, term) {
   await search.waitForLoadState('networkidle').catch(() => {});
   await search.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
   await search.locator('form[name="adddemographic"]').waitFor({ timeout: TIMEOUT });
+  // The visible form can precede DOMContentLoaded, when its field limits are applied.
+  // Wait for page initialization itself, so a missing limit still fails the assertion.
+  await search.waitForLoadState('domcontentloaded', { timeout: TIMEOUT });
   return search;
 }
 
