@@ -43,6 +43,9 @@ class TicklerAssigneePreferenceIntegrationTest extends CarlosTestBase {
             provider.setProviderNo(owner);
             provider.setFirstName("Preference");
             provider.setLastName("Fixture");
+            provider.setProviderType("doctor");
+            provider.setSex("U");
+            provider.setSpecialty("");
             provider.setStatus("1");
             entityManager.persist(provider);
         });
