@@ -12,6 +12,10 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.BeforeEach;
+import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -23,6 +27,20 @@ import static org.mockito.Mockito.*;
 /** Read methods must stop before loading notes, changing locks, or persisting chart state. */
 @Tag("unit")
 class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
+    @BeforeEach
+    void registerActionDependencies() {
+        registerMock(CaseManagementNoteDAO.class, mock(CaseManagementNoteDAO.class));
+        registerMock(CaseManagementIssueDAO.class, mock(CaseManagementIssueDAO.class));
+        registerMock(CaseManagementNoteExtDAO.class, mock(CaseManagementNoteExtDAO.class));
+        registerMock(IssueDAO.class, mock(IssueDAO.class));
+        registerMock(CasemgmtNoteLockDao.class, mock(CasemgmtNoteLockDao.class));
+        registerMock(TicklerManager.class, mock(TicklerManager.class));
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        registerMock(CaseManagementManager.class, mock(CaseManagementManager.class));
+        registerMock(ClientImageManager.class, mock(ClientImageManager.class));
+        registerMock(ProviderManager.class, mock(ProviderManager.class));
+    }
+
     @ParameterizedTest
     @CsvSource({"GET, issue", "HEAD, issue", "PUT, issue", "DELETE, issue",
             "GET, json", "HEAD, json", "PUT, json", "DELETE, json",
@@ -98,6 +116,7 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
             assertThat(action.save()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(409);
             if (!"raced".equals(state)) verify(action, never()).getDemoName(anyString());
+            verifyNoInteractions(mockedBeans.get(CaseManagementNoteDAO.class), mockedBeans.get(CaseManagementManager.class));
         }
     }
 
