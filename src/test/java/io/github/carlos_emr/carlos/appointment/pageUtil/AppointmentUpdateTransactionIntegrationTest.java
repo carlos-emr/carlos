@@ -82,10 +82,12 @@ class AppointmentUpdateTransactionIntegrationTest extends CarlosTestBase {
                 }
                 @Override public void rollback(TransactionStatus status) { transactions.rollback(status); }
             };
-            try (var spring = mockStatic(SpringUtils.class);
+            // Initialize the legacy facade before mocking SpringUtils so its cached DAO
+            // cannot be initialized to null and leak into later integration tests.
+            try (var ids = mockStatic(OtherIdManager.class);
+                 var spring = mockStatic(SpringUtils.class);
                  var servlet = mockStatic(ServletActionContext.class);
-                 var loggedIn = mockStatic(LoggedInInfo.class);
-                 var ids = mockStatic(OtherIdManager.class)) {
+                 var loggedIn = mockStatic(LoggedInInfo.class)) {
                 spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
                 spring.when(() -> SpringUtils.getBean(OscarAppointmentDao.class)).thenReturn(appointmentWrites);
                 spring.when(() -> SpringUtils.getBean(AppointmentArchiveDao.class)).thenReturn(archiveWrites);
