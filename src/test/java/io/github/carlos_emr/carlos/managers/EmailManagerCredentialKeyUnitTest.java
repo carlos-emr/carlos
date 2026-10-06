@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.email.core.EmailConsentResult;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -91,6 +92,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
     private EmailLogDaoImpl emailLogDao;
     private LoggedInInfo loggedInInfo;
     private OutboundEmailArchiveService archiveService;
+    private EmailConsentResolver consentResolver;
     private EmailManager emailManager;
 
     @BeforeEach
@@ -109,7 +111,7 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
 
-        EmailConsentResolver consentResolver = mock(EmailConsentResolver.class);
+        consentResolver = mock(EmailConsentResolver.class);
         when(consentResolver.resolve(any(), any())).thenReturn(
                 new EmailConsentResult("Email", EmailLog.EmailConsentStatus.OPT_IN, null, null));
         archiveService = mock(OutboundEmailArchiveService.class);
@@ -664,6 +666,73 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.ACCEPTED);
                 verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
                 assertThat(smtp.getConfigDetailsJson()).isEqualTo(details);
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse a SendGrid account whose API key was encrypted under a replaced key, before any transport")
+        void shouldFailBeforeApiTransport_whenApiKeyWasEncryptedUnderReplacedKey() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            EmailConfig sendGrid = config(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                    EmailConfigSecrets.encryptSecrets("{\"api_key\":\"sg-secret\"}"));
+            injectDependency(sendGrid, "id", 12);
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(false);
+            when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(sendGrid);
+
+            try (MockedConstruction<APISendGridEmailSender> transports = mockConstruction(APISendGridEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_MISMATCH_ERROR), any());
+                verify(archiveService, never()).archive(any(), any());
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyMismatch"), eq("123"), eq("")));
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"   ", "not base64"})
+        @DisplayName("should refuse plaintext credentials on a real send when the key is blank or invalid and enforcement is on")
+        void shouldFailBeforeTransport_whenKeyIsBlankOrInvalid(String key) throws Exception {
+            CarlosProperties.getInstance().setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, key);
+            try {
+                EncryptionUtils.prepareSecretKeySpec();
+            } catch (IllegalArgumentException expectedForAnInvalidKey) {
+                // An invalid key leaves no key in place, as at startup.
+            }
+            requireKey(true);
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR), any());
+                verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
+                logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
+                        eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyRequired"), eq("123"), eq("")));
+            }
+        }
+
+        @Test
+        @DisplayName("should leave stored credentials as they are when consent blocks the send")
+        void shouldNotEncryptCredentials_whenConsentBlocksTheSend() throws Exception {
+            EncryptionKeyTestSupport.seedFreshKey();
+            requireKey(false);
+            when(consentResolver.resolve(any(), any())).thenReturn(
+                    new EmailConsentResult("Email", EmailLog.EmailConsentStatus.OPT_OUT, null, null));
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.BLOCKED), any(), any());
+                verify(emailConfigDao, never()).encryptCredentialsIfUnchanged(anyInt(), any(), any());
             }
         }
 
