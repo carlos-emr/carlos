@@ -71,6 +71,11 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
         if (delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"))) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             if (institutions.length > 0) {
                 for (int i = 0; i < institutions.length; i++) {
                     try {

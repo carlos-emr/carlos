@@ -68,6 +68,11 @@ public class EctConEditDepartments2Action extends ActionSupport {
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
         if (delete.equals(oscarR.getString("encounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
                     DepartmentDao.remove(Integer.parseInt(specialists[i]));
