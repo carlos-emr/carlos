@@ -214,7 +214,9 @@ async function workflow(s) {
       'The current row comment does not exactly match the successful save (old text must be replaced, not appended)');
     assert(JSON.stringify(sql.rows(`SELECT ID,immunizations FROM immunizations WHERE demographic_no=${patient}
       ORDER BY ID LIMIT ${before}`)) === JSON.stringify(historyBefore), 'A competing save rewrote historical XML');
-    await imm.reload({ waitUntil: 'networkidle' });
+    // Reopen through the read-only UI link: reloading the previous POST would
+    // deliberately replay its now-stale save and correctly receive HTTP 409.
+    await openSchedule();
   });
 
   await step('Configure then Cancel returns to the schedule without writing', async () => {
