@@ -55,6 +55,7 @@ async function saveMasterRecord(master) {
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   let listId;
+  const listName = `${marker} "&`;
   const currentRows = () => sql.rows(`SELECT note, DATE(onListSince), position FROM waitingList
     WHERE listID=${listId} AND demographic_no=${patient} AND is_history='N' ORDER BY id`);
   const rowCount = (history) => sql.value(`SELECT COUNT(*) FROM waitingList WHERE listID=${listId}
@@ -65,7 +66,7 @@ async function workflow(s) {
     sql.execute(`DELETE FROM waitingList WHERE listID=${listId} AND demographic_no=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM waitingList WHERE listID=${listId}`) === '0',
       'Owned waiting-list rows were not removed');
-    sql.execute(`DELETE FROM waitingListName WHERE ID=${listId} AND name=${h.sqlString(marker)}`);
+    sql.execute(`DELETE FROM waitingListName WHERE ID=${listId} AND name=${h.sqlString(listName)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM waitingListName WHERE ID=${listId}`) === '0',
       'The owned waiting-list name was not removed');
   });
@@ -76,7 +77,7 @@ async function workflow(s) {
     const group = sql.value(`SELECT COALESCE(myGroupNo, '') FROM ProviderPreference WHERE providerNo=${h.sqlString(provider)}`);
     if (group === '') throw new h.SkipCheck('The test login has no schedule group preference (ProviderPreference.myGroupNo), so the Master Record lists no waiting lists');
     listId = sql.value(`INSERT INTO waitingListName (name, group_no, provider_no, create_date, is_history)
-      VALUES (${h.sqlString(marker)}, ${h.sqlString(group)}, ${h.sqlString(provider)}, NOW(), 'N'); SELECT LAST_INSERT_ID()`);
+      VALUES (${h.sqlString(listName)}, ${h.sqlString(group)}, ${h.sqlString(provider)}, NOW(), 'N'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(listId), 'The waiting-list name fixture was not created');
     // The Master Record was rendered before the name existed; it decides both the
     // Waiting List link and the editable note at render time.
@@ -86,7 +87,7 @@ async function workflow(s) {
     await openEditForm(s.master);
     const option = s.master.locator(`${LIST_SELECT} option[value="${listId}"]`);
     h.assert(await option.count() === 1, 'The Master Record waiting-list select does not offer the seeded list');
-    h.assert((await option.textContent()).trim() === marker, 'The seeded list is offered under another name');
+    h.assert((await option.textContent()).trim() === listName, 'The seeded list is offered under another name');
     // Both are gated by the same wLReadonly flag; report both at once.
     const problems = [];
     if (await s.master.locator(MASTER_LINK).count() !== 1) problems.push('shows no Waiting List link');
@@ -97,7 +98,7 @@ async function workflow(s) {
       + 'edit.jsp and its fragments set wLReadonly whenever DEMOGRAPHIC_WAITING_LIST=true)');
   });
 
-  const firstNote = `${marker} first note from the Master Record`;
+  const firstNote = `${marker} first "quoted" note & detail`;
   const secondNote = `${marker} note edited again`;
   await s.step('Update Record with a list, note and date adds the patient to the list', async () => {
     await s.master.locator(LIST_SELECT).selectOption(listId);

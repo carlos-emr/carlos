@@ -155,10 +155,15 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
+    boolean waitingListEnabled = oscarProps != null
+            && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"));
+    ProviderPreference waitingListPreference = (ProviderPreference) session.getAttribute(
+            io.github.carlos_emr.carlos.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
+    List<WaitingListName> activeWaitingListNames = waitingListEnabled && waitingListPreference != null
+            && waitingListPreference.getMyGroupNo() != null
+            ? waitingListNameDao.findCurrentByGroup(waitingListPreference.getMyGroupNo())
+            : Collections.emptyList();
+    String wLReadonly = activeWaitingListNames.isEmpty() ? "readonly" : "";
     
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
@@ -1123,12 +1128,11 @@
                                                                             <%} %>
                                                                             <%
 
-                                                                                List<WaitingListName> wlns = waitingListNameDao.findCurrentByGroup(((ProviderPreference) session.getAttribute(io.github.carlos_emr.carlos.utility.SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)).getMyGroupNo());
-                                                                                for (WaitingListName wln : wlns) {
+                                                                                for (WaitingListName wln : activeWaitingListNames) {
                                                                             %>
                                                                             <option value="<%=wln.getId()%>"
                                                                                     <%=wln.getId().toString().equals(listID) ? " selected" : ""%>>
-                                                                                <%=wln.getName()%>
+                                                                                <%=SafeEncode.forHtml(wln.getName())%>
                                                                             </option>
                                                                             <%
                                                                                 }
@@ -1139,7 +1143,7 @@
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 name="waiting_list_note"
-                                                                                                value="<%=wlnote%>"
+                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlnote)%>"
                                                                                 <%=wLReadonly%>></td>
                                                                     </tr>
                                                                     <tr>
@@ -1151,7 +1155,7 @@
                                                                                                 name="waiting_list_referral_date"
                                                                                                 id="waiting_list_referral_date"
                                                                                                 size="11"
-                                                                                                value="<%=wlReferralDate%>" <%=wLReadonly%>><img
+                                                                                                value="<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>" <%=wLReadonly%>><img
                                                                                 src="<%= request.getContextPath() %>/images/cal.gif"
                                                                                 id="referral_date_cal">
                                                                         </td>
