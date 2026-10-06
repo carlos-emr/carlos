@@ -122,7 +122,7 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
                     String comments = request.getParameter(String.valueOf(String.valueOf(sRow)).concat("_comments_text"));
                     NodeList cmnts = row.getElementsByTagName("comments");
                     if (cmnts.getLength() > 0)
-                        UtilXML.setText(cmnts.item(0), comments);
+                        cmnts.item(0).setTextContent(comments);
                     else
                         UtilXML.addNode(row, "comments", comments);
                 }

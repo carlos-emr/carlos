@@ -196,7 +196,8 @@ async function workflow(s) {
   await step('two saves from the same version commit exactly one new schedule', async () => {
     const form = await imm.locator('form[action$="/saveSchedule"]').evaluate(form => Object.fromEntries(new FormData(form)));
     form.hdnAction = 'Save';
-    const before = Number(sql.value(`SELECT COUNT(*) FROM immunizations WHERE demographic_no=${patient}`));
+    const historyBefore = sql.rows(`SELECT ID,immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`);
+    const before = historyBefore.length;
     const url = new URL(`${contextPath}/encounter/immunization/saveSchedule`, s.config.baseUrl).href;
     const outcomes = await Promise.all(['A', 'B'].map(suffix => s.context.request.post(url, {
       form: { ...form, tdSet0_Row0_comments_text: `${rowComment} ${suffix}` }, maxRedirects: 0,
@@ -209,7 +210,10 @@ async function workflow(s) {
       'Competing saves created more than one history version');
     assert(sql.value(`SELECT COUNT(*) ${current}`) === '1', 'Competing saves left multiple current schedules');
     const winningComment = `${rowComment} ${statuses[0] === 409 ? 'B' : 'A'}`;
-    assert(currentXml().includes(`<comments>${winningComment}</comments>`), 'The refused save replaced the winning comment');
+    assert(currentXml().includes(`<comments>${winningComment}</comments>`),
+      'The current row comment does not exactly match the successful save (old text must be replaced, not appended)');
+    assert(JSON.stringify(sql.rows(`SELECT ID,immunizations FROM immunizations WHERE demographic_no=${patient}
+      ORDER BY ID LIMIT ${before}`)) === JSON.stringify(historyBefore), 'A competing save rewrote historical XML');
     await imm.reload({ waitUntil: 'networkidle' });
   });
 
