@@ -1296,9 +1296,18 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
-                        personalizedFlowsheet.addAfter(cust.getMeasurement(), item);
+                        // A scoped definition may omit an anchor from a broader scope.
+                        // Keep the added item by appending it when that anchor is absent.
+                        String anchor = cust.getMeasurement();
+                        if (!personalizedFlowsheet.getMeasurementList().contains(anchor)) {
+                            anchor = null;
+                        }
+                        personalizedFlowsheet.addAfter(anchor, item);
                     } else if (FlowSheetCustomization.UPDATE.equals(cust.getAction())) {
                         log.debug(" CUST UPDATING");
+                        if (!personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            continue;
+                        }
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
@@ -1308,7 +1317,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
 
                     } else if (FlowSheetCustomization.DELETE.equals(cust.getAction())) {
-                        personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        if (personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        }
                         log.debug(" CUST DELETE");
                     } else {
                         log.debug("ERR" + cust);

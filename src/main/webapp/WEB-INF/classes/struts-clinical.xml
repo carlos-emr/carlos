@@ -431,7 +431,7 @@
         <action name="encounter/oscarMeasurements/ViewHealthTracker" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/HealthTracker.jsp</result>
         </action>
-        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+        <action name="encounter/oscarMeasurements/ViewTemplateFlowSheetPrint" class="io.github.carlos_emr.carlos.clinical.gate.ViewFlowSheetPrint2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/TemplateFlowSheetPrint.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/ViewAddMeasurementMap" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
