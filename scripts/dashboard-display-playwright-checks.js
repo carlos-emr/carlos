@@ -305,12 +305,14 @@ async function workflow(s) {
       await form.locator('input[name="serviceTime"]').fill('10:30 AM');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
       const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
+      // Match the save controller: DOMPurify removes the hidden name="method" field.
+      invalid.method = 'saveTickler';
       invalid.serviceDate = '02-30-2030';
       const csrf = await dashboard.locator('input[name="CSRF-TOKEN"]').first().inputValue();
       const rejected = await ctx.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/display/AssignTickler'),
         {form: invalid, headers: {'CSRF-TOKEN': csrf}, maxRedirects: 0});
       h.assert(rejected.status() === 400 && (await rejected.json()).success === 'false',
-        'An impossible service date was not rejected before saving');
+        `An impossible service date was not rejected before saving (HTTP ${rejected.status()})`);
       await rejected.dispose();
       h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
         'An invalid submission wrote ticklers');
