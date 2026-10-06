@@ -145,6 +145,11 @@ async function workflow(s) {
 
   const admin = await openAdmin(s.schedule, context, recorder, 'role-administration');
   let frame;
+  await s.step('an administrator can open the flowsheet editor from its menu', async () => {
+    const flowsheets = await openItem(admin, 'ManageFlowsheets', '#flowsheetActionForm');
+    await h.assertNotErrorPage(flowsheets, 'administrator flowsheet editor');
+  });
+
   await s.step('Add A Role refuses a one-letter name in the page before any request is sent', async () => {
     frame = await openItem(admin, 'ProviderAddRole', 'input#role_name');
     const before = frame.url();
@@ -204,7 +209,11 @@ async function workflow(s) {
     const { ctx, schedule } = await throwawaySession('role-throwaway-before', false);
     try {
       h.assert(await refused(ctx, 'ProviderAddRole') === 403, 'A plain doctor was not refused Add A Role');
-      // The doctor role holds _admin.flowsheet, which shows the Administration link on the day sheet.
+      h.assert(await refused(ctx, 'ManageFlowsheets') === 403,
+        'Flowsheet read permission granted the write-only flowsheet editor');
+      // The fixture's doctor role holds flowsheet read permission and must reach the shell.
+      h.assert(await schedule.locator('#admin-panel').count() === 1,
+        'A flowsheet-read doctor was not offered the Administration shell');
       if (await schedule.locator('#admin-panel').count()) {
         const label = 'role-throwaway-before-administration';
         const { page: own } = await clickOpensPopupOrNavigates(schedule, schedule.locator('#admin-panel'),
@@ -220,9 +229,8 @@ async function workflow(s) {
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
             'Flowsheet access exposed the role-rights editor');
           h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
-          // The shell accepts flowsheet read permission; this editor independently requires write.
-          h.assert(await refused(ctx, 'ManageFlowsheets') === 403,
-            'Flowsheet read permission granted the write-only flowsheet editor');
+          h.assert(await own.locator('#adminNav a[rel$="/admin/ManageFlowsheets"]').count() === 0,
+            'The menu advertised the write-only flowsheet editor to a read-only doctor');
         }
       }
     } finally { await ctx.close(); }
