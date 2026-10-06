@@ -9,8 +9,8 @@
 // patient's current immunizations row (archived=0 replaces the previous one; set status and
 // cell lot/givenDate/comments live in the stored XML).
 // Fixtures: the owned FAKE- patient, one template created through the UI and one seeded template
-// (both carry the run marker in their row names; the seeded one is what gets scheduled, because
-// the UI-created template loses its name and is filtered out of the picker). Cleanup deletes only
+// (both carry the run marker in their row names). The picker must offer the newly created name;
+// the created template is copied into the patient schedule. Cleanup deletes only
 // those templates and the owned patient's immunizations rows, then asserts they are gone.
 // The application defects (del link dead, template name lost, missing stylesheets) are asserted
 // in the LAST step so every other step is proven first.
@@ -44,7 +44,7 @@ async function workflow(s) {
     await body();
     deferMissingStylesheets(s.recorder, contextPath, deferred);
   });
-  const uiName = `${marker} Created`;
+  const uiName = `${marker} "Created" <b>literal</b>`;
   const seededName = `${marker} Seeded`;
   const lot = `L${marker.slice(-10)}`;
   const rowComment = `${marker} row comment`;
@@ -69,6 +69,9 @@ async function workflow(s) {
   const chart = await s.chart();
   const index = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
   let imm;
+  const scheduledNames = () => imm.evaluate(xml => Array.from(
+    new DOMParser().parseFromString(xml, 'application/xml').getElementsByTagName('immunizationSet'),
+    set => set.getAttribute('name')), currentXml());
   const path = () => new URL(imm.url()).pathname;
   const go = (locator, label) => clickAndAwaitReload(imm, locator, { label });
   async function openSchedule() {
@@ -103,12 +106,20 @@ async function workflow(s) {
     assert(/^[1-9]\d*$/.test(uiId || ''), 'Render did not store exactly one owned template');
     const [[archived, xml]] = sql.rows(`SELECT archived, setXmlDoc FROM config_Immunization WHERE setId=${uiId}`);
     assert(archived === '0', 'New template was stored archived');
+    assert(sql.value(`SELECT setName FROM config_Immunization WHERE setId=${uiId}`) === uiName,
+      'The created template name was not preserved');
+    assert(await imm.getByText(uiName, {exact: true}).count() === 1, 'The template list did not render the literal name');
+    assert(await imm.locator('a b').count() === 0, 'The template name rendered as HTML');
     assert(xml.includes(`name="${marker}-R2"`) && xml.includes('name="4 mo"') && (xml.match(/<cell /g) || []).length === 3,
       'Template XML lost its rows, columns or checked cells');
     assert(await imm.locator(`input[name="chkSetId"][value="${uiId}"]`).count() === 1, 'Set list does not show the new template');
   });
 
   await step('the set link opens the read-only template display', async () => {
+    const created = await s.popup(imm, imm.locator(`a[href*="ImmunizationSetDisplay?setId=${uiId}"]`), 'created-set-display');
+    assert((await created.locator('h1').innerText()).includes(uiName), 'The created set display lost the literal name');
+    assert(await created.locator('h1 b').count() === 0, 'The displayed template name rendered as HTML');
+    await created.close();
     const display = await s.popup(imm, imm.locator(`a[href*="ImmunizationSetDisplay?setId=${seededId}"]`), 'immunization-set-display');
     assert((await display.locator('h1').innerText()).includes(seededName), 'Set display shows a different template');
     assert(await display.getByText(`${marker}-S2`, { exact: true }).count() === 1, 'Set display lost a template row');
@@ -117,12 +128,16 @@ async function workflow(s) {
 
   await step('Add. Immu. Template copies the chosen template into the patient schedule', async () => {
     await openSchedule();
-    await imm.locator(`input[name="chkSet"][value="${seededId}"]`).check();
+    const createdChoice = imm.locator(`input[name="chkSet"][value="${uiId}"]`);
+    assert(await createdChoice.count() === 1, 'The named created template is absent from the picker');
+    assert((await createdChoice.locator('..').innerText()).includes(uiName), 'The picker lost the literal created name');
+    assert(await createdChoice.locator('..').locator('b').count() === 0, 'The picker rendered the template name as HTML');
+    await createdChoice.check();
     await go(imm.locator('input[type="submit"][name="submit"]'), 'add template');
     await expectValue(sql, `SELECT COUNT(*) ${current}`, '1', 'Adding a template did not create the patient schedule');
-    assert(currentXml().includes(`name="${seededName}"`) && currentXml().includes(`name="${marker}-S2"`),
+    assert((await scheduledNames()).includes(uiName) && currentXml().includes(`name="${marker}-R2"`),
       'Patient schedule does not hold a copy of the chosen template');
-    assert(await imm.locator('#chkSet0').count() === 1 && (await imm.getByText(seededName).count()) === 1,
+    assert(await imm.locator('#chkSet0').count() === 1 && (await imm.getByText(uiName).count()) === 1,
       'Schedule page does not list the added template');
   });
 
@@ -155,7 +170,7 @@ async function workflow(s) {
     assert(await imm.locator(`input[name="chkSet"][value="${seededId}"]`).count() === 1, 'Configure did not open the template picker');
     await go(imm.locator('input[type="button"][value="Cancel"]'), 'cancel configure');
     assert(path().endsWith('/encounter/immunization/loadSchedule'), 'Cancel did not reload the schedule');
-    assert(await imm.getByText(seededName).count() === 1, 'Reloaded schedule lost the template');
+    assert(await imm.getByText(uiName).count() === 1, 'Reloaded schedule lost the template');
     assert(sql.value(`SELECT COUNT(*) FROM immunizations WHERE demographic_no=${patient}`) === rowsBefore, 'Configure/Cancel wrote a schedule row');
   });
 
@@ -169,14 +184,23 @@ async function workflow(s) {
     assert(await imm.locator(`input[name="chkSetId"][value="${seededId}"]`).count() === 0, 'Deleted template is still in the active list');
     await go(imm.locator('input[type="button"][value="Deleted List"]'), 'deleted list');
     assert(await imm.locator(`input[name="chkSetId"][value="${seededId}"]`).count() === 1, 'Deleted list does not show the template');
-    assert(currentXml().includes(`name="${seededName}"`), 'Deleting the template changed the patient schedule copy');
+    assert((await scheduledNames()).includes(uiName), 'Deleting the template changed the patient schedule copy');
   });
 
   await step('reopening Old immunizations goes straight to the saved schedule', async () => {
     await openSchedule();
     assert(path().endsWith('/encounter/immunization/initSchedule'), 'A patient with a schedule was sent elsewhere');
-    assert(await imm.getByText(seededName).count() === 1 && await imm.locator('#tdSet0_Row0_Col1_label').innerText() !== '',
+    assert(await imm.getByText(uiName).count() === 1 && await imm.locator('#tdSet0_Row0_Col1_label').innerText() !== '',
       'Saved schedule did not reopen with its recorded cell');
+  });
+
+  await step('cancelling schedule deletion leaves the saved schedule untouched', async () => {
+    const before = sql.rows(`SELECT ID, archived, immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`);
+    const dialogs = await withExpectedDialogs(imm,
+      () => imm.getByRole('link', {name: 'del', exact: true}).click(), {accept: false});
+    assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation');
+    assert(JSON.stringify(sql.rows(`SELECT ID, archived, immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`))
+      === JSON.stringify(before), 'Cancelling deletion changed the schedule');
   });
 
   // Last, so every provable step above is proven first: each problem here is an application defect.
@@ -190,9 +214,9 @@ async function workflow(s) {
     assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation exactly once');
     if (!problems.length) {
       await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '1', 'Delete did not mark the set deleted');
-      assert(await imm.getByText(seededName).count() === 0, 'Deleted set is still listed');
+      assert(await imm.getByText(uiName).count() === 0, 'Deleted set is still listed');
       await go(imm.locator('input[type="button"][value="Show All"]').first(), 'show all');
-      assert(await imm.getByText(seededName).count() === 1, 'Show All does not list the deleted set');
+      assert(await imm.getByText(uiName).count() === 1, 'Show All does not list the deleted set');
       const again = await withExpectedDialogs(imm, () => go(imm.getByRole('link', { name: 'restore', exact: true }), 'restore set'));
       assert(again.length === 1 && again[0].type === 'confirm', 'Restore did not ask for confirmation exactly once');
       await expectValue(sql, `SELECT immunizations LIKE '%status="deleted"%' ${current}`, '0', 'Restore did not clear the deleted status');
