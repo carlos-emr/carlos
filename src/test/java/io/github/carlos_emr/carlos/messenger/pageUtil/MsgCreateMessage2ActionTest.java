@@ -69,6 +69,8 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
+        mockRequest.setParameter(MessengerSubmissionGuard.PARAMETER,
+                MessengerSubmissionGuard.issue(mockRequest.getSession(), TEST_PROVIDER));
 
         action = new MsgCreateMessage2Action();
 

@@ -93,6 +93,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MessengerSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
@@ -159,6 +160,12 @@
 
     // Retrieve the message session bean for maintaining state
     MsgSessionBean bean = (MsgSessionBean) pageContext.findAttribute("bean");
+    String submission = (String) request.getAttribute(MessengerSubmissionGuard.PARAMETER);
+    if (submission == null) {
+        submission = MessengerSubmissionGuard.issue(session,
+                LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    }
+    request.setAttribute(MessengerSubmissionGuard.PARAMETER, submission);
 
     // Handle patient demographic association if message is patient-related
     String demographic_no = (String) request.getAttribute("demographic_no");
@@ -212,6 +219,7 @@
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
     <script src="<%=request.getContextPath() %>/messenger/messenger-markdown.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-submission.js"></script>
     <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
     <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
     <c:if test="${langCode != 'en-GB'}">
@@ -328,6 +336,7 @@ function validateFields() {
 		if (!validateFields()) {
 			return;
 		}
+		if (!window.carlosMessengerSubmission.begin()) return;
 		var theLink = document.referrer;
 		if (!theLink || theLink.indexOf('?') === -1) {
 			document.forms[0].submit();
@@ -484,7 +493,8 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+				<form id="composeMessage" action="${pageContext.request.contextPath}/messenger/CreateMessage" method="post" onsubmit="return validateFields()">
+                    <input type="hidden" name="carlosMessageSubmission" value="${carlos:forHtmlAttribute(requestScope.carlosMessageSubmission)}">
                     <% if (showScheduleNav) { %>
                     <input type="hidden" name="scheduleNav" value="1">
                     <% } %>

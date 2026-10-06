@@ -13,6 +13,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +63,14 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
         var demographics = mock(MessengerDemographicManager.class);
         registerMock(SecurityInfoManager.class, security);
         registerMock(MessengerDemographicManager.class, demographics);
+        registerMock(PlatformTransactionManager.class, new AbstractPlatformTransactionManager() {
+            @Override protected Object doGetTransaction() { return new Object(); }
+            @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+            @Override protected void doCommit(DefaultTransactionStatus status) { }
+            @Override protected void doRollback(DefaultTransactionStatus status) { }
+        });
+        request.setParameter(MessengerSubmissionGuard.PARAMETER,
+                MessengerSubmissionGuard.issue(request.getSession(), "999998"));
         MsgSessionBean bean = new MsgSessionBean();
         bean.setProviderNo("999998");
         bean.setUserName("Owned sender");

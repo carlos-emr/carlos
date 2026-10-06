@@ -50,6 +50,9 @@ import java.util.Arrays;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Struts2 Action for handling message creation and sending in the CARLOS EMR messaging system.
@@ -143,6 +146,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         // attachments or session drafts until the send has succeeded.
         request.setAttribute("ReSubject", subject);
         request.setAttribute("ReText", message);
+        String submission = request.getParameter(MessengerSubmissionGuard.PARAMETER);
+        request.setAttribute(MessengerSubmissionGuard.PARAMETER, submission);
         request.setAttribute("rejectedRecipientIds", providers == null ? java.util.Set.of()
                 : new java.util.HashSet<>(Arrays.asList(providers)));
 
@@ -151,7 +156,6 @@ public class MsgCreateMessage2Action extends ActionSupport {
         MiscUtils.getLogger().debug("Message length: " + (message != null ? message.length() : 0));
 
         String sentToWho = null;
-        String messageId = null;
         String demographic_no = this.getDemographic_no();
         if (demographic_no != null && (demographic_no.equals("") || "null".equals(demographic_no))) {
             demographic_no = null;
@@ -172,7 +176,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
             return ERROR;
         }
 
-        //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
+        // Preserve the existing recipient resolution; all subsequent DAO writes share one transaction.
         MsgMessageData messageData = new MsgMessageData();
         providers = messageData.getDups4(providers);
         providerListing = messageData.getProviderStructure(loggedInInfo, providers);
@@ -187,28 +191,50 @@ public class MsgCreateMessage2Action extends ActionSupport {
         if (sentToWho != null) {
             sentToWho = sentToWho.trim();
         }
-        messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
-
-        if (messageId == null || messageId.isEmpty()) {
-            MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
-            request.setAttribute("createMessageError", "Failed to send message. Please try again.");
-            return ERROR;
+        var attempt = MessengerSubmissionGuard.attempt(request.getSession(), submission, userNo);
+        if (attempt.claim() == null) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "This message submission is unavailable or already being processed. Check Sent Messages before composing another message.");
+            return NONE;
         }
-
-        // Link message and demographic if both IDs are valid (> 0).
-        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
-        Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
-        Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-        if (parsedMessageId > 0 && parsedDemoNo > 0) {
-            messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
+        final String normalizedSubject = subject;
+        final String recipients = sentToWho;
+        final int patient = ConversionUtils.fromIntString(demographic_no);
+        try (var claim = attempt.claim()) {
+            try {
+                TransactionTemplate transaction = new TransactionTemplate(
+                        SpringUtils.getBean(PlatformTransactionManager.class));
+                // Observe completion here even if a caller supplied an outer transaction.
+                transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                transaction.executeWithoutResult(status -> {
+                    claim.storageStarted();
+                    String messageId = messageData.sendMessage2(message, normalizedSubject, userName, recipients,
+                            userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+                    int savedMessage = ConversionUtils.fromIntString(messageId);
+                    if (savedMessage <= 0) {
+                        throw new IllegalStateException("Message persistence did not return a valid identifier");
+                    }
+                    if (patient > 0) {
+                        messengerDemographicManager.attachDemographicToMessage(loggedInInfo, savedMessage, patient);
+                    }
+                });
+            } catch (RuntimeException e) {
+                MiscUtils.getLogger().error("Message send transaction failed", e);
+                if (!claim.canRetry()) {
+                    response.sendError(HttpServletResponse.SC_CONFLICT,
+                            "Message delivery could not be confirmed. Check Sent Messages before composing another message.");
+                    return NONE;
+                }
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                request.setAttribute("createMessageError", "The message was not sent. Your draft is retained; please try again.");
+                return ERROR;
+            }
+            request.setAttribute("SentMessageProvs", recipients);
+            bean.nullAttachment();
+            bean.setMessage(null);
+            bean.setSubject(null);
+            return SUCCESS;
         }
-
-        request.setAttribute("SentMessageProvs", sentToWho);
-        bean.nullAttachment();
-        bean.setMessage(null);
-        bean.setSubject(null);
-
-        return SUCCESS;
     }
 
     private String[] provider = new String[0];
