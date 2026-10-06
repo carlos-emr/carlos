@@ -1,8 +1,84 @@
-# RAG retrieval trial: results (2026-10-05)
+# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06)
 
 Retrieval only, on FAKE NHS synthetic patients, with local Ollama embeddings. No text
 was generated and no hosted API was called. Full per-probe detail is in
-`target/rag/results/` (`<model>-eval.json`, and `report.md` with every miss).
+`target/rag/results/` (`<model>-<index folder>-<labels>-eval.json`, `recall-at-k.json`, and
+`report-<tag>.md` with every miss; round 1's own files are `<model>-eval.json` and `report.md`).
+
+## Round 2 (2026-10-06): direct labels and the form-field fix
+
+Same 10 patients, same 78 probes and the same three models; only the 28 changed chunks
+(94 in the split variant) were embedded again, and every other chunk kept its round-1
+vector. Round 1's numbers further down are kept as they were published. (Round 1's own
+speed files in `target/rag/results/` were overwritten by the round 2 index runs before
+speed files were named by folder; the speed table below keeps round 1's figures.)
+
+**What changed:**
+
+1. **Direct labels** (`labels.json`). Each probe now names the exact chart phrase(s)
+   that answer it (for example "Complications None", "Allergies: NKA", "BP 124/78" on
+   2026-01-05), instead of reusing the summary-fact regexes. The labels are tighter:
+   about 2.5 relevant chunks per probe instead of 4. "No allergies" is now one chunk,
+   so only 3 probes still span chunks (the two drug conflicts and "no DVT or infection").
+2. **Form fields keep their own labels.** A chunk of short form fields is now headed
+   with every field label and embedded as "Label: value" lines, so "Complications: None"
+   is no longer filed under "Tissue Removed". The stored text is unchanged.
+3. **Split variant** (`--form-fields split`): one chunk per form field instead.
+
+**Recall, vector search (recall@8 / recall@3, 78 probes):**
+
+| Setup | nomic-embed-text | bge-m3 | qwen3-embedding:0.6b |
+|---|---|---|---|
+| Round 1 as published (old cutter, regex labels) | 0.83 / 0.60 | 0.83 / 0.60 | 0.80 / 0.69 |
+| Old cutter, direct labels | 0.78 / 0.54 | 0.80 / 0.58 | 0.78 / 0.65 |
+| **Round 2 cutter, direct labels** | **0.78 / 0.55** | **0.78 / 0.58** | **0.78 / 0.65** |
+| Split form fields, direct labels | 0.76 / 0.53 | 0.78 / 0.58 | 0.80 / 0.67 |
+
+**More results with the round 2 cutter (vector recall, direct labels):**
+
+| Model | @8 | @12 | @16 | @24 | Rank of "Complications: None" (old cutter → round 2 → split) |
+|---|---|---|---|---|---|
+| nomic-embed-text | 0.78 | 0.83 | 0.89 | 0.91 | 30 → 14 → 37 |
+| bge-m3 | 0.78 | 0.87 | 0.90 | 0.95 | 14 → 10 → 63 |
+| qwen3-embedding:0.6b | 0.78 | 0.85 | 0.87 | 0.94 | 10 → 11 → **2** |
+
+The deeper recall and the ranks come from `evaluate` itself (`recall_at` and each probe's
+`rank_needed` in the result files, and the depth table in `report-<tag>.md`).
+
+Keyword search alone fell to 0.49 and the even hybrid to 0.68-0.72 with direct labels,
+so they stay worse than vector search. Every negation and family-history hit kept its
+"no …" or Family History context (12/12, 10/10, 10/10), and there were again **0
+cross-patient results** in every run.
+
+**Findings:**
+
+- **Round 1 overstated recall by about 1-5 points at the top 8 (3-6 at the top 3).** Its regex labels gave credit for
+  chunks that only mentioned the topic. With direct labels all three models find the
+  answer in the top 8 about 78% of the time (about 4 facts in 5).
+- **The CRITICAL "Complications: None" miss is not fixed at the top 8.** The cutter
+  problem itself is fixed: the field now sits under its own label, and that moved it from
+  rank 30 to 14 for nomic and from 14 to 10 for bge-m3. But no model ranks it in the
+  top 8 with the round 2 cutter. Splitting fields into separate chunks puts it at rank 2
+  for qwen3 only, while pushing it to 37 and 63 for the other two models and lowering
+  nomic's recall, so splitting is not a general fix. "Anaesthesia Type: General
+  anaesthesia" behaves the same way (ranks 26, 9, 14).
+- **What is left is mostly wording**, not cutting: 12 of nomic's 17 misses at k = 8 are
+  questions whose words the chart never uses ("go wrong" vs "Complications",
+  "collapsed lung" vs "no PTX", "trapped air" vs "pneumomediastinum"), plus look-alike
+  sections (12 sets of observations, allergy and medication grids). An embedding model
+  alone does not bridge these.
+- **Showing 16 pieces instead of 8** lifts recall to 0.87-0.90 (0.91-0.95 at 24) and
+  brings "Complications: None" in for all three models.
+
+**Recommendation after round 2:** keep the round 2 cutter. At the top 8 it changes at
+most one probe per model (bge-m3 loses one fact that spans two chunks), it lifts
+"Complications: None" for two of the three models, and it lifts the deeper recall; the
+split variant is not worth it. Retrieval is still not fit to be the only input to a
+whole-chart summary. For "ask the chart" questions that show their sources, show the top
+16. Keep nomic-embed-text as the default; qwen3-embedding stays the best at the top 3
+(0.65) but is the slowest.
+
+## Round 1 (2026-10-05)
 
 ## Scope
 

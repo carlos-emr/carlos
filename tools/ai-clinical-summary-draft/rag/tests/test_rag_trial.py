@@ -5,9 +5,11 @@ Run from tools/ai-clinical-summary-draft:
     python3 -m unittest discover -s rag/tests -t .
 """
 import hashlib
+import json
 import math
 from pathlib import Path
 import re
+import shutil
 import sys
 import tempfile
 import unittest
@@ -55,6 +57,45 @@ class ChunkerTest(unittest.TestCase):
             self.assertEqual(NOTE[chunk['start']:chunk['end']], chunk['text'])
             self.assertIn('Date: 2026-01-05.', chunk['embed_text'])
 
+    def test_short_form_fields_keep_their_own_labels_for_embedding(self):
+        note = ("Surgeon\nDr. Test Person\n\nAnaesthesia Type\nGeneral anaesthesia\n\n"
+                "Procedure\nTotal left knee replacement with a long description of the steps taken.\n\n"
+                "Tissue Removed\nDamaged cartilage\n\nEstimated Blood Loss\nMinimal\n\nComplications\nNone\n\n"
+                "Plan\n1. Transfer to recovery.\n")
+        chunks = rag.chunk_note('NHSSYN999', 'NHSSYN999-n002', '2026-01-05', note)
+        block = next(c for c in chunks if 'Complications' in c['text'])
+        self.assertIn('Complications', block['heading'])
+        self.assertIn('Tissue Removed', block['heading'])
+        self.assertIn('\nComplications: None', block['embed_text'])
+        self.assertIn('\nEstimated Blood Loss: Minimal', block['embed_text'])
+        self.assertIn('Complications\nNone', block['text'])  # stored text is still the exact chart slice
+        anaesthesia = next(c for c in chunks if 'Anaesthesia Type' in c['text'])
+        self.assertIn('Anaesthesia Type: General anaesthesia', anaesthesia['embed_text'])
+        for chunk in chunks:
+            self.assertEqual(note[chunk['start']:chunk['end']], chunk['text'])
+
+    def test_split_mode_gives_each_short_form_field_its_own_chunk(self):
+        note = ("Surgeon\nDr. Test Person\n\nAnaesthesia Type\nGeneral anaesthesia\n\n"
+                "Tissue Removed\nDamaged cartilage\n\nEstimated Blood Loss\nMinimal\n\nComplications\nNone\n\n"
+                "Plan\n1. Transfer to recovery.\n")
+        chunks = rag.chunk_note('NHSSYN999', 'NHSSYN999-n003', '2026-01-05', note, form_fields='split')
+        complications = next(c for c in chunks if 'Complications' in c['text'])
+        self.assertEqual('Complications', complications['heading'])
+        self.assertEqual('Date: 2026-01-05. Section: Complications.\nComplications: None', complications['embed_text'])
+        self.assertNotIn('Minimal', complications['text'])
+        for chunk in chunks:
+            self.assertEqual(note[chunk['start']:chunk['end']], chunk['text'])
+        with self.assertRaises(ValueError):
+            rag.chunk_note('NHSSYN999', 'NHSSYN999-n003', '2026-01-05', note, form_fields='guess')
+
+    def test_none_mode_is_round_ones_cutter(self):
+        note = ("Surgeon\nDr. Test Person\n\nAnaesthesia Type\nGeneral anaesthesia\n\n"
+                "Tissue Removed\nDamaged cartilage\n\nComplications\nNone\n")
+        chunks = rag.chunk_note('NHSSYN999', 'NHSSYN999-n004', '2026-01-05', note, form_fields='none')
+        block = next(c for c in chunks if 'Complications' in c['text'])
+        self.assertNotIn('Complications', block['heading'])
+        self.assertNotIn('Complications: None', block['embed_text'])
+
     def test_tiny_clinical_section_stays_its_own_chunk(self):
         allergies = next(c for c in self.chunks if c['text'].startswith('Allergies'))
         self.assertEqual('Allergies\nNil', allergies['text'].strip())
@@ -89,28 +130,48 @@ class ChunkerTest(unittest.TestCase):
             self.assertLessEqual(len(chunk['text']), rag.MAX_CHARS)
 
 
+def row(text, date='2026-01-01', number=1):
+    return {'id': number, 'text': text, 'date': date}
+
+
 class RelevanceTest(unittest.TestCase):
     def chunks(self, *texts):
-        return [{'id': n, 'text': text} for n, text in enumerate(texts, 1)]
+        return [row(text, number=n) for n, text in enumerate(texts, 1)]
 
     def test_all_groups_must_match_in_one_chunk_case_insensitively(self):
         groups = rag.compile_groups([['nimodipine'], ['60 ?mg']])
-        self.assertTrue(rag.relevant(groups, 'Start NIMODIPINE 60mg every 4 hours'))
-        self.assertFalse(rag.relevant(groups, 'Continue nimodipine 30 mg'))
-        self.assertFalse(rag.relevant([], 'anything'))
+        self.assertTrue(rag.relevant(groups, row('Start NIMODIPINE 60mg every 4 hours')))
+        self.assertFalse(rag.relevant(groups, row('Continue nimodipine 30 mg')))
+        self.assertFalse(rag.relevant([], row('anything')))
 
     def test_alternatives_inside_a_group(self):
         groups = rag.compile_groups([['potassium|k\\+'], ['3\\.3']])
-        self.assertTrue(rag.relevant(groups, 'Mild hypokalemia (K+ 3.3 mmol/L)'))
+        self.assertTrue(rag.relevant(groups, row('Mild hypokalemia (K+ 3.3 mmol/L)')))
+
+    def test_direct_phrases_ignore_case_and_whitespace_but_keep_word_edges(self):
+        groups = rag.compile_groups([[{'text': 'Complications None'}]])
+        self.assertTrue(rag.relevant(groups, row('Estimated Blood Loss\nMinimal\n\ncomplications\nNONE\n')))
+        self.assertFalse(rag.relevant(groups, row('anaesthetic complications: None reported')))
+        rr = rag.compile_groups([[{'text': 'RR 1'}]])
+        self.assertTrue(rag.relevant(rr, row('HR 2\nBP 124/78\nRR 1\n')))
+        self.assertFalse(rag.relevant(rr, row('RR 14 br/min')))
+        # Only ASCII letters and digits count as word characters: the chart's mis-encoded degree sign follows 40.
+        self.assertTrue(rag.relevant(rag.compile_groups([[{'text': 'Reached 40'}]]),
+                                     row('Reached 40\u00c2\u00b0 flexion')))
+
+    def test_dated_phrase_matches_only_that_days_note(self):
+        groups = rag.compile_groups([[{'date': '2026-01-05', 'text': 'BP 124/78'}]])
+        self.assertTrue(rag.relevant(groups, row('BP 124/78', '2026-01-05')))
+        self.assertFalse(rag.relevant(groups, row('BP 124/78 mmHg', '2025-12-20')))
 
     def test_fact_split_across_chunks_needs_top_k_to_cover_every_group(self):
         probe = {'groups': [['nimodipine'], ['amlodipine']]}
         chunks = self.chunks('nimodipine 30 mg taper', 'amlodipine 5 mg OD', 'unrelated')
         prepared = rag.prepare_probe(probe, chunks)
         self.assertTrue(prepared['spans'])
-        texts = {c['id']: c['text'] for c in chunks}
-        self.assertTrue(rag.is_hit(prepared, [1, 2], texts))
-        self.assertFalse(rag.is_hit(prepared, [1, 3], texts))
+        by_id = {c['id']: c for c in chunks}
+        self.assertTrue(rag.is_hit(prepared, [1, 2], by_id))
+        self.assertFalse(rag.is_hit(prepared, [1, 3], by_id))
 
     def test_group_that_matches_nowhere_in_the_chart_is_dropped_and_reported(self):
         probe = {'groups': [['conflict'], ['nimodipine']]}
@@ -135,14 +196,69 @@ class ProbeFileTest(unittest.TestCase):
         self.assertEqual(sum(len(v) for v in rag.load_facts().values()), kinds.count('fact'))
 
     def test_questions_do_not_simply_copy_the_answer(self):
+        for label_set in rag.LABEL_SETS:
+            for probe in rag.load_probes(label_set=label_set):
+                if probe['kind'] != 'fact':
+                    continue
+                undated = [[dict(item, date=None) if isinstance(item, dict) else item for item in group]
+                           for group in probe['groups']]
+                self.assertFalse(rag.relevant(rag.compile_groups(undated), row(probe['question'])),
+                                 f'{label_set} {probe["id"]}')
         for probe in rag.load_probes():
             if probe['kind'] == 'fact':
-                groups = rag.compile_groups(probe['groups'])
-                self.assertFalse(rag.relevant(groups, probe['question']), probe['id'])
-            else:
-                # Negation/family probes name the condition on purpose, but must not give
-                # away the negation or the family-history context they are testing.
-                self.assertIsNone(re.search(probe['context_pattern'], probe['question'], re.I), probe['id'])
+                continue
+            # Negation/family probes name the condition on purpose, but must not give
+            # away the negation or the family-history context they are testing.
+            self.assertIsNone(re.search(probe['context_pattern'], probe['question'], re.I), probe['id'])
+
+    def test_direct_labels_name_a_real_chart_passage_for_every_probe(self):
+        chunks = [dict(c, id=n) for n, c in enumerate(rag.chunk_corpus(rag.load_notes()), 1)]
+        per_patient = {}
+        for chunk in chunks:
+            per_patient.setdefault(chunk['patient_id'], []).append(chunk)
+        probes = rag.load_probes(label_set='direct')
+        self.assertEqual(set(rag.load_labels()), {p['id'] for p in probes})
+        for probe in probes:
+            prepared = rag.prepare_probe(probe, per_patient[probe['patient']])
+            self.assertTrue(prepared['answerable'], probe['id'])
+            self.assertEqual([], prepared['dropped_groups'], probe['id'])
+        complications = next(p for p in probes if p['id'] == 'NHSSYN002:neg-complications')
+        relevant = rag.prepare_probe(complications, per_patient['NHSSYN002'])['relevant']
+        self.assertEqual(1, len(relevant))
+        self.assertIn('Complications', next(c for c in chunks if c['id'] == relevant[0])['heading'])
+
+    def test_every_label_phrase_matches_a_chunk_of_its_patient(self):
+        chunks = rag.chunk_corpus(rag.load_notes())
+        per_patient = {}
+        for chunk in chunks:
+            per_patient.setdefault(chunk['patient_id'], []).append(chunk)
+        for probe_id, groups in rag.load_labels().items():
+            patient = probe_id.split(':')[0]
+            for group in groups:
+                for item in group:
+                    compiled = rag.compile_groups([[item]])[0]
+                    self.assertTrue(any(rag.group_matches(compiled, c) for c in per_patient[patient]),
+                                    f'{probe_id}: {item} matches no chunk')
+
+    def test_label_file_is_checked(self):
+        bad = [[[{'text': '  '}]], [[{'text': 'x', 'date': '5 Jan'}]], [[{'text': 'x', 'day': '2026-01-05'}]],
+               ['Allergies: NKA'], [[]], []]
+        with tempfile.TemporaryDirectory() as tmp:
+            for evidence in bad:
+                path = Path(tmp) / 'labels.json'
+                path.write_text(json.dumps({'labels': {'NHSSYN001:x': {'evidence': evidence}}}))
+                with self.assertRaises(ValueError, msg=repr(evidence)):
+                    rag.load_labels(path)
+
+    def test_drug_names_need_whole_words(self):
+        self.assertIsNone(rag.DRUGS.search('No known drug or environmental allergies'))
+        self.assertIsNotNone(rag.DRUGS.search('Ferrous sulfate (iron) 200 mg'))
+
+    def test_round_one_regex_labels_still_load_for_comparison(self):
+        probes = {p['id']: p for p in rag.load_probes(label_set='regex')}
+        self.assertTrue(all(isinstance(item, str) for group in probes['NHSSYN001:taper']['groups'] for item in group))
+        with self.assertRaises(ValueError):
+            rag.load_probes(label_set='guess')
 
 
 class RrfTest(unittest.TestCase):
@@ -295,7 +411,8 @@ class IncrementalIndexTest(unittest.TestCase):
             self.assertEqual('/api/ps', path)
             return {'models': [{'name': 'nomic-embed-text:latest', 'size': 1}]}
 
-        args = type('Args', (), {'model': 'nomic-embed-text', 'patients': 'NHSSYN001', 'max_chunks': 40})
+        args = type('Args', (), {'model': 'nomic-embed-text', 'patients': 'NHSSYN001', 'max_chunks': 40,
+                                 'index_dir': '', 'reuse_from': None, 'form_fields': 'label'})
         with tempfile.TemporaryDirectory() as tmp, \
                 mock.patch.object(rag, 'OUT', Path(tmp)), mock.patch.object(rag, 'RESULTS', Path(tmp) / 'r'), \
                 mock.patch.object(rag, 'embed', fake_embed), mock.patch.object(rag, 'unload'), \
@@ -315,6 +432,79 @@ class IncrementalIndexTest(unittest.TestCase):
             rag.cmd_index(args)  # nothing left: no embedding call, no new run row
             self.assertEqual(embedded, sum(calls))
             self.assertEqual(97, embedded)
+
+            # A second index folder reusing those vectors embeds only chunks whose text changed: none here.
+            reuse = type('Args', (), {'model': 'nomic-embed-text', 'patients': 'NHSSYN001', 'max_chunks': 40,
+                                      'index_dir': 'r2', 'reuse_from': '', 'form_fields': 'label'})
+            rag.cmd_index(reuse)
+            self.assertEqual(embedded, sum(calls))
+            db, _backend = rag.connect(Path(tmp) / 'r2' / 'nomic-embed-text.sqlite')
+            self.assertEqual(97, db.execute('SELECT COUNT(*) FROM vectors').fetchone()[0])
+            self.assertEqual(97, db.execute('SELECT COUNT(*) FROM chunks').fetchone()[0])
+            db.close()
+            with self.assertRaises(rag.SafetyError):
+                rag.index_dir('../elsewhere')
+
+
+class ReuseIndexTest(unittest.TestCase):
+    def run_index(self, tmp, model, folder, reuse_from, form_fields, calls, digest='d1'):
+        def fake_embed(model_name, texts, keep_alive='5m'):
+            calls.extend(texts)
+            return [fake_vector(t) for t in texts]
+
+        def fake_ollama(path, payload=None, **_kwargs):
+            return {'models': [{'name': model + ':latest', 'size': 1}]}
+
+        args = type('Args', (), {'model': model, 'patients': 'NHSSYN001', 'max_chunks': 400,
+                                 'index_dir': folder, 'reuse_from': reuse_from, 'form_fields': form_fields})
+        with mock.patch.object(rag, 'OUT', Path(tmp)), mock.patch.object(rag, 'RESULTS', Path(tmp) / 'results'), \
+                mock.patch.object(rag, 'embed', fake_embed), mock.patch.object(rag, 'unload'), \
+                mock.patch.object(rag, 'ollama', fake_ollama), \
+                mock.patch.object(rag, 'model_info', return_value={'size': 1, 'details': {}, 'digest': digest}), \
+                mock.patch('builtins.print'):
+            rag.cmd_index(args)
+
+    def test_one_call_reuses_unchanged_chunks_and_embeds_changed_ones(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = [], []
+            self.run_index(tmp, 'nomic-embed-text', '', None, 'none', first)
+            self.run_index(tmp, 'nomic-embed-text', 'r2', '', 'label', second)
+            changed = [c for c in rag.chunk_corpus(rag.load_notes(), 'label') if c['patient_id'] == 'NHSSYN001']
+            round_one = {c['embed_text'] for c in rag.chunk_corpus(rag.load_notes(), 'none')}
+            fresh = [c['embed_text'] for c in changed if c['embed_text'] not in round_one]
+            self.assertTrue(fresh)
+            self.assertEqual(sorted(rag.MODELS['nomic-embed-text']['document'] + t for t in fresh), sorted(second))
+            old, _ = rag.connect(Path(tmp) / 'nomic-embed-text.sqlite')
+            new, _ = rag.connect(Path(tmp) / 'r2' / 'nomic-embed-text.sqlite')
+            source = dict(old.execute('SELECT c.embed_text, v.embedding FROM chunks c JOIN vectors v ON v.chunk_id = c.id'))
+            copied = dict(new.execute('SELECT c.embed_text, v.embedding FROM chunks c JOIN vectors v ON v.chunk_id = c.id'))
+            self.assertEqual(len(changed), new.execute('SELECT COUNT(*) FROM chunks').fetchone()[0])
+            self.assertEqual(len(changed), new.execute('SELECT COUNT(*) FROM vectors').fetchone()[0])
+            for text, blob in copied.items():
+                if text in source:
+                    self.assertEqual(source[text], blob)  # the very same vector, not re-embedded
+            self.assertEqual('d1', dict(new.execute('SELECT key, value FROM meta'))['model_digest'])
+            old.close()
+            new.close()
+
+    def test_reuse_is_refused_across_models_and_model_builds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.run_index(tmp, 'nomic-embed-text', '', None, 'none', [])
+            # The same file presented as another model's index: its stored model must not match.
+            shutil.copy(Path(tmp) / 'nomic-embed-text.sqlite', Path(tmp) / 'bge-m3.sqlite')
+            with self.assertRaisesRegex(SystemExit, 'another model or prefix'):
+                self.run_index(tmp, 'bge-m3', 'r2', '', 'label', [])
+            with self.assertRaisesRegex(SystemExit, 'another build'):
+                self.run_index(tmp, 'nomic-embed-text', 'r3', '', 'label', [], digest='d2')
+            with self.assertRaisesRegex(SystemExit, 'another build'):
+                self.run_index(tmp, 'nomic-embed-text', '', None, 'none', [], digest='d2')  # resuming
+
+    def test_folder_names_and_report_tags_are_checked(self):
+        for bad in ('r1', 'results', 'pylib', '../x', 'R2'):
+            with self.assertRaises(rag.SafetyError, msg=bad):
+                rag.index_dir(bad)
+        with self.assertRaises(rag.SafetyError):
+            rag.cmd_report(type('Args', (), {'tag': '../x'}))
 
 
 class EvaluateSmokeTest(unittest.TestCase):
@@ -339,6 +529,10 @@ class EvaluateSmokeTest(unittest.TestCase):
             hits = summary['per_patient']['NHSSYN001']['hit@8']
             self.assertEqual(len(probes), misses + hits)
         self.assertIn('NHSSYN001:discharge-conflict', result['labels']['spans_chunks'])
+        recall_at = result['summary']['vector']['recall_at']
+        self.assertEqual([str(k) for k in rag.RECALL_KS], list(recall_at))
+        self.assertEqual(sorted(recall_at.values()), list(recall_at.values()))  # deeper never finds less
+        self.assertTrue(all('rank_needed' in e for e in result['details']['vector']))
 
 
 if __name__ == '__main__':

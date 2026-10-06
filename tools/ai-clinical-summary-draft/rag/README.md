@@ -41,6 +41,12 @@ Three local embedding models are compared: `nomic-embed-text`, `bge-m3` and
    `chart_updates.py`. Tiny scraps such as signatures and form labels are folded into
    the chunk before them. Long sections are split at sentence boundaries (at most
    1,200 characters). Each chunk keeps its exact character offsets in the note.
+   Round 2: a chunk made of several short form fields ("Anaesthesia Type" with
+   "General anaesthesia" on the next line, then "Complications" / "None") is headed
+   with all its field labels and embedded as "Label: value" lines (`--form-fields
+   label`, the default), or cut into one chunk per field (`--form-fields split`).
+   `--form-fields none` is round 1's cutter, kept so round 1 can be rebuilt. The
+   stored chunk text stays the exact chart slice in every mode.
 3. **Prefix** every chunk with its note date and section heading, for example
    `Date: 2026-01-07. Section: Family History.`. That way "Mother has type 2
    diabetes" never travels without "Family History".
@@ -62,9 +68,13 @@ Three local embedding models are compared: `nomic-embed-text`, `bge-m3` and
    - eight family-history probes ("Does the patient have diabetes?" where only the
      mother does).
 
-   A chunk counts as relevant when every regex `pattern_group` of the fact matches
-   inside that one chunk. If no single chunk holds the whole fact, the fact "spans
-   chunks". It then counts as found when the top 8 results together cover every group.
+   Round 2 labels each probe directly (`labels.json`, the default `--labels direct`):
+   the exact chart phrase(s) that answer the question, typos included, with a date
+   where only one day's note answers. A chunk counts as relevant when it contains one
+   phrase of every evidence group. If no single chunk does, the fact "spans chunks" and
+   counts as found when the top 8 results together cover every group. Round 1's
+   summary-fact regexes (`--labels regex`) stay available for comparison; they were
+   looser (about 4 relevant chunks per probe against 2.5) and so overstated recall.
 
 ## How to run it
 
@@ -78,9 +88,14 @@ python3 -m pip install --target target/rag/pylib sqlite-vec
 T=tools/ai-clinical-summary-draft/rag/rag_trial.py
 python3 $T pull --model nomic-embed-text           # also bge-m3, qwen3-embedding:0.6b
 # repeat until it reports "remaining_in_scope": 0 (each call embeds at most 400 chunks)
-heavy python3 $T index --model nomic-embed-text --patients NHSSYN001-NHSSYN010 --max-chunks 400
-heavy python3 $T evaluate --model nomic-embed-text # one model at a time
-python3 $T report                                  # writes target/rag/results/report.md
+heavy python3 $T index --model nomic-embed-text --patients NHSSYN001-NHSSYN010 --max-chunks 400 \
+    --form-fields none                                               # round 1's cutter
+heavy python3 $T evaluate --model nomic-embed-text --labels regex   # round 1 as published
+# round 2: a new index folder that copies round 1's vector for every unchanged chunk,
+# so only the changed chunks are embedded (28 with --form-fields label, 94 with split)
+heavy python3 $T index --model nomic-embed-text --index-dir r2 --reuse-from '' --form-fields label
+heavy python3 $T evaluate --model nomic-embed-text --index-dir r2 --labels direct
+python3 $T report --tag r2-direct                  # writes target/rag/results/report-r2-direct.md
 
 # offline tests (no Ollama, no network)
 cd tools/ai-clinical-summary-draft && python3 -m unittest discover -s rag/tests -t .
@@ -89,9 +104,12 @@ cd tools/ai-clinical-summary-draft && python3 -m unittest discover -s rag/tests 
 Outputs go to `target/rag/`:
 
 - the SQLite indexes;
-- `results/<model>-index.json` (speed);
-- `results/<model>-eval.json` (every probe, every mode);
-- `results/report.md`.
+- `results/<model>-<index folder>-index.json` (speed; an index that reused vectors
+  times only the chunks it embedded itself, plus the model load);
+- `results/<model>-<index folder>-<labels>-eval.json` (every probe, every mode, and
+  vector recall at 3, 8, 12, 16 and 24 with the depth each probe needs), for example
+  `nomic-embed-text-r2-direct-eval.json` (`r1` = round 1's index folder);
+- `results/report-<tag>.md`.
 
 `RESULTS.md` in this folder is the written summary.
 

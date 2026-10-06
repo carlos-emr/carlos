@@ -38,6 +38,8 @@ RESULTS = OUT / 'results'
 PYLIB = OUT / 'pylib'
 FACTS = TOOL / 'quality' / 'facts'
 PROBES = HERE / 'probes.json'
+LABELS = HERE / 'labels.json'
+LABEL_SETS = ('direct', 'regex')
 if str(TOOL) not in sys.path:
     sys.path.insert(0, str(TOOL))
 
@@ -47,6 +49,8 @@ OLLAMA = 'http://127.0.0.1:11434'
 OLLAMA_PATHS = frozenset({'/api/embed', '/api/pull', '/api/tags', '/api/ps'})
 PATIENT_ID = re.compile(r'^NHSSYN[0-9]{3}$')  # ^NHSSYN\d{3}$ with ASCII digits only
 TOP_K = 8
+RECALL_KS = (3, 8, 12, 16, 24)  # vector search is also scored at these depths
+FORM_FIELD_PROBES = ('NHSSYN002:neg-complications', 'NHSSYN002:anaesthesia')  # round 1's cutter misses
 RRF_K = 60
 CANDIDATE_DEPTH = 100
 # 2026-10-05 scope: 001-003 carry the labelled facts; 004-010 are the other patients that
@@ -56,6 +60,10 @@ BATCH = 16
 MAX_CHARS = 1200
 TARGET_CHARS = 900
 TINY_CHARS = 60
+# A block of short form fields: 'none' = round 1's cutter (left as it is), 'label' = round 2's default
+# (headed with every field label, embedded as "Label: value" lines), 'split' = one chunk per field.
+FORM_FIELD_MODES = ('none', 'label', 'split')
+MAX_HEADING = 120
 QWEN_INSTRUCTION = ("Instruct: Given a clinician's question about one patient's chart, "
                     "retrieve the chart passages that answer it\nQuery: ")
 # Model-card prefixes: nomic needs task prefixes, Qwen3 wants an instruction on queries only.
@@ -68,8 +76,8 @@ MODES = ('vector', 'keyword', 'hybrid')
 KINDS = ('fact', 'negation', 'family')
 MISS_KINDS = ('wording mismatch', 'fact split across chunks', 'lost heading/context',
               'date/number fact', 'medication name', 'other')
-DRUGS = re.compile(r'nimodipine|amlodipine|potassium chloride|kcl|ferrous|iron|tinzaparin|enoxaparin|'
-                   r'paracetamol|ibuprofen|morphine|amoxiclav|omeprazole|codeine|cefuroxime', re.I)
+DRUGS = re.compile(r'\b(?:nimodipine|amlodipine|potassium chloride|kcl|ferrous|iron|tinzaparin|enoxaparin|'
+                   r'paracetamol|ibuprofen|morphine|amoxiclav|omeprazole|codeine|cefuroxime)\b', re.I)
 STOPWORDS = frozenset("""a about after again all also am an and any anyone anything are as at be been before
 being both but by can could did do does doing during each for from get given go going got had has have having
 he her hers him his how i if in into is it its just me more most my no nor not of off on once only or other our
@@ -210,15 +218,62 @@ def heading_of(segments, n):
     return name[:60] or None
 
 
-def chunk_note(patient, note_id, note_date, body):
+def grid_label(segments, n):
+    """The label if segment n is a form-field label on its own line ("Complications", value below)."""
+    line = segments[n].strip()
+    if (_standalone(segments, n) and GRID_HEADING.fullmatch(line)
+            and (n == 1 or not segments[n - 1].strip()) and n + 1 in segments and segments[n + 1].strip()):
+        return re.sub(r'\s+', ' ', line)
+    return None
+
+
+def form_fields_in(segments, start, end):
+    """Labels of the form fields inside segments start..end, in order."""
+    return [label for n in range(start, end + 1) if (label := grid_label(segments, n))]
+
+
+def field_lines(segments, start, end):
+    """Render a block of form fields as "Label: value" lines for embedding only.
+
+    Short form fields ("Anaesthesia Type" / "General anaesthesia") are folded into one
+    chunk, which round 1 headed with the first field alone, so "Complications / None"
+    was embedded as part of "Tissue Removed". Writing each field as "Label: value" keeps
+    every label next to its own value. The stored chunk text is not changed.
+    """
+    lines, pending = [], None
+    for n in range(start, end + 1):
+        text = segments[n].strip()
+        if not text:
+            continue
+        label = grid_label(segments, n)
+        if label:
+            if pending:
+                lines.append(pending)
+            pending = label
+        elif pending:
+            lines.append(f'{pending}: {text}')
+            pending = None
+        else:
+            lines.append(text)
+    if pending:
+        lines.append(pending)
+    return '\n'.join(lines)
+
+
+def chunk_note(patient, note_id, note_date, body, form_fields='label'):
     """Split one note into section chunks with exact character offsets.
 
     chart_updates.source_segments gives lossless sentence/line segments and
     chart_updates.source_sections the coarse section partition; sections are then
     split at further clinical headings, tiny non-clinical scraps (signatures, form
     labels) are folded into the previous chunk, and long sections are cut at segment
-    boundaries. Every chunk is prefixed with its date and heading for embedding.
+    boundaries. Every chunk is prefixed with its date and heading for embedding. A chunk
+    made of several short form fields is, in round 2, either headed with all their labels
+    and embedded as "Label: value" lines (form_fields='label') or cut into one chunk per
+    field (form_fields='split').
     """
+    if form_fields not in FORM_FIELD_MODES:
+        raise ValueError(f'Unknown form_fields mode {form_fields}')
     segments = chart_updates.source_segments(body)
     offsets, position = {}, 0
     for n, text in segments.items():
@@ -285,6 +340,21 @@ def chunk_note(patient, note_id, note_date, body):
             size += len(segments[n])
         chunks.append((group[0], group[-1], heading))
 
+    from_split = set()
+    if form_fields == 'split':
+        split = []
+        for start, end, heading in chunks:
+            labels = [n for n in range(start, end + 1) if grid_label(segments, n)]
+            if len(labels) < 2:
+                split.append((start, end, heading))
+                continue
+            if labels[0] > start:  # text before the first field keeps the chunk's heading
+                split.append((start, labels[0] - 1, heading))
+            for first, nxt in zip(labels, labels[1:] + [end + 1]):
+                split.append((first, nxt - 1, grid_label(segments, first)))
+                from_split.add(first)
+        chunks = split
+
     result = []
     for start, end, heading in chunks:
         begin = offsets[start]
@@ -292,18 +362,26 @@ def chunk_note(patient, note_id, note_date, body):
         text = body[begin:finish]
         if not text.strip():
             continue
+        content = text.strip()
+        fields = form_fields_in(segments, start, end) if form_fields != 'none' else []
+        if len(fields) >= 2:
+            # A heading that is not itself one of the fields (say "Test Results" over "FBC", "U&E") leads.
+            names = fields if heading in fields else [heading, *fields]
+            heading = ' / '.join(names)[:MAX_HEADING]
+        if len(fields) >= 2 or start in from_split:
+            content = field_lines(segments, start, end)
         result.append({'patient_id': patient, 'note_id': note_id, 'date': note_date,
                        'heading': heading, 'start': begin, 'end': finish, 'text': text,
-                       'embed_text': f'Date: {note_date}. Section: {heading}.\n{text.strip()}'})
+                       'embed_text': f'Date: {note_date}. Section: {heading}.\n{content}'})
     return result
 
 
-def chunk_corpus(notes):
+def chunk_corpus(notes, form_fields='label'):
     notes = assert_synthetic(notes)
     counters, chunks = {}, []
     for patient, note_date, body in notes:
         counters[patient] = counters.get(patient, 0) + 1
-        chunks.extend(chunk_note(patient, f'{patient}-n{counters[patient]:03d}', note_date, body))
+        chunks.extend(chunk_note(patient, f'{patient}-n{counters[patient]:03d}', note_date, body, form_fields))
     return chunks
 
 
@@ -447,17 +525,64 @@ def search(db, patient, mode, question=None, query_vector=None, limit=TOP_K, use
 
 # ---------------------------------------------------------------- probes and relevance
 
+def phrase_pattern(text):
+    """An exact chart phrase as a pattern: any case, any run of whitespace, ASCII word edges."""
+    text = text.strip()
+    body = r'\s+'.join(re.escape(word) for word in text.split())
+    head = r'(?<![A-Za-z0-9])' if text[:1].isascii() and text[:1].isalnum() else ''
+    tail = r'(?![A-Za-z0-9])' if text[-1:].isascii() and text[-1:].isalnum() else ''
+    return re.compile(head + body + tail, re.I)
+
+
 def compile_groups(groups):
-    return [[re.compile(pattern, re.I) for pattern in group] for group in groups]
+    """Each item becomes (date or None, pattern, source words). Regex labels are strings; direct labels are dicts."""
+    compiled = []
+    for group in groups:
+        items = []
+        for item in group:
+            if isinstance(item, dict):
+                items.append((item.get('date'), phrase_pattern(item['text']), item['text']))
+            else:
+                items.append((None, re.compile(item, re.I), item))
+        compiled.append(items)
+    return compiled
 
 
-def group_matches(group, text):
-    return any(pattern.search(text) for pattern in group)
+def group_matches(group, chunk):
+    """chunk is a chunk row (dict with text and date); a dated phrase only matches that day's notes."""
+    return any((date is None or date == chunk['date']) and pattern.search(chunk['text'])
+               for date, pattern, _source in group)
 
 
-def relevant(groups, text):
+def relevant(groups, chunk):
     """A chunk is relevant when ALL pattern groups match inside that one chunk."""
-    return bool(groups) and all(group_matches(group, text) for group in groups)
+    return bool(groups) and all(group_matches(group, chunk) for group in groups)
+
+
+def load_labels(path=LABELS):
+    """Direct labels: probe id -> evidence groups of {'date'?, 'text'} phrases copied from the chart."""
+    labels = json.loads(Path(path).read_text(encoding='utf-8'))['labels']
+    result = {}
+    for probe_id, label in labels.items():
+        groups = []
+        if not isinstance(label.get('evidence'), list) or not all(isinstance(g, list) for g in label['evidence']):
+            raise ValueError(f'{probe_id}: evidence must be a list of lists of phrases')
+        for group in label['evidence']:
+            items = []
+            for item in group:
+                item = item if isinstance(item, dict) else {'text': item}
+                if set(item) - {'text', 'date'} or not str(item.get('text', '')).strip():
+                    raise ValueError(f'{probe_id}: a label phrase needs non-blank text and at most a date')
+                if 'date' in item and not re.fullmatch(r'\d{4}-\d{2}-\d{2}', str(item['date'])):
+                    raise ValueError(f'{probe_id}: a label date must be YYYY-MM-DD')
+                items.append(item)
+            if not items:
+                raise ValueError(f'{probe_id}: an evidence group is empty')
+            groups.append(items)
+        if not groups:
+            raise ValueError(f'{probe_id}: no evidence')
+        result[probe_id] = groups
+    return result
 
 
 def load_facts():
@@ -468,8 +593,12 @@ def load_facts():
     return facts
 
 
-def load_probes(path=PROBES, facts=None):
+def load_probes(path=PROBES, facts=None, label_set='direct'):
+    """label_set 'direct' (round 2): relevance from labels.json; 'regex': round 1's fact pattern groups."""
+    if label_set not in LABEL_SETS:
+        raise ValueError(f'Unknown label set {label_set}')
     facts = load_facts() if facts is None else facts
+    direct = load_labels() if label_set == 'direct' else {}
     probes = json.loads(Path(path).read_text(encoding='utf-8'))['probes']
     seen, covered = set(), set()
     for probe in probes:
@@ -489,25 +618,30 @@ def load_probes(path=PROBES, facts=None):
     expected = {(patient, fact_id) for patient, items in facts.items() for fact_id in items}
     if covered != expected:
         raise ValueError(f'Probes must cover every labelled fact exactly; missing {sorted(expected - covered)}')
+    if label_set == 'direct':
+        if set(direct) != seen:
+            raise ValueError(f'labels.json must label every probe exactly; differs on {sorted(set(direct) ^ seen)}')
+        for probe in probes:
+            probe['groups'] = direct[probe['id']]
     return probes
 
 
 def prepare_probe(probe, chunks):
     """Resolve relevance against one patient's chunks (raw chart text, not the added prefix)."""
     groups = compile_groups(probe['groups'])
-    dropped = [i for i, group in enumerate(groups) if not any(group_matches(group, c['text']) for c in chunks)]
+    dropped = [i for i, group in enumerate(groups) if not any(group_matches(group, c) for c in chunks)]
     kept = [group for i, group in enumerate(groups) if i not in dropped]
-    ids = [c['id'] for c in chunks if relevant(kept, c['text'])]
+    ids = [c['id'] for c in chunks if relevant(kept, c)]
     return {'groups': kept, 'dropped_groups': [probe['groups'][i] for i in dropped],
             'relevant': ids, 'spans': bool(kept) and not ids, 'answerable': bool(kept)}
 
 
-def is_hit(prepared, top, texts):
+def is_hit(prepared, top, by_id):
     if not prepared['answerable']:
         return False
     if not prepared['spans']:
         return any(c in prepared['relevant'] for c in top)
-    return all(any(group_matches(group, texts[c]) for c in top) for group in prepared['groups'])
+    return all(any(group_matches(group, by_id[c]) for c in top) for group in prepared['groups'])
 
 
 def content_words(text):
@@ -517,14 +651,14 @@ def content_words(text):
 def classify_miss(probe, prepared, top, by_id):
     """Assign one plain-words reason to a miss (first matching rule wins)."""
     groups = prepared['groups']
-    texts = [by_id[c]['text'] for c in top]
-    covered = [any(group_matches(group, t) for t in texts) for group in groups]
+    covered = [any(group_matches(group, by_id[c]) for c in top) for group in groups]
     if prepared['spans']:
         return 'fact split across chunks'
     if probe['kind'] in ('negation', 'family') and covered and covered[0]:
         return 'lost heading/context'
-    drug_groups = [i for i, g in enumerate(groups) if any(DRUGS.search(p.pattern) for p in g)]
-    number_groups = [i for i, g in enumerate(groups) if any(re.search(r'\d', p.pattern) for p in g)]
+    # Judged on the label's own words: a direct phrase's pattern carries digits in its word-edge guard.
+    drug_groups = [i for i, g in enumerate(groups) if any(DRUGS.search(source) for _, _, source in g)]
+    number_groups = [i for i, g in enumerate(groups) if any(re.search(r'\d', source) for _, _, source in g)]
     if any(not covered[i] for i in drug_groups):
         return 'medication name'
     if number_groups:
@@ -545,8 +679,37 @@ def percentile(values, fraction):
 
 # ---------------------------------------------------------------- commands
 
-def db_path(model):
-    return OUT / f'{slug(model)}.sqlite'
+RESERVED_DIRS = frozenset({'r1', 'results', 'pylib', 'logs'})  # r1 is the '' folder's result tag
+
+
+def index_dir(name):
+    """'' is round 1's index folder (target/rag); a plain name such as 'r2' is a subfolder of it."""
+    if name and (not re.fullmatch(r'[a-z0-9-]{1,20}', name) or name in RESERVED_DIRS):
+        raise SafetyError('Index folder must be a short plain name such as r2 (not r1, results, pylib or logs)')
+    return OUT / name if name else OUT
+
+
+def db_path(model, folder=''):
+    return index_dir(folder) / f'{slug(model)}.sqlite'
+
+
+def reusable_vectors(model, folder, digest=None):
+    """embed_text -> stored vector from another index of the SAME model and prefix (round 1, say)."""
+    path = db_path(model, folder)
+    if not path.exists():
+        raise SystemExit(f'No index to reuse at {path}')
+    db, _backend = connect(path)
+    try:
+        if not (has_table(db, 'meta') and has_table(db, 'chunks') and has_table(db, 'vectors')):
+            raise SystemExit(f'{path} is not a trial index; cannot reuse its vectors')
+        meta = dict(db.execute('SELECT key, value FROM meta'))
+        if meta.get('model') != model or meta.get('document_prefix') != MODELS[model]['document']:
+            raise SystemExit(f'{path} was built for another model or prefix; cannot reuse its vectors')
+        if digest and meta.get('model_digest') not in (None, digest):
+            raise SystemExit(f'{path} was built with another build of {model}; cannot reuse its vectors')
+        return dict(db.execute('SELECT c.embed_text, v.embedding FROM chunks c JOIN vectors v ON v.chunk_id = c.id'))
+    finally:
+        db.close()
 
 
 def cmd_pull(args):
@@ -619,18 +782,21 @@ def cmd_index(args):
     if not set(patients) <= known:
         raise SafetyError('Patient scope names a fixture that is not in the committed corpus')
     # Number chunks over the WHOLE corpus so ids never depend on the chosen scope.
-    numbered = [(n, c) for n, c in enumerate(chunk_corpus(notes), 1) if c['patient_id'] in patients]
+    numbered = [(n, c) for n, c in enumerate(chunk_corpus(notes, args.form_fields), 1) if c['patient_id'] in patients]
     info = model_info(model)
     if info is None:
         raise RuntimeError(f'{model} is not pulled; run the pull subcommand first')
-    OUT.mkdir(parents=True, exist_ok=True)
-    path = db_path(model)
+    path = db_path(model, args.index_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    reuse = reusable_vectors(model, args.reuse_from, info.get('digest')) if args.reuse_from is not None else {}
     db, backend = connect(path)
     started = time.perf_counter()
     if has_table(db, 'chunks'):
         meta = dict(db.execute('SELECT key, value FROM meta'))
         if meta.get('model') != model or meta.get('document_prefix') != MODELS[model]['document']:
             raise SystemExit(f'{path} was built for another model or prefix; move it aside first')
+        if info.get('digest') and meta.get('model_digest') not in (None, info['digest']):
+            raise SystemExit(f'{path} was built with another build of {model}; move it aside first')
         stored = dict(db.execute('SELECT id, embed_text FROM chunks'))
         wanted = dict((n, c['embed_text']) for n, c in numbered)
         if any(n in stored and stored[n] != text for n, text in wanted.items()):
@@ -642,10 +808,26 @@ def cmd_index(args):
         new_rows = numbered
     done = {row[0] for row in db.execute('SELECT chunk_id FROM vectors')} if has_table(db, 'vectors') else set()
     missing = [(n, c) for n, c in numbered if n not in done]
+    # Chunks whose embedded text is unchanged keep the other index's vector: same model, same input.
+    copied = [(n, c) for n, c in missing if c['embed_text'] in reuse]
+    if copied:
+        if not has_table(db, 'chunks'):
+            create_schema(db, len(unpack(reuse[copied[0][1]['embed_text']])), use_vec)
+            db.executemany('INSERT INTO meta VALUES (?,?)',
+                           [('model', model), ('document_prefix', MODELS[model]['document'])])
+            if info.get('digest'):
+                db.execute("INSERT OR REPLACE INTO meta VALUES ('model_digest', ?)", (info['digest'],))
+        create_schema(db, len(unpack(reuse[copied[0][1]['embed_text']])), use_vec)
+        insert_chunks(db, new_rows)
+        new_rows = []
+        for number, chunk in copied:
+            insert_vector(db, number, chunk['patient_id'], unpack(reuse[chunk['embed_text']]), use_vec)
+        db.commit()
+        missing = [(n, c) for n, c in missing if c['embed_text'] not in reuse]
     todo = missing[:max(0, args.max_chunks)]
     print(f'{model}: scope {patients[0]}..{patients[-1]} ({len(patients)} patients, {len(numbered)} chunks); '
-          f'{len(missing)} still to embed, embedding {len(todo)} now; backend {backend if use_vec else "python"}',
-          flush=True)
+          f'{len(copied)} vectors reused unchanged; {len(missing)} still to embed, embedding {len(todo)} now; '
+          f'backend {backend if use_vec else "python"}', flush=True)
 
     embed_seconds, first_batch, steady_n, steady_s, loaded = 0.0, None, 0, 0.0, None
     for offset in range(0, len(todo), BATCH):
@@ -661,8 +843,11 @@ def cmd_index(args):
                 create_schema(db, len(vectors[0]), use_vec)
                 db.executemany('INSERT INTO meta VALUES (?,?)',
                                [('model', model), ('document_prefix', MODELS[model]['document'])])
+                if info.get('digest'):
+                    db.execute("INSERT OR REPLACE INTO meta VALUES ('model_digest', ?)", (info['digest'],))
             create_schema(db, len(vectors[0]), use_vec)  # adds any table an older file lacks
             insert_chunks(db, new_rows)
+            new_rows = []
         else:
             steady_n += len(batch)
             steady_s += elapsed
@@ -686,7 +871,7 @@ def cmd_index(args):
     db.close()
     stats['db_bytes'] = path.stat().st_size
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f'{slug(model)}-index.json').write_text(json.dumps(stats, indent=2) + '\n')
+    (RESULTS / f"{slug(model)}-{args.index_dir or 'r1'}-index.json").write_text(json.dumps(stats, indent=2) + '\n')
     print(json.dumps(stats, indent=2))
 
 
@@ -697,7 +882,6 @@ def evaluate_db(db, model, probes, query_vectors, use_vec, embed_latency=None):
     per_patient = {}
     for row in rows:
         per_patient.setdefault(row['patient_id'], []).append(row)
-    texts = {row['id']: row['text'] for row in rows}
     prepared = {p['id']: prepare_probe(p, per_patient[p['patient']]) for p in probes}
     results = {mode: [] for mode in MODES}
     latency = {mode: [] for mode in MODES}
@@ -710,13 +894,19 @@ def evaluate_db(db, model, probes, query_vectors, use_vec, embed_latency=None):
             latency[mode].append(time.perf_counter() - tick)
             entry = {'probe': probe['id'], 'patient': probe['patient'], 'kind': probe['kind'],
                      'answerable': prep['answerable'], 'spans': prep['spans'],
-                     'hit@8': is_hit(prep, top, texts), 'hit@3': is_hit(prep, top[:3], texts),
+                     'hit@8': is_hit(prep, top, by_id), 'hit@3': is_hit(prep, top[:3], by_id),
                      'top3': [f"{by_id[c]['date']} {by_id[c]['heading']}" for c in top[:3]]}
             if probe['kind'] != 'fact' and entry['hit@8'] and not prep['spans']:
                 found = next(c for c in top if c in prep['relevant'])
                 pattern = re.compile(probe['context_pattern'], re.I)
                 entry['context_kept'] = bool(pattern.search(by_id[found]['embed_text']))
                 entry['context_in_raw_text'] = bool(pattern.search(by_id[found]['text']))
+            if mode == 'vector' and prep['answerable']:
+                # How deep the vector ranking must go before the probe counts as found (None = never).
+                ranked = search(db, probe['patient'], 'vector', query_vector=query_vectors[probe['id']],
+                                limit=len(per_patient[probe['patient']]), use_vec=use_vec)
+                entry['rank_needed'] = next((k for k in range(1, len(ranked) + 1)
+                                             if is_hit(prep, ranked[:k], by_id)), None)
             if prep['answerable'] and not entry['hit@8']:
                 entry['miss_kind'] = classify_miss(probe, prep, top, by_id)
                 entry['question'] = probe['question']
@@ -725,7 +915,7 @@ def evaluate_db(db, model, probes, query_vectors, use_vec, embed_latency=None):
                 else:
                     expected = []
                     for group in prep['groups']:
-                        first = next((r for r in per_patient[probe['patient']] if group_matches(group, r['text'])), None)
+                        first = next((r for r in per_patient[probe['patient']] if group_matches(group, r)), None)
                         if first:
                             expected.append(f"{first['date']} {first['heading']} (part)")
                 entry['expected'] = list(dict.fromkeys(expected))[:3]
@@ -747,6 +937,9 @@ def evaluate_db(db, model, probes, query_vectors, use_vec, embed_latency=None):
         block['context_kept'] = {'checked': len(context), 'kept': sum(e['context_kept'] for e in context),
                                  'in_raw_text': sum(e['context_in_raw_text'] for e in context)}
         block['misses_by_kind'] = {kind: sum(1 for e in entries if e.get('miss_kind') == kind) for kind in MISS_KINDS}
+        if mode == 'vector':
+            block['recall_at'] = {str(k): round(sum(1 for e in entries if e['rank_needed'] and e['rank_needed'] <= k)
+                                                / len(entries), 3) for k in RECALL_KS}
         block['search_ms_median'] = round(1000 * statistics.median(latency[mode]), 3)
         block['search_ms_p95'] = round(1000 * percentile(latency[mode], 0.95), 3)
         summary[mode] = block
@@ -779,9 +972,13 @@ GENERIC_QUESTIONS = ['What medicines is the patient on?', 'What was the main dia
                      'Is there any family history of illness?']
 
 
+def result_tag(args):
+    return f"{args.index_dir or 'r1'}-{args.labels}"
+
+
 def cmd_evaluate(args):
     model = args.model
-    path = db_path(model)
+    path = db_path(model, args.index_dir)
     if not path.exists():
         raise SystemExit(f'Index {path} missing; run index first')
     db, backend = connect(path)
@@ -792,7 +989,7 @@ def cmd_evaluate(args):
     patients = {row[0] for row in db.execute('SELECT DISTINCT patient_id FROM chunks')}
     if not all(PATIENT_ID.fullmatch(p) for p in patients):
         raise SafetyError('Index holds a non-synthetic patient id')
-    probes = load_probes()
+    probes = load_probes(label_set=args.labels)
     unembedded = db.execute('SELECT COUNT(*) FROM chunks WHERE id NOT IN (SELECT chunk_id FROM vectors)').fetchone()[0]
     if unembedded or not {p['patient'] for p in probes} <= patients:
         raise SystemExit(f'Index incomplete ({unembedded} chunks without vectors, or probe patients missing); '
@@ -814,23 +1011,31 @@ def cmd_evaluate(args):
     result['index'] = index_stats(db, model)
     result['index']['db_bytes'] = path.stat().st_size
     result['evaluated_on'] = date.today().isoformat()
+    result['tag'] = result_tag(args)
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / f'{slug(model)}-eval.json').write_text(json.dumps(result, indent=2) + '\n')
+    (RESULTS / f'{slug(model)}-{result_tag(args)}-eval.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({'model': model, 'backend': result['backend'], 'summary': {
         mode: {k: result['summary'][mode][k] for k in ('all', 'fact', 'negation', 'family', 'context_kept')}
         for mode in MODES}, 'isolation': result['isolation']}, indent=2))
 
 
-def cmd_report(_args):
-    rows, speed, misses = [], [], []
+def cmd_report(args):
+    if not re.fullmatch(r'[a-z0-9-]{1,40}', args.tag):
+        raise SafetyError('Report tag must be a short plain name such as r2-direct')
+    rows, speed, misses, depth = [], [], [], []
     labels = None
     for model in MODELS:
-        path = RESULTS / f'{slug(model)}-eval.json'
+        path = RESULTS / f'{slug(model)}-{args.tag}-eval.json'
         if not path.exists():
             continue
         result = json.loads(path.read_text())
         labels = result['labels']
         index = result['index'] or {}
+        recall_at = result['summary']['vector'].get('recall_at')
+        if recall_at:
+            needed = {e['probe']: e.get('rank_needed') for e in result['details']['vector']}
+            depth.append(f"| {model} | " + ' | '.join(f'{recall_at[str(k)]:.2f}' for k in RECALL_KS) + ' | '
+                         + ' | '.join(str(needed.get(p)) for p in FORM_FIELD_PROBES) + ' |')
         for mode in MODES:
             s = result['summary'][mode]
             ctx = s['context_kept']
@@ -851,12 +1056,17 @@ def cmd_report(_args):
                      f"{result['query_embed_ms']['median']} / {result['query_embed_ms']['p95']} ms | "
                      f"{iso['search_ms_median']['vector']} / {iso['search_ms_median']['keyword']} / "
                      f"{iso['search_ms_median']['hybrid']} ms | {(index.get('db_bytes') or 0) / 1e6:.1f} MB |")
-    out = ['# RAG retrieval trial: generated tables', '',
+    out = [f'# RAG retrieval trial: generated tables ({args.tag})', '',
            '| Model | Mode | recall@8 | recall@3 | facts @8/@3 | negation @8/@3 | family @8/@3 | context kept |',
            '|---|---|---|---|---|---|---|---|', *rows, '',
            '| Model | Size | Disk | Dims | Chunks embedded (timed) | Chunks/s | First batch (load) | '
            'Query embed median/p95 | Search median vec/kw/hybrid | Index file |',
            '|---|---|---|---|---|---|---|---|---|---|', *speed, '']
+    if depth:
+        out += ['Vector search scored deeper (recall at k), and how deep it must go for the two form-field facts:', '',
+                '| Model | ' + ' | '.join(f'@{k}' for k in RECALL_KS) + ' | '
+                + ' | '.join(f'{p} rank' for p in FORM_FIELD_PROBES) + ' |',
+                '|---|' + '---|' * (len(RECALL_KS) + len(FORM_FIELD_PROBES)), *depth, '']
     if labels:
         out += [f"Probes: {labels['probes']} ({labels['by_kind']}); spans chunks: {len(labels['spans_chunks'])} "
                 f"{labels['spans_chunks']}; unanswerable: {labels['unanswerable']}; "
@@ -868,7 +1078,7 @@ def cmd_report(_args):
                    f"{'; '.join(entry['expected'])} | {'; '.join(entry['top3'])} |")
     text = '\n'.join(out) + '\n'
     RESULTS.mkdir(parents=True, exist_ok=True)
-    (RESULTS / 'report.md').write_text(text)
+    (RESULTS / f'report-{args.tag}.md').write_text(text)
     print(text)
 
 
@@ -883,7 +1093,19 @@ def main(argv=None):
                                  help='NHSSYN### range or comma list (default %(default)s)')
             command.add_argument('--max-chunks', type=int, default=400,
                                  help='embed at most this many chunks per call, then stop (default %(default)s)')
-    sub.add_parser('report')
+            command.add_argument('--form-fields', default='label', choices=FORM_FIELD_MODES,
+                                 help='a block of short form fields: relabel it, or split it per field '
+                                      '(default %(default)s)')
+            command.add_argument('--reuse-from', metavar='FOLDER',
+                                 help="copy vectors for unchanged chunks from that index folder ('' = round 1)")
+        if name in ('index', 'evaluate'):
+            command.add_argument('--index-dir', default='', metavar='FOLDER',
+                                 help="index subfolder of target/rag, e.g. r2 ('' = round 1, the default)")
+        if name == 'evaluate':
+            command.add_argument('--labels', default='direct', choices=LABEL_SETS,
+                                 help='relevance labels: direct (labels.json) or regex (round 1) (default %(default)s)')
+    report = sub.add_parser('report')
+    report.add_argument('--tag', default='r2-direct', help='which results to tabulate, e.g. r1-regex')
     args = parser.parse_args(argv)
     {'pull': cmd_pull, 'index': cmd_index, 'evaluate': cmd_evaluate, 'report': cmd_report}[args.command](args)
 
