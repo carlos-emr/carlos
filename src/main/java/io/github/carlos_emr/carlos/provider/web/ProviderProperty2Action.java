@@ -119,6 +119,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ProviderProperty2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String TICKLER_DEFAULT = "default";
+    private static final String TICKLER_PROVIDER = "provider";
+    private static final String PROVIDER_CLOSE_LABEL = "providerbtnClose";
 
     /** Shared, thread-safe ObjectMapper (safe after configuration). */
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -1828,10 +1831,10 @@ public class ProviderProperty2Action extends ActionSupport {
 
         UserProperty ticklerTaskAssignee = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
         String savedValue = ticklerTaskAssignee == null ? null : ticklerTaskAssignee.getValue();
-        String defaultTo = "default";
-        if (StringUtils.isNotBlank(savedValue) && !"default".equals(savedValue)) {
-            defaultTo = "mrp".equals(savedValue) ? "mrp" : "provider";
-            if ("provider".equals(defaultTo)) {
+        String defaultTo = TICKLER_DEFAULT;
+        if (StringUtils.isNotBlank(savedValue) && !TICKLER_DEFAULT.equals(savedValue)) {
+            defaultTo = "mrp".equals(savedValue) ? "mrp" : TICKLER_PROVIDER;
+            if (TICKLER_PROVIDER.equals(defaultTo)) {
                 request.setAttribute("selectedProvider", savedValue);
             }
         }
@@ -1884,11 +1887,11 @@ public class ProviderProperty2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String choice = request.getParameter("taskAssigneeMRP.value");
         String value;
-        if ("default".equals(choice)) {
+        if (TICKLER_DEFAULT.equals(choice)) {
             value = null;
         } else if ("mrp".equals(choice)) {
             value = "mrp";
-        } else if ("provider".equals(choice)) {
+        } else if (TICKLER_PROVIDER.equals(choice)) {
             value = request.getParameter("taskAssigneeSelection.value");
             ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
             Provider assignee = StringUtils.isBlank(value) ? null : providerDao.getProvider(value);
@@ -1899,6 +1902,18 @@ public class ProviderProperty2Action extends ActionSupport {
             return invalidTicklerAssignee();
         }
 
+        persistTicklerAssignee(providerNo, value);
+        request.setAttribute("status", "success");
+        return "complete";
+    }
+
+    /**
+     * Stores a validated preference or removes it when Default was selected.
+     *
+     * @param providerNo authenticated owner of the preference
+     * @param value validated provider/MRP value, or null for Default
+     */
+    private void persistTicklerAssignee(String providerNo, String value) {
         UserProperty property = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
         if (value == null) {
             if (property != null && property.getId() != null) {
@@ -1913,8 +1928,6 @@ public class ProviderProperty2Action extends ActionSupport {
             property.setValue(value);
             userPropertyDAO.saveProp(property);
         }
-        request.setAttribute("status", "success");
-        return "complete";
     }
 
     /**
@@ -2257,7 +2270,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("hideOldEchartLinkInApptProperty", prop);
         request.setAttribute("providertitle", "provider.hideOldEchartLinkInAppt.title"); //=Hide Old Echart Link in Appointment
         request.setAttribute("providermsgPrefs", "provider.hideOldEchartLinkInAppt.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.hideOldEchartLinkInAppt.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.hideOldEchartLinkInAppt.msgSuccess_selected"); //=Old Echart Link Hidden in Appointment
         else
@@ -2323,7 +2336,7 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("dashboardShareProperty", prop);
         request.setAttribute("providertitle", "provider.dashboardPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.dashboardPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.dashboardPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.dashboardPrefs.btnClose"); //=Close
         if (checked)
             request.setAttribute("providermsgSuccess", "provider.dashboardPrefs.msgSuccess_selected");
         else
@@ -2519,7 +2532,7 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("providertitle", "provider.preventionPrefs.title");
         request.setAttribute("providermsgPrefs", "provider.preventionPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.preventionPrefs.btnClose"); //=Close
+        request.setAttribute(PROVIDER_CLOSE_LABEL, "provider.preventionPrefs.btnClose"); //=Close
 
         request.setAttribute("method", "savePreventionPrefs");
 

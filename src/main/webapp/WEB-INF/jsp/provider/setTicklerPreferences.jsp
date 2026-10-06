@@ -147,7 +147,7 @@
                         </div>
 
                         <div style="display:none;" id="taskAssigneeProviderContainer">
-                            <span><fmt:message key="provider.setTicklerPreferences.providerDescription"/></span>
+                            <label for="assigneeSelect"><fmt:message key="provider.setTicklerPreferences.providerDescription"/></label>
                             <br>
                             <select id="assigneeSelect" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key='admin.jobs.choose'/>">
                                 <c:forEach var="provider" items="${providerSelect}">

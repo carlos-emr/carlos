@@ -83,6 +83,8 @@ async function workflow(s) {
     const settings = await openPreferenceForm('tickler-preferences');
     await settings.locator('#taskAssigneeProvider').check();
     const select = settings.locator('#assigneeSelect');
+    h.assert(await settings.locator('label[for="assigneeSelect"]').isVisible(),
+      'The provider selector has no visible associated label');
     await select.waitFor({ state: 'visible' });
     await select.selectOption(otherNo);
     h.assert(await settings.locator('#taskAssignee').inputValue() === otherNo, 'Choosing a provider did not stage it for submission');
