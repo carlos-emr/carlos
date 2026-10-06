@@ -151,6 +151,45 @@ async function workflow(s) {
     await reopened.close();
   });
 
+  await s.step('two first-time saves from separate preference windows leave one effective value', async () => {
+    h.assert(preferenceRows() === '0', 'The concurrent first-save fixture must start without a preference');
+    const first = await openPreferenceForm('tickler-preferences-first-save-a');
+    const second = await openPreferenceForm('tickler-preferences-first-save-b');
+    await first.locator('#taskAssigneeMRP').check();
+    await second.locator('#taskAssigneeProvider').check();
+    await second.locator('#assigneeSelect').selectOption(otherNo);
+    await Promise.all([
+      ui.clickAndAwaitReload(first, first.locator('form input[type="submit"]'), { label: 'first concurrent preference Submit' }),
+      ui.clickAndAwaitReload(second, second.locator('form input[type="submit"]'), { label: 'second concurrent preference Submit' }),
+    ]);
+    await first.locator('#AlertBanner').waitFor({ state: 'visible' });
+    await second.locator('#AlertBanner').waitFor({ state: 'visible' });
+    h.assert(preferenceRows() === '1' && ['mrp', otherNo].includes(storedPreference()),
+      'Concurrent saves created duplicate preferences or lost both writes');
+    await first.close();
+    await second.close();
+    const reopened = await openPreferenceForm('tickler-preferences-concurrent-reopen');
+    const selected = storedPreference() === 'mrp' ? '#taskAssigneeMRP' : '#taskAssigneeProvider';
+    h.assert(await reopened.locator(selected).isChecked(), 'Reopening did not show the effective concurrent-save result');
+    await reopened.close();
+  });
+
+  await s.step('Default removes all historical duplicate rows for the owned preference', async () => {
+    sql.execute(`INSERT INTO property(provider_no,name,value) VALUES
+      (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},'mrp'),
+      (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},${h.sqlString(otherNo)})`);
+    h.assert(Number(preferenceRows()) === 3, 'Historical duplicate fixture did not contain three rows');
+    const settings = await openPreferenceForm('tickler-preferences-duplicate-reset');
+    await settings.locator('#taskAssigneeDefault').check();
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'duplicate preference Default Submit' });
+    await settings.locator('#AlertBanner').waitFor({ state: 'visible' });
+    h.assert(preferenceRows() === '0', 'Default left a stale duplicate preference');
+    await settings.close();
+    const reopened = await openPreferenceForm('tickler-preferences-duplicate-reset-reopen');
+    h.assert(await reopened.locator('#taskAssigneeDefault').isChecked(), 'Default did not remain selected after removing duplicates');
+    await reopened.close();
+  });
+
   await s.step('a GET against setTicklerPreferences is refused and does not change the stored preference', async () => {
     const before = `${preferenceRows()}:${storedPreference()}`;
     const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
