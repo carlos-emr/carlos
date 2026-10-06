@@ -674,12 +674,12 @@
                                                                                             <c:choose>
                                                                                                 <c:when test="${ patientConsent.optout }">
                                                                                                     <span class="info"
-                                                                                                          style="color:red;"> Opted Out:${carlos:forHtml(patientConsent.optoutDate)}</span>
+                                                                                                          style="color:red;"> <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"/>:${carlos:forHtml(patientConsent.optoutDate)}</span>
                                                                                                 </c:when>
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;">Consented:${carlos:forHtml(patientConsent.consentDate)}</span>
+                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"/>:${carlos:forHtml(patientConsent.consentDate)}</span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 
