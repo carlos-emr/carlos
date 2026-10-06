@@ -209,7 +209,25 @@ public class Tickler extends AbstractModel<Integer> {
 
     /** MariaDB TEXT capacity is measured in encoded bytes, not Java characters. */
     public static boolean isMessageWithinStorageLimit(String message) {
-        return message == null || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= MESSAGE_MAX_UTF8_BYTES;
+        if (message == null) return true;
+        int bytes = 0;
+        for (int i = 0; i < message.length(); i++) {
+            char ch = message.charAt(i);
+            int width;
+            if (ch <= 0x7f) width = 1;
+            else if (ch <= 0x7ff) width = 2;
+            else if (Character.isHighSurrogate(ch) && i + 1 < message.length()
+                    && Character.isLowSurrogate(message.charAt(i + 1))) {
+                width = 4;
+                i++;
+            } else if (Character.isSurrogate(ch)) {
+                // String.getBytes(UTF_8) replaces each malformed surrogate with one '?'.
+                width = 1;
+            } else width = 3;
+            if (bytes > MESSAGE_MAX_UTF8_BYTES - width) return false;
+            bytes += width;
+        }
+        return true;
     }
 
     public STATUS getStatus() {
