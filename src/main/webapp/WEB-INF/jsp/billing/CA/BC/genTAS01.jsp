@@ -188,8 +188,7 @@
             	    account = result.getOfficeNo();            	                	  
       %>
         <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
-        <t                    
-r>
+        <tr>
             <td width="10%" height="16"><a
                     href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
             </a>&nbsp;
