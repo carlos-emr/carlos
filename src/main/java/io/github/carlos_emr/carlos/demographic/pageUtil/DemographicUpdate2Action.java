@@ -135,6 +135,14 @@ public class DemographicUpdate2Action extends ActionSupport {
             return ERROR;
         }
 
+        List<String> identityFieldErrors = Demographic.validateIdentityFieldLengths(
+                request.getParameter("nameUsed"), request.getParameter("pronouns"), request.getParameter("gender"));
+        if (!identityFieldErrors.isEmpty()) {
+            request.setAttribute("fieldLengthValidationErrors", identityFieldErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
+        }
+
         Demographic demographic = demographicDao.getDemographic(demoNo);
         if (demographic == null) {
             logger.warn("DemographicUpdate2Action: demographic_no={} not found", demoNo);

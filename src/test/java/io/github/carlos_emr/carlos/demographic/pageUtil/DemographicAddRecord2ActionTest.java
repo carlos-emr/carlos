@@ -32,6 +32,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -139,4 +141,17 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
+    @ParameterizedTest
+    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter(field, "X".repeat(length));
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+    }
+
 }

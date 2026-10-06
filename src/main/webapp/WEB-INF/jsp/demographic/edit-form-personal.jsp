@@ -343,7 +343,7 @@
                                                         <td align="right"><b><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:
                                                         </b></td>
                                                         <td align="left"><input type="text"
-                                                                                name="nameUsed" <%=getDisabled("nameUsed")%>
+                                                                                name="nameUsed" maxlength="<%=Demographic.PREF_NAME_MAX_LENGTH%>" <%=getDisabled("nameUsed")%>
                                                                                 size="30"
                                                                                 value="<carlos:encode value='<%= demographic.getAlias() %>' context="htmlAttribute"/>"
                                                                                 onBlur="upCaseCtrl(this)"></td>
@@ -351,7 +351,7 @@
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientPronouns" name="pronouns"
+                                                            <input type="text" id="patientPronouns" name="pronouns" maxlength="<%=Demographic.PRONOUN_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getPronoun()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>
@@ -1045,7 +1045,7 @@
                                                             <strong><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></strong>
                                                         </td>
                                                         <td style="text-align: left;">
-                                                            <input type="text" id="patientGender" name="gender"
+                                                            <input type="text" id="patientGender" name="gender" maxlength="<%=Demographic.GENDER_MAX_LENGTH%>"
                                                                    value="<carlos:encode value='<%= StringUtils.trimToEmpty(demographic.getGender()) %>' context="htmlAttribute"/>"/>
                                                         </td>
                                                     </tr>

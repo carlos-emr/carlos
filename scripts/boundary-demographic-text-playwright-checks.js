@@ -20,6 +20,7 @@ const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 const TIMEOUT = 30000;
 
@@ -103,6 +104,10 @@ async function workflow(s) {
     await add.locator('#editBtn').click();
     await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
     const shown = async (name) => add.locator(`#editDemographic [name="${name}"]`).first().inputValue();
+    for (const [input, column] of [['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']]) {
+      const limit = await add.locator(`#editDemographic [name="${input}"]`).getAttribute('maxlength');
+      h.assert(Number(limit) === b.columnLength(sql, 'demographic', column), `Edit form ${input} has an incorrect limit`);
+    }
     const wrong = [];
     for (const [input, value] of [['last_name', stored.last_name], ['first_name', stored.first_name], ['middleNames', stored.middleNames],
       ['address', typed.address], ['city', typed.city], ['phoneComment', typed.comment]]) {
@@ -157,28 +162,66 @@ async function workflow(s) {
     await add.close();
   });
 
-  await s.step('preferred name, pronoun and gender past their columns are refused or stored whole', async () => {
-    const pref = b.columnLength(sql, 'demographic', 'pref_name');
-    const pron = b.columnLength(sql, 'demographic', 'pronoun');
-    const gender = b.columnLength(sql, 'demographic', 'gender');
-    const prefOver = b.exactly(pref + 1, 'P');
-    const pronOver = b.exactly(pron + 1, 'q');
-    const genderOver = b.exactly(gender + 1, 'g');
+  await s.step('preferred name, pronoun and gender are visibly limited and stored exactly as displayed', async () => {
     add = await openAddForm(s, tag + 'Q');
     const form = await fillBasics(add, tag + 'Q', 'Wide');
-    await form.locator('input[name="nameUsed"]').fill(prefOver);
-    await form.locator('input[name="pronouns"]').fill(pronOver);
-    await form.locator('input[name="gender"]').fill(genderOver);
-    await submitAdd(add);
-    const problems = [];
-    for (const [column, typedValue, uppercase] of [['pref_name', prefOver, true], ['pronoun', pronOver, false], ['gender', genderOver, false]]) {
-      try {
-        b.assertNotSilentlyTruncated(sql, 'demographic', column, where('Q'), uppercase ? typedValue.toUpperCase() : typedValue, `Add form ${column}`);
-      } catch (error) { problems.push(error.message); }
+    const accepted = [];
+    for (const [input, column, prefix] of [['nameUsed', 'pref_name', 'P'], ['pronouns', 'pronoun', 'q'], ['gender', 'gender', 'g']]) {
+      const limit = b.columnLength(sql, 'demographic', column);
+      const box = form.locator(`input[name="${input}"]`);
+      await box.fill(b.exactly(limit + 1, prefix));
+      const value = await box.inputValue();
+      h.assert(b.cpLength(value) === limit, `${input} did not visibly enforce its column limit`);
+      accepted.push([column, value]);
     }
-    await add.close();
-    h.assert(problems.length === 0, problems.join(' || '));
+    await submitAdd(add);
+    for (const [column, value] of accepted) {
+      b.assertStored(sql, 'demographic', column, where('Q'), value, `Displayed add form ${column}`);
+    }
   });
+
+  await s.step('an overlong update is refused without changing any submitted patient fields', async () => {
+    const before = sql.value(`SELECT CONCAT(HEX(pref_name),'|',HEX(city)) FROM demographic WHERE ${where('Q')}`);
+    await add.getByRole('link', { name: /Go to record/i }).first().click();
+    await add.locator('#editBtn').click();
+    await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
+    const preferred = add.locator('#editDemographic [name="nameUsed"]');
+    await preferred.evaluate(element => element.removeAttribute('maxlength'));
+    await preferred.fill('P'.repeat(31));
+    await add.locator('#editDemographic [name="city"]').fill('MUST NOT BE SAVED');
+    const mark = failureMark(s.recorder);
+    const responsePromise = add.waitForResponse(response => response.request().method() === 'POST'
+      && h.pathOnly(response.url()).endsWith('/demographic/DemographicUpdate'));
+    await ui.clickAndAwaitReload(add, add.locator('#updateButton input[type="submit"]').first(), { timeout: TIMEOUT, label: 'Overlong Update Record' });
+    const response = await responsePromise;
+    h.assert(response.status() === 400, `Overlong update answered HTTP ${response.status()} instead of 400`);
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/demographic\/DemographicUpdate$/ });
+    h.assert(sql.value(`SELECT CONCAT(HEX(pref_name),'|',HEX(city)) FROM demographic WHERE ${where('Q')}`) === before,
+      'A refused update still changed the patient record');
+    h.assert((await add.locator('body').innerText()).includes('maximum length'), 'The update refusal did not explain the field limit');
+    await add.close();
+  });
+
+  for (const [input, column, suffix] of [['nameUsed', 'pref_name', 'P'], ['pronouns', 'pronoun', 'R'], ['gender', 'gender', 'G']]) {
+    await s.step(`the server refuses overlong ${input} when its client limit is bypassed`, async () => {
+      add = await openAddForm(s, tag + suffix);
+      const form = await fillBasics(add, tag + suffix, 'Bypass');
+      const box = form.locator(`input[name="${input}"]`);
+      await box.evaluate(element => element.removeAttribute('maxlength'));
+      await box.fill(b.exactly(b.columnLength(sql, 'demographic', column) + 1, 'X'));
+      const mark = failureMark(s.recorder);
+      const responsePromise = add.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/demographic/DemographicAddRecord'));
+      await submitAdd(add);
+      const response = await responsePromise;
+      h.assert(response.status() === 400, `Overlong ${input} answered HTTP ${response.status()} instead of 400`);
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/demographic\/DemographicAddRecord$/ });
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE ${where(suffix)}`) === '0',
+        `A refused ${input} request still created a patient`);
+      h.assert((await add.locator('body').innerText()).includes('maximum length'), 'The refusal did not explain the field limit');
+      await add.close();
+    });
+  }
 
   await s.step('the add form limits agree with the database columns', async () => {
     h.assert(limitMismatches.length === 0, `Add form limits disagree with the database columns: ${limitMismatches.join('; ')}`);

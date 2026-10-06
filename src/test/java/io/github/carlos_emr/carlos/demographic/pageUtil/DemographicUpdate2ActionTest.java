@@ -188,4 +188,26 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
+    @ParameterizedTest
+    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter(field, "X".repeat(length));
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        addRequestParameter("demographic_no", "123");
+        Demographic original = new Demographic(123);
+        original.setLastName("Preserved");
+        original.setPrefName("Existing");
+        when(mockDemographicDao.getDemographic("123")).thenReturn(original);
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+        assertThat(original.getLastName()).isEqualTo("Preserved");
+        assertThat(original.getPrefName()).isEqualTo("Existing");
+        verify(mockDemographicDao, never()).getDemographic("123");
+    }
+
 }
