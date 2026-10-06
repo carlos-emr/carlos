@@ -15,6 +15,83 @@ function git(source, args) {
     { maxBuffer: 32 * 1024 * 1024 });
 }
 
+function sourceTree(source, sha) {
+  if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid source commit.');
+  const raw = git(source, ['ls-tree', '-r', '-l', '-z', sha]);
+  const text = raw.toString('utf8');
+  if (!Buffer.from(text).equals(raw)) throw new Error('Source paths must use UTF-8.');
+  const entries = new Map();
+  for (const row of text.split('\0').filter(Boolean)) {
+    const match = /^(\d{6}) (blob|commit) ([a-f0-9]{40}) +([0-9]+|-)\t([\s\S]+)$/.exec(row);
+    if (!match) throw new Error('Invalid source tree metadata.');
+    const [, mode, type, hash, size, name] = match;
+    if (type === 'commit') throw new Error('Submodules are not supported; refusing an incomplete source snapshot.');
+    if (!['100644', '100755', '120000'].includes(mode) || /[\\\x00-\x1f\x7f]/.test(name) ||
+        name.startsWith('/') || name.split('/').some(x => !x || x === '.' || x === '..' || x.toLowerCase() === '.git') ||
+        entries.has(name)) throw new Error('Unsafe source tree entry.');
+    entries.set(name, { mode, type, hash, size: Number(size) });
+  }
+  return entries;
+}
+
+function snapshot(source, root, sha) {
+  const entries = sourceTree(source, sha);
+  if ([...entries.values()].reduce((sum, entry) => sum + entry.size, 0) > 2 * 1024 ** 3) {
+    throw new Error('Source snapshot exceeds the 2 GiB limit.');
+  }
+  fs.mkdirSync(root, { recursive: true });
+  if (!fs.lstatSync(root).isDirectory() || fs.readdirSync(root).length) throw new Error('Snapshot destination must be an empty directory.');
+  // Raw Git objects bypass export-ignore/export-subst, checkout filters and hooks.
+  // Spool outside the agent mount so large repositories do not fill host memory.
+  const spool = fs.mkdtempSync(path.join(path.dirname(root), 'opencode-blobs-'));
+  const fd = fs.openSync(path.join(spool, 'objects'), 'wx+', 0o600);
+  try {
+    execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-C', source, 'cat-file', '--batch'], {
+      input: [...entries.values()].map(entry => entry.hash + '\n').join(''), stdio: ['pipe', fd, 'pipe'], timeout: 120000,
+    });
+    let position = 0;
+    const read = bytes => {
+      let offset = 0;
+      while (offset < bytes.length) {
+        const count = fs.readSync(fd, bytes, offset, bytes.length - offset, position);
+        if (!count) throw new Error('Incomplete source object stream.');
+        position += count; offset += count;
+      }
+      return bytes;
+    };
+    const byte = Buffer.alloc(1), block = Buffer.alloc(1024 * 1024);
+    for (const [name, entry] of entries) {
+      let header = '';
+      while (read(byte)[0] !== 10) {
+        header += byte.toString();
+        if (header.length > 100) throw new Error('Invalid source object header.');
+      }
+      if (header !== `${entry.hash} blob ${entry.size}`) throw new Error('Source object metadata mismatch.');
+      const target = path.join(root, name);
+      let parent = root;
+      for (const segment of name.split('/').slice(0, -1)) {
+        parent = path.join(parent, segment);
+        try { fs.mkdirSync(parent); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+        if (!fs.lstatSync(parent).isDirectory()) throw new Error('Unsafe source parent path.');
+      }
+      if (entry.mode === '120000') {
+        if (entry.size > 4096) throw new Error('Source symlink is too large.');
+        fs.symlinkSync(read(Buffer.alloc(entry.size)), target);
+      } else {
+        const out = fs.openSync(target, 'wx', entry.mode === '100755' ? 0o755 : 0o644);
+        try {
+          for (let left = entry.size; left > 0;) {
+            const chunk = read(block.subarray(0, Math.min(left, block.length)));
+            fs.writeFileSync(out, chunk); left -= chunk.length;
+          }
+        } finally { fs.closeSync(out); }
+      }
+      if (read(byte)[0] !== 10) throw new Error('Invalid source object boundary.');
+    }
+    if (position !== fs.fstatSync(fd).size) throw new Error('Unexpected extra source object data.');
+  } finally { fs.closeSync(fd); fs.rmSync(spool, { recursive: true, force: true }); }
+}
+
 async function install(dir) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, pin, member] of [['opencode', runtime, 'opencode'], ['rg', runtime.ripgrep, runtime.ripgrep.member]]) {
@@ -31,11 +108,7 @@ async function install(dir) {
 }
 
 function collect(source, work, sha) {
-  const baseline = new Map(git(source, ['ls-tree', '-r', '-z', sha]).toString('utf8').split('\0').filter(Boolean).map(row => {
-    const [meta, name] = row.split('\t');
-    const [mode, type, hash] = meta.split(' ');
-    return [name, { mode, type, hash }];
-  }));
+  const baseline = sourceTree(source, sha);
   const other = git(source, ['--work-tree=' + work, 'ls-files', '--others', '--exclude-standard', '-z']).toString('utf8').split('\0').filter(Boolean);
   const names = new Set([...baseline.keys(), ...other]);
   const files = [];
@@ -56,7 +129,6 @@ function collect(source, work, sha) {
       if (before?.mode === '120000' && p.blobHash(Buffer.from(fs.readlinkSync(absolute))) === before.hash) continue;
       throw new Error('Generated symlinks are not supported.');
     }
-    if (stat.isDirectory() && before?.type === 'commit') continue;
     if (!stat.isFile()) throw new Error('Generated special files are not supported.');
     // Read unchanged large repository blobs without treating them as generated output.
     const mode = stat.mode & 0o111 ? '100755' : '100644';
@@ -126,19 +198,12 @@ async function main() {
   const request = JSON.parse(fs.readFileSync(`${env.REQUEST_DIR}/request.json`, 'utf8'));
   if (JSON.stringify(request.settings) !== JSON.stringify(p.settings(env, env.EXPECTED_ALIAS))) throw new Error('Request model configuration does not match authorization.');
   if (request.source !== env.EXPECTED_SOURCE) throw new Error('Request source does not match authorized checkout.');
-  fs.mkdirSync(root, { recursive: true });
-  const archive = path.join(path.dirname(root), 'opencode-source.tar');
-  git(env.SOURCE_DIR, ['archive', '--format=tar', `--output=${archive}`, request.source]);
-  execFileSync('tar', ['-xf', archive, '-C', root]);
-  fs.unlinkSync(archive);
+  snapshot(env.SOURCE_DIR, root, request.source);
   let baselineRoot;
   if (request.baseline) {
     if (request.baseline !== env.EXPECTED_BASELINE) throw new Error('Review baseline does not match authorized checkout.');
     baselineRoot = env.BASELINE_WORK_DIR;
-    fs.mkdirSync(baselineRoot, { recursive: true });
-    git(env.BASELINE_SOURCE_DIR, ['archive', '--format=tar', `--output=${archive}`, request.baseline]);
-    execFileSync('tar', ['-xf', archive, '-C', baselineRoot]);
-    fs.unlinkSync(archive);
+    snapshot(env.BASELINE_SOURCE_DIR, baselineRoot, request.baseline);
   }
   // A separate trusted checkout owns the Git index; the container never mounts its .git directory.
   const gatewayDir = path.join(path.dirname(root), 'opencode-gateway');
@@ -164,7 +229,7 @@ async function main() {
   let captured;
   try { captured = JSON.parse(result.stdout); } catch { throw new Error('Invalid isolated runner output; refusing to publish.'); }
   if (captured.error) throw new Error(captured.error);
-  let response = p.parseEvents(captured.events, captured.code);
+  let response = p.parseEvents(captured.events, captured.code, request.mode === 'review');
   if (request.mode === 'review') {
     if (captured.reviewPasses !== request.settings.reviewPasses) throw new Error('Not all required review passes completed.');
     response = review.render(response, root, request.source, captured.reviewPasses);
@@ -174,10 +239,9 @@ async function main() {
   if (request.mode !== 'implement' && files.length) throw new Error('Read-only operation changed the source tree.');
   const bundle = p.validateBundle({ version: 1, source: request.source, response, files }, request.source);
   redactCheck(response, env.OPENCODE_API_KEY);
-  redactCheck(response, env.OPENCODE_API_BASE_URL);
   for (const file of files) if (file.content !== null) {
     const text = Buffer.from(file.content, 'base64').toString('utf8');
-    redactCheck(text, env.OPENCODE_API_KEY); redactCheck(text, env.OPENCODE_API_BASE_URL);
+    redactCheck(text, env.OPENCODE_API_KEY);
   }
   fs.mkdirSync(env.RESULT_DIR, { recursive: true });
   fs.writeFileSync(`${env.RESULT_DIR}/result.json`, JSON.stringify(bundle));
@@ -185,5 +249,5 @@ async function main() {
   console.log(`Validated generation: ${files.length} changed files. Raw provider output was not logged.`);
 }
 
-module.exports = { collect, redactCheck, install, containerArgs, reviewText };
+module.exports = { collect, snapshot, redactCheck, install, containerArgs, reviewText };
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });

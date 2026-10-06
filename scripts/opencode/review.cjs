@@ -9,7 +9,7 @@ function verificationPrompt(request, previous, pass, total) {
 function assertInspection(events, baseline) {
   const reads = events.split('\n').filter(x => x.trim()).map(x => JSON.parse(x)).filter(x =>
     x.type === 'tool_use' && x.part?.tool === 'read' && x.part.state?.status === 'completed' &&
-    x.part.state.metadata?.display?.type === 'file').map(x => x.part.state.input?.filePath || '');
+    x.part.state.metadata?.display?.type === 'file').map(x => path.posix.normalize(x.part.state.input?.filePath || '.'));
   if (!reads.some(x => x.startsWith('/work/')) || (baseline && !reads.some(x => x.startsWith('/baseline/')))) {
     throw new Error('Review pass did not inspect required source snapshots; no verified review is available.');
   }

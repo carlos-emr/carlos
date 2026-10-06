@@ -52,7 +52,7 @@ async function smoke() {
         ] : [['bash', { description: 'Check isolation and create a fixture', command: `node -e 'const a=require("node:assert/strict");a.equal(process.env.OPENCODE_API_KEY,"local-gateway-placeholder");for(const key of ["GH_TOKEN","GITHUB_TOKEN","OPENCODE_APP_PRIVATE_KEY"])a.equal(process.env[key],undefined);const s=require("node:net").connect({host:"1.1.1.1",port:443});s.setTimeout(2000,()=>{throw Error("Unexpected network route")});s.on("connect",()=>{throw Error("External network allowed")});s.on("error",()=>{require("node:fs").writeFileSync("generated.txt","boundary-ok");console.log("boundary-ok")});'` }]];
         for (const [tool] of calls) assert.ok(offered.includes(tool), `${tool} must be offered`);
         if (mode === 'review') assert.ok(!offered.some(t => ['bash', 'edit', 'write', 'task'].includes(t)));
-        delta = { tool_calls: calls.map(([name, args], index) => ({ index, id: `call_${index}`, type: 'function', function: { name, arguments: JSON.stringify(args) } })) };
+        delta = { content: 'I will inspect the source before deciding.', tool_calls: calls.map(([name, args], index) => ({ index, id: `call_${index}`, type: 'function', function: { name, arguments: JSON.stringify(args) } })) };
       }
       const chunk = (d, finish_reason = null) => ({ id: 'mock', object: 'chat.completion.chunk', created: 1, model: 'test-model', choices: [{ index: 0, delta: d, finish_reason }] });
       return new Response([chunk({ role: 'assistant' }), ...(adapter === 'openrouter' && !called ? [chunk({ reasoning_details: [{ type: 'reasoning.text', text: 'mock-reasoning-metadata', format: 'unknown', index: 0 }] })] : []), chunk(delta), chunk({}, called ? 'stop' : 'tool_calls')]
@@ -79,7 +79,8 @@ async function smoke() {
     const reviewed = await run();
     assert.doesNotThrow(() => parseEvents(reviewed.events, reviewed.code), reviewed.events);
     assert.equal(reviewed.reviewPasses, 3);
-    assert.match(review.render(parseEvents(reviewed.events, reviewed.code), root, 'a'.repeat(40), reviewed.reviewPasses), /Review completed in 3 fresh passes/);
+    assert.match(parseEvents(reviewed.events, reviewed.code), /I will inspect/);
+    assert.match(review.render(parseEvents(reviewed.events, reviewed.code, true), root, 'a'.repeat(40), reviewed.reviewPasses), /Review completed in 3 fresh passes/);
     assert.deepEqual([...verifierSessions], ['VERIFICATION PASS 2 OF 3', 'VERIFICATION PASS 3 OF 3']);
     mode = 'implement';
     const implemented = await run();

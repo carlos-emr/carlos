@@ -4,16 +4,22 @@ on:
   workflow_run:
     workflows: [CARLOS OpenCode]
     types: [completed]
-permissions:
-  actions: read
-  contents: read
-  issues: write
+permissions: {}
 jobs:
   report:
+    # Read trusted run/controller metadata and update the command's issue comment.
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    concurrency:
+      group: carlos-opencode-status-${{ github.event.workflow_run.id }}
+      queue: max
+      cancel-in-progress: false
     if: >-
       github.repository == 'carlos-emr/carlos' &&
       github.event.workflow_run.event == 'issue_comment' &&
-      github.event.workflow_run.conclusion != 'success'
+      contains(fromJSON('["failure","cancelled","timed_out","action_required","stale"]'), github.event.workflow_run.conclusion)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

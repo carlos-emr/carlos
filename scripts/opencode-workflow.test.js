@@ -121,16 +121,16 @@ test('existing PR retains its base; forks, closed PRs and protected heads are re
   for (const name of ['main', 'develop', 'release/2026.08', 'community/a/develop']) assert.equal(p.protectedHead(name), true);
 });
 
-test('publication recovery uses the request marker and never overwrites a colliding branch', async () => {
+test('publication markers are only duplicate guards and never authorize recovery', async () => {
   const f = fixture(); const task = await c.authorize(f.api, f.ctx, f.env);
   f.data[`${f.ctx.root}/git/ref/heads/${task.branch}`] = { object: { sha } };
   f.data[`${f.ctx.root}/commits?sha=${sha}&per_page=100`] = [{ sha, commit: { message: `fix: task\n\n${p.marker(repo, 12)}` } }];
-  assert.equal(await c.existing(f.api, f.ctx, task), sha);
+  await assert.rejects(c.existing(f.api, f.ctx, task), /Automatic recovery is disabled/);
   f.data[`${f.ctx.root}/commits?sha=${sha}&per_page=100`] = [];
   await assert.rejects(c.existing(f.api, f.ctx, task), /already exists/);
 });
 
-test('branch URL metacharacters cannot redirect recovery to a different ref', async () => {
+test('branch URL metacharacters cannot redirect publication checks to a different ref', async () => {
   const f = fixture();
   const task = { mode: 'implement', pr: {}, branch: 'topic/a#b%25' };
   let requested;
@@ -213,6 +213,46 @@ test('credential checks reject cleartext, URL-encoded and base64 values', () => 
   const key = 'secret/key-value';
   for (const value of [key, encodeURIComponent(key), Buffer.from(key).toString('base64')]) assert.throws(() => w.redactCheck(value, key));
   w.redactCheck('Ordinary output', key);
+  w.redactCheck('The documented endpoint is https://openrouter.ai/api/v1', key);
+});
+
+test('raw snapshots preserve export attributes, binary bytes, modes and symlinks without invented edits', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-snapshot-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const source = path.join(dir, 'source'), work = path.join(dir, 'work'); fs.mkdirSync(source);
+  const git = args => execFileSync('git', ['-C', source, ...args], { stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim();
+  git(['init']); git(['config', 'user.name', 'Fixture']); git(['config', 'user.email', 'fixture@example.com']);
+  fs.writeFileSync(path.join(source, '.gitattributes'), 'hidden export-ignore\nsubstitute export-subst\n');
+  fs.writeFileSync(path.join(source, 'hidden'), Buffer.from([0, 255, 10, 128]));
+  fs.writeFileSync(path.join(source, 'substitute'), '$Format:%H$\n');
+  fs.writeFileSync(path.join(source, 'executable'), 'hello\n', { mode: 0o755 });
+  fs.symlinkSync('substitute', path.join(source, 'link'));
+  git(['add', '.']); git(['commit', '-m', 'fixture']); const head = git(['rev-parse', 'HEAD']);
+  w.snapshot(source, work, head);
+  assert.deepEqual(fs.readFileSync(path.join(work, 'hidden')), Buffer.from([0, 255, 10, 128]));
+  assert.equal(fs.readFileSync(path.join(work, 'substitute'), 'utf8'), '$Format:%H$\n');
+  assert.equal(fs.statSync(path.join(work, 'executable')).mode & 0o111, 0o111);
+  assert.equal(fs.readlinkSync(path.join(work, 'link')), 'substitute');
+  assert.deepEqual(w.collect(source, work, head), []);
+  assert.throws(() => w.snapshot(source, work, head), /empty directory/);
+  const symlink = path.join(dir, 'symlink'); fs.symlinkSync(source, symlink);
+  assert.throws(() => w.snapshot(source, symlink, head), /empty directory/);
+  git(['update-index', '--add', '--cacheinfo', `160000,${head},submodule`]); git(['commit', '-m', 'gitlink']);
+  assert.throws(() => w.snapshot(source, path.join(dir, 'submodule-work'), git(['rev-parse', 'HEAD'])), /Submodules.*incomplete/);
+  assert.equal(fs.existsSync(path.join(dir, 'submodule-work')), false);
+});
+
+test('review parsing isolates the final step while retaining every prior error check', () => {
+  const events = [{ type: 'step_start' }, { type: 'text', part: { text: 'Inspecting source.' } },
+    { type: 'step_finish', part: { reason: 'tool-calls' } }, { type: 'step_start' },
+    { type: 'text', part: { text: '{"findings":[]}' } }, { type: 'step_finish', part: { reason: 'stop' } }];
+  const json = xs => xs.map(x => JSON.stringify(x)).join('\n');
+  assert.equal(p.parseEvents(json(events), 0, true), '{"findings":[]}');
+  assert.equal(p.parseEvents(json(events), 0), 'Inspecting source.{"findings":[]}');
+  assert.throws(() => p.parseEvents(json([...events, { type: 'step_start' }]), 0, true), /complete response/);
+  assert.throws(() => p.parseEvents(json([{ type: 'error' }, ...events]), 0, true), /provider or tool error/);
+  events[4].part.text = 'x'.repeat(44001);
+  assert.throws(() => p.parseEvents(json(events), 0, true), /response limit/);
 });
 
 function publication(t, pr = false) {
@@ -277,14 +317,17 @@ test('concurrent push failures are never force-pushed or automatically retried',
   assert.equal(f.writes.at(-1).route, '/installation/token');
 });
 
-test('partial publication recovery creates the missing PR without reading a result or committing again', async t => {
+test('forged and partial-publication markers cannot bypass result validation or mint a write token', async t => {
   const f = publication(t);
   fs.unlinkSync(path.join(f.dir, 'result.json'));
   f.data[`${f.ctx.root}/git/ref/heads/opencode/comment-12`] = { object: { sha } };
   f.data[`${f.ctx.root}/commits?sha=${sha}&per_page=100`] = [{ sha, commit: { message: `fix: result\n\n${p.marker(repo, 12)}` } }];
-  await c.publish(f.api, f.ctx, async () => f.app);
-  assert.ok(f.writes.some(x => x.route.endsWith('/pulls')));
-  assert.ok(!f.writes.some(x => /\/git\/(commits|trees|blobs|refs)/.test(x.route)));
+  const noToken = async () => { assert.fail('a marker must not mint a token'); };
+  await assert.rejects(c.publish(f.api, f.ctx, noToken), /Automatic recovery is disabled/);
+  // Even a marker retained in an ancestor of a modified branch is insufficient.
+  f.data[`${f.ctx.root}/commits?sha=${sha}&per_page=100`].unshift({ sha: 'c'.repeat(40), commit: { message: 'unreviewed changes' } });
+  await assert.rejects(c.publish(f.api, f.ctx, noToken), /Automatic recovery is disabled/);
+  assert.equal(f.writes.length, 0);
 });
 
 test('no-change and read-only results never mint a write token; changed read-only output fails', async t => {
@@ -315,6 +358,28 @@ test('completion reporter handles cancellation and overflow using metadata, igno
   const before = f.calls.filter(x => x.method === 'POST').length;
   await c.report(f.api, { workflow_run: run });
   assert.equal(f.calls.filter(x => x.method === 'POST').length, before);
+});
+
+test('completion reporter rechecks attempts after comment lookups and ignores ordinary comments', async t => {
+  const f = publication(t);
+  const run = { event: 'issue_comment', repository: { full_name: repo }, conclusion: 'cancelled', workflow_id: 9,
+    path: '.github/workflows/opencode.yml', display_title: 'OpenCode #3 comment 12', id: 42, run_attempt: 1, html_url: f.ctx.url };
+  f.data[`${f.ctx.root}/actions/workflows/opencode.yml`] = { id: 9 };
+  f.data[`${f.ctx.root}/actions/runs/42`] = { run_attempt: 1 };
+  const pages = f.api.pages;
+  f.api.pages = async route => {
+    f.data[`${f.ctx.root}/actions/runs/42`].run_attempt = 2;
+    return pages(route);
+  };
+  await c.report(f.api, { workflow_run: run });
+  assert.equal(f.calls.filter(x => x.method !== 'GET').length, 0);
+  f.api.pages = pages;
+  for (const body of ['Thanks for the fix', '/octopus review', '> /oc implement fix']) {
+    f.data[`${f.ctx.root}/actions/runs/42`].run_attempt = 1;
+    f.data[`${f.ctx.root}/issues/comments/12`].body = body;
+    await c.report(f.api, { workflow_run: run });
+  }
+  assert.equal(f.calls.filter(x => x.method !== 'GET').length, 0);
 });
 
 test('publisher preserves an explicit alternate issue base', async t => {
@@ -421,6 +486,8 @@ test('each review pass must read real files from every required snapshot', () =>
   assert.throws(() => assertInspection('', false), /did not inspect/);
   assertInspection(read('/work/source.js'), false);
   assert.throws(() => assertInspection(read('/work/source.js'), true), /did not inspect/);
+  assert.throws(() => assertInspection(read('/work/../config/request.json'), false), /did not inspect/);
+  assert.throws(() => assertInspection(read('/work/source.js') + '\n' + read('/baseline/../work/source.js'), true), /did not inspect/);
   assertInspection(read('/work/source.js') + '\n' + read('/baseline/source.js'), true);
   const prompt = verificationPrompt({ prompt: 'Original request' }, 'Candidate finding', 2, 2);
   assert.match(prompt, /Original request/); assert.match(prompt, /Candidate finding/);

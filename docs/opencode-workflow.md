@@ -205,7 +205,8 @@ invalidates it: post a new comment. Bots cannot invoke the workflow.
 The response links to the Actions run and states whether work was denied,
 disabled, failed, completed without changes, or published. Pending runs are
 visible in Actions under `OpenCode #<issue> comment <comment-id>`. Requests for
-the same issue/PR are serialized. The queue holds up to 100 pending runs;
+the same issue/PR are serialized; ordinary comments and bots do not occupy that
+queue. The queue holds up to 100 pending runs;
 overflow/cancelled runs are reported by the separate completion workflow.
 
 Explain/review cannot edit or execute shell commands. Implement may edit files
@@ -225,11 +226,19 @@ snapshot read-only at `/baseline`, so reviewers can compare complete source,
 including files whose GitHub diff excerpts are truncated. Every pass must also
 read baseline files. Custom direction is retained in each pass.
 
+Snapshots copy raw Git blobs, preserving bytes and executable modes without
+`export-ignore`, `export-subst`, checkout filters or hooks. Each snapshot is
+limited to 2 GiB. Submodule-bearing commits are explicitly declined because
+fetching arbitrary submodule repositories is outside this workflow's trust
+boundary; their contents are never silently omitted or treated as deletions.
+
 The final verifier emits structured findings with severity, trigger/consequence,
 file, line range and exact source quotation. The trusted host validates each
 quotation against the immutable source snapshot before publishing, rejects
 invented locations, duplicate findings, symlinks and malformed reports, and
-links findings to the reviewed commit. Unsupported suspicions belong under
+links findings to the reviewed commit. Only the verifier's final step supplies
+the JSON report; earlier narration is excluded, but errors in any step still
+fail verification. Unsupported suspicions belong under
 limitations. An empty finding list is permitted. A failed pass, missing required
 inspection, or evidence mismatch fails the request; the first draft is never
 silently presented as verified. Only the final verified response is published.
@@ -289,13 +298,18 @@ this is not a general data-loss-prevention system.
 - A changed PR head aborts publication. Post a new command; the publisher does
   not force-push or rebase over concurrent work.
 - A rerun checks the deterministic output branch and commit request marker.
-  If a push succeeded but PR creation/notification failed, it resumes delivery
-  without another inference run or duplicate commit. A colliding branch without
-  the marker is refused. Very old ambiguous rerun history is refused.
+  Existing issue branches, matching markers and ambiguous old history are
+  refused. A marker is forgeable and never proves trusted publication. If a
+  push succeeded but PR creation/notification failed, inspect the branch and
+  workflow artifact, then open the missing PR manually or post a new command
+  for remaining work. Automatic marker-based recovery is disabled.
 - The completion reporter handles failures, timeout, cancellation, and overflow
   using trusted run metadata only. It does not download artifacts or run PR code.
   Notification failures fail the reporter itself. Inspect Actions if a comment
   is absent; disabled Actions or GitHub outages can prevent delivery.
+  Reporter and command status jobs serialize per workflow run, with an attempt
+  recheck immediately before posting, so an older failure cannot replace a
+  newer rerun's status. Skipped runs and ordinary comments are ignored.
 - Disable new execution/publication by setting `OPENCODE_ENABLED=false`.
   Cancel active runs as well to stop ongoing inference; revoking the provider
   credential stops its remaining use. Existing published PRs remain for review.

@@ -11,7 +11,11 @@ permissions: {}
 
 # queue:max prevents newer requests from silently replacing the pending request.
 concurrency:
-  group: carlos-opencode-${{ github.repository }}-${{ github.event.issue.number }}
+  group: >-
+    ${{ github.event.comment.user.type == 'User' &&
+      (startsWith(github.event.comment.body, '/oc') || startsWith(github.event.comment.body, '/opencode'))
+      && format('carlos-opencode-{0}-{1}', github.repository, github.event.issue.number)
+      || format('carlos-opencode-ignored-{0}', github.run_id) }}
   queue: max
   cancel-in-progress: false
 
@@ -25,6 +29,10 @@ env:
 
 jobs:
   authorize:
+    concurrency:
+      group: carlos-opencode-status-${{ github.run_id }}
+      queue: max
+      cancel-in-progress: false
     if: >-
       github.repository == 'carlos-emr/carlos' &&
       github.event.comment.user.type == 'User' &&
@@ -49,7 +57,6 @@ jobs:
       branch: ${{ steps.gate.outputs.branch }}
       attempt: ${{ steps.gate.outputs.attempt }}
       mode: ${{ steps.gate.outputs.mode }}
-      resume: ${{ steps.gate.outputs.resume }}
     steps:
       - name: Check out trusted controller
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,7 +88,7 @@ jobs:
 
   generate:
     needs: authorize
-    if: needs.authorize.outputs.accepted == 'true' && needs.authorize.outputs.resume != 'true'
+    if: needs.authorize.outputs.accepted == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -172,11 +179,15 @@ jobs:
           fi
 
   publish:
+    concurrency:
+      group: carlos-opencode-status-${{ github.run_id }}
+      queue: max
+      cancel-in-progress: false
     needs: [authorize, generate]
     if: >-
       always() && !cancelled() && needs.authorize.result == 'success' &&
       needs.authorize.outputs.accepted == 'true' && needs.authorize.outputs.mode == 'implement' &&
-      (needs.generate.result == 'success' || needs.authorize.outputs.resume == 'true')
+      needs.generate.result == 'success'
     environment:
       name: opencode-publish
       url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -199,7 +210,6 @@ jobs:
           node-version: '22.23.3'
           package-manager-cache: false
       - name: Load generated result
-        if: needs.authorize.outputs.resume != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           digest-mismatch: error
@@ -225,11 +235,15 @@ jobs:
         run: node scripts/opencode/controller.cjs publish
 
   respond:
+    concurrency:
+      group: carlos-opencode-status-${{ github.run_id }}
+      queue: max
+      cancel-in-progress: false
     needs: [authorize, generate]
     if: >-
       always() && !cancelled() && needs.authorize.result == 'success' &&
       needs.authorize.outputs.accepted == 'true' && needs.authorize.outputs.mode != 'implement' &&
-      (needs.generate.result == 'success' || needs.authorize.outputs.resume == 'true')
+      needs.generate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -249,7 +263,6 @@ jobs:
           node-version: '22.23.3'
           package-manager-cache: false
       - name: Load generated result
-        if: needs.authorize.outputs.resume != 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           digest-mismatch: error

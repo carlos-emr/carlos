@@ -133,9 +133,9 @@ function validateBundle(bundle, expected) {
   return bundle;
 }
 
-function parseEvents(text, exitCode) {
+function parseEvents(text, exitCode, finalStepOnly = false) {
   if (exitCode !== 0) throw new Error('OpenCode exited unsuccessfully. Check the provider configuration and run diagnostics.');
-  let response = '', finish = false;
+  let response = '', finalStep = '', finish = false;
   for (const line of text.split('\n').filter(x => x.trim())) {
     let event;
     try { event = JSON.parse(line); } catch { throw new Error('OpenCode returned invalid event output.'); }
@@ -146,10 +146,16 @@ function parseEvents(text, exitCode) {
         Number.isInteger(event.part.state?.metadata?.exit) && event.part.state.metadata.exit !== 0) {
       throw new Error('An agent shell command returned a nonzero exit code; no changes were published.');
     }
-    if (event.type === 'text') response += event.part?.text || '';
+    if (event.type === 'step_start') { finalStep = ''; finish = false; }
+    if (event.type === 'text') {
+      response += event.part?.text || '';
+      finalStep += event.part?.text || '';
+    }
     if (event.type === 'step_finish') finish = event.part?.reason === 'stop';
   }
+  if (finalStepOnly) response = finalStep;
   if (!finish || !response.trim()) throw new Error('OpenCode did not produce a complete response.');
+  if (finalStepOnly && response.length > 44000) throw new Error('Verified review exceeds the response limit; narrow the review scope.');
   if (response.length > 44000) response = response.slice(0, 44000) + '\n\n[Response truncated at 44,000 characters.]';
   return response;
 }

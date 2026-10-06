@@ -49,11 +49,14 @@ function context(event, environment = env) {
     url: `https://github.com/${repo}/actions/runs/${environment.GITHUB_RUN_ID}` };
 }
 
-async function status(api, ctx, message) {
+async function status(api, ctx, message, current = async () => true) {
   const marker = `<!-- carlos-opencode:${ctx.id} -->`;
   const comments = await api.pages(`${ctx.root}/issues/${ctx.number}/comments`);
   const prior = comments.find(c => c.user?.type === 'Bot' && c.user.login === 'github-actions[bot]' && c.body?.startsWith(marker));
   const body = `${marker}\n${message}\n\n[Workflow run](${ctx.url})`;
+  // Reporter and command status jobs share a run-scoped concurrency group.
+  // Recheck after the comment lookup as well, immediately before mutation.
+  if (!await current()) return;
   if (prior) await api.request(`${ctx.root}/issues/comments/${prior.id}`, 'PATCH', { body });
   else await api.request(`${ctx.root}/issues/${ctx.number}/comments`, 'POST', { body });
 }
@@ -123,7 +126,7 @@ async function existing(api, ctx, task) {
   // Search at most 100 commits. A rerun with older publication is refused rather than repeated.
   const commits = await api.request(`${ctx.root}/commits?sha=${encodeURIComponent(ref.object.sha)}&per_page=100`);
   const match = commits.find(c => c.commit.message.split('\n').includes(p.marker(ctx.repo, ctx.id)));
-  if (match) return match.sha;
+  if (match) throw new Error('A commit already carries this request marker. Automatic recovery is disabled: commit messages are not proof of trusted publication. Inspect the existing branch/PR, then post a new command if more work is needed.');
   if (!task.pr) throw new Error('The deterministic output branch already exists without this request marker; refusing to overwrite it.');
   if (Number(env.GITHUB_RUN_ATTEMPT || 1) > 1 && commits.length === 100) {
     throw new Error('Cannot safely establish rerun history; inspect prior publication and post a new command.');
@@ -165,18 +168,18 @@ function output(values) {
 async function gate(api, ctx) {
   if (!p.command(ctx.event.comment.body)) { output({ accepted: false }); return; }
   const task = await authorize(api, ctx);
-  const applied = await existing(api, ctx, task);
+  await existing(api, ctx, task);
   if (task.mode === 'implement') await publicationProtection(api, ctx);
   fs.mkdirSync(env.REQUEST_DIR, { recursive: true });
   fs.writeFileSync(`${env.REQUEST_DIR}/request.json`, JSON.stringify({
     mode: task.mode, source: task.source, base: task.base, baseline: task.baseline, settings: task.settings,
-    prompt: applied ? '' : await prompt(api, ctx, task),
+    prompt: await prompt(api, ctx, task),
   }));
-  await status(api, ctx, applied ? 'Previously published changes found; checking delivery without running inference again.' :
+  await status(api, ctx,
     `Authorized **${task.mode}** request using \`${task.settings.alias}\` (\`${task.settings.model}\`). Starting from \`${task.source}\`; target base \`${task.base}\`.${task.mode === 'implement' ? ' After generation, inspect review.txt in the result artifact and approve the protected publication job within one day.' : ''}`);
   output({ provider: task.settings.provider, model: task.settings.model, alias: task.settings.alias,
     adapter: task.settings.adapter, reviewPasses: task.settings.reviewPasses, source: task.source, baseline: task.baseline, base: task.base, branch: task.branch, mode: task.mode,
-    resume: Boolean(applied), accepted: true, attempt: env.GITHUB_RUN_ATTEMPT });
+    accepted: true, attempt: env.GITHUB_RUN_ATTEMPT });
 }
 
 function assertTarget(task) {
@@ -223,55 +226,48 @@ async function ensurePR(api, ctx, task, sha) {
 
 async function publish(api, ctx, issueToken = installationToken) {
   const task = await authorize(api, ctx);
-  const applied = await existing(api, ctx, task);
-  let bundle;
-  if (!applied) {
-    assertTarget(task);
-    const file = `${env.RESULT_DIR}/result.json`;
-    if (fs.lstatSync(file).isSymbolicLink() || fs.statSync(file).size > 6 * 1024 * 1024) throw new Error('Invalid result artifact.');
-    let parsed;
-    try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('Invalid result artifact JSON.'); }
-    bundle = p.validateBundle(parsed, task.source);
-    if (task.mode !== 'implement' && bundle.files.length) throw new Error('Read-only request attempted to change files.');
-    if (!bundle.files.length) {
-      await status(api, ctx, `${task.mode === 'implement' ? '**Completed without changes; no implementation was published.**' : '**Completed.**'}\n\n${bundle.response}\n\nValidation above is agent-reported; repository CI was not run by the publisher.`);
-      return;
-    }
+  await existing(api, ctx, task);
+  assertTarget(task);
+  const file = `${env.RESULT_DIR}/result.json`;
+  if (fs.lstatSync(file).isSymbolicLink() || fs.statSync(file).size > 6 * 1024 * 1024) throw new Error('Invalid result artifact.');
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('Invalid result artifact JSON.'); }
+  const bundle = p.validateBundle(parsed, task.source);
+  if (task.mode !== 'implement' && bundle.files.length) throw new Error('Read-only request attempted to change files.');
+  if (!bundle.files.length) {
+    await status(api, ctx, `${task.mode === 'implement' ? '**Completed without changes; no implementation was published.**' : '**Completed.**'}\n\n${bundle.response}\n\nValidation above is agent-reported; repository CI was not run by the publisher.`);
+    return;
   }
   await publicationProtection(api, ctx);
   const app = await issueToken(ctx);
   try {
-    let sha = applied;
-    if (!sha) {
-      // Git Data APIs apply regular-file contents without checking out or executing generated code.
-      const original = await app.api.request(`${ctx.root}/git/commits/${task.source}`);
-      const tree = [];
-      for (const file of bundle.files) {
-        if (file.content === null) tree.push({ path: file.path, mode: '100644', type: 'blob', sha: null });
-        else {
-          const blob = await app.api.request(`${ctx.root}/git/blobs`, 'POST', { content: file.content, encoding: 'base64' });
-          tree.push({ path: file.path, mode: file.mode, type: 'blob', sha: blob.sha });
-        }
+    // Git Data APIs apply regular-file contents without checking out or executing generated code.
+    const original = await app.api.request(`${ctx.root}/git/commits/${task.source}`);
+    const tree = [];
+    for (const file of bundle.files) {
+      if (file.content === null) tree.push({ path: file.path, mode: '100644', type: 'blob', sha: null });
+      else {
+        const blob = await app.api.request(`${ctx.root}/git/blobs`, 'POST', { content: file.content, encoding: 'base64' });
+        tree.push({ path: file.path, mode: file.mode, type: 'blob', sha: blob.sha });
       }
-      const updated = await app.api.request(`${ctx.root}/git/trees`, 'POST', { base_tree: original.tree.sha, tree });
-      const bot = await app.api.request(`/users/${encodeURIComponent(`${app.slug}[bot]`)}`);
-      const identity = { name: bot.login, email: `${bot.id}+${bot.login}@users.noreply.github.com` };
-      const commit = await app.api.request(`${ctx.root}/git/commits`, 'POST', {
-        message: `fix: address #${ctx.number} with OpenCode\n\n${p.marker(ctx.repo, ctx.id)}`,
-        tree: updated.sha, parents: [task.source], author: identity, committer: identity,
-      });
-      // Recheck authorization and the exact source immediately before the public mutation.
-      const latest = await authorize(api, ctx);
-      if (latest.source !== task.source || latest.branch !== task.branch || latest.base !== task.base ||
-          JSON.stringify(latest.settings) !== JSON.stringify(task.settings)) {
-        throw new Error('PR/branch changed before publication; generated commit was not attached to a branch.');
-      }
-      if (task.pr) await app.api.request(`${ctx.root}/git/refs/heads/${refPath(task.branch)}`, 'PATCH', { sha: commit.sha, force: false });
-      else await app.api.request(`${ctx.root}/git/refs`, 'POST', { ref: `refs/heads/${task.branch}`, sha: commit.sha });
-      sha = commit.sha;
     }
-    const url = await ensurePR(app.api, ctx, task, sha);
-    await status(api, ctx, `**Published:** ${url}\n\nCommit: \`${sha}\`. Existing CI and human review remain required.\n\n${bundle?.response || 'Recovered the prior publication; inference was not repeated.'}\n\nValidation is agent-reported; inspect CI separately. **DCO confirmation may be required for the current PR head.**`);
+    const updated = await app.api.request(`${ctx.root}/git/trees`, 'POST', { base_tree: original.tree.sha, tree });
+    const bot = await app.api.request(`/users/${encodeURIComponent(`${app.slug}[bot]`)}`);
+    const identity = { name: bot.login, email: `${bot.id}+${bot.login}@users.noreply.github.com` };
+    const commit = await app.api.request(`${ctx.root}/git/commits`, 'POST', {
+      message: `fix: address #${ctx.number} with OpenCode\n\n${p.marker(ctx.repo, ctx.id)}`,
+      tree: updated.sha, parents: [task.source], author: identity, committer: identity,
+    });
+    // Recheck authorization and the exact source immediately before the public mutation.
+    const latest = await authorize(api, ctx);
+    if (latest.source !== task.source || latest.branch !== task.branch || latest.base !== task.base ||
+        JSON.stringify(latest.settings) !== JSON.stringify(task.settings)) {
+      throw new Error('PR/branch changed before publication; generated commit was not attached to a branch.');
+    }
+    if (task.pr) await app.api.request(`${ctx.root}/git/refs/heads/${refPath(task.branch)}`, 'PATCH', { sha: commit.sha, force: false });
+    else await app.api.request(`${ctx.root}/git/refs`, 'POST', { ref: `refs/heads/${task.branch}`, sha: commit.sha });
+    const url = await ensurePR(app.api, ctx, task, commit.sha);
+    await status(api, ctx, `**Published:** ${url}\n\nCommit: \`${commit.sha}\`. Existing CI and human review remain required.\n\n${bundle.response}\n\nValidation is agent-reported; inspect CI separately. **DCO confirmation may be required for the current PR head.**`);
   } finally {
     await app.api.request('/installation/token', 'DELETE');
   }
@@ -292,11 +288,13 @@ async function report(api, event) {
   const comment = await api.optional(`${ctx.root}/issues/comments/${ctx.id}`);
   if (!comment) throw new Error('Trigger comment was deleted; outcome remains available in Actions.');
   if (comment.issue_url !== `https://api.github.com${ctx.root}/issues/${ctx.number}`) throw new Error('Run/comment mismatch.');
+  if (comment.user?.type !== 'User' || !/^\/(?:oc|opencode)(?=\s|$)/i.test(comment.body || '')) return;
   const previous = (await api.pages(`${ctx.root}/issues/${ctx.number}/comments`)).find(c =>
     c.user?.type === 'Bot' && c.user.login === 'github-actions[bot]' &&
     c.body?.startsWith(`<!-- carlos-opencode:${ctx.id} -->`) && c.body.includes(ctx.url));
   if (previous?.body.includes('**Request not completed:**')) return; // retain the precise gate/publication diagnostic
-  await status(api, ctx, `**Workflow ${run.conclusion}.** Inspect the run for the failed stage. A partial publication may already exist; reruns check for it before generating again.`);
+  await status(api, ctx, `**Workflow ${run.conclusion}.** Inspect the run for the failed stage and any partially published branch/PR before posting a new command.`,
+    async () => (await api.request(`${ctx.root}/actions/runs/${run.id}`)).run_attempt === run.run_attempt);
 }
 
 async function notice(api, event, environment = env) {

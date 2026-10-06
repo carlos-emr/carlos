@@ -40,7 +40,7 @@ async function main() {
       child.on('error', () => { error = 'CLI startup failed.'; });
       const code = await new Promise(resolve => { child.on('close', resolve); child.stdin.end(prompt); });
       if (error) throw new Error(error);
-      const response = parseEvents(out, code);
+      const response = parseEvents(out, code, request.mode === 'review' && pass > 1);
       if (request.mode === 'review') assertInspection(out, Boolean(request.baseline));
       captured = { code, events: out, error: null, reviewPasses: passes };
       if (pass < passes) prompt = verificationPrompt(request, response, pass + 1, passes);
