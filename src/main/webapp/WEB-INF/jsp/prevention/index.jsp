@@ -125,7 +125,7 @@
     }
     DemographicData demoData = new DemographicData();
     String nameAge = demoData.getNameAgeString(loggedInInfo, demographic_no);
-    // Looks the patient up once for the whole page; the per-type loops below read from it.
+    // One patient lookup for all the per-type loops below, instead of one or more per type.
     PreventionPageData pageData = new PreventionPageData(loggedInInfo, demographic_no);
     Demographic demo = pageData.getDemographic();
     String hin = demo.getHin() + demo.getVer();

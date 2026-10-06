@@ -38,12 +38,17 @@ class PreventionIndexJspLookupsUnitTest {
     private static final Path INDEX_JSP = Path.of("src/main/webapp/WEB-INF/jsp/prevention/index.jsp");
 
     @Test
-    @DisplayName("should read every prevention type through the page's single patient lookup")
+    @DisplayName("should read every prevention type through the page's one per-request patient lookup")
     void shouldUsePageData_forEveryPreventionType() throws Exception {
         String jsp = Files.readString(INDEX_JSP);
 
         assertThat(jsp)
                 .contains("new PreventionPageData(loggedInInfo, demographic_no)")
+                .contains("Demographic demo = pageData.getDemographic();")
+                .contains("pageData.getPreventionData(prevName)")
+                .contains("pageData.getPreventionData(prevType)")
+                .contains("pdc.display(h, demo, alist.size())")
+                .contains("pdc.getDisplay(setHash, demo)")
                 .doesNotContain("PreventionData.getPreventionData(")
                 .doesNotContain("PreventionData.getDemographicDateOfBirth(")
                 .doesNotContain("pdc.display(loggedInInfo")

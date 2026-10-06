@@ -256,12 +256,14 @@ public class PreventionDisplayConfig {
 
 
     /**
-     * Returns the style attribute that hides a configuration set the patient's age or sex
-     * excludes.
+     * Returns the style attribute for a configuration set on the prevention page.
      *
      * @param setHash the configuration set
      * @param demograph the patient, already looked up by the caller through
      *        {@code DemographicManager}, which checks the caller's privileges
+     * @return {@code ""} when the set has an age range or a sex and the patient meets every one
+     *         it has; otherwise {@code style="display:none;"}, which also covers a set with
+     *         neither and an error such as a missing patient
      */
     public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
