@@ -255,11 +255,16 @@ public class PreventionDisplayConfig {
     }
 
 
-    public String getDisplay(LoggedInInfo loggedInInfo, Map<String, Object> setHash, String Demographic_no) {
+    /**
+     * Returns the style attribute that hides a configuration set the patient's age or sex
+     * excludes.
+     *
+     * @param setHash the configuration set
+     * @param demograph the patient, already looked up by the caller through
+     *        {@code DemographicManager}, which checks the caller's privileges
+     */
+    public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
-        DemographicData dData = new DemographicData();
-        log.debug("demoage " + Demographic_no);
-        Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
         try {
             String minAgeStr = (String) setHash.get("minAge");
             String maxAgeStr = (String) setHash.get("maxAge");
@@ -312,11 +317,21 @@ public class PreventionDisplayConfig {
     }
 
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
-        boolean display = false;
-        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
         Demographic demograph = dData.getDemographic(loggedInInfo, Demographic_no);
+        return display(setHash, demograph, numberOfPrevs);
+    }
+
+    /**
+     * Whether a prevention type shows for the patient, as
+     * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
+     * already looked up through {@code DemographicManager}, which checks the caller's privileges.
+     * The prevention page calls this once per type with one lookup for the whole page.
+     */
+    public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        boolean display = false;
+        PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
             if (preventionManager.hideItem(setHash.get("name")) && numberOfPrevs == 0) {
                 //move to hidden list
