@@ -62,7 +62,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import org.owasp.encoder.Encode;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -845,13 +844,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             String drugId = request.getParameter("drugId");
             String text = request.getParameter("text");
 
-			if (text != null) {
-				text = Encode.forJava(text);
-			}
-
-			if (drugId != null) {
-				drugId = Encode.forJava(drugId);
-			}
+            // Keep catalogue text and identifiers unchanged; encode only at the rendering boundary.
 
             logger.debug("requesting drug from drugref id={}", LogSafe.sanitize(drugId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             RxDrugData.DrugMonograph dmono = drugData.getDrug2(drugId);

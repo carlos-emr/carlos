@@ -19,7 +19,7 @@ const ERROR_PAGE = /CARLOS has encountered an unexpected error|HTTP Status \d{3}
 
 async function workflow(s) {
   const T = b.TOKENS;
-  const group = `${s.marker} ${T.apostrophe} Zoë ${T.cjk} ${T.entity} ${T.backslash}`;
+  const group = `${s.marker} ${T.apostrophe} Zoë ${T.cjk} ${T.entity} ${T.backslash} "<b>literal</b> #?`;
   const like = h.sqlString(`${s.marker}%`);
   s.cleanup(() => {
     s.sql.execute(`DELETE FROM rbt_groups WHERE group_name LIKE ${like}`);
@@ -54,7 +54,18 @@ async function workflow(s) {
     const stored = Buffer.from(rows[0][0], 'hex').toString('utf8');
     h.assert(rows[0][0] === b.hex(group), `The stored group name differs from what was typed: typed="${group}" stored="${stored}" `
       + '(RBTGroupManager.addTemplateToGroup runs the name through Encode.forJava before persisting it)');
-    h.assert(await frame.locator('#groupListTbl td[title]').filter({ hasText: group }).count() === 1, 'The group list does not show the name as typed');
+    const cell = frame.locator('#groupListTbl td[title]').filter({ hasText: group });
+    h.assert(await cell.count() === 1, 'The group list does not show the name as typed');
+    h.assert(await cell.getAttribute('title') === group, 'Group title changed literal characters');
+    h.assert(await cell.locator('b').count() === 0, 'Group markup was interpreted as HTML');
+    const link = cell.locator('a');
+    const target = new URL(await link.getAttribute('href'), frame.url());
+    h.assert(target.searchParams.get('groupName') === group, 'Group link did not preserve its query parameter');
+    const deleteForm = cell.locator('..').locator('form');
+    h.assert(await deleteForm.locator('input[name="groupName"]').inputValue() === group,
+      'The delete form changed the group name');
+    await frameClick(link, 'Open literal group');
+    h.assert((await frame.locator('body').innerText()).includes(group), 'Opened group lost its literal name');
   });
 }
 
