@@ -39,7 +39,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pins the output encoding of stored values the patient chart prints from scriptlets, in line with
  * the OWASP encoding rules the other chart fields already follow: the read-only view encodes the
  * stored values it shows as HTML text, and the edit form encodes the stored values it places in
- * field values, including the hidden "original value" fields and configured custom fields.
+ * field values, option values and option text, including the hidden "original value" fields and
+ * configured custom fields, and the referral doctor values it writes into its script.
  *
  * @since 2026-10-05
  */
@@ -130,7 +131,13 @@ class DemographicChartScriptletEncodingUnitTest {
                 .contains("<%=SafeEncode.forHtmlContent(wln.getName())%>")
                 .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlnote)%>\"")
                 .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>\"")
-                .doesNotContainPattern("(?<!\\()(p\\.getLastName\\(\\) \\+ \",\" \\+ p\\.getFirstName\\(\\))%>")
+                .doesNotContain("<%=p.getLastName() + \",\" + p.getFirstName()%>")
+                .doesNotContain("value=\"<%=p.getProviderNo()%>\"")
+                .doesNotContain("value=\"<%=rosterStatus%>\"")
+                .doesNotContain("value=\"<%=patientStatus%>\"")
+                .doesNotContain("<%=llItem.getLabel()%>")
+                .doesNotContain("<%=wln.getName()%>")
+                .doesNotContain("value=\"<%=wlnote%>\"")
                 .contains("value=\"${carlos:forHtmlAttribute(consentClearLabel)}\"")
                 .doesNotContain("value=\"<fmt:message key='demographic.demographiceditdemographic.clear'/>\"")
                 .doesNotContain(">><%=status%>")
@@ -144,6 +151,8 @@ class DemographicChartScriptletEncodingUnitTest {
                 .contains("<%=SafeEncode.forHtmlContent(employmentStatus)%>")
                 .contains("<%=SafeEncode.forHtmlContent(adm.getProgramName())%>")
                 .doesNotContain("<%=providerBean.getProperty(")
+                .doesNotContain("name=\"<%= key %>\"")
+                .doesNotContain("<%=adm.getProgramName()%>")
                 .doesNotContain("<%=enrolledTo %>");
     }
 
@@ -158,6 +167,8 @@ class DemographicChartScriptletEncodingUnitTest {
                 .contains("refNo = '<%=SafeEncode.forJavaScript(prop.getProperty(\"referral_no\", \"\"))%>';")
                 .contains("value=\"<%=SafeEncode.forHtmlAttribute("
                         + "prop.getProperty(\"last_name\")+\",\"+prop.getProperty(\"first_name\"))%>\"")
+                .contains("<%=SafeEncode.forHtmlContent("
+                        + "prop.getProperty(\"last_name\") + \",\" + prop.getProperty(\"first_name\"))%>")
                 .doesNotContain("refName == \"<%=prop.getProperty(")
                 .doesNotContain("refNo = '<%=prop.getProperty(");
     }
