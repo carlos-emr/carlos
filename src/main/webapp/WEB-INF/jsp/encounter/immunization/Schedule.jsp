@@ -53,12 +53,14 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Immunizations" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
 
     String sDoc = null;
+    Immunizations currentSchedule = null;
     String demoNo = request.getParameter("demographic_no");
     String last_name = "";
     String first_name = "";
@@ -82,7 +84,8 @@
     }
 
     if (demoNo != null) {
-        sDoc = new EctImmImmunizationData().getImmunizations(demoNo);
+        currentSchedule = new EctImmImmunizationData().getCurrentSchedule(demoNo);
+        sDoc = currentSchedule == null ? null : currentSchedule.getImmunizations();
     }
     if (sDoc == null) {
         String redirect = "loadConfig";
@@ -261,6 +264,7 @@
                     <tr>
                         <td>
 
+                            <input type="hidden" name="scheduleVersion" value="<%= currentSchedule.getId() %>"/>
                             <input type="hidden" name="xmlDoc" value='<%= UtilMisc.encode64(UtilXML.toXML(doc)) %>'/>
                             <%
 
@@ -483,6 +487,7 @@
 
 <%-- Keep this separate from the save form: HTML does not permit nested forms. --%>
 <form id="scheduleMutationForm" method="post" action="${pageContext.request.contextPath}/encounter/immunization/deleteSchedule" style="display:none">
+    <input type="hidden" name="scheduleVersion" value="<%= currentSchedule.getId() %>"/>
     <input type="hidden" name="method"/>
     <input type="hidden" name="tblSet"/>
     <input type="hidden" name="demoNo" value="<carlos:encode value='<%= demoNo %>' context="htmlAttribute"/>"/>

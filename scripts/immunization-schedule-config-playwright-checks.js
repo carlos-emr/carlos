@@ -63,6 +63,8 @@ async function workflow(s) {
     VALUES(${sqlString(seededName)},${sqlString(seededXml)},CURDATE(),${sqlString(provider)},0); SELECT LAST_INSERT_ID()`);
   assert(/^[1-9]\d*$/.test(seededId), 'Seeded template was not created');
   let uiId;
+  let staleSave;
+  let staleMutation;
   const current = `FROM immunizations WHERE demographic_no=${patient} AND archived=0`;
   const currentXml = () => sql.value(`SELECT immunizations ${current}`) || '';
 
@@ -141,6 +143,10 @@ async function workflow(s) {
       'Schedule page does not list the added template');
   });
 
+  staleSave = await imm.locator('form[action$="/saveSchedule"]').evaluate(form => Object.fromEntries(new FormData(form)));
+  staleSave.hdnAction = 'Save';
+  staleMutation = await imm.locator('#scheduleMutationForm').evaluate(form => Object.fromEntries(new FormData(form)));
+
   await step('a cell edited in the Record Immunization popup is saved with its lot and comments', async () => {
     await imm.locator('#chkSet0').check();
     await imm.locator('#tblSet0').waitFor({ state: 'visible' });
@@ -162,6 +168,49 @@ async function workflow(s) {
       'Saved schedule lost the cell lot, given date or comments');
     assert(xml.includes(`<comments>${rowComment}</comments>`), 'Saved schedule lost the row comment');
     assert((await imm.locator('#tdSet0_Row0_Col1_label').innerText()).trim() === label, 'Reloaded schedule does not show the given date');
+  });
+
+  await step('stale saves, deletion and restoration cannot replace a newer schedule', async () => {
+    const before = sql.rows(`SELECT ID,archived,immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`);
+    const saveUrl = new URL(`${contextPath}/encounter/immunization/saveSchedule`, s.config.baseUrl).href;
+    const mutateUrl = new URL(`${contextPath}/encounter/immunization/deleteSchedule`, s.config.baseUrl).href;
+    const stale = await s.context.request.post(saveUrl, { form: staleSave, maxRedirects: 0 });
+    assert(stale.status() === 409, `A stale schedule save answered ${stale.status()} instead of conflict`);
+    for (const method of ['delete', 'restore']) {
+      const response = await s.context.request.post(mutateUrl,
+        { form: { ...staleMutation, method, tblSet: '0' }, maxRedirects: 0 });
+      assert(response.status() === 409, `A stale ${method} answered ${response.status()} instead of conflict`);
+    }
+    const unversioned = { ...staleSave };
+    delete unversioned.scheduleVersion;
+    assert((await s.context.request.post(saveUrl, { form: unversioned, maxRedirects: 0 })).status() === 400,
+      'A schedule save without a version was accepted');
+    for (const [url, params] of [[saveUrl, { hdnAction: 'Save' }], [mutateUrl, { method: 'delete', tblSet: '0' }]]) {
+      assert((await s.context.request.get(url, { params, maxRedirects: 0 })).status() === 405,
+        'A schedule mutation was accepted through GET');
+    }
+    assert(JSON.stringify(sql.rows(`SELECT ID,archived,immunizations FROM immunizations WHERE demographic_no=${patient} ORDER BY ID`))
+      === JSON.stringify(before), 'A refused request changed schedule content or history');
+  });
+
+  await step('two saves from the same version commit exactly one new schedule', async () => {
+    const form = await imm.locator('form[action$="/saveSchedule"]').evaluate(form => Object.fromEntries(new FormData(form)));
+    form.hdnAction = 'Save';
+    const before = Number(sql.value(`SELECT COUNT(*) FROM immunizations WHERE demographic_no=${patient}`));
+    const url = new URL(`${contextPath}/encounter/immunization/saveSchedule`, s.config.baseUrl).href;
+    const outcomes = await Promise.all(['A', 'B'].map(suffix => s.context.request.post(url, {
+      form: { ...form, tdSet0_Row0_comments_text: `${rowComment} ${suffix}` }, maxRedirects: 0,
+    })));
+    const statuses = outcomes.map(response => response.status());
+    assert(statuses.filter(status => status === 409).length === 1
+      && statuses.filter(status => status >= 200 && status < 400).length === 1,
+    `Competing saves did not produce one success and one conflict: ${statuses}`);
+    assert(Number(sql.value(`SELECT COUNT(*) FROM immunizations WHERE demographic_no=${patient}`)) === before + 1,
+      'Competing saves created more than one history version');
+    assert(sql.value(`SELECT COUNT(*) ${current}`) === '1', 'Competing saves left multiple current schedules');
+    const winningComment = `${rowComment} ${statuses[0] === 409 ? 'B' : 'A'}`;
+    assert(currentXml().includes(`<comments>${winningComment}</comments>`), 'The refused save replaced the winning comment');
+    await imm.reload({ waitUntil: 'networkidle' });
   });
 
   await step('Configure then Cancel returns to the schedule without writing', async () => {

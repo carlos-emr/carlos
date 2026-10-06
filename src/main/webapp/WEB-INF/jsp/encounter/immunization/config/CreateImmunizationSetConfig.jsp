@@ -64,7 +64,7 @@
         MiscUtils.getLogger().error("there was a boo-boo co=" + co + " ro=" + ro, e);
     }
 
-    setName = ((String) request.getAttribute("setName"));
+    setName = ((String) request.getAttribute("name"));
 %>
 
 
