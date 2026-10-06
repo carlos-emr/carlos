@@ -324,7 +324,8 @@ public class PreventionData {
     }
 
     /**
-     * Lists the patient's preventions of one type, as
+     * Lists the patient's preventions of one type, or of every type when
+     * {@code preventionType} is {@code null}, as
      * {@link #getPreventionData(LoggedInInfo, String, Integer)} does, for a date of birth the
      * caller has already looked up. It makes no privilege check of its own, so it stays
      * package-private: {@link PreventionPageData} calls it after its own checked lookup of the
