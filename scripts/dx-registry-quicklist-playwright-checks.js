@@ -28,7 +28,7 @@ async function workflow(s) {
   // disjoint 32-bit slice of the run marker (~31 bits each) keeps the names within it.
   const shortName = hex => `FAKE${(parseInt(hex, 16) % 36 ** 6).toString(36).toUpperCase().padStart(6, '0')}`;
   const name = shortName(marker.slice(-8));
-  const seeded = shortName(marker.slice(-16, -8));
+  const seeded = `F${marker.slice(-7)}"&`; // Ten characters; exercise literal attribute encoding.
   const names = `(${sqlString(name)},${sqlString(seeded)})`;
   const ownedLists = `quickListName IN ${names} AND createdByProvider=${sqlString(provider)}`;
   const ownedUsers = `quickListName IN ${names} AND providerNo=${sqlString(provider)}`;
@@ -186,6 +186,10 @@ async function workflow(s) {
     await registry.waitForLoadState('networkidle').catch(() => {});
     await assertNotErrorPage(registry, 'quick-list sidebar switch');
     assert(await registry.locator('#dxCodeQuicklist select[name="quickList"]').inputValue() === seeded, 'Sidebar did not keep the chosen quick list');
+    assert((await registry.locator('#dxCodeQuicklist select[name="quickList"] option:checked').innerText()).trim() === seeded,
+      'Sidebar changed the literal quick-list label');
+    assert(await registry.locator('#dxCodeQuicklist select[name="quickList"] option[selected]').count() === 1,
+      'Sidebar marked both the explicit list and its default as selected');
     const add = registry.locator('#dxCodeQuicklist a[title="250"]');
     await add.waitFor({ state: 'visible' });
     await clickAndAwaitReload(registry, add);

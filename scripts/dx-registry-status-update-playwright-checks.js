@@ -32,7 +32,7 @@ function awaitUpdate(page, route) {
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  const quickList = `FAKE-${marker.slice(-5)}`;
+  const quickList = `F${marker.slice(-7)}"&`; // Ten-character name with HTML-sensitive characters.
   const ids = {};
   const status = code => `SELECT status FROM dxresearch WHERE dxresearch_no=${ids[code]} AND demographic_no=${patient}`;
   s.cleanup(() => {
@@ -47,7 +47,8 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(quickList)})`) === '0', 'Owned registry fixtures were not removed');
   });
   sql.execute(`INSERT INTO quickList (quickListName, createdByProvider, dxResearchCode, codingSystem)
-    VALUES (${sqlString(quickList)}, ${sqlString(provider)}, '401', 'icd9')`);
+    VALUES (${sqlString(quickList)}, ${sqlString(provider)}, '401', 'icd9'),
+      (${sqlString(quickList)}, ${sqlString(provider)}, '250', 'icd9')`);
 
   const chart = await s.chart();
   const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-status-registry');
@@ -175,12 +176,29 @@ async function workflow(s) {
     assert(await codeRows().count() === 0, 'Clear left codes in the search list');
   });
 
-  await s.step('a quick list chosen in the report adds its codes to the search', async () => {
-    await report.locator('select[name="quicklistname"]').selectOption(quickList);
+  await s.step('a named quick list adds every code once even when it overlaps existing criteria', async () => {
+    const diagnosesBefore = sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch
+      WHERE demographic_no=${patient} ORDER BY dxresearch_no`);
+    await report.locator('#codingSystem').selectOption('icd9');
+    await typeAutocomplete(report, '#codesearch', CODES['401'], { option: /^401: / });
     await submit(report.getByRole('button', { name: 'Add', exact: true }));
-    const row = codeRows().filter({ has: report.locator('td', { hasText: /^401$/ }) });
-    assert(await row.count() === 1, 'Choosing a quick list in the report added none of its codes');
+    assert(await codeRows().count() === 1, 'Individual code was not retained before applying a quick list');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await report.locator('select[name="quickListName"]').selectOption(quickList);
+      assert((await report.locator('select[name="quickListName"] option:checked').innerText()).trim() === quickList,
+        'Report changed the literal quick-list label');
+      await submit(report.getByRole('button', { name: 'Add', exact: true }));
+      assert(await codeRows().count() === 2, 'Applying the quick list lost codes or duplicated criteria');
+      for (const code of ['250', '401']) {
+        const row = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${code}$`) }) });
+        assert(await row.count() === 1, `Quick-list code ${code} was not added exactly once`);
+      }
+    }
+    assert(JSON.stringify(sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch
+      WHERE demographic_no=${patient} ORDER BY dxresearch_no`)) === JSON.stringify(diagnosesBefore),
+      'Changing report criteria modified the patient registry');
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
+    assert(await codeRows().count() === 0, 'Clear left quick-list criteria behind');
   });
 }
 
