@@ -69,6 +69,14 @@ async function workflow(s) {
     slotIndex += 6;
     h.assert(await field(popup, 'resources').evaluate(element => element.labels.length > 0 && element.tabIndex === 0),
       'Resources must have an associated label and natural keyboard order');
+    for (const name of ['reason', 'reasonCode', 'location', 'user_id', 'notes', 'status']) {
+      h.assert(await field(popup, name).evaluate(element => element.labels.length > 0),
+        `The booking ${name} field has no associated label`);
+    }
+    if (await field(popup, 'appt_mc_number').count()) {
+      h.assert(await field(popup, 'appt_mc_number').evaluate(element => element.labels.length > 0),
+        'The booking MC number has no associated label');
+    }
     h.assert(await popup.locator('[tabindex]').evaluateAll(elements => elements.every(element => element.tabIndex <= 0)),
       'Positive tabindex bypasses the booking form document order');
     await popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
@@ -89,8 +97,8 @@ async function workflow(s) {
     await link.waitFor({ state: 'attached', timeout: 20000 });
     const edit = await ui.clickOpensPopup(schedule, link, { context, recorder, label: 'edit-appointment', timeout: 20000 });
     await edit.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-    for (const name of ['keyword', 'resources']) {
-      h.assert(await edit.locator(`input[name="${name}"]`).evaluate(element => element.labels.length > 0),
+    for (const name of ['keyword', 'resources', 'reason', 'reasonCode', 'location', 'user_id', 'notes']) {
+      h.assert(await edit.locator(`form [name="${name}"]`).evaluate(element => element.labels.length > 0),
         `The edit ${name} field has no associated label`);
     }
     h.assert(await edit.locator('input[name="resources"]').evaluate(element => element.tabIndex === 0),

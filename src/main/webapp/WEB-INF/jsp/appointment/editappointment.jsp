@@ -1072,10 +1072,10 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formReason"/>:</label>
+                        <label for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
                     </td>
                     <td>
-				<select name="reasonCode" class="form-select">
+				<select name="reasonCode" id="reasonCode" class="form-select">
                             <%
                                 String rCode = bFirstDisp && appt.getReasonCode() != null ? appt.getReasonCode().toString() : request.getParameter("reasonCode");
                                 pageContext.setAttribute("rCode", rCode);
@@ -1101,13 +1101,14 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="160" data-code-point-maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
+				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
+                                <textarea id="reason" class="form-control" name="reason" maxlength="160" data-code-point-maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <label for="location"><fmt:message key="Appointment.formLocation"/>:</label>
                     </td>
                     <td>
                         <%
@@ -1121,7 +1122,7 @@
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
 
                             if (bMultisites) { %>
-				        <select name="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1140,7 +1141,7 @@
                             isSiteSelected = true;
                             if (locationEnabled) {
                         %>
-		<select name="location" class="form-select">
+		<select name="location" id="location" class="form-select">
                             <%
                                 String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
                                 if (programs != null && !programs.isEmpty()) {
@@ -1155,7 +1156,7 @@
                             %>
                         </select>
                         <% } else { %>
-		        <input type="text" class="form-control" name="location"
+		        <input type="text" class="form-control" name="location" id="location"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
@@ -1163,11 +1164,11 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formCreator"/>:</label>
+                        <label for="user_id"><fmt:message key="Appointment.formCreator"/>:</label>
                     </td>
                     <td>
                         <% String lastCreatorNo = bFirstDisp ? (appt.getCreator()) : request.getParameter("user_id"); %>
-                <input type="text" class="form-control" name="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
+                <input type="text" class="form-control" name="user_id" id="user_id" value="<carlos:encode value='<%= lastCreatorNo %>' context="htmlAttribute"/>" readonly >
                     </td>
                 </tr>
                 <%
@@ -1321,10 +1322,10 @@
                 </tr>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formNotes"/>:</label>
+                        <label for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="510" data-code-point-maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea name="notes" id="notes" class="form-control" maxlength="510" data-code-point-maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>
