@@ -131,8 +131,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           EXPECTED_BASE: ${{ needs.authorize.outputs.base }}
           EXPECTED_BRANCH: ${{ needs.authorize.outputs.branch }}
-          OPENCODE_API_KEY: ${{ secrets[format('OPENCODE_PROVIDER_{0}_API_KEY', needs.authorize.outputs.provider)] }}
-          OPENCODE_API_BASE_URL: ${{ secrets[format('OPENCODE_PROVIDER_{0}_BASE_URL', needs.authorize.outputs.provider)] }}
+          OPENCODE_API_KEY: ${{ needs.authorize.outputs.provider == '1' && secrets.OPENCODE_PROVIDER_1_API_KEY || needs.authorize.outputs.provider == '2' && secrets.OPENCODE_PROVIDER_2_API_KEY || needs.authorize.outputs.provider == '3' && secrets.OPENCODE_PROVIDER_3_API_KEY || '' }}
+          OPENCODE_API_BASE_URL: ${{ needs.authorize.outputs.provider == '1' && secrets.OPENCODE_PROVIDER_1_BASE_URL || needs.authorize.outputs.provider == '2' && secrets.OPENCODE_PROVIDER_2_BASE_URL || needs.authorize.outputs.provider == '3' && secrets.OPENCODE_PROVIDER_3_BASE_URL || '' }}
           EXPECTED_SOURCE: ${{ needs.authorize.outputs.source }}
           EXPECTED_BASELINE: ${{ needs.authorize.outputs.baseline }}
           EXPECTED_PROVIDER: ${{ needs.authorize.outputs.provider }}

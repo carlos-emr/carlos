@@ -61,6 +61,9 @@ function collect(source, work, sha) {
     // Read unchanged large repository blobs without treating them as generated output.
     const mode = stat.mode & 0o111 ? '100755' : '100644';
     if (stat.nlink !== 1) throw new Error('Generated hard links are not supported.');
+    // Match the repository's Git blob-ID format solely to omit unchanged files.
+    // A collision here omits a proposed edit; it cannot authorize new content.
+    // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
     const hash = crypto.createHash('sha1').update(`blob ${stat.size}\0`);
     const fd = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const block = Buffer.alloc(1024 * 1024);

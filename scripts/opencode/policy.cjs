@@ -157,7 +157,12 @@ function config({ baseURL, model, adapter = 'openai-compatible' }, mode) {
 }
 
 function marker(repo, id) { return `OpenCode-Request: ${repo}#comment-${id}`; }
-function blobHash(bytes) { return crypto.createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'); }
+function blobHash(bytes) {
+  // Git's existing SHA-1 blob IDs are a format requirement for change detection,
+  // not authentication or download integrity (runtime archives use SHA-256).
+  // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
+  return crypto.createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
 
 module.exports = { BASE, MAX_BYTES, MAX_FILES, USAGE, MODEL_ALIASES, endpoint, command, allowlist, permitted, settings,
   protectedHead, safePath, validateBundle, parseEvents, config, marker, blobHash };
