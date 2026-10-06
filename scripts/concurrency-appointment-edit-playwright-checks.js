@@ -12,9 +12,9 @@
  *   2. control: session A updates an appointment session B has just deleted: the update is refused (404),
  *      no appointment row is resurrected and no second archive row is written;
  *   3. session B cancels the appointment from its edit popup, then session A (popup opened BEFORE the
- *      cancel) changes the reason and clicks Update Appt: the cancellation must survive. The edit form
- *      posts the whole record, AppointmentUpdateRecord2Action has no findForUpdate / updatedatetime
- *      comparison, so A's stale status silently un-cancels the appointment.
+ *      cancel) changes the reason and clicks Update Appt: the cancellation must survive, the stale
+ *      save must retain A's draft with a conflict, and reviewing the current record must allow the
+ *      intended reason change without undoing the cancellation.
  * Fixtures: two owned appointments (marker reason, provider of the test login, 401 days ahead) seeded
  * by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and
  * other_id(appt_mc_number) rows it owns and asserts them gone. Wave-7 sweep "concurrency".
@@ -98,6 +98,8 @@ async function workflow(s) {
 
   const staleClickMark = failureMark(s.recorder);
   await s.step('control: a stale day-sheet status click is refused with a conflict and an alert', async () => {
+    const staleEdit = await openEdit(s, s.context, aSheet, statusId, 'status-edit-a');
+    const beforeTime = sql.value(`SELECT updatedatetime FROM appointment WHERE appointment_no=${statusId}`);
     const link = sheet => sheet.locator(`a.apptStatus[onclick*="appointment_no=${statusId}&"]`).first();
     await link(bSheet).waitFor({ state: 'visible', timeout: TIMEOUT });
     await link(bSheet).click();
@@ -114,6 +116,21 @@ async function workflow(s) {
     await aSheet.waitForTimeout(300);
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/provider\/providercontrol$/, appConsole: /^Error: HTTP 409/ });
     h.assert(sql.value(apptStatus(statusId)) === advanced, 'The refused stale status click changed the status again');
+    h.assert(sql.value(`SELECT updatedatetime FROM appointment WHERE appointment_no=${statusId}`) === beforeTime,
+      'This control must exercise a legacy status writer that leaves updatedatetime untouched');
+    const reason = `${marker} retained after status-only race`;
+    await staleEdit.locator('#reason').fill(reason);
+    const editMark = failureMark(s.recorder);
+    const [editResponse] = await Promise.all([
+      staleEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname)),
+      staleEdit.locator('#updateButton').click(),
+    ]);
+    h.assert(editResponse.status() === 409, 'A concurrent status change without a timestamp change was not detected');
+    await staleEdit.waitForLoadState('domcontentloaded');
+    h.assert(await staleEdit.locator('#reason').inputValue() === reason, 'The status conflict lost the entered reason');
+    consumeExpectedFailure(s.recorder, editMark, { status: 409, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(sql.value(apptStatus(statusId)) === advanced, 'The stale editor reverted the day-sheet status');
+    await staleEdit.close();
   });
 
   await s.step('control: updating an appointment another session deleted is refused and resurrects nothing', async () => {
@@ -131,12 +148,13 @@ async function workflow(s) {
       aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
       aEdit.locator('#updateButton').click(),
     ]);
-    // AppointmentUpdateRecord2Action answers sendError(404, "Appointment not found"); pin exactly that refusal.
     h.assert(response.status() === 404, `Updating a deleted appointment answered HTTP ${response.status()} instead of refusing it with 404`);
     await aEdit.waitForTimeout(500);
     consumeExpectedFailure(s.recorder, mark, { status: 404, path: /\/appointment\/UpdateRecord$/ });
     h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE appointment_no=${deleteId}`) === '0', 'The stale update resurrected the deleted appointment');
     h.assert(sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${deleteId}`) === archivedBefore, 'The stale update wrote a second archive row');
+    h.assert(await aEdit.locator('#reason').inputValue() === `${marker} stale update of a deleted appointment`,
+      'The deleted-appointment refusal lost the entered reason');
     await aEdit.close().catch(() => {});
     await bEdit.close().catch(() => {});
   });
@@ -160,18 +178,42 @@ async function workflow(s) {
       bEdit.locator('#updateButton').click(),
     ]);
     await expectValue(sql, apptStatus(cancelId), 'C', 'Session B\'s cancellation did not reach the database');
+    const beforeReason = sql.value(`SELECT reason FROM appointment WHERE appointment_no=${cancelId}`);
+    const beforeArchive = sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${cancelId}`);
+    const originalVersion = await aEdit.locator('input[name="appointmentEditVersion"]').inputValue();
     await aEdit.locator('#reason').fill(`${marker} edited by session A`);
-    await Promise.all([
+    const mark = failureMark(s.recorder);
+    const [refusal] = await Promise.all([
       aEdit.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
       aEdit.locator('#updateButton').click(),
+    ]);
+    h.assert(refusal.status() === 409, `The stale edit answered ${refusal.status()} instead of a conflict`);
+    await aEdit.waitForLoadState('domcontentloaded');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(await aEdit.locator('#reason').inputValue() === `${marker} edited by session A`, 'Conflict discarded the draft');
+    h.assert(await aEdit.locator('input[name="appointmentEditVersion"]').inputValue() === originalVersion,
+      'Conflict silently refreshed the stale version and enabled a blind overwrite');
+    h.assert(sql.value(`SELECT reason FROM appointment WHERE appointment_no=${cancelId}`) === beforeReason, 'Refusal changed the reason');
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${cancelId}`) === beforeArchive,
+      'Refusal wrote an archive');
+    h.assert(sql.value(apptStatus(cancelId)) === 'C', 'Refusal undid the cancellation');
+    const currentPage = s.context.waitForEvent('page');
+    await aEdit.locator('#reviewCurrentAppointment').click();
+    const recovered = await currentPage;
+    h.wireStrictPage(recovered, 'review-current-appointment', s.recorder);
+    await recovered.waitForLoadState('domcontentloaded');
+    h.assert(await recovered.locator('select[name="status"]').inputValue() === 'C', 'Recovery did not show the current cancellation');
+    h.assert(await aEdit.locator('#reason').inputValue() === `${marker} edited by session A`, 'Opening recovery lost the original draft');
+    await recovered.locator('#reason').fill(`${marker} edited by session A`);
+    await Promise.all([
+      recovered.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/UpdateRecord$/.test(new URL(r.url()).pathname), { timeout: TIMEOUT }),
+      recovered.locator('#updateButton').click(),
     ]);
     await expectValue(sql, `SELECT reason FROM appointment WHERE appointment_no=${cancelId}`, `${marker} edited by session A`,
       'Session A\'s own edit (the reason) was not stored');
     const status = sql.value(apptStatus(cancelId));
-    h.assert(status === 'C',
-      `Session A's stale Update Appt silently un-cancelled the appointment (status is now '${status}'). The edit form posts the whole record and `
-      + 'AppointmentUpdateRecord2Action neither locks the row (findForUpdate, as AppointmentStatusTransitionService does) nor compares the posted '
-      + 'updatedatetime, so the later save wins without any warning.');
+    h.assert(status === 'C', `The corrected save silently un-cancelled the appointment (status is now '${status}')`);
+    await recovered.close().catch(() => {});
   });
 }
 

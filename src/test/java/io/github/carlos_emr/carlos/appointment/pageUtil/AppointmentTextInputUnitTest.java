@@ -23,6 +23,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -61,6 +66,12 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         events = createAndRegisterMock(EventService.class);
         createAndRegisterMock(WaitingListDao.class);
         createAndRegisterMock(OtherIdDAO.class);
+        registerMock(PlatformTransactionManager.class, new AbstractPlatformTransactionManager() {
+            @Override protected Object doGetTransaction() { return new Object(); }
+            @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+            @Override protected void doCommit(DefaultTransactionStatus status) { }
+            @Override protected void doRollback(DefaultTransactionStatus status) { }
+        });
     }
 
     @AfterEach
@@ -92,7 +103,8 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         request.setParameter("resources", "\uD83D\uDE00".repeat(255));
         Appointment stored = new Appointment();
         stored.setId(42); stored.setStatus("t");
-        when(appointments.find(42)).thenReturn(stored);
+        when(appointments.findForUpdate(42)).thenReturn(stored);
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
         try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
             assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("success");
             verify(appointments).merge(stored);
@@ -101,6 +113,47 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
             assertThat(stored.getResources()).isEqualTo("\uD83D\uDE00".repeat(255));
             assertThat(response.getStatus()).isEqualTo(200);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"status", "reason", "metadata", "missing", "malformed", "provider", "cancel", "noShow"})
+    void staleOrMissingOriginalStateRetainsTheDraftWithoutWrites(String change) throws Exception {
+        Appointment stored = new Appointment();
+        stored.setId(42); stored.setStatus("t"); stored.setReason("Original reason");
+        request.setParameter("reason", "Typed pending reason");
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
+        if ("status".equals(change)) stored.setStatus("C");
+        if ("reason".equals(change)) stored.setReason("A concurrent reason");
+        if ("provider".equals(change)) stored.setProviderNo("8");
+        if ("cancel".equals(change) || "noShow".equals(change)) {
+            stored.setStatus("C");
+            request.setParameter("buttoncancel", "cancel".equals(change) ? "Cancel Appt" : "No Show");
+        }
+        if ("missing".equals(change)) request.removeParameter(AppointmentEditVersion.PARAMETER);
+        if ("malformed".equals(change)) request.setParameter(AppointmentEditVersion.PARAMETER, "invalid");
+        when(appointments.findForUpdate(42)).thenReturn(stored);
+        try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
+            if ("metadata".equals(change)) ids.when(() -> OtherIdManager.getApptOtherId("42", "appt_mc_number")).thenReturn("new metadata");
+            assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("input");
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(request.getParameter("reason")).isEqualTo("Typed pending reason");
+            assertThat(request.getAttribute("appointmentValidationErrors").toString()).contains("nothing was saved");
+            assertThat(request.getAttribute("appointmentReviewRequired")).isEqualTo(true);
+            verifyNoInteractions(archives, events);
+            verify(appointments, never()).merge(any());
+            ids.verify(() -> OtherIdManager.saveIdAppointment(anyString(), anyString(), any()), never());
+        }
+    }
+
+    @Test
+    void aDeletedAppointmentRetainsTheDraftAndIsNeverRecreated() throws Exception {
+        request.setParameter("reason", "Typed pending reason");
+        assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("input");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(request.getParameter("reason")).isEqualTo("Typed pending reason");
+        assertThat(request.getAttribute("appointmentReviewRequired")).isEqualTo(false);
+        verifyNoInteractions(archives, events);
+        verify(appointments, never()).merge(any());
     }
 
     @Test

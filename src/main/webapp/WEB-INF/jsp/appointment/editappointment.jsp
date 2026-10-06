@@ -97,6 +97,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditVersion" %>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -152,6 +153,11 @@
         }
     }
     String demographic_nox = request.getParameter("demographic_no");
+    String appointmentEditVersion = request.getParameter(AppointmentEditVersion.PARAMETER);
+    if (appointmentEditVersion == null && bFirstDisp && apptFromRequest != null) {
+        appointmentEditVersion = AppointmentEditVersion.of(apptFromRequest,
+                OtherIdManager.getApptOtherId(appointment_no, "appt_mc_number"));
+    }
     if ((demographic_nox == null || demographic_nox.isEmpty()) && apptFromRequest != null) {
         demographic_nox = String.valueOf(apptFromRequest.getDemographicNo());
     }
@@ -215,7 +221,7 @@
         pageContext.setAttribute("appointment", appt);
     }
 
-    String statusCode = request.getParameter("status");
+    String statusCode = StringUtils.defaultString(request.getParameter("status"));
     String importedStatus = null;
     if (bFirstDisp) {
         statusCode = appt.getStatus();
@@ -862,6 +868,12 @@
         <c:if test="${not empty appointmentValidationErrors}">
             <div class="alert alert-danger" role="alert">
                 <c:forEach var="error" items="${appointmentValidationErrors}"><p>${carlos:forHtml(error)}</p></c:forEach>
+                <c:if test="${appointmentReviewRequired}">
+                    <c:url var="currentAppointmentUrl" value="/appointment/editappointment">
+                        <c:param name="appointment_no" value="${param.appointment_no}"/>
+                    </c:url>
+                    <a id="reviewCurrentAppointment" href="${carlos:forHtmlAttribute(currentAppointmentUrl)}" target="_blank" rel="noopener">Review the current appointment in a new window</a>
+                </c:if>
             </div>
         </c:if>
 
@@ -869,6 +881,7 @@
 <div id="editAppointment" >
     <div class="container" >
 <form name="EDITAPPT" METHOD="post" ACTION="<%=request.getContextPath() %>/appointment/UpdateRecord" onSubmit="return(onSub())">
+    <input type="hidden" name="appointmentEditVersion" value="<carlos:encode value='<%=StringUtils.defaultString(appointmentEditVersion)%>' context="htmlAttribute"/>">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
