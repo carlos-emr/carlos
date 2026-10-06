@@ -139,8 +139,8 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                 }
                 // The posted value(mNbInstrcsCN) count is ignored: the rendered list bounds the loop.
                 int iNumMInstrc = selection.instructionCount(ctr);
-                String upperMsg = getText("oscarReport.CDMReport.msgUpperBound", new String[]{measurementType});
-                String lowerMsg = getText("oscarReport.CDMReport.msgLowerBound", new String[]{measurementType});
+                String upperMsg = getText("oscarReport.CDMReport.msgUpperBoundValue", new String[]{measurementType});
+                String lowerMsg = getText("oscarReport.CDMReport.msgLowerBoundValue", new String[]{measurementType});
 
                 if (!ectValidation.isDate(startDate)) {
                     addActionError(getText("oscarReport.CDMReport.msgInvalidDate", new String[]{measurementType}));
