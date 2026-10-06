@@ -48,17 +48,23 @@ function paintErrorField(fieldobject) {
 
 
 //*--> MASTER AJAX METHOD <--*//
-function sendData(path, param, target) {
+function sendData(path, param, target, button) {
     if (target == "close" || target == "modal") {
+        if (button && button.disabled) return;
+        if (button) button.disabled = true;
         // AJAX for modal interactions — sanitize HTML before DOM insertion
         $.ajax({
             url: ctx + path,
             type: 'POST',
             data: param,
-            dataType: 'html',
+            dataType: target === 'close' ? 'json' : 'html',
             success: function (data) {
                 if (target == "close") {
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
+                    if (data && (data.success === true || data.success === 'true')) {
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).hide();
+                    } else {
+                        alert('Ticklers could not all be saved. Some may already have been created; review the selected patients before trying again.');
+                    }
                 } else if (target == "modal") {
                     if (typeof DOMPurify !== 'undefined') {
                         // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
@@ -76,12 +82,19 @@ function sendData(path, param, target) {
                 }
             },
             error: function (xhr, status, error) {
-                console.error('Drilldown request failed:', status, error);
+                if (target === 'close') {
+                    alert('The tickler save could not be confirmed. Review the selected patients before trying again.');
+                } else {
+                    console.error('Drilldown request failed:', status, error);
+                }
                 if (target == "modal") {
                     $('#assignTickler').find('.modal-body').html(
                         '<p style="color:red">Request failed. Please reload the page.</p>');
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
+            },
+            complete: function () {
+                if (button) button.disabled = false;
             }
         });
     } else {
@@ -374,7 +387,7 @@ $(document).ready(function () {
                 return field.name !== 'method';
             });
             data.push({name: 'method', value: 'saveTickler'});
-            sendData("/web/dashboard/display/AssignTickler", data, "close");
+            sendData("/web/dashboard/display/AssignTickler", data, "close", this);
         }
     });
 
@@ -405,6 +418,7 @@ $(document).ready(function () {
     /** Preserve each confirmation form's route, operation and CSRF fields in one POST path. */
     function submitSelectedPatientForm(button, event, modalId) {
         event.preventDefault();
+        if (button.disabled) return;
         var patientIds = getSelectedPatientIds();
         if (patientIds.length < 1) {
             alert("At least one patient must be selected to perform this action.");
@@ -413,12 +427,19 @@ $(document).ready(function () {
         var form = $(button).closest('form');
         var data = form.serializeArray();
         data.push({name: 'patientIds', value: patientIds.join(',')});
+        button.disabled = true;
         $.ajax({
             type: 'POST',
             url: form.attr('action'),
             data: data,
             success: function () {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).toggle();
+                bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).hide();
+            },
+            error: function () {
+                alert('The selected-patient action could not be confirmed. Review the patients before trying again.');
+            },
+            complete: function () {
+                button.disabled = false;
             }
         });
     }

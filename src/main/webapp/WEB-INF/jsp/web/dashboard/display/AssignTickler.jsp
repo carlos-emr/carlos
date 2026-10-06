@@ -56,6 +56,7 @@
 <form name="ticklerAddForm" id="ticklerAddForm"
       action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
+    <input type="hidden" name="ticklerSubmission" value="${carlos:forHtmlAttribute(ticklerSubmission)}"/>
     <div class="row">
         <div class="col-12">
             <div class="mb-3">
@@ -66,7 +67,7 @@
                     <span class="error" style="color:red;display:none;">
 							<fmt:message key="tickler.ticklerAdd.msgAssignTicklerError"/>
 						</span>
-                    <input type="hidden" name="demographics" value="${ demographics }"/>
+                    <input type="hidden" name="demographics" value="${carlos:forHtmlAttribute(demographics)}"/>
                 </div>
             </div>
         </div>
@@ -78,7 +79,7 @@
                 <label><fmt:message key="tickler.ticklerAdd.action"/></label>
                 <select class="form-select required" name="ticklerCategoryId">
                     <c:forEach items="${ ticklerCategories }" var="ticklerCategory">
-                        <option title="${ ticklerCategory.description }" value="${ ticklerCategory.id }">
+                        <option title="${carlos:forHtmlAttribute(ticklerCategory.description)}" value="${carlos:forHtmlAttribute(ticklerCategory.id)}">
                             ${carlos:forHtml(ticklerCategory.category)}
                         </option>
                     </c:forEach>
@@ -94,7 +95,7 @@
                 <select class="form-select required" name="taskAssignedTo">
                     <option value=""></option>
                     <c:forEach items="${ providers }" var="provider">
-                        <option value="${ provider.providerNo }">
+                        <option value="${carlos:forHtmlAttribute(provider.providerNo)}">
                             ${carlos:forHtml(provider.formattedName)}
                         </option>
                     </c:forEach>
