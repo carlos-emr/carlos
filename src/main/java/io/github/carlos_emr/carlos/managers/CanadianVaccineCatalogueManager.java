@@ -100,22 +100,36 @@ public class CanadianVaccineCatalogueManager {
 
     NationalVaccineCatalogueClient catalogueClient = new NationalVaccineCatalogueClient();
 
+    /**
+     * Returns at most 1,000 stored immunizations, generics and brands, in no set order; empty when no catalogue is
+     * loaded.
+     */
     public List<CVCImmunization> getImmunizationList() {
         return immunizationDao.findAll(0, 1000);
     }
 
+    /** Returns the stored brands whose parent generic has this SNOMED code; empty if there are none. */
     public List<CVCImmunization> getImmunizationsByParent(String conceptId) {
         return immunizationDao.findByParent(conceptId);
     }
 
+    /**
+     * Returns the medication (DIN, status, holder, lot numbers) stored for this brand's SNOMED code, or {@code null}
+     * if none is.
+     */
     public CVCMedication getMedicationBySnomedConceptId(String conceptId) {
         return medicationDao.findBySNOMED(conceptId);
     }
 
+    /**
+     * Returns every stored generic, inactive and retired ones included; empty when no catalogue is loaded. A generic
+     * with no type (picklist) name is not offered as a prevention type.
+     */
     public List<CVCImmunization> getGenericImmunizationList() {
         return immunizationDao.findAllGeneric();
     }
 
+    /** Returns the stored medications with this DIN, empty if there are none, and writes an audit log entry. */
     public List<CVCMedication> getMedicationByDIN(LoggedInInfo loggedInInfo, String din) {
         List<CVCMedication> results = medicationDao.findByDIN(din);
         LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.getMedicationByDIN", null);
@@ -150,6 +164,12 @@ public class CanadianVaccineCatalogueManager {
         }
     }
 
+    /**
+     * Parses an NVC V2 bundle and maps it to the catalogue to store.
+     *
+     * @throws IOException if the JSON is not a FHIR R4 Bundle, or the mapper refuses it because it lacks generics,
+     *         brands, lots or any brand-to-generic link
+     */
     static NationalVaccineCatalogueMapper.Catalogue readCatalogue(String json) throws IOException {
         try {
             Bundle bundle = FHIR_R4.newJsonParser().parseResource(Bundle.class, json);
@@ -159,6 +179,24 @@ public class CanadianVaccineCatalogueManager {
         }
     }
 
+    /**
+     * Swaps the stored catalogue for {@code catalogue}. {@link #update(LoggedInInfo)} calls it inside one
+     * {@link TransactionTemplate} transaction, which the DAOs join.
+     *
+     * <ol>
+     * <li>Reads what carries over, by SNOMED code: each stored immunization's Ontario ISPA flag, and the type
+     * (picklist) name of each generic offered so far (see {@link #keepTypeNames}).</li>
+     * <li>Deletes the stored lot numbers and GTINs, then the medications they reference, then the
+     * immunizations.</li>
+     * <li>Saves the new immunizations, plus the rows kept for previously offered generics that left the bundle,
+     * with their carried-over ISPA flags, then each medication and its lot numbers. NVC V2 has no GTINs, so the
+     * refresh leaves none stored.</li>
+     * <li>Sets the {@code cvc.updated} property to today's date.</li>
+     * </ol>
+     *
+     * <p>Any exception rolls the whole transaction back, the deletions included, so the previous catalogue stays
+     * as it was.</p>
+     */
     private void replaceCatalogue(NationalVaccineCatalogueMapper.Catalogue catalogue) {
         // NVC V2 has no Ontario ISPA flag; keep what the previous catalogue recorded per vaccine,
         // since DHIR consent and ISPA checks read it.
@@ -258,6 +296,10 @@ public class CanadianVaccineCatalogueManager {
         }
     }
 
+    /**
+     * Records today's date (yyyy-MM-dd) as the last refresh in the {@code cvc.updated} property. No screen reads it
+     * yet.
+     */
     private void setUpdatedInPropertyTable() {
         UserProperty updated = userPropertyDao.getProp(CVC_UPDATED_PROP);
         if (updated == null) {
@@ -268,6 +310,11 @@ public class CanadianVaccineCatalogueManager {
         userPropertyDao.saveProp(updated);
     }
 
+    /**
+     * Returns a stored lot with this whole lot number (not a prefix), or {@code null} if there is none, and writes an
+     * audit log entry. A lot number linked to more than one brand is stored once per brand; any one of those rows is
+     * returned.
+     */
     public CVCMedicationLotNumber findByLotNumber(LoggedInInfo loggedInInfo, String lotNumber) {
         CVCMedicationLotNumber result = lotNumberDao.findByLotNumber(lotNumber);
         LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.findByLotNumber",
@@ -275,6 +322,10 @@ public class CanadianVaccineCatalogueManager {
         return result;
     }
 
+    /**
+     * Returns the stored immunization with this SNOMED code, generic or brand despite the name, or {@code null} if
+     * there is none, and writes an audit log entry.
+     */
     public CVCImmunization getBrandNameImmunizationBySnomedCode(LoggedInInfo loggedInInfo, String snomedCode) {
         CVCImmunization result = immunizationDao.findBySnomedConceptId(snomedCode);
         LogAction.addLogSynchronous(loggedInInfo, "CanadianVaccineCatalogueManager.getBrandNameImmunizationBySnomedCode",
@@ -282,6 +333,29 @@ public class CanadianVaccineCatalogueManager {
         return result;
     }
 
+    /**
+     * Searches the catalogue, as the prevention page's "Add by Brand/Generic/Lot#" search does.
+     *
+     * @param term the text to find: anywhere in an immunization's display or picklist name, at the start of a lot
+     *        number, or as a whole GTIN. {@code %} and {@code _} in it act as SQL wildcards
+     * @param includeGenerics whether to match generics by name
+     * @param includeBrands whether to match brands by name. With only one of the two set, the DAO applies the
+     *        generic/brand filter to the picklist-name match only, so the other kind can still match by display
+     *        name; the one caller sets both
+     * @param includeLotNumbers whether to match lot numbers; each matching lot adds the immunization stored under
+     *        its medication's SNOMED code, which is its brand
+     * @param includeGTINs whether to match GTINs; each matching GTIN adds its brand the same way. Matches nothing
+     *        after an NVC V2 refresh, which stores no GTINs; the one caller passes {@code false}
+     * @param matchedLotNumber when lot numbers are searched and exactly one stored lot row matches, its lot number
+     *        is appended here, even if that lot's immunization is then dropped; otherwise it is left as it was. A
+     *        lot number stored under two brands is two rows, so it is not appended. May be {@code null}
+     * @return the matches, one per SNOMED code: generics that have a type (picklist) name, and brands that have a
+     *         parent code (whether that parent is stored or has a type name is not checked). Generics without a
+     *         type name, which the refresh leaves on inactive generics never offered before, are dropped, as are
+     *         lots or GTINs whose immunization is missing. Sorted by prevalence, highest first, with no prevalence
+     *         last (the refresh stores 1 for an active vaccine and 0 for an inactive or retired one); the order
+     *         within a prevalence is not defined. Never {@code null}
+     */
     public List<CVCImmunization> query(String term, boolean includeGenerics, boolean includeBrands,
             boolean includeLotNumbers, boolean includeGTINs, StringBuilder matchedLotNumber) {
         List<CVCImmunization> results = new ArrayList<>();
