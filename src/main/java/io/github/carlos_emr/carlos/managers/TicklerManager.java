@@ -135,6 +135,13 @@ public interface TicklerManager {
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);
 
+    /**
+     * Atomically changes the status only if it still matches the status rendered in the list.
+     * Returns false for missing rows or stale/missing expected status, with no history write.
+     */
+    boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                 Tickler.STATUS expectedStatus, Tickler.STATUS status);
+
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status);
 
     public void sendNotification(LoggedInInfo loggedInInfo, Tickler t) throws IOException;

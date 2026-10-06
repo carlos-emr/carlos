@@ -369,8 +369,10 @@
                         {
                             data: 'id',
                             orderable: false,
-                            render: function(data) {
-                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" class="noprint">';
+                            render: function(data, type, row) {
+                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" class="noprint">'
+                                    + '<input type="hidden" name="expectedStatus_' + escapeHtml(String(data))
+                                    + '" value="' + escapeHtml(row.status || '') + '">';
                             }
                         },
                         {
@@ -965,6 +967,11 @@
             </c:if>
         </form>
 
+        <c:if test="${not empty param.conflictCount}">
+            <div id="tickler-status-conflict" class="alert alert-warning" role="alert">
+                <fmt:message key="tickler.ticklerMain.msgStatusConflict"/>
+            </div>
+        </c:if>
         <form name="ticklerform" method="post" action="DbTicklerMain">
             <input type="hidden" name="parentAjaxId" value="${carlos:forHtmlAttribute(param.parentAjaxId)}"/>
             <% if (showScheduleNav) { %>

@@ -8,11 +8,9 @@
  * the tickler was Active. B deletes it. A, whose list still shows it as Active, ticks it and clicks
  * Complete.
  *
- * Asserted: B's delete lands (control) and A's batch POST is answered normally; the deleted tickler is
- * NOT silently brought back as Completed. DbTicklerMain2Action calls TicklerManager.updateStatus for
- * every ticked row and updateStatus applies the requested status whatever the row currently holds
- * (it only skips an identical status), so D -> C resurrects the tickler into the Completed list.
- * The check fails at that last step.
+ * Asserted: B's delete lands; A receives explicit conflict guidance, with no status or history
+ * change. A fresh list can still perform a deliberate transition, and replay of the stale POST
+ * cannot create another history row.
  *
  * Fixtures: one owned tickler seeded by SQL for the owned FAKE- patient; cleanup removes it and its
  * history and asserts it gone. Wave-7 sweep "concurrency".
@@ -23,7 +21,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openSecondSession } = require('./lib/concurrency-support');
 const { seedTickler, openPatientTicklerList, listRow } = require('./lib/concurrency-tickler');
 
-async function batch(list, message, buttonValue) {
+async function batch(list, message, buttonValue, conflicts = 0) {
   const row = await listRow(list, message);
   await row.locator('input[name="checkbox"]').check();
   const button = list.locator(`input[type="button"][value="${buttonValue}"]`).first();
@@ -33,12 +31,20 @@ async function batch(list, message, buttonValue) {
   // application protecting the row (the status assertions below could not tell the two apart).
   h.assert(!new URL(list.url()).searchParams.has('failCount'),
     `The ${buttonValue} batch reported failed rows (failCount in the redirect URL), so the update itself did not run`);
+  h.assert(Number(new URL(list.url()).searchParams.get('conflictCount') || 0) === conflicts,
+    `The ${buttonValue} batch did not report exactly ${conflicts} stale rows`);
+  if (conflicts) {
+    const guidance = list.locator('#tickler-status-conflict');
+    await guidance.waitFor({ state: 'visible' });
+    h.assert((await guidance.innerText()).includes('Review the refreshed list'), 'Missing conflict recovery guidance');
+  }
 }
 
 async function workflow(s) {
   const { sql } = s;
   const tickler = seedTickler(s, 'list race');
   const statusQuery = `SELECT status FROM tickler WHERE tickler_no=${tickler.id}`;
+  const historyQuery = `SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${tickler.id}`;
   const b = await openSecondSession(s, { label: 'second-session' });
   const aList = await openPatientTicklerList(s.context, s.master, s.recorder, 'tickler-list-a');
   const bList = await openPatientTicklerList(b.context, b.master, s.recorder, 'tickler-list-b');
@@ -50,16 +56,36 @@ async function workflow(s) {
   await s.step('session B deletes the tickler from its list', async () => {
     await batch(bList, tickler.message, deleteLabel);
     await expectValue(sql, statusQuery, 'D', 'Session B\'s delete did not reach the database');
+    h.assert(sql.value(historyQuery) === '1', 'The successful delete must record exactly one history row');
   });
   await s.step('session A completes the same tickler from its stale list', async () => {
-    await batch(aList, tickler.message, completeLabel);
+    await batch(aList, tickler.message, completeLabel, 1);
   });
   await s.step('the tickler session B deleted stays deleted', async () => {
-    const status = sql.value(statusQuery);
-    h.assert(status === 'D',
-      `Session A's stale Complete turned the deleted tickler into status '${status}': DbTicklerMain2Action -> TicklerManagerImpl.updateStatus applies `
-      + 'the requested status to whatever the row currently holds, so a tickler deleted in one window is silently resurrected into the Completed list by another.');
+    h.assert(sql.value(statusQuery) === 'D', 'A stale Complete resurrected the deleted tickler');
+    h.assert(sql.value(historyQuery) === '1', 'A rejected stale save changed tickler history');
   });
+  await s.step('a replay of the stale request reports a conflict without another history row', async () => {
+    const response = await s.context.request.post(new URL('DbTicklerMain', aList.url()).href, {
+      form: { checkbox: tickler.id, submit_form: 'Complete', [`expectedStatus_${tickler.id}`]: 'A' },
+      maxRedirects: 0
+    });
+    h.assert(response.status() === 302, 'The replay did not return the normal list redirect');
+    const redirect = new URL(response.headers().location, aList.url());
+    h.assert(redirect.searchParams.get('conflictCount') === '1' && !redirect.searchParams.has('failCount'),
+      'The replay did not report a specific stale-status conflict');
+    h.assert(sql.value(statusQuery) === 'D' && sql.value(historyQuery) === '1', 'The replay changed the tickler or history');
+  });
+  await s.step('a fresh deleted list permits an intentional completion', async () => {
+    await aList.locator('#ticklerview').selectOption('D');
+    const row = await listRow(aList, tickler.message);
+    h.assert(await row.locator(`input[name="expectedStatus_${tickler.id}"]`).inputValue() === 'D',
+      'The fresh list did not render the deleted status');
+    await batch(aList, tickler.message, completeLabel);
+    await expectValue(sql, statusQuery, 'C', 'An intentional transition from the refreshed list failed');
+    h.assert(sql.value(historyQuery) === '2', 'The intentional completion must add exactly one history row');
+  });
+
 }
 
 module.exports = { workflow };
