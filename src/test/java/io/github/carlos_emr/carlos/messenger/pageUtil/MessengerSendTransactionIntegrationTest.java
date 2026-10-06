@@ -53,7 +53,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
     @PersistenceContext private EntityManager entities;
 
     @ParameterizedTest
-    @ValueSource(strings = {"message", "delivery", "link", "afterCommit", "rollbackOnly"})
+    @ValueSource(strings = {"message", "delivery", "link", "afterCommit", "rollbackOnly", "patientDenied"})
     void shouldRetryOnlyConfirmedRollback_withoutDuplicatingAnyMessageRows(String failure) throws Exception {
         String marker = "owned-send-" + UUID.randomUUID();
         List<Integer> ownedIds = new ArrayList<>();
@@ -73,7 +73,9 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
         LoggedInInfo login = mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("999998");
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(eq(login), eq("_msg"), eq("w"), any())).thenReturn(true);
+        when(security.hasPrivilege(login, "_msg", "w", (String) null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_msg", "w", 893100))
+                .thenAnswer(call -> !fail.get() || !"patientDenied".equals(failure));
         var productionDemographics = new MessengerDemographicManagerImpl();
         ReflectionTestUtils.setField(productionDemographics, "securityInfoManager", security);
         ReflectionTestUtils.setField(productionDemographics, "msgDemoMapDao", links);
