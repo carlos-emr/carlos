@@ -45,6 +45,7 @@
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderAppointmentReadGate" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderWriteGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*,java.net.*, io.github.carlos_emr.carlos.util.*"
@@ -208,6 +209,14 @@
         response.setContentType("text/plain;charset=UTF-8");
     }
     request.getRequestDispatcher(includeTarget).include(request, response);
+    Object mutationStatus = request.getAttribute(ProviderWriteGuard.STATUS_ATTRIBUTE);
+    if (mutationStatus instanceof Integer) {
+        if (((Integer) mutationStatus) == 405) {
+            response.setHeader("Allow", "POST");
+        }
+        response.sendError((Integer) mutationStatus);
+        return;
+    }
     if (statusRequest) {
         Object status = request.getAttribute("providerAddStatusHttpStatus");
         if (status instanceof Integer) {
