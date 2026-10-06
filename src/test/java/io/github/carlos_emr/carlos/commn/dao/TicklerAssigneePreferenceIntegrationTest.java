@@ -139,7 +139,8 @@ class TicklerAssigneePreferenceIntegrationTest extends CarlosTestBase {
     @Test
     void shouldRefuseAnUnknownOwner_withoutCreatingAnOrphan() {
         String absent = "T" + UUID.randomUUID().toString().substring(0, 5);
-        assertThatThrownBy(() -> properties.replaceTicklerTaskAssignee(absent, "mrp")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> properties.replaceTicklerTaskAssignee(absent, "mrp"))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("Unknown tickler preference owner");
         transaction().executeWithoutResult(status -> assertThat(values(absent, UserProperty.TICKLER_TASK_ASSIGNEE)).isEmpty());
     }
 
