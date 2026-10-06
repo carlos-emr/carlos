@@ -19,21 +19,19 @@ const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowS
 
 const q = h.sqlString;
 
-async function traceNavigation(page) {
-  if (!process.env.DS_DEBUG) return;
-  page.on('console', message => {
-    if (message.type() === 'debug' && message.text().startsWith('EFORM_TRACE ')) console.log(message.text());
-  });
-  page.on('framenavigated', frame => console.log('EFORM_TRACE navigation', frame === page.mainFrame(), h.pathOnly(frame.url())));
-  page.on('close', () => console.log('EFORM_TRACE closed'));
+// Keep the handler registered until the browser has made its navigation decision.
+// A once-listener removes itself during dispatch; Chromium can then see no registered
+// beforeunload handler and suppress the requested dialog despite prior user activation.
+async function armUnloadConfirmation(page) {
   await page.evaluate(() => {
-    for (const name of ['click', 'submit', 'beforeunload', 'pagehide']) {
-      window.addEventListener(name, event => console.debug('EFORM_TRACE ' + JSON.stringify({
-        event: name, trusted: event.isTrusted, prevented: event.defaultPrevented,
-        active: navigator.userActivation.isActive, everActive: navigator.userActivation.hasBeenActive,
-        target: event.target?.id || event.target?.tagName || 'window',
-      })), true);
-    }
+    window.__eformTestUnload = event => {
+      event.preventDefault(); event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', window.__eformTestUnload);
+  });
+  return () => page.evaluate(() => {
+    window.removeEventListener('beforeunload', window.__eformTestUnload);
+    delete window.__eformTestUnload;
   });
 }
 
@@ -72,7 +70,6 @@ async function workflow(s) {
     await s.step(`eForm Submit via ${mode.label} saves exactly one instance`, async () => {
       const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-fill');
       await form.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
-      await traceNavigation(form);
       const subject = `${marker}-${mode.tag}`;
       await form.locator('#remote_eform_subject').fill(subject);
       await form.locator('#note').fill('double submit');
@@ -98,9 +95,7 @@ async function workflow(s) {
         await form.locator('#note').click();
         h.assert(await form.evaluate(() => navigator.userActivation.hasBeenActive),
           'The slow-submit fixture has no trusted user activation');
-        await form.evaluate(() => window.addEventListener('beforeunload', event => {
-          event.preventDefault(); event.returnValue = '';
-        }, { once: true }));
+        await armUnloadConfirmation(form);
         // noWaitAfter deliberately returns while navigation is pending. Keep the expected-dialog
         // handler installed until the slow response actually reaches the unload confirmation.
         const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
@@ -153,7 +148,6 @@ async function workflow(s) {
   await s.step('canceled and invalid submits remain editable and preserve the named submitter', async () => {
     const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-validation');
     await form.locator('#remoteSubmitButton').waitFor();
-    await traceNavigation(form);
     const subject = `${marker}-VALIDATION`;
     const rows = () => sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
       AND form_name=${q(formName)} AND subject=${q(subject)}`);
@@ -181,15 +175,14 @@ async function workflow(s) {
     h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
       'Late window cancellation saved or trapped the next attempt');
     h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Late cancellation left an overlay blocking edits');
-    await form.evaluate(() => window.addEventListener('beforeunload', event => {
-      event.preventDefault(); event.returnValue = '';
-    }, { once: true }));
+    const disarmUnload = await armUnloadConfirmation(form);
     const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
       form.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'beforeunload' }),
       form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),
     ]), { accept: false });
     await sleep(300);
     h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected a canceled unsaved-form navigation prompt');
+    await disarmUnload();
     h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
       'Canceled navigation saved or trapped the next attempt');
     h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Canceled navigation left an overlay blocking edits');
