@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -57,6 +58,9 @@ final class ClinicalSummaryAgentProtocol {
         return exchange(port, path, null, timeoutMs);
     }
 
+    // FindSecBugs URLCONNECTION_SSRF_FD: the host is always 127.0.0.1; the port is validated and the path limited to
+    // /[A-Za-z0-9/_-]+, from code constants or server configuration; no proxy and no redirects, so no request can choose the target.
+    @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "loopback-only host; validated configured port and character-limited path; no proxy or redirects")
     private static JsonNode exchange(int port, String path, byte[] body, int timeoutMs) throws IOException {
         validateConnection(port, timeoutMs);
         if (!path.matches("/[A-Za-z0-9/_-]+") || (body != null && body.length > MAX_REQUEST_BYTES)) {

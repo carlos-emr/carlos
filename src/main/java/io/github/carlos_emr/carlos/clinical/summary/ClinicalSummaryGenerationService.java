@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.clinical.summary;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.text.Normalizer;
@@ -271,11 +272,15 @@ public final class ClinicalSummaryGenerationService {
         return value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: NFKC case folding only detects duplicate coverage reasons in generated output; not a security or authorization decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "NFKC case folding to detect duplicate coverage reasons in generated output; not a security or authorization decision")
     static String normalize(String value) {
         return Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT)
                 .replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
     }
 
+    // FindSecBugs IMPROPER_UNICODE: NFKC case folding only compares generated text with source text; not a security or authorization decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "NFKC case folding for comparing generated text with source text; not a security or authorization decision")
     static Set<String> words(String value) {
         Set<String> result = new HashSet<>();
         String expanded = Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
