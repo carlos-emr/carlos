@@ -587,9 +587,9 @@
 
             function saveNoteDialog() {
                 jQuery.ajax({
-                    url: ctx + '/CaseManagementEntry',
+                    url: ctx + '/CaseManagementEntry?method=ticklerSaveNote',
+                    type: 'POST',
                     data: {
-                        method: "ticklerSaveNote",
                         noteId: document.getElementById('tickler_note_noteId').value,
                         value: document.getElementById('tickler_note').value,
                         demographicNo: document.getElementById('tickler_note_demographicNo').value,
