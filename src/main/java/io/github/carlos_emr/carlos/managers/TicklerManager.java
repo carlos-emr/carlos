@@ -131,6 +131,10 @@ public interface TicklerManager {
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, Integer id);
 
+    /** Reads the current tickler under a write lock inside the caller's edit transaction. */
+    Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id);
+
+
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);

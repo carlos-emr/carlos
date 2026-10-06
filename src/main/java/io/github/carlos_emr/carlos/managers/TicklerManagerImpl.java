@@ -450,6 +450,16 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+        Tickler tickler = ticklerDao.findForUpdate(id);
+        LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTickler",
+                tickler == null ? "" : "id=" + tickler.getId());
+        return tickler;
+    }
+
+    @Override
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
