@@ -1639,8 +1639,18 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     @DisplayName("recording an activated email that never arrived")
     class ConfirmNotArrived {
 
+        // The portal deletes an invitation 30 days after its expiry; with the margin, 37 days and an hour
+        // after a seven-day code was activated.
+        private final Duration prunedAfter = PortalInviteEmailComposer.CODE_LIFETIME
+                .plus(PortalInviteDeliveryService.PORTAL_PRUNE_WINDOW)
+                .plus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN);
+
         private PatientPortalInviteDelivery stuck() {
-            PatientPortalInviteDelivery row = storedRow(State.COMMITTED, Duration.ofMinutes(16));
+            return stuckFor(Duration.ofMinutes(16));
+        }
+
+        private PatientPortalInviteDelivery stuckFor(Duration idle) {
+            PatientPortalInviteDelivery row = storedRow(State.COMMITTED, idle);
             row.setOutcome(null);
             return row;
         }
@@ -1723,18 +1733,113 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should refuse when the portal shows a revoked invitation, as the decision covers only replaced or expired codes")
-        void shouldRefuse_whenTheInvitationWasRevoked() {
+        @DisplayName("should offer and close the attempt, revoking nothing, once the portal shows it revoked")
+        void shouldClose_whenThePortalShowsTheInvitationRevoked() {
             PatientPortalInviteDelivery row = stuck();
-            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "revoked")));
+            List<PatientPortalInviteDto> listed = List.of(invite(INVITE, "revoked"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(listed);
 
+            assertThat(service.isCodeDead(row, listed)).isTrue();
+            PatientPortalInviteDelivery closed = recordNotArrived(row);
+
+            assertThat(closed.getState()).isEqualTo(State.NOT_ARRIVED);
+            assertThat(closed.getOutcome()).isEqualTo(Outcome.NOT_ARRIVED_CODE_DEAD);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should close an unlisted attempt once its stored expiry is 30 days and an hour past")
+        void shouldClose_whenAnUnlistedInvitationReachesItsStoredExpiryPlusPruning() {
+            // Activated seven days before its stored expiry, as the portal sets it.
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter);
+            row.setExpiresAt(Date.from(NOW.minus(PortalInviteDeliveryService.PORTAL_PRUNE_WINDOW)
+                    .minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN)));
+            List<PatientPortalInviteDto> listed = List.of(invite(INVITE + 1, "pending"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(listed);
+
+            assertThat(service.isCodeDead(row, listed)).isTrue();
+            assertThat(recordNotArrived(row).getState()).isEqualTo(State.NOT_ARRIVED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse an unlisted attempt one second before its stored expiry plus the wait")
+        void shouldRefuse_whenAnUnlistedInvitationIsYoungerThanItsStoredExpiryAndPruning() {
+            // Old by its last change, but the stored expiry comes first.
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
+            row.setExpiresAt(Date.from(NOW.minus(PortalInviteDeliveryService.PORTAL_PRUNE_WINDOW)
+                    .minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN).plusSeconds(1)));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of());
+
+            assertThat(service.isCodeDead(row, List.of())).isFalse();
             assertRefused(row, Reason.INVITE_STILL_LIVE);
         }
 
         @Test
-        @DisplayName("should refuse when the portal no longer lists the invitation")
-        void shouldRefuse_whenThePortalDoesNotListTheInvitation() {
+        @DisplayName("should close an unlisted attempt with no stored expiry 37 days and an hour after it")
+        void shouldClose_whenAnUnlistedInvitationWithoutStoredExpiryReachesTheBoundary() {
+            assertThat(prunedAfter).isEqualTo(Duration.ofDays(37).plusHours(1));
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter);
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of());
+
+            assertThat(service.isCodeDead(row, List.of())).isTrue();
+            assertThat(recordNotArrived(row).getState()).isEqualTo(State.NOT_ARRIVED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse an unlisted attempt with no stored expiry one second before that")
+        void shouldRefuse_whenAnUnlistedInvitationWithoutStoredExpiryIsInsideTheBoundary() {
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.minusSeconds(1));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE + 1, "superseded")));
+
+            assertThat(service.isCodeDead(row, List.of(invite(INVITE + 1, "superseded")))).isFalse();
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should go by the portal's listing, not age, while the portal still lists the invitation")
+        void shouldFollowTheListing_overTheAttemptsAge() {
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
+            row.setExpiresAt(Date.from(NOW.minus(Duration.ofDays(40))));
+            for (String status : List.of("pending", "prepared")) {
+                List<PatientPortalInviteDto> listed = List.of(invite(INVITE, status));
+                when(portal.listInvites(anyInt(), any())).thenReturn(listed);
+
+                assertThat(service.isCodeDead(row, listed)).as(status).isFalse();
+                assertRefused(row, Reason.INVITE_STILL_LIVE);
+            }
+            List<PatientPortalInviteDto> used = List.of(invite(INVITE, "accepted"));
+            when(portal.listInvites(anyInt(), any())).thenReturn(used);
+
+            assertThat(service.isCodeDead(row, used)).isFalse();
+            assertRefused(row, Reason.INVITE_ALREADY_USED);
+        }
+
+        @Test
+        @DisplayName("should count no code dead for an old activated attempt without an invitation id")
+        void shouldCountNoCodeDead_withoutAnInvitationId() {
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
+            row.setPortalInviteId(null);
+
+            assertThat(service.isCodeDead(row, List.of())).isFalse();
+        }
+
+        @Test
+        @DisplayName("should count no code dead for an attempt that is not activated")
+        void shouldCountNoCodeDead_forAnAttemptThatIsNotActivated() {
+            List<PatientPortalInviteDto> revoked = List.of(invite(INVITE, "revoked"));
+            for (State state : State.values()) {
+                PatientPortalInviteDelivery row = storedRow(state, prunedAfter.plusDays(5));
+                assertThat(service.isCodeDead(row, revoked)).as(state.name()).isEqualTo(state == State.COMMITTED);
+            }
+        }
+
+        @Test
+        @DisplayName("should refuse a recent attempt the portal does not list, which may be a portal fault")
+        void shouldRefuse_whenThePortalDoesNotListARecentInvitation() {
             PatientPortalInviteDelivery row = stuck();
+            row.setExpiresAt(Date.from(NOW.minus(Duration.ofDays(2))));
             when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE + 1, "superseded")));
 
             assertRefused(row, Reason.INVITE_STILL_LIVE);
@@ -1750,9 +1855,9 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should leave the attempt open when the portal cannot be asked")
+        @DisplayName("should leave the attempt open when the portal cannot be asked, however old it is")
         void shouldLeaveTheAttemptOpen_whenThePortalCannotBeReached() {
-            PatientPortalInviteDelivery row = stuck();
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
             when(portal.listInvites(anyInt(), any())).thenThrow(PatientPortalException.ofTransportFailure("/x", null));
 
             assertThatThrownBy(() -> recordNotArrived(row)).isInstanceOf(PatientPortalException.class);

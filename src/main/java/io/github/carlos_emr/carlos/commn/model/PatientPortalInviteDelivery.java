@@ -114,8 +114,9 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         /** Staff confirmed the email never arrived and the invitation was revoked on the portal. */
         REVOKED,
         /**
-         * Staff confirmed the email of an activated attempt never arrived, after the portal showed its code
-         * already dead (replaced by a newer invitation, or past its expiry). Nothing was revoked.
+         * Staff confirmed the email of an activated attempt never arrived, once its code was already dead:
+         * replaced by a newer invitation, revoked, or past its expiry, including an invitation the portal no
+         * longer lists long after its expiry. Nothing was revoked.
          */
         NOT_ARRIVED;
 
@@ -169,8 +170,8 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         /** The email was sent, but the note recording it on the chart could not be written. */
         CHART_NOTE_FAILED,
         /**
-         * Staff confirmed the email did not arrive; the portal already showed its code replaced or expired,
-         * so nothing was revoked.
+         * Staff confirmed the email did not arrive; its code was already replaced, revoked or expired, so
+         * nothing was revoked.
          */
         NOT_ARRIVED_CODE_DEAD,
         /** As {@link #NOT_ARRIVED_CODE_DEAD}, but the note recording it on the chart could not be written. */

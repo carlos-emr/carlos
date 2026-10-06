@@ -174,10 +174,12 @@ public class PortalPanel2Action extends PortalJsonAction {
         boolean complete = true;
         // The invitations as the portal lists them now; the delivery section reads which codes are dead.
         List<PatientPortalInviteDto> invitesNow = new ArrayList<>();
-        if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff, invitesNow)) {
+        boolean invitesRead = mayReadInvites && addInvites(portal, payload, demographicNo, staff, invitesNow);
+        if (mayReadInvites && !invitesRead) {
             complete = false;
         }
-        if (mayReadInvites && !addDeliveries(payload, demographicNo, invitesNow)) {
+        // Null rather than empty after a failed read, which would make every unlisted code look deleted.
+        if (mayReadInvites && !addDeliveries(payload, demographicNo, invitesRead ? invitesNow : null)) {
             complete = false;
         }
         if (mayReadAccount && !addAccount(portal, payload, demographicNo, staff)) {
@@ -236,9 +238,9 @@ public class PortalPanel2Action extends PortalJsonAction {
     /**
      * Adds the patient's recent invitation delivery attempts, newest first. They are read from CARLOS,
      * not the portal, so an unfinished delivery stays visible, with its recovery options, while the portal
-     * is unreachable. {@code invitesNow} is the portal's list from this same request; an activated
-     * attempt is offered "it did not arrive" only when that list shows its code dead, so with the portal
-     * unreachable the choice is not offered.
+     * is unreachable. {@code invitesNow} is the portal's list from this same request, or null when it could
+     * not be read; an activated attempt is offered "it did not arrive" only when that list shows its code
+     * dead, so with the portal unreachable the choice is not offered.
      */
     private boolean addDeliveries(ObjectNode payload, int demographicNo, List<PatientPortalInviteDto> invitesNow) {
         try {
@@ -248,15 +250,18 @@ public class PortalPanel2Action extends PortalJsonAction {
             if (invites == null) {
                 return true;
             }
-            Set<Long> deadInviteIds = new HashSet<>();
-            for (PatientPortalInviteDto invite : invitesNow) {
-                if (invites.isCodeDead(invite)) {
-                    deadInviteIds.add(invite.id());
+            List<PatientPortalInviteDelivery> rows = invites.recentFor(demographicNo);
+            Set<Long> deadCodeDeliveryIds = new HashSet<>();
+            if (invitesNow != null) {
+                for (PatientPortalInviteDelivery row : rows) {
+                    if (invites.isCodeDead(row, invitesNow)) {
+                        deadCodeDeliveryIds.add(row.getId());
+                    }
                 }
             }
             ArrayNode deliveries = payload.putArray("deliveries");
-            for (PatientPortalInviteDelivery row : invites.recentFor(demographicNo)) {
-                InviteDeliveryJson.write(deliveries.addObject(), row, invites, deadInviteIds);
+            for (PatientPortalInviteDelivery row : rows) {
+                InviteDeliveryJson.write(deliveries.addObject(), row, invites, deadCodeDeliveryIds);
             }
             return true;
         } catch (RuntimeException exception) {

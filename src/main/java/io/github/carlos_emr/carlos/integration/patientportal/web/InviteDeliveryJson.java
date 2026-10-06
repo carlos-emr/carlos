@@ -56,11 +56,11 @@ final class InviteDeliveryJson {
     }
 
     /**
-     * @param deadInviteIds the portal invitations the caller's fresh read of the portal shows can no longer be
-     *     used ({@link PortalInviteDeliveryService#isCodeDead}); empty when the caller did not read them
+     * @param deadCodeDeliveryIds the attempts whose codes the caller's fresh read of the portal shows can no
+     *     longer be used ({@link PortalInviteDeliveryService#isCodeDead}); empty when the caller did not read them
      */
     static ObjectNode write(ObjectNode node, PatientPortalInviteDelivery row, PortalInviteDeliveryService service,
-            Set<Long> deadInviteIds) {
+            Set<Long> deadCodeDeliveryIds) {
         node.put("deliveryId", row.getId());
         node.put("state", row.getState().name().toLowerCase(Locale.ROOT));
         node.put("finished", row.getState().isTerminal());
@@ -79,8 +79,8 @@ final class InviteDeliveryJson {
         ArrayNode decisions = node.putArray("decisions");
         if (onCurrentConnection && service.isRecoverable(row)) {
             for (Decision decision : PortalInviteDeliveryService.decisionsFor(row.getState())) {
-                if (decision == Decision.CONFIRM_NOT_ARRIVED && (row.getPortalInviteId() == null
-                        || !deadInviteIds.contains(row.getPortalInviteId()))) {
+                if (decision == Decision.CONFIRM_NOT_ARRIVED
+                        && (row.getId() == null || !deadCodeDeliveryIds.contains(row.getId()))) {
                     continue;
                 }
                 decisions.add(decision.requestValue());
