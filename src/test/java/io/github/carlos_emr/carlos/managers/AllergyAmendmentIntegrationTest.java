@@ -35,7 +35,9 @@ import static org.mockito.Mockito.*;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AllergyAmendmentIntegrationTest extends CarlosTestBase {
     private static final AtomicInteger DEMOGRAPHICS = new AtomicInteger(892000);
-    @Autowired private AllergyDao allergies;
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("allergyDao")
+    private AllergyDao allergies;
     @Autowired private PartialDateDao dates;
     @Autowired private PlatformTransactionManager transactionManager;
     @PersistenceContext private EntityManager entityManager;

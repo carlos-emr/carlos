@@ -150,8 +150,8 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.refresh(drug);
         assertThat(drug.isArchived()).isTrue();
         assertThat(drug.getArchivedReason()).isEqualTo("doseChange");
-        assertThat(drug.getArchivedDate()).isEqualTo(today);
-        assertThat(drug.getLastUpdateDate()).isEqualTo(today);
+        assertThat(drug.getArchivedDate().getTime()).isEqualTo(today.getTime());
+        assertThat(drug.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
     }
 
     @Test
@@ -189,7 +189,7 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
             transaction.executeWithoutResult(status -> {
                 Drug saved = entityManager.find(Drug.class, id);
                 assertThat(saved.getArchivedReason()).isEqualTo("doseChange");
-                assertThat(saved.getArchivedDate()).isEqualTo(today);
+                assertThat(saved.getArchivedDate().getTime()).isEqualTo(today.getTime());
             });
         } finally {
             releaseFirst.countDown();
