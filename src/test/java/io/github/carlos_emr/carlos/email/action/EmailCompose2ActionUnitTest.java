@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -346,6 +347,26 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(rendered.getAttribute("subjectEmail")).isEqualTo("FAKE subject one");
         }
         assertThat(EmailComposeStaging.take(session, key)).as("prepared once, then gone").isNull();
+    }
+
+    @Test
+    @DisplayName("should not put a draft back when storing its compose state is refused")
+    void shouldNotRestoreDraft_whenComposeStateStoreRefuses() throws Exception {
+        registerComposeMocks();
+        EmailComposeSubmissionStateService refusing = spy(composeSubmissionStateService);
+        doThrow(new SecurityException("missing required sec object (_email)"))
+                .when(refusing).prepareComposeView(any(), any(), any(), any(), any(), any());
+        registerMock(EmailComposeSubmissionStateService.class, refusing);
+        HttpSession session = new MockHttpServletRequest().getSession(true);
+        String key = stageDraft(session, "40001", "10001", "one");
+
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(prepareRequest(session, key));
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            assertThatThrownBy(() -> new EmailCompose2Action().prepareComposeEFormMailer())
+                    .isInstanceOf(SecurityException.class);
+        }
+        assertThat(EmailComposeStaging.take(session, key)).as("a denial is not retried").isNull();
     }
 
     @Test

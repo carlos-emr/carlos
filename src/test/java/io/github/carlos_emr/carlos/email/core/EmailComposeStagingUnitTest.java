@@ -79,6 +79,8 @@ class EmailComposeStagingUnitTest {
         assertThat(EmailComposeStaging.take(session, first).settings().subjectEmail()).isEqualTo("FAKE subject A");
         assertThat(EmailComposeStaging.take(session, second).fid()).isEqualTo("40002");
         assertThat(EmailComposeStaging.take(session, first)).isNull();
+        assertThat(EmailComposeStaging.take(session, second)).isNull();
+        assertThat(session.getAttribute(ATTRIBUTE)).isNull();
     }
 
     @Test
@@ -140,6 +142,37 @@ class EmailComposeStagingUnitTest {
         assertThat(EmailComposeStaging.take(session, first)).isSameAs(taken);
         assertThat(EmailComposeStaging.take(session, second).fid()).isEqualTo("40002");
         assertThat(session.getAttribute(ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should drop the oldest pending draft when a restore finds the session full")
+    void shouldDropOldestDraft_whenRestoringIntoFullSession() {
+        MockHttpSession session = new MockHttpSession();
+        List<String> keys = new ArrayList<>();
+        for (int i = 0; i < EmailComposeStaging.MAX_DRAFTS; i++) {
+            keys.add(EmailComposeStaging.stage(session, "4000" + i, settings("1000" + i, "N" + i)));
+        }
+        String failing = keys.get(EmailComposeStaging.MAX_DRAFTS - 1);
+        EmailComposeStaging.Draft taken = EmailComposeStaging.take(session, failing);
+        String newest = EmailComposeStaging.stage(session, "40099", settings("10099", "late"));
+
+        EmailComposeStaging.restore(session, failing, taken);
+
+        assertThat(EmailComposeStaging.take(session, keys.get(0))).as("the oldest was dropped").isNull();
+        assertThat(EmailComposeStaging.take(session, failing)).isSameAs(taken);
+        assertThat(EmailComposeStaging.take(session, newest)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should do nothing when restoring into a session that has ended")
+    void shouldIgnoreRestore_whenSessionWasInvalidated() {
+        MockHttpSession session = new MockHttpSession();
+        String key = EmailComposeStaging.stage(session, "40001", settings("10001", "A"));
+        EmailComposeStaging.Draft taken = EmailComposeStaging.take(session, key);
+        session.invalidate();
+
+        EmailComposeStaging.restore(session, key, taken);  // must not throw
+        assertThat(session.isInvalid()).isTrue();
     }
 
     @Test
