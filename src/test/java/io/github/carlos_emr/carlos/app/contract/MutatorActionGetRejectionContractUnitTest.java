@@ -351,6 +351,9 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Inbox views remain readable; adding a queue requires an administrative POST.
+        // Covered by DmsInboxManage2ActionUnitTest (direct calls and execute dispatch).
+        "io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action",
         // Report queries remain readable; saving favourites/patient sets requires POST.
         // Covered by ReadMethodWriteGuardUnitTest, including both persistence branches.
         "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",

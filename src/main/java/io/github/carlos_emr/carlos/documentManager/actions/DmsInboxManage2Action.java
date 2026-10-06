@@ -110,6 +110,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         // This mutation has its own write authorization and typed outcome, including for callers
         // without read permission. Dispatch it before the legacy read-only view gate.
         if ("updateDocStatusInQueue".equals(request.getParameter("method"))) return updateDocStatusInQueue();
+        if ("addNewQueue".equals(request.getParameter("method"))) return addNewQueue();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -122,8 +123,6 @@ public class DmsInboxManage2Action extends ActionSupport {
             return prepareForIndexPage();
         } else if ("prepareForContentPage".equals(mtd)) {
             return prepareForContentPage();
-        } else if ("addNewQueue".equals(mtd)) {
-            return addNewQueue();
         } else if ("isDocumentLinkedToDemographic".equals(mtd)) {
             return isDocumentLinkedToDemographic();
         } else if ("isLabLinkedToDemographic".equals(mtd)) {
@@ -663,10 +662,19 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String addNewQueue() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null || !securityInfoManager.hasPrivilege(login, "_admin", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin w)");
+        }
         boolean success = false;
         try {
             String qn = request.getParameter("newQueueName");
-            qn = qn.trim();
+            if (qn != null) qn = qn.trim();
             if (qn != null && qn.length() > 0) {
                 QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
                 success = queueDao.addNewQueue(qn);
