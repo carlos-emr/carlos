@@ -141,7 +141,7 @@ async function workflow(s) {
     const row = ownedRow();
     h.assert(await row.count() === 1, 'The patient waiting-list page does not list the owned entry exactly once');
     const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
-    h.assert(cells[0] === marker && cells[1] === '1' && cells[2] === secondNote && cells[3].startsWith('2026-03-04'),
+    h.assert(cells[0] === listName && cells[1] === '1' && cells[2] === secondNote && cells[3].startsWith('2026-03-04'),
       'The patient waiting-list row does not show the list, position 1, the edited note and the date of request');
   });
 
