@@ -216,9 +216,12 @@ so unfinished or manually resolved emails, and failed ones whose attempt did not
 (such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`, or a failure
 before the gate that no attempt names), are not cleared as settled. The age rule above clears them
 instead, once their code is past its life plus a day. So after a crash at any point, the code is gone
-from the saved email within a day of its expiry, or within eight days of the email's last change when
-CARLOS never recorded an expiry, at the next sweep after that (every 15 minutes, and at startup). Clearing
-the saved body does not erase existing database backups.
+from the saved email once a day has passed since its expiry, or eight days since the email's last change
+when CARLOS never recorded an expiry, at the next sweep after that (every 15 minutes, and at startup; a
+few sweeps later when more than 200 emails are waiting, since each sweep handles 200). This clears the
+stored body of an email whose sender might, in theory, still be running, which #4083 asked never to do;
+Ben accepted it (option B) because only the body changes and the code it held has expired by then.
+Clearing the saved body does not erase existing database backups.
 
 Administrators with database read access can check for remaining bodies without displaying any code.
 Run this count-only query against the CARLOS database:

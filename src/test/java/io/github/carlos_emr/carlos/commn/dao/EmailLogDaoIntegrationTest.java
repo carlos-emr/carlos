@@ -294,6 +294,15 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         attempt(past.get("stuckCommitted"), State.COMMITTED, null, pastTheMargin);
         past.put("revoked", withStatus(recent, EmailLog.EmailStatus.RESOLVED));
         attempt(past.get("revoked"), State.REVOKED, Outcome.CONFIRMED_NOT_SENT, pastTheMargin);
+        past.put("stoppingAbandon", withStatus(recent, EmailLog.EmailStatus.PENDING));
+        attempt(past.get("stoppingAbandon"), State.ABANDONING, Outcome.ABANDONED_BY_STAFF, pastTheMargin);
+        // The same states inside the margin are left alone.
+        Integer abandonedInside = failed(recent, "Staff stopped this delivery; the invitation email was never sent.");
+        attempt(abandonedInside, State.ABANDONED, Outcome.ABANDONED_BY_STAFF, insideTheMargin);
+        Integer revokedInside = withStatus(recent, EmailLog.EmailStatus.RESOLVED);
+        attempt(revokedInside, State.REVOKED, Outcome.CONFIRMED_NOT_SENT, insideTheMargin);
+        Integer stoppingInside = withStatus(recent, EmailLog.EmailStatus.PENDING);
+        attempt(stoppingInside, State.ABANDONING, Outcome.ABANDONED_BY_STAFF, insideTheMargin);
         Integer atBoundary = withStatus(recent, EmailLog.EmailStatus.PENDING);
         attempt(atBoundary, State.COMMITTED, null, atTheMargin);
         Integer inside = withStatus(recent, EmailLog.EmailStatus.PENDING);
@@ -306,7 +315,7 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
                 cutoff, expiredBefore, agedBefore, "code removed", 0, 200))
                 .containsAll(past.values())
-                .doesNotContain(atBoundary, inside, oldButLive);
+                .doesNotContain(atBoundary, inside, oldButLive, abandonedInside, revokedInside, stoppingInside);
         EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
                 .getUltimateTargetObject(emailLogDao);
         for (Integer id : past.values()) {
@@ -333,15 +342,20 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         Integer noAttemptPast = withStatus(new Date(now - 8 * DAY - 1000), EmailLog.EmailStatus.FAILED);
         Integer queuedPast = withStatus(new Date(now - 8 * DAY - 1000), EmailLog.EmailStatus.PENDING);
         attempt(queuedPast, State.QUEUED, null);
+        Integer abandonedPast = failed(new Date(now - 8 * DAY - 1000), "Staff stopped this delivery.");
+        attempt(abandonedPast, State.ABANDONED, Outcome.COMMIT_UNCONFIRMED);
         Integer atBoundary = withStatus(new Date(now - 8 * DAY), EmailLog.EmailStatus.PENDING);
         Integer inside = withStatus(new Date(now - 8 * DAY + 1000), EmailLog.EmailStatus.PENDING);
         attempt(inside, State.QUEUED, null);
+        Integer noAttemptInside = withStatus(new Date(now - 8 * DAY + 1000), EmailLog.EmailStatus.FAILED);
+        Integer abandonedInside = failed(new Date(now - 8 * DAY + 1000), "Staff stopped this delivery.");
+        attempt(abandonedInside, State.ABANDONED, Outcome.COMMIT_UNCONFIRMED);
         entityManager.flush();
 
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
                 cutoff, expiredBefore, agedBefore, "code removed", 0, 200))
-                .contains(noAttemptPast, queuedPast)
-                .doesNotContain(atBoundary, inside);
+                .contains(noAttemptPast, queuedPast, abandonedPast)
+                .doesNotContain(atBoundary, inside, noAttemptInside, abandonedInside);
     }
 
     @Test

@@ -48,8 +48,9 @@ import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
 public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailLogDao {
 
     /**
-     * Whether an email's transport is known to be over, shared by the selection and the update so the
-     * two cannot drift apart. SUCCESS and BLOCKED are written by the send itself. FAILED is included only
+     * Whether an email is settled: its transport is known to be over, or (NOT_ARRIVED) its code is known to be
+     * dead. Shared by the selection and the update so the two cannot drift apart. SUCCESS and BLOCKED are
+     * written by the send itself. FAILED is included only
      * when the portal invitation attempt that names the email ended in state SEND_FAILED with outcome
      * SEND_REFUSED: the send writes that, and only after a definite "not sent" once the code went live
      * (a refusal by the mail server, a refused connection or login, or, rarely, a failure in the commit gate

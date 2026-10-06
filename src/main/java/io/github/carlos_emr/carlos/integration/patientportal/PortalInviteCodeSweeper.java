@@ -104,7 +104,8 @@ public class PortalInviteCodeSweeper implements Runnable {
     }
 
     /**
-     * Clears one batch of settled invitation emails unchanged for at least {@code minIdle}.
+     * Clears one batch of invitation emails that are settled and unchanged for at least {@code minIdle}, or
+     * whose code is past its life plus {@link #CODE_AGE_MARGIN}.
      *
      * <p>Best effort: an email that cannot be rewritten is logged by its failure's class and skipped, and
      * a later sweep tries it again after reaching the end of the current pass.
