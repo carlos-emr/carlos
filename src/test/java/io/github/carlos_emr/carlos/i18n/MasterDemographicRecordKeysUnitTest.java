@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,6 +52,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * keys, and the salutation and section-heading keys referenced on the page. This test
  * guards against future regressions by cross-checking every key the MDR JSPs reference
  * against every locale bundle.</p>
+ *
+ * <p>It also checks that the consent status lines ("Consented", "Opted Out") come from the
+ * bundles rather than hard-coded English.</p>
  *
  * @since 2026-04-21
  */
@@ -117,6 +121,61 @@ class MasterDemographicRecordKeysUnitTest {
                             locale, locale)
                     .isEmpty();
         }
+    }
+
+    @Test
+    @DisplayName("should label a patient's consent status from the bundle, not hard-coded English")
+    void shouldLabelConsentStatus_fromBundle() throws IOException {
+        for (String jsp : new String[]{
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp",
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"}) {
+            String content = new String(Files.readAllBytes(Paths.get(jsp)), StandardCharsets.UTF_8);
+            assertThat(extractFmtMessageKeys(content))
+                    .as(jsp)
+                    .contains("demographic.demographiceditdemographic.consentStatusConsented",
+                            "demographic.demographiceditdemographic.consentStatusOptedOut");
+            String code = HTML_COMMENT.matcher(JSP_COMMENT.matcher(content).replaceAll("")).replaceAll("");
+            // The labels as page text: at a line start or right after a tag, as the old markup had them.
+            assertThat(code).as(jsp).doesNotContainPattern("(?m)(^|>)\\s*(Consented|Opted Out)\\b");
+        }
+    }
+
+    @Test
+    @DisplayName("should put the consent date into each status label through a placeholder, encoded")
+    void shouldPassConsentDateAsEncodedParam_inBothJsps() throws IOException {
+        for (String jsp : new String[]{
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp",
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"}) {
+            String content = stripComments(new String(Files.readAllBytes(Paths.get(jsp)), StandardCharsets.UTF_8));
+            assertThat(content).as(jsp)
+                    .contains("<fmt:message key=\"demographic.demographiceditdemographic.consentStatusOptedOut\">"
+                            + "<fmt:param value=\"${carlos:forHtml(patientConsent.optoutDate)}\"/></fmt:message>")
+                    .contains("<fmt:message key=\"demographic.demographiceditdemographic.consentStatusConsented\">"
+                            + "<fmt:param value=\"${carlos:forHtml(patientConsent.consentDate)}\"/></fmt:message>")
+                    .doesNotContainPattern("consentStatus(Consented|OptedOut)\"/>:");
+        }
+    }
+
+    @Test
+    @DisplayName("should format each consent status with its date in every locale")
+    void shouldFormatConsentStatusWithDate_inEveryLocale() throws IOException {
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            for (String key : new String[]{"demographic.demographiceditdemographic.consentStatusConsented",
+                    "demographic.demographiceditdemographic.consentStatusOptedOut"}) {
+                String pattern = bundle.getProperty(key);
+                String formatted = new MessageFormat(pattern).format(new Object[]{"2026-10-05"});
+                assertThat(formatted).as("%s in %s", key, locale)
+                        .endsWith(": 2026-10-05")
+                        .doesNotContain("{");
+            }
+        }
+        // French typography: a non-breaking space before the colon.
+        Properties french = loadBundle("fr");
+        assertThat(french.getProperty("demographic.demographiceditdemographic.consentStatusConsented"))
+                .isEqualTo("Consentement donn\u00e9\u00a0: {0}");
+        assertThat(french.getProperty("demographic.demographiceditdemographic.consentStatusOptedOut"))
+                .isEqualTo("Consentement refus\u00e9\u00a0: {0}");
     }
 
     @Test
