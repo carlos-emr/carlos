@@ -1,8 +1,12 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.clinical.summary;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -10,7 +14,12 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 class AiClinicalSummaryPrototypeTextExtractionUnitTest {
@@ -72,5 +81,24 @@ class AiClinicalSummaryPrototypeTextExtractionUnitTest {
         var changed = ClinicalSummaryTextExtractor.bytes("Recorded dose: 2.5 mg.".getBytes(StandardCharsets.UTF_8), "text/plain");
         assertThat(changed.text()).contains("2.5 mg").isNotEqualTo(first.text());
         assertThatThrownBy(() -> ClinicalSummaryTextExtractor.bytes(original, "application/pdf")).isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
+    void shouldReadStoredDocument_onlyByOneFileNameInsideDocumentDir(@TempDir Path root) throws Exception {
+        Path documents = Files.createDirectory(root.resolve("documents"));
+        Files.writeString(documents.resolve("note.txt"), "Synthetic stored note.");
+        Files.writeString(root.resolve("outside.txt"), "Outside the document directory.");
+        Files.createDirectory(documents.resolve("sub"));
+        Files.writeString(documents.resolve("sub").resolve("nested.txt"), "Nested file.");
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(documents.toString());
+        try (MockedStatic<CarlosProperties> settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(ClinicalSummaryTextExtractor.document("note.txt", "text/plain").text()).contains("Synthetic stored note.");
+            for (String name : new String[] {"../outside.txt", "sub/nested.txt", "sub\\nested.txt"}) {
+                assertThatThrownBy(() -> ClinicalSummaryTextExtractor.document(name, "text/plain")).as(name)
+                        .isInstanceOf(FileValidationException.class);
+            }
+        }
     }
 }

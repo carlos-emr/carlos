@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.LabManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.io.IOException;
@@ -140,7 +141,9 @@ final class SupplementalClinicalSummarySources {
             ClinicalSummaryTextExtractor.Extract extract;
             try {
                 extract = ClinicalSummaryTextExtractor.document(document.getFileName(), document.getContentType());
-            } catch (IOException | IllegalArgumentException unreadable) {
+            } catch (IOException | IllegalArgumentException | FileValidationException unreadable) {
+                // A stored filename that is not one path component, or resolves outside DOCUMENT_DIR, marks only this
+                // document unavailable; authorization failures are other SecurityExceptions and still propagate.
                 extract = new ClinicalSummaryTextExtractor.Extract("", false, "Document content is unavailable or unreadable; open the original.");
             }
             extracted(artifact, patient, "document-" + documentId, value(document.getDescription()),
