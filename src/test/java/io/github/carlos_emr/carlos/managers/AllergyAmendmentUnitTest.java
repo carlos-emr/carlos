@@ -9,7 +9,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -28,10 +27,7 @@ class AllergyAmendmentUnitTest {
         dates = mock(PartialDateDao.class);
         security = mock(SecurityInfoManager.class);
         login = mock(LoggedInInfo.class);
-        manager = new AllergyManagerImpl();
-        ReflectionTestUtils.setField(manager, "allergyDao", allergies);
-        ReflectionTestUtils.setField(manager, "partialDateDao", dates);
-        ReflectionTestUtils.setField(manager, "securityInfoManager", security);
+        manager = new AllergyManagerImpl(allergies, mock(PatientConsentManager.class), security, dates);
         when(security.hasPrivilege(login, "_allergy", "w", 123)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 123)).thenReturn(true);
         replacement = new Allergy();

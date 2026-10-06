@@ -1398,10 +1398,9 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
+                            <label for="resources" class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" maxlength="255" class="form-control form-control-sm"
-                                       tabindex="6"
+                                <input type="text" name="resources" id="resources" maxlength="255" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>

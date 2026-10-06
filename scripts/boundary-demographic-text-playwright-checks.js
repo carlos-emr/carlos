@@ -134,6 +134,9 @@ async function workflow(s) {
     const mismatched = [];
     for (const [input, column] of mapping) {
       const box = add.locator(`form[name="adddemographic"] [name="${input}"]`).first();
+      if (['nameUsed', 'pronouns', 'gender'].includes(input)) {
+        h.assert(await box.evaluate(element => element.labels.length > 0), `The add ${input} field has no associated label`);
+      }
       const attribute = ['nameUsed', 'pronouns', 'gender'].includes(input) ? 'data-code-point-maxlength' : 'maxlength';
       const limit = await box.getAttribute(attribute);
       const declared = b.columnLength(sql, 'demographic', column);

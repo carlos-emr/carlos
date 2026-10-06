@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.Propagation;
@@ -46,13 +45,10 @@ class AllergyAmendmentIntegrationTest extends CarlosTestBase {
     private TransactionTemplate transaction() { return new TransactionTemplate(transactionManager); }
 
     private AllergyManager manager(PartialDateDao partialDates) {
-        AllergyManagerImpl target = new AllergyManagerImpl();
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(login), eq("_allergy"), eq("w"), anyInt())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(eq(login), anyInt())).thenReturn(true);
-        ReflectionTestUtils.setField(target, "allergyDao", allergies);
-        ReflectionTestUtils.setField(target, "partialDateDao", partialDates);
-        ReflectionTestUtils.setField(target, "securityInfoManager", security);
+        AllergyManagerImpl target = new AllergyManagerImpl(allergies, mock(PatientConsentManager.class), security, partialDates);
         TransactionInterceptor advice = new TransactionInterceptor();
         advice.setTransactionManager(transactionManager);
         advice.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());

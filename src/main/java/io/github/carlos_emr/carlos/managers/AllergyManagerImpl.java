@@ -45,24 +45,24 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
 public class AllergyManagerImpl implements AllergyManager {
-    @Autowired
-    private AllergyDao allergyDao;
+    private final AllergyDao allergyDao;
+    private final PatientConsentManager patientConsentManager;
+    private final SecurityInfoManager securityInfoManager;
+    private final PartialDateDao partialDateDao;
 
-    @Autowired
-    private PatientConsentManager patientConsentManager;
-
-    @Autowired
-    private SecurityInfoManager securityInfoManager;
-
-    @Autowired
-    private PartialDateDao partialDateDao;
+    public AllergyManagerImpl(AllergyDao allergyDao, PatientConsentManager patientConsentManager,
+                              SecurityInfoManager securityInfoManager, PartialDateDao partialDateDao) {
+        this.allergyDao = allergyDao;
+        this.patientConsentManager = patientConsentManager;
+        this.securityInfoManager = securityInfoManager;
+        this.partialDateDao = partialDateDao;
+    }
 
     @Override
     @Transactional

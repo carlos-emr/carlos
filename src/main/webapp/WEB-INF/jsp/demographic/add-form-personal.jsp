@@ -219,10 +219,10 @@
                                        class="form-control" value="">
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
+                                <label for="nameUsed" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" name="nameUsed" maxlength="<%=Demographic.PREF_NAME_MAX_LENGTH%>" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
+                                <input type="text" name="nameUsed" id="nameUsed" maxlength="<%=Demographic.PREF_NAME_MAX_LENGTH%>" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
                             </div>
                         </div>
 
@@ -784,7 +784,7 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
+                                <label for="patientPronouns" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
                             </div>
                             <div class="col-sm-4">
                                 <input type="text" id="patientPronouns" name="pronouns" maxlength="<%=Demographic.PRONOUN_MAX_LENGTH%>" class="form-control"/>
@@ -821,7 +821,7 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
+                                <label for="patientGender" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
                             </div>
                             <div class="col-sm-4">
                                 <input type="text" id="patientGender" name="gender" maxlength="<%=Demographic.GENDER_MAX_LENGTH%>" class="form-control"/>

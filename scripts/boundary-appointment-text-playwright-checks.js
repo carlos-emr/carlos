@@ -67,6 +67,8 @@ async function workflow(s) {
     const slots = schedule.locator(`a.adhour[onclick*="provider_no=${fixture.providerNo}&"]`);
     const popup = await ui.clickOpensPopup(schedule, slots.nth(slotIndex), { context, recorder, label: 'add-appointment', timeout: 20000 });
     slotIndex += 6;
+    h.assert(await field(popup, 'resources').evaluate(element => element.labels.length > 0 && element.tabIndex === 0),
+      'Resources must have an associated label and natural keyboard order');
     await popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     return popup;
   }
@@ -85,6 +87,12 @@ async function workflow(s) {
     await link.waitFor({ state: 'attached', timeout: 20000 });
     const edit = await ui.clickOpensPopup(schedule, link, { context, recorder, label: 'edit-appointment', timeout: 20000 });
     await edit.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    for (const name of ['keyword', 'resources']) {
+      h.assert(await edit.locator(`input[name="${name}"]`).evaluate(element => element.labels.length > 0),
+        `The edit ${name} field has no associated label`);
+    }
+    h.assert(await edit.locator('input[name="resources"]').evaluate(element => element.tabIndex === 0),
+      'Edited resources must follow natural keyboard order');
     return edit;
   }
   async function reloadDaySheet() {
