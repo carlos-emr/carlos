@@ -43,6 +43,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Create one per request and drop it with the request: it holds one user's view of one
  * patient. It is not thread-safe.
+ *
+ * @since 2026-10-05
  */
 public final class PreventionPageData {
 
@@ -56,7 +58,8 @@ public final class PreventionPageData {
      *
      * @param loggedInInfo the logged-in user
      * @param demographicNo the patient's demographic number
-     * @throws NumberFormatException if {@code demographicNo} is not a number
+     * @throws NumberFormatException if {@code demographicNo} is not a number, or the patient's
+     *         stored birth date is not numeric
      * @throws RuntimeException if the user lacks {@code _demographic} read, in general or for
      *         this patient, as {@link DemographicManager#getDemographic(LoggedInInfo, String)}
      *         throws it
@@ -67,7 +70,8 @@ public final class PreventionPageData {
 
     PreventionPageData(LoggedInInfo loggedInInfo, String demographicNo, DemographicManager demographicManager) {
         this.demographicId = Integer.valueOf(demographicNo);
-        // The lookup PreventionDisplayConfig.display made for every type, with the same checks.
+        // Stands in for the per-type lookups: display's, which made these same checks (general and
+        // for this patient), and getPreventionData's, which made the patient check alone.
         this.demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
         Calendar birthDay = demographic == null ? null : demographic.getBirthDay();
         this.dateOfBirth = birthDay == null ? null : birthDay.getTime();
@@ -84,7 +88,7 @@ public final class PreventionPageData {
      * @return the patient's date of birth, or {@code null} if it is not known
      */
     public Date getDateOfBirth() {
-        return dateOfBirth;
+        return dateOfBirth == null ? null : new Date(dateOfBirth.getTime());
     }
 
     /**

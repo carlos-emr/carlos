@@ -121,6 +121,8 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
 
         assertThat(pageData.getDemographic()).isSameAs(patient);
         assertThat(pageData.getDateOfBirth()).isEqualTo(patient.getBirthDay().getTime());
+        pageData.getDateOfBirth().setTime(0);
+        assertThat(pageData.getDateOfBirth()).isEqualTo(patient.getBirthDay().getTime());
         verify(demographicManager).getDemographic(user, PATIENT);
         verifyNoMoreInteractions(demographicManager);
     }
@@ -142,6 +144,28 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
                     UtilDateUtilities.calcAgeAtDate(patient.getBirthDay().getTime(), flu.getPreventionDate()));
         });
         verify(preventionDao, times(1)).findByTypeAndDemoNo("Flu", 7);
+    }
+
+    @Test
+    @DisplayName("should list preventions without ages when the patient or the birth date is missing")
+    void shouldLeaveAgesOut_whenPatientOrBirthDateIsMissing() {
+        Prevention patientsFlu = prevention(11, "Flu", 2024);
+        Prevention missingPatientsFlu = prevention(12, "Flu", 2024);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(patientsFlu));
+        when(demographicManager.getDemographic(user, "8")).thenReturn(null);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 8)).thenReturn(List.of(missingPatientsFlu));
+        patient.setYearOfBirth(null);
+
+        PreventionPageData noBirthDate = new PreventionPageData(user, PATIENT, demographicManager);
+        PreventionPageData noPatient = new PreventionPageData(user, "8", demographicManager);
+
+        assertThat(noBirthDate.getDateOfBirth()).isNull();
+        assertThat(noPatient.getDemographic()).isNull();
+        assertThat(noPatient.getDateOfBirth()).isNull();
+        assertThat(noBirthDate.getPreventionData("Flu")).singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("id", "11").containsEntry("age", null));
+        assertThat(noPatient.getPreventionData("Flu")).singleElement()
+                .satisfies(row -> assertThat(row).containsEntry("id", "12").containsEntry("age", null));
     }
 
     @Test
