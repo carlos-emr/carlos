@@ -402,12 +402,13 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
-        drug.setArchivedDate(date);
-        //drug.setEndDate(drug.getArchivedDate());
-        drug.setArchived(true);
-        drug.setArchivedReason(reason);
-
-        drugDao.merge(drug);
+        // The ownership read can be stale. Only the transaction that changes an active row
+        // may file a discontinuation note; later editors must preserve the first reason/date.
+        if (!drugDao.discontinueIfActive(id, bean.getDemographicNo(), date, reason)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "This prescription has already changed. Reload the medication list.");
+            return NONE;
+        }
       /*  Enumeration em=request.getParameterNames();
         while (em.hasMoreElements()){
             String s=em.nextElement().toString();
