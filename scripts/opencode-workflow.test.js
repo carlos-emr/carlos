@@ -110,6 +110,15 @@ test('publication recovery uses the request marker and never overwrites a collid
   await assert.rejects(c.existing(f.api, f.ctx, task), /already exists/);
 });
 
+test('branch URL metacharacters cannot redirect recovery to a different ref', async () => {
+  const f = fixture();
+  const task = { mode: 'implement', pr: {}, branch: 'topic/a#b%25' };
+  let requested;
+  f.api.optional = async route => { requested = route; return null; };
+  await c.existing(f.api, f.ctx, task);
+  assert.equal(requested, `${f.ctx.root}/git/ref/heads/topic/a%23b%2525`);
+});
+
 test('provider and tool errors cannot pass even with exit status zero', () => {
   const good = [{ type: 'text', part: { text: 'Done' } }, { type: 'step_finish', part: { reason: 'stop' } }];
   const json = events => events.map(e => JSON.stringify(e)).join('\n');

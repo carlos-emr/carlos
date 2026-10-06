@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const p = require('./policy.cjs');
 const env = process.env;
+const refPath = name => name.split('/').map(encodeURIComponent).join('/');
 
 class GitHub {
   constructor(token, fetcher = fetch) { this.token = token; this.fetcher = fetcher; }
@@ -95,7 +96,7 @@ async function authorize(api, ctx, environment = env) {
 
 async function existing(api, ctx, task) {
   if (task.mode !== 'implement') return null;
-  const ref = await api.optional(`${ctx.root}/git/ref/heads/${task.branch}`);
+  const ref = await api.optional(`${ctx.root}/git/ref/heads/${refPath(task.branch)}`);
   if (!ref) return null;
   // Search at most 100 commits. A rerun with older publication is refused rather than repeated.
   const commits = await api.request(`${ctx.root}/commits?sha=${encodeURIComponent(ref.object.sha)}&per_page=100`);
@@ -199,7 +200,9 @@ async function publish(api, ctx, issueToken = installationToken) {
     assertTarget(task);
     const file = `${env.RESULT_DIR}/result.json`;
     if (fs.lstatSync(file).isSymbolicLink() || fs.statSync(file).size > 6 * 1024 * 1024) throw new Error('Invalid result artifact.');
-    bundle = p.validateBundle(JSON.parse(fs.readFileSync(file, 'utf8')), task.source);
+    let parsed;
+    try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('Invalid result artifact JSON.'); }
+    bundle = p.validateBundle(parsed, task.source);
     if (task.mode !== 'implement' && bundle.files.length) throw new Error('Read-only request attempted to change files.');
     if (!bundle.files.length) {
       await status(api, ctx, `${task.mode === 'implement' ? '**Completed without changes; no implementation was published.**' : '**Completed.**'}\n\n${bundle.response}\n\nValidation above is agent-reported; repository CI was not run by the publisher.`);
@@ -232,7 +235,7 @@ async function publish(api, ctx, issueToken = installationToken) {
       if (latest.source !== task.source || latest.branch !== task.branch || latest.base !== task.base) {
         throw new Error('PR/branch changed before publication; generated commit was not attached to a branch.');
       }
-      if (task.pr) await app.api.request(`${ctx.root}/git/refs/heads/${task.branch}`, 'PATCH', { sha: commit.sha, force: false });
+      if (task.pr) await app.api.request(`${ctx.root}/git/refs/heads/${refPath(task.branch)}`, 'PATCH', { sha: commit.sha, force: false });
       else await app.api.request(`${ctx.root}/git/refs`, 'POST', { ref: `refs/heads/${task.branch}`, sha: commit.sha });
       sha = commit.sha;
     }
