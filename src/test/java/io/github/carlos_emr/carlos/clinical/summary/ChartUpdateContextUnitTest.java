@@ -136,6 +136,13 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
                 .isExactlyInstanceOf(IllegalStateException.class).hasMessageContaining("Reopen the original");
     }
 
+    @Test void shouldReportTextUnavailable_whenStoredFilenameIsRejected() throws Exception {
+        reader.when(() -> ClinicalSummaryTextExtractor.document("synthetic.txt", "text/plain"))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.FileValidationException("Invalid filename"));
+        assertThatThrownBy(() -> context.load(user, 42))
+                .isExactlyInstanceOf(IllegalStateException.class).hasMessageContaining("Reopen the original");
+    }
+
     @Test void shouldLoadSourceAndComparison_withoutGrantingWriteAccess() {
         var snapshot = context.load(user, 42);
         assertThat(snapshot.patientId()).isEqualTo(3001);

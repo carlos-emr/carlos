@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
 import java.io.FileNotFoundException;
@@ -156,6 +157,10 @@ public class ChartUpdateContext {
                     && (document.getDocxml() == null || document.getDocxml().isBlank())) {
                 throw new OriginalDocumentMissingException();
             }
+            throw new IllegalStateException("Document text is unavailable. Reopen the original.");
+        } catch (FileValidationException invalidName) {
+            // A stored filename that is not one path component, or resolves outside DOCUMENT_DIR: the text is
+            // unavailable, as for any unreadable file. Authorization failures are other SecurityExceptions.
             throw new IllegalStateException("Document text is unavailable. Reopen the original.");
         }
         if (!extract.complete() || extract.text().isBlank()) {
