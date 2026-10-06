@@ -83,22 +83,16 @@ async function workflow(s) {
       bPopup.waitForResponse(r => r.request().method() === 'POST' && /\/rx\/addAllergy2?$/.test(new URL(r.url()).pathname), { timeout: 20000 }),
       amend(bPopup, original, '3'),
     ]);
-    h.assert(response.status() < 500, `Session B's stale amendment answered HTTP ${response.status()}`);
-    // A correct application may store B's amendment (merge) or refuse it; either is acceptable here and the next step judges the
-    // outcome. An explicit 4xx refusal is consumed so the strict page check does not report it; a save that answered
-    // success must land, so give it a bounded moment and require the row then, so a dropped save cannot pass as one.
-    if (response.status() >= 400) {
-      await bPopup.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: /\/rx\/addAllergy2?$/ });
-      return;
-    }
-    const stored = `SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND severity_of_reaction='3'`;
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline && sql.value(stored) === '0') await bPopup.waitForTimeout(200);
-    h.assert(sql.value(stored) !== '0', `Session B's amendment answered HTTP ${response.status()} but no severity-3 allergy was stored`);
+    h.assert(response.status() === 409, `Session B's stale amendment answered HTTP ${response.status()} instead of a conflict`);
+    await bPopup.waitForTimeout(500);
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/addAllergy2?$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient} AND severity_of_reaction='3'`) === '0',
+      'The rejected amendment still created its replacement allergy');
   });
   await s.step('the chart carries one active version of the allergy', async () => {
     const count = sql.value(active);
+    h.assert(sql.value(`SELECT severity_of_reaction FROM allergies WHERE demographic_no=${patient} AND archived=0`) === '1',
+      'The stale amendment changed the winning allergy severity');
     h.assert(count === '1',
       `After two sessions amended the same allergy the chart carries ${count} active allergies with the same description and different severities. `
       + 'RxAddAllergy2Action only checks that allergyToArchive belongs to the patient, not that it is still active, so the stale amendment adds a '

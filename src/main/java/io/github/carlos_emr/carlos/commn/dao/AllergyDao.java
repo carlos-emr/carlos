@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 public interface AllergyDao extends AbstractDao<Allergy> {
 
+    /** Locks and refreshes an allergy for a mutation inside the caller's transaction. */
+    Allergy findForUpdate(Integer id);
+
     public List<Allergy> findAllergies(Integer demographic_no);
 
     public List<Allergy> findActiveAllergies(Integer demographic_no);

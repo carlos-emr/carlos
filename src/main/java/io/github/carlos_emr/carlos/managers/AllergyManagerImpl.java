@@ -39,6 +39,9 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,6 +60,37 @@ public class AllergyManagerImpl implements AllergyManager {
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
+
+    @Autowired
+    private PartialDateDao partialDateDao;
+
+    @Override
+    @Transactional
+    public boolean amendAllergy(LoggedInInfo loggedInInfo, Integer originalId, Allergy replacement) {
+        if (originalId == null || originalId <= 0 || replacement == null
+                || replacement.getId() != null || replacement.getDemographicNo() <= 0) {
+            throw new IllegalArgumentException("A new patient-scoped allergy is required");
+        }
+        int demographicNo = replacement.getDemographicNo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required allergy write access");
+        }
+        Allergy original = allergyDao.findForUpdate(originalId);
+        if (original == null) return false;
+        if (original.getDemographicNo() != demographicNo) {
+            throw new SecurityException("Allergy does not belong to the requested patient");
+        }
+        if (original.getArchived()) return false;
+        original.setArchived(true);
+        allergyDao.merge(original);
+        replacement.setArchived(false);
+        replacement.setEntryDate(new Date());
+        allergyDao.persist(replacement);
+        partialDateDao.setPartialDate(PartialDate.ALLERGIES, replacement.getId(),
+                PartialDate.ALLERGIES_STARTDATE, replacement.getStartDateFormat());
+        return true;
+    }
 
     @Override
     public Allergy getAllergy(LoggedInInfo loggedInInfo, Integer id) {
