@@ -178,12 +178,16 @@ async function workflow(s) {
     const chart = await s.chart();
     const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'dx-quicklist-registry');
     const sidebar = registry.locator('#dxCodeQuicklist');
-    const switched = registry.waitForResponse(r => r.request().isNavigationRequest()
-      && new URL(r.url()).searchParams.get('quickList') === seeded);
-    await sidebar.locator('select[name="quickList"]').selectOption(seeded);
-    const response = await switched;
+    const [response] = await Promise.all([
+      registry.waitForResponse(r => r.request().isNavigationRequest()
+        && new URL(r.url()).searchParams.get('quickList') === seeded),
+      registry.waitForEvent('framenavigated', { predicate: frame => frame === registry.mainFrame()
+        && new URL(frame.url()).searchParams.get('quickList') === seeded }),
+      sidebar.locator('select[name="quickList"]').selectOption(seeded),
+    ]);
     assert(response.status() === 200, `Choosing a named quick list in the registry sidebar answered HTTP ${response.status()}`);
-    await registry.waitForLoadState('networkidle').catch(() => {});
+    await registry.waitForLoadState('domcontentloaded');
+    await registry.locator('#dxCodeQuicklist select[name="quickList"]').waitFor({ state: 'visible' });
     await assertNotErrorPage(registry, 'quick-list sidebar switch');
     assert(await registry.locator('#dxCodeQuicklist select[name="quickList"]').inputValue() === seeded, 'Sidebar did not keep the chosen quick list');
     assert((await registry.locator('#dxCodeQuicklist select[name="quickList"] option:checked').innerText()).trim() === seeded,
