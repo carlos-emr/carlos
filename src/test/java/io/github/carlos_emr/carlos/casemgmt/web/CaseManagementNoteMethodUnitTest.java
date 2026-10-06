@@ -62,7 +62,7 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
         }
     }
     @ParameterizedTest
-    @CsvSource({"missing", "takenOver"})
+    @CsvSource({"missing", "takenOver", "raced"})
     void shouldReturnConflictBeforeLoadingOrSavingNote_whenLockIsMissingOrTakenOver(String state) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -71,22 +71,33 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         var locks = mock(CasemgmtNoteLockDao.class);
         registerMock(CasemgmtNoteLockDao.class, locks);
-        if ("takenOver".equals(state)) {
+        if (!"missing".equals(state)) {
             var owned = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
             when(owned.getId()).thenReturn(7L);
             when(owned.getSessionId()).thenReturn(request.getSession().getId());
             request.getSession().setAttribute("casemgmtNoteLock42", owned);
             var current = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
             when(current.getSessionId()).thenReturn("other-session");
-            when(locks.find(7L)).thenReturn(current);
+            if ("raced".equals(state)) {
+                when(locks.find(7L)).thenReturn(owned, current);
+                var login = mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+            } else {
+                when(locks.find(7L)).thenReturn(current);
+            }
         }
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             var action = spy(new CaseManagementEntry2Action());
+            if ("raced".equals(state)) {
+                doReturn("patient").when(action).getDemoName("42");
+                doReturn("40").when(action).getDemoAge("42");
+                doReturn("1986-01-01").when(action).getDemoDOB("42");
+            }
             assertThat(action.save()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(409);
-            verify(action, never()).getDemoName(anyString());
+            if (!"raced".equals(state)) verify(action, never()).getDemoName(anyString());
         }
     }
 
