@@ -130,6 +130,11 @@ public final class MessengerSubmissionGuard {
             return completion == -1 || completion == TransactionSynchronization.STATUS_ROLLED_BACK;
         }
 
+        /** Draft state may be consumed only after the transaction confirms its commit. */
+        public boolean isCommitted() {
+            return completion == TransactionSynchronization.STATUS_COMMITTED;
+        }
+
         @Override
         public synchronized void close() {
             // A repeated close must not release a later retry's reservation.

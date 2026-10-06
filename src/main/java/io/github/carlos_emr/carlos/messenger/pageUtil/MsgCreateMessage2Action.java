@@ -218,6 +218,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
                         messengerDemographicManager.attachDemographicToMessage(loggedInInfo, savedMessage, patient);
                     }
                 });
+                if (!claim.isCommitted()) {
+                    throw new IllegalStateException("Message transaction did not confirm a commit");
+                }
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error("Message send transaction failed", e);
                 if (!claim.canRetry()) {
