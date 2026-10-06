@@ -88,8 +88,7 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         activeProvider();
         choose("provider", "other");
         assertThat(action.saveTicklerTaskAssignee()).isEqualTo("complete");
-        verify(properties).saveProp(argThat(p -> "owner".equals(p.getProviderNo())
-                && UserProperty.TICKLER_TASK_ASSIGNEE.equals(p.getName()) && "other".equals(p.getValue())));
+        verify(properties).replaceTicklerTaskAssignee("owner", "other");
         assertThat(request.getAttribute("status")).isEqualTo("success");
     }
 
@@ -99,16 +98,16 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         activeProvider();
         choose("provider", "other");
         action.saveTicklerTaskAssignee();
-        assertThat(property.getValue()).isEqualTo("other");
-        verify(properties).saveProp(property);
+        verify(properties).replaceTicklerTaskAssignee("owner", "other");
+        verify(properties, never()).getProp(anyString(), anyString());
     }
 
     @Test
-    void defaultDeletesByIdInTheDaoTransaction() {
+    void defaultReplacesAllCopiesInTheDaoTransaction() {
         UserProperty property = existing("other");
         choose("default", "ignored");
         action.saveTicklerTaskAssignee();
-        verify(properties).remove(42);
+        verify(properties).replaceTicklerTaskAssignee("owner", null);
         verify(properties, never()).delete(any());
         verify(properties, never()).saveProp(any(UserProperty.class));
         assertThat(property.getValue()).isEqualTo("other");
@@ -120,13 +119,14 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         action.saveTicklerTaskAssignee();
         verify(properties, never()).remove(anyInt());
         verify(properties, never()).saveProp(any(UserProperty.class));
+        verify(properties).replaceTicklerTaskAssignee("owner", null);
     }
 
     @Test
     void mrpStoresTheSentinelAndIgnoresTheProviderInput() {
         choose("mrp", "other");
         action.saveTicklerTaskAssignee();
-        verify(properties).saveProp(argThat(p -> "mrp".equals(p.getValue())));
+        verify(properties).replaceTicklerTaskAssignee("owner", "mrp");
         verify(providers, never()).getProvider(anyString());
     }
 
@@ -154,6 +154,7 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         assertThat(property.getValue()).isEqualTo("other");
         verify(properties, never()).saveProp(any(UserProperty.class));
         verify(properties, never()).remove(anyInt());
+        verify(properties, never()).replaceTicklerTaskAssignee(anyString(), any());
     }
 
     @ParameterizedTest
@@ -166,6 +167,7 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(property.getValue()).isEqualTo("mrp");
         verify(properties, never()).saveProp(any(UserProperty.class));
+        verify(properties, never()).replaceTicklerTaskAssignee(anyString(), any());
     }
 
     @Test
@@ -177,6 +179,7 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         action.saveTicklerTaskAssignee();
         assertThat(response.getStatus()).isEqualTo(400);
         verify(properties, never()).saveProp(any(UserProperty.class));
+        verify(properties, never()).replaceTicklerTaskAssignee(anyString(), any());
     }
 
     @ParameterizedTest
@@ -189,12 +192,13 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
         if ("other".equals(value)) assertThat(request.getAttribute("selectedProvider")).isEqualTo("other");
         assertThat(property.getValue()).isEqualTo(value);
         verify(properties, never()).saveProp(any(UserProperty.class));
+        verify(properties, never()).replaceTicklerTaskAssignee(anyString(), any());
     }
 
     @Test
     void saveFailureCannotReportSuccess() {
         choose("mrp", null);
-        doThrow(new IllegalStateException("database unavailable")).when(properties).saveProp(any(UserProperty.class));
+        doThrow(new IllegalStateException("database unavailable")).when(properties).replaceTicklerTaskAssignee("owner", "mrp");
         assertThatThrownBy(action::saveTicklerTaskAssignee).isInstanceOf(IllegalStateException.class);
         assertThat(request.getAttribute("status")).isNull();
     }
@@ -203,7 +207,7 @@ class ProviderProperty2ActionTicklerUnitTest extends CarlosUnitTestBase {
     void deleteFailureCannotReportSuccess() {
         existing("other");
         choose("default", null);
-        when(properties.remove(42)).thenThrow(new IllegalStateException("database unavailable"));
+        doThrow(new IllegalStateException("database unavailable")).when(properties).replaceTicklerTaskAssignee("owner", null);
         assertThatThrownBy(action::saveTicklerTaskAssignee).isInstanceOf(IllegalStateException.class);
         assertThat(request.getAttribute("status")).isNull();
     }

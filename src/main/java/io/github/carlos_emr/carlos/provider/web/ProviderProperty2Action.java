@@ -1902,32 +1902,9 @@ public class ProviderProperty2Action extends ActionSupport {
             return invalidTicklerAssignee();
         }
 
-        persistTicklerAssignee(providerNo, value);
+        userPropertyDAO.replaceTicklerTaskAssignee(providerNo, value);
         request.setAttribute("status", "success");
         return "complete";
-    }
-
-    /**
-     * Stores a validated preference or removes it when Default was selected.
-     *
-     * @param providerNo authenticated owner of the preference
-     * @param value validated provider/MRP value, or null for Default
-     */
-    private void persistTicklerAssignee(String providerNo, String value) {
-        UserProperty property = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-        if (value == null) {
-            if (property != null && property.getId() != null) {
-                userPropertyDAO.remove(property.getId());
-            }
-        } else {
-            if (property == null) {
-                property = new UserProperty();
-                property.setProviderNo(providerNo);
-                property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
-            }
-            property.setValue(value);
-            userPropertyDAO.saveProp(property);
-        }
     }
 
     /**
