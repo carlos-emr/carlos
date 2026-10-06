@@ -140,6 +140,41 @@ class MasterDemographicRecordKeysUnitTest {
     }
 
     @Test
+    @DisplayName("should put the consent date into each status label through a placeholder, encoded")
+    void shouldPassConsentDateAsEncodedParam_inBothJsps() throws IOException {
+        for (String jsp : new String[]{
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp",
+                "src/main/webapp/WEB-INF/jsp/demographic/edit-form-clinical.jsp"}) {
+            String content = stripComments(new String(Files.readAllBytes(Paths.get(jsp)), StandardCharsets.UTF_8));
+            assertThat(content).as(jsp)
+                    .contains("<fmt:message key=\"demographic.demographiceditdemographic.consentStatusOptedOut\">"
+                            + "<fmt:param value=\"${carlos:forHtml(patientConsent.optoutDate)}\"/></fmt:message>")
+                    .contains("<fmt:message key=\"demographic.demographiceditdemographic.consentStatusConsented\">"
+                            + "<fmt:param value=\"${carlos:forHtml(patientConsent.consentDate)}\"/></fmt:message>")
+                    .doesNotContainPattern("consentStatus(Consented|OptedOut)\"/>:");
+        }
+    }
+
+    @Test
+    @DisplayName("should format each consent status with its date in every locale")
+    void shouldFormatConsentStatusWithDate_inEveryLocale() throws IOException {
+        for (String locale : LOCALES) {
+            Properties bundle = loadBundle(locale);
+            for (String key : new String[]{"demographic.demographiceditdemographic.consentStatusConsented",
+                    "demographic.demographiceditdemographic.consentStatusOptedOut"}) {
+                String pattern = bundle.getProperty(key);
+                String formatted = new java.text.MessageFormat(pattern).format(new Object[]{"2026-10-05"});
+                assertThat(formatted).as("%s in %s", key, locale)
+                        .endsWith(": 2026-10-05")
+                        .doesNotContain("{", "'");
+            }
+        }
+        // French typography: a non-breaking space before the colon.
+        assertThat(loadBundle("fr").getProperty("demographic.demographiceditdemographic.consentStatusOptedOut"))
+                .isEqualTo("Consentement refus\u00e9\u00a0: {0}");
+    }
+
+    @Test
     @DisplayName("should collect fmt:message keys when key attributes use single quotes or appear after other attributes")
     void shouldCollectFmtMessageKeys_whenSingleQuotedOrAfterOtherAttributes() {
         String jspContent = "<input value=\"<fmt:message key='demographic.demographiceditdemographic.clear'/>\"/>"
