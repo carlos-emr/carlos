@@ -40,9 +40,11 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     private OscarAppointmentDao appointments;
     private AppointmentArchiveDao archives;
     private EventService events;
+    private boolean transactionCommitted;
 
     @BeforeEach
     void setUp() {
+        transactionCommitted = false;
         request = new MockHttpServletRequest("POST", "/appointment/UpdateRecord");
         response = new MockHttpServletResponse();
         request.getSession().setAttribute("user", "7");
@@ -69,7 +71,7 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         registerMock(PlatformTransactionManager.class, new AbstractPlatformTransactionManager() {
             @Override protected Object doGetTransaction() { return new Object(); }
             @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
-            @Override protected void doCommit(DefaultTransactionStatus status) { }
+            @Override protected void doCommit(DefaultTransactionStatus status) { transactionCommitted = true; }
             @Override protected void doRollback(DefaultTransactionStatus status) { }
         });
     }
@@ -154,6 +156,33 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("appointmentReviewRequired")).isEqualTo(false);
         verifyNoInteractions(archives, events);
         verify(appointments, never()).merge(any());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Cancel Appt,C", "No Show,N"})
+    void aCurrentStatusOnlyActionPreservesTextAndPublishesAfterCommit(String button, String status) throws Exception {
+        Appointment stored = new Appointment();
+        stored.setId(42); stored.setStatus("t"); stored.setReason("Original reason"); stored.setNotes("Original notes");
+        stored.setUpdateDateTime(new java.util.Date(1000));
+        request.setParameter(AppointmentEditVersion.PARAMETER, AppointmentEditVersion.of(stored, null));
+        request.setParameter("buttoncancel", button);
+        request.setParameter("notes", "x".repeat(256));
+        when(appointments.findForUpdate(42)).thenReturn(stored);
+        try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
+            doAnswer(call -> {
+                assertThat(transactionCommitted).isTrue();
+                return null;
+            }).when(events).appointmentStatusChanged(any(), eq("42"), isNull(), eq(status));
+            assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("success");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(stored.getStatus()).isEqualTo(status);
+            assertThat(stored.getReason()).isEqualTo("Original reason");
+            assertThat(stored.getNotes()).isEqualTo("Original notes");
+            assertThat(stored.getUpdateDateTime().getTime()).isGreaterThan(1000);
+            verify(archives).archiveAppointment(stored);
+            verify(appointments).merge(stored);
+            verify(events).appointmentStatusChanged(any(), eq("42"), isNull(), eq(status));
+        }
     }
 
     @Test
