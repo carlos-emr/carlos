@@ -1097,7 +1097,7 @@
                                                                     </tr>
                                                                     <tr>
                                                                         <td align="right" nowrap><b>
-                                                                            <fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</b>
+                                                                            <label for="waiting_list_name"><fmt:message key="demographic.demographiceditdemographic.msgWaitList"/>:</label></b>
                                                                         </td>
                                                                         <td align="left">
                                                                             <%
@@ -1119,7 +1119,7 @@
 
                                                                             %> <input type="hidden" name="wlId"
                                                                                       value="<%=wlId%>"> <select
-                                                                                name="list_id">
+                                                                                name="list_id" id="waiting_list_name">
                                                                             <%if ("".equals(wLReadonly)) {%>
                                                                             <option value="0"><fmt:message key="demographic.demographiceditdemographic.optSelectWaitList"/></option>
                                                                             <%} else {%>
@@ -1139,16 +1139,17 @@
 
                                                                             %>
                                                                         </select></td>
-                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </b>
+                                                                        <td align="right" nowrap><b><label for="waiting_list_note"><fmt:message key="demographic.demographiceditdemographic.msgWaitListNote"/>: </label></b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 name="waiting_list_note"
+                                                                                                id="waiting_list_note"
                                                                                                 value="<%=SafeEncode.forHtmlAttribute(wlnote)%>"
                                                                                 <%=wLReadonly%>></td>
                                                                     </tr>
                                                                     <tr>
 
-                                                                        <td align="right" nowrap><b><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </b>
+                                                                        <td align="right" nowrap><b><label for="waiting_list_referral_date"><fmt:message key="demographic.demographiceditdemographic.msgDateOfReq"/>: </label></b>
                                                                         </td>
                                                                         <td align="left"><input type="text"
                                                                                                 placeholder="yyyy-mm-dd"
