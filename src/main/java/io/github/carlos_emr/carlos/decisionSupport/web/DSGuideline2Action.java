@@ -82,6 +82,10 @@ public class DSGuideline2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        // The views require chart access; check it before evaluating any patient rules.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
 
         if ("detail".equals(request.getParameter("method"))) {
             return detail();

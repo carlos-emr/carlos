@@ -37,6 +37,7 @@ class DSGuideline2ActionUnitTest extends CarlosUnitTestBase {
         service = mock(DSService.class);
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(user, "_demographic", "r", null)).thenReturn(true);
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(true);
         ReflectionTestUtils.setField(action, "dsService", service);
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         request.setParameter("provider_no", "42");
@@ -91,6 +92,16 @@ class DSGuideline2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseEvaluation_whenReadPermissionIsMissing() {
         when(security.hasPrivilege(user, "_demographic", "r", null)).thenReturn(false);
+        request.setParameter("demographic_no", "101");
+
+        assertThrows(SecurityException.class, () -> action.execute());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldRefuseEvaluation_whenChartPermissionIsMissing() {
+        when(security.hasPrivilege(user, "_eChart", "r", null)).thenReturn(false);
         request.setParameter("demographic_no", "101");
 
         assertThrows(SecurityException.class, () -> action.execute());
