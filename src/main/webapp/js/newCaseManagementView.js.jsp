@@ -3297,7 +3297,8 @@ function autoSave() {
         Event.stop(event);
         var rnd = Math.round(Math.random() * 1000);
         win = "win" + rnd;
-        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + noteId;
+        var url = ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(noteId)
+            + "&demographicNo=" + encodeURIComponent(demographicNo);
         window.open(url, win, "scrollbars=yes, location=no, width=647, height=600", "");
         return false;
     }

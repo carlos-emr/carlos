@@ -44,6 +44,8 @@ async function workflow(s) {
   const refiled = path.join(incoming, '1', 'Refile', `R${docB.filename.substring(14)}`);
   const owned = { sql, marker, patient, docs, files: [...docs.map(doc => doc.file), refiled] };
   const texts = [1, 2, 3].map(n => `${marker} note revision ${n}`);
+  texts[0] += "\n<em>literal & text</em>";
+  let storedHistory;
 
   s.cleanup(() => {
     removeOwnedPdfDocuments(owned);
@@ -92,6 +94,7 @@ async function workflow(s) {
     h.assert(uuids === '1', 'Editing the note created a different note instead of a revision');
     noteId = latest;
     h.assert(texts.every(text => history.includes(text)), 'The note history column lost an earlier revision');
+    storedHistory = history;
     const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
     h.assert((await rev.innerText()).trim() === '3', 'The note editor does not show revision 3 after two edits');
   });
@@ -101,7 +104,8 @@ async function workflow(s) {
     const rev = chart.locator('#encMainDiv a[onclick^="return showHistory("]').first();
     history = await s.popup(chart, rev, 'note-history');
     h.assert(new URL(history.url()).searchParams.get('method') === 'notehistory'
-      && new URL(history.url()).searchParams.get('noteId') === noteId, 'The rev link opened the history of another note');
+      && new URL(history.url()).searchParams.get('noteId') === noteId
+      && new URL(history.url()).searchParams.get('demographicNo') === patient, 'The rev link opened the history of another note or patient');
     await history.locator('h3', { hasText: 'Note Revision History' }).waitFor();
     h.assert((await history.locator('body').innerText()).includes(texts[2]), 'The history popup does not show the current revision');
   });
@@ -190,6 +194,123 @@ async function workflow(s) {
     const body = await history.locator('body').innerText();
     h.assert(body.includes(texts[0]) && body.includes(texts[1]),
       'The note history popup shows only the current text: the two earlier revisions are not listed');
+    const stored = history.locator('.note-text-history-content');
+    h.assert(await stored.count() === 1, 'The saved note should expose one stored text history');
+    const displayed = await stored.innerText();
+    const normalize = value => value.replace(/\r\n?/g, '\n').split('\n')
+      .map(line => line.replace(/[^\S\n]+/g, ' ').trim()).join('\n').trim();
+    h.assert(normalize(displayed) === normalize(storedHistory), 'The popup changed or omitted stored history text');
+    h.assert(displayed.indexOf(texts[2]) < displayed.indexOf(texts[1])
+      && displayed.indexOf(texts[1]) < displayed.indexOf(texts[0]), 'Stored revisions are not newest first');
+    h.assert(await stored.locator('em').count() === 0, 'Stored note markup became an HTML element');
+  });
+  await s.step('History refuses a note requested under a different patient', async () => {
+    const url = new URL(history.url());
+    url.searchParams.set('demographicNo', '2147483647');
+    const response = await s.context.request.get(url.href);
+    h.assert(response.status() === 403, `Cross-patient history answered HTTP ${response.status()}`);
+    const body = await response.text();
+    h.assert(!texts.some(text => body.includes(text)), 'A refused history request exposed clinical text');
+    await response.dispose();
+  });
+  await s.step('Both tickler dialogs open history for their patient and note', async () => {
+    const message = `${marker} history tickler`;
+    let ticklerId;
+    let ownershipConfirmed = false;
+    const ownedTickler = `demographic_no=${patient} AND message=${h.sqlString(message)}`;
+    s.cleanup(() => {
+      if (!ownershipConfirmed) return;
+      // Recover a committed insert even when the SQL client never returned its ID.
+      const ids = sql.value(`SELECT GROUP_CONCAT(tickler_no) FROM tickler WHERE ${ownedTickler}`) || '0';
+      h.assert(/^[0-9]+(?:,[0-9]+)*$/.test(ids), 'Invalid owned tickler cleanup identifiers');
+      sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (${ids}) AND note_id=${noteId};
+        DELETE FROM tickler_update WHERE tickler_no IN (${ids});
+        DELETE FROM tickler_comments WHERE tickler_no IN (${ids});
+        DELETE FROM tickler_link WHERE tickler_no IN (${ids});
+        DELETE FROM tickler WHERE tickler_no IN (${ids}) AND ${ownedTickler}`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM tickler WHERE ${ownedTickler})
+        + (SELECT COUNT(*) FROM casemgmt_note_link WHERE table_name=10 AND table_id IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_update WHERE tickler_no IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_comments WHERE tickler_no IN (${ids}))
+        + (SELECT COUNT(*) FROM tickler_link WHERE tickler_no IN (${ids}))`) === '0',
+        'The owned history tickler or a child row was not removed');
+    });
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE ${ownedTickler}`) === '0', 'The history tickler marker already exists');
+    ownershipConfirmed = true;
+    ticklerId = sql.value(`INSERT INTO tickler
+      (demographic_no,message,status,update_date,service_date,creator,priority,task_assigned_to)
+      VALUES (${patient},${h.sqlString(message)},'A',NOW(),NOW(),${h.sqlString(provider)},'Normal',${h.sqlString(provider)});
+      SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(ticklerId), 'The history tickler fixture was not created');
+    sql.execute(`INSERT INTO casemgmt_note_link (table_name,table_id,note_id) VALUES (10,${ticklerId},${noteId})`);
+    for (const route of ['ViewTicklerMain', 'ViewTicklerDemoMain']) {
+      const page = await s.context.newPage();
+      await h.gotoApp(page, s.config.baseUrl, `/tickler/${route}?demoview=${patient}&ticklerview=A`);
+      if (route === 'ViewTicklerMain') {
+        await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
+        await page.locator('#ticklerResults tbody tr').filter({hasText: message}).locator('a.noteDialogLink').click();
+      } else {
+        await page.locator(`a[onclick*="openNoteDialog('${patient}','${ticklerId}')"]`).click();
+      }
+      await page.locator('#note-form').waitFor({state: 'visible'});
+      const popup = await s.popup(page, page.locator('#tickler_note_revision_url'), `${route}-history`);
+      const params = new URL(popup.url()).searchParams;
+      h.assert(params.get('demographicNo') === patient && params.get('noteId') === noteId,
+        `${route} omitted or changed the history patient/note`);
+      await popup.locator('h3', {hasText: 'Note Revision History'}).waitFor();
+      h.assert((await popup.locator('.note-text-history-content').innerText()).includes(texts[0]),
+        `${route} did not show the earlier saved note text`);
+      await popup.close();
+      await page.close();
+    }
+  });
+
+  await s.step('Multiple saved rows expose cumulative text history only on the latest row', async () => {
+    // Tickler amendments retain the UUID in separate rows, each with cumulative history.
+    // Seed two older rows after the original note/document paths have completed.
+    // Copy the persisted metadata too: nullable database defaults are invalid for
+    // primitive model fields such as appointmentNo and locked.
+    const metadata = ['observation_date', 'demographic_no', 'provider_no', 'uuid', 'program_no',
+      'signed', 'include_issue_innote', 'signing_provider_no', 'encounter_type', 'billing_code',
+      'reporter_caisi_role', 'reporter_program_team', 'password', 'locked', 'archived', 'position',
+      'appointmentNo', 'hourOfEncounterTime', 'minuteOfEncounterTime',
+      'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'].join(',');
+    for (const index of [0, 1]) {
+      const cumulative = texts.slice(0, index + 1).reverse().join('\n----------------History Record----------------\n');
+      sql.execute(`INSERT INTO casemgmt_note
+        (update_date, note, history, ${metadata})
+        SELECT DATE_SUB(update_date, INTERVAL ${2 - index} MINUTE),
+          ${h.sqlString(texts[index])}, ${h.sqlString(cumulative)}, ${metadata}
+        FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '3',
+      'The multiple-row history fixture did not create exactly three saved revisions');
+    const response = await history.reload();
+    h.assert(response.status() === 200, `Multiple-row history answered HTTP ${response.status()}`);
+    const stored = history.locator('.note-text-history-content');
+    h.assert(await stored.count() === 1, 'Cumulative history is repeated beneath older saved rows');
+    const normalize = value => value.replace(/\r\n?/g, '\n').split('\n')
+      .map(line => line.replace(/[^\S\n]+/g, ' ').trim()).join('\n').trim();
+    h.assert(normalize(await stored.innerText()) === normalize(storedHistory),
+      'The single expansion does not retain the latest complete stored history');
+    h.assert(await stored.locator('em').count() === 0, 'Stored markup became HTML after loading multiple rows');
+    // innerText retains the line breaks rendered from stored multiline prose.
+    const rows = await history.locator('body > div > div:first-child').all();
+    const rowTexts = (await Promise.all(rows.map(row => row.innerText()))).map(normalize);
+    h.assert(JSON.stringify(rowTexts) === JSON.stringify(texts.map(normalize)),
+      'A saved row lost its own revision text or the rows are out of order');
+    // DATETIME stores seconds: a later saved row can have the same update timestamp.
+    const newestText = `${marker} same-second newest revision`;
+    const newestHistory = `${newestText}\n----------------History Record----------------\n${storedHistory}`;
+    sql.execute(`INSERT INTO casemgmt_note (update_date, note, history, ${metadata})
+      SELECT update_date, ${h.sqlString(newestText)}, ${h.sqlString(newestHistory)}, ${metadata}
+      FROM casemgmt_note WHERE note_id=${noteId} AND demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '4',
+      'The same-second fixture did not create exactly one newer saved revision');
+    await history.reload();
+    h.assert(await stored.count() === 1 && normalize(await stored.innerText()) === normalize(newestHistory),
+      'A timestamp tie selected an older cumulative history and omitted the newest revision');
+
   });
 }
 

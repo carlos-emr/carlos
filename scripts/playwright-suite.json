@@ -4334,7 +4334,7 @@
         "DOCUMENT_DIR",
         "INCOMINGDOCUMENT_DIR"
       ],
-      "notes": "Fails on 2026.08: the Note Browser page has a JavaScript syntax error (identifiers split across lines) and its controls POST to a GET-only gate; note edits also overwrite rather than add revisions.",
+      "notes": "Verifies note editing, document delete/restore/refile, and printed latest-note content. Stored text history must match the database in newest-first order and render literal markup as text.",
       "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
