@@ -220,8 +220,9 @@ async function workflow(s) {
           h.assert(await own.locator('#adminNav a[rel$="/admin/ProviderPrivilege"]').count() === 0,
             'Flowsheet access exposed the role-rights editor');
           h.assert(await refused(ctx, 'ProviderPrivilege') === 403, 'Flowsheet access granted role-rights editing');
-          const flowsheets = await openItem(own, 'ManageFlowsheets', '#flowsheetActionForm');
-          await h.assertNotErrorPage(flowsheets, 'doctor flowsheet administration');
+          // The shell accepts flowsheet read permission; this editor independently requires write.
+          h.assert(await refused(ctx, 'ManageFlowsheets') === 403,
+            'Flowsheet read permission granted the write-only flowsheet editor');
         }
       }
     } finally { await ctx.close(); }
