@@ -60,6 +60,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -402,40 +404,29 @@ public final class RxDeleteRx2Action extends ActionSupport {
 
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
-        // The ownership read can be stale. Only the transaction that changes an active row
-        // may file a discontinuation note; later editors must preserve the first reason/date.
-        if (!drugDao.discontinueIfActive(id, bean.getDemographicNo(), date, reason)) {
-            response.sendError(HttpServletResponse.SC_CONFLICT,
-                    "This prescription has already changed. Reload the medication list.");
-            return NONE;
-        }
-      /*  Enumeration em=request.getParameterNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.parameterName="+s);
-            MiscUtils.getLogger().debug("value="+request.getParameter(s));
-        }
-        em=request.getAttributeNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.attributeName="+s);
-            MiscUtils.getLogger().debug("value="+request.getAttribute(s));
-        }
-        em=request.getSession().getAttributeNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.attributeName in session="+s);
-            MiscUtils.getLogger().debug("value="+request.getSession().getAttribute(s));
-        }*/
+        final boolean discontinued;
         try {
-            createDiscontinueNote(request, bean.getDemographicNo());
-        } catch (Exception e) {
-            // Archival has already been persisted. Report the incomplete note/link operation,
-            // rather than implying success or inviting an automatic repeat of the archive.
-            MiscUtils.getLogger().error("Prescription discontinuation note did not complete", e);
+            // Claim the active row and file its note/link in one transaction. A failed note or
+            // link must roll back the archive too, so a corrected retry can still claim the row.
+            TransactionTemplate transaction = new TransactionTemplate(
+                    SpringUtils.getBean(PlatformTransactionManager.class));
+            discontinued = Boolean.TRUE.equals(transaction.execute(status -> {
+                if (!drugDao.discontinueIfActive(id, bean.getDemographicNo(), date, reason)) {
+                    return false;
+                }
+                createDiscontinueNote(request, bean.getDemographicNo());
+                return true;
+            }));
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Prescription discontinuation transaction failed", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"INCOMPLETE_RX_DISCONTINUE\"}");
+            response.getWriter().write("{\"error\":\"RX_DISCONTINUE_FAILED\"}");
+            return NONE;
+        }
+        if (!discontinued) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "This prescription has already changed. Reload the medication list.");
             return NONE;
         }
 

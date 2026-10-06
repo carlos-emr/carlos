@@ -95,6 +95,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
     @Mock
     private DrugDao mockDrugDao;
 
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private RxSessionBean bean;
@@ -105,6 +108,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DrugDao.class, mockDrugDao);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactionManager);
+        org.mockito.Mockito.lenient().when(transactionManager.getTransaction(any()))
+                .thenAnswer(invocation -> new org.springframework.transaction.support.SimpleTransactionStatus());
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), isNull())).thenReturn(true);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
@@ -512,8 +518,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {"note", "link", "missing-id"})
-        @DisplayName("should disclose an incomplete discontinuation after the drug was archived")
-        void shouldReportIncompleteDiscontinuation_whenNotePersistenceFails(String failure) throws Exception {
+        @DisplayName("should roll back discontinuation when its note or link fails")
+        void shouldRollBackDiscontinuation_whenNotePersistenceFails(String failure) throws Exception {
             namePatient();
             request.setParameter("drugId", "77");
             request.setParameter("reason", "adverse reaction");
@@ -555,8 +561,11 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             }
             verify(mockDrugDao).discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("adverse reaction"));
             verify(mockDrugDao, never()).merge(any());
+            verify(transactionManager).rollback(any());
+            verify(transactionManager, never()).commit(any());
+            logActionMock.verifyNoInteractions();
             assertThat(response.getStatus()).isEqualTo(500);
-            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_DISCONTINUE").doesNotContain("\"id\"");
+            assertThat(response.getContentAsString()).contains("RX_DISCONTINUE_FAILED").doesNotContain("\"id\"");
         }
 
         @Test
