@@ -192,21 +192,33 @@ finished. The state is final. Every other `FAILED` row is excluded:
 staff abandonment can also write `FAILED` while the original preparation is still running (its attempt
 ends `ABANDONED`), a permission refusal after the gate leaves the attempt `SEND_UNCERTAIN`, a refused
 or unrecorded commit ends it `ABANDONED`, and an error before the gate leaves no attempt naming the
-email.
-It checks all ages, including expired codes, in batches of at most 200 ids. Cleanup runs
+email. A `RESOLVED` email counts as settled only when staff recorded that it never arrived once the
+portal showed its code dead (attempt `NOT_ARRIVED`).
+
+Whatever its status, an invitation email is also cleared once its code is past its seven-day life plus
+a day (#4083, option B, approved by Ben on 2026-10-06). When the attempt naming the email recorded the
+portal's expiry, the email is cleared a day after that expiry. When none did (the code never went live,
+CARLOS never learned its expiry, or no attempt names the email), it is cleared once the email row has
+been unchanged for eight days: the row's timestamp is its creation time until its status changes and
+later afterwards, so this can only come later than eight days after creation, never earlier. The send asks
+the portal to activate a code seconds after saving the email, and CARLOS never sends a saved invitation
+email again, so by then the code has expired on the portal and nothing still needs it, even a send that
+never finished.
+It checks all ages in batches of at most 200 ids. Cleanup runs
 at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
-rows, continuing from the preceding batch, then starts a new pass after reaching the end. A row must have been unchanged for 15 minutes. Both selection and the atomic
+rows, continuing from the preceding batch, then starts a new pass after reaching the end. A settled row must have been unchanged for 15 minutes. Both selection and the atomic
 body-only update check eligibility, so a concurrent status change cannot be overwritten. Failures are
 retried on a later pass without requiring another invitation; logs contain counts and exception class
 names, never credentials.
 
-**Remaining draft limitation (#4083):** an idle timestamp does not prove that a sender on another
-server has stopped. Unfinished or manually resolved emails, and failed ones whose attempt did not end
-`SEND_FAILED` (such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`,
-or a failure before the gate that no attempt names), are excluded from automatic cleanup, regardless
-of age. This draft therefore does not promise a deadline for clearing every crash leftover,
-or that every email older than seven days is clear. These cases need a separate, verified maintenance
-procedure. Expiry of the portal token does not erase its saved body or existing database backups.
+**Deadline (#4083):** an idle timestamp does not prove that a sender on another server has stopped,
+so unfinished or manually resolved emails, and failed ones whose attempt did not end `SEND_FAILED`
+(such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`, or a failure
+before the gate that no attempt names), are not cleared as settled. The age rule above clears them
+instead, once their code is past its life plus a day. So after a crash at any point, the code is gone
+from the saved email within a day of its expiry, or within eight days of the email's last change when
+CARLOS never recorded an expiry, at the next sweep after that (every 15 minutes, and at startup). Clearing
+the saved body does not erase existing database backups.
 
 Administrators with database read access can check for remaining bodies without displaying any code.
 Run this count-only query against the CARLOS database:

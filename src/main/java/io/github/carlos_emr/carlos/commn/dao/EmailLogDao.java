@@ -74,19 +74,28 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
     public int replaceBody(Integer id, String replacement);
 
     /**
-     * Lists at most {@code limit} uncleared, transport-settled emails before the cutoff, after the id.
-     * SUCCESS proves transport returned; BLOCKED proves consent refused it before dispatch. FAILED counts
-     * only when the portal invitation attempt naming the email recorded a definite "not sent" after its
-     * code went live (terminal state SEND_FAILED, outcome SEND_REFUSED); other FAILED rows, such as staff
-     * abandonment, which can be written while the original send is still running, stay excluded
-     * alongside PENDING and RESOLVED.
+     * Lists at most {@code limit} uncleared emails of {@code type}, after the id, whose invitation code
+     * is no longer needed. An email qualifies in either of two ways.
+     *
+     * <ul>
+     *   <li><b>Settled</b>, and unchanged since before {@code changedBefore}: SUCCESS proves transport
+     *   returned; BLOCKED proves consent refused it before dispatch. FAILED counts only when the portal
+     *   invitation attempt naming the email recorded a definite "not sent" after its code went live
+     *   (terminal state SEND_FAILED, outcome SEND_REFUSED), and RESOLVED only when it ended NOT_ARRIVED
+     *   (staff confirmed it never arrived once the portal showed its code dead). Other FAILED and RESOLVED
+     *   rows, such as staff abandonment, which can be written while the original send is still running,
+     *   and PENDING ones, do not count as settled.</li>
+     *   <li><b>Aged</b>, whatever its status: its code is past its life plus a margin. When every attempt
+     *   naming the email recorded the portal's expiry, that expiry must be before {@code expiredBefore};
+     *   when none did, the email row's last change must be before {@code agedBefore}.</li>
+     * </ul>
      */
     List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
-            Date changedBefore, String body, int afterId, int limit);
+            Date changedBefore, Date expiredBefore, Date agedBefore, String body, int afterId, int limit);
 
-    /** Rechecks type, transport-settled status and cutoff atomically before replacing only the body. */
+    /** Rechecks the same rule atomically before replacing only the body. */
     int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
-            String replacement);
+            Date expiredBefore, Date agedBefore, String replacement);
 
     /**
      * Atomically changes an email status only when the persisted row is still in the expected

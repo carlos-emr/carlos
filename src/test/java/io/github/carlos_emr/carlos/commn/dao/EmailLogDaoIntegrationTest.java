@@ -106,6 +106,10 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(updated.getTimestamp().getTime()).isEqualTo(completedAt.getTime());
     }
 
+    /** No email is old enough for the age rule: the settled rule alone decides. */
+    private static final Date NO_AGE = new Date(0);
+    private static final long DAY = 24L * 60 * 60 * 1000;
+
     @Test
     @DisplayName("should list uncleared emails of one transaction type by when they last changed")
     void shouldFindIds_byTransactionTypeLastChangeAndBody() {
@@ -126,17 +130,17 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
 
         List<Integer> ids = emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
-                EmailLog.TransactionType.PORTAL_INVITE, before, "code removed", 0, 200);
+                EmailLog.TransactionType.PORTAL_INVITE, before, NO_AGE, NO_AGE, "code removed", 0, 200);
 
         assertThat(ids).contains(idleInvite, atSince, expiredInvite)
                 .doesNotContain(atBefore, busyInvite, otherType, cleared);
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
-                EmailLog.TransactionType.PORTAL_INVITE, before, "code removed", idleInvite, 1))
+                EmailLog.TransactionType.PORTAL_INVITE, before, NO_AGE, NO_AGE, "code removed", idleInvite, 1))
                 .containsExactly(atSince);
     }
 
     @Test
-    @DisplayName("should leave unfinished and manually resolved sends untouched, regardless of age")
+    @DisplayName("should leave unfinished and manually resolved sends to the age rule, not the settled one")
     void shouldExcludeAmbiguousSends_whenSelectingCleanup() {
         Date old = new Date(System.currentTimeMillis() - 10L * 24 * 60 * 60 * 1000);
         Date cutoff = new Date(System.currentTimeMillis() - 15L * 60 * 1000);
@@ -148,10 +152,15 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         }
         entityManager.flush();
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
-                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed", 0, 200))
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, NO_AGE, NO_AGE, "code removed", 0, 200))
                 .contains(rows.get(EmailLog.EmailStatus.SUCCESS), rows.get(EmailLog.EmailStatus.BLOCKED))
                 .doesNotContain(rows.get(EmailLog.EmailStatus.PENDING), rows.get(EmailLog.EmailStatus.RESOLVED),
                         rows.get(EmailLog.EmailStatus.FAILED));
+        // Ten days old with no recorded expiry: past the code's seven-day life plus a day, whatever the status.
+        Date agedBefore = new Date(System.currentTimeMillis() - 8L * 24 * 60 * 60 * 1000);
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, NO_AGE, agedBefore, "code removed", 0, 200))
+                .containsAll(rows.values());
     }
 
     @Test
@@ -167,24 +176,24 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.find(EmailLog.class, id).setStatus(EmailLog.EmailStatus.RESOLVED);
         entityManager.flush();
         assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isZero();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isZero();
         EmailLog row = entityManager.find(EmailLog.class, id);
         row.setStatus(EmailLog.EmailStatus.SUCCESS);
         row.setTimestamp(new Date());
         entityManager.flush();
         assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isZero();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isZero();
         row.setTimestamp(old);
         entityManager.flush();
         assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isOne();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isOne();
         entityManager.clear();
         row = entityManager.find(EmailLog.class, id);
         assertThat(row.getBody()).isEqualTo("code removed");
         assertThat(row.getStatus()).isEqualTo(EmailLog.EmailStatus.SUCCESS);
         assertThat(row.getTimestamp().getTime()).isEqualTo(old.getTime());
         assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isZero();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isZero();
     }
 
     @Test
@@ -221,7 +230,7 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
 
         assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
-                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed", 0, 200))
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, NO_AGE, NO_AGE, "code removed", 0, 200))
                 .contains(refused)
                 .doesNotContain(abandoned, permissionRefused, commitRefused, noAttempt, stillPending,
                         recentRefusal, failedWithoutOutcome, sharedWithOpenAttempt);
@@ -229,11 +238,11 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
                 .getUltimateTargetObject(emailLogDao);
         assertThat(target.replaceBodyIfUnchangedBefore(abandoned, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isZero();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isZero();
         assertThat(target.replaceBodyIfUnchangedBefore(sharedWithOpenAttempt,
-                EmailLog.TransactionType.PORTAL_INVITE, cutoff, "code removed")).isZero();
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, NO_AGE, NO_AGE, "code removed")).isZero();
         assertThat(target.replaceBodyIfUnchangedBefore(refused, EmailLog.TransactionType.PORTAL_INVITE,
-                cutoff, "code removed")).isOne();
+                cutoff, NO_AGE, NO_AGE, "code removed")).isOne();
     }
 
     @Test
@@ -263,6 +272,144 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(refusedRow.getTimestamp().getTime()).isEqualTo(old.getTime());
         assertThat(entityManager.find(EmailLog.class, abandoned).getBody()).isEqualTo("Body");
         assertThat(entityManager.find(EmailLog.class, stuck).getBody()).isEqualTo("Body");
+    }
+
+    @Test
+    @DisplayName("should clear every unsettled invitation email once its stored expiry is more than a day past")
+    void shouldClearAnyState_onceTheStoredExpiryIsADayPast() {
+        long now = System.currentTimeMillis() / 1000 * 1000;
+        Date recent = new Date(now - 60L * 60 * 1000);
+        Date cutoff = new Date(now - 15L * 60 * 1000);
+        Date expiredBefore = new Date(now - DAY);
+        Date agedBefore = new Date(now - 8 * DAY);
+        Date pastTheMargin = new Date(now - DAY - 1000);
+        Date atTheMargin = new Date(now - DAY);
+        Date insideTheMargin = new Date(now - DAY + 1000);
+        java.util.Map<String, Integer> past = new java.util.LinkedHashMap<>();
+        past.put("abandoned", failed(recent, "Staff stopped this delivery; the invitation email was never sent."));
+        attempt(past.get("abandoned"), State.ABANDONED, Outcome.ABANDONED_BY_STAFF, pastTheMargin);
+        past.put("permissionRefused", failed(recent, "Failed to send email (authorization failure)"));
+        attempt(past.get("permissionRefused"), State.SEND_UNCERTAIN, Outcome.SEND_UNCONFIRMED, pastTheMargin);
+        past.put("stuckCommitted", withStatus(recent, EmailLog.EmailStatus.PENDING));
+        attempt(past.get("stuckCommitted"), State.COMMITTED, null, pastTheMargin);
+        past.put("revoked", withStatus(recent, EmailLog.EmailStatus.RESOLVED));
+        attempt(past.get("revoked"), State.REVOKED, Outcome.CONFIRMED_NOT_SENT, pastTheMargin);
+        Integer atBoundary = withStatus(recent, EmailLog.EmailStatus.PENDING);
+        attempt(atBoundary, State.COMMITTED, null, atTheMargin);
+        Integer inside = withStatus(recent, EmailLog.EmailStatus.PENDING);
+        attempt(inside, State.COMMITTED, null, insideTheMargin);
+        // A stored expiry still to come keeps even an email whose row is old.
+        Integer oldButLive = withStatus(new Date(now - 30 * DAY), EmailLog.EmailStatus.PENDING);
+        attempt(oldButLive, State.COMMITTED, null, new Date(now + DAY));
+        entityManager.flush();
+
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, expiredBefore, agedBefore, "code removed", 0, 200))
+                .containsAll(past.values())
+                .doesNotContain(atBoundary, inside, oldButLive);
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+        for (Integer id : past.values()) {
+            assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE, cutoff,
+                    expiredBefore, agedBefore, "code removed")).isOne();
+        }
+        assertThat(target.replaceBodyIfUnchangedBefore(atBoundary, EmailLog.TransactionType.PORTAL_INVITE, cutoff,
+                expiredBefore, agedBefore, "code removed")).isZero();
+        assertThat(target.replaceBodyIfUnchangedBefore(oldButLive, EmailLog.TransactionType.PORTAL_INVITE, cutoff,
+                expiredBefore, agedBefore, "code removed")).isZero();
+        entityManager.clear();
+        EmailLog abandonedRow = entityManager.find(EmailLog.class, past.get("abandoned"));
+        assertThat(abandonedRow.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+        assertThat(abandonedRow.getTimestamp().getTime()).isEqualTo(recent.getTime());
+    }
+
+    @Test
+    @DisplayName("should use the email's age, past the code's life plus a day, when no attempt recorded an expiry")
+    void shouldUseTheEmailsAge_whenNoExpiryWasRecorded() {
+        long now = System.currentTimeMillis() / 1000 * 1000;
+        Date cutoff = new Date(now - 15L * 60 * 1000);
+        Date expiredBefore = new Date(now - DAY);
+        Date agedBefore = new Date(now - 8 * DAY);
+        Integer noAttemptPast = withStatus(new Date(now - 8 * DAY - 1000), EmailLog.EmailStatus.FAILED);
+        Integer queuedPast = withStatus(new Date(now - 8 * DAY - 1000), EmailLog.EmailStatus.PENDING);
+        attempt(queuedPast, State.QUEUED, null);
+        Integer atBoundary = withStatus(new Date(now - 8 * DAY), EmailLog.EmailStatus.PENDING);
+        Integer inside = withStatus(new Date(now - 8 * DAY + 1000), EmailLog.EmailStatus.PENDING);
+        attempt(inside, State.QUEUED, null);
+        entityManager.flush();
+
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, expiredBefore, agedBefore, "code removed", 0, 200))
+                .contains(noAttemptPast, queuedPast)
+                .doesNotContain(atBoundary, inside);
+    }
+
+    @Test
+    @DisplayName("should recheck the age rule when the email changed after it was selected")
+    void shouldRecheckTheAgeRule_whenTheEmailChangedInBetween() {
+        long now = System.currentTimeMillis() / 1000 * 1000;
+        Date cutoff = new Date(now - 15L * 60 * 1000);
+        Date expiredBefore = new Date(now - DAY);
+        Date agedBefore = new Date(now - 8 * DAY);
+        Integer byAge = withStatus(new Date(now - 9 * DAY), EmailLog.EmailStatus.PENDING);
+        Integer byExpiry = withStatus(new Date(now - 9 * DAY), EmailLog.EmailStatus.PENDING);
+        attempt(byExpiry, State.COMMITTED, null, new Date(now - 2 * DAY));
+        entityManager.flush();
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, expiredBefore, agedBefore, "code removed", 0, 200)).contains(byAge, byExpiry);
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+        // Both change after selection: the age rule no longer holds for the one judged by its timestamp,
+        // while the stored expiry still decides the other.
+        for (Integer id : List.of(byAge, byExpiry)) {
+            EmailLog row = entityManager.find(EmailLog.class, id);
+            row.setStatus(EmailLog.EmailStatus.FAILED);
+            row.setTimestamp(new Date(now));
+        }
+        entityManager.flush();
+
+        assertThat(target.replaceBodyIfUnchangedBefore(byAge, EmailLog.TransactionType.PORTAL_INVITE, cutoff,
+                expiredBefore, agedBefore, "code removed")).isZero();
+        assertThat(target.replaceBodyIfUnchangedBefore(byExpiry, EmailLog.TransactionType.PORTAL_INVITE, cutoff,
+                expiredBefore, agedBefore, "code removed")).isOne();
+    }
+
+    @Test
+    @DisplayName("should count an email staff confirmed never arrived, once its code was dead, as settled")
+    void shouldIncludeNotArrived_inTheSettledSet() {
+        long now = System.currentTimeMillis() / 1000 * 1000;
+        Date old = new Date(now - 60L * 60 * 1000);
+        Date cutoff = new Date(now - 15L * 60 * 1000);
+        Integer notArrived = withStatus(old, EmailLog.EmailStatus.RESOLVED);
+        attempt(notArrived, State.NOT_ARRIVED, Outcome.NOT_ARRIVED_CODE_DEAD);
+        Integer revoked = withStatus(old, EmailLog.EmailStatus.RESOLVED);
+        attempt(revoked, State.REVOKED, Outcome.CONFIRMED_NOT_SENT);
+        Integer recent = withStatus(new Date(now), EmailLog.EmailStatus.RESOLVED);
+        attempt(recent, State.NOT_ARRIVED, Outcome.NOT_ARRIVED_CODE_DEAD);
+        entityManager.flush();
+
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType.PORTAL_INVITE,
+                cutoff, NO_AGE, NO_AGE, "code removed", 0, 200))
+                .contains(notArrived)
+                .doesNotContain(revoked, recent);
+    }
+
+    private Integer withStatus(Date timestamp, EmailLog.EmailStatus status) {
+        Integer id = persisted(EmailLog.TransactionType.PORTAL_INVITE, timestamp);
+        entityManager.find(EmailLog.class, id).setStatus(status);
+        entityManager.flush();
+        return id;
+    }
+
+    private void attempt(Integer emailLogId, State state, Outcome outcome, Date expiresAt) {
+        PatientPortalInviteDelivery attempt = new PatientPortalInviteDelivery("inv-" + UUID.randomUUID(), 1,
+                "clinic-a", "https://portal.example", Channel.EMAIL, null, "999998");
+        attempt.setState(state);
+        attempt.setOutcome(outcome);
+        attempt.setEmailLogId(emailLogId);
+        attempt.setExpiresAt(expiresAt);
+        entityManager.persist(attempt);
+        entityManager.flush();
     }
 
     private Integer failed(Date timestamp, String errorMessage) {

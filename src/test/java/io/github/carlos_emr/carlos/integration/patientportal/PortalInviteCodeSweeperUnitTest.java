@@ -52,6 +52,10 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
     private EmailLogDao emailLogs;
     private PortalInviteCodeSweeper sweeper;
 
+    /** A stored portal expiry must be a day past; with none, the email must be unchanged for 7 + 1 days. */
+    private static final Date EXPIRED_BEFORE = Date.from(NOW.minus(Duration.ofDays(1)));
+    private static final Date AGED_BEFORE = Date.from(NOW.minus(Duration.ofDays(8)));
+
     @BeforeEach
     void setUp() {
         emailLogs = mock(EmailLogDao.class);
@@ -63,7 +67,7 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
     void shouldIncludeOldCodes_whenSweeping() {
         sweeper.forgetLeftoverCodes(IDLE);
         verify(emailLogs).findIdsByTransactionTypeChangedBeforeWithOtherBody(TransactionType.PORTAL_INVITE,
-                Date.from(NOW.minus(IDLE)), PortalInviteEmailComposer.CODE_FORGOTTEN, 0, 200);
+                Date.from(NOW.minus(IDLE)), EXPIRED_BEFORE, AGED_BEFORE, PortalInviteEmailComposer.CODE_FORGOTTEN, 0, 200);
     }
 
     @Test
@@ -73,34 +77,34 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
         assertThat(PortalInviteDeliveryService.RECOVERY_MIN_AGE).isEqualTo(Duration.ofMinutes(15));
         sweeper.run();
         verify(emailLogs).findIdsByTransactionTypeChangedBeforeWithOtherBody(TransactionType.PORTAL_INVITE,
-                Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)),
+                Date.from(NOW.minus(PortalInviteDeliveryService.RECOVERY_MIN_AGE)), EXPIRED_BEFORE, AGED_BEFORE,
                 PortalInviteEmailComposer.CODE_FORGOTTEN, 0, 200);
     }
 
     @Test
     @DisplayName("should retry after a transient database outage without a new invitation")
     void shouldRetry_whenAnEarlierScheduledRunFails() {
-        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenThrow(new IllegalStateException("database unavailable"))
                 .thenReturn(List.of(1));
         sweeper.run();
         sweeper.run();
         verify(emailLogs).replaceBodyIfUnchangedBefore(1, TransactionType.PORTAL_INVITE,
-                Date.from(NOW.minus(IDLE)), PortalInviteEmailComposer.CODE_FORGOTTEN);
+                Date.from(NOW.minus(IDLE)), EXPIRED_BEFORE, AGED_BEFORE, PortalInviteEmailComposer.CODE_FORGOTTEN);
     }
 
     @Test
     @DisplayName("should count conditional writes and continue after a failed row")
     void shouldContinue_whenOneRowCannotBeCleared() {
-        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(List.of(1, 2, 3));
-        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(1), any(), any(), any()))
+        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(1), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("lock timeout"));
-        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(2), any(), any(), any()))
+        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(2), any(), any(), any(), any(), any()))
                 .thenReturn(0);
-        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(3), any(), any(), any()))
+        when(emailLogs.replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(3), any(), any(), any(), any(), any()))
                 .thenReturn(1);
         assertThat(sweeper.forgetLeftoverCodes(IDLE)).isOne();
     }
@@ -109,24 +113,41 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
     @DisplayName("should advance beyond a full failed batch so older failures cannot starve later rows")
     void shouldContinuePaging_whenAFullBatchFails() {
         List<Integer> first = java.util.stream.IntStream.rangeClosed(1, 200).boxed().toList();
-        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                 org.mockito.ArgumentMatchers.eq(0), org.mockito.ArgumentMatchers.eq(200))).thenReturn(first);
-        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                 org.mockito.ArgumentMatchers.eq(200), org.mockito.ArgumentMatchers.eq(200))).thenReturn(List.of(201));
-        when(emailLogs.replaceBodyIfUnchangedBefore(any(), any(), any(), any()))
+        when(emailLogs.replaceBodyIfUnchangedBefore(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new IllegalStateException("write failed"));
         assertThat(sweeper.forgetLeftoverCodes(IDLE)).isZero();
-        verify(emailLogs, never()).replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(201), any(), any(), any());
+        verify(emailLogs, never()).replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(201), any(), any(), any(), any(), any());
         assertThat(sweeper.forgetLeftoverCodes(IDLE)).isZero();
         verify(emailLogs).replaceBodyIfUnchangedBefore(201, TransactionType.PORTAL_INVITE,
-                Date.from(NOW.minus(IDLE)), PortalInviteEmailComposer.CODE_FORGOTTEN);
+                Date.from(NOW.minus(IDLE)), EXPIRED_BEFORE, AGED_BEFORE, PortalInviteEmailComposer.CODE_FORGOTTEN);
+    }
+
+    @Test
+    @DisplayName("should clear codes past their seven-day life plus a day, whatever the email's state")
+    void shouldUseTheCodesLifePlusADay_asTheAgeCutoffs() {
+        assertThat(PortalInviteCodeSweeper.CODE_AGE_MARGIN).isEqualTo(Duration.ofDays(1));
+        assertThat(PortalInviteEmailComposer.CODE_LIFETIME).isEqualTo(Duration.ofDays(7));
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(List.of(9));
+
+        sweeper.forgetLeftoverCodes(IDLE);
+
+        // The same cutoffs go to the selection and to the update's recheck.
+        verify(emailLogs).findIdsByTransactionTypeChangedBeforeWithOtherBody(TransactionType.PORTAL_INVITE,
+                Date.from(NOW.minus(IDLE)), EXPIRED_BEFORE, AGED_BEFORE, PortalInviteEmailComposer.CODE_FORGOTTEN, 0, 200);
+        verify(emailLogs).replaceBodyIfUnchangedBefore(9, TransactionType.PORTAL_INVITE, Date.from(NOW.minus(IDLE)),
+                EXPIRED_BEFORE, AGED_BEFORE, PortalInviteEmailComposer.CODE_FORGOTTEN);
     }
 
     @Test
     @DisplayName("should touch no email when none qualifies")
     void shouldChangeNothing_whenNoEmailQualifies() {
         assertThat(sweeper.forgetLeftoverCodes(IDLE)).isZero();
-        verify(emailLogs, never()).replaceBodyIfUnchangedBefore(any(), any(), any(), any());
+        verify(emailLogs, never()).replaceBodyIfUnchangedBefore(any(), any(), any(), any(), any(), any());
     }
     @Test
     @DisplayName("should register periodic retries after startup failure and cancel them on shutdown")
@@ -135,7 +156,7 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
         java.util.concurrent.ScheduledFuture<?> future = mock(java.util.concurrent.ScheduledFuture.class);
         registerMock(EmailLogDao.class, emailLogs);
         registerMock(org.springframework.scheduling.TaskScheduler.class, scheduler);
-        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+        when(emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenThrow(new IllegalStateException("database unavailable"));
         org.mockito.Mockito.doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class),
@@ -146,10 +167,10 @@ class PortalInviteCodeSweeperUnitTest extends CarlosUnitTestBase {
         verify(scheduler).scheduleWithFixedDelay(task.capture(), any(Instant.class),
                 org.mockito.ArgumentMatchers.eq(PortalInviteCodeSweeper.INTERVAL));
         org.mockito.Mockito.doReturn(List.of(1)).when(emailLogs)
-                .findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(),
+                .findIdsByTransactionTypeChangedBeforeWithOtherBody(any(), any(), any(), any(), any(),
                         org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
         task.getValue().run();
-        verify(emailLogs).replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(1), any(), any(), any());
+        verify(emailLogs).replaceBodyIfUnchangedBefore(org.mockito.ArgumentMatchers.eq(1), any(), any(), any(), any(), any());
         var context = mock(jakarta.servlet.ServletContext.class);
         try (var misc = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.utility.MiscUtils.class)) {
             listener.contextDestroyed(new jakarta.servlet.ServletContextEvent(context));

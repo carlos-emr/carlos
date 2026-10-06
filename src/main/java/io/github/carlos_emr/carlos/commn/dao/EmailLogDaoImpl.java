@@ -58,7 +58,9 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * state. Other FAILED rows stay untouched: staff abandonment, which can be written while the original
      * send is still running, ends its attempt ABANDONED; a permission refusal after the gate leaves it
      * SEND_UNCERTAIN; a refused or unrecorded commit ends it ABANDONED; and an error before the gate leaves
-     * no attempt naming the email. PENDING and RESOLVED stay untouched.
+     * no attempt naming the email. RESOLVED counts only when every attempt naming the email ended NOT_ARRIVED;
+     * PENDING never does. Rows this rule leaves out are cleared once their code has aged out
+     * ({@link #CODE_AGED}).
      *
      * <p>The attempt table is read in a subquery rather than through its DAO so that selection and the
      * conditional update test the same rule atomically in one statement.
@@ -67,7 +69,33 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
             + "AND EXISTS (SELECT d.id FROM PatientPortalInviteDelivery d WHERE d.emailLogId = e.id "
             + "AND d.state = :refusedState AND d.outcome = :refusedOutcome) "
             + "AND NOT EXISTS (SELECT o.id FROM PatientPortalInviteDelivery o WHERE o.emailLogId = e.id "
-            + "AND o.state <> :refusedState)))";
+            + "AND o.state <> :refusedState)) "
+            // Staff confirmed the email never arrived once the portal showed its code dead (NOT_ARRIVED),
+            // which resolves the email row. Every attempt naming the email must have ended so.
+            + "OR (e.status = :resolved "
+            + "AND EXISTS (SELECT n.id FROM PatientPortalInviteDelivery n WHERE n.emailLogId = e.id "
+            + "AND n.state = :notArrivedState) "
+            + "AND NOT EXISTS (SELECT m.id FROM PatientPortalInviteDelivery m WHERE m.emailLogId = e.id "
+            + "AND m.state <> :notArrivedState)))";
+
+    /**
+     * Whether the email's invitation code is past its life plus a margin, whatever the email's status
+     * (#4083, option B). When every attempt naming the email recorded the portal's expiry, that stored
+     * expiry decides. Otherwise, as when the code never went live or CARLOS never learned its expiry, or no
+     * attempt names the email, the email row's timestamp does: it is the row's creation time until its
+     * status changes and later after that, so the cutoff it gives can only come later, never earlier. The
+     * caller sets both cutoffs (see {@code PortalInviteCodeSweeper}).
+     */
+    private static final String CODE_AGED = "((EXISTS (SELECT x.id FROM PatientPortalInviteDelivery x "
+            + "WHERE x.emailLogId = e.id AND x.expiresAt IS NOT NULL) "
+            + "AND NOT EXISTS (SELECT y.id FROM PatientPortalInviteDelivery y WHERE y.emailLogId = e.id "
+            + "AND (y.expiresAt IS NULL OR y.expiresAt >= :expiredBefore))) "
+            + "OR (NOT EXISTS (SELECT z.id FROM PatientPortalInviteDelivery z WHERE z.emailLogId = e.id "
+            + "AND z.expiresAt IS NOT NULL) AND e.timestamp < :agedBefore))";
+
+    /** Settled and idle, or aged: the rule the selection and the conditional update share. */
+    private static final String CODE_NOT_NEEDED = "((" + SETTLED + " AND e.timestamp < :changedBefore) OR "
+            + CODE_AGED + ")";
 
     /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
     @org.springframework.transaction.annotation.Transactional(
@@ -252,12 +280,12 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Override
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public List<Integer> findIdsByTransactionTypeChangedBeforeWithOtherBody(EmailLog.TransactionType type,
-            Date changedBefore, String body, int afterId, int limit) {
+            Date changedBefore, Date expiredBefore, Date agedBefore, String body, int afterId, int limit) {
         return withSettledParameters(entityManager.createQuery("SELECT e.id FROM EmailLog e WHERE "
-                        + "e.transactionType = :type AND " + SETTLED + " AND e.timestamp < :changedBefore "
-                        + "AND e.id > :afterId AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class))
+                        + "e.transactionType = :type AND " + CODE_NOT_NEEDED
+                        + " AND e.id > :afterId AND (e.body IS NULL OR e.body <> :body) ORDER BY e.id", Integer.class),
+                changedBefore, expiredBefore, agedBefore)
                 .setParameter("type", type)
-                .setParameter("changedBefore", changedBefore)
                 .setParameter("afterId", afterId)
                 .setParameter("body", encodeBody(Objects.requireNonNull(body, "body")))
                 .setMaxResults(limit)
@@ -267,22 +295,28 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int replaceBodyIfUnchangedBefore(Integer id, EmailLog.TransactionType type, Date changedBefore,
-            String replacement) {
+            Date expiredBefore, Date agedBefore, String replacement) {
         return withSettledParameters(entityManager.createQuery("UPDATE EmailLog e SET e.body = :body "
-                        + "WHERE e.id = :id AND e.transactionType = :type AND " + SETTLED
-                        + " AND e.timestamp < :changedBefore AND (e.body IS NULL OR e.body <> :body)"))
+                        + "WHERE e.id = :id AND e.transactionType = :type AND " + CODE_NOT_NEEDED
+                        + " AND (e.body IS NULL OR e.body <> :body)"),
+                changedBefore, expiredBefore, agedBefore)
                 .setParameter("id", id)
                 .setParameter("type", type)
-                .setParameter("changedBefore", changedBefore)
                 .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
                 .executeUpdate();
     }
 
-    private static <Q extends Query> Q withSettledParameters(Q query) {
+    private static <Q extends Query> Q withSettledParameters(Q query, Date changedBefore, Date expiredBefore,
+            Date agedBefore) {
         query.setParameter("settledStatuses", List.of(EmailLog.EmailStatus.SUCCESS, EmailLog.EmailStatus.BLOCKED));
         query.setParameter("failed", EmailLog.EmailStatus.FAILED);
         query.setParameter("refusedState", PatientPortalInviteDelivery.State.SEND_FAILED);
         query.setParameter("refusedOutcome", PatientPortalInviteDelivery.Outcome.SEND_REFUSED);
+        query.setParameter("resolved", EmailLog.EmailStatus.RESOLVED);
+        query.setParameter("notArrivedState", PatientPortalInviteDelivery.State.NOT_ARRIVED);
+        query.setParameter("changedBefore", Objects.requireNonNull(changedBefore, "changedBefore"));
+        query.setParameter("expiredBefore", Objects.requireNonNull(expiredBefore, "expiredBefore"));
+        query.setParameter("agedBefore", Objects.requireNonNull(agedBefore, "agedBefore"));
         return query;
     }
 

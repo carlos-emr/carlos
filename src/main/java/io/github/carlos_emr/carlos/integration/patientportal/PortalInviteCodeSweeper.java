@@ -49,11 +49,20 @@ import org.apache.logging.log4j.Logger;
  * returned). That covers all definite not-sent outcomes after the code went live, as approved by Ben
  * (decision D22 A, 2026-10-05): the mail server refusing the message, a refused connection or failed mail
  * login, and, rarely, the commit gate failing after the attempt was recorded as committed. In every one
- * nothing was sent and the sender has finished. Other failed sends (staff abandonment, which can be written
- * while the original send is still running, a permission refusal, or an error before the commit) and
- * unfinished or manually resolved ones are untouched.
- * Expired codes in settled emails are also removed. Bounded pages keep bodies out of application memory,
- * and each write rechecks the cutoff in case the email changed after selection.
+ * nothing was sent and the sender has finished. A RESOLVED email counts too when staff confirmed it never
+ * arrived once the portal showed its code dead (attempt NOT_ARRIVED). Until then, other failed sends (staff
+ * abandonment, which can be written while the original send is still running, a permission refusal, or an
+ * error before the commit) and unfinished or manually resolved ones are left alone.
+ *
+ * <p>Whatever its state, an email is also cleared once its code is past its life plus
+ * {@link #CODE_AGE_MARGIN} (#4083, option B, approved by Ben on 2026-10-06): when the attempt recorded the
+ * portal's expiry, a day after that expiry; when it did not, as when the code never went live or no attempt
+ * names the email, once the email row has been unchanged for the code's seven-day life plus a day. The send
+ * asks the portal to activate a code seconds after it saves the email, and CARLOS never sends a saved
+ * invitation email again, so with the day's margin such a code has expired on the portal: even an email
+ * still being sent loses nothing it needs.
+ * Bounded pages keep bodies out of application memory, and each write rechecks the rule in case the email
+ * changed after selection.
  *
  * @since 2026-09-30
  */
@@ -61,6 +70,12 @@ public class PortalInviteCodeSweeper implements Runnable {
 
     static final int BATCH_SIZE = 200;
     public static final Duration INTERVAL = Duration.ofMinutes(15);
+    /**
+     * How long past the end of its code's life a saved invitation email is cleared whatever its state:
+     * a margin over the portal's fixed seven-day life ({@link PortalInviteEmailComposer#CODE_LIFETIME}),
+     * from #4083's "no saved invitation email older than seven days holds a code".
+     */
+    static final Duration CODE_AGE_MARGIN = Duration.ofDays(1);
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -100,15 +115,19 @@ public class PortalInviteCodeSweeper implements Runnable {
     public int forgetLeftoverCodes(Duration minIdle) {
         Instant now = clock.instant();
         Date cutoff = Date.from(now.minus(minIdle));
+        // Aged out, whatever the state: a stored portal expiry more than the margin ago, or, with none
+        // recorded, an email row unchanged for the code's whole life plus the margin.
+        Date expiredBefore = Date.from(now.minus(CODE_AGE_MARGIN));
+        Date agedBefore = Date.from(now.minus(PortalInviteEmailComposer.CODE_LIFETIME).minus(CODE_AGE_MARGIN));
         int cleared = 0;
         int failed = 0;
         List<Integer> emailLogIds = emailLogs.findIdsByTransactionTypeChangedBeforeWithOtherBody(
-                TransactionType.PORTAL_INVITE, cutoff, PortalInviteEmailComposer.CODE_FORGOTTEN,
-                afterId, BATCH_SIZE);
+                TransactionType.PORTAL_INVITE, cutoff, expiredBefore, agedBefore,
+                PortalInviteEmailComposer.CODE_FORGOTTEN, afterId, BATCH_SIZE);
         for (Integer emailLogId : emailLogIds) {
             try {
-                cleared += emailLogs.replaceBodyIfUnchangedBefore(emailLogId,
-                        TransactionType.PORTAL_INVITE, cutoff, PortalInviteEmailComposer.CODE_FORGOTTEN);
+                cleared += emailLogs.replaceBodyIfUnchangedBefore(emailLogId, TransactionType.PORTAL_INVITE,
+                        cutoff, expiredBefore, agedBefore, PortalInviteEmailComposer.CODE_FORGOTTEN);
             } catch (RuntimeException exception) {
                 failed++;
                 logger.warn("patient portal invitation code sweep: an email could not be cleared: {}",
