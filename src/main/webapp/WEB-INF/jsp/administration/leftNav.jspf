@@ -584,7 +584,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <!-- #CAISI END-->
 
 <!-- #SYSTEM Management-->
-	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet,_admin.misc" rights="r" reverse="<%=false%>">
+	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.measurements,_admin.document,_admin.flowsheet,_admin.misc,_admin.userAdmin" rights="r" reverse="<%=false%>">
 			<div class="accordion-item">
 			<h2 class="accordion-header">
 			<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEight" aria-expanded="false" aria-controls="collapseEight">
@@ -607,11 +607,19 @@ Properties oscarVariables = CarlosProperties.getInstance();
 				</security:oscarSec>		
 						
 						
-				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">			
+				<c:set var="canManageRoleRights" value="${false}" />
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+					<c:set var="canManageRoleRights" value="${true}" />
+				</security:oscarSec>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+					<c:set var="canManageRoleRights" value="${true}" />
+				</security:oscarSec>
+				<c:if test="${canManageRoleRights}">
 				<li><a href='javascript:void(0);'
 					class="xlink" rel="${ctx}/admin/ProviderPrivilege">
 				<fmt:message key="admin.admin.assignRightsObject"/></a></li>
-				
+				</c:if>
+				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 					<li><a href='javascript:void(0);'
 						class="xlink" rel="${ctx}/admin/ManageClinic"><fmt:message key="admin.admin.clinicAdmin"/></a></li>
 					<%
