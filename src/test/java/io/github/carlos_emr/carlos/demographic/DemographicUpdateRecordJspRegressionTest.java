@@ -40,6 +40,10 @@ import org.junit.jupiter.api.Test;
  * Guards the "update a record" page's inline scripts. A line break inside a JavaScript string literal is a
  * syntax error, so the whole script is skipped: the waiting-list confirmation once broke this way when the
  * patient already had an appointment ("/wa" and "itinglist" on two lines).
+ *
+ * <p>The quote check is deliberately simple: it counts double quotes per line, so it would also flag a {@code "}
+ * inside a single-quoted string or a comment, and it does not look at single-quoted strings. Neither occurs on
+ * this page.
  */
 @DisplayName("Demographic update-a-record JSP regression tests")
 @Tag("unit")
@@ -49,17 +53,19 @@ class DemographicUpdateRecordJspRegressionTest {
     private static final Path UPDATE_RECORD_JSP =
             Path.of("src/main/webapp/WEB-INF/jsp/demographic/demographicupdatearecord.jsp");
     private static final Pattern SCRIPT_BLOCK = Pattern.compile("(?is)<script\\b[^>]*>(.*?)</script>");
-    /** JSP scriptlets/expressions and custom tags, whose attributes hold quotes of their own. */
-    private static final Pattern JSP_MARKUP = Pattern.compile("(?s)<%.*?%>|</?[A-Za-z]+:[^>]*>");
+    private static final Pattern JSP_SCRIPTLET = Pattern.compile("(?s)<%.*?%>");
+    /** Custom tags, whose attributes hold quotes of their own; stripped after scriptlets, which may sit inside them. */
+    private static final Pattern JSP_TAG = Pattern.compile("</?[A-Za-z]+:[^>]*>");
+    private static final String WAITING_LIST_ACTION = "\"<%= request.getContextPath() %>/waitinglist/Add2WaitingList\";";
 
     @Test
     @DisplayName("should post to the waiting-list action whether or not the patient has an appointment")
     void shouldBuildWaitingListUrl_onOneLine() throws IOException {
         String jsp = Files.readString(UPDATE_RECORD_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp.split("\"<%= request.getContextPath\\(\\) %>/waitinglist/Add2WaitingList\";", -1))
+        assertThat(Pattern.compile(Pattern.quote(WAITING_LIST_ACTION)).matcher(jsp).results().count())
                 .as("both script branches set the waiting-list action on one line")
-                .hasSize(3);
+                .isEqualTo(2);
     }
 
     @Test
@@ -69,7 +75,8 @@ class DemographicUpdateRecordJspRegressionTest {
         List<String> openLines = new ArrayList<>();
 
         // Strip JSP markup first: a "%>" inside a script tag's src attribute would otherwise end the tag early.
-        Matcher script = SCRIPT_BLOCK.matcher(JSP_MARKUP.matcher(jsp).replaceAll(""));
+        String plain = JSP_TAG.matcher(JSP_SCRIPTLET.matcher(jsp).replaceAll("")).replaceAll("");
+        Matcher script = SCRIPT_BLOCK.matcher(plain);
         while (script.find()) {
             for (String line : script.group(1).split("\\R")) {
                 if (line.chars().filter(c -> c == '"').count() % 2 != 0) {
