@@ -28,15 +28,19 @@ async function workflow(s, { editorOnly = false } = {}) {
   const { sql, patient, provider, marker } = s;
   const items = { WT: `${marker} Weight`, HT: `${marker} Height` };
   const warning = `${marker} weight above 100`;
+  let printUrl;
   const rows = (where) => `SELECT COUNT(*) FROM flowsheet_customization WHERE flowsheet='tracker'
     AND demographic_no=${patient} AND provider_no=${h.sqlString(provider)} ${where}`;
   const addRow = (type) => `AND action='add' AND measurement IS NULL
     AND payload LIKE ${h.sqlString(`%measurement_type="${type}"%`)} AND payload LIKE ${h.sqlString(`%${items[type]}%`)}`;
   s.cleanup(() => {
     sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet='tracker' AND demographic_no=${patient};
-      DELETE FROM measurements WHERE demographicNo=${patient}`);
+      DELETE FROM measurements WHERE demographicNo=${patient};
+      DELETE FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient} AND displayName=${h.sqlString(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM flowsheet_customization WHERE demographic_no=${patient}`) === '0',
       'Owned flowsheet customization rows were not removed');
+    h.assert(sql.value(`SELECT COUNT(*) FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient} AND displayName=${h.sqlString(marker)}`) === '0',
+      'Owned scoped definition was not removed');
     h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '0',
       'Owned readings were not removed');
   });
@@ -166,6 +170,7 @@ async function workflow(s, { editorOnly = false } = {}) {
   await s.step('custom print lists the customised item and its reading', async () => {
     await navigate(page, page.locator('a[title="Print this flowsheet"]'));
     h.assert(/\/ViewTemplateFlowSheetPrint$/.test(new URL(page.url()).pathname), 'Print did not open the custom print page');
+    printUrl = page.url();
     const section = page.locator('.preventionSection').filter({ has: page.locator('#printHPWT') });
     h.assert(await section.count() === 1,
       'Custom print from the Health Tracker does not list the patient\'s customised WT item');
@@ -186,6 +191,41 @@ async function workflow(s, { editorOnly = false } = {}) {
     await section.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
     await page.getByRole('button', { name: 'Print' }).waitFor({ state: 'visible' });
   });
+  await s.step('a missing deletion target in a scoped definition does not discard patient additions', async () => {
+    const scopedXml = `<flowsheet name="tracker" display_name="${marker}" ds_rules="tracker.drl" top_HTML="" warning_colour="#E00000" recommendation_colour="yellow">`
+      + `<indicator key="HIGH" colour="orange"/><item measurement_type="A1C" display_name="${marker} Scoped A1C" graphable="yes" value_name="A1C" guideline=""/></flowsheet>`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient}`) === '0',
+      'The owned patient already has a scoped definition');
+    sql.execute(`INSERT INTO FlowSheetUserCreated
+      (name,displayName,archived,createdDate,createdBy,scope,scopeDemographicNo,template,xmlContent)
+      VALUES ('PWFS',${h.sqlString(marker)},0,CURDATE(),${h.sqlString(provider)},'patient',${patient},'tracker',${h.sqlString(scopedXml)});
+      INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('tracker','delete','BP',NULL,${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    await page.goto(printUrl, { waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(page, 'scoped print with absent deletion target');
+    h.assert(await page.locator('#printHPA1C').count() === 1, 'Print lost the resolved scoped definition');
+    h.assert(await page.getByText(`${marker} Scoped A1C`, { exact: true }).count() === 1, 'Print lost the scoped item label');
+    h.assert(await page.locator('#printHPWT').count() === 1, 'An absent deletion target discarded the patient weight item');
+    h.assert(await page.locator('#printHPBP').count() === 0, 'Print introduced an item absent from the scoped definition');
+  });
+
+  await s.step('an absent addition anchor appends the item and an absent update target stays absent', async () => {
+    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet='tracker' AND demographic_no=${patient}
+      AND action='delete' AND measurement='BP';
+      UPDATE flowsheet_customization SET measurement='BP' WHERE flowsheet='tracker' AND demographic_no=${patient}
+      AND action='add' AND archived=0 AND payload LIKE ${h.sqlString('%measurement_type="WT"%')};
+      INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('tracker','update','BP',${h.sqlString('<item measurement_type="BP" display_name="Absent BP"/>')},
+        ${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    await page.goto(printUrl, { waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(page, 'scoped print with absent addition anchor');
+    h.assert(await page.locator('#printHPA1C').count() === 1, 'Print lost the scoped definition after adding an item');
+    const weight = page.locator('.preventionSection').filter({ has: page.locator('#printHPWT') });
+    h.assert(await weight.count() === 1, 'Print discarded the item whose anchor is absent');
+    await weight.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
+    h.assert(await page.locator('#printHPBP').count() === 0, 'An update reintroduced an absent item');
+  });
+
 }
 
 if (require.main === module) runWorkflow('flowsheet-patient-customization', workflow);
