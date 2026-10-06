@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
+import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ class RBTGroupManagerTextUnitTest {
         when(security.hasPrivilege(login, "_admin", SecurityInfoManager.WRITE, null)).thenReturn(true);
         RBTGroupManager manager = manager(dao, security);
         manager.addTemplateToGroup(login, " " + name + " ", 17);
-        verify(dao).persist(argThat(group -> name.equals(group.getGroupName()) && group.getTemplateId() == 17));
+        verify(dao).persist(argThat(model -> model instanceof RBTGroup group && name.equals(group.getGroupName()) && group.getTemplateId() == 17));
         manager.delTemplateGroup(login, name);
         verify(dao).deleteByName(name);
     }

@@ -105,7 +105,7 @@ class MeasurementGroupMethodUnitTest extends CarlosUnitTestBase {
     void shouldPersistSelectedType_whenAuthorizedPostAddsIt() throws Exception {
         request.setMethod("POST");
         assertThat(edit("add").execute()).isEqualTo(ActionSupport.SUCCESS);
-        verify(groups).persist(argThat(group -> "owned".equals(group.getName()) && "BP".equals(group.getTypeDisplayName())));
+        verify(groups).persist(argThat(model -> model instanceof MeasurementGroup group && "owned".equals(group.getName()) && "BP".equals(group.getTypeDisplayName())));
         verifyNoMoreInteractions(groups);
     }
 
