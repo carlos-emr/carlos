@@ -176,15 +176,15 @@
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- delivery states --%>
-        <c:forTokens var="key" delims="," items="deliveries.state.abandoning,deliveries.state.abandoned,deliveries.state.committed,deliveries.state.prepared,deliveries.state.preparing,deliveries.state.queued,deliveries.state.revoked,deliveries.state.revoking,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.sent">
+        <c:forTokens var="key" delims="," items="deliveries.state.abandoning,deliveries.state.abandoned,deliveries.state.committed,deliveries.state.not_arrived,deliveries.state.prepared,deliveries.state.preparing,deliveries.state.queued,deliveries.state.revoked,deliveries.state.revoking,deliveries.state.send_failed,deliveries.state.send_uncertain,deliveries.state.sent">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- delivery outcomes --%>
-        <c:forTokens var="key" delims="," items="deliveries.outcome.abandoned_by_staff,deliveries.outcome.code_already_used,deliveries.outcome.chart_note_failed,deliveries.outcome.commit_refused,deliveries.outcome.commit_unconfirmed,deliveries.outcome.confirmed_not_sent,deliveries.outcome.confirmed_sent,deliveries.outcome.prepare_refused,deliveries.outcome.prepare_unconfirmed,deliveries.outcome.send_blocked,deliveries.outcome.send_refused,deliveries.outcome.send_unconfirmed,deliveries.replacementMayBeLost,deliveries.revokeFailed">
+        <c:forTokens var="key" delims="," items="deliveries.outcome.abandoned_by_staff,deliveries.outcome.code_already_used,deliveries.outcome.chart_note_failed,deliveries.outcome.commit_refused,deliveries.outcome.commit_unconfirmed,deliveries.outcome.confirmed_not_sent,deliveries.outcome.confirmed_sent,deliveries.outcome.not_arrived_code_dead,deliveries.outcome.not_arrived_note_failed,deliveries.outcome.prepare_refused,deliveries.outcome.prepare_unconfirmed,deliveries.outcome.send_blocked,deliveries.outcome.send_refused,deliveries.outcome.send_unconfirmed,deliveries.replacementMayBeLost,deliveries.revokeFailed">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- delivery decisions --%>
-        <c:forTokens var="key" delims="," items="deliveries.confirm.abandon,deliveries.confirm.confirmNotSent,deliveries.confirm.confirmSent,deliveries.decision.abandon,deliveries.decision.confirmNotSent,deliveries.decision.confirmSent">
+        <c:forTokens var="key" delims="," items="deliveries.confirm.abandon,deliveries.confirm.confirmNotArrived,deliveries.confirm.confirmNotSent,deliveries.confirm.confirmSent,deliveries.decision.abandon,deliveries.decision.confirmNotArrived,deliveries.decision.confirmNotSent,deliveries.decision.confirmSent">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- deliveries, other --%>
@@ -192,7 +192,7 @@
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- refusals, by reason code --%>
-        <c:forTokens var="key" delims="," items="refusal.channel_unavailable,refusal.delivery_not_found,refusal.incomplete_date_of_birth,refusal.invalid_date_of_birth,refusal.invalid_email,refusal.invite_already_used,refusal.invite_not_configured,refusal.invite_not_pending,refusal.invite_sender_unavailable,refusal.missing_email,refusal.missing_health_card,refusal.invalid_health_card,refusal.patient_not_found,refusal.pending_invite_exists,refusal.portal_connection_changed,refusal.recovery_not_allowed,refusal.recovery_too_early,refusal.stale_attempt_exists,refusal.state_changed">
+        <c:forTokens var="key" delims="," items="refusal.channel_unavailable,refusal.delivery_not_found,refusal.incomplete_date_of_birth,refusal.invalid_date_of_birth,refusal.invalid_email,refusal.invite_already_used,refusal.invite_still_live,refusal.invite_not_configured,refusal.invite_not_pending,refusal.invite_sender_unavailable,refusal.missing_email,refusal.missing_health_card,refusal.invalid_health_card,refusal.patient_not_found,refusal.pending_invite_exists,refusal.portal_connection_changed,refusal.recovery_not_allowed,refusal.recovery_too_early,refusal.stale_attempt_exists,refusal.state_changed">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
     </ul>

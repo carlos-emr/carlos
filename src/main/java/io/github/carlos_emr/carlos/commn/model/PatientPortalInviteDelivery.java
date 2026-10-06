@@ -112,9 +112,14 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
          */
         REVOKING,
         /** Staff confirmed the email never arrived and the invitation was revoked on the portal. */
-        REVOKED;
+        REVOKED,
+        /**
+         * Staff confirmed the email of an activated attempt never arrived, after the portal showed its code
+         * already dead (replaced by a newer invitation, or past its expiry). Nothing was revoked.
+         */
+        NOT_ARRIVED;
 
-        private static final Set<State> TERMINAL = EnumSet.of(SENT, SEND_FAILED, ABANDONED, REVOKED);
+        private static final Set<State> TERMINAL = EnumSet.of(SENT, SEND_FAILED, ABANDONED, REVOKED, NOT_ARRIVED);
 
         /** @return whether the attempt has finished, so no step is still owed */
         public boolean isTerminal() {
@@ -162,7 +167,14 @@ public class PatientPortalInviteDelivery extends AbstractModel<Long> {
         /** Sending was fenced, but the portal proves this invitation already activated an account. */
         CODE_ALREADY_USED,
         /** The email was sent, but the note recording it on the chart could not be written. */
-        CHART_NOTE_FAILED
+        CHART_NOTE_FAILED,
+        /**
+         * Staff confirmed the email did not arrive; the portal already showed its code replaced or expired,
+         * so nothing was revoked.
+         */
+        NOT_ARRIVED_CODE_DEAD,
+        /** As {@link #NOT_ARRIVED_CODE_DEAD}, but the note recording it on the chart could not be written. */
+        NOT_ARRIVED_NOTE_FAILED
     }
 
     @Id

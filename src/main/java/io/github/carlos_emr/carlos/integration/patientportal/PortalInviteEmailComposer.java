@@ -56,6 +56,14 @@ class PortalInviteEmailComposer {
     static final Duration CODE_LIFETIME = Duration.ofDays(7);
 
     /**
+     * CARLOS gives the portal the chart's health card number ({@code hin}) without its version code
+     * ({@code ver}), and the portal compares the number exactly, ignoring only spaces and dashes. A patient
+     * who copies an Ontario card in full, version code included, would be refused at activation.
+     */
+    static final String HEALTH_CARD_HINT = "Enter the health card number without its version code (the "
+            + "one or two letters after the number on an Ontario card).";
+
+    /**
      * Replaces the invitation code in the stored email once the send has resolved. CARLOS never re-sends
      * that email - a replacement is a fresh code through resend - so keeping a live account credential in
      * the outbox, where any reader of the patient's email history could reopen it, buys nothing.
@@ -136,6 +144,18 @@ class PortalInviteEmailComposer {
                 .append("resend the invitation from the Patient portal page.").toString();
     }
 
+    /**
+     * The chart note recording that staff confirmed an invitation email did not arrive, once the portal
+     * showed its code replaced or expired. Like {@link #chartNote}, it never holds the code.
+     *
+     * @param recipient the address the invitation was sent to
+     */
+    String notArrivedNote(String recipient) {
+        return "Patient portal invitation email to " + recipient + " did not arrive, as staff confirmed. Its code "
+                + "had already been replaced by a newer invitation or had expired on the portal, so it no longer "
+                + "works.\nThe invitation code is not recorded in CARLOS.";
+    }
+
     /** @return whether {@code code} has the portal's token format, so it is safe to put in an email */
     static boolean isPlausibleCode(String code) {
         return code != null && CODE_FORMAT.matcher(code).matches();
@@ -148,7 +168,7 @@ class PortalInviteEmailComposer {
                 + "1. Open " + settings.activationUrl() + "\n"
                 + "2. Enter this invitation code: " + inviteCode + "\n"
                 + "3. Confirm your email address, date of birth and health card number, then choose a "
-                + "username and password.\n\n"
+                + "username and password. " + HEALTH_CARD_HINT + "\n\n"
                 + "The code works once and is valid for up to " + CODE_LIFETIME.toDays() + " days. If "
                 + "you did not expect this email, you can ignore it: no account is created unless "
                 + "the code is used.\n\n"

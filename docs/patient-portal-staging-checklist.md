@@ -193,7 +193,8 @@ private key: redact the code in screenshots.
 
 **Patient**
 
-- [ ] With the new code, the test patient activates an account on the portal's own pages.
+- [ ] With the new code, the test patient activates an account on the portal's own pages, entering
+      the health card number without its version code, as the email says.
 - [ ] Signing in sends an MFA code by SMS through the real provider; entering it reaches the
       dashboard.
 - [ ] Back in CARLOS the account shows *Active* and the invitation *Accepted*; the invite form is

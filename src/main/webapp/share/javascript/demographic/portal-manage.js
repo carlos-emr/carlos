@@ -79,7 +79,8 @@
         /**
          * Whether a handled request is good news. An attempt that stopped short still answers 200, and a
          * sent invitation whose chart note failed still needs staff to act. A delivery staff stopped, or
-         * revoked because its email never arrived, did what they asked, unless its code could not be withdrawn.
+         * revoked because its email never arrived, did what they asked, unless its code could not be withdrawn;
+         * so did one recorded as not arrived, unless its chart note failed.
          */
         function isGoodNews(delivery) {
             if (!delivery) {
@@ -92,7 +93,8 @@
                 return false;
             }
             return (delivery.state === 'abandoned' && delivery.outcome === 'abandoned_by_staff')
-                || (delivery.state === 'revoked' && delivery.outcome === 'confirmed_not_sent');
+                || (delivery.state === 'revoked' && delivery.outcome === 'confirmed_not_sent')
+                || (delivery.state === 'not_arrived' && delivery.outcome === 'not_arrived_code_dead');
         }
 
         /**

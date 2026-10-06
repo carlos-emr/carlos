@@ -166,7 +166,11 @@ Why an attempt stands where it does is stored as an `outcome` code (`PatientPort
 with a separate `revoke_failed` flag when code withdrawal remains unconfirmed and needs a retry. The row holds no prose and nothing from a portal response; the staff page translates the codes.
 
 The email links to `<public_base_url>/auth/activate` and carries the code as text. The code is never
-placed in a URL, a log, or a browser-visible message.
+placed in a URL, a log, or a browser-visible message. The email asks the patient to confirm their email
+address, date of birth and health card number, and to enter the number without its version code (the
+letters after the number on an Ontario card): CARLOS sends the portal the chart's health card number
+(`hin`) only, never the version code (`ver`), and the portal compares it exactly, ignoring only spaces
+and dashes.
 
 The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
 It lives in the outbox row only between the store and the send, which is the window the portal's
@@ -199,11 +203,19 @@ an SMS provider.
 An attempt that did not finish shows as incomplete on the page. After 15 minutes without a change,
 staff can resolve it: **Stop and withdraw the code** before the commit, or **It arrived** / **It did
 not arrive; revoke it** once the send call has returned with an uncertain outcome (`SEND_UNCERTAIN`).
-A `COMMITTED` attempt may still have a paused sender and offers **It arrived** only. Confirm that
-choice from actual arrival evidence; it records that evidence without cancelling the sender or
-sending another email. A crash-stuck `COMMITTED` attempt cannot safely be marked not sent online:
-negative cleanup requires verified shutdown/quiescence of all sender nodes and separately authorized
-maintenance. This deliberately narrows the original recovery choices in #3854. Explicit **Revoke**
+A `COMMITTED` attempt may still have a paused sender, so its code is never revoked from the page. It
+offers **It arrived**: confirm that choice from actual arrival evidence; it records that evidence without
+cancelling the sender or sending another email. It also offers **It did not arrive**, but only once the
+portal shows its code already dead: replaced by a newer invitation, or still listed as pending but past
+its expiry by 15 minutes (the margin allows for a difference between the two clocks). The page offers it
+from the portal's list read with the panel, and CARLOS asks the portal again when staff choose it,
+refusing it if the code is still live or no longer listed, has been used (the email did arrive), or the
+portal cannot be reached. Nothing is revoked: the attempt finishes as `NOT_ARRIVED`, the stored email
+loses its code, its outbox row is resolved as not sent, the chart gets a note saying staff confirmed the
+email did not arrive, and the decision is audited like the others. A paused sender that resumes later can
+then deliver only a code that no longer works. While the code is live, the attempt stays open; it can be
+closed this way once the code expires, seven days after activation. This deliberately narrows the original
+recovery choices in #3854. Explicit **Revoke**
 is still available as intentional code invalidation; it does not claim that no email was sent and
 cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
 looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and

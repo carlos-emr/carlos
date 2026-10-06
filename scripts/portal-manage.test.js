@@ -68,6 +68,8 @@ test('calls what staff asked for good news, unless the code could not be withdra
   assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'abandoned_by_staff', revokeFailed: true}), false);
   assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'commit_unconfirmed', revokeFailed: false}), false);
   assert.equal(page.isGoodNews({state: 'revoking', outcome: 'send_unconfirmed', revokeFailed: false}), false);
+  assert.equal(page.isGoodNews({state: 'not_arrived', outcome: 'not_arrived_code_dead', revokeFailed: false}), true);
+  assert.equal(page.isGoodNews({state: 'not_arrived', outcome: 'not_arrived_note_failed', revokeFailed: false}), false);
 });
 
 test('shows no replacement question for a press made while a request is running', () => {
