@@ -158,9 +158,10 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
                 assertRows(ownedIds, 1);
             }
             fail.set(false);
-            response.reset();
+            var replayResponse = new MockHttpServletResponse();
+            servlet.when(ServletActionContext::getResponse).thenReturn(replayResponse);
             assertThat(send(marker)).isEqualTo("none");
-            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(replayResponse.getStatus()).isEqualTo(409);
             assertRows(ownedIds, 1);
         } finally {
             if (!ownedIds.isEmpty()) new TransactionTemplate(transactions).executeWithoutResult(status -> {
