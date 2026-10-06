@@ -206,7 +206,7 @@ async function installationToken(ctx) {
   const identity = await app.request('/app');
   const installation = await app.request(`${ctx.root}/installation`);
   const result = await app.request(`/app/installations/${installation.id}/access_tokens`, 'POST', {
-    repositories: ['carlos'], permissions: { contents: 'write', issues: 'write', pull_requests: 'write' },
+    repositories: ['carlos'], permissions: { contents: 'write', pull_requests: 'write' },
   });
   console.log(`::add-mask::${result.token}`);
   return { api: new GitHub(result.token), slug: identity.slug };

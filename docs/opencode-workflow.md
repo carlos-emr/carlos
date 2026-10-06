@@ -25,7 +25,6 @@ The workflow never merges or approves PRs. New implementation PRs are drafts.
 Create a dedicated GitHub App, install it only on `carlos-emr/carlos`, and grant:
 
 - Contents: read and write
-- Issues: read and write
 - Pull requests: read and write
 - Metadata: read (implicit)
 
