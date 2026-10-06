@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.managers.MessengerDemographicManagerImpl;
 import io.github.carlos_emr.carlos.managers.MessengerGroupManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
+import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -25,6 +26,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -50,7 +53,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
     @PersistenceContext private EntityManager entities;
 
     @ParameterizedTest
-    @ValueSource(strings = {"message", "delivery", "link", "afterCommit"})
+    @ValueSource(strings = {"message", "delivery", "link", "afterCommit", "rollbackOnly"})
     void shouldRetryOnlyConfirmedRollback_withoutDuplicatingAnyMessageRows(String failure) throws Exception {
         String marker = "owned-send-" + UUID.randomUUID();
         List<Integer> ownedIds = new ArrayList<>();
@@ -106,7 +109,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
         MsgProviderData recipient = new MsgProviderData();
         recipient.getId().setContactId("999997");
         recipient.setLastName("Owned recipient");
-        when(groups.getMemberData(eq(login), any())).thenReturn(recipient);
+        when(groups.getMemberData(eq(login), any(ContactIdentifier.class))).thenReturn(recipient);
         OscarCommLocationsDao locations = mock(OscarCommLocationsDao.class);
         when(locations.findByCurrent1(1)).thenReturn(null);
         try (var spring = mockStatic(SpringUtils.class);
@@ -118,7 +121,19 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             spring.when(() -> SpringUtils.getBean(MessageListDao.class)).thenReturn(deliveryWrites);
             spring.when(() -> SpringUtils.getBean(MessengerGroupManager.class)).thenReturn(groups);
             spring.when(() -> SpringUtils.getBean(OscarCommLocationsDao.class)).thenReturn(locations);
-            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+            // A rollback-only completion may return normally from TransactionTemplate.
+            // Exercise that outcome independently of exceptions from the write callbacks.
+            PlatformTransactionManager completion = new PlatformTransactionManager() {
+                @Override public TransactionStatus getTransaction(TransactionDefinition definition) {
+                    return transactions.getTransaction(definition);
+                }
+                @Override public void commit(TransactionStatus status) {
+                    if (fail.get() && "rollbackOnly".equals(failure)) status.setRollbackOnly();
+                    transactions.commit(status);
+                }
+                @Override public void rollback(TransactionStatus status) { transactions.rollback(status); }
+            };
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(completion);
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
