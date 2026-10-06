@@ -15,6 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const b = require('./lib/boundary-values');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const q = h.sqlString;
@@ -72,9 +73,19 @@ async function workflow(s) {
     await form.locator('input[name="docDesc"]').fill(description);
     const shown = await form.locator('input[name="docDesc"]').inputValue();
     await form.locator('input[type="file"]').setInputFiles(tinyPdf(scratch, `bnd-${label}.pdf`));
-    await form.locator('input[name="Submit"]').first().click();
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      add.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/documentManager/addEditDocument')),
+      form.locator('input[name="Submit"]').first().click(),
+    ]);
+    if (b.cpLength(description) > column) {
+      h.assert(post.status() === 400, `Overlong upload answered HTTP ${post.status()} instead of 400`);
+      await add.waitForLoadState('load');
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/documentManager\/addEditDocument$/ });
+    } else h.assert(post.status() < 400, `Valid upload answered HTTP ${post.status()}`);
     const deadline = Date.now() + 25000;
-    while (Date.now() < deadline && rows().length <= before) await new Promise(resolve => setTimeout(resolve, 400));
+    while (post.status() < 400 && Date.now() < deadline && rows().length <= before) await new Promise(resolve => setTimeout(resolve, 400));
     await new Promise(resolve => setTimeout(resolve, 1000));
     // A refused upload leaves the add page open and re-rendered with its message; a saved one closes it.
     const text = add.isClosed() ? '' : (await add.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
@@ -106,6 +117,33 @@ async function workflow(s) {
     }
     b.assertNotSilentlyTruncated(sql, 'document', 'docdesc', `document_no=${found[0][0]}`, shown, 'Document description past the column');
     h.assert(b.cpLength(shown) <= column, `The description box accepted ${b.cpLength(shown)} characters but document.docdesc holds ${column}`);
+  });
+
+  await s.step('an overlong edit refuses all changes and keeps the stored document intact', async () => {
+    const [[id, file]] = rows();
+    const before = sql.rows(`SELECT * FROM document WHERE document_no=${id}`);
+    const filePath = path.join(store, path.basename(file));
+    const content = fs.readFileSync(filePath);
+    const report = await s.popup(s.master, s.master.locator('a[onclick*="/documentManager/ViewDocumentReport"]').first(), 'document-boundary-report');
+    const row = report.locator('tr', { has: report.locator(`#docNo${id}`) });
+    const editor = await s.popup(report, row.locator('a[onclick*="/documentManager/ViewEditDocument"]'), 'document-boundary-edit');
+    await editor.locator('input[name="docDesc"]').fill(full + 'x');
+    await editor.locator('#observationDate').fill('2026-02-03');
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      editor.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/documentManager/addEditDocument')),
+      editor.locator('input[name="Submit"]').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong edit answered HTTP ${post.status()} instead of 400`);
+    await editor.waitForLoadState('load');
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/documentManager\/addEditDocument$/ });
+    h.assert(b.lengthRefusal(await editor.locator('body').innerText()), 'The edit refusal did not explain the description limit');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM document WHERE document_no=${id}`)) === JSON.stringify(before),
+      'A refused edit still changed the stored document');
+    h.assert(fs.readFileSync(filePath).equals(content), 'A refused edit changed the stored file');
+    await editor.close();
+    await report.close();
   });
 }
 

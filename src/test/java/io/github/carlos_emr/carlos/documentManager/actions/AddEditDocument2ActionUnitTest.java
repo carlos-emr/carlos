@@ -52,6 +52,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -206,6 +208,41 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
             org.mockito.Mockito.verifyNoInteractions(reviewers);
             assertThat(request.getAttribute("docerrors")).isNull();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"add", "123"})
+    void oversizedDescriptionIsRejectedBeforeFileMetadataReviewerNoteOrAuditWrites(String mode) throws Exception {
+        DocumentExtraReviewerDao reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        tempUploadFile = File.createTempFile("document-length", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "owned upload");
+        bindDocFileUpload(tempUploadFile, "length.txt", "text/plain");
+        action.setMode(mode); action.setFunction("demographic"); action.setFunctionId("123");
+        action.setDocDesc("\uD83D\uDE00".repeat(256)); action.setDocType("Consultant Report");
+        action.setReviewDoc(true); action.setExtraReviewDoc(true); action.setExtraReviewerId("999998");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
+             MockedStatic<AddEditDocument2Action> writes = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
+            assertThat(action.execute2()).isEqualTo("add".equals(mode) ? "failAdd" : "failEdit");
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(((Hashtable<?, ?>) request.getAttribute("docerrors")).get("descmissing"))
+                    .isEqualTo("dms.error.descriptionTooLong");
+            assertThat(Files.readString(tempUploadFile.toPath())).isEqualTo("owned upload");
+            documents.verifyNoInteractions(); writes.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            org.mockito.Mockito.verifyNoInteractions(reviewers, mockCaseManagementNoteDao, mockCaseManagementNoteLinkDao);
+        }
+    }
+
+    @Test
+    void exactUnicodeDescriptionReachesMetadataEditUnchanged() {
+        String description = "\uD83D\uDE00".repeat(255);
+        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
+        action.setDocDesc(description); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("successEdit");
+            documents.verify(() -> EDocUtil.editDocumentSQL(
+                    argThat(document -> description.equals(document.getDescription())), eq(false)));
         }
     }
 
@@ -820,7 +857,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         action.setMode("add");
         action.setFunction("provider");
         action.setFunctionId("123");
-        action.setDocDesc("Consult note");
+        String description = "\uD83D\uDE00".repeat(255);
+        action.setDocDesc(description);
         action.setDocType("Consultant Report");
         action.setDocCreator("999998");
         action.setResponsibleId("999998");
@@ -846,6 +884,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             String result = action.execute2();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(
+                    argThat(document -> description.equals(document.getDescription()))));
             assertThat(response.getRedirectedUrl())
                     .contains("/documentManager/ViewDocumentReport?docerrors=docerrors")
                     .contains("&function=provider")
