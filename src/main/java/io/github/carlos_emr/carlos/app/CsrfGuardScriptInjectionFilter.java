@@ -36,6 +36,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.ServletResponseWrapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
@@ -97,6 +98,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
             Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
     private static final AtomicBoolean HTML_LOOKING_PASSTHROUGH_WARNED = new AtomicBoolean(false);
+    /** Upper bound on response wrapper layers unwrapped by {@link #isInnermostResponseCommitted}. */
+    private static final int MAX_WRAPPER_DEPTH = 32;
+
     /** Servlet path of the loopback server-side eForm PDF renderer route (see web.xml). */
     private static final String RENDERER_ROUTE_SERVLET_PATH = "/EFormViewForPdfGenerationServlet";
 
@@ -280,6 +284,13 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     /**
      * Writes the final content to the real response.
      *
+     * <p>The body buffer is cleared first with {@code resetBuffer()}, which keeps the status,
+     * headers and cookies set downstream. That reset is only valid while the response is
+     * uncommitted, so it is skipped when either the response or the innermost response beneath
+     * its wrappers is already committed; the content is then written without it and a warning
+     * says why (#3424). A reset that is still rejected is logged the same way, without a stack
+     * trace.</p>
+     *
      * <p>{@code Content-Length} is updated only on the output-stream fallback path, where this
      * method writes the exact byte array. The normal writer path leaves length calculation to the
      * container so response character encoding cannot create a stale byte count.</p>
@@ -299,25 +310,42 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // forwarded response unless the context sets suspendWrappedResponseAfterForward="false"
         // (#3434), and a suspended response discards what is written next, so the page may
         // arrive blank. Log what is needed to recognise that case.
-        if (response.isCommitted()) {
+        boolean committed = response.isCommitted();
+        // A capture wrapper can report uncommitted while the response beneath it is committed:
+        // this filter's own CaptureResponseWrapper and ResponseSanitizationFilter's
+        // CapturingResponseWrapper both do in writer-capture mode, and on a nested forward
+        // (#3434) the reset would reach the committed response and be rejected. Ask the
+        // innermost response too.
+        boolean innermostCommitted = committed || isInnermostResponseCommitted(response);
+        if (committed) {
             LOGGER.warn("writeToResponse: response already committed before CSRF-adjusted replay; "
                     + "writing captured content without buffer reset, but the container may discard "
                     + "it (see #3434, suspendWrappedResponseAfterForward): uri={}, status={}, "
                     + "contentType={}, capturedChars={}",
-                    safeRequestUri, response.getStatus(), response.getContentType(), content.length());
+                    safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                    content.length());
+        } else if (innermostCommitted) {
+            LOGGER.warn("writeToResponse: innermost response already committed beneath a wrapper "
+                    + "that reports uncommitted (e.g. CaptureResponseWrapper or ResponseSanitizationFilter's "
+                    + "CapturingResponseWrapper); writing captured content without buffer reset, but the "
+                    + "replay may not reach the client (see #3434): uri={}, status={}, contentType={}, "
+                    + "capturedChars={}, committed={}, innermostCommitted={}",
+                    safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                    content.length(), committed, innermostCommitted);
         } else {
             try {
                 response.resetBuffer();
             } catch (IllegalStateException e) {
-                // Nothing commits concurrently: a wrapper can report uncommitted while the response
-                // beneath it is committed, as CaptureResponseWrapper does in writer-capture mode
-                // during nested forwards (#3434). Keep the exception's message, not its stack.
-                LOGGER.warn("writeToResponse: resetBuffer() rejected although the response reported "
-                        + "uncommitted (a wrapper may hide the underlying commit); writing captured "
-                        + "content without buffer reset: uri={}, status={}, contentType={}, "
-                        + "committed={}, reason={}",
-                        safeRequestUri, response.getStatus(), response.getContentType(),
-                        response.isCommitted(), LogSafe.sanitize(e.getMessage()));
+                // The outer and innermost responses both reported uncommitted, so an intermediate
+                // wrapper with committed state of its own, or the container, rejected the reset.
+                // Keep the exception's message, not its stack.
+                LOGGER.warn("writeToResponse: resetBuffer() rejected although the response and the "
+                        + "innermost response reported uncommitted; writing captured content without "
+                        + "buffer reset: uri={}, status={}, contentType={}, committed={}, "
+                        + "innermostCommitted={}, reason={}",
+                        safeRequestUri, response.getStatus(), LogSafe.sanitize(response.getContentType()),
+                        response.isCommitted(), isInnermostResponseCommitted(response),
+                        LogSafe.sanitize(e.getMessage()));
             }
         }
         String encoding = response.getCharacterEncoding();
@@ -341,6 +369,33 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             response.getOutputStream().write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- trusted CSRF framework content
             response.getOutputStream().flush();
         }
+    }
+
+    /**
+     * Reports whether the innermost response beneath any {@link ServletResponseWrapper} layers is
+     * committed.
+     *
+     * <p>Every wrapper in the forward chain delegates {@code resetBuffer()} down to that response,
+     * which is the one that rejects a reset after commit, so skipping the reset when it is
+     * committed loses nothing. {@code FormTransportContainer}'s capture wrapper is the exception:
+     * it keeps a buffer of its own and does not delegate. It could only sit beneath this filter on
+     * a forward nested inside its include, and then that forward has already reset its buffer and
+     * this filter captured the page, so the buffer is empty at replay; the skip fires only when the
+     * caller response beneath it is committed, which {@code FormTransportContainer}'s contract
+     * forbids while it renders.</p>
+     *
+     * @param response the response handed to this filter
+     * @return {@code true} if the innermost response is committed; after {@value #MAX_WRAPPER_DEPTH}
+     *         layers the deepest one reached is asked, and the caller's try/catch remains the fallback
+     */
+    static boolean isInnermostResponseCommitted(ServletResponse response) {
+        ServletResponse current = response;
+        // Bounded so that a wrapper which (wrongly) returns itself cannot loop forever.
+        for (int depth = 0; depth < MAX_WRAPPER_DEPTH
+                && current instanceof ServletResponseWrapper wrapper; depth++) {
+            current = wrapper.getResponse();
+        }
+        return current.isCommitted();
     }
 
     @Override
