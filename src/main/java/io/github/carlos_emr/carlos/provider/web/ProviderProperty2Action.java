@@ -1817,27 +1817,22 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genLabRecallPrefs";
     }
 
+    /**
+     * Loads the current assignee without changing the stored property object.
+     *
+     * @return the preference form
+     */
     public String viewTicklerTaskAssignee() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
-        UserProperty ticklerTaskAssignee = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-
-        String defaultTo = "";
-        if (ticklerTaskAssignee == null) {
-            ticklerTaskAssignee = new UserProperty();
-            ticklerTaskAssignee.setValue("default");
-            defaultTo = "default";
-        } else {
-            String value = ticklerTaskAssignee.getValue();
-            if ("default".equals(value) || "mrp".equals(value)) {
-                defaultTo = value;
-            } else {
-                defaultTo = "providers";
-
-                if ("providers".equals(defaultTo)) {
-                    request.setAttribute("selectedProvider", ticklerTaskAssignee.getValue());
-                }
+        UserProperty ticklerTaskAssignee = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
+        String savedValue = ticklerTaskAssignee == null ? null : ticklerTaskAssignee.getValue();
+        String defaultTo = "default";
+        if (StringUtils.isNotBlank(savedValue) && !"default".equals(savedValue)) {
+            defaultTo = "mrp".equals(savedValue) ? "mrp" : "provider";
+            if ("provider".equals(defaultTo)) {
+                request.setAttribute("selectedProvider", savedValue);
             }
         }
 
@@ -1862,71 +1857,76 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
         request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
         request.setAttribute("method", "saveTicklerTaskAssignee");
-        request.setAttribute("taskAssigneeSelection", ticklerTaskAssignee);
-        this.setTaskAssigneeSelection(ticklerTaskAssignee);
-        this.setTaskAssigneeMRP(ticklerTaskAssignee);
-
         request.setAttribute("providerMsg", "");
         request.setAttribute("taskAssigneeMRPValue", defaultTo);
-
-        UserProperty t = this.getTaskAssigneeMRP();
-        t.setValue(defaultTo);
 
         return SUCCESS;
     }
 
+    /**
+     * Saves the authenticated provider's default tickler assignee on POST.
+     * Default removes the preference; MRP and an active provider store their values.
+     * Invalid choices leave the existing preference unchanged, and persistence
+     * failures propagate instead of displaying a success confirmation.
+     *
+     * @return the preference form, confirmation, or no view for a rejected method
+     */
     public String saveTicklerTaskAssignee() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        String radioValue = request.getParameter("taskAssigneeMRP.value");
-        String providerValue = request.getParameter("taskAssigneeSelection.value");
-
-        UserProperty a = this.getTaskAssigneeSelection();
-
-        if ("provider".equals(radioValue)) {
-            a.setValue(providerValue); // providerNo
-        } else {
-            a.setValue(radioValue); // default or mrp
-        }
-
-        String tickerTaskAssignee = a != null ? a.getValue() : "";
-
-        boolean delete = "".equals(tickerTaskAssignee);
-
-        UserProperty property = this.userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
-        if (property == null) {
-            property = new UserProperty();
-            property.setProviderNo(providerNo);
-            property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
-        }
-
-        try {
-            if (delete) {
-                if (property.getId() != null) {
-                    userPropertyDAO.delete(property);
-                }
-            } else {
-                property.setValue(tickerTaskAssignee);
-                userPropertyDAO.saveProp(property);
+        String choice = request.getParameter("taskAssigneeMRP.value");
+        String value;
+        if ("default".equals(choice)) {
+            value = null;
+        } else if ("mrp".equals(choice)) {
+            value = "mrp";
+        } else if ("provider".equals(choice)) {
+            value = request.getParameter("taskAssigneeSelection.value");
+            ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+            Provider assignee = StringUtils.isBlank(value) ? null : providerDao.getProvider(value);
+            if (assignee == null || !"1".equals(assignee.getStatus()) || "-1".equals(value)) {
+                return invalidTicklerAssignee();
             }
-        } catch (Exception e) {
-            // Return to the success page even though the pereference is not changed from default
-            // Avoid the error displays
-            request.setAttribute("status", "success");
-            return "complete";
+        } else {
+            return invalidTicklerAssignee();
         }
 
+        UserProperty property = userPropertyDAO.getProp(providerNo, UserProperty.TICKLER_TASK_ASSIGNEE);
+        if (value == null) {
+            if (property != null && property.getId() != null) {
+                userPropertyDAO.remove(property.getId());
+            }
+        } else {
+            if (property == null) {
+                property = new UserProperty();
+                property.setProviderNo(providerNo);
+                property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
+            }
+            property.setValue(value);
+            userPropertyDAO.saveProp(property);
+        }
         request.setAttribute("status", "success");
-        request.setAttribute("providertitle", "provider.ticklerPreference.title");
-        request.setAttribute("providermsgPrefs", "provider.ticklerPreference.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnSubmit", "provider.ticklerPreference.btnSubmit"); //=Save
-        request.setAttribute("providerbtnCancel", "provider.ticklerPreference.btnCancel"); //=Cancel
-        request.setAttribute("providerbtnClose", "provider.ticklerPreference.providerbtnClose"); //=Close Window
-        request.setAttribute("providerMsg", "provider.ticklerPreference.savedMsg");
-        request.setAttribute("method", "saveTicklerTaskAssignee");
-
         return "complete";
+    }
+
+    /**
+     * Reopens the current preference with a validation error, without writing it.
+     *
+     * @return the configured error view
+     */
+    private String invalidTicklerAssignee() {
+        viewTicklerTaskAssignee();
+        request.setAttribute("ticklerPreferenceError", true);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return ERROR;
     }
 
     public String viewEncounterWindowSize() {

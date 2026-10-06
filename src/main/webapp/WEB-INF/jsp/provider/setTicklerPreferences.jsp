@@ -43,8 +43,6 @@
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 
-<%@ page import="java.util.*" %>
-<%@ page import="java.util.ResourceBundle"%>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -52,16 +50,6 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
-<%
-    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-    String providertitle = (String) request.getAttribute("providertitle");
-    String providermsgPrefs = (String) request.getAttribute("providermsgPrefs");
-    String providerbtnCancel = (String) request.getAttribute("providerbtnCancel");
-    String providerMsg = (String) request.getAttribute("providerMsg");
-    String providerbtnSubmit = (String) request.getAttribute("providerbtnSubmit");
-    String providerbtnClose = (String) request.getAttribute("providerbtnClose");
-%>
 <html lang="${pageContext.request.locale.language}">
     <head>
         <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -97,6 +85,9 @@
         <div class="text-muted small"><fmt:message key="provider.setTicklerPreferences.header"/></div>
     </div>
         <%if (request.getAttribute("status") == null) {%>
+            <c:if test="${ticklerPreferenceError}">
+                <div class="alert alert-danger" role="alert"><fmt:message key="provider.ticklerPreference.invalidAssignee"/></div>
+            </c:if>
             <form action="${pageContext.request.contextPath}/setTicklerPreferences" method="post">
                 <input type="hidden" name="method" value="${carlos:forHtmlAttribute(method)}">
     <!-- ============================================================
@@ -158,7 +149,7 @@
                         <div style="display:none;" id="taskAssigneeProviderContainer">
                             <span><fmt:message key="provider.setTicklerPreferences.providerDescription"/></span>
                             <br>
-                            <select name="taskAssigneeSelection.value" id="assigneeSelect" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key='admin.jobs.choose'/>">
+                            <select id="assigneeSelect" onchange="updateTaskAssignee(this.value)" class="form-select form-select-sm" title="<fmt:message key='admin.jobs.choose'/>">
                                 <c:forEach var="provider" items="${providerSelect}">
                                     <option value="${carlos:forHtmlAttribute(provider.value)}"
                                         <c:if test="${fn:trim(selectedProvider) == fn:trim(provider.value)}">selected</c:if>>
@@ -184,7 +175,7 @@
 		<div id="AlertBanner"
 			class="alert alert-success alert-dismissible"
 			role="alert">
-			<span id="AlertText"><%=providerMsg %></span>
+			<span id="AlertText"><fmt:message key="provider.ticklerPreference.savedMsg"/></span>
 			<button type="button"
 			class="btn-close"
 			onclick="this.closest('.alert').style.display='none'"
@@ -194,59 +185,27 @@
                 <input type="button" class="btn btn-primary btn-sm" value="<fmt:message key="global.btnClose"/>" onclick="window.close();"/>
 <% } %>
 
+    <%if (request.getAttribute("status") == null) {%>
     <script>
+        function updateTaskAssignee(value) {
+            document.getElementById("taskAssignee").value = value;
+        }
+
         function checkAssignee() {
-            one = document.getElementById("taskAssigneeDefault");
-            divDefault = document.getElementById("taskAssigneeDefaultContainer");
-            const mySelect = document.getElementById("assigneeSelect");
-
-            if (one.checked) {
-                divDefault.style.display = "block";
-                updateTaskAssignee('');//clear
-            } else {
-                divDefault.style.display = "none";
-            }
-
-            mrp = document.getElementById("taskAssigneeMRP");
-            divMRP = document.getElementById("taskAssigneeMRPContainer");
-
-            if (mrp.checked) {
-                divMRP.style.display = "block";
-                updateTaskAssignee('mrp');
-            } else {
-                divMRP.style.display = "none";
-            }
-
-            provider = document.getElementById("taskAssigneeProvider");
-            divProvider = document.getElementById("taskAssigneeProviderContainer");
-
-            if (provider.checked) {
-                divProvider.style.display = "block";
-                mySelect.disabled = false;
-            } else {
-                divProvider.style.display = "none";
-                mySelect.disabled = true;
-            }
+            const defaultSelected = document.getElementById("taskAssigneeDefault").checked;
+            const mrpSelected = document.getElementById("taskAssigneeMRP").checked;
+            const providerSelected = document.getElementById("taskAssigneeProvider").checked;
+            const select = document.getElementById("assigneeSelect");
+            document.getElementById("taskAssigneeDefaultContainer").style.display = defaultSelected ? "block" : "none";
+            document.getElementById("taskAssigneeMRPContainer").style.display = mrpSelected ? "block" : "none";
+            document.getElementById("taskAssigneeProviderContainer").style.display = providerSelected ? "block" : "none";
+            select.disabled = !providerSelected;
+            updateTaskAssignee(providerSelected ? select.value : mrpSelected ? "mrp" : "");
         }
 
-        function updateTaskAssignee(v) {
-            el = document.getElementById("taskAssignee");
-            el.value = v;
-        }
-
-        function updateProviderSelect() {
-            var savedAssignee = document.forms[0]['taskAssigneeSelection.value'].value;
-            if (savedAssignee.length > 0 && savedAssignee != 'mrp') {
-                document.forms[0]['taskAssigneeProvider.value'].value = savedAssignee;
-            }
-        }
-
-        updateProviderSelect();
-
-        window.onload = function () {
-            checkAssignee();
-        };
+        checkAssignee();
     </script>
+    <%}%>
 
     </body>
 </html>

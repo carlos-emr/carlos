@@ -30,6 +30,11 @@ const { waitForSaveSentinel } = require('./tickler-forward-filters-playwright-ch
 
 const PREFERENCE = 'tickler_task_assignee';
 
+/**
+ * Verifies tickler preference persistence and reopening through the actual UI.
+ * @param {object} s Isolated workflow session with owned fixtures and strict browser checks.
+ * @returns {Promise<void>} Resolves after provider, MRP, Default and GET protections pass.
+ */
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const defaultedMessage = `${marker} saved with the preferred default assignee`;
@@ -106,14 +111,41 @@ async function workflow(s) {
     if (!patientList.isClosed()) await patientList.close();
   });
 
-  await s.step('reopening shows the stored provider, and choosing Default removes the preference row', async () => {
+  await s.step('reopening selects the stored provider and saving unchanged preserves it', async () => {
+    const settings = await openPreferenceForm('tickler-preferences-reopen');
+    h.assert(await settings.locator('#taskAssigneeProvider').isChecked()
+      && await settings.locator('#assigneeSelect').inputValue() === otherNo,
+    'Reopening did not restore the saved provider selection');
+    h.assert(await settings.locator('#taskAssignee').inputValue() === otherNo,
+      'Reopening did not stage the saved provider for an unchanged submission');
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'unchanged preference Submit' });
+    await settings.locator('#AlertBanner').waitFor({state: 'visible'});
+    h.assert(preferenceRows() === '1' && storedPreference() === otherNo,
+      'Saving the reopened form changed or duplicated the preference');
+    await settings.close();
+  });
+
+  await s.step('MRP saves and reopens as the selected preference', async () => {
+    const settings = await openPreferenceForm('tickler-preferences-mrp');
+    await settings.locator('#taskAssigneeMRP').check();
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'MRP preference Submit' });
+    await settings.locator('#AlertBanner').waitFor({state: 'visible'});
+    h.assert(preferenceRows() === '1' && storedPreference() === 'mrp', 'MRP was not saved');
+    await settings.close();
+    const reopened = await openPreferenceForm('tickler-preferences-mrp-reopen');
+    h.assert(await reopened.locator('#taskAssigneeMRP').isChecked(), 'Reopening did not select MRP');
+    await reopened.close();
+  });
+
+  await s.step('choosing Default removes the preference row and reopens with Default selected', async () => {
     const settings = await openPreferenceForm('tickler-preferences-reset');
-    h.assert(await settings.locator('#taskAssigneeProvider').isChecked() && await settings.locator('#assigneeSelect').inputValue() === otherNo,
-      'Reopening the preference did not show the stored provider');
     await settings.locator('#taskAssigneeDefault').check();
     await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'tickler preference Submit' });
     await settings.locator('#AlertBanner').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(preferenceRows() === '0', 'Choosing Default did not delete the preference row');
+    const reopened = await openPreferenceForm('tickler-preferences-default-reopen');
+    h.assert(await reopened.locator('#taskAssigneeDefault').isChecked(), 'Reopening did not select Default');
+    await reopened.close();
     await settings.close();
   });
 
