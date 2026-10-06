@@ -11,12 +11,11 @@ import org.apache.struts2.ServletActionContext;
 
 /** Protects the role-changing operations on the billed-visit provider settings page. */
 public final class ViewBilledVisitProvider2Action extends ActionSupport {
-    private final SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
-
     @Override
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
+        SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (login == null || !security.hasPrivilege(login, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report r)");
