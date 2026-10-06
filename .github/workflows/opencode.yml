@@ -13,6 +13,7 @@ permissions: {}
 concurrency:
   group: >-
     ${{ github.event.comment.user.type == 'User' &&
+      contains(fromJSON(vars.OPENCODE_ALLOWED_USERS || '[]'), github.event.comment.user.login) &&
       (startsWith(github.event.comment.body, '/oc') || startsWith(github.event.comment.body, '/opencode'))
       && format('carlos-opencode-{0}-{1}', github.repository, github.event.issue.number)
       || format('carlos-opencode-ignored-{0}', github.run_id) }}

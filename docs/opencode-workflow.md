@@ -204,8 +204,11 @@ invalidates it: post a new comment. Bots cannot invoke the workflow.
 The response links to the Actions run and states whether work was denied,
 disabled, failed, completed without changes, or published. Pending runs are
 visible in Actions under `OpenCode #<issue> comment <comment-id>`. Requests for
-the same issue/PR are serialized; ordinary comments and bots do not occupy that
-queue. The queue holds up to 100 pending runs;
+the same issue/PR from globally allowlisted users are serialized; ordinary
+comments, bots and unlisted users do not occupy that queue. Unlisted commands
+still go through the controller's explicit denial path. The global allowlist
+must be valid JSON because GitHub also reads it when selecting the queue.
+The queue holds up to 100 pending runs;
 overflow/cancelled runs are reported by the separate completion workflow.
 
 Explain/review cannot edit or execute shell commands. Implement may edit files
