@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -140,7 +141,9 @@ public final class AiDocumentSummary2Action extends ActionSupport {
     private static ClinicalSummaryTextExtractor.Extract extract(String filename, String contentType) {
         try {
             return ClinicalSummaryTextExtractor.document(filename, contentType);
-        } catch (IOException | IllegalArgumentException unavailable) {
+        } catch (IOException | IllegalArgumentException | FileValidationException unavailable) {
+            // A stored filename that is not one path component, or resolves outside DOCUMENT_DIR, makes only the text
+            // unavailable; authorization failures are other SecurityExceptions and still reach the 403 handler.
             return new ClinicalSummaryTextExtractor.Extract("", false,
                     "Document content is unavailable or unreadable; review the original.");
         }

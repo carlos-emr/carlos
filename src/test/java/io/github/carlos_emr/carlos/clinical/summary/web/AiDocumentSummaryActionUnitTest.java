@@ -214,6 +214,15 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldDisableGeneration_whenStoredFilenameIsRejected() throws Exception {
+        reader.when(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.FileValidationException("Invalid filename"));
+        assertThat(action.generate()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request).setAttribute("documentSummaryAllowed", false);
+        verifyNoInteractions(summarizer);
+    }
+
+    @Test
     void shouldDiscardDraft_whenFileTextChanges() throws Exception {
         reader.when(() -> ClinicalSummaryTextExtractor.document("referral.txt", "text/plain"))
                 .thenReturn(new ClinicalSummaryTextExtractor.Extract("Blood work planned.", true, "Complete text."),
