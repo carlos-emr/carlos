@@ -235,14 +235,15 @@ async function workflow(s, { editorOnly = false } = {}) {
       const login = fixture.addLogin('doctor');
       const restricted = await signIn(s, login);
       try {
-        const previewUrl = new URL(printUrl);
-        previewUrl.searchParams.set('printView', 'true');
-        previewUrl.searchParams.set('printHP', 'WT');
-        for (const [method, url] of [['GET', printUrl], ['POST', previewUrl.href]]) {
-          const answer = await probe(restricted.context, url, { method, needles: [items.WT] });
-          h.assert(answer.status === 200 && answer.fromApp && answer.found.includes(items.WT),
-            `Unlocked doctor could not ${method} the same patient print before applying ${object}`);
-        }
+        const selection = await restricted.page.goto(printUrl, { waitUntil: 'networkidle' });
+        h.assert(selection.status() === 200, `Unlocked doctor could not open print before applying ${object}`);
+        await restricted.page.locator('label[for="printHPWT"]').click();
+        const preview = restricted.page.waitForResponse(r => r.request().method() === 'POST'
+          && new URL(r.url()).pathname.endsWith('/ViewTemplateFlowSheetPrint'));
+        await navigate(restricted.page, restricted.page.locator('button.preview'));
+        h.assert((await preview).status() === 200, `Unlocked doctor could not preview before applying ${object}`);
+        await restricted.page.locator('.preventionSection').filter({ hasText: items.WT })
+          .locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
         fixture.lockPatient(login, patient, [object]);
         for (const method of ['GET', 'HEAD', 'POST']) {
           const url = new URL(printUrl);
