@@ -61,4 +61,33 @@ class CaseManagementNoteMethodUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(notes, issues, extensions, issueDefinitions, locks, ticklers, security);
         }
     }
+    @ParameterizedTest
+    @CsvSource({"missing", "takenOver"})
+    void shouldReturnConflictBeforeLoadingOrSavingNote_whenLockIsMissingOrTakenOver(String state) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "42");
+        request.getSession().setAttribute("userrole", "doctor");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        var locks = mock(CasemgmtNoteLockDao.class);
+        registerMock(CasemgmtNoteLockDao.class, locks);
+        if ("takenOver".equals(state)) {
+            var owned = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
+            when(owned.getId()).thenReturn(7L);
+            when(owned.getSessionId()).thenReturn(request.getSession().getId());
+            request.getSession().setAttribute("casemgmtNoteLock42", owned);
+            var current = mock(io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock.class);
+            when(current.getSessionId()).thenReturn("other-session");
+            when(locks.find(7L)).thenReturn(current);
+        }
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = spy(new CaseManagementEntry2Action());
+            assertThat(action.save()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(409);
+            verify(action, never()).getDemoName(anyString());
+        }
+    }
+
 }

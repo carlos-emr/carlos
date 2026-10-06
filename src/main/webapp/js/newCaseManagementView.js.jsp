@@ -2623,6 +2623,10 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
@@ -2702,7 +2706,9 @@ function updateCPPNote() {
 
         var url = ctx + "/CaseManagementEntry";
 
-        $("notCPP").update("Loading...");
+        // Keep the editor and typed text until the server confirms a new notes pane.
+        var restoreControls = beginNoteSwitchSave();
+        var saveConfirmed = false;
 
         CarlosAjax.request(
             url,
@@ -2711,6 +2717,12 @@ function updateCPPNote() {
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    var responseDocument = new DOMParser().parseFromString(request.responseText, "text/html");
+                    if (!responseDocument.getElementById("encMainDiv")) {
+                        alert(savingNoteError);
+                        return;
+                    }
+                    saveConfirmed = true;
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
                     if (fullChart == "true") {
@@ -2720,7 +2732,18 @@ function updateCPPNote() {
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").update("Error: " + request.status + request.responseText);
+                    if (request.status == 409) {
+                        lostNoteLock = true;
+                        alert(noteLockLostError);
+                    } else if (request.status == 403) {
+                        alert(sessionExpiredError);
+                    } else {
+                        alert(savingNoteError + " " + request.status);
+                    }
+                },
+                onComplete: function () {
+                    restoreControls();
+                    if (!saveConfirmed && !lostNoteLock) setTimer();
                 }
             }
         );

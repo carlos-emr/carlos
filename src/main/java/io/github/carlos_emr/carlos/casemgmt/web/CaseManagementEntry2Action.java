@@ -1865,16 +1865,22 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("change_flag", "false");
 
         String demono = getDemographicNo(request);
+        if (!hasNoteLock(demono)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        if (!hasNoteLock(demono)) {
-            return "windowCloseError";
-        }
-
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         long noteId = noteSave();
+
+        if (noteId == -1L && !hasNoteLock(demono)) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
 
         /* prepare the message */
         addActionMessage(getText("note.saved"));
