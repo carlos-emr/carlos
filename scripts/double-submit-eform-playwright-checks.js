@@ -153,6 +153,7 @@ async function workflow(s) {
   await s.step('canceled and invalid submits remain editable and preserve the named submitter', async () => {
     const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-validation');
     await form.locator('#remoteSubmitButton').waitFor();
+    await traceNavigation(form);
     const subject = `${marker}-VALIDATION`;
     const rows = () => sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
       AND form_name=${q(formName)} AND subject=${q(subject)}`);
