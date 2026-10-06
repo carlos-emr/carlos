@@ -351,6 +351,12 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Report queries remain readable; saving favourites/patient sets requires POST.
+        // Covered by ReadMethodWriteGuardUnitTest, including both persistence branches.
+        "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
+        // PHCP role settings remain readable; role changes require an administrative POST.
+        // Covered by ViewBilledVisitProvider2ActionUnitTest and the installed daysheet workflow.
+        "io.github.carlos_emr.carlos.report.gate.ViewBilledVisitProvider2Action",
         // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
         // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
         "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",
