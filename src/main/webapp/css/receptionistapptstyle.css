@@ -128,6 +128,14 @@ table#scheduleTable tfoot {
         left: 0;
         max-width: var(--schedule-visible-width, 100%);
     }
+    body.sticky-schedule-header #password-expiry-warning {
+        /* The password-expiry notice (schedulePage.js.jsp puts it first in the
+           body) keeps its "Change password" button in the window too; 1rem
+           allows for its m-2 margins. */
+        position: sticky;
+        left: 0;
+        max-width: calc(var(--schedule-visible-width, 100%) - 1rem);
+    }
 }
 
 table#firstTable {
@@ -201,7 +209,7 @@ tr td.infirmaryView {
     z-index: 10; /* above appointment rows, below #fixedHeaderWrapper (1000) */
 }
 
-/* Ticket item 3: a soft shadow under the names. Chrome does not draw a
+/* #868 item 3: a soft shadow under the names. Chrome does not draw a
    box-shadow on a cell of a border-collapse table, so draw a strip below
    the cell instead (the sticky cell is its containing block). */
 tr td.infirmaryView::after {
