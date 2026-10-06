@@ -86,14 +86,16 @@ async function workflow(s) {
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
     const mark = failureMark(s.recorder);
-    second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
+    const alerts = await h.withExpectedDialogs(bRx, async () => {
+      second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
+      await bRx.waitForTimeout(500);
+    });
+    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && /could not be completed/i.test(alerts[0].text),
+      'The stale discontinue must tell the user that the request was refused');
     h.assert(second.status() === 409, `The stale discontinue answered HTTP ${second.status()} instead of 409`);
     // A 4xx is a valid refusal; consume exactly that one response so the strict page check after the step does not report it
     // (the next step judges the stored state).
-    if (second.status() >= 400) {
-      await bRx.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: second.status(), path: /\/rx\/deleteRx$/ });
-    }
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/deleteRx$/ });
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);
