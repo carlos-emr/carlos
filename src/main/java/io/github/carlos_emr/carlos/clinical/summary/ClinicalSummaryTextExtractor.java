@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.clinical.summary;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.File;
@@ -30,10 +31,14 @@ final class ClinicalSummaryTextExtractor {
     private static final Map<String, Cached> CACHE = new LinkedHashMap<>(64, 0.75f, true);
     private static int cachedBytes;
 
+    // FindSecBugs PATH_TRAVERSAL_IN: the stored filename must be one path component, and the resolved file must stay
+    // inside DOCUMENT_DIR (canonical-path containment), as for outbound email attachments.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "persisted eDoc filename validated as one path component; real-path containment within DOCUMENT_DIR")
     static Extract document(String filename, String contentType) throws IOException {
         File directory = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File file = PathValidationUtils.validateExistingPath(new File(directory, filename), directory);
+        String safeName = PathValidationUtils.validatePathComponent(filename, "stored document filename");
+        File file = PathValidationUtils.validateExistingPath(new File(directory, safeName), directory);
         try (var input = Files.newInputStream(file.toPath())) {
             byte[] bytes = input.readNBytes(MAX_FILE_BYTES + 1);
             if (bytes.length > MAX_FILE_BYTES) return new Extract("", false, "File exceeds the text reader's memory limit; open the original.");
@@ -102,6 +107,9 @@ final class ClinicalSummaryTextExtractor {
         return new Extract("", false, "This format has no supported text reader; open the original. Scans require OCR or manual review.");
     }
 
+    // FindSecBugs IMPROPER_UNICODE: lower-cases an HTML input type to drop hidden, password and button fields from
+    // the extracted text; an internal markup value, not a security or authorization decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an HTML input type (internal markup value); not a security or authorization decision")
     static Extract html(String html) {
         if (html == null || html.isBlank()) return new Extract("", false, "No stored form content.");
         var document = Jsoup.parse(html);

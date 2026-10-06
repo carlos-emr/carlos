@@ -149,4 +149,25 @@ class AiClinicalSummaryPrototypeSupplementalSourcesUnitTest extends CarlosUnitTe
             reader.verifyNoInteractions();
         }
     }
+
+    @Test
+    void shouldMarkOnlyThatDocumentUnavailable_whenStoredFilenameIsRejected() {
+        when(security.hasPrivilege(user, "_edoc", "r", 42)).thenReturn(true);
+        EDoc document = mock(EDoc.class);
+        when(document.getDocId()).thenReturn("8");
+        when(document.getFileName()).thenReturn("../outside.txt");
+        when(document.getContentType()).thenReturn("text/plain");
+        CtlDocument ownership = new CtlDocument();
+        ownership.setId(new CtlDocumentPK("demographic", 42, 8));
+        when(documents.getCtlDocumentByDocumentId(user, 8)).thenReturn(ownership);
+        try (var list = mockStatic(EDocUtil.class); var reader = mockStatic(ClinicalSummaryTextExtractor.class)) {
+            list.when(() -> EDocUtil.listDocs(user, "demographic", "42", "all", EDocUtil.PRIVATE,
+                    EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(new ArrayList<>(List.of(document)));
+            reader.when(() -> ClinicalSummaryTextExtractor.document("../outside.txt", "text/plain"))
+                    .thenThrow(new io.github.carlos_emr.carlos.utility.FileValidationException("Invalid filename"));
+            String view = load().getView().toString();
+            assertThat(view).contains("source_extraction_incomplete", "document-8",
+                    "Document content is unavailable or unreadable; open the original.");
+        }
+    }
 }
