@@ -235,6 +235,11 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- signature ---
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
+            // --- email ---
+            // EmailSend2Action delivers mail and persists an EmailLog on its send dispatches
+            // (sendDirectEmail and the default sendEFormEmail); cancel only arrives by form POST.
+            Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
+                    "_email", "w"),
             // --- messenger ---
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action",
                     "_msg", "w"),
@@ -573,6 +578,9 @@ class MutatorActionGetRejectionContractUnitTest {
         // demographic slice: AddDemographicRelationship2Action is the only migrated mutator gated so
         // far; the demographic package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
         "io.github.carlos_emr.carlos.demographic.pageUtil.AddDemographicRelationship2Action",
+        // email slice: EmailSend2Action is the only gated mutator so far; the email package is
+        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+        "io.github.carlos_emr.carlos.email.action.EmailSend2Action",
         // prescript slice: RxStash2Action's stash removal is POST-only; the prescript package is not
         // in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator). Issue #3871.
         "io.github.carlos_emr.carlos.prescript.pageUtil.RxStash2Action",

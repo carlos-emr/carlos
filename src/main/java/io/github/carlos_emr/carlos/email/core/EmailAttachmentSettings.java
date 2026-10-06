@@ -73,8 +73,15 @@ public record EmailAttachmentSettings(
     /** Precompiled pattern matching any Unicode line break sequence. */
     private static final Pattern LINE_BREAK_PATTERN = Pattern.compile("\\R");
 
-    /** Precompiled pattern matching Unicode control characters. */
-    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\p{Cntrl}]");
+    /**
+     * ASCII control characters only: C0 ({@code U+0000}-{@code U+001F}) and DEL ({@code U+007F}).
+     * C1 controls ({@code U+0080}-{@code U+009F}) are deliberately kept. The class is spelled out
+     * rather than written as {@code \p{Cntrl}} (which, without {@code UNICODE_CHARACTER_CLASS}, is
+     * the same set) so it visibly matches the compose page's {@code withoutControlChars}
+     * ({@code /[\x00-\x1F\x7F]/g}); the two must strip identical characters or the page's
+     * length count would disagree with what the server stores.
+     */
+    private static final Pattern CONTROL_CHARS_PATTERN = Pattern.compile("[\\x00-\\x1F\\x7F]");
 
     /** Valid values for the patient chart option, derived from {@link ChartDisplayOption} enum. */
     private static final Set<String> VALID_CHART_OPTIONS = Arrays.stream(ChartDisplayOption.values())
@@ -82,18 +89,22 @@ public record EmailAttachmentSettings(
         .collect(Collectors.toUnmodifiableSet());
 
     private static final int MAX_EMAIL_LENGTH = 254;
-    private static final int MAX_SUBJECT_LENGTH = 200;
-    private static final int MAX_BODY_LENGTH = 10000;
-    private static final int MAX_PASSWORD_LENGTH = 100;
 
     /**
      * Creates an EmailAttachmentSettings instance from an HTTP request.
      * Validates and sanitizes raw user input parameters before storage.
      *
      * <p>Boolean parameters are validated via {@code "true".equals()} / {@code !"false".equals()}
-     * patterns (safe against arbitrary input). String parameters are sanitized: control characters
-     * are stripped from password/subject fields, email addresses are format-validated, and all
-     * string fields are length-limited to prevent unbounded session storage.</p>
+     * patterns (safe against arbitrary input). String parameters are sanitized: line breaks are
+     * stripped from the subject, control characters from the password and clue, and email
+     * addresses are format-validated.</p>
+     *
+     * <p>Free-text fields are deliberately <em>not</em> shortened here. These values only pre-fill
+     * the compose page, where the provider can see and edit them; silently cutting a long letter
+     * or subject at this point lost clinical content without warning (issue #3905). The real
+     * storage limits are enforced with visible errors on the compose page and, authoritatively, by
+     * {@link EmailFieldLengthValidator} before the email is persisted or sent. Session growth is
+     * still bounded by the container's maximum POST size.</p>
      *
      * @param req The HTTP request containing the parameters.
      * @param fdid The eForm data ID.
@@ -133,8 +144,8 @@ public record EmailAttachmentSettings(
             sanitizePassword(req.getParameter("passwordClueEmail")),
             validateEmail(req.getParameter("senderEmail")),
             sanitizeSubject(req.getParameter("subjectEmail")),
-            truncate(req.getParameter("bodyEmail"), MAX_BODY_LENGTH),
-            truncate(req.getParameter("encryptedMessageEmail"), MAX_BODY_LENGTH),
+            req.getParameter("bodyEmail"),
+            req.getParameter("encryptedMessageEmail"),
             validateChartOption(req.getParameter("emailPatientChartOption"))
         );
     }
@@ -169,56 +180,35 @@ public record EmailAttachmentSettings(
 
     /**
      * Sanitizes an email subject line by stripping all Unicode line break sequences
-     * (CR, LF, CRLF, NEL, LS, PS — via {@code \R}) to prevent SMTP header injection,
-     * and truncating to maximum length.
+     * (CR, LF, CRLF, NEL, LS, PS — via {@code \R}) to prevent SMTP header injection.
+     * Length is not changed here; an over-length subject is rejected with a visible error by
+     * {@link EmailFieldLengthValidator} rather than silently truncated.
      *
      * @param subject the raw subject from user input
      * @return the sanitized subject, or null if input was null
      */
-    static String sanitizeSubject(String subject) {
+    public static String sanitizeSubject(String subject) {
         if (subject == null) {
             return null;
         }
-        subject = LINE_BREAK_PATTERN.matcher(subject).replaceAll("");
-        if (subject.length() > MAX_SUBJECT_LENGTH) {
-            subject = subject.substring(0, MAX_SUBJECT_LENGTH);
-        }
-        return subject;
+        return LINE_BREAK_PATTERN.matcher(subject).replaceAll("");
     }
 
     /**
-     * Sanitizes a password or password clue by stripping control characters
-     * and truncating to maximum length.
+     * Sanitizes a password or password clue by stripping control characters.
+     *
+     * <p>The value is not truncated: a silently shortened password would no longer match what the
+     * provider chose and tells the recipient. The {@code emailLog.password varchar(50)} limit is
+     * enforced with a visible error by {@link EmailFieldLengthValidator} instead.</p>
      *
      * @param password the raw password/clue from user input
      * @return the sanitized value, or null if input was null
      */
-    static String sanitizePassword(String password) {
+    public static String sanitizePassword(String password) {
         if (password == null) {
             return null;
         }
-        password = CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
-        if (password.length() > MAX_PASSWORD_LENGTH) {
-            password = password.substring(0, MAX_PASSWORD_LENGTH);
-        }
-        return password;
-    }
-
-    /**
-     * Truncates a string to the specified maximum length.
-     *
-     * @param value the raw value from user input
-     * @param maxLength the maximum allowed length
-     * @return the truncated value, or null if input was null
-     */
-    static String truncate(String value, int maxLength) {
-        if (value == null) {
-            return null;
-        }
-        if (value.length() > maxLength) {
-            return value.substring(0, maxLength);
-        }
-        return value;
+        return CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
     }
 
     /**

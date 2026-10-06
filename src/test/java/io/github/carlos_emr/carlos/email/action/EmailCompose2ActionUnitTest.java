@@ -36,7 +36,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should sanitize fid before logging invalid value")
-    void shouldSanitizeFid_whenInvalidValueIsLogged() throws Exception {
+    void shouldOmitFidValue_whenInvalidValueIsLogged() throws Exception {
         DemographicManager demographicManager = mock(DemographicManager.class);
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
@@ -71,11 +71,11 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
             assertThat(request.getAttribute("fid")).isNull();
             String logged = capture.messages().stream()
-                    .filter(message -> message.startsWith("Invalid fid parameter received"))
+                    .filter(message -> message.startsWith("Invalid (non-numeric) fid parameter received"))
                     .findFirst()
                     .orElseThrow();
-            assertThat(logged).doesNotContain("\r").doesNotContain("\n");
-            assertThat(logged).contains("abc\\r\\nforged-fid");
+            // The rejected request text is never echoed, so it cannot forge or split log lines.
+            assertThat(logged).doesNotContain("\r").doesNotContain("\n").doesNotContain("forged-fid");
         }
     }
 }
