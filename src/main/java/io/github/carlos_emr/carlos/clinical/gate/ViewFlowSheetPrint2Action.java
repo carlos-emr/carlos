@@ -27,7 +27,22 @@ public final class ViewFlowSheetPrint2Action extends ActionSupport {
         if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
             throw new SecurityException("missing required sec object (_eChart)");
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "r", null)) {
+        String demographicNo = request.getParameter("demographic_no");
+        int patient;
+        try {
+            if (demographicNo == null || !demographicNo.matches("[1-9][0-9]*")) {
+                throw new NumberFormatException("invalid patient number");
+            }
+            patient = Integer.parseInt(demographicNo);
+        } catch (NumberFormatException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, patient)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demographicNo)) {
+            throw new SecurityException("access to patient record denied");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_flowsheet", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_flowsheet)");
         }
         return SUCCESS;

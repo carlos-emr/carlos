@@ -14,6 +14,8 @@
 // marker. Cleanup deletes this patient's tracker customization rows and readings, asserting both.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn, probe, forbiddenByApp } = require('./lib/authz-read-probe');
 
 async function navigate(page, locator) {
   await Promise.all([
@@ -224,6 +226,30 @@ async function workflow(s, { editorOnly = false } = {}) {
     h.assert(await weight.count() === 1, 'Print discarded the item whose anchor is absent');
     await weight.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
     h.assert(await page.locator('#printHPBP').count() === 0, 'An update reintroduced an absent item');
+  });
+
+  await s.step('patient locks refuse both print selection and preview without disclosing custom readings', async () => {
+    const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
+    s.cleanup(() => fixture.cleanup());
+    for (const object of ['_demographic', '_eChart']) {
+      const login = fixture.addLogin('doctor');
+      fixture.lockPatient(login, patient, [object]);
+      const restricted = await signIn(s, login);
+      try {
+        for (const method of ['GET', 'HEAD', 'POST']) {
+          const url = new URL(printUrl);
+          if (method === 'POST') {
+            url.searchParams.set('printView', 'true');
+            url.searchParams.set('printHP', 'WT');
+          }
+          const answer = await probe(restricted.context, url.href, { method, needles: [marker, items.WT] });
+          h.assert(forbiddenByApp(answer), `${object} patient lock did not refuse ${method} print in CARLOS (HTTP ${answer.status})`);
+          h.assert(answer.found.length === 0, 'A locked patient print request disclosed the custom reading label');
+        }
+      } finally {
+        await restricted.context.close();
+      }
+    }
   });
 
 }
