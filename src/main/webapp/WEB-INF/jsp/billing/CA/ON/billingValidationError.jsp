@@ -37,7 +37,7 @@
   per-action duplication.
 
   PHI-safe: the exception message is server-composed at the throw site with
-  LogSanitizer-sanitized values; it is rendered with the carlos:encode tag
+  LogSafe-sanitized values; it is rendered with the carlos:encode tag
   in context="html" mode so any residual control characters are HTML-escaped
   before display.
 
@@ -59,7 +59,7 @@
     //      attribute "exception". This is the path most BillingValidationException
     //      flows take, so check it first.
     //   2. JSP errorPage forward — page-context "exception" implicit, populated
-    //      when one JSP forwards to another via <%@ page errorPage="..." %>.
+    //      when one JSP forwards to another via its error-page directive.
     //   3. Container error dispatcher — "jakarta.servlet.error.exception" is
     //      set when reached via <error-page> in web.xml.
     // Cast through instanceof at every step (never assume non-null).
@@ -81,8 +81,9 @@
     request.setAttribute("__bveMessage", __bveMessage);
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>Billing — Submission Rejected</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"/>
@@ -109,7 +110,6 @@
     </div>
     <div class="d-flex gap-2">
         <a class="btn btn-secondary" href="javascript:history.back()" role="button">Back</a>
-        <a class="btn btn-secondary" href="${pageContext.request.contextPath}/provider/providercontrol" role="button">Schedule</a>
     </div>
 </div>
 </body>

@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Shared superclass for the prevention-module JSP gate actions. Encapsulates
@@ -83,6 +84,8 @@ public abstract class AbstractPreventionGate2Action extends ActionSupport {
      *         {@code _prevention} privilege.
      * @throws Exception from the underlying servlet I/O when writing the 405.
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public final String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

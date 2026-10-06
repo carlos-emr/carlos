@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Date;
 import java.util.List;
 import jakarta.persistence.Query;
 
@@ -102,6 +103,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
+    public int updatePinHashIfUnchanged(Integer securityNo, String expectedPin, String newPinHash, Date pinUpdateDate) {
+        Query query = entityManager.createQuery(
+                "update Security x set x.pin = ?1, x.pinUpdateDate = ?2 where x.id = ?3 and x.pin = ?4");
+        query.setParameter(1, newPinHash);
+        query.setParameter(2, pinUpdateDate);
+        query.setParameter(3, securityNo);
+        query.setParameter(4, expectedPin);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<Security> findByLikeUserName(String userName) {
         Query query = entityManager.createQuery("select x from Security x where x.userName like ?1");
         query.setParameter(1, userName);
@@ -120,9 +132,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Object[]> findProviders() {
-        // Provider.hbm.xml uses PascalCase HBM property names
-        // (ProviderNo, LastName); HQL must use the exact names from the mapping.
-        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.ProviderNo = s.providerNo ORDER BY p.LastName";
+        // Provider is annotation-mapped with JavaBean property names; HQL uses providerNo and lastName.
+        String sql = "SELECT s, p FROM Security s, Provider p WHERE p.providerNo = s.providerNo ORDER BY p.lastName";
         Query query = entityManager.createQuery(sql);
         return query.getResultList();
     }

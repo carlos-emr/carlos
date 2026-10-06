@@ -23,7 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.io.BufferedReader;
@@ -101,7 +101,7 @@ public class BillingClaimsErrorReportImportService {
                 } else {
                     MiscUtils.getLogger().warn(
                             "Rejecting short claims-error-report line in file [{}]; length={}",
-                            LogSanitizer.sanitize(filename), nextline.length());
+                            LogSafe.sanitize(filename), nextline.length());
                     throw new BillingFileImportException(
                             IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed short line)",
                             new IllegalArgumentException("claims-error-report line shorter than 3 characters"));

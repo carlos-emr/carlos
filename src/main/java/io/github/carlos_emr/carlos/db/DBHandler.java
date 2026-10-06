@@ -29,12 +29,8 @@
 
 package io.github.carlos_emr.carlos.db;
 
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
-
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 
 /**
  * @deprecated Use JPA via {@link jakarta.persistence.EntityManager#createNativeQuery(String)}
@@ -49,38 +45,35 @@ public final class DBHandler {
         // not intented for instantiation
     }
 
-    // GetSQL(String) removed — all callers migrated to GetPreSQL.
+    // GetSQL(String) removed; all callers migrated to parameterized SQL.
     // See git history for the deprecated raw SQL execution method.
 
-	private static void bindParams(PreparedStatement ps, Object... params) throws SQLException {
-		for (int i = 0; i < params.length; i++) {
-			Object p = params[i];
-			if (p == null) {
-				ps.setNull(i+1, Types.NULL);
-			} else {
-				ps.setObject(i+1, p);
-			}
-		}
-	}
+    public static ResultSet getPreSql(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, false, params);
+    }
 
-	public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
-		return GetPreSQL(sql, false, params);
-	}
+    public static ResultSet getPreSql(String sql, boolean updatable, Object... params) throws SQLException {
+        return LegacyJdbcQuery.getPreparedResultSet(sql, updatable, params);
+    }
 
-	public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException { // nosemgrep: formatted-sql-string -- this IS the parameterized query method; params are bound via PreparedStatement
-		PreparedStatement ps = DbConnectionFilter
-			.getThreadLocalDbConnection()
-			.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, // codeql[java/sql-injection] — GetPreSQL IS the parameterized query method; params bound via PreparedStatement below
-				updatable ? ResultSet.CONCUR_UPDATABLE : ResultSet.CONCUR_READ_ONLY);
-		ResultSet rs;
-		try {
-			bindParams(ps, params);
-			rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 — this IS GetPreSQL, the safe parameterized method
-		} catch (SQLException e) {
-			ps.close();
-			throw e;
-		}
-		return StatementClosingResultSet.wrap(rs, ps);
-	}
+    /**
+     * @deprecated Use {@link #getPreSql(String, Object...)}. Kept only as a
+     * migration compatibility wrapper while production callers move off this
+     * deprecated class.
+     */
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, Object... params) throws SQLException {
+        return getPreSql(sql, params);
+    }
+
+    /**
+     * @deprecated Use {@link #getPreSql(String, boolean, Object...)}. Kept only
+     * as a migration compatibility wrapper while production callers move off
+     * this deprecated class.
+     */
+    @Deprecated(forRemoval = true)
+    public static ResultSet GetPreSQL(String sql, boolean updatable, Object... params) throws SQLException {
+        return getPreSql(sql, updatable, params);
+    }
 
 }

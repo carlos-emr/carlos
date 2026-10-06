@@ -33,11 +33,13 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,7 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,8 +74,23 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ManageTeleplan2Action extends ActionSupport {
+    private static final Set<String> POST_ONLY_METHODS = Set.of(
+            "setUserName",
+            "updateBillingCodes",
+            "updateteleplanICDCodesList",
+            "updateExplanatoryCodesList",
+            "commitUpdateBillingCodes",
+            "getSequenceNumber",
+            "setSequenceNumber",
+            "sendFile",
+            "remit",
+            "setPass",
+            "changePass",
+            "checkElig");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -88,14 +105,22 @@ public class ManageTeleplan2Action extends ActionSupport {
     public ManageTeleplan2Action() {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
+        String method = request.getParameter("method");
+        if (method != null && POST_ONLY_METHODS.contains(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
         //log.debug("UNSPECIFIED ACTION!");
-        String method = request.getParameter("method");
         if ("setUserName".equals(method)) {
             return setUserName();
         } else if ("updateBillingCodes".equals(method)) {
@@ -129,7 +154,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         String username = request.getParameter("user");
         String password = request.getParameter("pass");
 
-        log.debug("username {} password [REDACTED]", LogSanitizer.sanitize(username));
+        log.debug("username {} password [REDACTED]", LogSafe.sanitize(username));
 
         //TODO: validate username - make sure url is not null
 
@@ -149,7 +174,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("3");
 
-        log.debug("real filename {}", LogSanitizer.sanitize(tr.getRealFilename()));
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
         TeleplanCodesManager tcm = new TeleplanCodesManager();
@@ -170,7 +195,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         TeleplanAPI tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         TeleplanResponse tr = tAPI.getAsciiFile("2");
 
-        log.debug("real filename {}", LogSanitizer.sanitize(tr.getRealFilename()));
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
 
@@ -190,7 +215,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
             while ((line = buff.readLine()) != null) {
                 if (!line.startsWith("REM")) {
-                    log.debug("{}={}", LogSanitizer.sanitize(line.substring(0, 5).trim()), LogSanitizer.sanitize(line.substring(4).trim()));
+                    log.debug("{}={}", LogSafe.sanitize(line.substring(0, 5).trim()), LogSafe.sanitize(line.substring(4).trim()));
                     String code = line.substring(0, 5).trim();
                     String desc = line.substring(4).trim();
 
@@ -214,7 +239,7 @@ public class ManageTeleplan2Action extends ActionSupport {
             List<DiagnosticCode> dxList = bDx.getByDxCode(code);
             if (dxList == null || dxList.size() == 0) { //New Code
                 DiagnosticCode dxCode = new DiagnosticCode();
-                log.debug("Adding new code {} desc : {}", LogSanitizer.sanitize(code), LogSanitizer.sanitize(desc));
+                log.debug("Adding new code {} desc : {}", LogSafe.sanitize(code), LogSafe.sanitize(desc));
                 dxCode.setDiagnosticCode(code);
                 dxCode.setDescription(desc);
                 dxCode.setRegion("BC");
@@ -243,7 +268,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("1");
 
-        log.debug("real filename {}", LogSanitizer.sanitize(tr.getRealFilename()));
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
 
         File file = tr.getFile();
 
@@ -312,7 +337,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         //---------------------------------------------------------------------------
 
         log.info("Msp error codes {}", errorCodes.size());
-        log.debug("{}", LogSanitizer.sanitize(sb.toString()));
+        log.debug("{}", LogSafe.sanitize(sb.toString()));
         return SUCCESS;
     }
 
@@ -341,7 +366,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         String datacenter = prop.getProperty("dataCenterId", "");
         if (datacenter.length() != 5) {
             //this.addMessages() //TODO:ADD MESSAGE ABOUT DATA CENTER NOT BEING CORRECT
-            log.debug("returning because of datacenter #{}", LogSanitizer.sanitize(datacenter));
+            log.debug("returning because of datacenter #{}", LogSafe.sanitize(datacenter));
             return SUCCESS;
         }
         TeleplanUserPassDAO dao = new TeleplanUserPassDAO();
@@ -419,12 +444,12 @@ public class ManageTeleplan2Action extends ActionSupport {
         if (log.isDebugEnabled()) {
             log.debug("File is Readable: {}", f.canRead());
             log.debug("File exists: {}", f.exists());
-            log.debug("File Path {}", LogSanitizer.sanitize(f.getCanonicalPath()));
+            log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
         }
-        log.info("sending file {}", LogSanitizer.sanitize(f.getAbsolutePath()));
+        log.info("sending file {}", LogSafe.sanitize(f.getAbsolutePath()));
 
         TeleplanResponse tr = tAPI.putMSPFile(f);
-        log.debug("sendFile End {}", LogSanitizer.sanitize(tr.getResult()));
+        log.debug("sendFile End {}", LogSafe.sanitize(tr.getResult()));
         if (!tr.isSuccess()) {
             request.setAttribute("error", tr.getMsgs());
         } else {
@@ -451,8 +476,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         }
 
         TeleplanResponse tr = tAPI.getRemittance(true);
-        log.debug("{}", LogSanitizer.sanitize(tr.toString()));
-        log.debug("real filename {}", LogSanitizer.sanitize(tr.getRealFilename()));
+        log.debug("{}", LogSafe.sanitize(tr.toString()));
+        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
         request.setAttribute("filename", tr.getRealFilename());
         return "remit";
     }
@@ -494,7 +519,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         }
 
         TeleplanResponse tr = tAPI.changePassword(userpass[0], userpass[1], newpass, confpass);
-        log.debug("change password {}", LogSanitizer.sanitize(tr.getResult()));
+        log.debug("change password {}", LogSafe.sanitize(tr.getResult()));
         if (!tr.isSuccess()) {
             request.setAttribute("error", tr.getMsgs());
         } else {
@@ -503,6 +528,8 @@ public class ManageTeleplan2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String checkElig()
             throws Exception {
         log.debug("checkElig");
@@ -538,9 +565,9 @@ public class ManageTeleplan2Action extends ActionSupport {
         boolean patientrestriction = true;
 
         TeleplanResponse tr = tAPI.checkElig(phn, dateofbirthyyyy, dateofbirthmm, dateofbirthdd, dateofserviceyyyy, dateofservicemm, dateofservicedd, patientvisitcharge, lasteyeexam, patientrestriction);
-        log.debug("{}", LogSanitizer.sanitize(tr.getResult()));
+        log.debug("{}", LogSafe.sanitize(tr.getResult()));
         log.debug("isSuccess: {}", tr.isSuccess());
-        log.debug("{}", LogSanitizer.sanitize(tr.toString()));
+        log.debug("{}", LogSafe.sanitize(tr.toString()));
         request.setAttribute("Result", tr.getResult());
 
 
@@ -559,25 +586,21 @@ public class ManageTeleplan2Action extends ActionSupport {
                 }
             }
 
-            StringBuilder sb = new StringBuilder();
+            List<String> msgLines = new ArrayList<>();
             String line = null;
 
             try (BufferedReader buff = new BufferedReader(new FileReader(file))) { // codeql[java/path-injection] — validated by PathValidationUtils.validateExistingPath + isInAllowedTempDirectory guard
                 while ((line = buff.readLine()) != null) {
-
                     if (line.startsWith("ELIG_ON_DOS:")) {
                         String el = line.substring(12).trim();
                         if (el.equalsIgnoreCase("no")) {
                             request.setAttribute("Result", "Failure");
-
-                            line = "<span style=\"color:red; font-weight:bold;\">" + line + "</span>";
                         }
                     }
-                    sb.append(line);
-                    sb.append("<br>");
+                    msgLines.add(line);
                 }
             }
-            request.setAttribute("Msgs", sb.toString()); //tr.getMsgs());
+            request.setAttribute("MsgsLines", msgLines);
 
         } else {
             request.setAttribute("Msgs", tr.getMsgs());

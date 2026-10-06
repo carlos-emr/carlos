@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
@@ -59,20 +60,36 @@ public final class RxDeleteAllergy2Action extends ActionSupport {
             throws IOException, ServletException {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_allergy", "u", null)) {
-            throw new RuntimeException("missing required sec object (_allergy)");
+            throw new SecurityException("missing required sec object (_allergy)");
         }
 
 
         // Setup variables
         // Add allergy
 
-        int id = Integer.parseInt(request.getParameter("ID"));
+        String idParam = request.getParameter("ID");
+        if (StringUtils.isBlank(idParam)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing ID parameter");
+            return NONE;
+        }
+
+        int id;
+        try {
+            id = Integer.parseInt(idParam);
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid ID parameter");
+            return NONE;
+        }
         String demographicNo = request.getParameter("demographicNo");
         String action = request.getParameter("action");
 
         RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
 
         Allergy allergy = patient.getAllergy(id);
+        if (allergy == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         if (action != null && action.equals("activate")) {
             patient.activateAllergy(id);
             String ip = request.getRemoteAddr();

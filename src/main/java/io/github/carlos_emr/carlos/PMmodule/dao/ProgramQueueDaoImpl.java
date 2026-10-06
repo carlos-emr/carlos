@@ -66,7 +66,7 @@ public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueD
             throw new IllegalArgumentException();
         }
 
-        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?1 ORDER BY  q.Id  ";
+        String queryStr = " FROM ProgramQueue q WHERE q.programId=?1 ORDER BY  q.id  ";
         List results = JpqlQueryHelper.find(entityManager(), queryStr, programId);
 
         if (log.isDebugEnabled()) {
@@ -83,7 +83,7 @@ public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueD
         }
 
         List results = JpqlQueryHelper.find(entityManager(),
-                "from ProgramQueue pq where pq.ProgramId = ?1 and pq.Status = 'active' order by pq.ReferralDate",
+                "from ProgramQueue pq where pq.programId = ?1 and pq.status = 'active' order by pq.referralDate",
                 Long.valueOf(programId));
 
         if (log.isDebugEnabled()) {
@@ -121,7 +121,7 @@ public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueD
         }
 
         ProgramQueue result = null;
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2";
+        String sSQL = "from ProgramQueue pq where pq.programId = ?1 and pq.clientId = ?2";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, Long.valueOf(programId), Long.valueOf(clientId));
 
         if (!results.isEmpty()) {
@@ -146,7 +146,7 @@ public class ProgramQueueDaoImpl extends AbstractJpaDao implements ProgramQueueD
 
         ProgramQueue result = null;
 
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2 and pq.Status='active'";
+        String sSQL = "from ProgramQueue pq where pq.programId = ?1 and pq.clientId = ?2 and pq.status='active'";
         List results = JpqlQueryHelper.find(entityManager(), sSQL, programId, demographicNo);
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);

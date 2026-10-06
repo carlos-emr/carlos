@@ -1,0 +1,104 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.schedule;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Locks schedule template UI deletes to the CSRF-protected rendered form.
+ *
+ * @since 2026-05-19
+ */
+@DisplayName("Schedule template applying JSP regressions")
+@Tag("unit")
+@Tag("schedule")
+class ScheduleTemplateApplyingJspRegressionTest {
+
+    private static final Path TEMPLATE_APPLYING_JSP =
+            projectRoot().resolve("src/main/webapp/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp");
+    private static final Pattern POST_SCHEDULE_FORM = Pattern.compile(
+            "<form\\s+method=\"post\"\\s+name=\"schedule\"",
+            Pattern.CASE_INSENSITIVE);
+
+    @Test
+    @DisplayName("delete should reuse the rendered POST form so CSRFGuard can include its token")
+    void shouldReuseRenderedPostForm_forDelete() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        // HTML form should be a POST form named "schedule"
+        assertThat(jsp).containsPattern(POST_SCHEDULE_FORM);
+
+        // JavaScript should reuse the rendered form instead of creating a new one
+        assertThat(jsp).contains("var form = document.forms['schedule'];");
+        assertThat(jsp).containsPattern("if \\(!form\\) \\{\\s+return;\\s+\\}");
+        assertThat(jsp).contains("form.method = 'post';");
+        assertThat(jsp).containsPattern("form\\.action\\s*=\\s*\"\\$\\{pageContext\\.request\\.contextPath}/schedule/TemplateApplying\";");
+        assertThat(jsp).contains("setFormValue(form, 'provider_no', '<%= providerNoForJavaScript %>');");
+        assertThat(jsp).contains("setFormValue(form, 'provider_name', '<%= providerNameForJavaScript %>');");
+
+        // JavaScript should correctly configure the delete submission fields
+        assertThat(jsp).contains("setFormValue(form, 'delete', '1');");
+        assertThat(jsp).contains("setFormValue(form, 'deldate', 'all');");
+
+        // Regression guard: we should not be creating a brand new form element
+        assertThat(jsp).doesNotContain("var form = document.createElement('form');");
+    }
+
+    @Test
+    @DisplayName("delete helper should update existing named controls before appending hidden inputs")
+    void shouldUpdateExistingNamedControls_forDeleteFields() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsPattern("Array\\.prototype\\.slice\\.call\\(form\\.elements\\)");
+        assertThat(jsp).containsPattern("return control\\.name === name;");
+        assertThat(jsp).containsPattern("controls\\[0]\\.value = value;");
+        assertThat(jsp).containsPattern("if \\(controls\\[i]\\.type === 'hidden'\\)");
+    }
+
+    @Test
+    @DisplayName("page should use the current request locale for the HTML language")
+    void shouldUseRequestLocale_forHtmlLanguage() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).containsPattern(
+                "<html\\s+lang=\"<%=\\s*SafeEncode\\.forHtmlAttribute\\(request\\.getLocale\\(\\)\\.toLanguageTag\\(\\)\\)\\s*%>\"");
+        assertThat(jsp).doesNotContain("${pageContext.request.locale.language}");
+        assertThat(jsp).doesNotContain("<html lang=\"en\">");
+    }
+
+    private static Path projectRoot() {
+        return Path.of(System.getProperty(
+                "maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir")));
+    }
+}

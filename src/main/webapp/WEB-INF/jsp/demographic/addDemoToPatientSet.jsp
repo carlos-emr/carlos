@@ -45,6 +45,8 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets,java.util.ArrayList" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
@@ -68,6 +70,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Add Demographic to Patient Set</title>
 </head>
 <body>

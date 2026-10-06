@@ -166,6 +166,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <link rel="stylesheet" type="text/css" href="css/encounterStyles.css">
@@ -246,40 +247,40 @@
                                         <th bgcolor="#DDDDFF" width="75">&nbsp;</th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=from&moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=from&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=from&moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=from&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=subject&moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=subject&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=subject&moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=subject&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=date&moreMessages=true">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=date&amp;moreMessages=true">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%} else {%> <a
-                                                href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=date&moreMessages=false">
+                                                href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=date&amp;moreMessages=false">
                                             <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                         </a> <%}%>
                                         </th>
                                         <th align="left" bgcolor="#DDDDFF">
                                             <% if (moreMessages.equals("true")) {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=linked&moreMessages=true">
+                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=linked&amp;moreMessages=true">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%} else {%>
                                             <a
-                                                    href="${pageContext.request.contextPath}/messenger/DisplayDemographicMessages?orderby=linked&moreMessages=false">
+                                                    href="<carlos:encode value='<%= strutsAction %>' context="htmlAttribute"/>&amp;orderby=linked&amp;moreMessages=false">
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                             </a>
                                             <%}%>

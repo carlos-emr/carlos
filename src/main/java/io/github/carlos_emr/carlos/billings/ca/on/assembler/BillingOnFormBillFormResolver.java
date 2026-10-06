@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.commn.model.MyGroup;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Resolver for the {@code ctlBillForm} priority-chain resolution. The
@@ -77,6 +78,8 @@ public class BillingOnFormBillFormResolver {
     record ResolvedBillForm(String ctlBillForm, String defaultServiceType) {
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     ResolvedBillForm resolve(BillingOnFormViewModel.Builder b,
                              HttpServletRequest request,
                              String visitType,

@@ -75,7 +75,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsClientFormDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -91,6 +91,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class ClientManager2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -346,7 +347,7 @@ public class ClientManager2Action extends ActionSupport {
         // Also require a positive value, since DemographicDaoImpl.getClientByDemographicNo
         // throws IllegalArgumentException when demographicNo <= 0.
         if (id == null || !id.matches("\\d{1,9}") || Integer.parseInt(id) <= 0) {
-            logger.warn("Invalid id rejected in edit: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("Invalid id rejected in edit: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return ERROR;
         }
 
@@ -502,7 +503,7 @@ public class ClientManager2Action extends ActionSupport {
                 try {
                     p.setVacancyId(Integer.valueOf(vacancyIdParam.trim()));
                 } catch (NumberFormatException e) {
-                    logger.error("Invalid vacancyId parameter: {}", LogSanitizer.sanitize(vacancyIdParam), e);
+                    logger.error("Invalid vacancyId parameter: {}", LogSafe.sanitize(vacancyIdParam), e);
                 }
             }
             request.setAttribute("program", program);
@@ -665,7 +666,7 @@ public class ClientManager2Action extends ActionSupport {
             // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
             clientManager.removeJointAdmission(Integer.valueOf(clientId), (String) request.getSession().getAttribute("user"));
         } catch (NumberFormatException e) {
-            logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSanitizer.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.warn("Invalid dependentClientId rejected in remove_joint_admission: {}", LogSafe.sanitize(clientId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             setEditAttributes(request, request.getParameter("clientId"));
             return "edit";
         }
@@ -749,6 +750,8 @@ public class ClientManager2Action extends ActionSupport {
         return false;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void setEditAttributes(HttpServletRequest request, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();

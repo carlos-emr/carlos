@@ -1,0 +1,63 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 <properties-file> <property-name> [property-name...]" >&2
+    exit 2
+fi
+
+properties_file="$1"
+shift
+
+if [ ! -f "$properties_file" ]; then
+    echo "Properties file not found: $properties_file" >&2
+    exit 1
+fi
+
+for property_name in "$@"; do
+    property_value="$(
+        awk -F= -v key="$property_name" '
+            /^[[:space:]]*#/ { next }
+            /^[[:space:]]*$/ { next }
+            {
+                name=$1
+                sub(/^[[:space:]]+/, "", name)
+                sub(/[[:space:]]+$/, "", name)
+                if (name == key) {
+                    value=substr($0, index($0, "=") + 1)
+                    sub(/^[[:space:]]+/, "", value)
+                    while (sub(/\\$/, "", value)) {
+                        if ((getline cont) > 0) {
+                            sub(/^[[:space:]]+/, "", cont)
+                            value = value cont
+                        } else {
+                            break
+                        }
+                    }
+                    sub(/[[:space:]]+$/, "", value)
+                    last=value
+                    found=1
+                }
+            }
+            END {
+                if (found) print last
+            }
+        ' "$properties_file"
+    )"
+
+    if [ -z "$property_value" ]; then
+        echo "Property $property_name is not set in $properties_file" >&2
+        exit 1
+    fi
+
+    case "$property_value" in
+        /*) ;;
+        *)
+            echo "Property $property_name must be an absolute path, got: $property_value" >&2
+            exit 1
+            ;;
+    esac
+
+    echo "Creating $property_name directory: $property_value"
+    mkdir -p "$property_value"
+done

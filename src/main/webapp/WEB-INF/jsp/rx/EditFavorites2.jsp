@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxCodesData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %><%--
@@ -42,6 +43,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/share/javascript/rx.js"></script>
@@ -256,8 +258,8 @@
                                             <td colspan=2><b>Favorite Name:</b><input type=hidden
                                                                                       name="fldFavoriteId<%= i%>"
                                                                                       value="<%= f.getFavoriteId() %>"/>
-                                                <input type=text size="50" name="fldFavoriteName<%= i%>"
-                                                       class=tblRow size=80 value="<%= f.getFavoriteName() %>"/>&nbsp;&nbsp;&nbsp;
+                                                <input type="text" size="50" name="fldFavoriteName<%= i%>"
+                                                       class="tblRow" value="<%= SafeEncode.forHtmlAttribute(f.getFavoriteName()) %>"/>&nbsp;&nbsp;&nbsp;
                                             </td>
                                             <td>
                                                 <a id="saveSuccess_<%=i%>" style="display:none;color:red">Changes
@@ -279,11 +281,11 @@
                                         </tr>
                                         <% } else { %>
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line2">
-                                            <td colspan=7><b>Custom Drug Name:</b> <input type=text
+                                            <td colspan=7><b>Custom Drug Name:</b> <input type="text"
                                                                                           size="50"
                                                                                           name="fldCustomName<%= i%>"
-                                                                                          class=tblRow size=80
-                                                                                          value="<%= f.getCustomName() %>"/>
+                                                                                          class="tblRow"
+                                                                                          value="<%= SafeEncode.forHtmlAttribute(f.getCustomName()) %>"/>
                                             </td>
                                         </tr>
                                         <% } %>
@@ -378,7 +380,7 @@
                                                                     s = "";
                                                             %>
                                                             <textarea name="fldSpecial<%= i%>" style="width: 100%"
-                                                                      rows=5><%=s.trim()%></textarea></td>
+                                                                      rows=5><%=SafeEncode.forHtmlContent(s.trim())%></textarea></td>
                                                     </tr>
                                                 </table>
                                             </td>

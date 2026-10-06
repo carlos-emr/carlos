@@ -4,14 +4,14 @@
 
     This file is deployed from WEB-INF/eform-assets/ to the eForm images directory
     by EFormAssetDeployer at Tomcat startup. It is loaded by the RTL eForm's form_html
-    via: <script src="../eform/displayImage.do?imagefile=editControl2.js"></script>
+    via: <script src="../eform/displayImage?imagefile=editControl2.js"></script>
 
     Key architecture notes:
     - This script builds a WYSIWYG toolbar and editor iframe using document.designMode
     - Content insertion uses the Selection/Range API (execCommand('insertHtml') is deprecated)
     - The RTL eForm's sidebar buttons (Patient Name, Allergies, etc.) call printKey()
       which uses APCache.js to fetch patient data via AJAX, then calls doHtml() to insert it
-    - Template management loads .rtl files via efmformrtl_templates.jsp
+    - Template management loads .rtl files via efmformrtl_templates
     - The Start() function is called from <body onload="Start()"> in the DB-stored form_html
 
     Version 1.6 now about 600 lines of code
@@ -108,7 +108,7 @@
 */
 //GLOBALS
 var cfg_layout = '[select-block]|[bold][italic]|[unordered][ordered][rule]|[undo][redo]|[indent][outdent][select-all][clean]|[clock][spell][help]<br />[edit-area]';
-var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2 <H2></option>  <option value="<h3>">Heading 3 <H3></option>  <option value="<h4>">Heading 4 <H4></option>  <option value="<h5>">Heading 5 <H5></option>  <option value="<h6>">Heading 6 <H6></option>  </select>';
+var cfg_formatblock = '<option value="">&mdash; format &mdash;</option>  <option value="<p>">Paragraph</option>  <option value="<h1>">Heading 1</option>  <option value="<h2>">Heading 2</option>  <option value="<h3>">Heading 3</option>  <option value="<h4>">Heading 4</option>  <option value="<h5>">Heading 5</option>  <option value="<h6>">Heading 6</option>  </select>';
 var cfg_formatface = '<option value="">&mdash; font face &mdash;</option>  <option value="Arial,Helvetica,sans-serif">Arial</option> <option value="Courier">Courier</option> <option value="Times New Roman">Times</option> </select>';
 var cfg_formatfontsize = '<option value="">&mdash; font size &mdash;</option>  <option value="1">1</option>  <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> <option value="5">5</option> <option value="6">6</option> <option value="7">7</option> </select>';
 var cfg_formattemplate = '<option value="">&mdash; template &mdash;</option>  <option value="blank.rtl">blank</option>  </select>';
@@ -119,10 +119,30 @@ var cfg_width = 720;				// editor control width in pixels
 var cfg_height = 500;				// editor control height in pixels
 var cfg_editorname ="edit";		// handle for the editor control itself
 var cfg_bstyle = 'width:24px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;'; 	//the CSS of the button elements
+window.formIsRTL = false;			// efmshowform_data reads this global to detect RTL eForms
 var cfg_boutstyle = 'solid 2px #ccccff'; 	//the CSS of the button elements om mouse out
 var cfg_sstyle = 'vertical-align: top; height:24px;';//the CSS of the option select box.  Selects will take font and background but not border.
 var cfg_sepstyle = 'width:6px;height:24px;border: solid 2px #ccccff; background-color: #ccccff;';	//the CSS of the seperator icon
 
+
+/**
+ * Sanitizes HTML using DOMPurify when available. Returns null when DOMPurify
+ * is not loaded, signaling the caller to use a safe fallback (e.g., textContent).
+ * Centralizes the sanitization policy so every innerHTML sink goes through one gate.
+ *
+ * @param {string} html - Raw HTML string to sanitize
+ * @param {Object} [config] - Optional DOMPurify configuration (e.g., ALLOWED_TAGS)
+ * @returns {string|null} Sanitized HTML string, or null if DOMPurify is unavailable
+ */
+function sanitizeHtml(html, config) {
+	if (typeof DOMPurify !== 'undefined') {
+		return DOMPurify.sanitize(html, config);
+	}
+	if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+		console.warn('editControl2: DOMPurify not loaded — caller should use safe fallback to prevent XSS.');
+	}
+	return null;
+}
 
 function insertEditControl() {
 	// The main initialising function which writes the edit control as per passed variables
@@ -279,6 +299,17 @@ function ex(command,value){
 
 function editControlContents(editorname) {
 	var value = "";
+	// HARD STOP: the stored letter never made it into the editor (see seteditControlContents'
+	// fallback branch). Every caller of this function feeds its result to a save, so returning the
+	// empty editor here is what overwrites a clinician's stored letter with nothing. Throwing
+	// aborts the inline onclick handler before document.RichTextLetter.submit() runs, so the save
+	// cannot proceed. Detection alone was not enough — the previous version only logged.
+	if (window.__carlosEditorLoadFailed) {
+		alert('Saving is disabled for this letter.\n\nThe saved content never loaded into the editor, '
+			+ 'so saving now would erase it. Your stored letter is still intact — close this form '
+			+ 'without saving and contact your administrator.');
+		throw new Error('editControl: refusing to read contents; the stored letter failed to load');
+	}
 	// this function retrieves the HTML contents of the edit control "editorname"
 	if (document.designMode) {
 		// Explorer reformats HTML during document.write() removing quotes on element ID names
@@ -293,22 +324,59 @@ function editControlContents(editorname) {
 }
 
 // this function sets the HTML contents of the edit control "editorname" to "value"
-function seteditControlContents(editorname, value){
+// isStoredContent: true only when restoring a SAVED letter. The new-form template path
+// (populateTemplate) also writes through here before designMode is enabled, and losing a blank
+// template costs nothing — so only a stored-content write that cannot land is treated as data loss.
+function seteditControlContents(editorname, value, isStoredContent){
 
 	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
 	value = jQuery().convertImagePaths(value, cfg_isrc);
-	
-    if (document.designMode) {
-		if (isIE()){
-		    window[editorname].document.body.innerHTML = value; //if browser supports M$ conventions
-		    return
-		} else {
-		    document.getElementById(editorname).contentWindow.document.body.innerHTML = value;
-		    return
-		}
+
+	// Sanitize HTML via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+	var sanitized = sanitizeHtml(value);
+
+	// Get the editor iframe's document — designMode is set on the iframe, not the top-level document
+	var editorDoc;
+	if (isIE()) {
+		editorDoc = window[editorname] ? window[editorname].document : null;
 	} else {
-		// play nice and at least set the value to the <textarea> if document.designMode does not exist
-		document.getElementById(cfg_editorname).value = value;
+		var editorIframe = document.getElementById(editorname);
+		editorDoc = editorIframe && editorIframe.contentWindow ? editorIframe.contentWindow.document : null;
+	}
+
+	if (editorDoc && editorDoc.designMode === 'on') {
+		if (sanitized !== null) {
+		    editorDoc.body.innerHTML = sanitized; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
+		} else {
+		    editorDoc.body.textContent = value;
+		}
+		return
+	} else {
+		// Fallback for a browser without designMode, where createEditControl() built a plain
+		// <textarea> instead of an editable iframe. Guard on the element actually being a form
+		// control: assigning .value to an iframe silently discards the letter, which is exactly
+		// how saved letters used to vanish on reopen. Fail loudly instead of losing content.
+		var fallbackTarget = document.getElementById(editorname);
+		if (fallbackTarget && typeof fallbackTarget.value === 'string'
+				&& fallbackTarget.tagName && fallbackTarget.tagName.toLowerCase() !== 'iframe') {
+			// Sanitize here too: the designMode branch above writes `sanitized`, and this branch
+			// must not be the weaker path just because the target is a textarea.
+			fallbackTarget.value = sanitized !== null ? sanitized : value;
+			return
+		}
+		if (typeof console !== 'undefined' && console.error) {
+			console.error('editControl: cannot set editor contents — the editor document is not in '
+				+ 'designMode and the target is not a text control.');
+		}
+		if (isStoredContent) {
+			// A SAVED letter is not in the editor and there is nowhere safe to put it. A console
+			// message is invisible to the clinician, who sees an empty editor for a letter that has
+			// content and may then save over it. Latch a flag editControlContents() refuses to read
+			// past, and say so where it will actually be seen.
+			window.__carlosEditorLoadFailed = true;
+			alert('This letter could not be loaded into the editor.\n\nDo NOT save — your stored letter '
+				+ 'is still intact. Close this form and contact your administrator.');
+		}
 		return
 	}
 }
@@ -323,6 +391,46 @@ function Select(selectname){
     	document.getElementById(selectname).selectedIndex = 0;
   	document.getElementById(cfg_editorname).contentWindow.focus();
   	}
+}
+
+/**
+ * Turns designMode on in the editor iframe's CURRENT document. Every template load (blank.rtl or a
+ * clinic .rtl) navigates the iframe, and the parent's iframe.onload handler runs BEFORE the template's
+ * own <body onload="document.designMode='on'"> has executed, so parseTemplate() reached
+ * seteditControlContents() with designMode still off. That function refuses to write into a
+ * non-designMode iframe (it is the guard that stops saved letters vanishing), logged a console error
+ * on every new letter, and dropped the parsed template — harmless for the empty blank.rtl, but a
+ * clinic template with letterhead and ##placeholders## never populated. Enabling it here, before the
+ * parse, is order-independent: the template's own onload then finds it already on.
+ */
+function enableEditorDesignMode() {
+	var frame = document.getElementById(cfg_editorname);
+	var frameDoc;
+	try { frameDoc = frame && frame.contentWindow ? frame.contentWindow.document : null; }
+	catch (e) { frameDoc = null; } // cross-origin frame: nothing to do (and nothing we could edit)
+	if (frameDoc && frameDoc.designMode !== 'on') { frameDoc.designMode = 'on'; }
+}
+
+/**
+ * Marks the letter dirty on edits so remotePrint() ("Save and then print") and confirmExit() know
+ * there is something to save. Registered on the iframe's CURRENT window and re-registered after
+ * every template load: loading blank.rtl (or a clinic .rtl) navigates the iframe, which replaces
+ * its Window object and silently drops every listener registered on the old one. Registering once
+ * from Start() therefore only ever covered the pre-template about:blank document, so on every NEW
+ * letter typing never set needToConfirm — the toolbar's Print printed the letter without saving it,
+ * and closing the window never warned about the unsaved text.
+ *
+ * `keypress` alone misses Backspace/Delete, paste, and the toolbar's execCommand formatting, all of
+ * which change what would be saved; `input` fires for those too. setDirtyFlag() is idempotent, so
+ * double-firing on ordinary typing is harmless.
+ */
+function attachDirtyFlagListener() {
+	if (typeof setDirtyFlag !== 'function') { return; }
+	var frame = document.getElementById(cfg_editorname);
+	var frameWindow = frame ? frame.contentWindow : null;
+	if (!frameWindow || typeof frameWindow.addEventListener !== 'function') { return; }
+	frameWindow.addEventListener('keypress', setDirtyFlag, true);
+	frameWindow.addEventListener('input', setDirtyFlag, true);
 }
 
 function existsTemplate(template) {
@@ -341,13 +449,17 @@ function loadDefaultTemplate() {
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); };
+		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
-		document.getElementById(cfg_editorname).srcdoc = blankTemplate;
-	}	
+		var blankFrame = document.getElementById(cfg_editorname);
+		// srcdoc navigates the iframe too, so the listener has to follow the new Window here as well.
+		blankFrame.onload = function() { enableEditorDesignMode(); attachDirtyFlagListener(); };
+		blankFrame.srcdoc = blankTemplate;
+	}
 }
 
 function loadTemplate(selectname){
@@ -365,7 +477,8 @@ function loadTemplate(selectname){
     	document.getElementById('template').selectedIndex = 0;
 		//need to ensure that the new src is loaded before we parse it FF only IE doesn't do nada
 		var obj = document.getElementById(cfg_editorname);
-		obj.onload = function() { parseTemplate(); };
+		// The navigation replaced the iframe's Window: re-register the dirty-flag listener on the new one.
+		obj.onload = function() { enableEditorDesignMode(); parseTemplate(); attachDirtyFlagListener(); };
 		//for IE put some delay to ensure that the new src is loaded before we parse it
     		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
@@ -455,22 +568,36 @@ function parseText(obs) {
  */
 function doHtml(value) {
 	var editorDoc = document.getElementById(cfg_editorname).contentWindow.document;
+	// Sidebar/APCache HTML is untrusted and must be sanitized before DOM insertion.
+	var safeValue = sanitizeHtml(value);
 
 	// Insert at cursor using the Selection/Range API
 	var sel = editorDoc.getSelection ? editorDoc.getSelection() : null;
 	if (sel && sel.rangeCount > 0) {
 		var range = sel.getRangeAt(0);
 		range.deleteContents();
-		// createContextualFragment parses the HTML string into DOM nodes
-		var frag = range.createContextualFragment(value);
-		range.insertNode(frag);
+		if (safeValue !== null) {
+			// createContextualFragment parses the sanitized HTML string into DOM nodes
+			var frag = range.createContextualFragment(safeValue);
+			range.insertNode(frag);
+		} else {
+			range.insertNode(editorDoc.createTextNode(value));
+		}
 		// Move cursor to end of inserted content so subsequent inserts append
 		range.collapse(false);
 		sel.removeAllRanges();
 		sel.addRange(range);
 	} else {
-		// No selection/cursor — append to end of document body
-		editorDoc.body.innerHTML += value;
+		// No selection/cursor — append to end of document body.
+		// Sanitize via centralized helper; null means DOMPurify unavailable → fail closed with textContent.
+		if (safeValue !== null) {
+			var appendRange = editorDoc.createRange();
+			appendRange.selectNodeContents(editorDoc.body);
+			var appendFrag = appendRange.createContextualFragment(safeValue);
+			editorDoc.body.appendChild(appendFrag);
+		} else {
+			editorDoc.body.appendChild(editorDoc.createTextNode(value));
+		}
 	}
 	// Return focus to the editor iframe so the user can continue typing
 	// immediately after a sidebar button inserts content
@@ -527,10 +654,8 @@ void [
 	// analysis cannot see. These are NOT dead code — removing them would
 	// break the RTL eForm at runtime.
 	isGenderLookup, Start, htmlLine,
-	// formIsRTL: read by efmshowform_data.jsp to detect RTL eForm type.
-	// formPath: currently unused (commented-out graph link feature) but
-	//   kept for potential future use. See TODO at its declaration.
-	formIsRTL, formPath, getMeasures,
+	// formIsRTL: read by efmshowform_data to detect RTL eForm type.
+	formIsRTL, getMeasures,
 	// collapseFooter, consultantSearch, populateInputField: called from
 	// inline onclick/onKeyup handlers in the DB-stored form_html.
 	// tempBinHover (not in this list): called from onmouseover in form_html.
@@ -595,9 +720,25 @@ function viewsource(source) {
 		document.getElementById("control3").style.visibility="hidden";
 		document.getElementById("control4").style.visibility="hidden";
 	} else {
-		html = document.getElementById(cfg_editorname).contentWindow.document.body.ownerDocument.createRange();
-		html.selectNodeContents(document.getElementById(cfg_editorname).contentWindow.document.body);
-		document.getElementById(cfg_editorname).contentWindow.document.body.innerHTML = jQuery().convertImagePaths(html.toString());
+		// Read the raw HTML source text that was being edited in source view
+		var sourceText = document.getElementById(cfg_editorname).contentWindow.document.body.textContent;
+		var convertedHtml = jQuery().convertImagePaths(sourceText);
+		var safeConvertedHtml = sanitizeHtml(convertedHtml);
+		// Use DOMParser to reconstruct the DOM from the source view HTML, preventing
+		// DOM text from being reinterpreted as HTML without going through a parser context
+		var editorBody = document.getElementById(cfg_editorname).contentWindow.document.body;
+		editorBody.textContent = '';
+		if (safeConvertedHtml !== null) {
+			var parser = new DOMParser();
+			var parsedDoc = parser.parseFromString('<!DOCTYPE html><html><body>' + safeConvertedHtml + '</body></html>', 'text/html');
+			var fragment = document.getElementById(cfg_editorname).contentWindow.document.createDocumentFragment();
+			Array.prototype.forEach.call(parsedDoc.body.childNodes, function (node) {
+				fragment.appendChild(editorBody.ownerDocument.importNode(node, true));
+			});
+			editorBody.appendChild(fragment);
+		} else {
+			editorBody.textContent = convertedHtml;
+		}
 		document.getElementById("control1").style.visibility="visible";
 		document.getElementById("control2").style.visibility="visible";
 		document.getElementById("control3").style.visibility="visible";
@@ -658,7 +799,7 @@ jQuery(document).ready(function(){
 	if (demographicNo == "") { demographicNo = gup("efmdemographic_no", jQuery("form").attr('action')); }
 	if (typeof signatureControl != "undefined") {
 		signatureControl.initialize({
-			sigHTML:"../signature_pad/tabletSignature.jsp?inWindow=true&saveToDB=true&demographicNo=",
+			sigHTML:"../signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=",
 			demographicNo:demographicNo,
 			refreshImage: function (e) {
 				var html = "<img src='"+e.storedImageUrl+"&r="+ Math.floor(Math.random()*1001) +"'></img>";
@@ -937,7 +1078,7 @@ function submitFaxButton() {
 	 * Called from <body onload="Start()"> in the DB-stored form_html.
 	 *
 	 * Performs three setup tasks:
-	 * 1. Loads available letter templates via AJAX from efmformrtl_templates.jsp
+	 * 1. Loads available letter templates via AJAX from efmformrtl_templates
 	 * 2. Populates the AP cache from hidden .cacheInit fields injected by the JSP
 	 * 3. Initializes gender pronouns from the cached sex field
 	 * 4. Loads existing letter content into the editor (for saved forms)
@@ -949,9 +1090,24 @@ function submitFaxButton() {
 
 			// Load template <option> elements into the template dropdown
 			$.ajax({
-				url : "efmformrtl_templates.jsp",
+				url : "efmformrtl_templates",
 				success : function(data) {
-					$("#template").html(data);
+					var cleanData = sanitizeHtml(data, {ALLOWED_TAGS: ['option'], ALLOWED_ATTR: ['value', 'selected']});
+					if (cleanData !== null) {
+						$("#template").html(cleanData);
+					} else {
+						// DOMPurify not available — fallback safely constructs <option> elements
+						var parser = new DOMParser();
+						var doc = parser.parseFromString(data, 'text/html');
+						var templateSelect = $("#template").empty();
+						doc.querySelectorAll('option').forEach(function(opt) {
+							var safeOpt = document.createElement('option');
+							safeOpt.value = opt.value;
+							safeOpt.textContent = opt.textContent;
+							if (opt.selected) safeOpt.selected = true;
+							templateSelect.append(safeOpt);
+						});
+					}
 					loadDefaultTemplate();
 				},
 				error : function(xhr, status, error) {
@@ -966,16 +1122,18 @@ function submitFaxButton() {
 				$(this).remove();				
 			});
 			
-			// set eventlistener for the iframe to flag changes in the text displayed 
-			var agent = navigator.userAgent.toLowerCase(); //for non IE browsers
-			if ((agent.indexOf("msie") == -1) || (agent.indexOf("opera") != -1)) {
-				document.getElementById(cfg_editorname).contentWindow
-						.addEventListener('keypress', setDirtyFlag, true);
-			}
+			// set eventlistener for the iframe to flag changes in the text displayed
+			attachDirtyFlagListener();
 				
 			// set the HTML contents of this edit control from the value saved in OSCAR (if any)
 			var contents = document.getElementById('Letter').value;
 			if (contents.length == 0) {
+				// A NEW letter: the template dropdown has not loaded yet, so this parses the editor's
+				// initial about:blank document. Its designMode is off until enabled here, and
+				// seteditControlContents() refuses to write into a non-designMode frame — which
+				// logged "cannot set editor contents" on every new letter. The real template is
+				// parsed again from loadDefaultTemplate()'s onload once it has loaded.
+				enableEditorDesignMode();
 				parseTemplate();
 			} else {
 				// Decode HTML entities that saveRTL() encoded before saving.
@@ -988,8 +1146,14 @@ function submitFaxButton() {
 				contents = contents.replace(/&lt;/g, "<");
 				contents = contents.replace(/&quot;/g, '"');
 				contents = contents.replace(/&amp;/g, "&");
-				seteditControlContents(cfg_editorname, contents);
+				// designMode MUST be enabled BEFORE the contents are written.
+				// seteditControlContents() only writes into the iframe when its document is
+				// already in designMode, and otherwise falls through to a branch that assigns
+				// .value to the iframe element — a no-op. With the two statements in the other
+				// order, reopening a saved letter showed an empty editor, and the toolbar's
+				// save-and-download then persisted that empty editor over the stored letter.
 				document.getElementById(cfg_editorname).contentWindow.document.designMode = 'on';
+				seteditControlContents(cfg_editorname, contents, true);
 			}
 			maximize();
 			
@@ -1066,14 +1230,14 @@ function submitFaxButton() {
 		//	"doctor|SignatureFile.png",
 		//	];
 
-		var mystamp ='<img src="../eform/displayImage.do?imagefile=stamp.png" width="200" height="100">';
+		var mystamp ='<img src="../eform/displayImage?imagefile=stamp.png" width="200" height="100">';
 		if (cache.contains("doctor")) {
 			for (i=0; i<ImgArray.length;i++){
 		        var ListItemArr =  ImgArray[i].split("|");
 		        var UserName = ListItemArr[0];
 		        var FileName = ListItemArr[1];
 		        if (cache.get('doctor').indexOf(UserName)>=0){
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
@@ -1085,16 +1249,16 @@ function submitFaxButton() {
 		        var FileName = ListItemArr[1];
 		        if (cache.get('current_user').indexOf(UserName)>=0){
 					console.log('current user has a signature so use it');					
-		            mystamp = '<img src="../eform/displayImage.do?imagefile='+FileName+'" width="200" height="100" />';
+		            mystamp = '<img src="../eform/displayImage?imagefile='+FileName+'" width="200" height="100" />';
 			        }
 				}
 		}
 		return mystamp;
 	}
-	// Flag read by efmshowform_data.jsp and the eForm framework to identify this
+	// Flag read by efmshowform_data and the eForm framework to identify this
 	// as a Rich Text Letter eForm (vs. a regular eForm). Static analysis may flag
 	// this as "unused" because the read happens in JSP/server-side code, not JS.
-	var formIsRTL = true;
+	window.formIsRTL = true;
 
 
 // lab_grid2.js //
@@ -1116,12 +1280,10 @@ if (location.search) {
 }
 
 
-// TODO: formPath is currently unused — its only two references (graph link URLs)
-// are commented out below in getMeasures(). The hardcoded fid=74 is a legacy
-// upstream value that would be wrong for most installations. If the graph link
-// feature is ever re-enabled, formPath should derive the fid from the URL
-// parameter (gup("fid")) instead of hardcoding it.
-var formPath = vPath + "/eform/efmshowform_data.jsp?fid=74&LabName="
+// The graph link URLs are commented out below in getMeasures(). The old
+// hardcoded fid=74 path would be wrong for most installations. If the graph
+// link feature is re-enabled, derive the fid from the URL parameter
+// (gup("fid")) instead of hardcoding it.
 var measureArray = [];
 var measureDateArray = [];
 
@@ -1130,7 +1292,7 @@ var measureDateArray = [];
  * a formatted summary into the editor. Called by labgrid() and labgrid2()
  * (the "Lab Grid" and "Vitals" sidebar buttons).
  *
- * Makes a synchronous XHR to efmshowform_data.jsp to fetch measurement data
+ * Makes a synchronous XHR to efmshowform_data to fetch measurement data
  * for the current patient, then formats it as "TYPE: value (date), value (date), ..."
  *
  * @param {string} measure - Measurement type code (e.g., "HB", "BP", "A1C")
@@ -1140,7 +1302,7 @@ function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
     // pathArray was originally used to build newURL; kept for potential future use by callers.
     var pathArray = window.location.pathname.split('/'); void pathArray;
-    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
+    var newURL = "..//encounter/oscarMeasurements/SetupDisplayHistory?type=" + measure;
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
             var str = xmlhttp.responseText; //local variable
@@ -1218,7 +1380,7 @@ function collapseFooter() {
          */
         function consultantSearch(term) {
             if (term.length < 2) {
-                document.getElementById('tempBin').innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById('tempBin').textContent = "You must enter at least 2 characters of a patient's name!";
                 return false;
             }
 
@@ -1283,7 +1445,7 @@ function collapseFooter() {
                     tempBin.textContent = 'Search failed. Please try again.';
                 }
 
-            } // end onload
+            }; // end onload
 
             // Handle network-level failures (DNS, connection refused, timeout)
             request.onerror = function() {
@@ -1319,7 +1481,7 @@ function collapseFooter() {
                 document.getElementById("tempBin").style.display = 'block';
             } else if (a === 0 && searchDropDownFlag === false) {
                 document.getElementById("tempBin").style.display = 'none';
-                document.getElementById("tempBin").innerHTML = "You must enter at least 2 characters of a patients name!";
+                document.getElementById("tempBin").textContent = "You must enter at least 2 characters of a patient's name!";
             }
         }
 
@@ -1537,5 +1699,3 @@ _global.saveAs = saveAs.saveAs = saveAs
 if (typeof module !== 'undefined') {
   module.exports = saveAs;
 }
-
-

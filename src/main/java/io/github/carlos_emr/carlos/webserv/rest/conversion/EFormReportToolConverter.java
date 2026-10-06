@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormReportToolTo1;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public class EFormReportToolConverter extends AbstractConverter<EFormReportTool, EFormReportToolTo1> {
@@ -61,6 +62,11 @@ public class EFormReportToolConverter extends AbstractConverter<EFormReportTool,
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public EFormReportTool getAsDomainObject(LoggedInInfo loggedInInfo, EFormReportToolTo1 t) throws ConversionException {
         EFormReportTool d = new EFormReportTool();
         BeanUtils.copyProperties(t, d);
@@ -76,6 +82,11 @@ public class EFormReportToolConverter extends AbstractConverter<EFormReportTool,
     }
 
     @Override
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public EFormReportToolTo1 getAsTransferObject(LoggedInInfo loggedInInfo, EFormReportTool d) throws ConversionException {
         EFormReportToolTo1 t = new EFormReportToolTo1();
         BeanUtils.copyProperties(d, t);

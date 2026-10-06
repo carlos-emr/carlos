@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.OscarJob;
 import io.github.carlos_emr.carlos.commn.model.OscarJobType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -66,7 +66,7 @@ public class OscarJobUtils {
         String className = oscarJobType.getClassName().trim();
         if (!className.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
             MiscUtils.getLogger().warn("Rejected job class outside allowed package: {}",
-                    LogSanitizer.sanitize(className));
+                    LogSafe.sanitize(className));
             return false;
         }
 
@@ -144,7 +144,7 @@ public class OscarJobUtils {
         String jobClassName = job.getOscarJobType().getClassName().trim();
         if (!jobClassName.startsWith(ALLOWED_JOB_PACKAGE_PREFIX)) {
             throw new SecurityException("Job class outside allowed package: "
-                    + LogSanitizer.sanitize(jobClassName));
+                    + LogSafe.sanitize(jobClassName));
         }
         OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection -- jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
                 .asSubclass(OscarRunnable.class)

@@ -27,6 +27,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Empty stub. ViewGenSimulation2Action enforces _billing r and runs the
      dry-run extract via OhipReportGenerationService.generateSimulation
      (eFlag="0", no persist), stashes the HTML preview on the request as

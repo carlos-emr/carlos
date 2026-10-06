@@ -54,6 +54,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ page import="java.util.*" %>
+<%@ page import="java.io.File" %>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
@@ -65,6 +66,7 @@
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean" %>
 <%@ page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
@@ -172,6 +174,12 @@
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
     boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
+    String scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+            props.get(UserProperty.SCHEDULE_NAVIGATION_MODE), encOpenInTab);
+    if (!UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode)
+            && !UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode)) {
+        scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
+    }
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
     // Contact info (used on prescriptions and consult letters)
@@ -192,8 +200,17 @@
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
 
     // Signature stamp
-    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
-    boolean hasConsultSignature = !consultSigValue.isEmpty();
+    boolean hasConsultSignature = false;
+    if (providerNo != null && !providerNo.trim().isEmpty()) {
+        String expectedSignatureName = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        try {
+            File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory());
+            File consultSigFile = PathValidationUtils.validatePath(expectedSignatureName, imageFolder);
+            hasConsultSignature = consultSigFile.isFile();
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().warn("Blocked suspicious consult signature path for provider {}", providerNo, e);
+        }
+    }
 
     // Prevention warning preferences (use "true"/"false" unlike most prefs)
     boolean prevSSO = "true".equalsIgnoreCase(
@@ -217,6 +234,7 @@
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="utf-8">
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -997,10 +1015,21 @@
                 </div>
             </div>
             <div class="pref-row">
-                <div class="pref-label"><fmt:message key="provider.providerpreference.label.openInTabs"/></div>
+                <div class="pref-label"><fmt:message key="provider.providerpreference.label.scheduleNavigationMode"/></div>
                 <div class="pref-value">
-                    <input type="checkbox" class="form-check-input" role="switch"
-                           name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
+                    <%-- This is a single mode selector so the focused schedule shell
+                         cannot accidentally enable the broader encounter-in-tabs behavior. --%>
+                    <select name="<%= UserProperty.SCHEDULE_NAVIGATION_MODE %>" class="pref-input">
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.popup"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_TAB %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.tab"/>
+                        </option>
+                        <option value="<%= UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED %>" <%=UserProperty.SCHEDULE_NAVIGATION_MODE_FOCUSED.equals(scheduleNavigationMode) ? "selected" : ""%>>
+                            <fmt:message key="provider.providerpreference.scheduleNavigationMode.focused"/>
+                        </option>
+                    </select>
                 </div>
             </div>
             <div class="pref-row">
@@ -1326,7 +1355,7 @@
                 <a href="<%= request.getContextPath() %>/provider/ViewProviderChangePassword" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-key"></i> <fmt:message key="provider.providerpreference.link.changePassword"/>
                 </a>
-                <a href="${pageContext.request.contextPath}/EnterSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
+                <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
@@ -1366,6 +1395,14 @@
     </button>
 </div>
 
+</form>
+
+<%-- Keep this POST form in the initial DOM so CSRFGuard injects its token before
+     either quick-link action submits. Do not nest it in UPDATEPRE. --%>
+<form id="quickLinkActionForm" method="post" action="<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks">
+    <input type="hidden" name="action" value="">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="url" value="">
 </form>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
@@ -1475,19 +1512,10 @@ function checkTypeInAll() {
  * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
  */
 function submitQuickLinkAction(action, name, url) {
-    var form = document.createElement('form');
-    form.method = 'post';
-    form.action = '<%= request.getContextPath() %>/provider/ViewProviderPreferenceQuickLinks';
-    var fields = {action: action, name: name};
-    if (url) { fields.url = url; }
-    for (var key in fields) {
-        var input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = fields[key];
-        form.appendChild(input);
-    }
-    document.body.appendChild(form);
+    var form = document.getElementById('quickLinkActionForm');
+    form.elements.namedItem('action').value = action;
+    form.elements.namedItem('name').value = name;
+    form.elements.namedItem('url').value = url || '';
     form.submit();
 }
 

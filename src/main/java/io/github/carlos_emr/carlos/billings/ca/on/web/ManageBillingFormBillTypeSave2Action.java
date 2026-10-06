@@ -28,7 +28,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -88,15 +88,15 @@ public class ManageBillingFormBillTypeSave2Action extends ActionSupport {
 
         try {
             if (!billingFormConfigurationService.updateBillingTypeAssociation(servicetype, billtype, billtypeOld)) {
-                MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSanitizer
+                MiscUtils.getLogger().error( // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                         "ManageBillingFormBillTypeSave2Action: no billing type found for servicetype={} - update failed",
-                        LogSanitizer.sanitize(servicetype));
+                        LogSafe.sanitize(servicetype));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND,
                         "Billing type entry not found for the specified service type");
                 return NONE;
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", LogSanitizer.sanitize(servicetype), e);
+            MiscUtils.getLogger().error("Failed to update bill type for servicetype={}", LogSafe.sanitize(servicetype), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update bill type");
             return NONE;
         }

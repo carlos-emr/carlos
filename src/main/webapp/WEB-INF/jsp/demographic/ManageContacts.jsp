@@ -29,6 +29,18 @@
 
 --%>
 
+<%--
+    Manages a patient's personal and professional contact associations.
+    Features: directory/provider/patient pickers, relationship flags, and removal.
+    Parameters: demographic_no identifies the patient (request parameter or
+    action attribute); indexed contact/procontact fields are posted to saveManage.
+    Internal patient selection uses the search popup's formName, elementName,
+    and elementId callback fields. Names and identifiers are separate values.
+    Access: this view requires _demographic read access; the save action enforces
+    POST, patient write access, association ownership, and reciprocal permissions.
+    @since 2026.08 (contact workflow corrections and contract documentation)
+--%>
+
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
@@ -68,6 +80,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="demographic.manageContacts.title"/></title>
         <!--I18n-->
@@ -181,14 +194,12 @@
             }
 
             function search_demographic(nameEl, valueEl) {
-                // ticklerPlus removed - demographic search functionality disabled
-                alert('Demographic search is currently unavailable');
-                return;
-                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
-                // var popup = window.open(url, 'demographic_search');
-                demo_no_orig = document.contactForm.elements[valueEl].value;
-                //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
-
+                var params = new URLSearchParams({
+                    displaymode: 'Search ', caisi: 'true', formName: 'contactForm',
+                    elementName: nameEl, elementId: valueEl, keyword: '', search_mode: 'search_name'
+                });
+                var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?' + params.toString();
+                var popup = window.open(url, 'demographic_search', 'width=900,height=650,scrollbars=yes,resizable=yes');
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;

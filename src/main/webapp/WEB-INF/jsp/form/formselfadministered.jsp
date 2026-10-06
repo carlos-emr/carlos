@@ -55,6 +55,7 @@
 
 
 
+<fmt:setBundle basename="oscarResources"/>
 <%
     String formClass = "SelfAdministered";
     String formLink = "formselfadministered.jsp";
@@ -76,6 +77,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Self Administered Questions Used in Self-Report Risk
             Index</title>

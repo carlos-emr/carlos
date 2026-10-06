@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+  Purpose: Display cumulative laboratory values for the selected patient.
+  Features: Lab-type selection and an asynchronous row-display refresh that waits
+  for CSRF readiness. Readiness/token failures display an alert; CarlosAjax.updater
+  renders successful and failed response bodies in the new row container.
+  Parameters: demographic_no identifies the patient; the row-display request also
+  carries the selected lab type and display options. Session roles control lab access.
+  @since 2026-09-17
+--%>
+
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="java.util.Objects" %>
 <%@page
@@ -75,6 +85,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="lab.cumulativeLab.title"/></title>
         <!--I18n-->
@@ -141,7 +152,15 @@
             }
 
 
-            function addLabToProfile2(labType, testName, identCode) {
+            async function addLabToProfile2(labType, testName, identCode) {
+                try {
+                    if (window.csrfTokenReady) await window.csrfTokenReady;
+                    var token = document.querySelector('input[name="CSRF-TOKEN"]');
+                    if (!token || !token.value) throw new Error('Missing request token');
+                } catch (error) {
+                    alert('Unable to load the lab values. Reload this window and try again.');
+                    return;
+                }
 
                 var newNode = document.createElement('div');
                 var img = document.createElement('img');
@@ -184,6 +203,7 @@
     </head>
 
     <body class="BodyStyle">
+    <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
     <!--  -->
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">

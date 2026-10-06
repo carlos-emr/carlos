@@ -56,7 +56,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -64,6 +63,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <style type="text/css" media="print">
             .DoNotPrint {
@@ -214,7 +214,7 @@
                                     }
 
                                 %>
-                                <b style="font-size:14pt"><%=firstLine %>
+                                <b style="font-size:14pt"><carlos:encode value='<%= firstLine %>' context="html"/>
                                 </b><br/>
                                 <carlos:encode value='<%= provider.getSpecialty() %>' context="html"/><br/>
                                 <br/>

@@ -54,8 +54,9 @@
 %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.addQueue.title"/></title>
 
     <style type="text/css">

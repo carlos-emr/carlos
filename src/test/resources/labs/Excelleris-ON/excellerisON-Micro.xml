@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HL7Messages MessageFormat="" MessageCount="5" Version=""><Message MsgID="1"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT|testusr1|20131125150111-0800||ORU^R01|XYZ20131125150111098|D|2.3.1|||AL
+PID|||4123456789^^^^JHN^^^^ON&Ontario&HL70347||EXCELLERIS^FIRSTNAME^^^^^L||19010101|F|||||^H
+PV1|1|OU
+ORC|RE||2013-100230016|2012-100230016
+OBR|1|2012-100230016-2_TR11972-7|2013-100230016-2_TR11972-7|TR11972-7^Ear Culture|||20130123101000|||||||20130123132200||13131301^QA^LIFELABS||||||20130123143318||MICRO3|F|||13131301^QA^LIFELABS
+OBX|1|ST|31208-2^Specimen Source||--||||||F|||20130123143318-0500
+NTE|||EAR-EXTERNAL CANAL
+OBX|2|ST|33882-2^Collection Date||23-JAN-2013||||||F|||20130123143318-0500
+OBX|3|ST|49049-0^Collection Time||10:10||||||F|||20130123143318-0500
+OBX|4|FT|664-3^Microscopic|1|No polymorphonuclear cells seen||||||F|||20130123143318-0500
+OBX|5|FT|664-3^Microscopic|2|Rare Gram-positive bacilli||||||F|||20130123143318-0500
+OBX|6|ST|CUL STAT^Culture Status||Final||||||F|||20130123143318-0500
+OBX|7|FT|634-6^Culture Report||Miscellaneous Culture||||||F|||20130123143318-0500
+OBX|8|CE|6463-4^Organism|1|Staphylococcus aureus Methycillin resistant||||||F|||20130123143328-0500
+OBX|9|ST|18864-9^Ampicillin|1|S||||||F|||20130123143328-0500
+OBX|10|ST|18862-3^Amoxicillin+Clavulanate|1|R||||||F|||20130123143328-0500
+OBX|11|ST|18878-9^Cefazolin|1|S||||||F|||20130123143328-0500
+OBX|12|ST|18900-1^Cephalothin|1|R||||||F|||20130123143328-0500
+OBX|13|ST|18880-5^Cefixime|1|S||||||F|||20130123143328-0500
+OBX|14|ST|18895-3^Ceftriaxone|1|R||||||F|||20130123143328-0500
+OBX|15|ST|18970-4^Piperacillin+Taxobactam|1|R||||||F|||20130123143328-0500
+OBX|16|ST|18943-1^Meropenem|1|S||||||F|||20130123143328-0500
+OBX|17|ST|35802-8^Ertapenem|1|R||||||F|||20130123143328-0500
+OBX|18|ST|18998-5^Trimethoprim+Sulfamethoxazole|1|S||||||F|||20130123143328-0500
+OBX|19|ST|18906-8^Ciprofloxacin|1|R||||||F|||20130123143328-0500
+OBX|20|ST|18928-2^Gentamicin|1|I||||||F|||20130123143328-0500
+OBX|21|ST|18996-9^Tobramycin|1|S||||||F|||20130123143328-0500
+OBX|22|ST|18860-7^Amikacin|1|S||||||F|||20130123143328-0500
+OBX|23|ST|18955-5^Nitrofurantoin|1|R||||||F|||20130123143328-0500
+]]></Message><Message MsgID="2"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT|testusr1|20131125150111-0800||ORU^R01|XYZ20131125150111099|D|2.3.1|||AL
+PID|||||TESTING^ORGANISMS^^^^^L||19850301|M|||||^H
+PV1|1|OU
+ORC|RE||2013-1M2560050|2013-1M2560050
+OBR|1|2013-1M2560050-2_TR11976-8|2013-1M2560050-2_TR11976-8|TR11976-8^Urine Culture|||20130913120100|||||||20130913120200||00000^MICRO PROFICIENCY^Provider Unavailable||||||||MICRO3|F|||13131301^QA^LIFELABS~00000^MICRO PROFICIENCY^Provider Unavailable
+OBX|1|ST|31208-2^Specimen Source||MIDSTREAM URINE||||||F|||20130916100052-0400
+OBX|2|ST|33882-2^Collection Date||13-SEP-2013||||||F|||20130916100052-0400
+OBX|3|ST|49049-0^Collection Time||12:01||||||F|||20130916100052-0400
+OBX|4|FT|19090-0^Colony Count||>100 x E6 CFU/L||||||F|||20130916100052-0400
+OBX|5|ST|CUL STAT^Culture Status||Final||||||F|||20130916100052-0400
+OBX|6|FT|634-6^Culture Report||Urine Culture||||||F|||20130916100052-0400
+OBX|7|CE|6463-4^Organism|1|Escherichia coli||||||F|||20130916100052-0400
+OBX|8|CE|6463-4^Organism|2|Enterobacter cloacae||||||F|||20130916100052-0400
+NTE|||Cephalothin interpretative criteria may be used\.br\to predict results to Keflex (Cephalexin).\.br\Resistance may develop during prolonged therapy\.br\with 3rd generation cephalosporins.  Testing of\.br\repeat isolates may be required.
+OBX|9|CE|6463-4^Organism|3|Staphylococcus aureus||||||F|||20130916100052-0400
+NTE|||Primary Staphylococcus aureus urinary tract\.br\infections are uncommon.  Please submit a repeat\.br\specimen and blood cultures if clinically\.br\indicated.
+]]></Message><Message MsgID="3"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT|testusr1|20131125150111-0800||ORU^R01|XYZ20131125150111100|D|2.3.1|||AL
+PID|||3123456789^^^^JHN^^^^ON&Ontario&HL70347^^GG||TESTING^ANAPOSITIVE^^^^^L||19880505|M|||||(416) 555-1234^H
+PV1|1|OU
+ORC|RE||2013-1M3160146|2013-1M3160146
+OBR|1|2013-1M3160146-0_TR10654-2|2013-1M3160146-0_TR10654-2|TR10654-2^Anti-Nuclear Antibodies|||20131112095700|||||||20131112102200||13131301^QA^LIFELABS||||||20131112102822||CHEM18|F|||13131301^QA^LIFELABS
+OBX|1|ST|40655-3^Nuclear Antibody||POSITIVE||NEGATIVE||||F|||20131112102342-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|2|SN|29953-7^Nuclear Antibody Titre||\S\1\S\:\S\20||< 1:40||||F|||20131112102822-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|3|FT|14611-8^Nuclear Antibody Pattern||Speckled pattern||||||F|||20131112102822-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|4|FT|XON10313-5^Nuclear Antibody Interpretation||\.br\Approximately 20% of normal individuals may have\.br\titre of 1:40 and approximately 5% of normal\.br\individuals may have titre of 1:160.||||||F|||20131112102822-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+]]></Message><Message MsgID="4"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT|testusr1|20131125150111-0800||ORU^R01|XYZ20131125150111101|D|2.3.1|||AL
+PID|||||LAST^TEST^^^^^L||19601013|F|||||^H
+PV1|1|OU
+ORC|RE||2013-1M3250056|2013-1M3250056
+OBR|1|2013-1M3250056-0_TR10477-8|2013-1M3250056-0_TR10477-8|TR10477-8^Complete Blood Count|||20131121174900|||||||20131121174700||13131301^QA^LIFELABS||||||20131121175412||HAEM1|F|||13131301^QA^LIFELABS
+OBX|1|NM|6690-2^WBC||5.5|x E9/L|4.0 - 11.0||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|2|NM|789-8^RBC||4.29|x E12/L|4.00 - 5.10||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|3|NM|718-7^Hemoglobin||141|g/L|120 - 160||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|4|NM|4544-3^Hematocrit||0.41|L/L|0.35 - 0.45||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|5|NM|787-2^MCV||95.6|fL|80.0 - 100.0||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|6|NM|785-6^MCH||33|pg|27.5 - 33.0||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|7|NM|786-4^MCHC||344|g/L|305 - 360||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|8|NM|777-3^Platelets||157|x E9/L|150-400||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|9|NM|788-0^RDW||13.8|%|11.5 - 14.5||||F|||20131121175222-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|10|NM|751-8^Neutrophils||3.2|x E9/L|2.0 - 7.5||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|11|NM|731-0^Lymphocytes||0.1|x E9/L|1.0 - 3.5|L|||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|12|NM|742-7^Monocytes||0.4|x E9/L|0.2 - 1.0||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|13|NM|711-2^Eosinophils||0.1|x E9/L|0.0 - 0.5||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|14|NM|704-7^Basophils||0.0|x E9/L|0.0 - 0.2||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|15|ST|11156-7^WBC  Morphology||NORMAL||||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|16|ST|6742-1^RBC Morphology||NORMAL||||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|17|ST|11125-2^Platelet Morphology||NORMAL||||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|18|NM|26507-4^Band Neutrophils||0.0|x E9/L|0.0 - 0.7||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|19|NM|30446-9^Myelocytes||0.1|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|20|NM|30433-7^Metamyelocytes||0.1|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|21|NM|781-5^Promyelocytes||0.4|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|22|NM|40611-6^Blasts||0.2|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|23|NM|734-4^Lymphocytes Variant||0.2|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|24|NM|729-4^Leukocytes Other||0.5|x E9/L|||||F|||20131121175332-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|25|ST|14869-2^Pathologist Review||--||||||F|||20131121175412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Occasional promecylotes seen on sacn. \.br\All other results within normal range.
+]]></Message><Message MsgID="5"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT|testusr1|20131125150111-0800||ORU^R01|XYZ20131125150111102|D|2.3.1|||AL
+PID|||2123456789^^^^JHN^^^^ON&Ontario&HL70347^^FF||TESTING^CBCPATIENT^^^^^L||19841020|F|||||(416) 555-1234^H
+PV1|1|OU
+ORC|RE||2013-1M3260092|2013-1M3260092
+OBR|1|2013-1M3260092-0_TR10477-8|2013-1M3260092-0_TR10477-8|TR10477-8^Complete Blood Count|||20131122120600|||||||20131122120800||13131301^QA^LIFELABS||||||20131122122142||HAEM1|F|||13131301^QA^LIFELABS
+OBX|1|NM|6690-2^WBC||5.5|x E9/L|4.0 - 11.0||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|2|NM|789-8^RBC||4.29|x E12/L|4.00 - 5.10||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|3|NM|718-7^Hemoglobin||141|g/L|120 - 160||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|4|NM|4544-3^Hematocrit||0.41|L/L|0.35 - 0.45||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|5|NM|787-2^MCV||96.3|fL|80.0 - 100.0||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|6|NM|785-6^MCH||32.9|pg|27.5 - 33.0||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|7|NM|786-4^MCHC||341|g/L|305 - 360||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|8|NM|777-3^Platelets||157|x E9/L|150-400||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|9|NM|788-0^RDW||13.8|%|11.5 - 14.5||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|10|NM|751-8^Neutrophils||2.2|x E9/L|2.0 - 7.5||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|11|NM|731-0^Lymphocytes||1.3|x E9/L|1.0 - 3.5||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|12|NM|742-7^Monocytes||0.7|x E9/L|0.2 - 1.0||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|13|NM|711-2^Eosinophils||0.1|x E9/L|0.0 - 0.5||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|14|NM|704-7^Basophils||0.0|x E9/L|0.0 - 0.2||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|15|NM|26507-4^Band Neutrophils||0.2|x E9/L|0.0 - 0.7||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|16|NM|30446-9^Myelocytes||0.1|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|17|NM|30433-7^Metamyelocytes||0.4|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|18|NM|781-5^Promyelocytes||0.1|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|19|NM|40611-6^Blasts||0.1|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|20|NM|734-4^Lymphocytes Variant||0.2|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|21|NM|729-4^Leukocytes Other||0.2|x E9/L|||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|22|ST|11156-7^WBC  Morphology||NORMAL||||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|23|ST|6742-1^RBC Morphology||NORMAL||||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|24|ST|11125-2^Platelet Morphology||NORMAL||||||F|||20131122121412-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|25|ST|14869-2^Pathologist Review||--||||||F|||20131122122142-0500|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||OCCASIONAL PROMYELOCYTES SEEN ON SCAN.\.br\ALL OTHER RESULTS WITHIN NORMAL RANGE.
+]]></Message></HL7Messages>

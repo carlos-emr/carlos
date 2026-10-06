@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts action for viewing, creating, and deleting Ontario billing CSS style
@@ -77,6 +78,8 @@ public class ManageCss2Action extends ActionSupport {
     }
 
     /** Persist a new or edited CSS style after privilege and POST checks succeed. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String save() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
@@ -107,7 +110,7 @@ public class ManageCss2Action extends ActionSupport {
             // of letting the next field-set NPE without an operator signal.
             if (cssStyle == null) {
                 MiscUtils.getLogger().warn("ManageCss2Action.save: CSS style not found for editStyle={}",
-                        io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+                        io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
                 addActionError("CSS style not found.");
                 this.setStyles(styles);
                 return "init";
@@ -151,7 +154,7 @@ public class ManageCss2Action extends ActionSupport {
                 .deleteByStyleId(this.getEditStyle());
         if (!deleted) {
             MiscUtils.getLogger().warn("ManageCss2Action.delete: CSS style not found for editStyle={}",
-                    io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(this.getEditStyle()));
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitize(this.getEditStyle()));
             addActionError("CSS style not found.");
             this.setStyles(cssStylesDao.findAll());
             return "init";

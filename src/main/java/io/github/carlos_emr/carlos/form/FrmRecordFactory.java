@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import java.util.Collections;
@@ -132,7 +132,7 @@ public class FrmRecordFactory {
     public FrmRecord factory(String which) {
 
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
-            MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", LogSanitizer.sanitize(which));
+            MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", LogSafe.sanitize(which));
             return null;
         }
 

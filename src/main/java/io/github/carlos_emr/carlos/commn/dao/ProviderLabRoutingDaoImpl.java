@@ -47,6 +47,45 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
     }
 
     @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    @NativeSql({"providerLabRoutingLock"})
+    public void lockRoutingReport(int labNo) {
+        // The unique coordination row exists even when no clinical routing row exists yet.
+        // An atomic upsert takes an InnoDB write lock until the OUTER transaction ends.
+        // Share the lock across providers (including provider 0 cleanup) and lab types with
+        // this numeric id. No legacy routing records need to be deduplicated or rewritten.
+        entityManager.createNativeQuery("INSERT INTO providerLabRoutingLock (lab_no) VALUES (?1) "
+                        + "ON DUPLICATE KEY UPDATE lab_no=VALUES(lab_no)")
+                .setParameter(1, labNo).executeUpdate();
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<ProviderLabRoutingModel> findRoutingForUpdate(int labNo, String labType, String providerNo) {
+        // A locking read is a current read on MariaDB: an earlier version-chain snapshot
+        // must not hide a routing row committed by the transaction we just waited for.
+        List<ProviderLabRoutingModel> rows = entityManager.createQuery(
+                        "select x from ProviderLabRoutingModel x where x.labNo=?1 and x.labType=?2 and x.providerNo=?3")
+                .setParameter(1, labNo).setParameter(2, labType).setParameter(3, providerNo)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (ProviderLabRoutingModel row : rows) {
+            // Also refresh any instance already present in the persistence context.
+            entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return rows;
+    }
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public int transitionNewRoutingRows(int labNo, String labType, String providerNo, char status) {
+        if (status == 'N') return 0;
+        return entityManager.createQuery("update ProviderLabRoutingModel x set x.status=?4 "
+                        + "where x.labNo=?1 and x.labType=?2 and x.providerNo=?3 and x.status='N'")
+                .setParameter(1, labNo).setParameter(2, labType).setParameter(3, providerNo)
+                .setParameter(4, String.valueOf(status)).executeUpdate();
+    }
+
+    @Override
     public List<ProviderLabRoutingModel> findByLabNoAndLabTypeAndProviderNo(int labNo, String labType,
                                                                             String providerNo) {
         Query q = entityManager.createQuery(
@@ -188,7 +227,7 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<Object[]> findProviderAndLabRoutingById(Integer id) {
-        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.ProviderNo = providerLabRouting.providerNo AND providerLabRouting.id = ?1 ";
+        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.providerNo = providerLabRouting.providerNo AND providerLabRouting.id = ?1 ";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         return query.getResultList();
@@ -291,7 +330,7 @@ public class ProviderLabRoutingDaoImpl extends AbstractDaoImpl<ProviderLabRoutin
 
     @Override
     public List<Object[]> findProviderAndLabRoutingByIdAndLabType(Integer id, String labType) {
-        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.ProviderNo = providerLabRouting.providerNo AND providerLabRouting.labNo = ?1 AND providerLabRouting.labType = ?2";
+        String sql = "SELECT provider, providerLabRouting FROM Provider provider, ProviderLabRoutingModel providerLabRouting WHERE provider.providerNo = providerLabRouting.providerNo AND providerLabRouting.labNo = ?1 AND providerLabRouting.labType = ?2";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, id);
         query.setParameter(2, labType);

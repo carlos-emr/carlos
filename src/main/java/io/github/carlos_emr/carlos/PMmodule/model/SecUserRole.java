@@ -34,6 +34,11 @@ import java.util.List;
 /**
  * This is the object class that relates to the secUserRole table.
  * Any customizations belong here.
+ *
+ * <p>This is not a JPA {@code @Entity}: the {@code secUserRole} table is owned
+ * by {@link io.github.carlos_emr.carlos.model.security.Secuserrole}, which uses
+ * the auto-increment {@code id} primary key. {@code SecUserRole} remains a
+ * POJO/DTO used by {@code SecUserRoleDao} for legacy callers.</p>
  */
 public class SecUserRole implements Serializable {
 
@@ -65,7 +70,6 @@ public class SecUserRole implements Serializable {
     protected void initialize() {
         //empty
     }
-
     public String getRoleName() {
         return this._roleName;
     }
@@ -79,7 +83,6 @@ public class SecUserRole implements Serializable {
         this._roleName = _roleName;
         this.hashCode = Integer.MIN_VALUE;
     }
-
     public boolean getActive() {
         return this._active;
     }
@@ -93,7 +96,6 @@ public class SecUserRole implements Serializable {
         this._active = _active;
         this.hashCode = Integer.MIN_VALUE;
     }
-
     public String getProviderNo() {
         return this._providerNo;
     }
@@ -170,7 +172,6 @@ public class SecUserRole implements Serializable {
 
         return (sb.toString());
     }
-
     public String getOrgCd() {
         return orgCd;
     }
@@ -178,7 +179,6 @@ public class SecUserRole implements Serializable {
     public void setOrgCd(String orgCd) {
         this.orgCd = orgCd;
     }
-
     public Date getLastUpdateDate() {
         return lastUpdateDate;
     }
@@ -186,6 +186,5 @@ public class SecUserRole implements Serializable {
     public void setLastUpdateDate(Date lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
     }
-
 
 }

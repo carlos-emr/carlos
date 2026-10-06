@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -584,7 +584,7 @@ public class BillingOnClaimPersister {
         if (ch1 == null) {
             throw new BillingValidationException(
                     "Cannot add third-party billing extension: billing header not found [billingNo="
-                            + LogSanitizer.sanitize(String.valueOf(id)) + "]");
+                            + LogSafe.sanitize(String.valueOf(id)) + "]");
         }
         newPayment.setBillingOnCheader1(ch1);
         newPayment.setPaymentDate(UtilDateUtilities.StringToDate(dateTime));
@@ -612,8 +612,8 @@ public class BillingOnClaimPersister {
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
                     "Cannot add third-party billing extension: invalid demographic_no [billingNo="
-                            + LogSanitizer.sanitize(String.valueOf(billingNo))
-                            + ", demographic_no=" + LogSanitizer.sanitize(demoNo) + "]",
+                            + LogSafe.sanitize(String.valueOf(billingNo))
+                            + ", demographic_no=" + LogSafe.sanitize(demoNo) + "]",
                     e);
         }
     }
@@ -743,7 +743,7 @@ public class BillingOnClaimPersister {
         BillingONDiskName b = diskNameDao.find(Integer.parseInt(val.getId()));
         if (b == null) {
             throw new BillingValidationException("Cannot update disk name: row not found [id="
-                    + LogSanitizer.sanitize(val.getId()) + "]");
+                    + LogSafe.sanitize(val.getId()) + "]");
         }
         b.setCreator(val.getCreator());
         diskNameDao.merge(b);
@@ -784,7 +784,7 @@ public class BillingOnClaimPersister {
         BillingONHeader b = dao.find(Integer.parseInt(val.getId()));
         if (b == null) {
             throw new BillingValidationException("Cannot update batch header: row not found [id="
-                    + LogSanitizer.sanitize(val.getId()) + "]");
+                    + LogSafe.sanitize(val.getId()) + "]");
         }
         b.setMohOffice(val.getMohOffice());
         b.setBatchId(val.getBatchId());

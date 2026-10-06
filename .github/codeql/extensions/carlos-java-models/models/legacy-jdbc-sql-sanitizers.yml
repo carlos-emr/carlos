@@ -1,0 +1,16 @@
+# LegacyJdbcQuery - SQL Validator Models
+#
+# LegacyJdbcQuery.trustedSelectSql(String) and trustedReportSelectSql(String)
+# validate legacy SELECT SQL and throw SQLException on unsafe input before
+# returning a TrustedSql token. Model them as neutral so CodeQL does not
+# propagate taint from the raw SQL String argument into the TrustedSql return
+# value after that validation boundary.
+
+extensions:
+
+  - addsTo:
+      pack: codeql/java-all
+      extensible: neutralModel
+    data:
+      - ["io.github.carlos_emr.carlos.db", "LegacyJdbcQuery", "trustedSelectSql", "(java.lang.String)", "summary", "manual"]
+      - ["io.github.carlos_emr.carlos.db", "LegacyJdbcQuery", "trustedReportSelectSql", "(java.lang.String)", "summary", "manual"]

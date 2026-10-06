@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingServiceLine;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Orchestrates the save side of OHIP claim entry: turns a request payload into
  * a {@code BillingONCHeader1} + {@code BillingONItem} graph, persists it via
@@ -302,6 +303,8 @@ public class BillingClaimSubmissionService {
     }
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private BillingClaimHeaderDto getClaimHeader1Obj(HttpServletRequest val) {
         String billtype = requiredParam(val, "xml_billtype");
 
@@ -377,7 +380,7 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
         claim1Header = claim1Header.withAssistantProviderNo("");
-        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user")); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- reads authenticated user from existing session; does not write request data into session
 
         claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
@@ -480,7 +483,7 @@ public class BillingClaimSubmissionService {
         claim1Header = claim1Header.withProviderRmaNo("");
         claim1Header = claim1Header.withAppointmentProviderNo(val.getParameter("apptProvider_no"));
         claim1Header = claim1Header.withAssistantProviderNo("");
-        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user"));
+        claim1Header = claim1Header.withCreator((String) val.getSession().getAttribute("user")); // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- reads authenticated user from existing session; does not write request data into session
         claim1Header = claim1Header.withClinic(val.getParameter("site"));
 
         return claim1Header;
@@ -541,7 +544,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -551,7 +554,7 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -561,17 +564,21 @@ public class BillingClaimSubmissionService {
         } catch (IllegalArgumentException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
     // HCP/WCB/RMB/NOT/PAT/...
+    // hcType comes straight off the request and is absent whenever the patient
+    // has no health-card province on file, so it is compared constant-first: an
+    // ODP claim for such a patient used to NPE here and fail the save with a
+    // bare 500 instead of the out-of-province (RMB) routing the null implies.
     private String getPayProgram(String val, String hcType) {
         String ret = prefix(requiredValue(val, "xml_billtype"), "xml_billtype", 3);
         if (val.startsWith("PAT")) {
             ret = BillingOnConstants.CLAIMHEADER1_PAYMENTPROGRAM_PRIVATE;
         } else if (val.startsWith("ODP")) {
-            ret = hcType.equals("ON") ? "HCP" : "RMB";
+            ret = "ON".equals(hcType) ? "HCP" : "RMB";
         } else if (val.startsWith("BON")) {
             ret = "HCP";
         }
@@ -631,7 +638,7 @@ public class BillingClaimSubmissionService {
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 
@@ -651,7 +658,7 @@ public class BillingClaimSubmissionService {
         if (raw.length() < length) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(0, length);
     }
@@ -661,7 +668,7 @@ public class BillingClaimSubmissionService {
         if (pipe <= 0) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(0, pipe);
     }
@@ -671,7 +678,7 @@ public class BillingClaimSubmissionService {
         if (pipe < 0 || pipe == raw.length() - 1) {
             throw new BillingValidationException(
                     "Billing claim submission: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]");
+                            + LogSafe.sanitizeForDisplay(raw) + "]");
         }
         return raw.substring(pipe + 1);
     }

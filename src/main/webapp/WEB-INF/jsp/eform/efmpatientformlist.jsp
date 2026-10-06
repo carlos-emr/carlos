@@ -78,6 +78,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             <fmt:message key="eform.showmyform.title"/>
         </title>
@@ -132,11 +133,21 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if (parentAjaxId !== "null") {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// Guard the opener: this page is normally an eChart popup, but a direct
+				// navigation (bookmark, new tab) has no opener and the unguarded access
+				// threw a TypeError from the onunload handler on every close. Reading
+				// window.opener.document also throws a cross-origin SecurityError when the
+				// opener is a foreign origin (external-site link opened in a new tab), so the
+				// whole access is wrapped in try/catch to fail closed rather than throw.
+				try {
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener — nothing to update; ignore.
 				}
-
 			}
         </script>
         <style>
@@ -209,7 +220,7 @@
 
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
                                    reverse="<%=false%>">
-                    <a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');" style="color: #835921;">
+                    <a href="#" onclick="javascript: return popup(600, 1200, '${pageContext.request.contextPath}/administration?show=Forms', 'manageeforms');" style="color: #835921;">
                        <fmt:message key="eform.showmyform.msgManageEFrm"/></a>
                 </security:oscarSec>
 
@@ -251,8 +262,7 @@
                         <td><a href="#"
                                ONCLICK="popupPage('efmshowform_data?fdid=<carlos:encode value='<%= (String) curform.get("fdid") %>' context="uriComponent"/>&appointment=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>', '<%="FormP" + i%>'); return false;"
                                TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                               onmouseover="window.status='
-                                    <fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String)curform.get("formName") %>' context="html"/>
+                               onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String)curform.get("formName") %>' context="html"/>
                         </a></td>
                         <td><carlos:encode value='<%= (String)curform.get("formSubject") %>' context="html"/>
                         </td>

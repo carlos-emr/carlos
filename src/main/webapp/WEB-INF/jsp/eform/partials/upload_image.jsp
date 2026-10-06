@@ -38,10 +38,12 @@
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script src="${pageContext.request.contextPath}/js/global.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
@@ -92,7 +94,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             <strong>Success!</strong> Your image was uploaded.
             <c:if test="${ not empty sanitizedFileName }">
-                <br/>Saved as: <strong>${SafeEncode.formHtmlContent(sanitizedFileName)}</strong>
+                <br/>Saved as: <strong>${carlos:forHtmlContent(sanitizedFileName)}</strong>
             </c:if>
         </div>
         <script>
@@ -100,11 +102,11 @@
                 <c:when test="${ not empty sanitizedFileName }">
                     // Delay redirect so user can see the sanitized filename
                     setTimeout(function() {
-                        window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                        window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                     }, 2500);
                 </c:when>
                 <c:otherwise>
-                    window.top.location.href = "<%=request.getContextPath()%>/administration/?show=ImageUpload";
+                    window.top.location.href = "<%=request.getContextPath()%>/administration?show=ImageUpload";
                 </c:otherwise>
             </c:choose>
         </script>

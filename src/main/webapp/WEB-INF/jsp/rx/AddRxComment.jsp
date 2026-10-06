@@ -44,6 +44,8 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String scriptNo = request.getParameter("scriptNo");
     String comment = request.getParameter("comment");

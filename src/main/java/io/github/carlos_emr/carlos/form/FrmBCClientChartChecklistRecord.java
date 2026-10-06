@@ -35,8 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 //	 Referenced classes of package io.github.carlos_emr.carlos.form:
@@ -56,34 +55,35 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
         Properties props = new Properties();
         if (existingID <= 0) {
 
-            ResultSet rs = DBHandler.GetPreSQL("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next()) {
-                java.util.Date date = UtilDateUtilities.calcDate(rs
-                        .getString("year_of_birth"), rs
-                        .getString("month_of_birth"), rs
-                        .getString("date_of_birth"));
-                props.setProperty("demographic_no", rs
-                        .getString("demographic_no"));
-                props.setProperty("formCreated", UtilDateUtilities
-                        .DateToString(new Date(), _dateFormat));
-                props.setProperty("formEdited", UtilDateUtilities.DateToString(
-                        new Date(), _dateFormat));
-                props.setProperty("c_surname", Misc.getString(rs, "last_name"));
-                props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
-                props.setProperty("c_address", Misc.getString(rs, "address"));
-                props.setProperty("c_city", Misc.getString(rs, "city"));
-                props.setProperty("c_province", Misc.getString(rs, "province"));
-                props.setProperty("c_postal", Misc.getString(rs, "postal"));
-                props.setProperty("c_phn", Misc.getString(rs, "hin"));
-                props.setProperty("pg1_dateOfBirth", UtilDateUtilities
-                        .DateToString(date, _dateFormat));
-                props.setProperty("pg1_age", String.valueOf(UtilDateUtilities
-                        .calcAge(date)));
-                props.setProperty("c_phone", Misc.getString(rs, "phone") + "  "
-                        + Misc.getString(rs, "phone2"));
-                props.setProperty("pg1_formDate", UtilDateUtilities
-                        .DateToString(new Date(), _dateFormat));
+            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, address, city, province, postal, phone, phone2, year_of_birth, month_of_birth, date_of_birth, hin FROM demographic WHERE demographic_no = ?",
+                    demographicNo)) {
+                if (rs.next()) {
+                    java.util.Date date = UtilDateUtilities.calcDate(rs
+                            .getString("year_of_birth"), rs
+                            .getString("month_of_birth"), rs
+                            .getString("date_of_birth"));
+                    props.setProperty("demographic_no", rs
+                            .getString("demographic_no"));
+                    props.setProperty("formCreated", UtilDateUtilities
+                            .DateToString(new Date(), _dateFormat));
+                    props.setProperty("formEdited", UtilDateUtilities.DateToString(
+                            new Date(), _dateFormat));
+                    props.setProperty("c_surname", Misc.getString(rs, "last_name"));
+                    props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
+                    props.setProperty("c_address", Misc.getString(rs, "address"));
+                    props.setProperty("c_city", Misc.getString(rs, "city"));
+                    props.setProperty("c_province", Misc.getString(rs, "province"));
+                    props.setProperty("c_postal", Misc.getString(rs, "postal"));
+                    props.setProperty("c_phn", Misc.getString(rs, "hin"));
+                    props.setProperty("pg1_dateOfBirth", UtilDateUtilities
+                            .DateToString(date, _dateFormat));
+                    props.setProperty("pg1_age", String.valueOf(UtilDateUtilities
+                            .calcAge(date)));
+                    props.setProperty("c_phone", Misc.getString(rs, "phone") + "  "
+                            + Misc.getString(rs, "phone2"));
+                    props.setProperty("pg1_formDate", UtilDateUtilities
+                            .DateToString(new Date(), _dateFormat));
+                }
             }
             Clinic clinic = clinicDao.getClinic();
             if (clinic != null) {
@@ -95,20 +95,20 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
             FrmRecordHelp frh = new FrmRecordHelp();
             frh.setDateFormat(_dateFormat);
             props = frh.getFormRecord(sql, demographicNo, existingID);
-            ResultSet rs = DBHelp.searchDBRecord("SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next()) {
-                props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
-                props
-                        .setProperty("c_givenName_cur", rs
-                                .getString("first_name"));
-                props.setProperty("c_address_cur", Misc.getString(rs, "address"));
-                props.setProperty("c_city_cur", Misc.getString(rs, "city"));
-                props.setProperty("c_province_cur", Misc.getString(rs, "province"));
-                props.setProperty("c_postal_cur", Misc.getString(rs, "postal"));
-                props.setProperty("c_phn_cur", Misc.getString(rs, "hin"));
-                props.setProperty("c_phone_cur", Misc.getString(rs, "phone") + "  "
-                        + Misc.getString(rs, "phone2"));
+            try (ResultSet rs = searchDemographicRecord(demographicNo)) {
+                if (rs.next()) {
+                    props.setProperty("c_surname_cur", Misc.getString(rs, "last_name"));
+                    props
+                            .setProperty("c_givenName_cur", rs
+                                    .getString("first_name"));
+                    props.setProperty("c_address_cur", Misc.getString(rs, "address"));
+                    props.setProperty("c_city_cur", Misc.getString(rs, "city"));
+                    props.setProperty("c_province_cur", Misc.getString(rs, "province"));
+                    props.setProperty("c_postal_cur", Misc.getString(rs, "postal"));
+                    props.setProperty("c_phn_cur", Misc.getString(rs, "hin"));
+                    props.setProperty("c_phone_cur", Misc.getString(rs, "phone") + "  "
+                            + Misc.getString(rs, "phone2"));
+                }
             }
         }
         return props;
@@ -142,6 +142,12 @@ public class FrmBCClientChartChecklistRecord extends FrmRecord {
         FrmRecordHelp frh = new FrmRecordHelp();
         frh.setDateFormat(_dateFormat);
         return frh.createActionURL(where, action, demoId, formId);
+    }
+
+    private static ResultSet searchDemographicRecord(int demographicNo) throws SQLException {
+        return LegacyJdbcQuery.getPreparedResultSet(
+                "SELECT last_name, first_name, address, city, province, postal, phone,phone2, hin FROM demographic WHERE demographic_no = ?",
+                demographicNo);
     }
 
     private String _dateFormat;

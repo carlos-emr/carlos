@@ -60,7 +60,6 @@
             && (request.getParameter("submit").equals("Search")
             || request.getParameter("submit").equals("Next Page") || request.getParameter("submit")
             .equals("Last Page"))) {
-        DBPreparedHandler dbObj = new DBPreparedHandler();
         String search_mode = request.getParameter("search_mode") == null ? "search_name" : request
                 .getParameter("search_mode");
         String orderBy = request.getParameter("orderby") == null ? "company_name" : request
@@ -93,24 +92,22 @@
             params.add(keyword + "%");
         }
         String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;
-        // FP for java/Sqli scanners: orderBy and search_mode are validated against the
-        // VALID_COLUMNS allowlist above (fallback to "company_name" on mismatch); keyword is
-        // bound via ? placeholder in the PreparedStatement inside queryResults_paged.
-        ResultSet rs = dbObj.queryResults_paged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1)); // deepcode ignore SqlInjection: allowlisted + PreparedStatement // lgtm[java/sql-injection]
-        int idx = 0;
-        while (rs.next() && idx < Integer.parseInt(strLimit2)) {
-            prop = new Properties();
-            prop.setProperty("id", Misc.getString(rs, "id"));
-            prop.setProperty("attention", Misc.getString(rs, "attention"));
-            prop.setProperty("company_name", Misc.getString(rs, "company_name"));
-            prop.setProperty("address", Misc.getString(rs, "address"));
-            prop.setProperty("city", Misc.getString(rs, "city"));
-            prop.setProperty("province", Misc.getString(rs, "province"));
-            prop.setProperty("postcode", Misc.getString(rs, "postcode"));
-            prop.setProperty("telephone", Misc.getString(rs, "telephone"));
-            prop.setProperty("fax", Misc.getString(rs, "fax"));
-            vec.add(prop);
-            idx++;
+        try (ResultSet rs = LegacyJdbcQuery.queryResultsPaged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1))) {
+            int idx = 0;
+            while (rs.next() && idx < Integer.parseInt(strLimit2)) {
+                prop = new Properties();
+                prop.setProperty("id", Misc.getString(rs, "id"));
+                prop.setProperty("attention", Misc.getString(rs, "attention"));
+                prop.setProperty("company_name", Misc.getString(rs, "company_name"));
+                prop.setProperty("address", Misc.getString(rs, "address"));
+                prop.setProperty("city", Misc.getString(rs, "city"));
+                prop.setProperty("province", Misc.getString(rs, "province"));
+                prop.setProperty("postcode", Misc.getString(rs, "postcode"));
+                prop.setProperty("telephone", Misc.getString(rs, "telephone"));
+                prop.setProperty("fax", Misc.getString(rs, "fax"));
+                vec.add(prop);
+                idx++;
+            }
         }
     }
 %>
@@ -125,12 +122,13 @@
 
 
 <%@page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandler" %>
+<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Add/Edit 3rd Bill Address</title>
         <link rel="stylesheet" type="text/css" href="billingON.css"/>

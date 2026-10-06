@@ -49,7 +49,7 @@ import org.apache.logging.log4j.Logger;
 
 
 import io.github.carlos_emr.OscarDocumentCreator;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * @author jay
@@ -128,7 +128,7 @@ public class ManageLetters {
                 logger.error("Error", e);
             }
         } else {
-            logger.error("Could not find letter for id: {}", LogSanitizer.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Could not find letter for id: {}", LogSafe.sanitize(id)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
     }

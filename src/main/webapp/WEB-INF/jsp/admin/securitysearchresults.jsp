@@ -72,17 +72,16 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.securitysearchresults.title"/></title>
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/jquery.dataTables.min.css"
-              rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
 
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
-        <!-- DataTables 1.13.4 -->
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+        <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
         <script>
             function setfocus() {
                 document.searchprovider.keyword.focus();
@@ -135,7 +134,7 @@
     <table style="width:100%">
         <tr>
             <td style="text-align:left"><i><fmt:message key="admin.search.keywords"/></i>:
-                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/>
+                <carlos:encode value='<%= request.getParameter("keyword") != null ? request.getParameter("keyword") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             </td>
         </tr>
     </table>
@@ -170,8 +169,7 @@
                 <a href='${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityRecord.getId()%>'><carlos:encode value='<%= securityRecord.getUserName() %>' context="html"/>
                 </a></td>
             <td style="text-align:center">*********</td>
-            <td style="text-align:center"><%= securityRecord.getProviderNo() %>
-            </td>
+            <td style="text-align:center"><carlos:encode value='<%= securityRecord.getProviderNo() %>' context="html"/></td>
             <td style="text-align:center">****</td>
         </tr>
         <%

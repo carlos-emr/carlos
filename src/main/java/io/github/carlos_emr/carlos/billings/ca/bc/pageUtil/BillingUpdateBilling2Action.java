@@ -43,7 +43,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -59,6 +59,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
@@ -69,16 +70,18 @@ public final class BillingUpdateBilling2Action
 
     private static Logger log = MiscUtils.getLogger();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException,
             ServletException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
         }
 
         String creator = (String) request.getSession().getAttribute("user");
@@ -90,7 +93,6 @@ public final class BillingUpdateBilling2Action
         recip.setProvince(this.getRecipientProvince());
         recip.setPostal(this.getRecipientPostal());
         recip.setBillingNoString(this.getBillingNo());
-        log.debug("Name of recip " + recip.getName());
         MSPReconcile msprec = new MSPReconcile();
         BillingViewBean bean = new BillingViewBean();
         bean.updateBill(this.getBillingNo(), request.getParameter("billingProvider"));
@@ -102,7 +104,7 @@ public final class BillingUpdateBilling2Action
         } catch (Exception e) {
             throw new IllegalStateException(
                     "BC billing note update failed for billingNo="
-                            + LogSanitizer.sanitizeForDisplay(this.getBillingNo()),
+                            + LogSafe.sanitizeForDisplay(this.getBillingNo()),
                     e);
         }
 

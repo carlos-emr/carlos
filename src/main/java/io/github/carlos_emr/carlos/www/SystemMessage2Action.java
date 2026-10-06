@@ -30,53 +30,37 @@ package io.github.carlos_emr.carlos.www;
 import java.util.Date;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.commn.dao.SystemMessageDao;
 import io.github.carlos_emr.carlos.commn.model.SystemMessage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class SystemMessage2Action extends ActionSupport {
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
+public class SystemMessage2Action extends MessageBannerAction {
 
     private static Logger logger = MiscUtils.getLogger();
 
     private SystemMessageDao systemMessageDao = SpringUtils.getBean(SystemMessageDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        String mtd = request.getParameter("method");
-        if ("edit".equals(mtd)) {
-            return edit();
-        } else if ("save".equals(mtd)) {
-            return save();
-        } else if ("view".equals(mtd)) {
-            return view();
-        }
-        return list();
+    @Override
+    protected SecurityInfoManager securityInfoManager() {
+        return securityInfoManager;
     }
 
+    @Override
     public String list() {
         List<SystemMessage> activeMessages = systemMessageDao.findAll();
         request.setAttribute("ActiveMessages", activeMessages);
         return "list";
     }
 
+    @Override
     public String edit() {
         String messageId = request.getParameter("id");
 
@@ -106,6 +90,7 @@ public class SystemMessage2Action extends ActionSupport {
         return "edit";
     }
 
+    @Override
     public String save() {
 
         SystemMessage msg = this.getSystem_message();
@@ -137,6 +122,7 @@ public class SystemMessage2Action extends ActionSupport {
         return list();
     }
 
+    @Override
     public String view() {
         List<SystemMessage> messages = systemMessageDao.findAll();
         if (messages.size() > 0) {

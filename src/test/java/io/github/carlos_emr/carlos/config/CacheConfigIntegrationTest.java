@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Regression guard for {@link CacheConfig} Spring wiring.
  *
  * <p>The original cache PR registered {@code @Cacheable} / {@code @CacheEvict}
- * annotations on six DAOs but did not wire {@link CacheConfig} into the Spring
+ * annotations on reference-data DAOs but did not wire {@link CacheConfig} into the Spring
  * context, so every annotation became a silent no-op. This test fails fast if
  * the {@link CacheManager} bean is missing or if any expected cache name drops
  * out of the catalogue.</p>
@@ -60,15 +60,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CacheConfigIntegrationTest extends CarlosTestBase {
 
     private static final String[] EXPECTED_CACHE_NAMES = {
-            "providerNames",
-            "activeProviders",
-            "activeProviderSummaries",
-            "appointmentStatuses",
-            "measurementTypes",
-            "lookupLists"
+            CacheConfig.PROVIDER_NAMES,
+            CacheConfig.ACTIVE_PROVIDERS,
+            CacheConfig.ACTIVE_PROVIDER_SUMMARIES,
+            CacheConfig.APPOINTMENT_STATUSES,
+            CacheConfig.MEASUREMENT_TYPES,
+            CacheConfig.LOOKUP_LISTS,
+            CacheConfig.APPOINTMENT_TYPES,
+            CacheConfig.SCHEDULE_TEMPLATE_CODES,
+            CacheConfig.FACILITIES
     };
 
-    private static final String ROLLBACK_TEST_CACHE = "appointmentStatuses";
+    private static final String ROLLBACK_TEST_CACHE = CacheConfig.APPOINTMENT_STATUSES;
     private static final String SEED_KEY = "cacheConfigTest:seed";
     private static final String SEED_VALUE = "initialValue";
     private static final String ROLLBACK_KEY = "cacheConfigTest:rolledBackKey";

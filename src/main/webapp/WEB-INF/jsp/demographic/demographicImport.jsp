@@ -49,6 +49,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao, io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib prefix="s" uri="/struts-tags" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -65,6 +66,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <!--I18n-->
         <title><fmt:message key="admin.admin.DemoImport"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -127,6 +129,7 @@
                         data: new FormData(formData[0]),
                         processData: false,
                         contentType: false,
+                        dataType: "text",
                         success: function (response) {
                             HideSpin();
                             const jsondata = JSON.parse(response.substring(response.indexOf('{'), response.indexOf('}') + 1));
@@ -180,8 +183,21 @@
         </script>
 
     </head>
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
+    <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
     <body vlink="#0000FF">
+<%-- Multipart rejections (an empty part, a file over the 50MB cap, too many
+     files, a field over struts.multipart.maxStringLength, a parse failure) are
+     produced by the interceptor stack BEFORE this page's action runs, and reach
+     this page through its "input" result. The action never executed, so any
+     error channel keyed off an attribute the action sets is empty here -- and
+     without this block the rejection renders the ordinary form again with no
+     explanation, which is indistinguishable from a page refresh. --%>
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert">
+        <s:actionerror/>
+    </div>
+</s:if>
+
 
     <%
         CarlosProperties op = CarlosProperties.getInstance();

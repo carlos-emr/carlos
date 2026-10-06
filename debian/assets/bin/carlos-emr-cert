@@ -1,0 +1,350 @@
+#!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+#
+# TLS certificate management for the CARLOS EMR front door.
+#
+# nginx always reads the same two paths:
+#
+#     /etc/carlos-emr/tls/fullchain.pem
+#     /etc/carlos-emr/tls/privkey.pem
+#
+# and this script decides what is behind them. Keeping the nginx configuration
+# free of certificate paths is what makes switching from the self-signed
+# default to a real Let's Encrypt certificate a one-command operation with no
+# conffile edit and no chance of a typo taking the front door down.
+#
+# Modes, recorded in /etc/carlos-emr/tls/mode:
+#
+#   selfsigned  (default) the pair is generated here. The EMR is served over
+#               TLS from the first minute — browsers warn, but the session is
+#               encrypted and no deployment ever sits on plain HTTP "until we
+#               get around to the certificate".
+#   acme        the pair are symlinks into /etc/letsencrypt/live/<name>/,
+#               managed by certbot.
+#   manual      an operator placed real files there. Nothing here ever
+#               overwrites them.
+#
+# Run as root (the systemd timer and the maintainer scripts do).
+
+set -euo pipefail
+
+CONF_DIR=/etc/carlos-emr
+TLS_DIR="${CONF_DIR}/tls"
+MODE_FILE="${TLS_DIR}/mode"
+FULLCHAIN="${TLS_DIR}/fullchain.pem"
+PRIVKEY="${TLS_DIR}/privkey.pem"
+STAPLING="${CONF_DIR}/nginx/stapling.conf"
+ACME_WEBROOT=/var/lib/carlos-emr/acme
+SELF_SIGNED_DAYS=825
+
+CERT_CHANGED=0
+
+log()  { printf 'carlos-emr-cert: %s\n' "$*"; }
+warn() { printf 'carlos-emr-cert: WARNING: %s\n' "$*" >&2; }
+die()  { printf 'carlos-emr-cert: ERROR: %s\n' "$*" >&2; exit 1; }
+
+server_name() {
+    # shellcheck disable=SC1091
+    [ -r "${CONF_DIR}/carlos-emr.env" ] && . "${CONF_DIR}/carlos-emr.env"
+    printf '%s' "${CARLOS_SERVER_NAME:-localhost}"
+}
+
+current_mode() {
+    [ -r "${MODE_FILE}" ] && cat "${MODE_FILE}" || printf 'selfsigned'
+}
+
+# nginx reads the certificate and key as root, before dropping to www-data, so
+# 0640 root:www-data is sufficient and keeps the key off every other uid on the
+# box — including the application's.
+fix_perms() {
+    [ -e "${FULLCHAIN}" ] || return 0
+    if [ ! -L "${FULLCHAIN}" ]; then
+        chown root:www-data "${FULLCHAIN}" "${PRIVKEY}"
+        chmod 0644 "${FULLCHAIN}"
+        chmod 0640 "${PRIVKEY}"
+    fi
+}
+
+reload_nginx() {
+    if [ ! -d /run/systemd/system ]; then
+        log "no systemd; skipping nginx reload"
+        return 0
+    fi
+    if ! nginx -t >/dev/null 2>&1; then
+        warn "nginx configuration test failed; NOT reloading (the running config is still serving)"
+        nginx -t || true
+        return 1
+    fi
+    systemctl reload nginx.service || systemctl restart nginx.service
+}
+
+# OCSP stapling is only meaningful with a publicly-issued certificate. With a
+# self-signed one nginx logs a resolver failure on every worker start, which
+# buries real errors.
+set_stapling() {
+    install -d -m 0755 "${CONF_DIR}/nginx"
+    if [ "$1" = on ]; then
+        cat > "${STAPLING}" <<'EOS'
+# Managed by carlos-emr-cert. OCSP stapling, enabled because a publicly-issued
+# certificate is in use: the client learns the revocation status from us
+# instead of contacting the CA, which is both faster and one less third party
+# that gets to see which clinic a browser is visiting.
+ssl_stapling on;
+ssl_stapling_verify on;
+resolver 127.0.0.53 valid=300s ipv6=off;
+resolver_timeout 5s;
+EOS
+    else
+        cat > "${STAPLING}" <<'EOS'
+# Managed by carlos-emr-cert. OCSP stapling is off: the certificate in use is
+# self-signed or operator-supplied and may have no OCSP responder, and nginx
+# logs a resolver error on every worker start when stapling is enabled without
+# one.
+EOS
+    fi
+    chmod 0644 "${STAPLING}"
+}
+
+cmd_selfsigned() {
+    local name expiring=0
+    name="$(server_name)"
+    install -d -m 0750 -o root -g www-data "${TLS_DIR}"
+
+    # Exactly one of the pair present is a half-placed operator certificate —
+    # a copy interrupted midway, most often. Regenerating would overwrite the
+    # file they did place. Refuse instead of silently clobbering it.
+    if { [ -e "${FULLCHAIN}" ] && [ ! -e "${PRIVKEY}" ]; } || \
+       { [ ! -e "${FULLCHAIN}" ] && [ -e "${PRIVKEY}" ]; }; then
+        die "exactly one of ${FULLCHAIN} / ${PRIVKEY} exists. That looks like a half-placed certificate; refusing to overwrite it. Remove the remaining file to regenerate, or restore its partner."
+    fi
+
+    if [ -e "${FULLCHAIN}" ]; then
+        if [ "$(current_mode)" != selfsigned ] && [ "${FORCE:-0}" != 1 ]; then
+            # --force is the documented escape hatch and MUST work here: this
+            # is exactly where an operator lands when an ACME name stops
+            # resolving and the front door still has to serve TLS.
+            die "TLS mode is '$(current_mode)'; refusing to overwrite a certificate this script does not manage. Run '$0 selfsigned --force' if that is really what you want."
+        fi
+        if [ "$(current_mode)" != selfsigned ] && [ "${FORCE:-0}" = 1 ]; then
+            log "forcing self-signed mode over '$(current_mode)' as requested"
+            # No pre-deletion: generation writes to .new files and mv -f
+            # REPLACES a symlink path (it does not write through it), so acme
+            # symlinks are displaced atomically only once openssl has
+            # succeeded — deleting first left the front door certificate-less
+            # when generation failed. Review finding, confirmed.
+        fi
+        # Two reasons to regenerate, both guarded so an operator-placed
+        # certificate is never clobbered:
+        #   1. it is about to expire, or
+        #   2. the configured host name changed and the certificate still
+        #      names the old one — but ONLY when the certificate is provably
+        #      ours (self-issued: subject == issuer). Without this, editing
+        #      CARLOS_SERVER_NAME and re-running init-config left the front
+        #      door serving a certificate for the old name.
+        # Otherwise a routine timer run is a no-op and does not churn the
+        # certificate clinicians have accepted.
+        local cur_subject cur_issuer name_changed=0
+        cur_subject="$(openssl x509 -noout -subject -nameopt RFC2253 -in "${FULLCHAIN}" 2>/dev/null || true)"
+        cur_issuer="$(openssl x509 -noout -issuer -nameopt RFC2253 -in "${FULLCHAIN}" 2>/dev/null || true)"
+        if [ "${cur_subject#subject=}" = "${cur_issuer#issuer=}" ] && \
+           ! printf '%s' "${cur_subject}" | grep -q "CN=${name}\(,\|\$\)"; then
+            name_changed=1
+            log "host name changed (certificate is for '${cur_subject#subject=}', configuration says '${name}'); regenerating"
+        fi
+        # A crash between the two mv's below can leave a NEW certificate
+        # paired with the OLD key — a pair nginx refuses to load. The
+        # nothing-to-do path must prove the pair actually matches, or the
+        # rerun (and the twice-daily timer) would keep declaring a broken
+        # pair healthy forever.
+        local pair_ok=1
+        if [ "$(openssl x509 -noout -pubkey -in "${FULLCHAIN}" 2>/dev/null | sha256sum)" != \
+             "$(openssl pkey -pubout -in "${PRIVKEY}" 2>/dev/null | sha256sum)" ]; then
+            pair_ok=0
+            log "certificate and private key DO NOT MATCH (interrupted regeneration?); regenerating the pair"
+        fi
+        if [ "${name_changed}" = 0 ] && [ "${pair_ok}" = 1 ] && \
+           openssl x509 -checkend $((30 * 86400)) -noout -in "${FULLCHAIN}" >/dev/null 2>&1; then
+            if [ "${FORCE:-0}" != 1 ]; then
+                log "self-signed certificate for ${name} is still valid for more than 30 days; nothing to do"
+                CERT_CHANGED=0
+                return 0
+            fi
+        elif [ "${name_changed}" = 0 ] && [ "${pair_ok}" = 1 ]; then
+            expiring=1
+        fi
+    fi
+
+    [ "${expiring}" = 1 ] && log "self-signed certificate is expiring; regenerating"
+    log "generating a ${SELF_SIGNED_DAYS}-day self-signed certificate for ${name}"
+    # RSA 2048 rather than an EC key: every browser, every fax/lab integration
+    # client and every ancient Java HTTP stack that a clinic still has on the
+    # network can validate it. This certificate is a placeholder for a real
+    # one, so breadth of compatibility beats key size.
+    umask 0077
+    openssl req -x509 -newkey rsa:2048 -sha256 -nodes \
+        -days "${SELF_SIGNED_DAYS}" \
+        -subj "/CN=${name}" \
+        -addext "subjectAltName=DNS:${name},DNS:localhost,IP:127.0.0.1" \
+        -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+        -addext "extendedKeyUsage=serverAuth" \
+        -keyout "${PRIVKEY}.new" -out "${FULLCHAIN}.new" >/dev/null 2>&1 \
+        || die "openssl could not generate the certificate"
+    mv -f "${FULLCHAIN}.new" "${FULLCHAIN}"
+    mv -f "${PRIVKEY}.new" "${PRIVKEY}"
+    fix_perms
+    printf 'selfsigned\n' > "${MODE_FILE}"
+    set_stapling off
+    CERT_CHANGED=1
+    log "browsers WILL warn about this certificate. Run 'carlos-ctl cert acme <email>' once the host has a public DNS name and port 80 reachable."
+}
+
+cmd_acme() {
+    local email="${1:-}" name
+    name="$(server_name)"
+    [ -n "${email}" ] || die "usage: carlos-ctl cert acme <admin-email>"
+    command -v certbot >/dev/null 2>&1 \
+        || die "certbot is not installed. apt install certbot"
+    [ "${name}" = localhost ] && die "CARLOS_SERVER_NAME is still 'localhost'. Set the real host name in /etc/carlos-emr/carlos-emr.env first — Let's Encrypt cannot issue for localhost."
+
+    install -d -m 0755 "${ACME_WEBROOT}/.well-known/acme-challenge"
+
+    # --webroot, not --nginx. The nginx plugin rewrites the site file to insert
+    # its own certificate paths, which would fight with the fixed paths this
+    # design relies on and would edit a dpkg conffile behind the
+    # administrator's back. The site already serves the challenge directory.
+    log "requesting a certificate for ${name} from Let's Encrypt"
+    certbot certonly \
+        --webroot -w "${ACME_WEBROOT}" \
+        -d "${name}" \
+        --agree-tos --no-eff-email -m "${email}" \
+        --non-interactive --keep-until-expiring \
+        || die "certbot failed. Port 80 must be reachable from the internet for ${name} and DNS must resolve to this host."
+
+    local live="/etc/letsencrypt/live/${name}"
+    [ -e "${live}/fullchain.pem" ] || die "certbot reported success but ${live}/fullchain.pem does not exist"
+
+    # Symlinks, not copies: certbot rotates the files under
+    # /etc/letsencrypt/live on renewal and a copy would go stale silently,
+    # serving an expired certificate until someone noticed in a browser.
+    ln -sfn "${live}/fullchain.pem" "${FULLCHAIN}"
+    ln -sfn "${live}/privkey.pem" "${PRIVKEY}"
+    printf 'acme\n' > "${MODE_FILE}"
+    set_stapling on
+
+    # Reload nginx whenever certbot renews, without depending on certbot's own
+    # timer having a hook for us.
+    install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
+    cat > /etc/letsencrypt/renewal-hooks/deploy/carlos-emr <<'EOH'
+#!/bin/sh
+# Installed by carlos-emr-cert. Reload nginx after certbot renews, so the new
+# certificate is served without waiting for the next configuration change.
+set -e
+if [ -d /run/systemd/system ] && nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx.service
+fi
+EOH
+    chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/carlos-emr
+
+    reload_nginx
+    log "serving a Let's Encrypt certificate for ${name}"
+}
+
+cmd_manual() {
+    [ -s "${FULLCHAIN}" ] && [ -s "${PRIVKEY}" ] \
+        || die "place your certificate chain at ${FULLCHAIN} and its key at ${PRIVKEY} first"
+    openssl x509 -noout -in "${FULLCHAIN}" >/dev/null 2>&1 \
+        || die "${FULLCHAIN} is not a PEM certificate"
+    fix_perms
+    printf 'manual\n' > "${MODE_FILE}"
+    set_stapling off
+    reload_nginx
+    log "using the operator-supplied certificate; nothing will overwrite it"
+}
+
+cmd_renew() {
+    case "$(current_mode)" in
+        acme)
+            command -v certbot >/dev/null 2>&1 || die "TLS mode is acme but certbot is not installed"
+            # certbot exits 0 when nothing is due, so this is safe twice a day.
+            # --cert-name scopes the run to OUR certificate: without it,
+            # `renew` selects every certificate on the host and the
+            # command-line webroot would override the stored authenticator
+            # config of unrelated certificates an operator manages separately.
+            # No unconditional reload here: the deploy hook installed at
+            # issuance (/etc/letsencrypt/renewal-hooks/deploy/carlos-emr)
+            # reloads nginx exactly when a renewal actually happened —
+            # reloading on every no-op check bounced workers twice a day.
+            certbot renew --quiet --cert-name "$(server_name)" --webroot -w "${ACME_WEBROOT}"
+            ;;
+        selfsigned)
+            # Two guards for the OPERATOR-MID-ADOPTION window: placing a CA
+            # certificate is a two-step flow (copy the pair, then `carlos-ctl
+            # cert manual`), and until the second step the mode file still
+            # says selfsigned — a renewal firing in between must not
+            # regenerate over the operator's freshly placed pair. (A
+            # half-copied pair is already caught earlier by the loud
+            # half-placed-certificate refusal.)
+            cert_subj="$(openssl x509 -in "${TLS_DIR}/fullchain.pem" -noout -subject 2>/dev/null | sed 's/^subject=//')"
+            cert_iss="$(openssl x509 -in "${TLS_DIR}/fullchain.pem" -noout -issuer 2>/dev/null | sed 's/^issuer=//')"
+            if [ -n "${cert_subj}" ] && [ "${cert_subj}" != "${cert_iss}" ]; then
+                log "a certificate that is not self-issued is in place but the mode is still selfsigned;"
+                log "leaving it alone — run 'carlos-ctl cert manual' to adopt it."
+                return 0
+            fi
+            # CERT_CHANGED tells us whether a new pair was actually written;
+            # reloading nginx twice a day for nothing would churn worker
+            # processes and drop keepalive connections mid-consultation.
+            CERT_CHANGED=0
+            cmd_selfsigned
+            if [ "${CERT_CHANGED}" = 1 ]; then
+                reload_nginx
+            fi
+            ;;
+        manual)
+            if ! openssl x509 -checkend $((21 * 86400)) -noout -in "${FULLCHAIN}" >/dev/null 2>&1; then
+                warn "the operator-supplied certificate at ${FULLCHAIN} expires within 21 days and nothing here can renew it."
+                # Non-zero so the systemd unit fails and whatever is watching
+                # unit state raises it. A certificate expiring on a clinic's
+                # front door is an outage with a known date; it should be loud.
+                exit 1
+            fi
+            ;;
+    esac
+}
+
+cmd_status() {
+    printf 'mode:        %s\n' "$(current_mode)"
+    printf 'server_name: %s\n' "$(server_name)"
+    if [ -e "${FULLCHAIN}" ]; then
+        printf 'certificate: %s' "${FULLCHAIN}"
+        [ -L "${FULLCHAIN}" ] && printf ' -> %s' "$(readlink -f "${FULLCHAIN}")"
+        printf '\n'
+        openssl x509 -noout -subject -issuer -dates -in "${FULLCHAIN}" | sed 's/^/  /'
+    else
+        printf 'certificate: MISSING\n'
+    fi
+}
+
+case "${1:-status}" in
+    selfsigned)
+        shift
+        if [ "${1:-}" = --force ]; then FORCE=1; fi
+        cmd_selfsigned
+        # Reload only when a pair was actually written: nginx workers pin the
+        # certificate they loaded, so without this the front door kept serving
+        # the OLD certificate after a regeneration — the observable result
+        # contradicted what the command just said it did.
+        if [ "${CERT_CHANGED}" = 1 ]; then
+            reload_nginx
+        fi
+        ;;
+    acme)       shift; cmd_acme "${1:-}" ;;
+    manual)     cmd_manual ;;
+    renew)      cmd_renew ;;
+    status)     cmd_status ;;
+    *)
+        echo "usage: $0 {selfsigned [--force]|acme <email>|manual|renew|status}" >&2
+        exit 2
+        ;;
+esac

@@ -44,6 +44,23 @@ public class AppointmentType extends AbstractModel<Integer> {
     private String resources = null;
     private int duration = 15;
 
+    public AppointmentType() {
+    }
+
+    private AppointmentType(AppointmentType source) {
+        this.id = source.id;
+        this.name = source.name;
+        this.notes = source.notes;
+        this.reason = source.reason;
+        this.location = source.location;
+        this.resources = source.resources;
+        this.duration = source.duration;
+    }
+
+    public static AppointmentType copyOf(AppointmentType source) {
+        return source == null ? null : new AppointmentType(source);
+    }
+
     @Override
     public Integer getId() {
         return id;

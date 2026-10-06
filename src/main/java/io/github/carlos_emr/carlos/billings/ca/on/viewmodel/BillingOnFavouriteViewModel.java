@@ -42,23 +42,21 @@ public final class BillingOnFavouriteViewModel {
     /** A single dropdown entry in the favourite-name select box. */
     public record FavouriteName(String value) { }
 
-    /**
-     * Trusted-HTML banner rendered without escape on the JSP. Built ONLY by
-     * {@code BillingOnFavouriteViewModelAssembler} from compile-time constants
-     * (e.g. {@code "<font color='red'>NOT</font>"}, {@code "<br>"}) and user
-     * values that have already passed through {@link io.github.carlos_emr
-     * .carlos.utility.SafeEncode#forHtml(String)}. Never set this field
-     * directly from a request parameter without going through the assembler's
-     * encoding layer.
-     */
-    private final String message;
+    /** i18n message key resolved via {@code fmt:message} in the JSP. */
+    private final String messageKey;
+    /** Raw (unencoded) name substituted as {@code {0}} parameter; may be null. */
+    private final String messageName;
+    /** Bootstrap alert class suffix: info, success, warning, or danger. */
+    private final String messageLevel;
     private final String action;
     private final List<FavouriteName> names;
     private final Map<String, String> formFields;
     private final int serviceFieldCount;
 
     private BillingOnFavouriteViewModel(Builder b) {
-        this.message = b.message == null ? "" : b.message;
+        this.messageKey = b.messageKey == null ? "" : b.messageKey;
+        this.messageName = b.messageName;
+        this.messageLevel = b.messageLevel == null ? "info" : b.messageLevel;
         this.action = b.action == null ? "search" : b.action;
         this.names = b.names == null ? Collections.emptyList() : List.copyOf(b.names);
         this.formFields = b.formFields == null
@@ -68,20 +66,26 @@ public final class BillingOnFavouriteViewModel {
 
     public static Builder builder() { return new Builder(); }
 
-    public String getMessage() { return message; }
+    public String getMessageKey() { return messageKey; }
+    public String getMessageName() { return messageName; }
+    public String getMessageLevel() { return messageLevel; }
     public String getAction() { return action; }
     public List<FavouriteName> getNames() { return names; }
     public Map<String, String> getFormFields() { return formFields; }
     public int getServiceFieldCount() { return serviceFieldCount; }
 
     public static final class Builder {
-        private String message;
+        private String messageKey;
+        private String messageName;
+        private String messageLevel;
         private String action;
         private List<FavouriteName> names;
         private Map<String, String> formFields;
         private int serviceFieldCount;
 
-        public Builder message(String v) { this.message = v; return this; }
+        public Builder messageKey(String v) { this.messageKey = v; return this; }
+        public Builder messageName(String v) { this.messageName = v; return this; }
+        public Builder messageLevel(String v) { this.messageLevel = v; return this; }
         public Builder action(String v) { this.action = v; return this; }
         public Builder names(List<FavouriteName> v) { this.names = v; return this; }
         public Builder formFields(Map<String, String> v) { this.formFields = v; return this; }

@@ -94,6 +94,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             <fmt:message key="eform.myform.title"/>
         </title>
@@ -215,7 +216,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="w"
                                    reverse="<%=false%>">
                     <a href="#"
-                       onclick="return popup(600, 1200, '${pageContext.request.contextPath}/administration/?show=Forms', 'manageeforms');"
+                       onclick="return popup(600, 1200, '${pageContext.request.contextPath}/administration?show=Forms', 'manageeforms');"
                        style="color: #835921;"><fmt:message key="eform.showmyform.msgManageEFrm"/></a>
                 </security:oscarSec>
 

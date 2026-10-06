@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class RxUpdateFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,7 +70,12 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         // Setup variables
         int favId = Integer.parseInt(this.getFavoriteId());
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = RxFavoriteOwnership.requireOwnedFavorite(request, response, favId);
+        if (fav == null) {
+            // 403 already written by the ownership check; NONE keeps Struts from
+            // resolving a result on top of the committed error response.
+            return NONE;
+        }
 
         fav.setFavoriteName(this.getFavoriteName());
         fav.setCustomName(this.getCustomName());
@@ -90,7 +96,10 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    public String ajaxEditFavorite() {
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public String ajaxEditFavorite()
+            throws IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "u", null)) {
             throw new RuntimeException("missing required sec object (_rx)");
         }
@@ -98,7 +107,12 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         // Setup variables
         int favId = Integer.parseInt(request.getParameter("favoriteId"));
 
-        RxPrescriptionData.Favorite fav = new RxPrescriptionData().getFavorite(favId);
+        RxPrescriptionData.Favorite fav = RxFavoriteOwnership.requireOwnedFavorite(request, response, favId);
+        if (fav == null) {
+            // 403 already written by the ownership check; NONE keeps Struts from
+            // resolving a result on top of the committed error response.
+            return NONE;
+        }
         String favName = request.getParameter("favoriteName");
         String customName = request.getParameter("customName");
         String takeMin = request.getParameter("takeMin");

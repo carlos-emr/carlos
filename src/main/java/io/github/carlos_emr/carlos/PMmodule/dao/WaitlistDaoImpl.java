@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.match.client.ClientData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyData;
 import io.github.carlos_emr.carlos.match.vacancy.VacancyTemplateData;
 import org.springframework.stereotype.Repository;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class WaitlistDaoImpl implements WaitlistDao {
@@ -390,6 +391,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
             + " ef.var_name in ('age-years','gender','current-housing','preferred-language','location-preferences','referrer-contact-province','contact-province','Age category','prepared-live-toronto','bed_community_program_id','has-mental-illness-primary','current-legal-involvements')"
             + "and LENGTH(ef.var_value)>0 AND not exists (select * from eform_values where ef.demographic_no=demographic_no and var_name=ef.var_name and fdid>ef.fdid)";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<ClientData> getAllClientsData() {
         Map<Integer, ClientData> clientsDataList = new HashMap<Integer, ClientData>();
@@ -431,6 +434,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new ArrayList<ClientData>(clientsDataList.values());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<ClientData> getAllClientsDataByProgramId(int wlProgramId) {
         Map<Integer, ClientData> clientsDataList = new HashMap<Integer, ClientData>();
@@ -473,6 +478,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new ArrayList<ClientData>(clientsDataList.values());
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String[] intakeVarToCriteriaFiled(String varName, String varValue) {
         if ("age-years".equalsIgnoreCase(varName) || "age category".equalsIgnoreCase(varName)) {
             return new String[]{"age", varValue};
@@ -514,6 +521,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return new String[]{varName, varValue};
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public ClientData getClientData(int clientId) {
         ClientData clientData = new ClientData();
@@ -571,6 +580,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
     // private static final String field_type_one = "select_one";
     // private static final String field_type_number = "number";
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public VacancyData loadVacancyData(final int vacancyId) {
         VacancyData vacancyData = new VacancyData();
@@ -621,6 +632,8 @@ public class WaitlistDaoImpl implements WaitlistDao {
         return vacancyData;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public VacancyData loadVacancyData(final int vacancyId, final int wlProgramId) {
         VacancyData vacancyData = new VacancyData();

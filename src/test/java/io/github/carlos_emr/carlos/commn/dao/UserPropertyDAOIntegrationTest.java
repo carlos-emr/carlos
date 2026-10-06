@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -52,6 +53,8 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
+    private static final AtomicInteger UNIQUE_SEQUENCE = new AtomicInteger();
+
     @Autowired
     private UserPropertyDAO userPropertyDAO;
 
@@ -65,6 +68,14 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         return prop;
     }
 
+    private String uniqueProviderNo() {
+        return String.format("U%05d", UNIQUE_SEQUENCE.incrementAndGet());
+    }
+
+    private String uniqueName(String prefix) {
+        return prefix + "-" + UNIQUE_SEQUENCE.incrementAndGet();
+    }
+
     @Nested
     @DisplayName("getProp(providerNo, name)")
     class GetPropByProviderAndName {
@@ -73,11 +84,14 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should return property matching provider number and name")
         void shouldReturnProperty_whenProviderNoAndNameMatch() throws Exception {
-            UserProperty prop1 = createProperty("100", "alpha", "val1");
-            createProperty("200", "bravo", "val2");
-            hibernateTemplate.flush();
+            String matchingProviderNo = uniqueProviderNo();
+            String otherProviderNo = uniqueProviderNo();
+            String matchingName = uniqueName("alpha");
+            UserProperty prop1 = createProperty(matchingProviderNo, matchingName, "val1");
+            createProperty(otherProviderNo, uniqueName("bravo"), "val2");
+            userPropertyDAO.flush();
 
-            UserProperty result = userPropertyDAO.getProp("100", "alpha");
+            UserProperty result = userPropertyDAO.getProp(matchingProviderNo, matchingName);
 
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(prop1.getId());
@@ -87,10 +101,10 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should return null when no property matches provider and name")
         void shouldReturnNull_whenNoPropertyMatchesProviderAndName() throws Exception {
-            createProperty("100", "alpha", "val1");
-            hibernateTemplate.flush();
+            createProperty(uniqueProviderNo(), uniqueName("alpha"), "val1");
+            userPropertyDAO.flush();
 
-            UserProperty result = userPropertyDAO.getProp("999", "nonexistent");
+            UserProperty result = userPropertyDAO.getProp(uniqueProviderNo(), uniqueName("missing"));
             assertThat(result).isNull();
         }
     }
@@ -103,11 +117,12 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @DisplayName("should return property matching name")
         void shouldReturnProperty_whenNameMatches() throws Exception {
-            UserProperty prop1 = createProperty("100", "alpha", "val1");
-            createProperty("200", "bravo", "val2");
-            hibernateTemplate.flush();
+            String matchingName = uniqueName("alpha");
+            UserProperty prop1 = createProperty(uniqueProviderNo(), matchingName, "val1");
+            createProperty(uniqueProviderNo(), uniqueName("bravo"), "val2");
+            userPropertyDAO.flush();
 
-            UserProperty result = userPropertyDAO.getProp("alpha");
+            UserProperty result = userPropertyDAO.getProp(matchingName);
 
             assertThat(result).isNotNull();
             assertThat(result.getId()).isEqualTo(prop1.getId());
@@ -122,12 +137,14 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return all properties for a given provider number")
         void shouldReturnAllProperties_forGivenProviderNo() throws Exception {
-            UserProperty prop1 = createProperty("100", "name1", "val1");
-            createProperty("200", "name2", "val2");
-            UserProperty prop3 = createProperty("100", "name3", "val3");
-            hibernateTemplate.flush();
+            String matchingProviderNo = uniqueProviderNo();
+            String otherProviderNo = uniqueProviderNo();
+            UserProperty prop1 = createProperty(matchingProviderNo, uniqueName("name1"), "val1");
+            createProperty(otherProviderNo, uniqueName("name2"), "val2");
+            UserProperty prop3 = createProperty(matchingProviderNo, uniqueName("name3"), "val3");
+            userPropertyDAO.flush();
 
-            List<UserProperty> result = userPropertyDAO.getDemographicProperties("100");
+            List<UserProperty> result = userPropertyDAO.getDemographicProperties(matchingProviderNo);
 
             assertThat(result).hasSize(2);
             assertThat(result).extracting(UserProperty::getId)
@@ -138,10 +155,10 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return empty list when no properties exist for provider")
         void shouldReturnEmptyList_whenNoPropertiesExistForProvider() throws Exception {
-            createProperty("100", "name1", "val1");
-            hibernateTemplate.flush();
+            createProperty(uniqueProviderNo(), uniqueName("name1"), "val1");
+            userPropertyDAO.flush();
 
-            List<UserProperty> result = userPropertyDAO.getDemographicProperties("999");
+            List<UserProperty> result = userPropertyDAO.getDemographicProperties(uniqueProviderNo());
             assertThat(result).isEmpty();
         }
     }
@@ -154,26 +171,30 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return properties as name-value map for provider")
         void shouldReturnPropertiesAsMap_forGivenProviderNo() throws Exception {
-            createProperty("100", "alpha", "Value1");
-            createProperty("100", "bravo", "Value2");
-            createProperty("200", "charlie", "Value3");
-            hibernateTemplate.flush();
+            String matchingProviderNo = uniqueProviderNo();
+            String otherProviderNo = uniqueProviderNo();
+            String firstName = uniqueName("alpha");
+            String secondName = uniqueName("bravo");
+            createProperty(matchingProviderNo, firstName, "Value1");
+            createProperty(matchingProviderNo, secondName, "Value2");
+            createProperty(otherProviderNo, uniqueName("charlie"), "Value3");
+            userPropertyDAO.flush();
 
-            Map<String, String> result = userPropertyDAO.getProviderPropertiesAsMap("100");
+            Map<String, String> result = userPropertyDAO.getProviderPropertiesAsMap(matchingProviderNo);
 
             assertThat(result).hasSize(2);
-            assertThat(result).containsEntry("alpha", "Value1");
-            assertThat(result).containsEntry("bravo", "Value2");
+            assertThat(result).containsEntry(firstName, "Value1");
+            assertThat(result).containsEntry(secondName, "Value2");
         }
 
         @Test
         @Tag("query")
         @DisplayName("should return empty map when no properties exist for provider")
         void shouldReturnEmptyMap_whenNoPropertiesExistForProvider() throws Exception {
-            createProperty("100", "alpha", "Value1");
-            hibernateTemplate.flush();
+            createProperty(uniqueProviderNo(), uniqueName("alpha"), "Value1");
+            userPropertyDAO.flush();
 
-            Map<String, String> result = userPropertyDAO.getProviderPropertiesAsMap("999");
+            Map<String, String> result = userPropertyDAO.getProviderPropertiesAsMap(uniqueProviderNo());
             assertThat(result).isEmpty();
         }
     }

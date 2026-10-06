@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -118,7 +119,7 @@ public class EFormsService extends AbstractServiceImpl
 			logger.error("eForm image directory is not configured");
 			return RestResponse.errorResponse("Image directory not configured");
 		}
-		File directory = new File(imageHomeDir);
+		File directory = PathValidationUtils.resolveConfiguredDirectory(imageHomeDir, "EFORM_IMAGES_DIR");
 		if (!directory.isDirectory()) {
 			logger.error("eForm image directory does not exist: {}", imageHomeDir);
 			return RestResponse.errorResponse("Image directory not available");

@@ -22,9 +22,11 @@
  */
 package io.github.carlos_emr.carlos.test.base;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
@@ -50,6 +52,7 @@ import static org.mockito.Mockito.when;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -76,6 +79,7 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
 
     // Map to store request parameters
     protected Map<String, String[]> requestParameters;
+    private final Map<String, ReplacedSpringBean> replacedSpringBeans = new LinkedHashMap<>();
 
     @BeforeEach
     public void setUpWeb() {
@@ -165,14 +169,52 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
             String beanName = beanClass.getSimpleName();
             beanName = Character.toLowerCase(beanName.charAt(0)) + beanName.substring(1);
 
-            if (beanFactory instanceof org.springframework.beans.factory.support.DefaultListableBeanFactory) {
-                var factory = (org.springframework.beans.factory.support.DefaultListableBeanFactory) beanFactory;
+            if (beanFactory instanceof DefaultListableBeanFactory) {
+                var factory = (DefaultListableBeanFactory) beanFactory;
+                rememberReplacedBean(factory, beanName);
                 factory.destroySingleton(beanName);
                 factory.registerSingleton(beanName, mockBean);
             }
         } catch (Exception e) {
             logger.warn("Could not replace SpringUtils bean: {}", beanClass.getName(), e);
         }
+    }
+
+    @AfterEach
+    void restoreSpringUtilsBeans() {
+        try {
+            var beanFactory = applicationContext.getAutowireCapableBeanFactory();
+            if (beanFactory instanceof DefaultListableBeanFactory) {
+                var factory = (DefaultListableBeanFactory) beanFactory;
+                for (Map.Entry<String, ReplacedSpringBean> entry : replacedSpringBeans.entrySet()) {
+                    String beanName = entry.getKey();
+                    ReplacedSpringBean replacedBean = entry.getValue();
+                    factory.destroySingleton(beanName);
+                    if (!replacedBean.hadBeanDefinition() && replacedBean.originalSingleton() != null) {
+                        factory.registerSingleton(beanName, replacedBean.originalSingleton());
+                    }
+                }
+            }
+        } finally {
+            replacedSpringBeans.clear();
+            ActionContext.clear();
+        }
+    }
+
+    private void rememberReplacedBean(DefaultListableBeanFactory factory, String beanName) {
+        if (replacedSpringBeans.containsKey(beanName)) {
+            return;
+        }
+
+        boolean hadBeanDefinition = factory.containsBeanDefinition(beanName);
+        Object originalSingleton = null;
+        if (!hadBeanDefinition && factory.containsSingleton(beanName)) {
+            originalSingleton = factory.getSingleton(beanName);
+        }
+        replacedSpringBeans.put(beanName, new ReplacedSpringBean(hadBeanDefinition, originalSingleton));
+    }
+
+    private record ReplacedSpringBean(boolean hadBeanDefinition, Object originalSingleton) {
     }
 
     /**
@@ -280,6 +322,38 @@ public abstract class CarlosWebTestBase extends CarlosTestBase {
      */
     protected MockHttpSession getMockSession() {
         return mockSession;
+    }
+
+    /**
+     * Sets a private collaborator field on an action under test.
+     *
+     * <p>Several legacy {@code *2Action} classes resolve their collaborators through
+     * {@code SpringUtils} in a field initializer, which runs before a test can stub anything.
+     * Replacing the bean in {@code SpringUtils} is therefore not enough for an action that is
+     * already constructed, and each such test grew an identical private reflection helper.
+     * This is that helper, once, walking the hierarchy so a field declared on a superclass
+     * still resolves.
+     *
+     * @param target    the action instance to mutate
+     * @param fieldName the declared field to replace
+     * @param value     the mock (or stub) to inject
+     */
+    protected void injectField(Object target, String fieldName, Object value) {
+        Class<?> type = target.getClass();
+        while (type != null) {
+            try {
+                java.lang.reflect.Field field = type.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                field.set(target, value);
+                return;
+            } catch (NoSuchFieldException e) {
+                type = type.getSuperclass();
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException("Failed to inject " + fieldName, e);
+            }
+        }
+        throw new IllegalStateException(
+                "No field '" + fieldName + "' on " + target.getClass().getName() + " or its superclasses");
     }
 
     /**

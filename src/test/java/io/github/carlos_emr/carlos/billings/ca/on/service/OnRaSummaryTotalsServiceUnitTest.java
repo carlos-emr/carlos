@@ -69,8 +69,8 @@ class OnRaSummaryTotalsServiceUnitTest {
     @Test
     void shouldMergePersist_whenAllInputsValid() {
         RaHeader header = new RaHeader();
-        header.setContent("<xml_transaction>T1</xml_transaction>"
-                + "<xml_balancefwd>5.00</xml_balancefwd>");
+        header.setContent("<xml_transaction><row>existing</row></xml_transaction>"
+                + "<xml_balancefwd><claimsAdjustment>1</claimsAdjustment></xml_balancefwd>");
         when(raHeaderDao.find(42)).thenReturn(header);
 
         service.mergeTotals("42",
@@ -82,8 +82,8 @@ class OnRaSummaryTotalsServiceUnitTest {
         verify(raHeaderDao).merge(captor.capture());
         String content = captor.getValue().getContent();
         // Existing transaction + balanceFwd preserved
-        assertThat(content).contains("<xml_transaction>T1</xml_transaction>");
-        assertThat(content).contains("<xml_balancefwd>5.00</xml_balancefwd>");
+        assertThat(content).contains("<xml_transaction><row>existing</row></xml_transaction>");
+        assertThat(content).contains("<xml_balancefwd><claimsAdjustment>1</claimsAdjustment></xml_balancefwd>");
         // New totals written
         assertThat(content).contains("<xml_local>10.00</xml_local>");
         assertThat(content).contains("<xml_total>20.00</xml_total>");

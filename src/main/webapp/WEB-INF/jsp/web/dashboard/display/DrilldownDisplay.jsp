@@ -39,6 +39,7 @@
 <!DOCTYPE html >
 <html lang="">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Dashboard Drilldown</title>
 
     <link rel="stylesheet" type="text/css"

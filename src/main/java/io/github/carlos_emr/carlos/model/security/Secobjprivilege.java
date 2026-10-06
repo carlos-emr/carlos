@@ -26,6 +26,11 @@
 
 package io.github.carlos_emr.carlos.model.security;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "secObjPrivilege")
+@org.hibernate.annotations.DynamicInsert
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
+@jakarta.persistence.IdClass(Secobjprivilege.JpaId.class)
 public class Secobjprivilege implements java.io.Serializable {
 
     // Fields
@@ -59,9 +64,10 @@ public class Secobjprivilege implements java.io.Serializable {
         this.roleusergroup = roleusergroup;
         this.objectname_code = objectname;
         this.privilege_code = privilege;
-        this.priority = priority;
+        setPriority(priority);
         this.providerNo = providerNo;
     }
+    @jakarta.persistence.Transient
 
     public String getPrivilege_desc() {
         return privilege_desc;
@@ -70,14 +76,16 @@ public class Secobjprivilege implements java.io.Serializable {
     public void setPrivilege_desc(String privilegeDesc) {
         this.privilege_desc = privilegeDesc;
     }
+    @jakarta.persistence.Column(name = "priority", columnDefinition = "integer default 0")
 
     public Integer getPriority() {
         return this.priority;
     }
 
     public void setPriority(Integer priority) {
-        this.priority = priority;
+        this.priority = priority == null ? 0 : priority;
     }
+    @jakarta.persistence.Column(name = "provider_no", length = 6)
 
     public String getProviderNo() {
         return this.providerNo;
@@ -86,6 +94,9 @@ public class Secobjprivilege implements java.io.Serializable {
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "objectName", length = 100)
 
     public String getObjectname_code() {
         return objectname_code;
@@ -94,6 +105,7 @@ public class Secobjprivilege implements java.io.Serializable {
     public void setObjectname_code(String objectname_code) {
         this.objectname_code = objectname_code;
     }
+    @jakarta.persistence.Transient
 
     public String getObjectname_desc() {
         return objectname_desc;
@@ -102,6 +114,7 @@ public class Secobjprivilege implements java.io.Serializable {
     public void setObjectname_desc(String objectname_desc) {
         this.objectname_desc = objectname_desc;
     }
+    @jakarta.persistence.Column(name = "privilege", length = 100)
 
     public String getPrivilege_code() {
         return privilege_code;
@@ -110,6 +123,9 @@ public class Secobjprivilege implements java.io.Serializable {
     public void setPrivilege_code(String privilege_code) {
         this.privilege_code = privilege_code;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.Column(name = "roleUserGroup", length = 30)
 
     public String getRoleusergroup() {
         return roleusergroup;
@@ -150,5 +166,41 @@ public class Secobjprivilege implements java.io.Serializable {
                 + (getObjectname_code() == null ? 0 : this.getObjectname_code()
                 .hashCode());
         return result;
+    }
+
+    public static class JpaId implements java.io.Serializable {
+        public String roleusergroup;
+        public String objectname_code;
+
+        public JpaId() {
+        }
+
+        public String getRoleusergroup() {
+            return roleusergroup;
+        }
+
+        public void setRoleusergroup(String roleusergroup) {
+            this.roleusergroup = roleusergroup;
+        }
+
+        public String getObjectname_code() {
+            return objectname_code;
+        }
+
+        public void setObjectname_code(String objectname_code) {
+            this.objectname_code = objectname_code;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof JpaId other)) return false;
+            return java.util.Objects.equals(roleusergroup, other.roleusergroup) && java.util.Objects.equals(objectname_code, other.objectname_code);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(roleusergroup, objectname_code);
+        }
     }
 }

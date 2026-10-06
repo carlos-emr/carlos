@@ -123,6 +123,15 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         return m;
     }
 
+    private Measurement createAndPersistWithCreateDate(int demoNo, String type, String dataField,
+                                                        Date dateObserved, Date createDate) {
+        Measurement m = createMeasurement(demoNo, type, dataField, dateObserved);
+        m.setCreateDate(createDate);
+        entityManager.persist(m);
+        entityManager.flush();
+        return m;
+    }
+
     private Measurement createAndPersistWithInstruction(int demoNo, String type, String dataField,
                                                          Date dateObserved, String instruction) {
         Measurement m = createMeasurement(demoNo, type, dataField, dateObserved);
@@ -477,8 +486,8 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return most recently entered measurement for demo and type")
         void shouldReturnLastEntered_forDemoAndType() {
             // Given
-            createAndPersist(DEMO_NO, "BP", "110/70", yesterday);
-            createAndPersist(DEMO_NO, "BP", "120/80", today);
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "110/70", today, yesterday);
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "120/80", yesterday, today);
 
             // When
             Measurement result = measurementDao.findLastEntered(DEMO_NO, "BP");

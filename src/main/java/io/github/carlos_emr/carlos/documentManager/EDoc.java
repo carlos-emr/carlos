@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tags.TagObject;
@@ -49,6 +50,7 @@ import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EDoc extends TagObject implements Comparable<EDoc> {
     private static final Logger logger = MiscUtils.getLogger();
@@ -231,10 +233,13 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         this.filePath = filePath;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public OutputStream getFileOutputStream() throws FileNotFoundException {
         OutputStream os = null;
         try {
-            os = new FileOutputStream(getFilePath());
+            File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+            os = new FileOutputStream(PathValidationUtils.validateChildPath(new File(getFilePath()), documentDir));
         } catch (FileNotFoundException fnfe) {
             logger.error("Could not write to the document container", fnfe);
             throw fnfe;
@@ -242,8 +247,11 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return os;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public byte[] getFileBytes() throws IOException {
-        return (FileUtils.readFileToByteArray(new File(getFilePath())));
+        File documentDir = PathValidationUtils.resolveConfiguredDirectory(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
+        return (FileUtils.readFileToByteArray(PathValidationUtils.validateExistingPath(new File(getFilePath()), documentDir)));
     }
     // Getter/Setter methods...
 
@@ -412,6 +420,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     }
 
     // docPublic = "checked" for the edoc to be public
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setDocPublic(String docPublic) {
         if (docPublic.equalsIgnoreCase("checked")) this.docPublic = "1";
         else if (docPublic == null || docPublic.length() == 0) this.docPublic = "0";
@@ -423,6 +433,8 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return abnormal;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setAbnormal(String abnormal) {
         if (abnormal == null || abnormal.length() == 0) this.abnormal = "false";
         else if (abnormal.equalsIgnoreCase("checked")) this.abnormal = "true";

@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.utility.LocaleUtils;
 
 import java.util.List;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Static helper methods for demographic edit and add JSP pages.
@@ -112,6 +113,8 @@ public final class DemographicEditHelper {
      * @param sexCode String the stored sex code (for example "M", "F", "X", "O")
      * @return String the oscarResources key for display
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static String getGenderMessageKey(String sexCode) {
         String normalizedSexCode = sexCode == null ? "U" : sexCode.trim().toUpperCase(Locale.ENGLISH);
         switch (normalizedSexCode) {

@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -55,6 +56,7 @@ import org.apache.struts2.ServletActionContext;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that processes a new patient demographic record creation.
@@ -78,13 +80,34 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DemographicDao demographicDao;
+    private final transient DemographicCustDao demographicCustDao;
+    private final transient DemographicExtDao demographicExtDao;
+    private final transient DemographicArchiveDao demographicArchiveDao;
+    private final transient DemographicExtArchiveDao demographicExtArchiveDao;
+    private final transient WaitingListDao waitingListDao;
+
+    public DemographicAddRecord2Action(
+            SecurityInfoManager securityInfoManager,
+            DemographicDao demographicDao,
+            DemographicCustDao demographicCustDao,
+            DemographicExtDao demographicExtDao,
+            DemographicArchiveDao demographicArchiveDao,
+            DemographicExtArchiveDao demographicExtArchiveDao,
+            WaitingListDao waitingListDao) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicDao = demographicDao;
+        this.demographicCustDao = demographicCustDao;
+        this.demographicExtDao = demographicExtDao;
+        this.demographicArchiveDao = demographicArchiveDao;
+        this.demographicExtArchiveDao = demographicExtArchiveDao;
+        this.waitingListDao = waitingListDao;
+    }
+
+    public DemographicAddRecord2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(DemographicDao.class), SpringUtils.getBean(DemographicCustDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(DemographicExtArchiveDao.class), SpringUtils.getBean(WaitingListDao.class));
+    }
 
     /**
      * Processes a demographic add form POST, persisting all related records and
@@ -129,7 +152,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         Demographic demographic = new Demographic();
         demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(StringUtils.trimToEmpty(request.getParameter("middleNames")));
+        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         demographic.setPrefName(request.getParameter("nameUsed"));
         demographic.setAddress(request.getParameter("address"));
@@ -210,12 +233,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
             demographic.setHcRenewDate(null);
         }
 
-        demographic.setFamilyDoctor(
-                "<rdohip>" + request.getParameter("r_doctor_ohip") + "</rdohip>" +
-                "<rd>" + request.getParameter("r_doctor") + "</rd>" +
-                (request.getParameter("family_doc") != null
-                        ? "<family_doc>" + request.getParameter("family_doc") + "</family_doc>"
-                        : ""));
+        demographic.setFamilyDoctor(DemographicXml.familyDoctor(
+                request.getParameter("r_doctor_ohip"),
+                request.getParameter("r_doctor"),
+                request.getParameter("family_doc")));
         demographic.setCountryOfOrigin(request.getParameter("countryOfOrigin"));
         demographic.setNewsletter(request.getParameter("newsletter"));
         demographic.setSin(request.getParameter("sin"));
@@ -277,7 +298,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographicCust.setNurse(request.getParameter("cust1"));
         demographicCust.setAlert(request.getParameter("cust3"));
         demographicCust.setMidwife(request.getParameter("cust4"));
-        demographicCust.setNotes("<unotes>" + request.getParameter("content") + "</unotes>");
+        demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("content")));
         demographicCust.setId(demographic.getDemographicNo());
         demographicCustDao.persist(demographicCust);
 
@@ -439,5 +460,12 @@ public class DemographicAddRecord2Action extends ActionSupport {
         request.setAttribute("remarks", request.getParameter("remarks"));
 
         return SUCCESS;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static String normalizeOptionalMiddleNames(String rawMiddleNames) {
+        String middleNames = StringUtils.trimToEmpty(rawMiddleNames);
+        return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;
     }
 }

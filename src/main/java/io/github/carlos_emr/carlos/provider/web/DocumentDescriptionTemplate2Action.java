@@ -43,12 +43,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DocumentDescriptionTemplate2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -61,6 +62,8 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
@@ -68,6 +71,16 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         }
 
         String method = request.getParameter("method");
+        if (isMutatingMethod(method) && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            try {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED,
+                        "GET requests are not allowed on this endpoint. Use POST.");
+            } catch (IOException e) {
+                throw new IllegalStateException("Unable to reject document-description mutation", e);
+            }
+            return NONE;
+        }
         if ("getDocumentDescriptionFromDocType".equals(method)) {
             return getDocumentDescriptionFromDocType();
         } else if ("getDocumentDescriptionFromId".equals(method)) {
@@ -82,6 +95,13 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
             return saveDocumentDescriptionTemplatePreference();
         } 
         return SUCCESS;
+    }
+
+    private static boolean isMutatingMethod(String method) {
+        return "addDocumentDescription".equals(method)
+                || "updateDocumentDescription".equals(method)
+                || "deleteDocumentDescription".equals(method)
+                || "saveDocumentDescriptionTemplatePreference".equals(method);
     }
 
     public String getDocumentDescriptionFromDocType() {
@@ -130,7 +150,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.persist(documentDescriptionTemplate);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
+        LogAction.addLog(loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null, LogConst.ADD, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, "[" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -150,7 +170,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         documentDescriptionTemplate.setProviderNo(providerNo);
         this.documentDescriptionTemplateDao.merge(documentDescriptionTemplate);
         LoggedInInfo loggedInInfoUpdate = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(providerNo), request.getRemoteAddr(), null, LogSanitizer.sanitize(ids) + " [" + LogSanitizer.sanitize(docType) + "] " + LogSanitizer.sanitize(descriptionShortcut) + " | " + LogSanitizer.sanitize(description));
+        LogAction.addLog(loggedInInfoUpdate != null ? loggedInInfoUpdate.getLoggedInProviderNo() : null, LogConst.UPDATE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(providerNo), request.getRemoteAddr(), null, LogSafe.sanitize(ids) + " [" + LogSafe.sanitize(docType) + "] " + LogSafe.sanitize(descriptionShortcut) + " | " + LogSafe.sanitize(description));
         return null;
     }
 
@@ -159,7 +179,7 @@ public class DocumentDescriptionTemplate2Action extends ActionSupport {
         Integer id = Integer.valueOf(ids);
         this.documentDescriptionTemplateDao.remove(id);
         LoggedInInfo loggedInInfoDelete = LoggedInInfo.getLoggedInInfoFromSession(request);
-        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSanitizer.sanitize(ids), request.getRemoteAddr());
+        LogAction.addLog(loggedInInfoDelete != null ? loggedInInfoDelete.getLoggedInProviderNo() : null, LogConst.DELETE, LogConst.CON_DOCUMENTDESCRIPTIONTEMPLATE, LogSafe.sanitize(ids), request.getRemoteAddr());
         return null;
     }
 

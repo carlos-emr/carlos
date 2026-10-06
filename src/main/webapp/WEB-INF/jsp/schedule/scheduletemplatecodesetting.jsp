@@ -81,6 +81,7 @@
 %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="schedule.scheduletemplatecodesetting.title"/></title>
 
         <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>

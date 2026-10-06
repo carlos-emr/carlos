@@ -47,9 +47,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
 
 import io.github.carlos_emr.CarlosProperties;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Servlet filter that enforces authentication and session management for CARLOS EMR.
@@ -74,7 +79,7 @@ import io.github.carlos_emr.CarlosProperties;
  * <ul>
  *   <li><b>EXEMPT_URLS:</b> URLs that don't require authentication (login page, public assets, web services)</li>
  *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT:</b> URLs that don't reset the inactivity timer (AJAX polling, etc.)</li>
- *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT:</b> URLs exempt from timeout redirect (already on logout/login pages)</li>
+ *   <li><b>EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT:</b> unauthenticated public pages exempt from timeout redirect loops</li>
  * </ul>
  *
  * <p>Inactivity timeout behavior:
@@ -127,13 +132,16 @@ public class LoginFilter implements Filter {
     /** Pre-compiled pattern for collapsing consecutive slashes. */
     private static final Pattern REPEATED_SLASH_PATTERN = Pattern.compile("/+");
 
+    private static final String LOGOUT_PATH = "/logout";
+
     /**
      * URLs exempt from authentication requirement.
      *
      * <p>Requests to these URLs bypass session validation and are allowed
      * without an authenticated session. This includes:
      * <ul>
-     *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /login})</li>
+     *   <li>Login/logout pages ({@code /index}, {@code /logoutPage}, {@code /logout}, {@code /login})</li>
+     *   <li>Forced password-reset entrypoints ({@code /forcepasswordreset}, {@code /forcepasswordresetSubmit})</li>
      *   <li>Public static resources (images, CSS, JavaScript, fonts)</li>
      *   <li>Lab upload endpoints (for external lab system integration)</li>
      *   <li>PDF generation servlets (for external document generation)</li>
@@ -144,28 +152,63 @@ public class LoginFilter implements Filter {
      *
      * <p>SECURITY NOTE: Any URL added to this list will be publicly accessible
      * without authentication. Ensure no PHI-exposing endpoints are included.
+     * Exempting a POST endpoint from this filter does not exempt it from CSRFGuard; for example,
+     * {@code /forcepasswordresetSubmit} must remain CSRF-protected and must validate the staged
+     * credential-cache token before changing a password.
      */
     private static final String[] EXEMPT_URLS = {
             "/images/Oscar.ico",
             "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
             "/images/cloud-bg.svg",
+            "/library/bootstrap/",
+            "/library/jquery/",
+            // Flatpickr backs the /share/calendar/ shim below; both are static widget assets
+            // (no PHI) the sessionless browser-PDF renderer must fetch without a session.
+            //
+            // These CANNOT be moved to the renderer's per-render grant instead — that was tried and
+            // reverted. The grant is built by statically scanning the composed eForm HTML for
+            // <link>/<script> and CSS references, and calendar.js injects flatpickr at RUNTIME
+            // (createElement("script"); js.src = basePath + "library/flatpickr/flatpickr.min.js",
+            // calendar.js:108-109). A URL that only exists once the page runs is invisible to that
+            // scan, so dropping these entries breaks every date-picker eForm render. Same shape as
+            // the runtime signature stamp, which needed its own explicit allowance for the same
+            // reason. LoginFilterUnitTest pins both.
+            "/library/flatpickr/",
             "/signature_pad/",
+            "/share/css/",
+            // Static calendar widget assets (no PHI): legacy eForms reference them relatively, and
+            // the sessionless browser-PDF renderer must fetch them like /share/css/ above.
+            "/share/calendar/",
+            "/share/javascript/carlos-ajax.js",
+            "/share/javascript/Oscar.js",
             "/lab/CMLlabUpload",
             "/lab/newLabUpload",
             "/login",
             "/logoutPage",
+            LOGOUT_PATH,
             "/index",
             "/forcepasswordreset",
+            "/forcepasswordresetSubmit",
             "/loginfailed",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface (loopback-only). These routes are exempt from the login
+            // redirect because each servlet performs its OWN authorization: the render page accepts a
+            // render-scoped token OR an authenticated _eform session; the signature route requires a
+            // live render grant on the loopback path; the image route accepts a live render grant as a
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
-            "/js/bootstrap",
-            "/css/bootstrap",
+            "/EFormApCacheForPdfGenerationServlet",
+            "/js/global.js",
+            "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
             "/loginResource",
             "/css/font/Roboto",
@@ -174,6 +217,29 @@ public class LoginFilter implements Filter {
 		// Heartbeat endpoint must be reachable without an active session so windows
 		// can detect server-side logout/timeout even after the session has been destroyed
 		"/status/SessionHeartbeat"
+    };
+
+    private static final String[] PENDING_FACILITY_SELECTION_URLS = {
+            "/select_facility",
+            LOGOUT_PATH,
+            "/logoutPage",
+            "/images/Oscar.ico",
+            "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
+            "/images/cloud-bg.svg",
+            "/library/bootstrap/",
+            "/library/jquery/",
+            "/library/flatpickr/",
+            "/share/css/",
+            "/share/calendar/",
+            "/share/javascript/carlos-ajax.js",
+            "/share/javascript/Oscar.js",
+            "/css/fontawesome-all.min.css",
+            "/css/Roboto.css",
+            "/css/font/Roboto",
+            "/csrfguard",
+            "/status/SessionHeartbeat"
     };
 
     /**
@@ -194,24 +260,40 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT = {
             "/images/Oscar.ico",
             "/images/Logo.png",
+            "/images/favicon.ico",
+            "/images/OSCAR-LOGO.gif",
+            "/library/bootstrap/",
+            "/library/jquery/",
+            "/share/css/",
+            "/share/javascript/carlos-ajax.js",
+            "/share/javascript/Oscar.js",
             "/login",
             "/logoutPage",
+            LOGOUT_PATH,
             "/index",
             "/loginfailed",
             "/eformViewForPdfGenerationServlet",
             "/LabViewForPdfGenerationServlet",
             "/oscarFacesheet/token_error.jsp",
             "/ws/",
+            // Session-less renderer surface (loopback-only). These routes must not refresh the
+            // authenticated session's inactivity timer (this list controls the timer only, not the
+            // login redirect); each servlet performs its OWN authorization: the render page accepts a
+            // render-scoped token OR an authenticated _eform session; the signature route requires a
+            // live render grant on the loopback path; the image route accepts a live render grant as a
+            // session alternative for shared template assets; the APCache bridge requires a live
+            // render grant AND a per-key grant, and derives patient/provider identity from the
+            // grant rather than the request. They are NOT uniformly single-use-token gated.
             "/EFormViewForPdfGenerationServlet",
             "/EFormSignatureViewForPdfGenerationServlet",
             "/EFormImageViewForPdfGenerationServlet",
+            "/EFormApCacheForPdfGenerationServlet",
             "/provider/providercontrol",
-            "/js",
             "/provider/ViewTabAlertsRefresh",
             "/SystemMessage",
             "/FacilityMessage",
-            "/js/bootstrap",
-            "/css/bootstrap",
+            "/js/global.js",
+            "/css/fontawesome-all.min.css",
             "/css/Roboto.css",
             "/loginResource",
             "/css/font/Roboto",
@@ -225,9 +307,12 @@ public class LoginFilter implements Filter {
      *
      * <p>If inactivity timeout is exceeded, users are normally redirected to
      * {@code /logoutPage}. However, if the user is already on one of these pages,
-     * the redirect is skipped to avoid infinite redirect loops.
+     * the redirect is skipped to avoid infinite redirect loops. Keep this list limited
+     * to unauthenticated public pages and the logout cleanup action; adding authenticated
+     * pages would turn timeout checker failures into a fail-open path for protected content.
      */
     private static final String[] EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT = {
+            LOGOUT_PATH,
             "/logoutPage",
             "/index",
             "/loginfailed"
@@ -272,8 +357,8 @@ public class LoginFilter implements Filter {
      *
      * <p>Session validation:
      * <ul>
-     *   <li>If no session or no "user" attribute → redirect to {@code /logoutPage}
-     *       (unless URL is exempt)</li>
+     *   <li>If no session or no "user" attribute → reject through
+     *       {@link UnauthenticatedRejectionResolver} unless URL is exempt</li>
      *   <li>If session exists → check inactivity timeout</li>
      * </ul>
      *
@@ -291,6 +376,9 @@ public class LoginFilter implements Filter {
      * @throws ServletException if servlet-level error occurs during filtering
      * @see SecurityTokenManager for token-based authentication
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @SuppressWarnings("java:S6541") // Existing authentication/session gate; broad refactor is outside this PR.
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         logger.debug("Entering LoginFilter.doFilter()");
 
@@ -317,6 +405,10 @@ public class LoginFilter implements Filter {
             if (request.getParameter("token") != null || request.getAttribute("token") != null) {
                 boolean success = stm.handleToken(httpRequest, httpResponse, chain);
                 if (!success) {
+                    logger.warn("Rejected token authentication request: uri={}, remote={}",
+                            LogSafe.sanitize(normalizeUri(requestURI)),
+                            LogSafe.sanitize(httpRequest.getRemoteAddr()));
+                    auditRejectedTokenAuthentication(httpRequest.getRemoteAddr());
                     return;
                 }
             }
@@ -325,13 +417,26 @@ public class LoginFilter implements Filter {
         // Retrieve existing session without creating new one
         HttpSession session = httpRequest.getSession(false);
         // Redirect to logout page if no valid authenticated session exists
-        if (session == null || session.getAttribute("user") == null) {
+        if (session == null || !hasAuthenticatedUser(session)) {
 
             // If the requested resource is not exempt, redirect to logout page
             // SECURITY: Root directory auto-exemption was removed to prevent
             // accidental exposure of resources. All exemptions must be explicit.
-            if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)) {
-                httpResponse.sendRedirect(contextPath + "/logoutPage");
+            if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS)
+                    && !io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
+                            .permitsStaticRequest(httpRequest)) {
+                // The PDF render browser must never be sent to the login page. That rejection is a
+                // 302 to /logoutPage, which answers 200 text/html — and the renderer's network gate
+                // only counts status >= 400, so a denied stylesheet or background image would be
+                // recorded as a successful load and print as a blank region of a clinical PDF. Fail
+                // with a status the gate can actually see.
+                if (io.github.carlos_emr.carlos.eform.util.EFormRendererRequestAuthorization
+                        .isRendererRequest(httpRequest)) {
+                    logger.warn("Renderer requested a resource outside its grant; denying with 403");
+                    httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                    return;
+                }
+                UnauthenticatedRejectionResolver.rejectUnauthenticatedRequest(httpRequest, httpResponse);
                 return;
             }
         }
@@ -358,13 +463,41 @@ public class LoginFilter implements Filter {
                 }
 
                 if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)) {
-                    logger.debug("reseting timer list uri " + httpRequest.getRequestURI());
+                    logger.debug("reseting timer list uri {}", LogSafe.sanitizeUri(httpRequest.getRequestURI()));
                     // nosemgrep: tainted-session-from-http-request -- thisRequestDate is a server-generated Date object (new Date()), not user input
                     session.setAttribute("last_request_time", thisRequestDate);
                 }
             } catch (Exception e) {
-                logger.error("ERROR checking for last activity. Limit Activity :" + InActivityLimitInMins, e);
+                if (inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT_REDIRECT)) {
+                    logger.warn("ERROR checking for last activity on timeout-redirect-exempt public page; "
+                                    + "skipping redirect to avoid loop. Limit Activity: {} uri={}",
+                            LogSafe.sanitize(InActivityLimitInMins),
+                            LogSafe.sanitizeUri(httpRequest.getRequestURI()), e);
+                } else if (!httpResponse.isCommitted()) {
+                    logger.error("ERROR checking for last activity. Failing closed. Limit Activity: {}",
+                            LogSafe.sanitize(InActivityLimitInMins), e);
+                    try {
+                        session.invalidate();
+                    } catch (IllegalStateException invalidateFailure) {
+                        logger.warn("Unable to invalidate session after inactivity check failure: uri={}",
+                                LogSafe.sanitizeUri(httpRequest.getRequestURI()), invalidateFailure);
+                    }
+                    httpResponse.sendRedirect(contextPath + "/logoutPage");
+                    return;
+                } else {
+                    logger.warn("Unable to redirect after inactivity check failure because response is already committed: uri={}",
+                            LogSafe.sanitizeUri(httpRequest.getRequestURI()));
+                    return;
+                }
             }
+        }
+
+        if (requiresFacilitySelection(session) && !isFacilitySelectionAllowed(requestURI, contextPath)) {
+            logger.warn("Rejected authenticated route before facility selection: uri={}, user={}",
+                    LogSafe.sanitizeUri(httpRequest.getRequestURI()),
+                    LogSafe.sanitize(String.valueOf(session.getAttribute("user"))));
+            httpResponse.sendRedirect(contextPath + "/select_facility");
+            return;
         }
 
 
@@ -480,12 +613,57 @@ public class LoginFilter implements Filter {
         return normalized.toString();
     }
 
+    private static void auditRejectedTokenAuthentication(String remoteAddr) {
+        try {
+            LogAction.addLog("", LogConst.LOGIN, LogConst.CON_LOGIN,
+                    "token_authentication_rejected", remoteAddr);
+        } catch (RuntimeException | LinkageError e) {
+            logger.warn("Unable to audit rejected token authentication", e);
+        }
+    }
+
     private static boolean isContextRootRequest(String requestURI, String contextPath) {
         if (contextPath == null || contextPath.isEmpty()) {
             return "/".equals(requestURI);
         }
 
         return requestURI.equals(contextPath) || requestURI.equals(contextPath + "/");
+    }
+
+    /**
+     * Reports whether the session carries usable authenticated-provider state.
+     *
+     * <p>This is the single definition of "logged in" for the canonical gate. A present but blank
+     * {@code user} attribute is treated as unauthenticated: {@code Login2Action} stores the
+     * provider number as {@code strAuth[0] != null ? strAuth[0].trim() : ""}, so an empty string is
+     * a representable session state, and downstream defence-in-depth checks such as
+     * {@code PMMFilter} already fail closed on blank users. Accepting blank here would let that
+     * state reach Struts action execution, because Struts terminates the filter chain before the
+     * later per-module filters run.</p>
+     *
+     * @param session the current session; never {@code null} at the call sites below
+     * @return {@code true} only when a non-blank {@code user} attribute is present
+     */
+    private static boolean hasAuthenticatedUser(HttpSession session) {
+        Object user = session.getAttribute("user");
+        if (user == null) {
+            return false;
+        }
+
+        // Non-String values are not produced by the login flow, but a non-blank foreign type is
+        // still more authenticated state than none; only blank text counts as unauthenticated.
+        return !(user instanceof String userValue) || !userValue.isBlank();
+    }
+
+    private boolean requiresFacilitySelection(HttpSession session) {
+        return session != null
+                && hasAuthenticatedUser(session)
+                && Boolean.TRUE.equals(session.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION));
+    }
+
+    private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
+        String normalizedUri = normalizeUri(requestURI);
+        return inListOfExemptions(normalizedUri, contextPath, PENDING_FACILITY_SELECTION_URLS);
     }
 
     /**

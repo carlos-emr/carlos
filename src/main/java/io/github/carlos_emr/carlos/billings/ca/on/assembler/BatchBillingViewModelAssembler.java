@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.ClinicLocation;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.util.DateUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Assembles {@link BatchBillingViewModel} for {@code batchBilling.jsp}, the
@@ -76,6 +77,8 @@ public final class BatchBillingViewModelAssembler {
      *                parameters and the {@code user} session attribute
      * @return populated view model
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public BatchBillingViewModel assemble(HttpServletRequest request) {
         BatchBillingViewModel.Builder b = BatchBillingViewModel.builder();
 

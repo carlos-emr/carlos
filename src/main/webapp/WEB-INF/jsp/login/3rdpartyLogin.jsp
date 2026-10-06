@@ -35,7 +35,6 @@
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.login.OAuthSessionMerger" %>
 <%@ page import="java.util.*" %>
 <%@ page import="jakarta.servlet.http.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -66,13 +65,6 @@
 
     boolean loggedIn = (session.getAttribute("user") != null) && (loggedInInfo != null);
 
-    // Try to merge only if we think we're logged in
-    if (loggedIn) {
-        boolean didMerge = OAuthSessionMerger.mergeSession(request);
-        if (!didMerge) {
-            loggedIn = false;
-        }
-    }
     request.setAttribute("loggedIn", loggedIn);
 
     String providerName = "";
@@ -93,6 +85,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <title>Login and Authorize 3rd Party Application</title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
@@ -144,14 +137,15 @@
             const pin      = el("pin")?.value || "";
             const oauthToken = el("oauth_token")?.value || "";
 
-            const loginUrl = "${pageContext.request.contextPath}/login;jsessionid=${pageContext.session.id}";
+            // Authentication always rotates the session; rely on the new cookie instead of
+            // URL-rewriting the pre-authentication session id into follow-up OAuth requests.
+            const loginUrl = "${pageContext.request.contextPath}/login";
 
             const formData = new URLSearchParams();
             formData.set("username", username);
             formData.set("password", password);
             formData.set("pin", pin);
             formData.set("ajaxResponse", "true");
-            formData.set("invalidate_session", "false");
             formData.set("oauth_token", oauthToken);
 
             try {
@@ -278,7 +272,7 @@
                     </h5>
                     <h5>Permissions requested:</h5>
                     <form id="scopeForm" method="post"
-                        action="${carlos:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
+                        action="${carlos:forHtmlAttribute(oauthData.replyTo)}">
                         <c:forEach var="perm" items="${oauthData.permissions}">
                             <div class="mb-3">
                             <div>

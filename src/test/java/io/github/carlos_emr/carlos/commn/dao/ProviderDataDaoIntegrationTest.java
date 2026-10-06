@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +53,9 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDataDao dao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private ProviderData newProvider(String id) {
         ProviderData result = new ProviderData();
@@ -203,6 +208,34 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("should filter provider name searches by status")
+        void shouldFilterProviderNameSearch_byStatus() {
+            ProviderData active = newProvider("30006");
+            active.setFirstName("Alex");
+            active.setLastName("StatusSearch");
+            active.setStatus("1");
+            dao.persist(active);
+
+            ProviderData inactive = newProvider("30007");
+            inactive.setFirstName("Blair");
+            inactive.setLastName("StatusSearch");
+            inactive.setStatus("0");
+            dao.persist(inactive);
+            hibernateTemplate.flush();
+
+            List<ProviderData> activeResults = dao.findByProviderName("StatusSearch", "1", 10, 0);
+            List<ProviderData> inactiveResults = dao.findByProviderName("StatusSearch", "0", 10, 0);
+
+            assertThat(activeResults).extracting(ProviderData::getId)
+                    .contains("30006")
+                    .doesNotContain("30007");
+            assertThat(inactiveResults).extracting(ProviderData::getId)
+                    .contains("30007")
+                    .doesNotContain("30006");
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should find all providers with active flag filtering")
         void shouldFindAllProviders_withActiveFlag() throws Exception {
             ProviderData active = newProvider("40001");
@@ -221,6 +254,45 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
             // findAll(true) returns ALL providers (active + inactive)
             List<ProviderData> all = dao.findAll(true);
             assertThat(all.size()).isGreaterThanOrEqualTo(activeOnly.size());
+        }
+
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find providers sharing a site without duplicate native SQL aliases")
+        void shouldFindProviders_bySharedSiteWithoutDuplicateAliases() throws Exception {
+            ProviderData currentProvider = newProvider("510001");
+            ProviderData sharedSiteProvider = newProvider("510002");
+            ProviderData otherProvider = newProvider("510003");
+            dao.persist(currentProvider);
+            dao.persist(sharedSiteProvider);
+            dao.persist(otherProvider);
+            hibernateTemplate.flush();
+
+            entityManager.createNativeQuery(
+                    "MERGE INTO site (site_id, name, short_name, bg_color, status) "
+                            + "KEY(site_id) VALUES (510001, 'Provider Data Site', 'PDS', '#FFFFFF', 1)")
+                    .executeUpdate();
+            entityManager.createNativeQuery(
+                    "MERGE INTO site (site_id, name, short_name, bg_color, status) "
+                            + "KEY(site_id) VALUES (510002, 'Other Provider Data Site', 'OPD', '#FFFFFF', 1)")
+                    .executeUpdate();
+            entityManager.createNativeQuery(
+                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510001', 510001)")
+                    .executeUpdate();
+            entityManager.createNativeQuery(
+                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510002', 510001)")
+                    .executeUpdate();
+            entityManager.createNativeQuery(
+                    "MERGE INTO providersite (provider_no, site_id) KEY(provider_no, site_id) VALUES ('510003', 510002)")
+                    .executeUpdate();
+            entityManager.flush();
+
+            List<ProviderData> data = dao.findByProviderSite("510001");
+
+            assertThat(data).extracting(ProviderData::getId)
+                    .contains("510001", "510002")
+                    .doesNotContain("510003");
         }
 
         @Test

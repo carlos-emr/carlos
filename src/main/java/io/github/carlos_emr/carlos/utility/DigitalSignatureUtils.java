@@ -27,15 +27,16 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DigitalSignatureUtils {
 
@@ -49,7 +50,9 @@ public class DigitalSignatureUtils {
 
     public static String getTempFilePath(String signatureRequestId) {
         String temppath = System.getProperty("java.io.tmpdir");
-        Path path = Paths.get(temppath, "signature_" + signatureRequestId + ".jpg");
+        File tempDir = PathValidationUtils.validateConfiguredDirectory(temppath, "java.io.tmpdir");
+        String signatureFileName = PathValidationUtils.validateGeneratedFileName("signature_" + signatureRequestId + ".jpg");
+        Path path = PathValidationUtils.validateGeneratedChildPath(signatureFileName, tempDir).toPath();
         return path.toString();
     }
 
@@ -59,6 +62,8 @@ public class DigitalSignatureUtils {
      * @param demographicId of the owner of this signature
      * @throws FileNotFoundException if missing or error in image when one was expected
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static DigitalSignature storeDigitalSignatureFromTempFileToDB(LoggedInInfo loggedInInfo, String signatureRequestId, int demographicId) {
         DigitalSignature digitalSignature = null;
 
@@ -67,9 +72,11 @@ public class DigitalSignatureUtils {
             if (filename == null || filename.isEmpty()) {
                 return digitalSignature;
             }
-            try (FileInputStream fileInputStream = new FileInputStream(filename)) {
-                byte[] image = new byte[1024 * 256];
-                fileInputStream.read(image);
+            File signatureFile = PathValidationUtils.validateExistingPath(new File(filename), PathValidationUtils.validateConfiguredDirectory(System.getProperty("java.io.tmpdir"), "java.io.tmpdir"));
+            try (FileInputStream fileInputStream = new FileInputStream(signatureFile)) {
+                // Read the exact signature bytes rather than a fixed 256KB buffer (a single read()
+                // can under-fill and the fixed array persisted padding/truncated the stored image).
+                byte[] image = fileInputStream.readAllBytes();
 
                 digitalSignature = new DigitalSignature();
                 digitalSignature.setDateSigned(new Date());

@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -37,6 +38,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ContextConfiguration;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -65,6 +69,9 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Autowired
     private DemographicDao demographicDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     @Test
     @DisplayName("should load Spring context with all required beans")
     void shouldLoadSpringContextWithAllRequiredBeans() {
@@ -90,6 +97,10 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
     @Test
     @DisplayName("should add tickler successfully when valid data provided")
     void shouldAddTicklerSuccessfully_whenValidDataProvided() {
+        IntegrationTestSeedService.ensureProviderExists(entityManager, "999998");
+        IntegrationTestSeedService.ensureDemographicExists(entityManager, 12345);
+        entityManager.flush();
+
         // Given: Create a new tickler with required fields
         Tickler tickler = new Tickler();
         tickler.setDemographicNo(12345);
@@ -112,4 +123,5 @@ class SimpleTicklerManagerTest extends CarlosTestBase {
         assertTrue(result);
         assertThat(tickler.getId()).isNotNull();
     }
+
 }

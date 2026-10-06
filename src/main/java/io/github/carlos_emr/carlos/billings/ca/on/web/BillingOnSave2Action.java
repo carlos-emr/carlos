@@ -33,12 +33,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmissionService;
+
+import java.util.Set;
 
 /**
  * Struts 2Action for Ontario billing save and post-save routing.
@@ -55,6 +57,13 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingClaimSubmission
  * @since 2026-04-08
  */
 public class BillingOnSave2Action extends ActionSupport {
+
+    private static final Set<String> VALID_SAVE_ACTIONS = Set.of(
+            "SAVE",
+            "SAVE_ADD_ANOTHER",
+            "SAVE_PRINT",
+            "SETTLE_PRINT"
+    );
 
     private final SecurityInfoManager securityInfoManager;
     private final UserPropertyDAO userPropertyDAO;
@@ -98,23 +107,22 @@ public class BillingOnSave2Action extends ActionSupport {
                 && !rawUrlBack.contains("\r")
                 && !rawUrlBack.contains("\n")) ? rawUrlBack : "";
         if (rawUrlBack != null && safeUrlBack.isEmpty()) {
-            LogManager.getLogger(BillingOnSave2Action.class).warn("Rejected url_back parameter: {}", LogSanitizer.sanitize(rawUrlBack)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            LogManager.getLogger(BillingOnSave2Action.class).warn("Rejected url_back parameter: {}", LogSafe.sanitize(rawUrlBack)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
         request.setAttribute("safeUrlBack", safeUrlBack);
 
-        String submit = request.getParameter("submit");
-        String button = request.getParameter("button");
+        String billingAction = request.getParameter("billingAction");
 
-        if ("Back to Edit".equals(button)) {
+        if ("BACK_TO_EDIT".equals(billingAction)) {
             return "backToEdit";
         }
 
-        if (submit == null || (!submit.equals("Settle & Print Invoice")
-                && !submit.equals("Save & Print Invoice")
-                && !submit.equals("Save")
-                && !submit.equals("Save and Back")
-                && !submit.equals("Save & Add Another Bill"))) {
-            return SUCCESS;
+        if (!VALID_SAVE_ACTIONS.contains(billingAction)) {
+            LogManager.getLogger(BillingOnSave2Action.class).error(
+                    billingAction == null ? "Missing billingAction parameter" : "Invalid billingAction parameter");
+            request.setAttribute("billingFailed", Boolean.TRUE);
+            request.setAttribute("billingFailureReason", "Invalid billing action. Please try again.");
+            return "failure";
         }
 
         String payeeValue = request.getParameter("payeename");
@@ -159,11 +167,11 @@ public class BillingOnSave2Action extends ActionSupport {
 
             request.setAttribute("billingNo", billingNo);
 
-            if ("Save & Print Invoice".equals(submit) || "Settle & Print Invoice".equals(submit)) {
+            if (Set.of("SAVE_PRINT", "SETTLE_PRINT").contains(billingAction)) {
                 return "printInvoice";
             }
 
-            if ("Save & Add Another Bill".equals(submit)) {
+            if ("SAVE_ADD_ANOTHER".equals(billingAction)) {
                 request.setAttribute("safeUrlBack", safeUrlBack);
                 // Drives the c:choose branch in billingONSave.jsp without
                 // forcing the JSP to read request parameters directly.

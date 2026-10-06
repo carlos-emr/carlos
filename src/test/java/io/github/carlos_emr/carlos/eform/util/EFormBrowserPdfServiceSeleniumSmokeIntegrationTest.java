@@ -1,0 +1,375 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+package io.github.carlos_emr.carlos.eform.util;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
+import com.sun.net.httpserver.HttpServer;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.openqa.selenium.WebDriverException;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.chromium.HasCdp;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+/**
+ * End-to-end fidelity smoke: serves the repo's realistic eForm test-pattern fixture over a
+ * loopback HTTP server (same origin semantics as production) and drives the full Selenium native
+ * print path — print-media emulation, stabilization, page-geometry measurement, {@code @page}
+ * sizing, and {@code Page.printToPDF} — then asserts the result is a multi-page PDF whose page
+ * count matches the authored {@code pageN} divs and that carries a real text layer (the raster
+ * path this replaced produced image-only pages with zero extractable text).
+ *
+ * <p>Skips cleanly when no Chromium binary or matching chromedriver is available, so CI hosts
+ * without a browser stay green while browser-equipped environments verify the real pipeline.</p>
+ */
+@DisplayName("EFormBrowserPdfService Selenium smoke test")
+@Tag("integration")
+@Tag("eform")
+class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
+
+    @Test
+    @DisplayName("should render the eForm test-pattern fixture to a PDF with headless Chromium")
+    void shouldRenderTestPatternFixture_toPdfWithHeadlessChromium() throws Exception {
+        Path fixture = Paths.get("scripts", "fixtures", "eform", "test-pattern.html");
+        assumeTrue(Files.isReadable(fixture), "eForm test-pattern fixture not present in checkout");
+        String chromiumBinary = findChromiumBinary();
+        assumeTrue(chromiumBinary != null, "no headless Chromium binary available on this host");
+
+        byte[] fixtureHtml = Files.readAllBytes(fixture);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, fixtureHtml.length);
+            try (OutputStream body = exchange.getResponseBody()) {
+                body.write(fixtureHtml);
+            }
+        });
+        server.start();
+
+        ChromeDriver driver = null;
+        Path tempDir = Files.createTempDirectory("eform-selenium-smoke-");
+        try {
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin);
+            driver = startDriverOrSkip(options);
+            driver.manage().timeouts()
+                    .pageLoadTimeout(Duration.ofSeconds(30))
+                    .scriptTimeout(Duration.ofSeconds(30));
+
+            // Emulate PRINT media before settling so the page is measured and printed in the same
+            // layout Page.printToPDF will emit (mirrors EFormBrowserPdfService.renderWithSlot).
+            HasCdp cdp = driver;
+            cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+
+            driver.get("http://127.0.0.1:" + server.getAddress().getPort() + "/test-pattern.html");
+            Thread.sleep(1500);
+            Object settleError = driver.executeAsyncScript(EFormBrowserPdfService.STABILIZE_ASYNC_JS);
+            assertThat(settleError).as("stabilization script error").isNull();
+            driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
+
+            List<EFormBrowserPdfService.PageSize> pageSizes =
+                    EFormBrowserPdfService.readPageGeometry(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)).pages();
+            // The fixture authors exactly two pageN divs; native print must preserve that pagination.
+            assertThat(pageSizes).as("measured authored page sizes").hasSize(2);
+            driver.executeScript(EFormBrowserPdfService.INJECT_PAGE_SIZE_CSS_JS,
+                    EFormBrowserPdfService.buildPageSizeCss(pageSizes));
+
+            Map<String, Object> printResult = cdp.executeCdpCommand("Page.printToPDF", Map.of(
+                    "preferCSSPageSize", Boolean.TRUE,
+                    "printBackground", Boolean.TRUE,
+                    "scale", 1.0d,
+                    "marginTop", 0.0d,
+                    "marginBottom", 0.0d,
+                    "marginLeft", 0.0d,
+                    "marginRight", 0.0d,
+                    "transferMode", "ReturnAsBase64"));
+            byte[] pdfBytes = Base64.getDecoder().decode(String.valueOf(printResult.get("data")));
+            Path pdfPath = tempDir.resolve("test-pattern.pdf");
+            Files.write(pdfPath, pdfBytes);
+
+            assertThat(new String(pdfBytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII))
+                    .as("PDF magic bytes").isEqualTo("%PDF");
+            assertThat(Files.size(pdfPath)).isGreaterThan(1000);
+            // Structural + fidelity assertions beyond the magic bytes.
+            try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
+                    org.apache.pdfbox.Loader.loadPDF(pdfPath.toFile())) {
+                // One PDF page per authored pageN div — the legacy per-page pagination is preserved.
+                assertThat(renderedPdf.getNumberOfPages()).isEqualTo(pageSizes.size());
+                assertThat(renderedPdf.getPage(0).getMediaBox().getWidth()).isGreaterThan(0);
+                assertThat(renderedPdf.getPage(0).getMediaBox().getHeight()).isGreaterThan(0);
+                // The core win over the former raster pipeline: a real, selectable text layer. The
+                // raster (screenshot) path produced image-only pages whose extracted text was empty
+                // (length 0); native print must yield the form's actual text.
+                String extractedText = new org.apache.pdfbox.text.PDFTextStripper().getText(renderedPdf);
+                assertThat(extractedText).as("native print text layer")
+                        .contains("CARLOS Test Pattern eForm");
+            }
+        } finally {
+            // Nest so a throw from any one cleanup step still runs the rest (a failed driver.quit()
+            // must not leak the loopback server or orphan the temp dir).
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    deleteRecursively(tempDir);
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should render a free-flow eForm with no page divs to a text-layer PDF (Rich Text Letter path)")
+    void shouldRenderFreeFlowForm_toTextLayerPdfWithNoPageDivs() throws Exception {
+        String chromiumBinary = findChromiumBinary();
+        assumeTrue(chromiumBinary != null, "no headless Chromium binary available on this host");
+
+        // The Rich Text Letter shape: a free-flow prose body with its own @page margin and NO pageN
+        // divs, so the geometry step returns empty and the renderer injects no @page size — Chromium's
+        // own pagination applies. This is the path exercised for every free-flow eForm (the letter).
+        String html = "<!doctype html><html><head><style>@page { margin: 2cm; }</style></head>"
+                + "<body contenteditable=\"true\"><h1>Consultation Letter</h1>"
+                + "<p>Dear colleague, this free-flow letter body verifies the native print path for "
+                + "forms that author no page divisions, and must still carry a selectable text layer.</p>"
+                + "</body></html>";
+        byte[] pageBytes = html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, pageBytes.length);
+            try (OutputStream body = exchange.getResponseBody()) {
+                body.write(pageBytes);
+            }
+        });
+        server.start();
+
+        ChromeDriver driver = null;
+        Path tempDir = Files.createTempDirectory("eform-selenium-freeflow-");
+        try {
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
+            HasCdp cdp = driver;
+            cdp.executeCdpCommand("Emulation.setEmulatedMedia", Map.of("media", "print"));
+
+            driver.get(allowedOrigin + "/letter.html");
+            Thread.sleep(1000);
+            Object settleError = driver.executeAsyncScript(EFormBrowserPdfService.STABILIZE_ASYNC_JS);
+            assertThat(settleError).as("stabilization script error").isNull();
+            driver.executeScript(EFormBrowserPdfService.PREPARE_PRINT_JS);
+
+            List<EFormBrowserPdfService.PageSize> pageSizes =
+                    EFormBrowserPdfService.readPageGeometry(driver.executeScript(EFormBrowserPdfService.COMPUTE_PAGE_GEOMETRY_JS)).pages();
+            // A free-flow form authors no pageN divs, so no authored @page sizes are measured or
+            // injected — Chromium paginates on its own (or on the form's own @page rule).
+            assertThat(pageSizes).as("free-flow form authors no page sizes").isEmpty();
+
+            Map<String, Object> printResult = cdp.executeCdpCommand("Page.printToPDF", Map.of(
+                    "preferCSSPageSize", Boolean.TRUE,
+                    "printBackground", Boolean.TRUE,
+                    "scale", 1.0d,
+                    "marginTop", 0.0d,
+                    "marginBottom", 0.0d,
+                    "marginLeft", 0.0d,
+                    "marginRight", 0.0d,
+                    "transferMode", "ReturnAsBase64"));
+            byte[] pdfBytes = Base64.getDecoder().decode(String.valueOf(printResult.get("data")));
+            assertThat(new String(pdfBytes, 0, 4, java.nio.charset.StandardCharsets.US_ASCII))
+                    .as("PDF magic bytes").isEqualTo("%PDF");
+            try (org.apache.pdfbox.pdmodel.PDDocument renderedPdf =
+                    org.apache.pdfbox.Loader.loadPDF(pdfBytes)) {
+                assertThat(renderedPdf.getNumberOfPages()).isGreaterThanOrEqualTo(1);
+                // The free-flow path must carry a real text layer just like the page-div path.
+                String extractedText = new org.apache.pdfbox.text.PDFTextStripper().getText(renderedPdf);
+                assertThat(extractedText)
+                        .contains("Consultation Letter")
+                        .contains("free-flow letter body");
+            }
+        } finally {
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    deleteRecursively(tempDir);
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should not load a local file subresource referenced by a malicious eForm")
+    void shouldNotLoadLocalFileSubresource_referencedByMaliciousEform() throws Exception {
+        String chromiumBinary = findChromiumBinary();
+        assumeTrue(chromiumBinary != null, "no headless Chromium binary available on this host");
+        Path secret = Files.createTempFile("eform-file-access-probe-", ".txt");
+        Files.writeString(secret, "TOP-SECRET-LOCAL-FILE-CONTENT");
+
+        // A page served over http that tries to pull a local file into an <img>. Chromium's
+        // default cross-scheme policy must keep the image broken (naturalWidth 0), proving the
+        // renderer's launch flags never opened file access.
+        String html = "<!doctype html><html><body>"
+                + "<img id='probe' src='file://" + secret.toAbsolutePath() + "'>"
+                + "</body></html>";
+        byte[] pageBytes = html.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "text/html; charset=utf-8");
+            exchange.sendResponseHeaders(200, pageBytes.length);
+            try (OutputStream body = exchange.getResponseBody()) {
+                body.write(pageBytes);
+            }
+        });
+        server.start();
+
+        ChromeDriver driver = null;
+        try {
+            String allowedOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
+            driver = startDriverOrSkip(EFormBrowserPdfService.buildChromeOptions(chromiumBinary, true, allowedOrigin));
+            driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30)).scriptTimeout(Duration.ofSeconds(30));
+            driver.get(allowedOrigin + "/probe.html");
+            Thread.sleep(1000);
+
+            Object naturalWidth = driver.executeScript(
+                    "var img = document.getElementById('probe'); return img ? img.naturalWidth : -1;");
+            assertThat(((Number) naturalWidth).intValue())
+                    .as("local file:// image must not load into the render surface")
+                    .isZero();
+        } finally {
+            // Nest so a throw from any one cleanup step still runs the rest.
+            try {
+                if (driver != null) {
+                    driver.quit();
+                }
+            } finally {
+                try {
+                    server.stop(0);
+                } finally {
+                    Files.deleteIfExists(secret);
+                }
+            }
+        }
+    }
+
+    private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
+        try {
+            // Same per-command client timeouts as production createDriver, so the smoke run
+            // exercises the bounded-connection configuration against a real chromedriver.
+            return new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig());
+        } catch (WebDriverException e) {
+            // Skip ONLY when chromedriver itself is genuinely unobtainable (offline host, Selenium
+            // Manager can't resolve/download a matching driver). findChromiumBinary() already
+            // guarantees a real Chromium binary exists, so a browser that starts then crashes, is
+            // missing shared libraries ("...libnss3.so: No such file"), or is a stale wrapper
+            // ("cannot find Chrome binary") is a renderer regression and must FAIL, not become a
+            // green skip. Classification is by exception TYPE only — see below for why matching on
+            // the message cannot work.
+            // The substring fallback above described an invariant Selenium does not honour, so it is
+            // gone. WebDriverException.getMessage() does not return the raw message: it calls
+            // createMessage(), which appends getAdditionalInformation(), and
+            // RemoteWebDriver.populateWebDriverException adds
+            // "Driver info: org.openqa.selenium.chrome.ChromeDriver" to EVERY session-creation
+            // failure. Lower-cased, that contains "chromedriver" — so the discriminator always
+            // passed, the classification collapsed to the OR-group, and a stale wrapper reporting
+            // "unknown error: cannot find Chrome binary" (the exact case the old comment said must
+            // FAIL) became a green skip while production aborts startup for the same condition.
+            //
+            // NoSuchDriverException is Selenium Manager's precise "could not obtain a driver" signal
+            // and needs no message parsing. A broken browser is not that exception, so it now fails.
+            boolean driverUnavailable = e instanceof org.openqa.selenium.remote.NoSuchDriverException;
+            if (driverUnavailable) {
+                assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
+                throw new IllegalStateException("unreachable");
+            }
+            throw e;
+        }
+    }
+
+    private static String findChromiumBinary() throws IOException {
+        String configured = System.getenv("CARLOS_SMOKE_CHROMIUM");
+        if (configured != null && Files.isExecutable(Paths.get(configured))) {
+            return configured;
+        }
+        Path playwrightWrapper = Paths.get("/opt/pw-browsers/chromium");
+        if (Files.isRegularFile(playwrightWrapper) && Files.isExecutable(playwrightWrapper)) {
+            return playwrightWrapper.toString();
+        }
+        for (Path browsersRoot : List.of(
+                Paths.get("/opt/pw-browsers"),
+                Paths.get(System.getProperty("user.home", "/root"), ".cache", "ms-playwright"))) {
+            if (!Files.isDirectory(browsersRoot)) {
+                continue;
+            }
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(browsersRoot, "chromium-*")) {
+                for (Path candidate : stream) {
+                    for (String layout : new String[] {"chrome-linux64", "chrome-linux"}) {
+                        Path chrome = candidate.resolve(layout).resolve("chrome");
+                        if (Files.isExecutable(chrome)) {
+                            return chrome.toString();
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void deleteRecursively(Path directory) throws IOException {
+        if (directory == null || !Files.exists(directory)) {
+            return;
+        }
+        try (var stream = Files.walk(directory)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                    // best-effort cleanup of the smoke workspace
+                }
+            });
+        }
+    }
+
+}

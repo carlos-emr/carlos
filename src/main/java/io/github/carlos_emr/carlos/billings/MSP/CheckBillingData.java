@@ -32,6 +32,8 @@
  */
 package io.github.carlos_emr.carlos.billings.MSP;
 
+import io.github.carlos_emr.carlos.utility.SafeEncode;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -72,17 +74,18 @@ public class CheckBillingData {
     }
 
     public String printWarningMsg(String m) {
-        String ret = "<tr bgcolor='orange'><td colspan='11'>" + m
+        String ret = "<tr bgcolor='orange'><td colspan='11'>" + SafeEncode.forHtmlContent(m)
                 + "</td></tr>";
         return ret;
     }
 
     public String printErrorMsg(String billingNo, String m) {
+        String billingNoForJsUrl = SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(billingNo));
         String ret = "<tr bgcolor='red'><td colspan='11'>"
                 + "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no="
-                + billingNo
+                + billingNoForJsUrl
                 + "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">"
-                + m + "</a>" + "</td></tr>";
+                + SafeEncode.forHtmlContent(m) + "</a>" + "</td></tr>";
         return ret;
     }
 

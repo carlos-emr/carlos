@@ -51,11 +51,12 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Handles FHIR STU3 CommunicationRequest resources containing PDF document attachments.
@@ -106,6 +108,8 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
      * @param ipAddr String the client IP address for audit logging
      * @return String "success" if the document was saved, or {@code null} on error
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         String providerNo = "-1";
@@ -123,15 +127,15 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(fileName);
+            File targetFile;
             try {
-                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return null;
             }
             
@@ -158,6 +162,12 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             ByteArrayInputStream is = new ByteArrayInputStream(document);
             String incomingDocumentFilename = communicationRequest.getIdentifierFirstRep().getValue().replace('/', '-') + "_" + (new Date().getTime()) + ".pdf";
             String filePath = Utilities.savePdfFile(is, incomingDocumentFilename);
+            if (filePath == null) {
+                // savePdfFile returns null when the destination is invalid, the name collides, or the
+                // write fails. Dereferencing it turned that into an NPE instead of a parse failure.
+                logger.error("PDF save returned no path; not creating a document record");
+                return null;
+            }
 
             int fileNameIdx = filePath.lastIndexOf("/");
             filePath = filePath.substring(fileNameIdx + 1);
@@ -192,6 +202,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
         } catch (Exception e) {
             logger.error("error parsing Document Reference Document", e);
+            return null;
         } finally {
             IOUtils.closeQuietly(in);
         }

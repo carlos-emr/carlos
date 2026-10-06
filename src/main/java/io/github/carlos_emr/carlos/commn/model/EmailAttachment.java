@@ -25,6 +25,9 @@ public class EmailAttachment extends AbstractModel<Integer> {
     @Transient
     private long fileSize;
 
+    @Transient
+    private String previewToken;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "logId")
     private EmailLog emailLog;
@@ -105,5 +108,13 @@ public class EmailAttachment extends AbstractModel<Integer> {
 
     public void setFileSize(long fileSize) {
         this.fileSize = fileSize;
+    }
+
+    public String getPreviewToken() {
+        return previewToken;
+    }
+
+    public void setPreviewToken(String previewToken) {
+        this.previewToken = previewToken;
     }
 }

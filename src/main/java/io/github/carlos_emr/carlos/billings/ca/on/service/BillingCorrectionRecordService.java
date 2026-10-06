@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.StringUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 /**
  * Read+write surface for the bill-correction screen: loads the
@@ -403,7 +403,7 @@ public class BillingCorrectionRecordService {
                 iObj = iObj.withFee(billOnItem.getFee());
                 iObj = iObj.withServiceNumber(billOnItem.getServiceCount());
             }
-            _logger.info(LogSanitizer.sanitize(iObj.serviceCode()));
+            _logger.info(LogSafe.sanitize(iObj.serviceCode()));
         }
 
         // add item if possible
@@ -423,7 +423,7 @@ public class BillingCorrectionRecordService {
             }
             ret = addItem(ch1Obj, lItemObj, updateProviderNo, dx, serviceDate,
                     row.code(), sUnit, sFee, row.status());
-            _logger.info("{} lItemObj(value = {})", LogSanitizer.sanitize(row.code()), LogSanitizer.sanitize(String.valueOf(ret)));
+            _logger.info("{} lItemObj(value = {})", LogSafe.sanitize(row.code()), LogSafe.sanitize(String.valueOf(ret)));
         }
 
         // recalculate amount
@@ -431,7 +431,7 @@ public class BillingCorrectionRecordService {
                 .map(CorrectionRow::fee)
                 .filter(java.util.Objects::nonNull)
                 .toList());
-        _logger.info(" lItemObj(newAmount = {})", LogSanitizer.sanitize(newAmount));
+        _logger.info(" lItemObj(newAmount = {})", LogSafe.sanitize(newAmount));
         updateAmount(newAmount, ch1Obj.getId(), updateProviderNo, dx);
 
         // update total field in billing_on_ext if pay_program is 3rd party
@@ -770,7 +770,7 @@ public class BillingCorrectionRecordService {
                 // non-existent line.
                 throw new IllegalStateException(
                         "addItem: claimPersister.addOneItemRecord returned 0 for service code "
-                                + io.github.carlos_emr.carlos.utility.LogSanitizer.sanitize(sName));
+                                + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(sName));
             }
             correctionPersister.addInsertOneBillItemTrans(ch1Obj, newObj, updateProviderNo);
             lItemObj.add(newObj);

@@ -20,6 +20,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ServiceCodeAssociation" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="oscar.billing.CA.BC.billingBC.manageSVCDXAssoc.title"/></title>
         <link rel="stylesheet" type="text/css"

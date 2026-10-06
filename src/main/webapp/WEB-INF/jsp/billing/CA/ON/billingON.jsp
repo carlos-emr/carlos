@@ -37,6 +37,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"%>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="oscar.billing.ca.on.billingON.title"/></title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -457,6 +458,7 @@
         function onChangePrivate() {
             var n = document.forms[0].xml_billtype.selectedIndex;
             var val = document.forms[0].xml_billtype[n].value;
+            var physicianQuery = "&providerview=" + encodeURIComponent(document.forms[0].xml_provider.value.split("|")[0]);
             <%-- Pre-encoded URL components precomputed in the assembler.
                  demoNameUrlEncoded uses URLEncoder.encode(...UTF-8); the others
                  round-trip via <carlos:encode context="uriComponent">. --%>
@@ -467,15 +469,23 @@
             <c:set var="__statusUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["status"]}' context='uriComponent'/></c:set>
             <c:set var="__startTimeUri"><carlos:encode value='${formModel.requestContext.requestParamEchoes["start_time"]}' context='uriComponent'/></c:set>
             <c:set var="__demoNameJs">&demographic_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/></c:set>
-            <c:set var="__commonQs">&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
-            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&providerview=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
+            <%-- billRegion MUST stay on every self-navigation out of this page.
+                 Billing2Action routes on it and only falls back to the
+                 deployment-wide `billregion` property when it is absent; an
+                 install that never set that property (or a future regression in
+                 the fall-back) sends the request to billingBC.jsp, which queries
+                 BC-only tables the Ontario schema does not have and answers
+                 "CARLOS Error: 500". This page is the Ontario bill-entry form,
+                 so the region is unconditionally ON. --%>
+            <c:set var="__commonQs">&billRegion=ON&appointment_no=<carlos:encode value='${__apptNoUri}' context='javaScript'/>${__demoNameJs}&demographic_no=<carlos:encode value='${__demoNoUri}' context='javaScript'/></c:set>
+            <c:set var="__commonTail">&apptProvider_no=<carlos:encode value='${__apptProvUri}' context='javaScript'/>&appointment_date=<carlos:encode value='${__apptDateUri}' context='javaScript'/>&status=<carlos:encode value='${__statusUri}' context='javaScript'/>&start_time=<carlos:encode value='${__startTimeUri}' context='javaScript'/>&bNewForm=1</c:set>
             if (val.substring(0, 3) == "PAT" || val.substring(0, 3) == "OCF" || val.substring(0, 3) == "ODS" || val.substring(0, 3) == "CPP" || val.substring(0, 3) == "STD") {
-                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=PRI&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
             } else if (val.substring(0, 3) == "BON") {
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.primaryCareIncentive}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
             } else {
                 <c:if test="${formModel.requestContext.ctlBillForm eq 'PRI'}">
-                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}";
+                self.location.href = billingContextPath + "/billing?curBillForm=<carlos:encode value='${formModel.display.defaultView}' context='javaScript'/>&hotclick=${__commonQs}&xml_billtype=" + val.substring(0, 3) + "${__commonTail}" + physicianQuery;
                 </c:if>
             }
         }
@@ -568,7 +578,9 @@
                 dataType: "html",
                 data: pars,
                 success: function (returnData) {
-                    jQuery("#code_desc").html(returnData);
+                    var text = (returnData || '').toString().trim();
+                    jQuery("#code_desc").html(text);
+                    jQuery("#code_desc").attr("title", text);
                 },
                 error: function (e) {
                     alert(e);
@@ -660,8 +672,12 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
             return li;
         }
 
-        // Attach code autocomplete with custom rendering to a jQuery set
-        function initCodeAutocomplete($inputs, ajaxUrl) {
+        // Attach code autocomplete with custom rendering to a jQuery set.
+        // maxCodeLength (optional): the field doubles as the submitted claim value, whose
+        // maxlength is widened so description searches (e.g. "hypertension") fit; a term
+        // left behind without picking a suggestion must never be submitted as a code, so
+        // anything longer than a real code is cleared on blur.
+        function initCodeAutocomplete($inputs, ajaxUrl, maxCodeLength) {
             $inputs.each(function () {
                 var $input = jQuery(this);
                 $input.attr("placeholder", searchLabel);
@@ -675,14 +691,20 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                         this.value = ui.item.code;
                         if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
                         return false;
+                    },
+                    change: function (event, ui) {
+                        if (maxCodeLength && !ui.item && this.value.length > maxCodeLength) {
+                            this.value = "";
+                            if (typeof changeCodeDesc === "function") setTimeout(changeCodeDesc, 10);
+                        }
                     }
                 }).data("ui-autocomplete");
                 if (inst) inst._renderItem = renderCodeItem;
             });
         }
 
-        // Dx diagnosis code fields
-        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax");
+        // Dx diagnosis code fields (diagnostic codes are at most 5 characters)
+        initCodeAutocomplete(jQuery("input[name^='dxCode']"), "/billing/CA/ON/ViewBillingDigSearchAjax", 5);
 
         // Billing service code fields
         initCodeAutocomplete(jQuery("input[name^='serviceCode']"), "/billing/CA/ON/ViewBillingCodeSearchAjax");
@@ -796,33 +818,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
             </td>
         </tr>
     </table>
-    <c:forEach var="dxEntry" items="${formModel.serviceGrid.dxCodesByServiceType}">
-    <%-- The assembler already runs sanitizeIdToken on service-type codes, so
-         dxEntry.key is alphanumeric+underscore. The fn:replace here is
-         defense-in-depth — if a future code path ever bypasses the sanitizer,
-         the rendered HTML id remains valid (no spaces, which would otherwise
-         split the id attribute and break the JS lookup-by-id). --%>
-    <div id="dxCodeSearchDiv_<carlos:encode value='${fn:replace(dxEntry.key, " ", "_")}' context='htmlAttribute'/>" style="display: none;">
-        <c:forEach var="dx" items="${dxEntry.value}">
-        <table style="width: 98%; margin:auto;" class="table-striped table-hover">
-            <tr>
-                <td style="width: 10%">
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${dx.diagnosticCode}' context='html'/>
-                    </a>
-                </td>
-                <td>
-                    <a href="javascript:void(0);"
-                       onclick="document.forms[0].dxCode.value='<carlos:encode value='${dx.diagnosticCode}' context='javaScriptAttribute'/>';showHideLayers('Layer2','','hide');changeCodeDesc();return false;">
-                        <carlos:encode value='${fn:length(dx.description) lt 56 ? dx.description : fn:substring(dx.description, 0, 55)}' context='html'/>
-                    </a>
-                </td>
-            </tr>
-        </table>
-        </c:forEach>
-    </div>
-    </c:forEach>
+
 
 </div>
 
@@ -832,6 +828,12 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"checkFlag\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="addToPatientDx"/>
     <input type="hidden" name="codeMatchToPatientDx"/>
+
+    <c:if test="${not empty formModel.display.displayMessage}">
+        <div class="smallFont">
+            <carlos:encode value='${formModel.display.displayMessage}' context='html'/>
+        </div>
+    </c:if>
 
     <table class="xmyDarkGreen"
            style="width: 100%; background-color: silver;">
@@ -909,17 +911,15 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                         <table
                                                 style="width: 100%;">
                                             <tr>
-                                                <td style="width: 15%">&nbsp;</td>
-                                                <td style="white-space:nowrap">
-                                                    <div id="code_desc"></div>
+                                                <td colspan="2" style="white-space:nowrap;">
+                                                    <div id="code_desc" style="width:210px; overflow:hidden; text-overflow: ellipsis;"></div>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td><a href="javascript:void(0);"
-                                                       onclick="showHideLayers('Layer2','','show','Layer1','','hide'); return false;"><fmt:message key="oscar.billing.ca.on.billingON.dx"/></a>
+                                                <td style="width: 15%"><fmt:message key="oscar.billing.ca.on.billingON.dx"/>
                                                 </td>
                                                 <td><input type="text" name="dxCode" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            onchange="changeCodeDesc();"
                                                            value="<carlos:encode value='${formModel.visit.dxCodeDefault}' context='htmlAttribute'/>"/>
                                                 </td>
@@ -927,14 +927,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx1"/></td>
                                                 <td><input type="text" name="dxCode1" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode1\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td><fmt:message key="oscar.billing.ca.on.billingON.dx2"/></td>
                                                 <td><input type="text" name="dxCode2" class="form-control form-control-sm d-inline-block w-auto"
-                                                           maxlength="5"
+                                                           maxlength="40"
                                                            value="<carlos:encode value='${formModel.requestContext.requestParamEchoes[\"dxCode2\"]}' context='htmlAttribute'/>"/>
                                                 </td>
                                             </tr>
@@ -989,6 +989,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                              by structured formModel site/provider data. --%>
                                         <c:choose>
                                             <c:when test="${formModel.multisite.enabled}">
+                                                <fmt:message key="oscar.billing.ca.on.billingON.selectProvider" var="billingSelectProviderLabel"/>
                                                 <script>
                                                     var _providers = {};
                                                     <c:forEach var="msite" items="${formModel.multisite.sites}">
@@ -1004,6 +1005,7 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                                     function changeSite(sel) {
                                                         var providerSelect = sel.form.xml_provider;
                                                         providerSelect.innerHTML = "";
+                                                        providerSelect.appendChild(new Option('<carlos:encode value='${billingSelectProviderLabel}' context='javaScript'/>', '000000'));
                                                         if (sel.value != "none") {
                                                             (_providers[sel.value] || []).forEach(function (provider) {
                                                                 var option = document.createElement("option");
@@ -1033,30 +1035,14 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
                                             </c:when>
                                             <c:otherwise>
                                                 <select name="xml_provider">
-                                                    <c:choose>
-                                                        <c:when test="${fn:length(formModel.providerPanel.providers) eq 1}">
-                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
-                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
-                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
-                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
-                                                                </option>
-                                                            </c:forEach>
-                                                        </c:when>
-                                                        <c:otherwise>
-                                                            <option value="000000"
-                                                                    ${formModel.providerPanel.providerView eq '000000' ? 'selected' : ''}>
-                                                                <b><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></b>
-                                                            </option>
-                                                            <c:forEach var="po" items="${formModel.providerPanel.providers}">
-                                                                <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
-                                                                <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
-                                                                        ${fn:toLowerCase(formModel.providerPanel.providerView) eq fn:toLowerCase(__poPrefix) ? 'selected' : ''}>
-                                                                    <b><carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/></b>
-                                                                </option>
-                                                            </c:forEach>
-                                                        </c:otherwise>
-                                                    </c:choose>
+                                                    <option value="000000"><fmt:message key="oscar.billing.ca.on.billingON.selectProvider"/></option>
+                                                    <c:forEach var="po" items="${formModel.providerPanel.providers}">
+                                                        <c:set var="__poPrefix" value="${fn:substringBefore(po.proOhip, '|')}"/>
+                                                        <option value="<carlos:encode value='${po.proOhip}' context='htmlAttribute'/>"
+                                                                ${formModel.providerPanel.providerView eq fn:trim(__poPrefix) ? 'selected' : ''}>
+                                                            <carlos:encode value='${po.lastName}, ${po.firstName}' context='html'/>
+                                                        </option>
+                                                    </c:forEach>
                                                 </select>
                                             </c:otherwise>
                                         </c:choose>

@@ -46,6 +46,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js" type="application/javascript"></script>

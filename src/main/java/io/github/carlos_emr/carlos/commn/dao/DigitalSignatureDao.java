@@ -33,4 +33,12 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 
 public interface DigitalSignatureDao extends AbstractDao<DigitalSignature> {
+    /**
+     * Returns authorization metadata without loading the signature image payload.
+     * <p>
+     * For legacy rows with a stored demographic but no stored module type, this may
+     * infer the module from an existing consultation, prescription, or eForm reference
+     * to the signature id.
+     */
+    DigitalSignature findMetadataById(int id);
 }

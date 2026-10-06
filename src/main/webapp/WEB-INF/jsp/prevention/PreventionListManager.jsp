@@ -56,6 +56,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="oscarprevention.preventionlistmanager.title"/></title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -287,7 +288,13 @@
             indicatorAllDisplay($('#property-bin').val());
         }
 
-        parent.parent.resizeIframe($('html').height());
+        // resizeIframe lives on the admin shell that frames this page. A page opened
+        // standalone, or framed by a different shell, has no such function, and an
+        // unguarded call throws out of the jQuery ready callback as
+        // "parent.parent.resizeIframe is not a function" (reported on alpha10).
+        if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+            parent.parent.resizeIframe($('html').height());
+        }
     });
 </script>
 </body>

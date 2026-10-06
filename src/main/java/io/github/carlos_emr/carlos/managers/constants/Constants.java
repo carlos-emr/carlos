@@ -33,45 +33,4 @@ public class Constants {
         throw new UnsupportedOperationException();
     }
 
-    public static class Cares {
-
-        // OSCAR fields
-        public static enum Prevention {
-            HepAB, HepA, HepB, Td, Pneumovax, PneuC, Smoking, Flu, RZV, HZV, Zoster,
-        }
-
-        public static enum Measurement {
-            EFI, EGFR, CRCL, id, date, score
-        }
-
-        public static enum Problem {
-            problems, id, startdate, code, description, active
-        }
-
-        public static enum Medication {
-            medications, id, rxDate, prescription, active
-        }
-
-        public static enum Tickler {
-            tickler, saved, id, priorities, textSuggestions, providers, ticklerCategories, message, comments,
-            categoryId, taskAssignedTo, priority, serviceDate, serviceTime, demographicNo, TicklerNote
-        }
-
-        // eCARES form fields
-        public static enum FormField {
-            // preventions
-            zoster, influenza, pneumococcal, tetanus_and_diphtheria, hep_a, hep_b, smoke,
-
-            // patient
-            demographicNo, demographic_no, patientFirstName, patientLastName, patientPHN, patientDOB, patientGender, patientAge,
-
-            // OSCAR USER
-            userFirstName, userLastName, userFullName, userSignature,
-
-            // data
-            saved, formData, formId, deficit_based_frailty_score, efi_scores, crcl, ticklerId, tickler, completed,
-            incompleteFormExists
-        }
-    }
-
 }

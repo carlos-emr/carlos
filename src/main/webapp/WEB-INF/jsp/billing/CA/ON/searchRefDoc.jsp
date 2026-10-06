@@ -33,6 +33,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <base href="<carlos:encode value='${pageContext.request.scheme}' context='htmlAttribute'/>://<carlos:encode value='${pageContext.request.serverName}' context='htmlAttribute'/>:<carlos:encode value='${pageContext.request.serverPort}' context='htmlAttribute'/><carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/">
         <title><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.optChooseSpec"/></title>
         <link href="<carlos:encode value='${pageContext.request.contextPath}' context='htmlAttribute'/>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->

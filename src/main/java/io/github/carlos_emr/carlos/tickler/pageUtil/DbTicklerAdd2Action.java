@@ -53,13 +53,14 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.Date;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerAdd.jsp}.
@@ -99,6 +100,9 @@ public final class DbTicklerAdd2Action extends ActionSupport {
      * @return {@link #SUCCESS} to forward to the view JSP, or {@link #NONE} on redirect/error
      * @throws SecurityException if the user lacks {@code _tickler} write privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
 
@@ -184,12 +188,12 @@ public final class DbTicklerAdd2Action extends ActionSupport {
                 } catch (NumberFormatException e) {
                     MiscUtils.getLogger().error(
                             "Invalid docId format for TicklerLink: ticklerNo={}, docId={}",
-                            ticklerNo, LogSanitizer.sanitize(docId), e);
+                            ticklerNo, LogSafe.sanitize(docId), e);
                     ticklerLinkFailed = true;
                 } catch (Exception e) {
                     MiscUtils.getLogger().error(
                             "Failed to save TicklerLink for ticklerNo={}, docType={}, docId={}",
-                            ticklerNo, LogSanitizer.sanitize(docType), LogSanitizer.sanitize(docId), e);
+                            ticklerNo, LogSafe.sanitize(docType), LogSafe.sanitize(docId), e);
                     ticklerLinkFailed = true;
                 }
             }

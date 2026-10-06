@@ -66,6 +66,7 @@
 <!DOCTYPE html>
 <html lang="<carlos:encode value='<%= request.getLocale().getLanguage() %>' context="htmlAttribute"/>">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">

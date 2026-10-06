@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -190,7 +190,7 @@ public class BillingEditWithApptNoViewModelAssembler {
                 // nothing was billed yet, risking a duplicate claim.
                 MiscUtils.getLogger().error(
                         "Failed to load billing items for bill {}; rendering form with empty service fields",
-                        LogSanitizer.sanitize(billNo), e);
+                        LogSafe.sanitize(billNo), e);
                 serviceFieldsLoadFailed = true;
             }
         }

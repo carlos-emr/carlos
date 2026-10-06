@@ -37,6 +37,7 @@ import java.util.List;
  */
 @Entity
 @Table(name = "program_team")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class ProgramTeam implements Serializable {
 
     public static String REF = "ProgramTeam";
@@ -64,6 +65,7 @@ public class ProgramTeam implements Serializable {
     /**
      * @return Returns the admissions.
      */
+    @jakarta.persistence.Transient
     public List getAdmissions() {
         return admissions;
     }
@@ -78,6 +80,7 @@ public class ProgramTeam implements Serializable {
     /**
      * @return Returns the providers.
      */
+    @jakarta.persistence.Transient
     public List getProviders() {
         return providers;
     }
@@ -98,6 +101,9 @@ public class ProgramTeam implements Serializable {
      * generator-class="native"
      * column="team_id"
      */
+    @jakarta.persistence.Id
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+    @jakarta.persistence.Column(name = "team_id")
     public Integer getId() {
         return id;
     }
@@ -115,6 +121,7 @@ public class ProgramTeam implements Serializable {
     /**
      * Return the value associated with the column: name
      */
+    @jakarta.persistence.Column(name = "name", length = 255)
     public String getName() {
         return name;
     }
@@ -131,6 +138,7 @@ public class ProgramTeam implements Serializable {
     /**
      * Return the value associated with the column: program_id
      */
+    @jakarta.persistence.Column(name = "program_id")
     public Integer getProgramId() {
         return programId;
     }

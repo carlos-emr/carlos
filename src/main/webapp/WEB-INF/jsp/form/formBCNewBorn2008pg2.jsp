@@ -94,6 +94,7 @@
     <% response.setHeader("Cache-Control", "no-cache");%>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <title><fmt:message key='form.bcnewborn.title2008Page2'/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -1044,7 +1045,7 @@
                         <td>
                             <b>16. <fmt:message key='form.bcnewborn.statusAtDischarge'/></b><br>
                             <textarea name="Section16Text" @oscar.formDB
-                                      dbType="varchar(255)"/> <%= props.getProperty("Section16Text", "") %></textarea>
+                                      dbType="text"/> <%= props.getProperty("Section16Text", "") %></textarea>
                             <br>
                             <input type="checkbox"
                                    name="Section16Exclusive" <%= props.getProperty("Section16Exclusive", "") %>

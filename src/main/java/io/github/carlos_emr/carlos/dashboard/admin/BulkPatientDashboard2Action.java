@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class BulkPatientDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -111,7 +111,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         try {
             indicatorId = Integer.parseInt(indicatorIdString);
         } catch (NumberFormatException exception) {
-            logger.error("Could not parse indicator id from: {}", LogSanitizer.sanitize(indicatorIdString), exception);
+            logger.error("Could not parse indicator id from: {}", LogSafe.sanitize(indicatorIdString), exception);
             return null;
         }
 
@@ -136,7 +136,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //parseIntegers(patientIdsJson));
         }
 
-        logger.info("Bulk exclusion notification sent for indicator {} to provider(s)", LogSanitizer.sanitize(indicatorName));
+        logger.info("Bulk exclusion notification sent for indicator {} to provider(s)", LogSafe.sanitize(indicatorName));
 
         return null;
     }
@@ -185,7 +185,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             messageHandler.notifyProvider(subject, message, mrp, null); //patientIdList);
         }
 
-        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSanitizer.sanitize(icd9code)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("Bulk disease registry addition notification sent for ICD9 code {} to provider(s)", LogSafe.sanitize(icd9code)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         return null;
     }
@@ -281,7 +281,7 @@ public class BulkPatientDashboard2Action extends ActionSupport {
             try {
                 ids.add(Integer.parseInt(trimmed));
             } catch (NumberFormatException e) {
-                logger.warn("Skipping non-integer patient ID: {}", LogSanitizer.sanitize(trimmed));
+                logger.warn("Skipping non-integer patient ID: {}", LogSafe.sanitize(trimmed));
             }
         }
         return ids;

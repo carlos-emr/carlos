@@ -34,7 +34,9 @@
 --%>
 <!DOCTYPE html>
 <html>
-<head><title></title></head>
+<head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+<title></title></head>
 <body>
 <span id="tickler-edit-ok" style="display:none;"></span>
 </body>

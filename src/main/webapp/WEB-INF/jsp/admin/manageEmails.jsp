@@ -22,6 +22,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title><fmt:message key="admin.manageEmails.title"/></title>
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -36,6 +37,8 @@
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-ui-1.14.2.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/flatpickr/flatpickr.min.js"></script>
+    <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email-compose-popup.js"></script>
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
 
     <style type="text/css">
         .search-email-menu {
@@ -77,8 +80,13 @@
             border-left: 3px solid #008631 !important;
         }
 
-        .email-status-card .vertical-status-divider-failed {
+        .email-status-card .vertical-status-divider-failed,
+        .email-status-card .vertical-status-divider-blocked {
             border-left: 3px solid #c30010 !important;
+        }
+
+        .email-status-card .vertical-status-divider-pending {
+            border-left: 3px solid #b58105 !important;
         }
 
         .email-status-card .vertical-status-divider-outbox {
@@ -114,9 +122,15 @@
             color: #008631 !important;
         }
 
-        .email-status-card .status-tag-failed {
+        .email-status-card .status-tag-failed,
+        .email-status-card .status-tag-blocked {
             background-color: #ffe1e1 !important;
             color: #c30010 !important;
+        }
+
+        .email-status-card .status-tag-pending {
+            background-color: #fff3cd !important;
+            color: #664d03 !important;
         }
 
         .email-status-card .status-tag-outbox {
@@ -129,8 +143,13 @@
             background-color: #abf7b1 !important;
         }
 
-        .email-status-card .status-tag-failed:hover {
+        .email-status-card .status-tag-failed:hover,
+        .email-status-card .status-tag-blocked:hover {
             background-color: #ffcbd1 !important;
+        }
+
+        .email-status-card .status-tag-pending:hover {
+            background-color: #ffe69c !important;
         }
 
         .email-status-card .status-tag-outbox:hover {
@@ -227,10 +246,18 @@
                 method: 'POST',
                 data: data,
                 success: function (data) {
-                    $('#emailStatus' + emailLogId).removeClass('status-tag-failed').addClass('status-tag-resolved');
-                    $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed').addClass('vertical-status-divider-resolved');
+                    const statusElement = document.getElementById('emailStatus' + emailLogId);
+                    const popover = bootstrap.Popover.getInstance(statusElement);
+                    if (popover) {
+                        popover.dispose();
+                    }
+                    statusElement.removeAttribute('data-bs-toggle');
+                    statusElement.removeAttribute('data-bs-trigger');
+                    statusElement.removeAttribute('data-bs-content');
+                    $(statusElement).removeClass('status-tag-failed status-tag-pending').addClass('status-tag-resolved');
+                    $('#cardBody' + emailLogId).removeClass('vertical-status-divider-failed vertical-status-divider-pending').addClass('vertical-status-divider-resolved');
                     $("#btnResolve" + emailLogId).remove();
-                    $('#emailStatus' + emailLogId).text(manageEmailsResolved);
+                    $(statusElement).text(manageEmailsResolved);
                     HideSpin();
                 },
                 error: function (xhr, status, error) {
@@ -247,7 +274,7 @@
         function resend(emailLogId) {
             const url = $("#emailSearchForm").attr("action");
             const data = "method=resendEmail&logId=" + emailLogId;
-            window.open(url + "?" + data, "_blank", "width=1100,height=1000");
+            openEmailCompose(url + "?" + data, 1100, 1000, "${carlos:forJavaScript(emailCopyFailed)}");
         }
 
         function resetForm() {
@@ -258,7 +285,8 @@
     </script>
 
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 
 <div id="bodyrow" class="container-fluid">
     <div id="bodycolumn" class="col-sm-12">

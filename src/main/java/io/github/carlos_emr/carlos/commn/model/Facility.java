@@ -123,6 +123,45 @@ public class Facility extends AbstractModel<Integer> implements Serializable {
         this.description = description;
     }
 
+    private Facility(Facility source) {
+        this.id = source.id;
+        this.name = source.name;
+        this.description = source.description;
+        this.contactName = source.contactName;
+        this.contactEmail = source.contactEmail;
+        this.contactPhone = source.contactPhone;
+        this.hic = source.hic;
+        this.disabled = source.disabled;
+        this.orgId = source.orgId;
+        this.sectorId = source.sectorId;
+        this.enableHealthNumberRegistry = source.enableHealthNumberRegistry;
+        this.enableDigitalSignatures = source.enableDigitalSignatures;
+        this.enableAnonymous = source.enableAnonymous;
+        this.enableOcanForms = source.enableOcanForms;
+        this.ocanServiceOrgNumber = source.ocanServiceOrgNumber;
+        this.enableGroupNotes = source.enableGroupNotes;
+        this.enableEncounterTime = source.enableEncounterTime;
+        this.enableEncounterTransportationTime = source.enableEncounterTransportationTime;
+        this.rxInteractionWarningLevel = source.rxInteractionWarningLevel;
+        this.vacancyWithdrawnTicklerProvider = source.vacancyWithdrawnTicklerProvider;
+        this.vacancyWithdrawnTicklerDemographic = source.vacancyWithdrawnTicklerDemographic;
+        this.registrationIntake = source.registrationIntake;
+        this.displayAllVacancies = source.displayAllVacancies;
+        this.assignNewVacancyTicklerProvider = source.assignNewVacancyTicklerProvider;
+        this.assignNewVacancyTicklerDemographic = source.assignNewVacancyTicklerDemographic;
+        this.assignRejectedVacancyApplicant = source.assignRejectedVacancyApplicant;
+        this.enablePhoneEncounter = source.enablePhoneEncounter;
+        this.lastUpdated = copyDate(source.lastUpdated);
+    }
+
+    public static Facility copyOf(Facility source) {
+        return source == null ? null : new Facility(source);
+    }
+
+    private static Date copyDate(Date date) {
+        return date == null ? null : new Date(date.getTime());
+    }
+
     @Override
     public Integer getId() {
         return id;

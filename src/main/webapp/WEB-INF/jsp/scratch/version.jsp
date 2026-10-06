@@ -59,6 +59,7 @@
 %>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="ScratchPad.title"/> <carlos:encode value='<%= title %>' context="html"/>
     </title>
     <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.7.1.min.js"></script>
@@ -236,7 +237,10 @@
 		}
 
 		function updateScratch() {
-			window.opener.location.reload();
+			if (window.opener && !window.opener.closed
+                    && typeof window.opener.scratchpadVersionChanged === 'function') {
+                window.opener.scratchpadVersionChanged();
+            }
 		}
     </script>
 </div>

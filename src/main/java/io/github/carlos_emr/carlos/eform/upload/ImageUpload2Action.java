@@ -34,8 +34,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -50,11 +51,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 public class ImageUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+
+    private static final String INVALID_FILENAME_MESSAGE_KEY = "dms.error.invalidFilename";
 
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -62,6 +67,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
+        }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return ERROR;
         }
 
         try {
@@ -71,17 +80,14 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
                 return ERROR;
             }
 
-            // Sanitize the filename and track if it changed
-            String originalFileName = imageFileName;
-            imageFileName = MiscUtils.sanitizeFileName(imageFileName);
+            // Sanitize the filename and track if it changed. Compare against the name the browser
+            // actually sent (captured in withUploadedFiles before its own normalization), not
+            // against the already-normalized field — normalization is idempotent, so comparing the
+            // field with itself can never report a rename.
+            String originalFileName =
+                    uploadedOriginalFileName != null ? uploadedOriginalFileName : imageFileName;
+            imageFileName = PathValidationUtils.validateFileName(imageFileName);
             boolean fileNameWasSanitized = !originalFileName.equals(imageFileName);
-
-            // Validate that sanitized filename is not empty
-            if (imageFileName == null || imageFileName.isEmpty()) {
-                MiscUtils.getLogger().warn("Image upload rejected: filename '{}' empty after sanitization", originalFileName);
-                addActionError("Invalid filename: filename cannot be empty after sanitization");
-                return ERROR;
-            }
 
             // Ensure upload directory exists (throws IOException if creation fails)
             File imageFolder = getImageFolder();
@@ -112,6 +118,10 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
             request.setAttribute("status", "uploaded");
             return SUCCESS;
 
+        } catch (FileValidationException e) {
+            MiscUtils.getLogger().warn("Rejected invalid image upload filename");
+            addActionError(getInvalidFilenameMessage());
+            return ERROR;
         } catch (SecurityException se) {
             MiscUtils.getLogger().warn("SecurityException during image upload: " + se.getMessage(), se);
             addActionError("Upload failed: invalid file or security policy violation");
@@ -123,6 +133,8 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static File getImageFolder() throws IOException {
         File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs())
@@ -130,7 +142,17 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         return imageFolder;
     }
 
+    private String getInvalidFilenameMessage() {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString(INVALID_FILENAME_MESSAGE_KEY);
+        } catch (MissingResourceException e) {
+            return "Invalid filename";
+        }
+    }
+
     private File image;
+    private String uploadValidationError;
 
     /**
      * Receives uploaded files from the Struts 7.x {@code ActionFileUploadInterceptor}.
@@ -139,9 +161,21 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.image = PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath()));
+            this.image = PathValidationUtils.validateUploadContent(uploaded.getContent());
             this.imageFileContentType = uploaded.getContentType();
-            this.imageFileName = uploaded.getOriginalName();
+            try {
+                // Keep the browser-supplied name before any normalization. validateStrictFileName
+                // ends in validateFileName, which already applies the character normalization, so
+                // execute() cannot detect a rename by comparing against the value stored here —
+                // its second validateFileName call is idempotent and the comparison was always
+                // false, silently leaving the admin with a renamed file and a form that no longer
+                // resolves it.
+                this.uploadedOriginalFileName = uploaded.getOriginalName();
+                this.imageFileName = PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = getInvalidFilenameMessage();
+                this.imageFileName = null;
+            }
         }
     }
 
@@ -149,20 +183,23 @@ public class ImageUpload2Action extends ActionSupport implements UploadedFilesAw
         return image;
     }
 
-    @StrutsParameter
     public void setImage(File image) {
         this.image = image;
     }
 
     private String imageFileName;
     private String imageFileContentType;
+    /**
+     * The filename exactly as the browser supplied it, captured before normalization so a rename
+     * can be reported. Null when the name arrived through {@link #setImageFileName} rather than the
+     * upload interceptor, in which case that value is itself the pre-normalization original.
+     */
+    private String uploadedOriginalFileName;
 
-    @StrutsParameter
     public void setImageFileName(String imageFileName) {
         this.imageFileName = imageFileName;
     }
 
-    @StrutsParameter
     public void setImageFileContentType(String imageFileContentType) {
         this.imageFileContentType = imageFileContentType;
     }

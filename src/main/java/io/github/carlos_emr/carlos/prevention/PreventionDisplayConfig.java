@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.prevention;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,11 +54,13 @@ import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class PreventionDisplayConfig {
     private static Logger log = MiscUtils.getLogger();
@@ -101,6 +104,8 @@ public class PreventionDisplayConfig {
         return prevHash.get(s);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadPreventions() {
         prevList = new ArrayList<HashMap<String, String>>();
         prevHash = new HashMap<String, HashMap<String, String>>();
@@ -113,7 +118,7 @@ public class PreventionDisplayConfig {
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(filename);
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
                 is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionItems.xml");
@@ -197,6 +202,8 @@ public class PreventionDisplayConfig {
     }
 
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
     public void loadConfigurationSets() {
         getPreventions();
         configHash = new HashMap<String, Map<String, Object>>();
@@ -209,7 +216,7 @@ public class PreventionDisplayConfig {
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
-                    is = new FileInputStream(filename);
+                    is = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(filename)));
                 }
             } else {
                 is = this.getClass().getClassLoader().getResourceAsStream("oscar/prevention/PreventionConfigSets.xml");

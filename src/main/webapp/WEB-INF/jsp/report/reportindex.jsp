@@ -62,6 +62,8 @@
     if (!authed2) {
         return;
     }
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+    String scheduleNavQuerySuffix = showScheduleNav ? "?scheduleNav=1" : "";
 %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -128,7 +130,11 @@
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <title><fmt:message key="report.reportindex.title"/></title>
 
         <!-- Flatpickr -->
@@ -262,12 +268,15 @@
 
     </head>
     <body onload="setfocus()">
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <%
         GregorianCalendar now = new GregorianCalendar();
         GregorianCalendar cal = (GregorianCalendar) now.clone();
         String today = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
     %>
-    <div class="container">
+    <div class="container-fluid carlos-content-shell">
     <div class="searchBox">
     <div class="page-header-bar">
         <h4 class="page-header-title">
@@ -369,7 +378,7 @@
                 </td>
                 <td style="width: 10px;"></td>
                 <td style="width: 300px;"><a
-                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport" target="_blank"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
+                        href="<%= request.getContextPath() %>/oscarReport/ViewReportDemographicReport<%= scheduleNavQuerySuffix %>"><fmt:message key="report.reportindex.btnDemographicReportTool"/></a></td>
                 <td></td>
                 <td></td>
                 <td></td>

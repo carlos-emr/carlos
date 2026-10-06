@@ -78,7 +78,7 @@
 //   Adult:                    Tdap (10-year booster), Td (10-year repeat), Inf (annual 65+)
 //   Women's health:           HPV-CERVIX (5-year cycle, 25-69), PAP (3-year cycle, 25-69),
 //                              MAM (2-year cycle, 40-74)
-//   Colorectal screening:     FOBT/FIT (2-year cycle, 50-74), Colonoscopy (10-year)
+//   Colorectal screening:     FOBT/FIT (2-year cycle, 45-74), Colonoscopy (10-year)
 //   General wellness:         Smoking assessment (13+), BMD (65+), PHV (annual),
 //                              Annual Physical (annual), Obesity screening (annual)
 //
@@ -1003,9 +1003,9 @@ end
 
 // --------------------------------------------------------------------------
 // FOBT / Colonoscopy: Colorectal cancer screening (4 rules)
-// Canadian guideline: FIT/FOBT every 2 years ages 50-74; colonoscopy every 10 years
+// CCO guideline: FIT/FOBT every 2 years ages 45-74; colonoscopy every 10 years
 // Rule 1: WARNING - FIT overdue (>24mo since FOBT) AND no colonoscopy on record
-// Rule 2: WARNING - No FIT/FOBT or colonoscopy records at all (ages 50-74)
+// Rule 2: WARNING - No FIT/FOBT or colonoscopy records at all (ages 45-74)
 // Rule 3: WARNING - Colonoscopy >10 years old (120 months) - needs repeat
 // "FOBT Inelligible": REMINDER that colonoscopy makes FIT ineligible (any age)
 // Logic: Colonoscopy supersedes FOBT - if colonoscopy exists, FOBT not needed
@@ -1014,7 +1014,7 @@ end
 rule "FOBT 1"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
+        eval( prev.getAgeInYears() >= 45 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1 )
         eval( prev.getHowManyMonthsSinceLast("FOBT") >= 24 )
@@ -1026,7 +1026,7 @@ end
 rule "FOBT 2"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
+        eval( prev.getAgeInYears() >= 45 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getHowManyMonthsSinceLast("COLONOSCOPY") == -1 )
         eval( prev.getHowManyMonthsSinceLast("FOBT") == -1 )
@@ -1038,7 +1038,7 @@ end
 rule "FOBT 3"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
+        eval( prev.getAgeInYears() >= 45 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getHowManyMonthsSinceLast("COLONOSCOPY") >= 120 )
     then

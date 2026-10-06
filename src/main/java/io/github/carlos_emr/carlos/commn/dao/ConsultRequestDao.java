@@ -33,18 +33,20 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
 
-import io.github.carlos_emr.carlos.commn.PaginationQuery;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
-import io.github.carlos_emr.carlos.consultations.ConsultationQuery;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 
 public interface ConsultRequestDao extends AbstractDao<ConsultationRequest> {
 
-    public int getConsultationCount(PaginationQuery paginationQuery);
-
-    public List<ConsultationRequest> listConsultationRequests(ConsultationQuery consultationQuery);
-
     public int getConsultationCount2(ConsultationRequestSearchFilter filter);
 
     public List<Object[]> search(ConsultationRequestSearchFilter filter);
+
+    /**
+     * Loads a detail request with specialist, demographic contact and instruction label initialized.
+     *
+     * @param id consultation request identifier
+     * @return the request suitable for detached detail rendering, or null when absent
+     */
+    ConsultationRequest findWithAssociations(Integer id);
 }

@@ -52,6 +52,7 @@
 <!DOCTYPE >
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>DHIR FHIR Test Case</title>
 </head>
 <body>

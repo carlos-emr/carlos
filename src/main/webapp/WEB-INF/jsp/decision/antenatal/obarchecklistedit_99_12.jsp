@@ -53,6 +53,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>ANTENATAL CHECK LIST</title>
     <link rel="stylesheet" href="antenatalrecord.css">
@@ -79,7 +80,7 @@
             LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
             SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-                throw new SecurityException("missing required sec object: _admin (write access required)");
+                throw new SecurityException("missing required sec object (_admin w)");
             }
 
             String checklist = request.getParameter("checklist");
@@ -112,7 +113,7 @@
                                                                            name='submit' value=' Save '> <input
                         type="button"
                         name="Button"
-                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"
+                        value="&nbsp;<%=request.getParameter("submit")!=null?" Exit ":"Cancel"%>&nbsp;"<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                         onClick="onExit();">&nbsp;
                 </div>
             </th>

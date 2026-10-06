@@ -37,7 +37,7 @@ public record BillFluRow(
         String demographicName) {
     public BillFluRow {
         content = content == null ? "" : content;
-        total = total == null || total.trim().isEmpty() ? "0.00" : total;
+        total = total == null || total.isBlank() ? "0.00" : total;
         status = status == null ? "" : status;
         billingDate = billingDate == null ? null : new Date(billingDate.getTime());
         demographicName = demographicName == null ? "" : demographicName;

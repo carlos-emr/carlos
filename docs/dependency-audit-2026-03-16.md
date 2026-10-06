@@ -52,7 +52,7 @@
 | **Gson** (`com.google.code.gson`) | 2.13.2 | Maintenance mode (Google). Current and secure. |
 | **CommonMark** (`org.commonmark`) | 0.27.1 | Current. **XSS risk**: no built-in HTML sanitization. If rendering user-supplied markdown, output must pass through a sanitizer. |
 | **JFreeChart** (`org.jfree`) | 1.5.6 | Slow development pace. Current version. v2.0 on roadmap but unreleased. |
-| **Drools** (`org.drools:drools-engine`) | 10.1.0 | Current. 10.2 delayed in Apache incubator process. Used standalone via KIE API — no Spring coupling. |
+| **Drools** (`org.drools:drools-engine`, `org.drools:drools-mvel`) | 10.1.0 | Current. 10.2 delayed in Apache incubator process. Used standalone via KIE API; `drools-mvel` supports the standard DRL compiler path. |
 | **Jackson 2.x** (all modules) | 2.21.1 | Current 2.x LTS. Jackson 3.x migration will eventually be needed for CXF 4.2 and full Spring 7 ecosystem alignment. |
 
 ## 5. All Clear — Current, Maintained, No Issues

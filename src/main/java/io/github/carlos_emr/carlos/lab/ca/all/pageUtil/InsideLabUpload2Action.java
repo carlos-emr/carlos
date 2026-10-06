@@ -40,12 +40,11 @@
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
 import java.io.File;
-import java.io.FileInputStream;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,8 +53,11 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,7 +71,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class InsideLabUpload2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -85,6 +86,7 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     private List<File> importFiles;
     private List<String> importFilesFileName;
     private List<String> importFilesContentType;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
@@ -93,8 +95,13 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
             this.importFilesFileName = new ArrayList<>();
             this.importFilesContentType = new ArrayList<>();
             for (UploadedFile uploaded : uploadedFiles) {
-                this.importFiles.add(PathValidationUtils.validateUpload(new File(uploaded.getAbsolutePath())));
-                this.importFilesFileName.add(uploaded.getOriginalName());
+                this.importFiles.add(PathValidationUtils.validateUploadContent(uploaded.getContent()));
+                try {
+                    this.importFilesFileName.add(PathValidationUtils.validateStrictFileName(uploaded.getOriginalName()));
+                } catch (FileValidationException e) {
+                    this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+                    this.importFilesFileName.add(null);
+                }
                 this.importFilesContentType.add(uploaded.getContentType());
             }
         }
@@ -102,13 +109,17 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     @Override
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
+        checkUserPrivilege(loggedInInfo);
+
         if (importFiles == null || importFiles.isEmpty()) {
             addActionError("No files were uploaded");
             return INPUT;
         }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(ServletActionContext.getRequest());
-        checkUserPrivilege(loggedInInfo);
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            return INPUT;
+        }
 
         Map<String, FileStatus> filesStatusMap = new HashMap<>();
         
@@ -135,12 +146,18 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
 
     private FileStatus processUploadedFile(LoggedInInfo loggedInInfo, File file, String fileName, String contentType) {
         // Convert File to InputStream and process
-        try (InputStream inputStream = new FileInputStream(file)) {
+        try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(file)) {
             String filePath = Utilities.saveFile(inputStream, fileName);
+            if (filePath == null) {
+                MiscUtils.getLogger().error("Unable to save uploaded lab file");
+                return FileStatus.FAILED;
+            }
             // Continue with your existing processing logic
             return processFile(loggedInInfo, ServletActionContext.getRequest(), filePath, getFileType(ServletActionContext.getRequest()));
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error processing file: " + fileName, e);
+        } catch (IOException | SecurityException e) {
+            // SecurityException covers PathValidationUtils rejecting a misconfigured DOCUMENT_DIR or a
+            // bad saved path; fail just this file (like an IOException) instead of aborting the batch.
+            MiscUtils.getLogger().error("Error processing uploaded lab file", e);
             return FileStatus.FAILED;
         }
     }
@@ -159,8 +176,16 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     }
 
     private FileStatus processFile(LoggedInInfo loggedInInfo, HttpServletRequest request, String filePath, String fileType) {
-        Path path = Paths.get(filePath);
-        String fileName = path.getFileName().toString();
+        Path path;
+        String fileName;
+        try {
+            File savedFile = PathValidationUtils.validateExistingDocumentPath(filePath);
+            path = savedFile.toPath();
+            fileName = path.getFileName().toString();
+        } catch (IOException | SecurityException e) {
+            MiscUtils.getLogger().error("Invalid saved lab file path", e);
+            return FileStatus.FAILED;
+        }
         int checkFileUploadedSuccessfully;
 
         try (InputStream localFileInputStream = Files.newInputStream(path)) {
@@ -170,7 +195,9 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
                 return FileStatus.EXISTS;
             }
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error occurred while processing " + fileName + " file", e);
+            // exceptionTrace: Files.newInputStream failures carry the validated path, whose
+            // basename comes from the uploaded lab filename.
+            MiscUtils.getLogger().error("Error occurred while processing uploaded lab file: {}", LogSafe.exceptionTrace(e));
             return FileStatus.FAILED;
         }
 
@@ -181,12 +208,10 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
         return FileStatus.INVALID;
     }
 
-    @StrutsParameter(depth = 1)
     public List<File> getImportFiles() 
     { 
         return importFiles; 
     }
-    @StrutsParameter
     public void setImportFiles(List<File> importFiles) 
     { 
         this.importFiles = importFiles; 
@@ -196,7 +221,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesFileName; 
     }
-    @StrutsParameter
     public void setImportFilesFileName(List<String> importFilesFileName) 
     { 
         this.importFilesFileName = importFilesFileName; 
@@ -206,7 +230,6 @@ public class InsideLabUpload2Action extends ActionSupport implements UploadedFil
     { 
         return importFilesContentType; 
     }
-    @StrutsParameter
     public void setImportFilesContentType(List<String> importFilesContentType) 
     { 
         this.importFilesContentType = importFilesContentType; 

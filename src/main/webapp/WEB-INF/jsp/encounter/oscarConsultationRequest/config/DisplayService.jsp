@@ -61,6 +61,7 @@
         pageContext.setAttribute("serviceDesc", serviceDesc);
     %>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <title><fmt:message key="encounter.oscarConsultationRequest.config.DisplayService.title"/></title>
     </head>

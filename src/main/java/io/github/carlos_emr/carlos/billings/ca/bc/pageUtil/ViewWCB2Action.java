@@ -47,7 +47,7 @@ import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.carlos.db.DBHandler;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -118,7 +118,7 @@ public class ViewWCB2Action extends ActionSupport {
                 this.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-                try (ResultSet rs = DBHandler.GetPreSQL(
+                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
                         "select ohip_no,billing_no from provider where provider_no = ?", providerNo)) {
                     if (rs != null && rs.next()) {
                         this.setW_pracno(rs.getString("ohip_no"));

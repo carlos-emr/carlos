@@ -333,6 +333,43 @@ class OhipClaimFileServiceUnitTest {
         verify(itemDao, never()).findByCh1Id(12345678);
     }
 
+
+    @Test
+    void shouldSanitizeSummaryProviderToken_whenProviderNoContainsSelectorChars() throws Exception {
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        BillingONCHeader1 header = hcpHeader();
+        header.setProviderNo("99.99/8");
+        BillingONItem item = hcpItem();
+        Demographic demographic = mock(Demographic.class);
+        when(demographic.getRosterStatus()).thenReturn("RO");
+        when(demographic.getBirthDayAsString()).thenReturn("1980-01-01");
+        when(demographic.getSex()).thenReturn("F");
+        when(demographicManager.getDemographic(loggedInInfo, "123")).thenReturn(demographic);
+        when(lookupService.getPatientCurBillingDemo(loggedInInfo, "123"))
+                .thenReturn(List.of("DOE", "JANE", "19800101", "1234567890", "AB", "ON", "F"));
+        when(cheaderDao.findByProviderStatusAndDateRange(eq("99.99/8"), eq(List.of("O")), any(DateRange.class)))
+                .thenReturn(List.of(header));
+        when(itemDao.findByCh1IdsExcludingDeletedAndSettled(List.of(12345678)))
+                .thenReturn(List.of(item));
+        when(billingServiceDao.codeRequiresSLI("A001A")).thenReturn(false);
+
+        service.setProviderNo("99.99/8");
+        service.setDateRange(new DateRange(
+                BillingDates.parseIsoDate("2026-04-01"),
+                BillingDates.parseIsoDate("2026-04-30")));
+        service.setEFlag("0");
+        service.setContextPath("");
+
+        service.createBillingFileStr(loggedInInfo, "0", new String[] {"O"}, true, "P", true);
+
+        assertThat(service.getHtmlValue())
+                .contains("id='recordShowButton99_99_8'")
+                .contains("id='recordHideButton99_99_8'")
+                .contains("class='record99_99_8'")
+                .contains("jQuery(\".record99_99_8\")")
+                .doesNotContain("record99.99/8");
+    }
+
     @Test
     void shouldKeepMutableErrorStatePrivate_forArchitectureContract() throws Exception {
         assertThat(Modifier.isPrivate(

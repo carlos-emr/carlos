@@ -35,6 +35,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.pageUtil.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String groupName = (String) session.getAttribute("groupName");
@@ -43,6 +44,7 @@
 <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="encounter.Measurements.msgAddMeasurementGroup"/></title>
         <script type="text/javascript">
@@ -95,13 +97,13 @@
                                         <th align="left" class="td.tite"><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.allTypes"/>
                                         </th>
 
-                                        <th align="left" class="td.tite"><%= session.getAttribute("groupName") %></th>
+                                        <th align="left" class="td.tite"><carlos:encode value='<%= groupName %>' context="html"/></th>
                                     </tr>
                                     <tr>
                                         <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.add2Group"/>
-                                            <%= session.getAttribute("groupName") %></td>
+                                            <carlos:encode value='<%= groupName %>' context="html"/></td>
                                         <td><fmt:message key="encounter.oscarMeasurements.MeasurementGroup.deleteTypes"/>
-                                            <%= session.getAttribute("groupName") %></td>
+                                            <carlos:encode value='<%= groupName %>' context="html"/></td>
                                     <tr>
                                         <td><select multiple="true" name="selectedAddTypes" size="10">
                                             <c:forEach var="allTypeDisplayName" items="${allTypeDisplayNames}">

@@ -16,13 +16,54 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 -->
+<%--
+    InboxhubTopbar — secondary navigation strip rendered above the inbox hub
+    list view. Each link opens a feature popup via reportWindow(...) defined
+    in /share/javascript/oscarMDSIndex.js.
+
+    Inputs:
+      providerNo — provider number of the logged-in user; set below from
+        sessionScope.user and passed to the Forwarding Rules popup so the
+        rules editor scopes to that provider.
+
+    Conditional rendering:
+      The "Doc Upload" link toggles between two endpoints based on the
+      Carlos property `legacy_document_upload_enabled`. When true, the legacy
+      `ViewHtml5AddDocuments` popup is rendered; when false, the modern
+      `ViewDocumentUploader` popup is rendered. Both branches render the same
+      i18n label.
+
+      Note the property is NOT "default true". Passing "true" as the second
+      argument routes getBooleanProperty through isPropertyActive, which returns
+      false for an unset key (and treats yes/on as true as well) -- the argument
+      is not a fallback. A stock install therefore serves the modern uploader
+      here. The point of reading it through a scriptlet rather than EL
+      is that `<%@ page import %>` exposes CarlosProperties to scriptlets only,
+      so the EL form silently evaluated false whatever the property said — this
+      entry point and oscarMDS/Index.jsp could disagree on one install.
+
+    Popup sizing:
+      reportWindow's signature is (page, height, width). The popup args
+      are intentionally height=800, width=1000 for the sub-pages that
+      share a Bootstrap `.container` wrapper (Pending Docs, HL7 Lab
+      Upload, Create Lab, Forwarding Rules, modern Doc Upload). Legacy
+      Doc Upload keeps its compact 600x500 popup because it uses a fixed
+      legacy layout rather than Bootstrap's container gutter. Incoming
+      Docs keeps width=1200 because it uses a full-width `container-fluid`
+      layout for queue triage. At
+      width=1000 the container hits Bootstrap's lg breakpoint (>=992px)
+      and resolves to a 960px max-width — producing the same ~20px page
+      gutter on every popup. Diverging widths land on different
+      breakpoints and visually drift apart.
+
+    @since 2025-02-12
+--%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ page contentType="text/html;charset=UTF-8" pageEncoding="UTF-8" language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -30,14 +71,26 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 <c:set var="contextPath" value="${pageContext.request.contextPath}" />
 
 <%-- Ordered by workflow: incoming → pending → uploads → create → config --%>
+<%-- Incoming Docs uses container-fluid, so it intentionally keeps a wider popup. --%>
+
+<!-- Preview button -->
+<input type="checkbox" class="btn-check btn-sm" name="viewMode2" id="btnViewMode2" autocomplete="off" onchange="fetchInboxhubDataByMode(this)" ${query.viewMode ? 'checked' : ''}>
+<label class="btn btn-secondary btn-sm" id="btnViewModeLabel" for="btnViewMode2"><c:choose><c:when test="${query.viewMode}"><fmt:message key="inboxhub.form.listMode"/></c:when><c:otherwise><fmt:message key="inboxhub.form.previewMode"/></c:otherwise></c:choose></label>
+
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewIncomingDocs',800,1200)" class="nav-link"><fmt:message key="inboxmanager.document.incomingDocs"/></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',700,1100)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
-<c:if test="${CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/inboxManage?method=getDocumentsInQueues',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.pendingDocs"/></a>
+<%-- A scriptlet, deliberately, matching oscarMDS/Index.jsp. The previous
+     ${CarlosProperties.getInstance()...} EL test looked identical but never
+     worked: <%@ page import %> exposes a class to scriptlets, not to EL, so EL
+     resolved "CarlosProperties" as a scoped attribute, found nothing, and the
+     test was always false — this hub always offered the modern uploader while
+     the MDS inbox honoured the property, two entry points serving different
+     uploaders on one install. --%>
+<% if (CarlosProperties.getInstance().getBooleanProperty("legacy_document_upload_enabled", "true")) { %>
     <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewHtml5AddDocuments',600,500)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-</c:if>
-<c:if test="${!CarlosProperties.getInstance().getBooleanProperty('legacy_document_upload_enabled', 'true')}">
+<% } else { %>
     <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/documentManager/ViewDocumentUploader',800,1000)" class="nav-link"><fmt:message key="inboxmanager.document.uploadDoc"/></a>
-</c:if>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/insideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
+<% } %>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/lab/CA/ALL/ViewInsideLabUpload',800,1000)" class="nav-link"><fmt:message key="admin.admin.hl7LabUpload"/></a>
 <a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ViewCreateLab',800,1000)" class="nav-link"><fmt:message key="global.createLab" /></a>
-<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(providerNo)}');" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>
+<a href="javascript:reportWindow('${carlos:forJavaScript(contextPath)}/oscarMDS/ForwardingRules?providerNo=${carlos:forJavaScript(carlos:forUriComponent(providerNo))}',800,1000);" class="nav-link"><fmt:message key="inboxhub.topbar.forwardingRules"/></a>

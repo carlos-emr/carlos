@@ -21,19 +21,13 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.util.List;
-
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -64,17 +58,13 @@ import static org.mockito.Mockito.verify;
 @Tag("billing")
 class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
 
-    private static final String LOGGER_NAME =
-            "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnReviewDiagPersister";
-
     @Mock
     private DxresearchDAO dxresearchDAO;
 
     private BillingOnReviewDiagPersister persister;
     private MockHttpServletRequest request;
     private AutoCloseable mockitoCloseable;
-    private CapturingAppender appender;
-    private LoggerContext ctx;
+    private LogCapture logCapture;
 
     @BeforeEach
     void setUp() {
@@ -82,27 +72,14 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
         persister = new BillingOnReviewDiagPersister(dxresearchDAO);
         request = new MockHttpServletRequest();
 
-        // Register a DEDICATED LoggerConfig for the persister's logger name so
-        // this suite never mutates a shared/root config. Surefire is configured
-        // with parallel=classes (pom.xml) — without scoping, two log-capture
-        // tests running concurrently would race on the same root LoggerConfig
-        // for add/remove/level state, producing flaky assertions.
-        ctx = (LoggerContext) LogManager.getContext(false);
-        appender = new CapturingAppender();
-        appender.start();
-        LoggerConfig dedicated = new LoggerConfig(LOGGER_NAME, Level.ALL, false);
-        dedicated.addAppender(appender, Level.ALL, null);
-        ctx.getConfiguration().addLogger(LOGGER_NAME, dedicated);
-        ctx.updateLoggers();
+        logCapture = LogCapture.forLogger(BillingOnReviewDiagPersister.class);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         if (mockitoCloseable != null) mockitoCloseable.close();
-        if (appender != null) {
-            ctx.getConfiguration().removeLogger(LOGGER_NAME);
-            appender.stop();
-            ctx.updateLoggers();
+        if (logCapture != null) {
+            logCapture.close();
         }
     }
 
@@ -161,7 +138,7 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("demographic_no is missing");
 
         verify(dxresearchDAO, never()).save(any());
-        assertThat(appender.events()).anyMatch(evt ->
+        assertThat(logCapture.events()).anyMatch(evt ->
                 evt.getLevel() == Level.ERROR
                 && evt.getMessage().getFormattedMessage().contains("demographic_no"));
     }
@@ -178,7 +155,7 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("no diagnostic code was supplied");
 
         verify(dxresearchDAO, never()).save(any());
-        assertThat(appender.events()).anyMatch(evt ->
+        assertThat(logCapture.events()).anyMatch(evt ->
                 evt.getLevel() == Level.ERROR
                 && evt.getMessage().getFormattedMessage().contains("dx code"));
     }
@@ -275,28 +252,6 @@ class BillingOnReviewDiagPersisterUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> persister.persistIfRequested(request, "999998"))
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("access denied");
-    }
-
-    /**
-     * Minimal in-memory log4j2 appender — captures events without filtering
-     * so the WARN-on-early-return assertions can run. Mirrors the shape
-     * used in {@code ErrorPageLoggerUnitTest}.
-     */
-    private static final class CapturingAppender extends AbstractAppender {
-        private final java.util.List<LogEvent> events = new java.util.ArrayList<>();
-
-        CapturingAppender() {
-            super("BillingONReviewDxPersisterUnitTestCaptureAppender", null, null, false, null);
-        }
-
-        @Override
-        public void append(LogEvent event) {
-            events.add(event.toImmutable());
-        }
-
-        List<LogEvent> events() {
-            return events;
-        }
     }
 
     /**

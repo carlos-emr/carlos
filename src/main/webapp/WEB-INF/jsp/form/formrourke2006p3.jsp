@@ -89,6 +89,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.rourke.title2006Page3"/></title>
         <link rel="stylesheet" type="text/css" href="rourkeStyle.css">

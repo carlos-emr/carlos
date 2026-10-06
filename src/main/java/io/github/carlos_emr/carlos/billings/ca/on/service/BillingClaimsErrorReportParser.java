@@ -33,7 +33,7 @@ import java.util.Objects;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 /**
  * Parses fixed-format Ontario claims error report files.
@@ -101,7 +101,7 @@ public class BillingClaimsErrorReportParser {
                     // empty so none of the dispatch branches below match.
                     MiscUtils.getLogger().warn(
                             "Skipping short or malformed claims-error line (file={}, line={}, length={})",
-                            LogSanitizer.sanitize(sourceName), lineNumber, nextline.length());
+                            LogSafe.sanitize(sourceName), lineNumber, nextline.length());
                 }
 
                 if (headerCount.compareTo("1") == 0) {
@@ -196,19 +196,19 @@ public class BillingClaimsErrorReportParser {
             claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error(
                     "Claims-error parse failed (file={}, line={}, IOException), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
         } catch (StringIndexOutOfBoundsException ioe) {
             verdict = false;
             claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error(
                     "Claims-error parse failed (file={}, line={}, malformed record layout), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, ioe);
+                    LogSafe.sanitize(sourceName), lineNumber, ioe);
         } catch (BillingValidationException e) {
             verdict = false;
             claimsErrorReportRecords.clear();
             MiscUtils.getLogger().error(
                     "Claims-error parse failed (file={}, line={}, malformed amount), verdict=false",
-                    LogSanitizer.sanitize(sourceName), lineNumber, e);
+                    LogSafe.sanitize(sourceName), lineNumber, e);
         }
 
         return verdict;

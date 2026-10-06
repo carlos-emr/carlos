@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingDates;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimItemDto;
@@ -117,7 +117,7 @@ public class BillingOnCorrectionPersister {
         BillingONCHeader1 c = billingHeaderDao.find(ch1Obj.getId());
         if (c == null) {
             throw new BillingValidationException("Cannot update billing claim header: row not found [id="
-                    + LogSanitizer.sanitize(ch1Obj.getId()) + "]");
+                    + LogSafe.sanitize(ch1Obj.getId()) + "]");
         }
         c.setTranscId(ch1Obj.transactionId());
         c.setRecId(ch1Obj.recordId());
@@ -172,7 +172,7 @@ public class BillingOnCorrectionPersister {
         BillingONItem b = billingItemDao.find(val.getId());
         if (b == null) {
             throw new BillingValidationException("Cannot update billing claim item: row not found [id="
-                    + LogSanitizer.sanitize(val.getId()) + "]");
+                    + LogSafe.sanitize(val.getId()) + "]");
         }
         b.setTranscId(val.transactionId());
         b.setRecId(val.recordId());

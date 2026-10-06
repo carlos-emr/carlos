@@ -40,7 +40,6 @@
  *   <li>Bootstrap 5.3 accordion left navigation with 16 grouped sections</li>
  *   <li>Dynamic content pane that loads sub-pages without a full page reload</li>
  *   <li>Role-based security filtering via the oscarSec tag on each card and nav item</li>
- *   <li>Configurable help panel and about dialog links</li>
  *   <li>Province-specific billing module visibility based on {@code billregion} property</li>
  * </ul>
  *
@@ -59,13 +58,6 @@
  *        for the earliest introduction date.
  */
 --%>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="java.net.URLEncoder" %>
-<%@ page import="java.util.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -78,44 +70,25 @@
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 
-    UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
-
-    Properties oscarVariables = CarlosProperties.getInstance();
-
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String curUser_no = (String) session.getAttribute("user");
     String userfirstname = (String) session.getAttribute("userfirstname");
     String userlastname = (String) session.getAttribute("userlastname");
-    String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
-
-    String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
-
-    UserProperty rbu = userPropertyDao.getProp("resource_baseurl");
-    if (rbu != null) {
-        resourcebaseurl = rbu.getValue();
-    }
-
-    String resourcehelpHtml = "";
-    UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
-    if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
-    }
-
-    GregorianCalendar cal = new GregorianCalendar();
-    int curYear = cal.get(Calendar.YEAR);
-    int curMonth = (cal.get(Calendar.MONTH) + 1);
-    int curDay = cal.get(Calendar.DAY_OF_MONTH);
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 %>
 
 <!doctype html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="admin.admin.page.title"/></title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <% if (showScheduleNav) { %>
+    <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+    <% } %>
 
 
     <style>
@@ -290,39 +263,10 @@
 </head>
 
 <body>
+<% if (showScheduleNav) { %>
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+<% } %>
 <div class="container-fluid">
-    <div class="d-print-none d-flex justify-content-end align-items-center gap-3">
-        <span class="d-flex align-items-center gap-1">
-            <i class="fa-solid fa-circle-question"></i>
-            <%if (resourcehelpHtml.isEmpty()) { %>
-            <a href="#" ONCLICK="popupPage(600,750,'<carlos:encode value='<%= resourcebaseurl %>' context="javaScriptAttribute"/>');return false;" title=""
-               onmouseover="window.status='';return true"><fmt:message key="global.help"/></a>
-            <%} else {%>
-            <div id="help-link">
-                <a href="javascript:void(0)"
-                   onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:message key="global.help"/></a>
-
-                <div id="helpHtml">
-                    <div class="help-title"><fmt:message key="global.help"/></div>
-
-                    <div class="help-body">
-
-                        <%=resourcehelpHtml%>
-                    </div>
-                    <a href="javascript:void(0)" class="help-close"
-                       onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'"><fmt:message key="global.close"/></a>
-                </div>
-
-            </div>
-            <%}%>
-        </span>
-        <span class="d-flex align-items-center gap-1">
-            <i class="fa-solid fa-circle-info"></i>
-            <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/encounter/ViewAbout','About CARLOS EMR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:message key="global.about"/></a>
-        </span>
-    </div>
-
     <div class="row">
 
 
@@ -365,7 +309,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.eform" rights="r"
                                    reverse="<%=false%>">
                     <div class="card card-body bg-body-tertiary quick-links">
-                        <a href="${ctx}/eform/efmformmanager" class="contentLink defaultForms"><i
+                        <a href="${ctx}/eform/efmformmanager${param.scheduleNav eq '1' ? '?scheduleNav=1' : ''}" class="contentLink defaultForms"><i
                                 class="fa-solid fa-file fa-4x"></i>
                             <h5><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
                     </div>
@@ -424,11 +368,34 @@
 
 
 <script type="text/javascript">
+    // Standalone fragments such as eForm Management load their own jQuery.
+    // Keep the shell instance with its validation/DataTables plugins, and restore
+    // it before opening the next fragment so navigation order cannot disable them.
+    var carlosAdminJQuery = window.jQuery;
     $(document).ready(function () {
         $("a.contentLink").click(function (e) {
+            window.jQuery = window.$ = carlosAdminJQuery;
+            var href = $(this).attr("href");
             e.preventDefault();
+            // Only AJAX-load a real URL. Several controls reachable from this
+            // shell borrow .contentLink purely for styling and do their work in
+            // their own onclick (leftNav's caisi entries are
+            // href="javascript:void(0);", and one carries no href at all).
+            // Loading that literal value cannot succeed: jQuery completes with
+            // status 0 / statusText "error" and the handler below paints
+            // "Sorry but there was an error: 0 error" over the page — over the
+            // iframe the element's own handler just installed — while the
+            // control itself worked fine. A missing href reaches .load() as
+            // undefined and throws instead. Same defect, and same fix, as
+            // eform/efmFooter.jspf.
+            if (!href || href === "#" || /^\s*javascript:/i.test(href)) {
+                return;
+            }
+            // AJAX-loaded content flows in the shell's own scroll; drop any
+            // height the previous framed section left on the container.
+            resetFrameSizing();
             $("#dynamic-content").removeClass("dynamic-iframe-content");
-            $("#dynamic-content").load($(this).attr("href"),
+            $("#dynamic-content").load(href,
                 function (response, status, xhr) {
                     if (status == "error") {
                         var msg = "Sorry but there was an error: ";
@@ -457,18 +424,31 @@
             if (thisForm.valid != null && !thisForm.valid()) {
                 return false;
             }
-            // gather the form data
-            let data = $(this).serialize();
-            // post data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
-            $.ajax({
+            // A multipart form must go out as FormData: $(form).serialize()
+            // silently DROPS file inputs, so hijacking a multipart form with a
+            // serialized body posted it without its file — the eForm import
+            // panel, for one, always arrived fileless inside this shell while
+            // the same form worked opened standalone. (This is also why the
+            // eForm editor's save changes encoding depending on how it was
+            // reached; the WAF exclusions cover both shapes.)
+            let isMultipart = (thisForm.attr('enctype') || '').toLowerCase() === 'multipart/form-data';
+            let ajaxOptions = {
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
-                data: data,
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)
                 }
-            });
+            };
+            if (isMultipart) {
+                ajaxOptions.data = new FormData(this);
+                ajaxOptions.processData = false;
+                ajaxOptions.contentType = false;
+            } else {
+                // gather the form data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
+                ajaxOptions.data = $(this).serialize();
+            }
+            $.ajax(ajaxOptions);
 
             return false; // stops browser from doing default submit process
         }));
@@ -539,11 +519,156 @@
         }
     }
 
-    /* function resizeIframe(newHgt)
-    {
-        $('#myFrame').height((parseInt(newHgt)+75)+'px');
-        $("html, body").animate({ scrollTop: 0 }, "slow");
-    } */
+    // The admin shell hosts most section pages inside #myFrame (see the .xlink
+    // handler in leftNav.jspf). Two things have to happen when the framed page
+    // changes: the frame has to be tall enough for the new document, and the
+    // SHELL has to scroll back to the top so the reader is looking at the top of
+    // it. This function is the hook a framed page calls to ask for both, passing
+    // its own content height; scrollFramedContentIntoView() below is the same
+    // behaviour driven from the shell for the many legacy pages that never call
+    // in.
+    //
+    // It was commented out during the Bootstrap 5 rework, which left the shell
+    // parked at whatever scroll offset the reader had used to reach a button
+    // near the bottom of the frame. A multi-step wizard then looks broken: the
+    // schedule week-setting "Next" posts, saves, and loads the next step, but the
+    // reader is still looking at the middle of it and reports that "nothing
+    // happens". The pages that DID call in got a hard
+    // "parent.parent.resizeIframe is not a function" instead. Keep it defined.
+    function resizeIframe(newHgt) {
+        var frame = document.getElementById('myFrame');
+        if (!frame) {
+            // AJAX-loaded (non-framed) content also reaches this via a nested
+            // page; there is nothing to size, but the scroll is still wanted.
+            scrollShellToTop();
+            return;
+        }
+        growFrameTo(parseInt(newHgt, 10));
+        scrollShellToTop();
+    }
+
+    // Breathing room added on top of a framed document's own height, so the
+    // grown frame does not sit flush against its content and re-introduce a
+    // nested scrollbar from sub-pixel rounding.
+    var FRAME_HEIGHT_MARGIN = 75;
+
+    // Grow the frame (and the aspect-ratio box it lives in) to fit a framed
+    // document `contentHeight` px tall. Only ever grows, and only when the
+    // content genuinely does not fit.
+    //
+    // The margin is added ONLY when growth is needed, which is what keeps this
+    // from ratcheting. A document shorter than its frame reports a scrollHeight
+    // equal to the frame's own height — the viewport is its lower bound — so
+    // adding the margin first and comparing afterwards would grow the frame by
+    // FRAME_HEIGHT_MARGIN on EVERY in-frame navigation, accumulating blank
+    // space without limit across a multi-step flow. Comparing the bare content
+    // height first makes the fitting case a no-op, and one growth step is
+    // enough: the next measurement equals the new frame height and stops.
+    function growFrameTo(contentHeight) {
+        var frame = document.getElementById('myFrame');
+        var container = document.getElementById('dynamic-content');
+        if (!frame || !isFinite(contentHeight) || contentHeight <= 0) {
+            return;
+        }
+        if (contentHeight <= frame.getBoundingClientRect().height) {
+            return;
+        }
+        var height = contentHeight + FRAME_HEIGHT_MARGIN;
+        if (container) {
+            // The .dynamic-iframe-content box is sized by `padding-top: 80%`, an
+            // aspect-ratio hack with no relation to the content. Swap it for a
+            // real height once the real height is known.
+            container.style.paddingTop = '0';
+            container.style.height = height + 'px';
+        }
+        frame.style.height = height + 'px';
+    }
+
+    // Undo anything growFrameTo() applied, so the next section starts from the
+    // CSS box again instead of inheriting the previous page's height.
+    function resetFrameSizing() {
+        var container = document.getElementById('dynamic-content');
+        if (container) {
+            container.style.paddingTop = '';
+            container.style.height = '';
+        }
+    }
+
+    // .stop(true) first: the .xlink handler scrolls on click and this runs again
+    // when the frame finishes loading, so without it the two animations queue and
+    // the shell keeps animating after it has already arrived. Clearing the queue
+    // also means a reader who scrolls during the animation is not fought by a
+    // stale one that is still ticking.
+    function scrollShellToTop() {
+        $("html, body").stop(true).animate({ scrollTop: 0 }, "slow");
+    }
+
+    // Called by the .xlink handler on every document the frame loads. Reads the
+    // framed document's own height (same-origin — every section route is served
+    // by this application) so a page taller than the aspect box is not clipped
+    // behind a nested scrollbar, then puts the shell back at the top so the
+    // reader sees the new page from its beginning. A page that also calls
+    // resizeIframe() itself just asks for the same thing twice, which is
+    // harmless: growFrameTo() is a no-op once the content fits.
+    function scrollFramedContentIntoView(frame) {
+        try {
+            var doc = frame && frame.contentDocument;
+            if (doc && doc.documentElement) {
+                growFrameTo(doc.documentElement.scrollHeight);
+                observeFramedContentHeight(frame, doc);
+            }
+        } catch (e) {
+            // A cross-origin document cannot be measured; the CSS box still applies.
+        }
+        scrollShellToTop();
+    }
+
+    // Keep following the framed document's height after load.
+    //
+    // Measuring once at load is not enough for the pages this shell-side path
+    // exists to cover: a section that renders a table from its own AJAX call,
+    // expands an accordion, or loads images without declared dimensions is
+    // taller a moment later, and would sit clipped behind the aspect box with a
+    // nested scrollbar — the defect this is meant to remove. The legacy pages
+    // escape that by calling resizeIframe() again themselves; a page that never
+    // calls in has no second chance without this.
+    //
+    // It only grows the frame — it deliberately does NOT scroll. A reader who
+    // opens a collapsed panel half way down a section has not asked to be sent
+    // back to the top.
+    function observeFramedContentHeight(frame, doc) {
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        // One observer per frame: each load replaces the document, and a stale
+        // observer would keep measuring the previous one.
+        if (frame.carlosContentObserver) {
+            frame.carlosContentObserver.disconnect();
+        }
+        var observer = new ResizeObserver(function () {
+            try {
+                var current = frame.contentDocument;
+                if (current && current.documentElement) {
+                    growFrameTo(current.documentElement.scrollHeight);
+                }
+            } catch (e) {
+                // Document went away or turned cross-origin mid-observation.
+            }
+        });
+        // Observe BOTH roots. ResizeObserver reports an element's own box, not
+        // the document's scrollHeight, so which of the two actually changes
+        // depends on the framed page's CSS. Measured in Chromium: with the
+        // default auto heights either one fires; with `html { height: 100% }`
+        // and an auto body only <body> fires; with `body { height: 100% }`
+        // neither does — such a page still has to call resizeIframe() itself.
+        // Observing both costs one extra registration and covers a case a
+        // single root misses.
+        observer.observe(doc.documentElement);
+        if (doc.body) {
+            observer.observe(doc.body);
+        }
+        frame.carlosContentObserver = observer;
+    }
 
     $(document).ready(function () {
 

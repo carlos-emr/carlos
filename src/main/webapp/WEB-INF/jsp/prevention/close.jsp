@@ -31,18 +31,20 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>close</title>
     <script LANGUAGE="JavaScript">
         function closeWin() {
-
-
-            if (self.opener.refreshInfo) {
+            // A prevention can also be edited in a standalone tab, or its
+            // parent window may have been closed before the save completed.
+            if (!self.opener || self.opener.closed) return;
+            if (typeof self.opener.refreshInfo === 'function') {
                 self.opener.refreshInfo();
-                self.setTimeout('closeThisWindow()', 5000)
+                self.setTimeout(closeThisWindow, 5000);
             } else {
-                self.close();
                 self.opener.location.reload();
+                self.close();
             }
         }
 

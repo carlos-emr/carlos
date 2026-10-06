@@ -19,7 +19,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.dto;
 
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import java.math.BigDecimal;
 
@@ -59,7 +59,7 @@ final class BillingDtoMoney {
         } catch (NumberFormatException e) {
             throw new BillingValidationException(
                     "BillingMoney: malformed " + fieldName + " ["
-                            + LogSanitizer.sanitizeForDisplay(raw) + "]", e);
+                            + LogSafe.sanitizeForDisplay(raw) + "]", e);
         }
     }
 

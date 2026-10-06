@@ -54,7 +54,7 @@ public class WaitingListDaoImpl extends AbstractDaoImpl<WaitingList> implements 
 
     @SuppressWarnings("unchecked")
     public List<Object[]> findWaitingListsAndDemographics(Integer listId) {
-        Query query = entityManager.createQuery("SELECT w, d FROM WaitingList w, Demographic d WHERE w.demographicNo = d.DemographicNo AND  w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.position");
+        Query query = entityManager.createQuery("SELECT w, d FROM WaitingList w, Demographic d WHERE w.demographicNo = d.demographicNo AND  w.listId = ?1 AND w.isHistory = 'N' ORDER BY w.position");
         query.setParameter(1, listId);
         return query.getResultList();
     }

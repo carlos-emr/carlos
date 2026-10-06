@@ -92,6 +92,7 @@
 
 <%
     String curProvider_no = (String) session.getAttribute("user");
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
 
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
@@ -127,13 +128,25 @@
     List<ProviderData> pdList = null;
     HashMap<String, String> providerMap = new HashMap<String, String>();
 
-//multisites function
-    if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+    // Site access privacy is a MULTISITE feature: providersite rows only exist
+    // when multisite mode is on, so it is applied only then, mirroring the
+    // schedule (appointmentprovideradminday.jsp). The Flyway seed grants the
+    // admin role _site_access_privacy on every install, and without multisite
+    // there are no site assignments to restrict by and mgrSite below stays
+    // empty, so applying it would silently drop EVERY consult from the list
+    // (seen on the packaged demo install). Team access privacy filters on the
+    // plain provider.team column and stays enforced without multisite.
+    boolean restrictToSite = bMultisites && isSiteAccessPrivacy;
+    boolean restrictToTeam = isTeamAccessPrivacy;
+    boolean restrictToSiteOrTeam = restrictToSite || restrictToTeam;
 
-        if (isSiteAccessPrivacy)
+//multisites function
+    if (restrictToSiteOrTeam) {
+
+        if (restrictToSite)
             pdList = providerDataDao.findByProviderSite(curProvider_no);
 
-        if (isTeamAccessPrivacy)
+        if (restrictToTeam)
             pdList = providerDataDao.findByProviderTeam(curProvider_no);
 
         for (ProviderData providerData : pdList) {
@@ -209,9 +222,12 @@
         EctConsultationFormRequestUtil consultUtil;
         consultUtil = new EctConsultationFormRequestUtil();
 
-        if (isTeamAccessPrivacy) {
+        // Same gates as the row filters below: outside multisite mode the site
+        // restriction is off, so the dropdown lists every team unless team
+        // privacy narrows it.
+        if (restrictToTeam) {
             consultUtil.estTeamsByTeam(curProvider_no);
-        } else if (isSiteAccessPrivacy) {
+        } else if (restrictToSite) {
             consultUtil.estTeamsBySite(curProvider_no);
         } else {
             consultUtil.estTeams();
@@ -223,7 +239,11 @@
 
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <title>
             <fmt:message key="ectViewConsultationRequests.title"/>
         </title>
@@ -314,6 +334,9 @@
     </head>
 
     <body>
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
     <div class="container-fluid p-0">
 
         <!-- Page Header -->
@@ -416,6 +439,10 @@
                     <input type="hidden" name="desc" id="desc" value="<carlos:encode value='<%= desc != null ? desc : "" %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="offset" id="offset" value="<carlos:encode value='<%= String.valueOf(offset) %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="limit" id="limit" value="<carlos:encode value='<%= String.valueOf(limit) %>' context="htmlAttribute"/>"/>
+                    <% if (showScheduleNav) { %>
+                    <%-- Sorting and pagination submit this form; this hidden flag keeps the schedule top bar visible after each submit. --%>
+                    <input type="hidden" name="scheduleNav" value="1"/>
+                    <% } %>
                 </div>
             </form>
 
@@ -515,7 +542,7 @@
 
                             for (int i = 0; i < theRequests.ids.size(); i++) {
                                 //multisites. skip record if not belong to same site/team
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                if (restrictToSiteOrTeam) {
                                     if (providerMap.get(theRequests.providerNo.get(i)) == null) continue;
                                 }
 
@@ -538,13 +565,16 @@
                                 if (bMultisites) {
                                     siteName = theRequests.siteName.get(i);
                                 }
-                                if (status.equals("1") && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
-                                }
 
                                 //multisites. skip record if not belong to same site
-                                if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+                                // (mgrSite is only populated under multisite; without it
+                                // this check would drop every row).
+                                if (bMultisites && restrictToSiteOrTeam) {
                                     if (!mgrSite.contains(siteName)) continue;
+                                }
+                                if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
+                                        && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
+                                    tickerList.add(demo);
                                 }
                                 overdue = false;
 
@@ -594,11 +624,11 @@
                                 <%}%>
                             </td>
                             <td class="consult-status-<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
-                                <% if (urgency.equals("1")) { %>
+                                <% if ("1".equals(urgency)) { %>
                                 <span class="urgency-urgent"><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
-                                <% } else if (urgency.equals("2")) { %>
+                                <% } else if ("2".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyNonUrgent"/>
-                                <% } else if (urgency.equals("3")) { %>
+                                <% } else if ("3".equals(urgency)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>

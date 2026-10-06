@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -46,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.LongSupplier;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Per-IP rate-limiting filter for CARLOS EMR.
@@ -162,6 +163,8 @@ public final class RateLimitFilter implements Filter {
      *                     comes from {@code CarlosProperties})
      * @throws ServletException if initialisation fails
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         CarlosProperties props = CarlosProperties.getInstance();
@@ -281,7 +284,7 @@ public final class RateLimitFilter implements Filter {
             long retryAfterSeconds = globalCounter.retryAfterSeconds();
             if (enforcing) {
                 logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-global",
-                        LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri));
+                        LogSafe.sanitize(clientIp), LogSafe.sanitizeUri(requestUri));
                 if (!httpResponse.isCommitted()) {
                     httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
                     httpResponse.sendError(429, "Too Many Requests");
@@ -289,7 +292,7 @@ public final class RateLimitFilter implements Filter {
                 return;
             } else {
                 logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-global",
-                        LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri));
+                        LogSafe.sanitize(clientIp), LogSafe.sanitizeUri(requestUri));
             }
         }
 
@@ -307,8 +310,8 @@ public final class RateLimitFilter implements Filter {
                 long retryAfterSeconds = pathCounter.retryAfterSeconds();
                 if (enforcing) {
                     logger.warn("RATE BLOCK: ip={} uri={} rule=rate-limit-path:{}",
-                            LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri),
-                            LogSanitizer.sanitize(matchedPath));
+                            LogSafe.sanitize(clientIp), LogSafe.sanitizeUri(requestUri),
+                            LogSafe.sanitize(matchedPath));
                     if (!httpResponse.isCommitted()) {
                         httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
                         httpResponse.sendError(429, "Too Many Requests");
@@ -316,8 +319,8 @@ public final class RateLimitFilter implements Filter {
                     return;
                 } else {
                     logger.warn("RATE DETECT: ip={} uri={} rule=rate-limit-path:{}",
-                            LogSanitizer.sanitize(clientIp), LogSanitizer.sanitize(requestUri),
-                            LogSanitizer.sanitize(matchedPath));
+                            LogSafe.sanitize(clientIp), LogSafe.sanitizeUri(requestUri),
+                            LogSafe.sanitize(matchedPath));
                 }
             }
         }
@@ -337,18 +340,18 @@ public final class RateLimitFilter implements Filter {
                 logger.warn(
                         "RATE CONFIG: X-Forwarded-For present but rate limit is using remoteAddr; "
                                 + "verify XforwardHeaderFilter ordering/trusted proxy configuration. remoteAddr={} xForwardedForFirst={}",
-                        LogSanitizer.sanitize(clientIp),
-                        LogSanitizer.sanitize(firstForwardedIp));
+                        LogSafe.sanitize(clientIp),
+                        LogSafe.sanitize(firstForwardedIp));
             } else if (!trustedProxy && rememberForwardedAddressWarningIp(clientIp)) {
                 logger.debug(
                         "RATE CONFIG: untrusted remoteAddr supplied X-Forwarded-For; ignoring forwarded value. remoteAddr={} xForwardedForFirst={}",
-                        LogSanitizer.sanitize(clientIp),
-                        LogSanitizer.sanitize(firstForwardedIp));
+                        LogSafe.sanitize(clientIp),
+                        LogSafe.sanitize(firstForwardedIp));
             } else if (trustedProxy) {
                 logger.debug(
                         "RATE CONFIG: repeated X-Forwarded-For mismatch suppressed for remoteAddr={} xForwardedForFirst={}",
-                        LogSanitizer.sanitize(clientIp),
-                        LogSanitizer.sanitize(firstForwardedIp));
+                        LogSafe.sanitize(clientIp),
+                        LogSafe.sanitize(firstForwardedIp));
             }
         }
     }

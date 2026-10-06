@@ -23,27 +23,17 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.AbstractAppender;
-import org.apache.logging.log4j.core.config.Configuration;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -70,11 +60,7 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
     private static final String PHI_SENTINEL = "PHI-SENTINEL-BLOODWORK-RESULT";
 
     private MsgAttachPDF2Action action;
-    private CapturingAppender appender;
-    private LoggerConfig addedLoggerConfig;
-    /** True when setUp created a fresh LoggerConfig we own and must remove on teardown. */
-    private boolean createdLogger;
-    private String addedLoggerName;
+    private LogCapture logCapture;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -90,22 +76,14 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
         f.setAccessible(true);
         f.set(action, mockSecurityInfoManager);
 
-        attachCapturingAppender();
+        logCapture = LogCapture.forLogger(MsgAttachPDF2Action.class);
     }
 
     @AfterEach
     void detachAppender() {
-        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-        if (addedLoggerConfig != null) {
-            addedLoggerConfig.removeAppender(appender.getName());
+        if (logCapture != null) {
+            logCapture.close();
         }
-        // If setUp registered a brand-new LoggerConfig for this test, remove it
-        // so subsequent tests don't inherit an orphaned empty config.
-        if (createdLogger && addedLoggerName != null) {
-            ctx.getConfiguration().removeLogger(addedLoggerName);
-        }
-        appender.stop();
-        ctx.updateLoggers();
     }
 
     @Test
@@ -148,52 +126,8 @@ class MsgAttachPDF2ActionTest extends CarlosWebTestBase {
             // Expected: Doc2PDF dies on the stub; assertion below is on the log output.
         }
 
-        assertThat(appender.messages())
+        assertThat(logCapture.messages())
                 .as("rendered srcText content must not appear in application logs (PHI)")
                 .noneMatch(m -> m.contains(PHI_SENTINEL));
-    }
-
-    private void attachCapturingAppender() {
-        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
-        Configuration config = ctx.getConfiguration();
-
-        appender = new CapturingAppender("MsgAttachPDF2ActionTest-capture");
-        appender.start();
-        config.addAppender(appender);
-
-        // Attach to the action's own logger (MiscUtils.getLogger() uses the
-        // caller class name). Scoping to this specific logger avoids capturing
-        // unrelated messages if the suite runs in parallel.
-        String loggerName =
-                "io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action";
-        LoggerConfig existing = config.getLoggerConfig(loggerName);
-        if (!loggerName.equals(existing.getName())) {
-            LoggerConfig scoped = new LoggerConfig(loggerName, Level.ALL, true);
-            config.addLogger(loggerName, scoped);
-            existing = scoped;
-            createdLogger = true;
-            addedLoggerName = loggerName;
-        }
-        addedLoggerConfig = existing;
-        addedLoggerConfig.addAppender(appender, Level.ALL, null);
-        ctx.updateLoggers();
-    }
-
-    /** Minimal log4j2 appender that captures formatted messages for assertion. */
-    private static final class CapturingAppender extends AbstractAppender {
-        private final List<String> captured = Collections.synchronizedList(new ArrayList<>());
-
-        CapturingAppender(String name) {
-            super(name, null, null, false, null);
-        }
-
-        @Override
-        public void append(LogEvent event) {
-            captured.add(event.getMessage().getFormattedMessage());
-        }
-
-        List<String> messages() {
-            return new ArrayList<>(captured);
-        }
     }
 }

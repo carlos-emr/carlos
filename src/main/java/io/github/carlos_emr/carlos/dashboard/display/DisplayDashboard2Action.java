@@ -46,7 +46,7 @@ import java.util.List;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class DisplayDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -86,7 +86,7 @@ public class DisplayDashboard2Action extends ActionSupport {
         if (canChgDashboardUser) {
             String requestedProviderNo = request.getParameter("providerNo");
             if (requestedProviderNo != null && !requestedProviderNo.isEmpty()) {
-                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSanitizer.sanitize(requestedProviderNo), LogSanitizer.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.info("DashboardDisplay of provider_no {} requested by provider_no {}", LogSafe.sanitize(requestedProviderNo), LogSafe.sanitize(loggedInInfo.getLoggedInProviderNo())); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 preferredProvider = providerManager.getProvider(loggedInInfo, requestedProviderNo);
                 dashboardManager.setRequestedProviderNo(loggedInInfo, requestedProviderNo);
             } else if (dashboardManager.getRequestedProviderNo(loggedInInfo) != null) {

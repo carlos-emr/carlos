@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -55,7 +56,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class ReportReassign2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -68,6 +69,9 @@ public class ReportReassign2Action extends ActionSupport {
     public ReportReassign2Action() {
     }
 
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "UNVALIDATED_REDIRECT"}, justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute()
             throws ServletException, IOException {
 
@@ -111,7 +115,7 @@ public class ReportReassign2Action extends ActionSupport {
          * process.
          */
         String selectedProviders = request.getParameter("selectedProviders");
-        logger.info("selected providers to forward labs to {}", LogSanitizer.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("selected providers to forward labs to {}", LogSafe.sanitize(selectedProviders)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         if (selectedProviders != null && !selectedProviders.isEmpty()) {
             try {

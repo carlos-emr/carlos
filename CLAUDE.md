@@ -43,7 +43,15 @@
 ## Fax Provider Feature Context (AI + Dev)
 
 - Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+  SRFax is the supported provider and the default; the admin UI shows and uses SRFax only.
+  `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
+  selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
@@ -73,12 +81,45 @@ gh pr create                 # GitHub pull request creation
 - OWASP Encoder for ALL user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention) below)
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
+- SecurityException messages for failed security-object privilege checks MUST use
+  paren form: `missing required sec object (_objectname)` (not colon form).
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
 
+### Documentation-Only Changes
+
+When asked for a documentation-only pass, change only comments, Javadocs, Markdown, or other
+non-executable documentation text. Do not hide behavior changes in comment sweeps: no route
+mappings, constants, selectors, assertions, imports, SQL, config values, or executable statements.
+Inline comments are expected when they help a future maintainer understand intent, context, or
+risk. Senior-maintainer comments should explain security boundaries, legacy constraints,
+invariants, and why a surprising pattern exists; avoid line-by-line narration that restates the
+code.
+
+For login/password-reset work, keep documentation aligned with these invariants:
+- Server-side validation is authoritative; browser password policy checks are only user feedback.
+- Forced-reset credential material stays out of the HTTP session and is referenced by an opaque,
+  short-lived cache token.
+- Retryable reset validation errors may keep the token live; terminal password changes consume it.
+- `scripts/login-playwright-checks.js` is the reference browser/direct-POST regression check for
+  login, failed login, forced reset, CSRF rejection, and provider schedule rendering. It requires
+  exactly these environment variables: `TEST_PASSWORD`, `TEST_PIN`, `MYSQL_PASSWORD`, and
+  `TEST_PASSWORD_HASH`. The script uses them to seed a known-good dev password before mutating the
+  test user's security row. Run it with
+  `npm run test:login-playwright` against a disposable local/dev database; it is a manual reference
+  check unless the active CI job has already started Tomcat and the dev database.
+  Devcontainer-only defaults are `TEST_USER=carlosdoc`, `TEST_PASSWORD=carlos2026`, and
+  `TEST_PIN=2026`; these are not production defaults. Use the dev database password from
+  `.devcontainer/development/config/shared/local.env` and the seeded `carlosdoc` hash from
+  `database/mysql/migration/on/V1.0.2__on_data.sql` (the `security` table seed) for `TEST_PASSWORD_HASH`.
+
 **What counts as PHI vs. internal identifiers:**
 - **PHI** (treat as sensitive): HIN/health card number, patient name, DOB, address, phone, diagnosis text, clinical notes, lab values, medication details — anything that identifies a real person or their care.
-- **NOT PHI** (safe in logs and operator-facing error context): `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, internal surrogate keys. These are internal indexes scoped to this CARLOS instance — they do not identify a person outside the system and have no meaning without DB access (which is already gated by `SecurityInfoManager`). Including them in error context, exception payloads, and log messages is encouraged because they make incidents debuggable.
+- **PHI-correlating operational identifiers**: `demographic_no` / `demoNo`, appointment IDs, billing IDs, provider numbers, claim/WCB IDs, and internal surrogate keys. These are not clinical text, but they can join directly back to patient or billing records inside CARLOS. Log them only when necessary for operations, sanitize them with `LogSafe`, avoid pairing them with clinical context, and never place them in browser-visible exception messages unless the endpoint explicitly requires that identifier for an authorized user workflow.
+
+### Response-Rewriting Filter Safety
+
+Response-rewriting filters are security controls and UI-critical infrastructure. Recent fixes showed that broad buffering, stale `Content-Length` replay, and blanket wrapper changes can silently break login pages, static assets, and first-render post-login screens. Keep fixes targeted by route/status/content type, preserve binary/static passthrough, and add regression coverage before changing buffer limits, dispatcher mappings, `Content-Length` handling, or writer/output-stream fallback behavior. After touching `ResponseSanitizationFilter`, `CsrfGuardScriptInjectionFilter`, `LogoutBroadcastFilter`, or `LoginFilter`, run the focused unit tests and the Playwright login/reset script against Tomcat.
 
 ### OWASP Encoding — XSS Prevention
 
@@ -149,6 +190,19 @@ Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" sty
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
+that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
+empty, every POST is rejected with an HTML error page, and nothing is reported except a console
+message the user never sees. Such a page must generate a per-response nonce, include
+`'nonce-<value>'` in its `script-src`, and publish the same value as the `cspNonce` **request
+attribute before the include**. `csrf-token.jspf` and `LogoutBroadcastFilter` both read that
+attribute and emit a matching `nonce` on their inline blocks; pages that publish nothing are
+unaffected and render exactly as before. Prefer a nonce over `'unsafe-inline'` — the latter also
+admits injected script, which is the thing the policy exists to stop. Reference implementation:
+`src/main/webapp/WEB-INF/jsp/documentManager/annotateDocument.jsp`. Because the failure is
+invisible in the DOM, assert it in a browser check: the header is present, it carries a nonce, the
+inline blocks actually executed, and the console logged no CSP violation.
+
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
 
 ### PathValidationUtils - File Path Security
@@ -157,10 +211,13 @@ Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.js
 
 **Key Methods:**
 ```java
-// For user-provided filenames (sanitizes and validates)
+// For user-provided filenames where basename stripping is acceptable
 File safeFile = PathValidationUtils.validatePath(userFilename, allowedDir);
 
-// For validating existing file paths
+// For one directory or filename segment that must be preserved exactly
+String safeComponent = PathValidationUtils.validatePathComponent(rawComponent, "componentName");
+
+// For validating existing or assembled file paths
 PathValidationUtils.validateExistingPath(file, allowedDir);
 
 // For validating uploaded files from Struts2/Tomcat
@@ -183,6 +240,12 @@ if (!file.getCanonicalPath().startsWith(baseDir.getCanonicalPath() + File.separa
 // NEW (consistent, robust)
 PathValidationUtils.validateExistingPath(file, baseDir);
 ```
+
+**Component validation rule:** use `validatePathComponent()` when request data becomes a directory
+or filename segment that must not be normalized (queue ids, existing server filenames, document
+subdirectories). Do not use `validatePath()` as a boolean guard and then build the real `File` from
+the original request value; validate the component, use the returned value, then call
+`validateExistingPath()` or `validatePath()` on the final filesystem target.
 
 **Full documentation**: `docs/path-validation-utils.md`
 
@@ -234,7 +297,7 @@ Any `*2Action` that performs a mutation MUST reject `GET`/`HEAD` before any
 side-effect fires (DAO persist, manager call, event publish, file write).
 The aggregated contract test that pins this for the in-scope slices is:
 
-`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractTest.java`
+`src/test/java/io/github/carlos_emr/carlos/app/contract/MutatorActionGetRejectionContractUnitTest.java`
 
 **When you add a new mutator 2Action**, the contract test's discovery scan
 will fail the build until you register the class in one of three lists at
@@ -251,8 +314,11 @@ the top of that file:
   on truly unsupported methods like DELETE/PUT.
 
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
-the slice's package prefix in the same PR that gates the first mutator
-JSP behind a 2Action.
+the slice's package prefix only after the existing guarded actions in that
+slice have been audited and classified in the contract manifest. For a
+legacy-heavy slice where one mutator is migrated first, add that specific
+class to `IN_SCOPE_EXPLICIT_CLASSES` and file/track the broader slice-audit
+work instead of sweeping unreviewed legacy actions into the manifest.
 
 ### Struts 7.1.1 Notes
 
@@ -411,49 +477,10 @@ entityManager.flush();
 hibernateTemplate.flush();
 ```
 
-**2. HBM Property Names Are Case-Sensitive**
-HQL must use the exact `name` attribute from HBM XML mappings. Some entities use PascalCase (e.g., `Provider.hbm.xml`: `LastName`, `FirstName`, `Status`) while others use camelCase (e.g., `SecProvider.hbm.xml`: `lastName`, `firstName`, `status`). Always check the HBM file before writing HQL.
-
-**3. H2 Reserved Words in HBM Mappings**
-Column names that are SQL reserved words (e.g., `value`, `key`, `order`) must use backtick quoting in HBM XML. Hibernate translates backticks to database-appropriate quoting (double-quotes for H2, backticks for MySQL).
-```xml
-<!-- WRONG - breaks in H2: -->
-<property column="value" name="value" />
-
-<!-- CORRECT - works in both H2 and MySQL: -->
-<property column="`value`" name="value" />
-```
-
-**4. FK Constraints from HBM `<one-to-many>` Mappings**
-When `hbm2ddl.auto=create` runs, `<set>` mappings with `<one-to-many>` generate FK constraints. Tests must create parent records before inserting child records. Check HBM files for relationships:
-```xml
-<!-- This in casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id: -->
-<set name="extend" table="casemgmt_note_ext">
-    <key column="note_id"/>
-    <one-to-many class="CaseManagementNoteExt"/>
-</set>
-```
-Test fix: Create parent records in `@BeforeEach` and use their generated IDs.
-
-**5. VARCHAR Length Constraints**
-Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)` in `SecProvider.hbm.xml`. Test data (like `uniquePrefix + suffix`) must fit within these limits.
-
-**6. Dual Entity Mappings to Same Table**
-`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH mappings. For example, `specialty` is required by `Provider.hbm.xml` even when testing through `SecProvider`:
-```java
-secProvider.setSpecialty("");  // NOT NULL in Provider.hbm.xml
-```
-
-**7. H2/MySQL BOOLEAN Incompatibility**
+**2. H2/MySQL BOOLEAN Incompatibility**
 H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL comparisons like `locked<>'1'` work in MySQL (comparing TINYINT with string) but fail in H2. Fix production HQL to use proper boolean comparisons: `cmn.locked = false` instead of `cmn.locked != '1'`. This is both more correct and cross-database compatible.
 
-**8. Formula Columns Require Reference Tables**
-HBM `<property formula="...">` subselects execute even when not directly queried. If a formula references a table (e.g., `secRole`, `program`), that table must exist in the test database. Add `CREATE TABLE IF NOT EXISTS` statements to `test-lookup-tables.sql`.
-
-**9. `hbm2ddl` Execution Order**
-`EntityManagerFactory` with `hbm2ddl.auto=create` DROPS and recreates all managed entity tables. This runs AFTER `databaseInitializer` SQL scripts. So tables created by `test-lookup-tables.sql` for HBM-managed entities will be dropped and recreated by hbm2ddl. Use `CREATE TABLE IF NOT EXISTS` in SQL scripts as a safety net, but understand that hbm2ddl is the authoritative schema source for mapped entities.
-
-**10. HQL LIKE Queries Need Explicit Wildcards**
+**3. HQL LIKE Queries Need Explicit Wildcards**
 DAO methods using HQL `LIKE` do not auto-add `%` wildcards. Tests must include them:
 ```java
 // WRONG - will only match exact string:
@@ -464,7 +491,7 @@ dao.searchNotes("111", "%diabetes%");
 ```
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
-**11. DAO Methods May Override Test Data**
+**4. DAO Methods May Override Test Data**
 Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
 ```java
 caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
@@ -473,7 +500,7 @@ hibernateTemplate.flush();               // Persist the corrected date
 ```
 Always check the DAO implementation before assuming test data is persisted as-is.
 
-**12. SpringUtils Identity Across Multiple Contexts**
+**5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
 ```java
 // WRONG - fails across multiple Spring contexts:
@@ -483,7 +510,7 @@ assertThat(springUtilsDao).isSameAs(autowiredDao);
 assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
 ```
 
-**13. Read DAO Method Semantics Carefully**
+**6. Read DAO Method Semantics Carefully**
 DAO method names can be misleading. For example, `getProviders(boolean active)` returns providers filtered by that status — `getProviders(false)` returns INACTIVE providers, not ALL providers. Always read the DAO implementation before writing test assertions.
 
 ## Code Quality Standards
@@ -493,6 +520,23 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
+
+**Static analysis (Semgrep, SpotBugs + Find Security Bugs)**: these scanners run alongside
+CodeQL/PMD and upload SARIF to the Security tab (see `docs/static-analysis-workflows.md`).
+Keep real-defect detectors on and fix real flows first. Known false positives should be handled
+with the scanner's narrowest supported suppression: SpotBugs uses `.github/spotbugs/spotbugs-exclude.xml`
+or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in `.semgrep/` and
+rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
+cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
+upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
+Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+*informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
+of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
+case-insensitive domain comparisons. It is suppressed **per-site** with
+`@SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = ...)` **plus a mandatory adjacent
+`//` comment** stating the same reason. New `@SuppressFBWarnings` of any pattern must follow this
+annotation-plus-inline-comment convention. Genuinely trust-path case folds are tracked for
+locale-safe hardening in issue #2496 (CVE-2024-38827 class).
 
 **Spring Integration Pattern**:
 ```java
@@ -582,7 +626,7 @@ public Example2Action(SomeManager someManager) {
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
   - Requires Caffeine 3.2.3 cache dependency for internal caching
-- **Apache CXF 4.1.5**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
+- **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
@@ -824,7 +868,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Struts Configuration** (modular split):
   - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
-  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml`: `struts-default` plus exception logging; name `carlosDefaultStack` / `carlosBasicStack`, never `defaultStack` / `basicStack`, in an action-level `<interceptor-ref>`)
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
   - Canonical action routes are extensionless (`struts.action.extension=""`)
   - Static assets are excluded from Struts by `struts.action.excludePattern`
@@ -874,28 +918,34 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 ## Database Schema & Migration System
 
 **Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
+**Schema management**: **Flyway** — a consolidated `V1` genesis baseline plus forward-only migrations.
+See [`docs/database-schema-management.md`](docs/database-schema-management.md). The legacy script build
+(`createdatabase_*.sh`, `oscarinit*.sql`, `oscardata*.sql`, `icd*.sql`, `measurementMapData.sql`,
+`caisi/initcaisi*.sql`, `olis/olisinit.sql`, `bc_*.sql`) has been **retired** — recover from git history.
 
 ### Core Database Files (`database/mysql/`)
 ```bash
-# Initial Schema Setup
-oscarinit.sql          # Core database schema
-oscarinit_2025.sql     # Current 2025 schema version
-oscardata.sql          # Initial reference data
-oscarinit_bc.sql       # British Columbia specific
-oscarinit_on.sql       # Ontario specific
+# Flyway migration set (single source of truth) — see migration/README.md
+migration/common/V1__baseline_schema.sql   # province-neutral schema (structure)
+migration/on/V1.0.1__on_schema.sql         # Ontario-only tables
+migration/on/V1.0.2__on_data.sql           # Ontario reference data (incl. carlosdoc seed, ICD, OLIS)
+migration/bc/V1.0.1__bc_schema.sql         # BC-only tables
+migration/bc/V1.0.2__bc_data.sql           # BC reference data (carlosdoc seed, ICD, + billing/specialist/pharmacy catalogs)
+migration/pruned-tables.txt                # dead tables excluded from the baseline
 
-# Medical Coding Systems
-icd9.sql / icd10.sql   # Diagnosis codes (ICD-9/ICD-10)
-measurementMapData.sql # Clinical measurements mapping
-SnomedCore/           # SNOMED CT clinical terminology
-olis/                 # Ontario Labs Information System
+# Forward schema changes: migration/<common|on|bc>/V1.0.N__desc.sql (sequential, next free number; idempotent)
+updates/                # FROZEN legacy dated patches (historical; a few still used for demo seeding)
 
-# Provincial Healthcare Data
-bc_billingServiceCodes.sql     # BC medical service codes
-bc_pharmacies.sql              # BC pharmacy directory
-firstNationCommunities_lu_list.sql # First Nations communities
+# Other
+SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separately)
+build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
+                        #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
+
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev. Also owns the `serviceSpecialists` consultation links, including a trailing block that gives each of the dev snapshot's six fictional consultation services a distinct slice of the roster (a no-op against either province's Flyway service catalog); pinned by `ConsultationSpecialistDemoSeedRegressionTest`
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
 
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
@@ -992,7 +1042,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
 - **Actions**: `*2Action.java` pattern for Struts2 migration
 - **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
+- **Database**: Flyway V1 baseline + sequential V1.0.N forward migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 
@@ -1006,8 +1056,10 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 3. **Complex Changes**: Ask clarifying questions first, create implementation plan, proceed after approval
 
 ### Branch Protection
-- **Protected Branches**: `develop`, `main`, `experimental` - direct commits prohibited
+- **Protected Branches**: `develop`, `main`, `experimental`, and `release/*` - direct commits prohibited
 - **All changes** must go through pull requests with review
+- **Release policy**: `docs/release-process.md` is authoritative for target branches, CalVer, snapshots, tags, maintenance fixes, and forward merges
+- **Release flow**: Start normal work from and target `develop`. Start a supported fix from and target the oldest affected `release/YYYY.MM`; maintainers then forward-merge it into newer lines while preserving target version/SCM metadata. Target `main` only for current-train release preparation or a necessary, narrowly scoped release-infrastructure correction. Never tag a snapshot, move, delete, or reuse a release tag, or edit a Flyway migration present in a published tag
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
@@ -1018,7 +1070,8 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - [ ] No PHI in logs or error messages
 
 ### PR Requirements
-- ✅ Target `develop` branch (not `main`)
+- ✅ Target `develop` for normal work; target `release/YYYY.MM` only for an approved supported-release fix; use `main` only for current-train release preparation or a necessary release-infrastructure correction
+- ✅ Preserve the target branch snapshot/SCM metadata during forward merges; use merge ancestry rather than routine cherry-picks
 - ✅ Include tests for new functionality
 - ✅ Reference related issues (`fixes #123`)
 - ✅ Add "Generated with Claude Code" signature
@@ -1082,7 +1135,7 @@ Commands in the ASK tier include:
 
 **Safety Guardrails:**
 - **Repository scoped** - Operations run within the checked-out `carlos-emr/carlos` repository context
-- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`
+- Branch protection rules prevent direct pushes to `develop`, `main`, `experimental`, and `release/*`
 - All PRs require human review before merge
 - Destructive operations are blocked:
   - File deletion: `rm -rf`, `rm -fr`, `rm -r`, `rm --recursive`
@@ -1144,8 +1197,8 @@ src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # 2Action implemen
 
 # Database Configuration
 src/main/resources/OscarDatabaseBase.xml           # Hibernate configuration
-database/mysql/oscarinit_2025.sql                 # Current database schema
-database/mysql/updates/update-2025-*.sql          # Recent migration patterns
+database/mysql/migration/common/V1__baseline_schema.sql  # Flyway V1 genesis schema
+database/mysql/migration/<common|on|bc>/V1.0.N__*.sql # Forward schema migrations (sequential)
 ```
 
 ### Security Implementation Examples
@@ -1206,10 +1259,10 @@ src/main/java/io/github/carlos_emr/carlos/commn/dao/*Dao.java               # DA
 ### Database Schema References
 ```bash
 # Database Structure Examples
-database/mysql/oscardata.sql                      # Reference data examples
-database/mysql/caisi/initcaisi.sql               # Community integration schema
-database/mysql/olis/olisinit.sql                 # Provincial lab integration schema
-database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration
+database/mysql/migration/on/V1.0.2__on_data.sql   # Reference data (carlosdoc seed, ICD, OLIS, ...)
+database/mysql/migration/common/V1__baseline_schema.sql # Province-neutral schema
+database/mysql/migration/bc/V1.0.2__bc_data.sql   # BC reference data (billing/specialist/pharmacy)
+database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integration (licensed)
 ```
 
 ### Testing Patterns
@@ -1239,6 +1292,11 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
    - Register SpringUtils mocks FIRST, THEN create static mocks
    - Close static mocks in @AfterEach to prevent test pollution
    - Use @Nested classes with JavaDoc to organize large test suites
+8. **For Log4j2 assertions**: use `io.github.carlos_emr.carlos.test.logging.LogCapture`
+   from `src/test/java/io/github/carlos_emr/carlos/test/logging/LogCapture.java`.
+   Do not define local `AbstractAppender`, `CapturingAppender`, or per-test
+   logger-config copies. `LogCapture` scopes capture to the exact logger under
+   test, stores immutable events, and cleans up safely for parallel Surefire.
 
 Example of proper test development workflow:
 ```java
@@ -1317,6 +1375,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```

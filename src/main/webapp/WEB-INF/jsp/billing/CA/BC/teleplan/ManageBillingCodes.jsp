@@ -61,6 +61,7 @@
 <html>
 
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title>
             Manage Billing Codes
         </title><!--I18n-->

@@ -48,6 +48,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     String curProvNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
@@ -210,19 +212,15 @@ if ( !checkPatientStatus() ) return false;
 return(true);
 }
 
-function formatPhoneNum() {
-if (document.updatedelete.phone.value.length == 10) {
-document.updatedelete.phone.value = document.updatedelete.phone.value.substring(0,3) + "-" + document.updatedelete.phone.value.substring(3,6) + "-" + document.updatedelete.phone.value.substring(6);
-}
-if (document.updatedelete.phone.value.length == 11 && document.updatedelete.phone.value.charAt(3) == '-') {
-document.updatedelete.phone.value = document.updatedelete.phone.value.substring(0,3) + "-" + document.updatedelete.phone.value.substring(4,7) + "-" + document.updatedelete.phone.value.substring(7);
-}
-if (document.updatedelete.phone2.value.length == 10) {
-document.updatedelete.phone2.value = document.updatedelete.phone2.value.substring(0,3) + "-" + document.updatedelete.phone2.value.substring(3,6) + "-" + document.updatedelete.phone2.value.substring(6);
-}
-if (document.updatedelete.phone2.value.length == 11 && document.updatedelete.phone2.value.charAt(3) == '-') {
-document.updatedelete.phone2.value = document.updatedelete.phone2.value.substring(0,3) + "-" + document.updatedelete.phone2.value.substring(4,7) + "-" + document.updatedelete.phone2.value.substring(7);
-}
+function formatPhoneNum(el) {
+  if (!el || !el.value) return;
+  if (el.value.substring(0, 1) == "+") return; // do not reformat E.164 and similar + formatted strings
+  const digits = el.value.replace(/\D/g, ''); // strip formatting if any
+  if (digits.length === 10) { // test for Canadian pattern XXX-XXX-XXXX
+    el.value = digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
+  } else if (digits.length === 11 && digits.substring(0, 1) == "1") { // test for Canadian pattern 1-XXX-XXX-XXXX
+    el.value = digits.substring(0, 1) + "-" + digits.substring(1, 4) + "-" + digits.substring(4, 7) + "-" + digits.substring(7);
+  }
 }
 
 //
@@ -304,6 +302,34 @@ return false;
 }
 
 
+function updateProvinces(province) {
+updateProvinceOptions("#country", "#province", province);
+}
+
+function updateResidentialProvinces(province) {
+updateProvinceOptions("#residentialCountry", "#residentialProvince", province);
+}
+
+function updateProvinceOptions(countrySelector, provinceSelector, province) {
+var country = jQuery(countrySelector).val();
+jQuery.ajax({
+type: "POST",
+url: ctx + '/demographicSupport',
+data: 'method=getCountryAndProvinceCodes&country=' + encodeURIComponent(country || ''),
+dataType: 'json',
+success: function (data) {
+jQuery(provinceSelector).empty();
+jQuery.each(data, function(i, value) {
+jQuery(provinceSelector).append(jQuery('<option>').text(value.label).attr('value', value.value));
+});
+if (province != null) {
+jQuery(provinceSelector).val(province);
+}
+}
+});
+}
+
+
 function setProvince(sdCode) {
 jQuery("#country").on('change',function(){
 updateProvinces('');
@@ -332,34 +358,7 @@ updateProvinces(sdCode);
 }
 
 
-function updateProvinces(province) {
-var country = jQuery("#country").val();
-console.log('country is ' + country );
-if(country == '') {
-console.log('t1');
-return;
-}
 
-jQuery.ajax({
-type: "POST",
-url: ctx + '/demographicSupport',
-data: 'method=getCountryAndProvinceCodes&country=' + country,
-dataType: 'json',
-success: function (data) {
-jQuery('#province').empty();
-jQuery.each(data, function(i, value) {
-jQuery('#province').append(jQuery('<option>').text(value.label).attr('value', value.value));
-});
-
-
-if(province != null) {
-jQuery("#province").val(province);
-}
-
-
-}
-});
-}
 
 
 function setResidentialProvince(sdCode) {
@@ -385,34 +384,6 @@ jQuery("#residentialCountry").val(sdCode.split("-")[0]);
 }
 
 updateResidentialProvinces(sdCode);
-}
-});
-}
-
-
-function updateResidentialProvinces(province) {
-var country = jQuery("#residentialCountry").val();
-if(country == '') {
-return;
-}
-jQuery.ajax({
-type: "POST",
-url: ctx + '/demographicSupport',
-data: 'method=getCountryAndProvinceCodes&country=' + country,
-dataType: 'json',
-success: function (data) {
-jQuery('#residentialProvince').empty();
-
-jQuery.each(data, function(i, value) {
-jQuery('#residentialProvince').append(jQuery('<option>').text(value.label).attr('value', value.value));
-});
-
-
-if(province != null) {
-jQuery("#residentialProvince").val(province);
-}
-
-
 }
 });
 }

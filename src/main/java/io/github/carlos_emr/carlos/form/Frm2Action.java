@@ -48,14 +48,20 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.RedirectValidationUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public final class Frm2Action extends ActionSupport {
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
+    private static final String SAVE_ACTION_PREFIX = "save?";
     private final ObjectMapper objectMapper = new ObjectMapper();
     Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -97,7 +103,7 @@ public final class Frm2Action extends ActionSupport {
             rec = recorder.factory(formClassName);
             Properties props = new Properties();
 
-            log.info("SUBMIT {}", LogSanitizer.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            log.info("SUBMIT {}", LogSafe.sanitize(submitType)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
             //if we are graphing, we need to grab info from db and add it to request object
             if ("graph".equals(submitType)) {
@@ -238,10 +244,10 @@ public final class Frm2Action extends ActionSupport {
                 newID = rec.saveFormRecord(props);
 
                 if (newID > 0) {
-                    log.info("{} new form ID {} successfully saved.", LogSanitizer.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     saveSuccess = Boolean.TRUE;
                 } else {
-                    log.info("{} form ID {} failed to save.", LogSanitizer.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.info("{} form ID {} failed to save.", LogSafe.sanitize(formClassName), formId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
 
                 String ip = request.getRemoteAddr();
@@ -262,23 +268,46 @@ public final class Frm2Action extends ActionSupport {
                 String strAction = rec.findActionValue(submitType);
                 actionForward = strAction;
                 actionForward = rec.createActionURL(actionForward, strAction, demographicNo+"", "" + newID);
-                if (actionForward.startsWith("save?")) {
-                    response.sendRedirect(request.getContextPath() + "/form/forwardname?form_link="
-                        + request.getParameter("form_link") + "&" + actionForward.substring(5));
+                if (actionForward.startsWith(SAVE_ACTION_PREFIX)) {
+                    sendForwardNameRedirect(forwardNameRedirectUrl(
+                            request.getContextPath(),
+                            request.getParameter("form_link"),
+                            actionForward));
                     return null;
                 }
             }
 
         } catch (Exception ex) {
             // throw new ServletException(ex);
-            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSanitizer.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            MiscUtils.getLogger().error("Exception for form {} Save failed.", LogSafe.sanitize(formClassName), ex); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         }
 
-        log.info("Forwarding form {} to {}", LogSanitizer.sanitize(formClassName), LogSanitizer.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        log.info("Forwarding form {} to {}", LogSafe.sanitize(formClassName), LogSafe.sanitize(actionForward)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
 
         request.setAttribute("saveSuccess", saveSuccess);
 
         return actionForward;
+    }
+
+    static String forwardNameRedirectUrl(String contextPath, String formLink, String actionForward) {
+        if (actionForward == null || !actionForward.startsWith(SAVE_ACTION_PREFIX)) {
+            throw new IllegalArgumentException("Form forward action must be a save action");
+        }
+
+        String redirectUrl = StringUtils.defaultString(contextPath)
+                + "/form/forwardname?form_link="
+                + URLEncoder.encode(StringUtils.defaultString(formLink), StandardCharsets.UTF_8)
+                + "&" + actionForward.substring(SAVE_ACTION_PREFIX.length());
+        if (!RedirectValidationUtils.isValidRelativeRedirect(redirectUrl)) {
+            throw new IllegalArgumentException("Unsafe form forward redirect");
+        }
+        return redirectUrl;
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is fixed to the same-origin /form/forwardname action; form_link is URL-encoded, the remaining query comes from server-generated save action parameters, and the final URL is validated as a safe relative redirect.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is fixed to same-origin /form/forwardname; form_link is URL-encoded, save action query is server-generated, and RedirectValidationUtils validates the final URL")
+    private void sendForwardNameRedirect(String redirectUrl) throws IOException {
+        response.sendRedirect(redirectUrl);
     }
 
     private void quickSaveForm(FrmRecord formRecord, HttpServletRequest request, HttpServletResponse response) {

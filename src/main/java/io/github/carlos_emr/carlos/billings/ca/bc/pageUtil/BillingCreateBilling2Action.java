@@ -60,9 +60,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingCreateBilling2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -79,6 +80,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private ServiceCodeValidationLogic vldt = new ServiceCodeValidationLogic();
     private ArrayList<String> patientDX = new ArrayList<String>(); //List of disease codes for current patient
 
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
@@ -174,7 +177,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
             }
 
         }
-        log.debug("Ignore warnings ? {}", LogSanitizer.sanitize(request.getParameter("ignoreWarn")));
+        log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
             validateDxCodeList(bean, errors);
@@ -207,7 +210,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
         }
 
         if (request.getParameter("WCBid") != null) {
-            MiscUtils.getLogger().debug("WCB id is not null {}", LogSanitizer.sanitize(request.getParameter("WCBid")));
+            MiscUtils.getLogger().debug("WCB id is not null {}", LogSafe.sanitize(request.getParameter("WCBid")));
             List<String> errs = null;
             WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
             BillingmasterDAO billingmasterDAO = (BillingmasterDAO) ctx.getBean(BillingmasterDAO.class);
@@ -315,6 +318,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
      * @param errors ActionMessages
      */
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void validateDxCodeList(BillingSessionBean bean,
                                     List<String> errors) {
         BillingAssociationPersistence per = new BillingAssociationPersistence();

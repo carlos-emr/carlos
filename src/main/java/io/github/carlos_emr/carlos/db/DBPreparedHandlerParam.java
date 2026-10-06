@@ -34,7 +34,7 @@ import java.sql.Timestamp;
  * Parameter wrapper for legacy database prepared statement handling.
  * 
  * <p>This class wraps different parameter types (String, Date, int, Timestamp)
- * for use with the deprecated {@link DBPreparedHandler} class. It maintains both
+ * for use with legacy prepared-query compatibility code. It maintains both
  * the value and the parameter type information.</p>
  * 
  * <p><strong>DEPRECATED:</strong> Use JPA (Java Persistence API) or standard
@@ -43,7 +43,7 @@ import java.sql.Timestamp;
  * @deprecated Use JPA or standard JDBC PreparedStatement with proper parameter binding
  */
 @Deprecated
-public final class DBPreparedHandlerParam {
+public final class DBPreparedHandlerParam implements LegacyJdbcQuery.LegacyJdbcParameter {
     private Date dateValue;
     private String stringValue;
     private int intValue;
@@ -83,7 +83,7 @@ public final class DBPreparedHandlerParam {
     public DBPreparedHandlerParam(Date dateValue) {
         this.intValue = 0;
         this.stringValue = null;
-        this.dateValue = dateValue;
+        this.dateValue = copyDate(dateValue);
         this.timestampValue = null;
         this.paramType = PARAM_DATE;
     }
@@ -97,7 +97,7 @@ public final class DBPreparedHandlerParam {
         this.intValue = 0;
         this.stringValue = null;
         this.dateValue = null;
-        this.timestampValue = dateValue;
+        this.timestampValue = copyTimestamp(dateValue);
         this.paramType = PARAM_TIMESTAMP;
     }
 
@@ -122,7 +122,7 @@ public final class DBPreparedHandlerParam {
      */
     public Date getDateValue() {
 
-        return dateValue;
+        return copyDate(dateValue);
     }
 
 
@@ -133,7 +133,7 @@ public final class DBPreparedHandlerParam {
      */
     public Timestamp getTimestampValue() {
 
-        return this.timestampValue;
+        return copyTimestamp(this.timestampValue);
     }
 
 
@@ -175,5 +175,35 @@ public final class DBPreparedHandlerParam {
 //   public void setStringValue(String stringValue) {
 //	  this.stringValue = stringValue;
 //   }
+
+    @Override
+    public Object jdbcValue() {
+        if (PARAM_STRING.equals(paramType)) {
+            return stringValue;
+        }
+        if (PARAM_DATE.equals(paramType)) {
+            return copyDate(dateValue);
+        }
+        if (PARAM_INT.equals(paramType)) {
+            return intValue;
+        }
+        if (PARAM_TIMESTAMP.equals(paramType)) {
+            return copyTimestamp(timestampValue);
+        }
+        return null;
+    }
+
+    private static Date copyDate(Date value) {
+        return value == null ? null : new Date(value.getTime());
+    }
+
+    private static Timestamp copyTimestamp(Timestamp value) {
+        if (value == null) {
+            return null;
+        }
+        Timestamp copy = new Timestamp(value.getTime());
+        copy.setNanos(value.getNanos());
+        return copy;
+    }
 
 }

@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
 <%
@@ -215,6 +216,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>HRM Report</title>
 
     <script type="text/javascript"
@@ -497,10 +499,11 @@
             }
             if (hrmReport.getFileExtension() != null && ".pdf".equals(hrmReport.getFileExtension())) {
         %>
-            <object data="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"
-                    width="100%" height="600" type="application/pdf">
-                <p>(Your browser could not display the pdf)</p>
-            </object>
+            <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+                 A same-origin frame allows the browser's PDF viewer without weakening it. --%>
+            <iframe title="HRM report"
+                    src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>&amp;disposition=inline"
+                    style="width: 100%; height: 600px; border: 0;"></iframe>
             <br/>
             <%
                 }
@@ -987,10 +990,10 @@
                 </td>
                                     <c:set var="__enc_1"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
                            <c:set var="__enc_2"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set>
+                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
        <td><%=formatter.format(dupReportDates.get(parsedId)) %>
                 </td>
                 <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>

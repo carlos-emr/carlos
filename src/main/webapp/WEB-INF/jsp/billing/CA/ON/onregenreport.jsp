@@ -27,6 +27,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Empty stub. ViewOnReportRegeneration2Action enforces _billing w + POST and runs
      the MOH disk-regeneration pass (keyed by diskId) via
      BillingOnDiskService.regenerateDisk, then chains to ViewBillingONMRI. --%>

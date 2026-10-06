@@ -125,7 +125,6 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
@@ -221,10 +220,10 @@ Ontario, Canada
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
-        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
         <title><fmt:message key="appointment.addappointment.title"/></title>
 
         <style>
@@ -1166,7 +1165,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
                                 <input type="time" name="start_time" class="form-control form-control-sm"
-                                       value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'
+                                       value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
@@ -1176,7 +1175,7 @@ Ontario, Canada
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
-                                       value='<carlos:encode value='<%= request.getParameter("end_time") == null ? "" : request.getParameter("end_time") %>' context="htmlAttribute"/>'
+                                       value='<carlos:encode value='<%= request.getParameter("end_time") == null ? "" : request.getParameter("end_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this)">
                             </div>
                         </div>

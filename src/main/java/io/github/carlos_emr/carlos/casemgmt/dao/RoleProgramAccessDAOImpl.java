@@ -54,14 +54,14 @@ public class RoleProgramAccessDAOImpl extends AbstractJpaDao implements RoleProg
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
         if (roleId == null || accessType == null) return Collections.emptyList();
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name like ?2";
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.name like ?2";
         return (List<DefaultRoleAccess>) JpqlQueryHelper.find(entityManager(), q, roleId, accessType);
     }
 
     @Override
     public boolean hasAccess(String accessName, Long roleId) {
         if (accessName == null || roleId == null) return false;
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name=?2";
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.name=?2";
         return !JpqlQueryHelper.find(entityManager(), q, roleId, accessName).isEmpty();
     }
 }

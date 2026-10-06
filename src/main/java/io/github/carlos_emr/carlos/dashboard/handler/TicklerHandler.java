@@ -37,7 +37,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -100,6 +101,11 @@ public class TicklerHandler {
     /**
      * Adds a copy of the master tickler to each demographic id in the given Collection.
      */
+    // FindSecBugs BEAN_PROPERTY_INJECTION: Spring BeanUtils.copyProperties copies fixed JavaBean
+    // descriptors between known CARLOS types; no user-controlled property name reaches the sink.
+    @SuppressFBWarnings(value = "BEAN_PROPERTY_INJECTION",
+            justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
+                    "known CARLOS types; no user-controlled property name reaches the sink")
     public boolean addTickler(Integer[] demographicArray) {
 
         if (demographicArray == null || demographicArray.length == 0) {
@@ -216,7 +222,7 @@ public class TicklerHandler {
             for (int i = 0; i < parts.length; i++) {
                 String part = parts[i].trim();
                 if (part.isEmpty()) {
-                    MiscUtils.getLogger().error("Empty token in demographic list at index {}: {}", i, LogSanitizer.sanitize(demographicIds)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    MiscUtils.getLogger().error("Empty token in demographic list at index {}: {}", i, LogSafe.sanitize(demographicIds)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                     return false;
                 }
                 demographicArray[i] = Integer.parseInt(part);
@@ -226,7 +232,7 @@ public class TicklerHandler {
 
             return addTickler(demographicArray);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to parse demographic list: {}", LogSanitizer.sanitize(demographicIds), e);
+            MiscUtils.getLogger().error("Failed to parse demographic list: {}", LogSafe.sanitize(demographicIds), e);
             return false;
         }
     }

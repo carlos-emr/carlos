@@ -34,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +71,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Transactional
+@Isolated
 public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
 
     @Autowired
@@ -129,15 +131,16 @@ public class OntarioMDSpec4DataIntegrationTest extends CarlosTestBase {
 
     private Provider createProvider(String firstName, String lastName, String providerNo, String specialty) {
         Provider provider = new Provider();
+        provider.setProviderNo(providerNo);
         provider.setFirstName(firstName);
         provider.setLastName(lastName);
-        provider.setProviderNo(providerNo);
         provider.setSpecialty(specialty);
         provider.setProviderType("doctor");
         provider.setSex("M");
         provider.setSignedConfidentiality(new Date());
         provider.setStatus("1");
-        providerDao.saveProvider(provider);
+        hibernateTemplate.saveOrUpdate(provider);
+        hibernateTemplate.flush();
         return provider;
     }
 

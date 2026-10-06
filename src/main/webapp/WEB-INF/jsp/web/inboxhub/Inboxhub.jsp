@@ -40,6 +40,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
@@ -50,6 +51,9 @@
     <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css" />
     <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/global.css"/>
+    <c:if test="${param.scheduleNav eq '1'}">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/css/topnav.css"/>
+    </c:if>
     <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/web/css/Inboxhub.css?v=1.0"/>
 
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
@@ -64,9 +68,12 @@
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>
-<jsp:include page="/images/spinner.jsp" flush="true"/>
+<jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
+<c:if test="${param.scheduleNav eq '1'}">
+    <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+</c:if>
 <script>
-    const contextPath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
+    const inboxContextPath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
     const inboxSearchLabel = "<fmt:message key='inboxhub.form.search'/>";
 
     /**

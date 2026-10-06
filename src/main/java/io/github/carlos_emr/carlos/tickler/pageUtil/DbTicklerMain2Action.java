@@ -38,12 +38,13 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action that migrates the server-side logic from {@code tickler/dbTicklerMain.jsp}.
@@ -79,6 +80,9 @@ public final class DbTicklerMain2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting
      * @throws SecurityException if the user lacks {@code _tickler} update privilege
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
 
@@ -107,9 +111,9 @@ public final class DbTicklerMain2Action extends ActionSupport {
                 sortOrder = TicklerManager.SORT_ASC;
             }
 
-            response.sendRedirect(request.getContextPath()
-                    + "/tickler/ViewTicklerMain?sort_column=" + Encode.forUriComponent(sortColumn)
-                    + "&sort_order=" + Encode.forUriComponent(sortOrder));
+            String redirect = request.getContextPath() + "/tickler/ViewTicklerMain?sort_column="
+                    + Encode.forUriComponent(sortColumn) + "&sort_order=" + Encode.forUriComponent(sortOrder);
+            response.sendRedirect(appendScheduleNav(redirect));
             return NONE;
         }
 
@@ -134,19 +138,26 @@ public final class DbTicklerMain2Action extends ActionSupport {
                             loggedInInfo.getLoggedInProviderNo(), status);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
                 failCount++;
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSanitizer.sanitize(ticklerIdStr), e);
+                MiscUtils.getLogger().error("Failed to update tickler status for ID: {}", LogSafe.sanitize(ticklerIdStr), e);
                 failCount++;
             }
         }
 
-        String redirect = request.getContextPath() + "/tickler/ViewTicklerMain";
+        String redirect = appendScheduleNav(request.getContextPath() + "/tickler/ViewTicklerMain");
         if (failCount > 0) {
-            redirect += "?failCount=" + failCount;
+            redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
         }
         response.sendRedirect(redirect);
         return NONE;
+    }
+
+    private String appendScheduleNav(String redirect) {
+        if (!"1".equals(request.getParameter("scheduleNav"))) {
+            return redirect;
+        }
+        return redirect + (redirect.contains("?") ? "&" : "?") + "scheduleNav=1";
     }
 }

@@ -47,7 +47,8 @@ import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption;
-import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
+import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -58,8 +59,8 @@ import io.github.carlos_emr.carlos.login.DBHelp;
  */
 public class RptTableFieldNameCaption {
     private static final Logger logger = MiscUtils.getLogger();
-    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-    private ReportTableFieldCaptionDao dao = SpringUtils.getBean(ReportTableFieldCaptionDao.class);
+    private static EncounterFormDao encounterFormDao;
+    private ReportTableFieldCaptionDao dao;
 
     String table_name;
     String name;
@@ -68,32 +69,28 @@ public class RptTableFieldNameCaption {
 
     public boolean insertOrUpdateRecord() {
         boolean ret = false;
-        String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
         try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
-            ps = conn.prepareStatement(sql);
-            ps.setString(1, table_name);
-            ps.setString(2, name);
-            rs = ps.executeQuery();
-            if (rs.next()) {
-                ret = insertRecord();
-            } else {
+            if (recordExists()) {
                 ret = updateRecord();
+            } else {
+                ret = insertRecord();
             }
         } catch (SQLException e) {
             logger.error("insertOrUpdateRecord() error", e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
         }
         return ret;
+    }
+
+    protected boolean recordExists() throws SQLException {
+        String sql = "select id from reportTableFieldCaption where table_name = ? and name = ?";
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, table_name);
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
     }
 
 
@@ -102,16 +99,30 @@ public class RptTableFieldNameCaption {
         r.setTableName(table_name);
         r.setName(name);
         r.setCaption(caption);
-        dao.persist(r);
+        dao().persist(r);
         return true;
     }
 
     public boolean updateRecord() {
-        for (ReportTableFieldCaption r : dao.findByTableNameAndName(table_name, name)) {
+        for (ReportTableFieldCaption r : dao().findByTableNameAndName(table_name, name)) {
             r.setCaption(caption);
-            dao.merge(r);
+            dao().merge(r);
         }
         return true;
+    }
+
+    private static EncounterFormDao encounterFormDao() {
+        if (encounterFormDao == null) {
+            encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+        }
+        return encounterFormDao;
+    }
+
+    private ReportTableFieldCaptionDao dao() {
+        if (dao == null) {
+            dao = SpringUtils.getBean(ReportTableFieldCaptionDao.class);
+        }
+        return dao;
     }
 
     // combine a table meta list and caption from table reportTableFieldCaption
@@ -137,42 +148,51 @@ public class RptTableFieldNameCaption {
     public Properties getNameCaptionProp(String tableName) {
         Properties ret = new Properties();
         String sql = "select name, caption from reportTableFieldCaption where table_name = ?";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
-            ps = conn.prepareStatement(sql);
+        try (Connection conn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, tableName);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ret.setProperty(DBHelp.getString(rs, "name"), DBHelp.getString(rs, "caption"));
+                }
             }
         } catch (SQLException e) {
             logger.error("getNameCaptionProp() error", e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
         }
         return ret;
     }
 
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
-
-        // Validate table name to prevent SQL injection
-        // Table names should only contain alphanumeric characters, underscores, and hyphens
-        if (tableName == null || !tableName.matches("^[a-zA-Z0-9_-]+$")) {
-            logger.error("Invalid table name: " + tableName);
+        String trustedTableName = validateEncounterFormTableName(tableName);
+        if (trustedTableName == null) {
             return ret;
         }
 
+        String sql = metaNameListSql(trustedTableName);
+        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql))) {
+            ResultSetMetaData md = rs.getMetaData();
+            for (int i = 1; i <= md.getColumnCount(); i++) {
+                ret.add(md.getColumnName(i));
+            }
+        } catch (SQLException e) {
+            logger.error("getMetaNameList() error for table: {}", LogSafe.sanitize(tableName), e);
+        }
+        return ret;
+    }
+
+    private String validateEncounterFormTableName(String tableName) {
+        // Validate table name to prevent SQL injection.
+        // Table names are interpolated as identifiers, so only bare identifier characters are allowed.
+        if (tableName == null || !tableName.matches("^\\w+$")) {
+            if (logger.isErrorEnabled()) {
+                logger.error("Invalid table name: {}", LogSafe.sanitize(tableName));
+            }
+            return null;
+        }
+
         // Additional validation: check against known form tables
-        List<EncounterForm> forms = encounterFormDao.findAll();
+        List<EncounterForm> forms = encounterFormDao().findAll();
         boolean isValidTable = false;
         for (EncounterForm form : forms) {
             if (tableName.equals(form.getFormTable())) {
@@ -182,39 +202,24 @@ public class RptTableFieldNameCaption {
         }
 
         if (!isValidTable) {
-            logger.error("Table name not found in encounterForm list: " + tableName);
-            return ret;
+            if (logger.isErrorEnabled()) {
+                logger.error("Table name not found in encounterForm list: {}", LogSafe.sanitize(tableName));
+            }
+            return null;
         }
+        return tableName;
+    }
 
-        // nosemgrep: formatted-sql-string -- tableName is validated against the encounterForm whitelist above
-        String sql = "select * from " + tableName + " limit 1";
-        Connection conn = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
-            ps = conn.prepareStatement(sql);
-            rs = ps.executeQuery(); // nosemgrep: formatted-sql-string — uses PreparedStatement; tableName from internal report config
-            ResultSetMetaData md = rs.getMetaData();
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                ret.add(md.getColumnName(i));
-            }
-        } catch (SQLException e) {
-            logger.error("getMetaNameList() error for table: " + tableName, e);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException e) { logger.error("Error closing ResultSet", e); }
-            }
-            if (ps != null) {
-                try { ps.close(); } catch (SQLException e) { logger.error("Error closing PreparedStatement", e); }
-            }
-        }
-        return ret;
+    private String metaNameListSql(String trustedTableName) {
+        // Table identifiers cannot be JDBC-bound. trustedTableName has passed
+        // validateEncounterFormTableName(), including the bare-identifier check
+        // and encounterForm allowlist.
+        return "select * from " + trustedTableName + " limit 1";
     }
 
     public Vector getFormTableNameList() {
 
-        List<EncounterForm> forms = encounterFormDao.findAll();
+        List<EncounterForm> forms = encounterFormDao().findAll();
 
         Vector ret = new Vector();
         for (EncounterForm encounterForm : forms) {

@@ -71,6 +71,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><%= "Rourke2017 Record for " + SafeEncode.forHtmlAttribute(props.getProperty("c_pName", "")) + " DOB: " + props.getProperty("c_birthDate", "")%>
     </title>
     <link rel="stylesheet" type="text/css"

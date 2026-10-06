@@ -31,7 +31,7 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 
@@ -118,7 +118,7 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
                 billTrans.setAdmissionDate(admissionDateFormat.parse(admission));
             } catch (ParseException e) {
                 MiscUtils.getLogger().error("Malformed admission_date {} on ch1 {}: storing null on transaction row",
-                        LogSanitizer.sanitize(admission), LogSanitizer.sanitize(cheader1.getId()), e);
+                        LogSafe.sanitize(admission), LogSafe.sanitize(cheader1.getId()), e);
                 billTrans.setAdmissionDate(null);
             }
         }
@@ -129,7 +129,7 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
             billTrans.setBillingDate(admissionDateFormat.parse(cheader1.billingDate()));
         } catch (ParseException | NullPointerException e) {
             MiscUtils.getLogger().error("Malformed billing_date {} on ch1 {}: aborting transaction-row build",
-                    LogSanitizer.sanitize(cheader1.billingDate()), LogSanitizer.sanitize(cheader1.getId()), e);
+                    LogSafe.sanitize(cheader1.billingDate()), LogSafe.sanitize(cheader1.getId()), e);
             throw new BillingValidationException(
                     "Cannot build BillingOnTransaction: billing_date is missing or not yyyy-MM-dd", e);
         }
@@ -142,7 +142,7 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
             billTrans.setCh1Id(Integer.parseInt(cheader1.getId()));
         } catch (NumberFormatException | NullPointerException e) {
             MiscUtils.getLogger().error("Non-numeric ch1 id {} supplied for transaction-row build",
-                    LogSanitizer.sanitize(cheader1.getId()), e);
+                    LogSafe.sanitize(cheader1.getId()), e);
             throw new BillingValidationException(
                     "Cannot build BillingOnTransaction: ch1 id is missing or non-numeric", e);
         }
@@ -155,8 +155,8 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
             billTrans.setDemographicNo(Integer.parseInt(cheader1.demographicNo()));
         } catch (NumberFormatException | NullPointerException e) {
             MiscUtils.getLogger().error("Non-numeric demographic_no {} supplied for ch1 {} transaction-row build",
-                    LogSanitizer.sanitize(cheader1.demographicNo()),
-                    LogSanitizer.sanitize(cheader1.getId()), e);
+                    LogSafe.sanitize(cheader1.demographicNo()),
+                    LogSafe.sanitize(cheader1.getId()), e);
             throw new BillingValidationException(
                     "Cannot build BillingOnTransaction: demographic_no is missing or non-numeric", e);
         }

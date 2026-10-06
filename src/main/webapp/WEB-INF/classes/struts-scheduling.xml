@@ -26,7 +26,7 @@
     Contains action mappings for appointments, ticklers, waiting lists, notifications, contacts, and miscellaneous administrative, billing, reporting, and clinical actions.
 -->
 <struts>
-    <package name="scheduling" namespace="/" extends="struts-default">
+    <package name="scheduling" namespace="/" extends="carlos-default" strict-method-invocation="true">
 
         <global-results>
             <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
@@ -82,8 +82,12 @@
         <action name="tickler/DbTicklerDemoMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerDemoMain2Action"/>
         <action name="tickler/DbTicklerMain" class="io.github.carlos_emr.carlos.tickler.pageUtil.DbTicklerMain2Action"/>
         <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
-        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search"/>
-        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get"/>
+        <action name="searchProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="search">
+            <allowed-methods>search</allowed-methods>
+        </action>
+        <action name="getProfessionalSpecialist" class="io.github.carlos_emr.carlos.contactRegistry.ProfessionalSpecialist2Action" method="get">
+            <allowed-methods>get</allowed-methods>
+        </action>
         <action name="demographic/Contact" class="io.github.carlos_emr.carlos.commn.web.Contact2Action">
             <result name="pForm">/WEB-INF/jsp/demographic/addEditProfessionalContact.jsp</result>
             <result name="cForm">/WEB-INF/jsp/demographic/addEditContact.jsp</result>
@@ -111,6 +115,7 @@
         </action>
         <action name="encounter/oscarMeasurements/adminFlowsheet/FlowSheetCustomAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetCustom2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp</result>
             <result name="newflowsheet">/WEB-INF/jsp/encounter/oscarMeasurements/adminFlowsheet/NewFlowsheet.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/FlowSheetDrugAction" class="io.github.carlos_emr.carlos.commn.web.FlowSheetDrug2Action">
@@ -153,7 +158,7 @@
         <action name="appointment/addappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/addappointment.jsp</result>
         </action>
-        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action">
+        <action name="appointment/editappointment" class="io.github.carlos_emr.carlos.appointment.gate.ViewEditAppointmentWrite2Action">
             <result name="success">/WEB-INF/jsp/appointment/editappointment.jsp</result>
         </action>
         <action name="appointment/appointmentsearch" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action">
@@ -200,15 +205,16 @@
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
         <!--
-            Direct-response PDF actions intentionally use basicStack. The default
-            validation/workflow interceptors can rewrite a streamed NONE response to
+            Direct-response PDF actions intentionally use the basic stack (carlosBasicStack,
+            struts-default's basicStack with exception logging, defined in struts.xml). The
+            default validation/workflow interceptors can rewrite a streamed NONE response to
             input/error and render errorpage.jsp as "CARLOS Error: 0". See issue #2064.
         -->
         <action name="BillingInvoicePrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoicePrint2Action">
-            <interceptor-ref name="basicStack"/>
+            <interceptor-ref name="carlosBasicStack"/>
         </action>
         <action name="BillingInvoiceListPrint" class="io.github.carlos_emr.carlos.commn.web.BillingInvoiceListPrint2Action">
-            <interceptor-ref name="basicStack"/>
+            <interceptor-ref name="carlosBasicStack"/>
         </action>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/billingONCorrection.jsp</result>

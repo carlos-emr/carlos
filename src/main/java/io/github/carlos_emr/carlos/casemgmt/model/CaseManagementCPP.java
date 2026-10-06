@@ -30,6 +30,9 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.model.BaseObject;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "casemgmt_cpp")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class CaseManagementCPP extends BaseObject {
     private Long id;
     private String demographic_no;
@@ -51,6 +54,7 @@ public class CaseManagementCPP extends BaseObject {
     public CaseManagementCPP() {
 
     }
+    @jakarta.persistence.Column(name = "provider_no")
 
     public String getProviderNo() {
         return this.providerNo;
@@ -59,10 +63,12 @@ public class CaseManagementCPP extends BaseObject {
     public void setProviderNo(String provider_no) {
         this.providerNo = provider_no;
     }
+    @jakarta.persistence.Column(name = "primaryCounsellor")
 
     public String getPrimaryCounsellor() {
         return primaryCounsellor;
     }
+    @jakarta.persistence.Column(name = "primaryPhysician")
 
     public String getPrimaryPhysician() {
         return primaryPhysician;
@@ -75,6 +81,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setPrimaryPhysician(String primaryPhysician) {
         this.primaryPhysician = primaryPhysician;
     }
+    @jakarta.persistence.Column(name = "familyHistory")
 
     public String getFamilyHistory() {
         return familyHistory;
@@ -83,6 +90,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setFamilyHistory(String familyHistory) {
         this.familyHistory = familyHistory;
     }
+    @jakarta.persistence.Transient
 
     public String getRiskFactors() {
         return riskFactors;
@@ -91,6 +99,11 @@ public class CaseManagementCPP extends BaseObject {
     public void setRiskFactors(String riskFactors) {
         this.riskFactors = riskFactors;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "id")
 
     public Long getId() {
         return id;
@@ -99,6 +112,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "medicalHistory")
 
     public String getMedicalHistory() {
         return medicalHistory;
@@ -107,6 +121,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setMedicalHistory(String medicalHistory) {
         this.medicalHistory = medicalHistory;
     }
+    @jakarta.persistence.Column(name = "ongoingConcerns")
 
     public String getOngoingConcerns() {
         return ongoingConcerns;
@@ -115,6 +130,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setOngoingConcerns(String ongoingConcerns) {
         this.ongoingConcerns = ongoingConcerns;
     }
+    @jakarta.persistence.Column(name = "demographic_no")
 
     public String getDemographic_no() {
         return demographic_no;
@@ -123,6 +139,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setDemographic_no(String provider_no) {
         this.demographic_no = provider_no;
     }
+    @jakarta.persistence.Column(name = "reminders")
 
     public String getReminders() {
         return reminders;
@@ -131,6 +148,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setReminders(String reminders) {
         this.reminders = reminders;
     }
+    @jakarta.persistence.Column(name = "socialHistory")
 
     public String getSocialHistory() {
         return socialHistory;
@@ -139,6 +157,8 @@ public class CaseManagementCPP extends BaseObject {
     public void setSocialHistory(String socialHistory) {
         this.socialHistory = socialHistory;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
         return update_date;
@@ -147,6 +167,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @jakarta.persistence.Column(name = "pastMedications")
 
     public String getPastMedications() {
         return pastMedications;
@@ -155,6 +176,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setPastMedications(String pastMedications) {
         this.pastMedications = pastMedications;
     }
+    @jakarta.persistence.Column(name = "otherFileNumber")
 
     public String getOtherFileNumber() {
         return otherFileNumber;
@@ -163,6 +185,7 @@ public class CaseManagementCPP extends BaseObject {
     public void setOtherFileNumber(String otherFileNumber) {
         this.otherFileNumber = otherFileNumber;
     }
+    @jakarta.persistence.Column(name = "otherSupportSystems")
 
     public String getOtherSupportSystems() {
         return otherSupportSystems;

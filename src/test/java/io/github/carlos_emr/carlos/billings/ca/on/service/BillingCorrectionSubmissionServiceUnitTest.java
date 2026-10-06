@@ -154,6 +154,50 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectTamperedContent_whenCodedTokenFailsAllowlist() {
+        // The content blob round-trips through a browser hidden field; a
+        // tampered POST must not reach the recycle bin or the billing row.
+        BillingCorrectionSubmitCommand command = new BillingCorrectionSubmitCommand(
+                "42",
+                "<rdohip>1234567</rdohip><hctype>ON</hctype><demosex>1</demosex>",
+                "3000",
+                "1234567890",
+                "1980-01-01",
+                "00",
+                "2026-04-28",
+                "O",
+                "0000",
+                "999998",
+                "2026-04-28",
+                List.of());
+
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("Referral doctor OHIP number");
+
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDao, never()).merge(any(Billing.class));
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
+    }
+
+    @Test
+    void shouldRejectTamperedContent_whenStoredContentHasUnsupportedElement() {
+        BillingCorrectionSubmitCommand command = commandWithContent(
+                "42",
+                "<rd>Ref Doctor</rd><script>alert</script>",
+                List.of());
+
+        assertThatThrownBy(() -> service.submit(loggedInInfo, command))
+                .isInstanceOf(BillingValidationException.class)
+                .hasMessageContaining("unsupported element");
+
+        verify(billingDao, never()).find(any());
+        verify(recycleBinDao, never()).persist(any(RecycleBin.class));
+        verify(billingDao, never()).merge(any(Billing.class));
+        verify(billingDetailDao, never()).persist(any(BillingDetail.class));
+    }
+
+    @Test
     void shouldSkipDetailPersist_whenCorrectionHasNoItems() {
         Billing existing = new Billing();
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -170,9 +214,14 @@ class BillingCorrectionSubmissionServiceUnitTest extends CarlosUnitTestBase {
             String billingNo, List<BillingCorrectionSubmitItemCommand> items) {
         // Keep one canonical command fixture so behavior-focused tests vary
         // only the field under discussion (billing number or item list).
+        return commandWithContent(billingNo, "<rd>Ref Doctor</rd>", items);
+    }
+
+    private static BillingCorrectionSubmitCommand commandWithContent(
+            String billingNo, String content, List<BillingCorrectionSubmitItemCommand> items) {
         return new BillingCorrectionSubmitCommand(
                 billingNo,
-                "<rd>Ref Doctor</rd>",
+                content,
                 "3000",
                 "1234567890",
                 "1980-01-01",

@@ -26,7 +26,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -93,7 +93,7 @@ public class BillingDeleteNoAppt2Action extends ActionSupport {
                     billingDao.merge(b);
                 }
             } catch (NumberFormatException e) {
-                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSanitizer.sanitize(billingNoStr), e);
+                MiscUtils.getLogger().error("Invalid billing_no: {}", LogSafe.sanitize(billingNoStr), e);
                 return ERROR;
             }
         }

@@ -1,5 +1,8 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.codec.binary.Base64;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -40,6 +43,35 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 @Repository
 public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailLogDao {
 
+    /** Commit lifecycle intent before a network operation, even if a caller has a transaction. */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean initializePortalDelivery(EmailLog log) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.portalDeliveryState = :state, "
+                + "e.portalSourceReference = :source, e.portalOrigin = :origin, e.portalClinicId = :clinic, "
+                + "e.body = :body, e.password = '', e.passwordClue = '' "
+                + "WHERE e.id = :id AND e.portalDeliveryState IS NULL")
+                .setParameter("state", EmailLog.PortalDeliveryState.PREPARING)
+                // Same encoding as EmailLog.setBody, so the stored body reads back as the one sent.
+                .setParameter("body", Base64.encodeBase64(log.getBody().getBytes(StandardCharsets.UTF_8)))
+                .setParameter("source", log.getPortalSourceReference())
+                .setParameter("origin", log.getPortalOrigin()).setParameter("clinic", log.getPortalClinicId())
+                .setParameter("id", log.getId()).executeUpdate() == 1;
+    }
+
+    /** Compare-and-set prevents recovery and the original sender making conflicting decisions. */
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public boolean transitionPortalDelivery(EmailLog log, EmailLog.PortalDeliveryState expected,
+            EmailLog.PortalDeliveryState next, Long secretId) {
+        return entityManager.createQuery("UPDATE EmailLog e SET e.portalDeliveryState = :next, "
+                + "e.portalSecretId = :secret WHERE e.id = :id AND e.portalSourceReference = :source "
+                + "AND e.portalDeliveryState = :expected")
+                .setParameter("next", next).setParameter("secret", secretId).setParameter("id", log.getId())
+                .setParameter("source", log.getPortalSourceReference()).setParameter("expected", expected)
+                .executeUpdate() == 1;
+    }
+
     /**
      * Constructs a new EmailLogDaoImpl with the EmailLog entity class.
      *
@@ -57,8 +89,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      *
      * <p>This method executes a complex JPQL query joining EmailLog with related entities
      * (EmailConfig, Demographic, Provider) to provide comprehensive filtering capabilities.
-     * Filter parameters use IFNULL semantics, meaning null values are treated as wildcards
-     * that match all records for that criterion.</p>
+     * Optional filter parameters treat null, blank, and invalid demographic/status values as
+     * wildcards that match all records for that criterion.</p>
      *
      * <p>Primary use case: Administrative email management interface at
      * 'Admin > Emails > Manage Emails' for troubleshooting failed deliveries,
@@ -68,38 +100,66 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * <ul>
      *   <li>Date filtering: Matches DATE portion only (time component ignored)</li>
      *   <li>Demographic filtering: Uses DemographicNo for patient identification</li>
-     *   <li>Status filtering: Matches EmailStatus enum (SUCCESS, FAILED, RESOLVED)</li>
+     *   <li>Status filtering: Matches EmailStatus enum (PENDING, SUCCESS, FAILED, RESOLVED)</li>
      *   <li>Sender filtering: Matches fromEmail field exactly</li>
      *   <li>Results ordered by timestamp descending (newest first)</li>
      * </ul>
      *
      * @param dateBegin Date the start date for filtering email logs (required, matches DATE portion only)
      * @param dateEnd Date the end date for filtering email logs (required, matches DATE portion only)
-     * @param demographicNo String the demographic number for filtering by patient (null matches all)
+     * @param demographicNo String the demographic number for filtering by patient (null, blank, or invalid matches all)
      * @param senderEmailAddress String the sender email address for filtering (null matches all)
-     * @param emailStatus String the email status for filtering (SUCCESS/FAILED/RESOLVED, null matches all)
+     * @param emailStatus String the email status for filtering (PENDING/SUCCESS/FAILED/RESOLVED; null, blank, or invalid matches all)
      * @return List&lt;EmailLog&gt; list of email logs matching the specified filters, ordered by timestamp descending;
      *         empty list if no matches found
      */
     @Override
     @SuppressWarnings("unchecked")
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus) {
-        String hql = "SELECT el FROM EmailLog el JOIN el.emailConfig ec JOIN el.demographic d JOIN el.provider p " +
+        String hql = "SELECT el FROM EmailLog el LEFT JOIN el.emailConfig ec LEFT JOIN el.demographic d LEFT JOIN el.provider p " +
                 "WHERE 1=1 " +
-                "AND el.demographic.DemographicNo = IFNULL(?1, el.demographic.DemographicNo) " +
-                "AND el.status = IFNULL(?2, el.status) " +
-                "AND el.fromEmail = IFNULL(?3, el.fromEmail) " +
-                "AND DATE(el.timestamp) BETWEEN DATE(?4) AND DATE(?5) " +
+                "AND (?1 IS NULL OR d.demographicNo = ?1) " +
+                "AND (?2 IS NULL OR el.status = ?2) " +
+                "AND (?3 IS NULL OR el.fromEmail = ?3) " +
+                "AND el.timestamp >= ?4 AND el.timestamp < ?5 " +
                 "ORDER BY el.timestamp DESC";
 
+        Date startDate = org.apache.commons.lang3.time.DateUtils.truncate(dateBegin, Calendar.DAY_OF_MONTH);
+        Date exclusiveEndDate = org.apache.commons.lang3.time.DateUtils.addDays(
+                org.apache.commons.lang3.time.DateUtils.truncate(dateEnd, Calendar.DAY_OF_MONTH), 1);
+        Integer demographicId = parseDemographicNo(demographicNo);
+        EmailLog.EmailStatus status = parseEmailStatus(emailStatus);
+
         Query query = entityManager.createQuery(hql);
-        query.setParameter(4, dateBegin);
-        query.setParameter(5, dateEnd);
-        query.setParameter(1, demographicNo);
-        query.setParameter(2, emailStatus);
+        query.setParameter(1, demographicId);
+        query.setParameter(2, status);
         query.setParameter(3, senderEmailAddress);
+        query.setParameter(4, startDate);
+        query.setParameter(5, exclusiveEndDate);
 
         return query.getResultList();
+    }
+
+    private Integer parseDemographicNo(String demographicNo) {
+        if (demographicNo == null || demographicNo.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(demographicNo.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private EmailLog.EmailStatus parseEmailStatus(String emailStatus) {
+        if (emailStatus == null || emailStatus.isBlank()) {
+            return null;
+        }
+        try {
+            return EmailLog.EmailStatus.valueOf(emailStatus.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
@@ -116,28 +176,39 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * <ul>
      *   <li>Batch status updates after email processing jobs</li>
      *   <li>Error recording for failed email deliveries</li>
-     *   <li>Status transitions (e.g., FAILED to RESOLVED after manual intervention)</li>
-     *   <li>Timestamp corrections for audit purposes</li>
+     *   <li>Status transitions (for example, PENDING to SUCCESS or FAILED to RESOLVED)</li>
+     *   <li>Compare-and-set protection against concurrent status changes</li>
      * </ul>
      *
-     * <p><strong>Important:</strong> Setting errorMessage to {@code null} will explicitly clear
-     * any existing error message in the database (setting the column to NULL). This is useful
-     * when resolving previously failed emails.</p>
+     * <p><strong>Important:</strong> Setting errorMessage to {@code null} explicitly clears the
+     * database column. Manual resolution therefore passes through the existing diagnostic instead
+     * of clearing it.</p>
      *
      * @param id Integer the unique identifier of the EmailLog record to update
-     * @param status EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
+     * @param expectedStatus EmailLog.EmailStatus the status the row must currently have
+     * @param newStatus EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message to record, or {@code null} to clear existing error message
      * @param timestamp Date the timestamp to set, typically current time or email processing time
      * @return int the number of database rows updated (1 if record exists and was updated, 0 if not found)
      */
     @Override
-    public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp) {
-        String hql = "UPDATE EmailLog e SET e.status = :status, e.errorMessage = :msg, e.timestamp = :ts WHERE e.id = :id";
+    public int transitionEmailStatus(Integer id, EmailLog.EmailStatus expectedStatus,
+            EmailLog.EmailStatus newStatus, String errorMessage, Date timestamp) {
+        String hql = "UPDATE EmailLog e SET e.status = :newStatus, e.errorMessage = :msg, e.timestamp = :ts "
+                + "WHERE e.id = :id AND e.status = :expectedStatus";
         Query query = entityManager.createQuery(hql);
         query.setParameter("id", id);
-        query.setParameter("status", status);
+        query.setParameter("expectedStatus", expectedStatus);
+        query.setParameter("newStatus", newStatus);
         query.setParameter("msg", errorMessage);
         query.setParameter("ts", timestamp);
-        return query.executeUpdate();
+        int updatedRows = query.executeUpdate();
+        // Bulk JPQL bypasses the persistence context. Refresh this row so a competing
+        // transition cannot be hidden by a previously loaded PENDING entity.
+        EmailLog current = entityManager.find(EmailLog.class, id);
+        if (current != null) {
+            entityManager.refresh(current);
+        }
+        return updatedRows;
     }
 }

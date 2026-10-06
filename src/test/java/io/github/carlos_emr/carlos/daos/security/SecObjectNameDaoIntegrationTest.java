@@ -173,8 +173,7 @@ public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
         Object[] row = (Object[]) results.get(0);
         assertThat(row[0]).isEqualTo("_testObject1");
         assertThat(row[1]).isEqualTo("Test security object");
-        // Cast to Number first because H2 may return different integer subtypes
-        assertThat(((Number) row[2]).intValue()).isEqualTo(1);
+        assertThat(orgApplicableValue(row[2])).isEqualTo(1);
     }
 
     /**
@@ -229,7 +228,7 @@ public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
         // Description should reflect the updated value, not "Original description"
         assertThat(row[1]).isEqualTo("Updated description");
         // orgapplicable should be updated from 0 to 1
-        assertThat(((Number) row[2]).intValue()).isEqualTo(1);
+        assertThat(orgApplicableValue(row[2])).isEqualTo(1);
     }
 
     /**
@@ -318,6 +317,13 @@ public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
         Object[] row = (Object[]) results.get(0);
         assertThat(row[0]).isEqualTo("_testObject4");
         assertThat(row[1]).isEqualTo("Full constructor test");
-        assertThat(((Number) row[2]).intValue()).isEqualTo(1);
+        assertThat(orgApplicableValue(row[2])).isEqualTo(1);
+    }
+
+    private static int orgApplicableValue(Object value) {
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue ? 1 : 0;
+        }
+        return ((Number) value).intValue();
     }
 }

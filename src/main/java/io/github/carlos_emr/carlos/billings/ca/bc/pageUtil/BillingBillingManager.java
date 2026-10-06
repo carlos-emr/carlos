@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
@@ -42,6 +42,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Legacy BC billing form backing bean.
  *
@@ -341,6 +342,8 @@ public class BillingBillingManager implements Serializable {
             fill(billType, null);
         }
 
+        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         public void fill(String billType, Double percentage) {
             BillingServiceDao dao = SpringUtils.getBean(BillingServiceDao.class);
             List<BillingService> bss = null;
@@ -368,9 +371,9 @@ public class BillingBillingManager implements Serializable {
                 } catch (NumberFormatException eNum) {
                     throw new IllegalArgumentException(
                             "BC BillingBillingManager: invalid percentage on service "
-                                    + LogSanitizer.sanitizeForDisplay(bs.getServiceCode())
-                                    + " (gstPercent=" + LogSanitizer.sanitizeForDisplay(gstPercent)
-                                    + ", bsPercentage=" + LogSanitizer.sanitizeForDisplay(bs.getPercentage()) + ")",
+                                    + LogSafe.sanitizeForDisplay(bs.getServiceCode())
+                                    + " (gstPercent=" + LogSafe.sanitizeForDisplay(gstPercent)
+                                    + ", bsPercentage=" + LogSafe.sanitizeForDisplay(bs.getPercentage()) + ")",
                             eNum);
                 }
             }

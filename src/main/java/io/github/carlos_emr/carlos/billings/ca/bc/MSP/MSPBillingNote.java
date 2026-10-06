@@ -40,7 +40,6 @@ import java.util.Date;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingNoteDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingNotes;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -105,7 +104,6 @@ public class MSPBillingNote {
     Seventh - NOTE-DATA-LINE (400)
     */
     public static String getN01(String dataCenterNum, String dataCenterSeqNum, String payeeNum, String practitionerNum, String noteType, String note) {
-        MiscUtils.getLogger().debug("LOOKATME:" + note);
         String s = "N01" + Misc.forwardZero(dataCenterNum, 5) + Misc.forwardZero(dataCenterSeqNum, 7) + Misc.forwardZero(payeeNum, 5) + Misc.forwardZero(practitionerNum, 5) + Misc.forwardSpace(noteType, 1) + Misc.backwardSpace(Misc.stripLineBreaks(note), 400);
         return s;
     }

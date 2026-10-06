@@ -88,6 +88,8 @@
     boolean isDemoView = !"0".equals(demographic_no) && demographic_no != null;
     pageContext.setAttribute("hasDemoView", isDemoView);
 
+    boolean showScheduleNav = "1".equals(request.getParameter("scheduleNav"));
+
     Map<String, View> ticklerView = viewDao.getView("tickler", userRole, user_no);
 
     String providerview = "all";
@@ -152,9 +154,13 @@
 <!DOCTYPE html>
 <html lang="${flatpickrLanguage}">
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="tickler.ticklerMain.managerHeading"/></title>
 
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <% if (showScheduleNav) { %>
+        <link rel="stylesheet" href="<%=request.getContextPath()%>/css/topnav.css">
+        <% } %>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
@@ -162,6 +168,7 @@
         <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
 
         <!-- Flatpickr -->
+        <script type="text/javascript" src="${pageContext.request.contextPath}/js/ticklerNoteDialog.js"></script>
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/flatpickr.min.js"></script>
         <c:if test="${flatpickrLanguage != 'en'}">
         <script type="text/javascript" src="${pageContext.request.contextPath}/library/flatpickr/l10n/${carlos:forUriComponent(flatpickrLanguage)}.js"></script>
@@ -492,7 +499,7 @@
              * checkmark so the user has a visual cue that this tickler has been opened.
              */
             function openTicklerEdit(link, ticklerNo) {
-                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=800, height=650');
+                window.open(ctx + '/tickler/ViewTicklerEdit?tickler_no=' + ticklerNo, 'edit_tickler', 'width=1200, height=800');
                 var icon = link.querySelector('span');
                 if (icon) {
                     icon.classList.remove('fa-pencil-alt');
@@ -531,12 +538,7 @@
 
                 document.getElementById('tickler_note_demographicNo').value = demographicNo;
                 document.getElementById('tickler_note_ticklerNo').value = ticklerNo;
-                document.getElementById('tickler_note_noteId').value = '';
-                document.getElementById('tickler_note').value = '';
-                document.getElementById('tickler_note_revision').innerHTML = '';
-                document.getElementById('tickler_note_revision_url').setAttribute('onclick', '');
-                document.getElementById('tickler_note_editor').innerHTML = '';
-                document.getElementById('tickler_note_obsDate').innerHTML = '';
+                resetTicklerNoteFields();
 
                 jQuery.ajax({
                     method: "POST", url: ctx + '/CaseManagementEntry',
@@ -544,14 +546,7 @@
                     async: false,
                     dataType: 'json',
                     success: function (data) {
-                        if (data != null) {
-                            document.getElementById('tickler_note_noteId').value = data.noteId;
-                            document.getElementById('tickler_note').value = data.note;
-                            document.getElementById('tickler_note_revision').textContent = data.revision;
-                            document.getElementById('tickler_note_revision_url').setAttribute("onclick", "window.open('" + ctx + "/CaseManagementEntry?method=notehistory&noteId=" + encodeURIComponent(data.noteId) + "')");
-                            document.getElementById('tickler_note_editor').textContent = data.editor;
-                            document.getElementById('tickler_note_obsDate').textContent = data.obsDate;
-                        }
+                        applyTicklerNoteFields(data, ctx);
                         jQuery("#note-form").dialog("open");
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
@@ -567,6 +562,7 @@
 
             function saveNoteDialog() {
                 jQuery.ajax({
+                    method: "POST",
                     url: ctx + '/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
@@ -757,7 +753,10 @@
     </head>
 
     <body>
-    <div class="container">
+    <% if (showScheduleNav) { %>
+        <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>
+    <% } %>
+    <div class="container-fluid carlos-content-shell">
         <div class="searchBox">
 
             <div class="page-header-bar">
@@ -773,6 +772,10 @@
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/tickler/ViewTicklerMain">
             <input type="hidden" name="Submit" value="">
             <input type="hidden" name="demoview" value="<carlos:encode value='<%= isDemoView ? demographic_no : "" %>' context="htmlAttribute"/>">
+            <% if (showScheduleNav) { %>
+            <%-- Filter submits rebuild the page; keep scheduleNav so the included top bar does not vanish. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
 
             <c:if test="${not hasDemoView}">
                 <div class="row mb-2">
@@ -940,6 +943,10 @@
 
         <form name="ticklerform" method="post" action="DbTicklerMain">
             <input type="hidden" name="parentAjaxId" value="${carlos:forHtmlAttribute(param.parentAjaxId)}"/>
+            <% if (showScheduleNav) { %>
+            <%-- Complete/delete posts also reload this view, so preserve the schedule shell flag there too. --%>
+            <input type="hidden" name="scheduleNav" value="1">
+            <% } %>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>

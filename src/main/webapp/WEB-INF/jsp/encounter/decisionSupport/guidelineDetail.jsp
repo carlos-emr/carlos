@@ -73,6 +73,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>GuidelineList</title>
     <link rel="stylesheet" href="decisionSupport.css" type="text/css"></link>
 </head>

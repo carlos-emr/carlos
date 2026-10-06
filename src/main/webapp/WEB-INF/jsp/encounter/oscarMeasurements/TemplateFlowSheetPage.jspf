@@ -69,6 +69,7 @@
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%
 	if(session.getAttribute("user") == null) response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
@@ -176,6 +177,7 @@
 <html>
 
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 <title><carlos:encode value='<%= flowSheet %>' context="html"/> - <oscar:nameage demographicNo="<%= safeDemoNoHtml %>"/></title><!--I18n-->
 
 <script type="text/javascript" src="${ pageContext.request.contextPath }/share/javascript/Oscar.js"></script>
@@ -341,13 +343,18 @@ div.headPrevention p {
     }
 
 
-    function fsPopup(width,height,url,window) {
+    function fsPopup(width,height,url,windowName) {
     	<%
     		SecurityManager securityMgr = new SecurityManager();
     		if(securityMgr.hasWriteAccess("_flowsheet."+mFlowsheet.getName(),roleName$)) {
     	%>
 
-    	return popup(width,height,url,window);
+	var measurementPopup = popup(width,height,url,windowName);
+	if (measurementPopup != null && window.opener != null && !window.opener.closed
+			&& typeof window.opener.registerNestedMeasurementWindow === "function") {
+		window.opener.registerNestedMeasurementWindow(window, measurementPopup);
+	}
+	return measurementPopup;
     	<%}%>
     }
 </script>

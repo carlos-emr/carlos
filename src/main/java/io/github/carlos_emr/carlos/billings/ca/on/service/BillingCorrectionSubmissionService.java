@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitCommand;
 import io.github.carlos_emr.carlos.billings.ca.on.command.BillingCorrectionSubmitItemCommand;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingCorrectionCodedTokenValidator;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
@@ -33,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,12 +60,25 @@ public class BillingCorrectionSubmissionService {
         this.billingDao = billingDao;
     }
 
+    /**
+     * Persists the reviewed correction.
+     *
+     * @param loggedInInfo the authenticated provider context used for recycle-bin ownership
+     * @param command the reviewed correction payload, including the hidden stored-content blob
+     * @throws BillingValidationException if the billing number is malformed, the
+     *         billing record is missing, or the content blob structure/tokens fail
+     *         validation (the blob round-trips through a browser hidden field, so
+     *         review-time validation alone is bypassable)
+     */
     public void submit(LoggedInInfo loggedInInfo, BillingCorrectionSubmitCommand command) {
+        // Re-check the hidden stored content before persistence; a tampered
+        // browser field must not bypass review-time XML and coded-token guards.
+        BillingCorrectionCodedTokenValidator.validateStoredContent(command.content());
         int billingNo = parseBillingNo(command.billingNo());
         Billing billing = billingDao.find(billingNo);
         if (billing == null) {
             throw new BillingValidationException("Billing correction rejected: billing record not found [billingNo="
-                    + LogSanitizer.sanitize(command.billingNo()) + "]");
+                    + LogSafe.sanitize(command.billingNo()) + "]");
         }
 
         GregorianCalendar now = new GregorianCalendar();
@@ -113,7 +127,7 @@ public class BillingCorrectionSubmissionService {
             return Integer.parseInt(billingNo);
         } catch (NumberFormatException e) {
             throw new BillingValidationException("Billing correction rejected: invalid billing number ["
-                    + LogSanitizer.sanitize(billingNo) + "]", e);
+                    + LogSafe.sanitize(billingNo) + "]", e);
         }
     }
 

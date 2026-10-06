@@ -71,9 +71,12 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <title><fmt:message key="admin.admin.labFwdRules"/></title>
     <link href="${ctx}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="${ctx}/library/jquery/jquery-compat.js"></script>
     <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
     <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
@@ -143,9 +146,9 @@
             <% ArrayList providers = ProviderData.getProviderList();
                 for (int i = 0; i < providers.size(); i++) {
                     String prov_no = (String) ((ArrayList) providers.get(i)).get(0);%>
-            <option value="<%= prov_no %>"
-                    <% if (prov_no.equals(providerNo)) {%> <%="selected"%> <%}%>><%= (String) ((ArrayList) providers.get(i)).get(1) %>
-                <%= (String) ((ArrayList) providers.get(i)).get(2) %>
+            <option value="<carlos:encode value='<%= prov_no %>' context="htmlAttribute"/>"
+                    <% if (prov_no.equals(providerNo)) {%> <%="selected"%> <%}%>><carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context="html"/>
+                <carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' context="html"/>
             </option>
             <% }%>
         </select>
@@ -186,13 +189,13 @@
             <tbody>
                 <%for (int i=0; i < frwdProviders.size(); i++){%>
             <tr>
-                <td><%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %> <%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>
+                <td><carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="html"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="html"/>
                 </td>
                 <td><%= status.equals("N") ? oscarRec.getString("oscarMDS.search.formReportStatusNew") : oscarRec.getString("inbox.inboxmanager.msgFiled") %>
                 </td>
                 <td>
                     <button type="submit" class="btn btn-sm"
-                            onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScript"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScript"/>')"
+                            onclick="return removeProvider('<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(1) %>' context="javaScriptAttribute"/> <carlos:encode value='<%= (String) ((ArrayList) frwdProviders.get(i)).get(2) %>' context="javaScriptAttribute"/>')"
                             title="<fmt:message key='admin.labFwdRules.removeTitle'/>"><i class="fa-solid fa-trash"></i> <fmt:message key="admin.labFwdRules.remove"/>
                     </button>
                 </td>
@@ -244,8 +247,8 @@
                     for (int i = 0; i < providers.size(); i++) {
                         String prov_no = (String) ((ArrayList) providers.get(i)).get(0);
                         if (!providerNo.equals(prov_no) && !frwdProviders.contains(providers.get(i))) {%>
-                <option value="<%= prov_no %>"><%= (String) ((ArrayList) providers.get(i)).get(1) %>
-                    <%= (String) ((ArrayList) providers.get(i)).get(2) %>
+                <option value="<carlos:encode value='<%= prov_no %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(1) %>' context="html"/>
+                    <carlos:encode value='<%= (String) ((ArrayList) providers.get(i)).get(2) %>' context="html"/>
                 </option>
                 <% }
                 } %>
@@ -265,7 +268,9 @@
     var pageTitle = document.title;
     document.title = 'Administration Panel | Lab Forwarding Rules';
 
-    registerFormSubmit('ForwardRulesForm', 'dynamic-content');
+    if (typeof registerFormSubmit === 'function') {
+        registerFormSubmit('ForwardRulesForm', 'dynamic-content');
+    }
 
     $("#providers-selection").change(function (e) {
         e.preventDefault();

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<HL7Messages MessageFormat="ORUR01" MessageCount="3" Version="2.3.1"><Message MsgID="1"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT||20260424175911-0400||ORU^R01|MDC20260424175911559|D|2.3.1|||AL
+PID|||||PANO^22Q^^^^^L||20001212|F|||||^H
+PV1|1|OU
+ORC|RE||260319EMR262
+OBR|1|260319EMR262-0_TR5517|260319EMR262-0_TR5517|TR5517^Panorama (NIPT)|||20260319080000|||||||20260319103400||LLON80808^MDCAREQA^BOB||LFJ84302|260319EMR262|||20260422102850||REFER1|F|||LLON80808^MDCAREQA^BOB~LL22333^EXCELLERIS^MEDIC IAN
+OBX|1|FT|NIPT^Panorama (NIPT)||Testing for Panorama Prenatal Test (13,18,21,X\T\Y)\.br\performed by LifeLabs Genetics\.br\175 Galaxy Blvd, Suite 105, Toronto ON,\.br\M9W 0C9, Canada.\.br\\.br\Testing for Panorama Prenatal Test plus 22q11.2\.br\or Microdeletion Extended Panel performed by\.br\Natera Inc. (410-201 Industrial Road, San\.br\Carlos CA, 94070, USA).\.br\\.br\For result inquiries please call the LifeLabs\.br\Genetics Helpline at 1 844 363 4357\.br\(Mon-Fri, 8am-6pm EST).||||||F|||20260422102850-0400|5687^LIFELABS GENETICS&175 GALAXY BLVD&&Toronto&Ontario&M9W 0C9&Canada&B
+]]></Message><Message MsgID="2"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT||20260424175911-0400||ORU^R01|MDC20260424175911560|D|2.3.1|||AL
+PID|||||IRL NEW^5A^^^^^L||19930505|F|||||^H
+PV1|1|OU
+ORC|RE||26032EMR2605
+OBR|1|26032EMR2605-0_TR10116-2R|26032EMR2605-0_TR10116-2R|TR10116-2R^Chloride Urine|||20260326153300|||||||20260326153300|UR&URINE&HL70070|LLON80808^MDCAREQA^BOB||||||20260407114233||CHEM10|F|||LLON80808^MDCAREQA^BOB
+OBX|1|NM|2078-4^Chloride (Urine)||100|mmol/L|||||F|||20260407114233-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||No reference interval has been established for\.br\this test.
+ORC|RE||26032EMR2605
+OBR|2|26032EMR2605-0_TR10170-9ET|26032EMR2605-0_TR10170-9ET|TR10170-9ET^Drugs of Abuse Screen|||20260320134500|||||||20260320160500|UR&URINE&HL70070|LLON80808^MDCAREQA^BOB||||||20260407114123||CHEM20|F|||LLON80808^MDCAREQA^BOB
+OBX|1|ST|3349-8^Amphetamines||NOT DETECTED||||||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 1000 ng/mL\.br\ \.br\This amphetamines screen does not detect\.br\methylphenidate.\.br\It can detect different classes of amphetamines,\.br\including Amphetamine, Methamphetamine, Ecstasy\.br\(MDMA), MDEA and MDA.
+OBX|2|ST|14316-4^Benzodiazepines||NOT DETECTED||||||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 200 ng/mL\.br\ \.br\False positive results may be caused by high\.br\levels of sertraline.\.br\ \.br\Please note the new benzodiazepines screen has\.br\improved detection of clonazepam and lorazepam.
+OBX|3|ST|14314-9^Cocaine||DETECTED|||A|||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 150 ng/mL
+OBX|4|ST|19295-5^Opiates||NOT DETECTED||||||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 300 ng/mL\.br\ \.br\This opiate screen does not detect synthetic\.br\opioids (e.g. methadone, buprenorphine, fentanyl,\.br\tramadol, meperidine).  Opiate screen can\.br\crossreact with high levels of oxycodone, and\.br\should be interpreted together with results of\.br\oxycodone-specific screen.
+OBX|5|ST|18282-4^Cannabinoids||NOT DETECTED||||||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 50 ng/mL\.br\ \.br\This screen does not detect synthetic\.br\cannabinoids.
+OBX|6|ST|10998-3^Oxycodone||DETECTED|||A|||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 100 ng/mL
+OBX|7|ST|59673-4^Fentanyl||DETECTED|||A|||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 1 ng/mL
+OBX|8|ST|3414-0^Buprenorphine||DETECTED|||A|||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 5 ng/mL
+OBX|9|FT|XON10442-2^Specimen Comment||\.br\Urine drug screen analysis was completed using\.br\immunoassay methods specific to the drug or drug\.br\class. Results are preliminary. If clinically\.br\indicated, please call LifeLabs 416-675-4530\.br\X 43339 to order urine Broad Spectrum Toxicology\.br\Screen for confirmation.\.br\\.br\Specimen collection and testing not completed\.br\using chain of custody processes. Results must be\.br\used for medical purposes only.||||||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|10|ST|22745-4^Ethanol||DETECTED|||A|||F|||20260407114123-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Detection limit = 2 mmol/L\.br\ \.br\In diabetic patients, urine glucose can be\.br\converted to ethanol in vitro.  For those\.br\patients, urinalysis testing for glucose in\.br\parallel with ethanol testing is suggested.\.br\ \.br\Specimen collection and testing not completed\.br\using chain of custody processes. Results must be\.br\used for medical purposes only.
+]]></Message><Message MsgID="3"><![CDATA[MSH|^~\&|PATHL7|EXC-RV^LIFELABS ONTARIO|HTTPCLIENT||20260424175911-0400||ORU^R01|MDC20260424175911561|D|2.3.1|||AL
+PID|||||TEST^CASE - 3^^^^^L||19621111|M|||||^H
+PV1|1|OU
+ORC|RE||260423EMR263
+OBR|1|260423EMR263-2_TR10694-8|260423EMR263-2_TR10694-8|TR10694-8^Miscellaneous Microbiology|||20260423120000|||||||20260423120400|ORH&OTHER&HL70070^^^^&OTHER|LLON80808^MDCAREQA^BOB||||||20260423152909||MICRO3|F|||LLON80808^MDCAREQA^BOB
+OBX|1|ST|31208-2^Specimen Source||OTHER||||||F|||20260423141108-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|2|ST|33882-2^Collection Date||23-APR-2026||||||F|||20260423141108-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|3|ST|49049-0^Collection Time||12:00||||||F|||20260423141108-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|4|FT|664-3^Microscopic|1|Many polymorphonuclear cells seen||||||F|||20260423141108-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|5|FT|664-3^Microscopic|2|Mixed bacteria||||||F|||20260423141108-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|6|ST|CUL STAT^Culture Status||Final||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|7|FT|634-6^Culture Report||Miscellaneous Culture\.br\MIXED ORGANISMS INCLUDING:||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|8|CE|6463-4^Organism|1|*** Streptococcus pyogenes\.br\(Group A Streptococcus)***||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Heavy growth of *** Streptococcus pyogenes\.br\    (Group A Streptococcus)***\.br\\.br\This isolate is predictably susceptible to\.br\Penicillin, Ampicillin, and Cefazolin.
+OBX|9|CE|6463-4^Organism|2|Staphylococcus aureus *********\.br\(Methicillin Resistant)||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Heavy growth of Staphylococcus aureus *********\.br\(Methicillin Resistant)\.br\\.br\Organisms susceptible to Tetracycline are\.br\considered susceptible to Doxycycline.\.br\\.br\Contact isolation is recommended for Methicillin\.br\Resistant Staphylococcus aureus isolated in\.br\hospital or long term care patients.
+OBX|10|ST|18910-0^Cloxacillin|2|R||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|11|ST|18878-9^Cefazolin|2|R||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|12|ST|18908-4^Clindamycin|2|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|13|ST|18998-5^Trimethoprim+Sulfamethoxazole|2|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|14|ST|18993-6^Tetracycline|2|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|15|ST|19000-9^Vancomycin|2|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|16|CE|6463-4^Organism|3|Pseudomonas aeruginosa||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+NTE|||Heavy growth of Pseudomonas aeruginosa\.br\\.br\Aminoglycosides should not be used as monotherapy\.br\for systemic infections.\.br\\.br\Tobramycin does not predict susceptibility to\.br\Gentamicin.
+OBX|17|ST|18893-8^Ceftazidime|3|R||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|18|ST|18970-4^Piperacillin+Tazobactam|3|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|19|ST|18906-8^Ciprofloxacin|3|R||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|20|ST|18996-9^Tobramycin|3|R||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+OBX|21|ST|18860-7^Amikacin|3|S||||||F|||20260423152909-0400|5687^LifeLabs&100 International Blvd.&&Toronto&Ontario&M9W 6J6&Canada&B
+]]></Message></HL7Messages>

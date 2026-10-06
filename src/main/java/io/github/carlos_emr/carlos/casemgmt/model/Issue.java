@@ -32,6 +32,9 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
+@jakarta.persistence.Entity
+@jakarta.persistence.Table(name = "issue")
+@jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 public class Issue extends BaseObject {
     public static String CUSTOM_ISSUE = "userDefined";
     public static String SYSTEM = "system";
@@ -52,6 +55,7 @@ public class Issue extends BaseObject {
     private String priority;
     private String type;
     private Integer sortOrderId;
+    @jakarta.persistence.Column(name = "sortOrderId")
 
     public Integer getSortOrderId() {
         return sortOrderId;
@@ -65,6 +69,11 @@ public class Issue extends BaseObject {
         update_date = new Date();
         sortOrderId = 0;
     }
+    @jakarta.persistence.Id
+
+    @jakarta.persistence.GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
+
+    @jakarta.persistence.Column(name = "issue_id")
 
     public Long getId() {
         return id;
@@ -73,6 +82,7 @@ public class Issue extends BaseObject {
     public void setId(Long id) {
         this.id = id;
     }
+    @jakarta.persistence.Column(name = "code")
 
     public String getCode() {
         return code;
@@ -81,6 +91,7 @@ public class Issue extends BaseObject {
     public void setCode(String code) {
         this.code = code;
     }
+    @jakarta.persistence.Column(name = "description")
 
     public String getDescription() {
         return description;
@@ -89,6 +100,7 @@ public class Issue extends BaseObject {
     public void setDescription(String description) {
         this.description = description;
     }
+    @jakarta.persistence.Column(name = "role")
 
     public String getRole() {
         return role;
@@ -97,6 +109,8 @@ public class Issue extends BaseObject {
     public void setRole(String role) {
         this.role = role;
     }
+    @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
+    @jakarta.persistence.Column(name = "update_date")
 
     public Date getUpdate_date() {
         return update_date;
@@ -105,6 +119,7 @@ public class Issue extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+    @jakarta.persistence.Column(name = "priority")
 
     public String getPriority() {
         return priority;
@@ -113,6 +128,7 @@ public class Issue extends BaseObject {
     public void setPriority(String priority) {
         this.priority = priority;
     }
+    @jakarta.persistence.Column(name = "type")
 
     public String getType() {
         return type;
@@ -121,6 +137,7 @@ public class Issue extends BaseObject {
     public void setType(String type) {
         this.type = type;
     }
+    @jakarta.persistence.Transient
 
     public String getUpdate_date_web() {
         if (update_date == null)

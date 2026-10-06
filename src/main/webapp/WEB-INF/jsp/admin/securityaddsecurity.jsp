@@ -47,6 +47,7 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -60,6 +61,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.securityaddsecurity.title"/></title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
@@ -76,6 +78,16 @@
             helper.addProvider(pageContext);
         %>
         <h1><fmt:message key="${message}"/></h1>
+        <c:if test="${message == 'admin.securityaddsecurity.msgAdditionSuccess'}">
+            <p id="providerRoleGuidance" role="status">
+                <fmt:message key="admin.securityaddsecurity.msgReviewRoles"/>
+            </p>
+            <p>
+                <a id="assignProviderRole" href="<c:url value='/admin/ProviderRole'/>">
+                    <fmt:message key="admin.admin.assignRole"/>
+                </a>
+            </p>
+        </c:if>
 
     </center>
     </body>

@@ -34,7 +34,7 @@
 
 --%>
 <%@ page import="java.util.*, java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.DbConnectionFilter" %>
+<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -192,8 +192,8 @@
             + "  where dm.demographic_no = demographic.demographic_no and dm.deleted = 0) "
             + safeOrderby + " limit ? offset ?";
 
-        Connection dbConn = DbConnectionFilter.getThreadLocalDbConnection();
-        try (PreparedStatement ps = dbConn.prepareStatement(sql)) {
+        try (Connection dbConn = LegacyJdbcQuery.getConnection();
+             PreparedStatement ps = dbConn.prepareStatement(sql)) {
             int pidx = 1;
             if ("search_dob".equals(p_searchMode)) {
                 String yearStr = "" + MyDateFormat.getYearFromStandardDate(p_keyword) + "%";
@@ -298,12 +298,13 @@
     request.setAttribute("prefillHcType",       "");
 %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${pageContext.request.locale.language}">
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/dataTables.bootstrap5.min.css">
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <title><fmt:message key="oscarMDS.segmentDisplay.patientSearch.title"/></title>
     <style>
         body { font-size: 13px; }

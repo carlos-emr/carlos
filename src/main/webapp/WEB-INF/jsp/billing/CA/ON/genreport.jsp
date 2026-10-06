@@ -27,6 +27,8 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService" %>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%-- Empty stub. ViewGenReport2Action enforces _billing w + POST and runs the
      SOLO_REPORT pass via OhipReportGenerationService (BillActivity persist +
      OHIP/HTML file write), then chains to ViewGenGroupReport (hybrid clinics)

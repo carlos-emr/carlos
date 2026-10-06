@@ -40,7 +40,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 
-<%@ page import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom" %>
+<%@ page import="java.math.BigInteger,java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.DetailDataCustom,io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     BigInteger resourceIDBig = (BigInteger) session.getAttribute("resourceID");
@@ -51,6 +51,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <jsp:include page="/WEB-INF/jsp/mcedt/mailbox/head-includes.jsp"/>
         <link href="mailbox/css/mcedt.css" rel="stylesheet" type="text/css">
 
@@ -86,7 +87,7 @@
 
             function download() {
 
-                var resourceID = '<%= session.getAttribute("resourceID") %>';
+                var resourceID = '<%= SafeEncode.forJavaScript(String.valueOf(session.getAttribute("resourceID"))) %>';
                 //alert(resourceID);
 
                 if (resourceID != 0) {

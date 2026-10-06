@@ -73,7 +73,7 @@ public class ProgramAccessDAOImpl extends AbstractDaoImpl<ProgramAccess> impleme
     public List<ProgramAccess> getAccessListByProgramId(Long programId) {
         List<ProgramAccess> results = programAccessListByProgramIdCache.get(programId);
         if (results == null) {
-            String q = "select pp from ProgramAccess pp where pp.ProgramId=?1";
+            String q = "select pp from ProgramAccess pp where pp.programId=?1";
             TypedQuery<ProgramAccess> query = entityManager.createQuery(q, ProgramAccess.class);
             query.setParameter(1, programId);
             results = query.getResultList();
@@ -124,7 +124,7 @@ public class ProgramAccessDAOImpl extends AbstractDaoImpl<ProgramAccess> impleme
         }
         String accessTypeIdString = accessTypeId.toString();
         ProgramAccess result = null;
-        String q = "from ProgramAccess pa where pa.ProgramId = ?1 and pa.AccessTypeId = ?2";
+        String q = "from ProgramAccess pa where pa.programId = ?1 and pa.accessTypeId = ?2";
         TypedQuery<ProgramAccess> query = entityManager.createQuery(q, ProgramAccess.class);
         query.setParameter(1, programId);
         query.setParameter(2, accessTypeIdString);
@@ -150,7 +150,7 @@ public class ProgramAccessDAOImpl extends AbstractDaoImpl<ProgramAccess> impleme
      */
     @Override
     public List<ProgramAccess> getProgramAccessListByType(Long programId, String accessType) {
-        String q = "from ProgramAccess pa where pa.ProgramId = ?1 and pa.AccessType.Name like ?2";
+        String q = "from ProgramAccess pa where pa.programId = ?1 and pa.accessType.name like ?2";
         TypedQuery<ProgramAccess> query = entityManager.createQuery(q, ProgramAccess.class);
         query.setParameter(1, programId);
         query.setParameter(2, accessType);

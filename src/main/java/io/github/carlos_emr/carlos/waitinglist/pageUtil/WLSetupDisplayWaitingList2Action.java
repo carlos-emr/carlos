@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -55,7 +55,54 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.util.Collection;
 import java.util.Date;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
+
+    /**
+     * The only shape the page's own JavaScript writes into the three selector parameters:
+     * the indexed field names of one waiting-list row. The selectors are request-controlled
+     * and are used as parameter NAMES for the lookup that follows, so without this check a
+     * caller could point one at any other parameter, including names the packaged WAF exempts
+     * by pattern for other pages (comments-&lt;n&gt;, test_&lt;n&gt;.labnotes), and have that
+     * value persisted as a waiting-list note.
+     */
+    private static final Pattern ROW_SELECTOR =
+            Pattern.compile("^waitingListBean\\[(\\d+)\\]\\.(demographicNo|note|onListSince)$");
+
+    static boolean isRowSelector(String selector) {
+        return selector != null && ROW_SELECTOR.matcher(selector).matches();
+    }
+
+    /**
+     * Whether a selector names the given field of a waiting-list row. Each of the three
+     * selectors has one field it may name: without this, a POST could point the demographic
+     * selector at the row's note and have the note text persisted as the patient number.
+     */
+    static boolean isRowSelectorFor(String selector, String field) {
+        return isRowSelector(selector) && selector.endsWith("." + field);
+    }
+
+    /**
+     * The bracketed row index inside a valid selector name, or null when it is not one.
+     * The three selectors a single update submits must all carry the SAME index: the shape
+     * check alone would accept {@code waitingListBean[0].demographicNo} paired with
+     * {@code waitingListBean[1].note}, and {@link #execute()} would then look up row 0's
+     * patient while persisting row 1's note onto it. Callers compare this across the three
+     * selectors and reject a mismatch before reading any value.
+     */
+    static String rowIndexOf(String selector) {
+        if (selector == null) {
+            return null;
+        }
+        Matcher matcher = ROW_SELECTOR.matcher(selector);
+        return matcher.matches() ? matcher.group(1) : null;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -65,6 +112,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute()
             throws Exception {
         log.debug("WLSetupDisplayWaitingList2Action/execute(): just entering.");
@@ -77,7 +126,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         // Mutation path (update=Y) requires write privilege + POST.
         if (update != null && update.equalsIgnoreCase("Y")) {
-            if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
@@ -93,8 +143,8 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String groupNo = "";
         String providerNo = "";
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): update = {}", LogSanitizer.sanitize(update));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): remove = {}", LogSanitizer.sanitize(remove));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): update = {}", LogSafe.sanitize(update));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): remove = {}", LogSafe.sanitize(remove));
 
         //LazyValidatorForm wlForm = (LazyValidatorForm) form;
         log.debug("WLSetupDisplayWaitingList2Action/execute(): after  (LazyValidatorForm)form ");
@@ -104,9 +154,9 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         String wlNoteSelected = request.getParameter("wlNoteSelected");
         String onListSinceSelected = request.getParameter("onListSinceSelected");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = {}", LogSanitizer.sanitize(demographicNumSelected));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = {}", LogSanitizer.sanitize(wlNoteSelected));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = {}", LogSanitizer.sanitize(onListSinceSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNumSelected = {}", LogSafe.sanitize(demographicNumSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): wlNoteSelected = {}", LogSafe.sanitize(wlNoteSelected));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSinceSelected = {}", LogSafe.sanitize(onListSinceSelected));
 
 
         String rawWaitingListId = request.getParameter("waitingListId");
@@ -116,19 +166,63 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 if (parsedId > 0) {
                     waitingListId = String.valueOf(parsedId);
                 } else {
-                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': must be a positive integer", LogSafe.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 }
             } catch (NumberFormatException e) {
-                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSanitizer.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): invalid waitingListId '{}': not a valid integer", LogSafe.sanitize(rawWaitingListId)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
         }
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
         if (update != null && update.equalsIgnoreCase("Y")) {
+            // The page copies the clicked row's list id into waitingListId before it submits
+            // update=Y, so an update without a usable id is malformed. The local defaults to ""
+            // and the parser above leaves it there for a missing, non-numeric or non-positive
+            // value, so the null check the legacy code kept around the mutation could never skip
+            // it: rePositionWaitingList("") and updateWaitingListRecord("", ...) were reachable.
+            if (isBlank(waitingListId)) {
+                log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected update without a valid waitingListId"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            // The page's update button submits the three selectors only when a row's note or
+            // date field has been edited (setParameters() fills them on blur); clicking update
+            // without editing a row leaves them blank and means "reposition", handled by the
+            // fallback below. So the selector validation applies only when a selector is present.
+            boolean anySelector = !isBlank(demographicNumSelected) || !isBlank(wlNoteSelected)
+                    || !isBlank(onListSinceSelected);
+            if (anySelector) {
+                if (!isRowSelectorFor(demographicNumSelected, "demographicNo")
+                        || !isRowSelectorFor(wlNoteSelected, "note")
+                        || !isRowSelectorFor(onListSinceSelected, "onListSince")) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row selector outside waitingListBean[n].<its field>"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+                // All three selectors must name the SAME row. Otherwise a crafted POST could pair
+                // one row's demographicNo with another row's note, and updateWaitingListRecord
+                // would persist the second row's note against the first row's patient.
+                String selectorRow = rowIndexOf(demographicNumSelected);
+                if (!selectorRow.equals(rowIndexOf(wlNoteSelected))
+                        || !selectorRow.equals(rowIndexOf(onListSinceSelected))) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected selectors spanning more than one waiting-list row"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
 
-            demographicNo = request.getParameter(demographicNumSelected);
-            waitingListNote = request.getParameter(wlNoteSelected);
-            onListSince = request.getParameter(onListSinceSelected);
+                demographicNo = request.getParameter(demographicNumSelected);
+                waitingListNote = request.getParameter(wlNoteSelected);
+                onListSince = request.getParameter(onListSinceSelected);
+                // Selectors mean "update this row", so a row without its patient number or date
+                // is a malformed edit, not a request to reposition the list. The page always
+                // carries the patient number; the date stays required because
+                // updateWaitingListRecord would silently replace a blank one with today.
+                if (isBlank(demographicNo) || isBlank(onListSince)) {
+                    log.warn("WLSetupDisplayWaitingList2Action/execute(): rejected row update without its patient number or date"); // NOSONAR javasecurity:S5145 — fixed text, no request data
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
+            }
 //	        demographicNo = (String)wlForm.get(demographicNumSelected);
 //	        waitingListNote = (String)wlForm.get(wlNoteSelected);
 //	        onListSince =  (String)wlForm.get(onListSinceSelected);
@@ -137,20 +231,20 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
                 waitingListId = (String) wlForm.get("selectedWL");
             }*/
 
-            if (waitingListId != null) {
-                try {
-                    if (demographicNo != null && !demographicNo.equals("") &&
-                            waitingListNote != null && !waitingListNote.equals("") &&
-                            onListSince != null && !onListSince.equals("")) {
-                        WLWaitingListUtil.updateWaitingListRecord(waitingListId, waitingListNote, demographicNo, onListSince);
-                    } else {
-                        WLWaitingListUtil.rePositionWaitingList(waitingListId);
-                    }
-
-                } catch (Exception ex) {
-                    log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ", ex);
-                    return "failure";
+            try {
+                // A selected row is updated even when its note is empty: clearing the note
+                // is an edit, and treating the empty box as "no row selected" left the old
+                // note on the record.
+                if (anySelector) {
+                    WLWaitingListUtil.updateWaitingListRecord(waitingListId,
+                            waitingListNote == null ? "" : waitingListNote, demographicNo, onListSince);
+                } else {
+                    WLWaitingListUtil.rePositionWaitingList(waitingListId);
                 }
+
+            } catch (Exception ex) {
+                log.error("WLSetupDisplayWaitingList2Action/execute(): Exception: ({})", ex.getClass().getSimpleName());
+                return "failure";
             }
         }//end of if ( !update.equalsIgnoreCase("Y") ) -- could be remove also ???
 
@@ -163,13 +257,13 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         }
         providerNo = (String) session.getAttribute("user");
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = {}", LogSanitizer.sanitize(providerNo));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = {}", LogSanitizer.sanitize(groupNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): providerNo = {}", LogSafe.sanitize(providerNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): groupno = {}", LogSafe.sanitize(groupNo));
 
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSanitizer.sanitize(waitingListId));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSanitizer.sanitize(demographicNo));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSanitizer.sanitize(waitingListNote));
-        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSanitizer.sanitize(onListSince));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListId = {}", LogSafe.sanitize(waitingListId));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): demographicNo = {}", LogSafe.sanitize(demographicNo));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): waitingListNote = {}", LogSafe.sanitize(waitingListNote));
+        log.debug("WLSetupDisplayWaitingList2Action/execute(): onListSince = {}", LogSafe.sanitize(onListSince));
 
         WLWaitingListBeanHandler hd = null;
         WLWaitingListNameBeanHandler wlNameHd = null;

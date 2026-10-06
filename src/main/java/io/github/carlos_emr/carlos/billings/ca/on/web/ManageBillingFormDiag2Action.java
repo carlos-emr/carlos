@@ -29,13 +29,14 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to replace the diagnostic codes for an Ontario billing service type.
@@ -64,6 +65,8 @@ public class ManageBillingFormDiag2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting, or if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         if (!BillingRequestGuards.requirePost(request, response)) {
@@ -97,7 +100,7 @@ public class ManageBillingFormDiag2Action extends ActionSupport {
         try {
             billingFormConfigurationService.replaceDiagCodes(typeid, replacement);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — transaction rolled back", LogSanitizer.sanitize(typeid), e);
+            MiscUtils.getLogger().error("Failed to replace diagnostic codes for typeid={} — transaction rolled back", LogSafe.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update diagnostic codes");
             return NONE;
         }

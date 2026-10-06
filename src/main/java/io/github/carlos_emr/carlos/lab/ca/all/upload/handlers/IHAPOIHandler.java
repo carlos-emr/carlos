@@ -46,9 +46,8 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
@@ -59,7 +58,9 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class IHAPOIHandler implements MessageHandler {
 
@@ -105,10 +106,10 @@ public class IHAPOIHandler implements MessageHandler {
 
         } catch (ExceptionInInitializerError e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("There was an unknown internal error with file {} message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("There was an unknown internal error with file {} message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } catch (Exception e) {
             result = new StringBuilder(FAILED + messageId + ",");
-            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSanitizer.sanitize(fileName), LogSanitizer.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+            logger.error("Could not upload IHAPOI message {} due to an error with message id {}", LogSafe.sanitize(fileName), LogSafe.sanitize(messageId), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         } finally {
             if (FAILED.equals(result.toString().split(":")[0] + ":")) {
                 logger.error("Cleaning up MessageUploader file.");
@@ -217,6 +218,8 @@ public class IHAPOIHandler implements MessageHandler {
         return hl7BodyMap;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String getMessageId(Element element) {
 
         NamedNodeMap nodeAttributes = element.getAttributes();
@@ -243,45 +246,32 @@ public class IHAPOIHandler implements MessageHandler {
      * @return a validated File object
      * @throws IOException if the file path is invalid or attempts path traversal
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private File validateAndGetFile(String fileName) throws IOException {
         if (fileName == null || fileName.isEmpty()) {
             throw new IllegalArgumentException("File name cannot be null or empty");
         }
         
-        // Get the base directory for documents
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        
-        if (documentDir == null || documentDir.isEmpty()) {
-            // If DOCUMENT_DIR is not configured, use system temp directory as fallback
-            documentDir = System.getProperty("java.io.tmpdir");
-        }
-        
-        // Create File object
-        File file = new File(fileName);
-        File baseDirFile = new File(documentDir);
-
-        // Check if the file is within the allowed base directory or temp directory
-        boolean isValidPath = false;
+        File file;
         try {
-            file = PathValidationUtils.validateExistingPath(file, baseDirFile);
-            isValidPath = true;
-        } catch (SecurityException e) {
-            // Try allowed temp directories as fallback
-            isValidPath = PathValidationUtils.isInAllowedTempDirectory(file);
-        }
-        if (!isValidPath) {
-            logger.error("Path traversal attempt detected: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
-            throw new IllegalArgumentException("Invalid file path - access denied");
+            file = PathValidationUtils.validateExistingDocumentPath(fileName);
+        } catch (SecurityException documentPathFailure) {
+            try {
+                file = PathValidationUtils.validateUpload(new File(fileName));
+            } catch (SecurityException uploadPathFailure) {
+                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                throw new IllegalArgumentException("Invalid file path - access denied", uploadPathFailure);
+            }
         }
         
         // Ensure the file exists and is readable
         if (!file.exists()) {
-            throw new IOException("File not found: " + fileName);
+            throw new IOException("File not found");
         }
         
         if (!file.canRead()) {
-            throw new IOException("File cannot be read: " + fileName);
+            throw new IOException("File cannot be read");
         }
         
         return file;

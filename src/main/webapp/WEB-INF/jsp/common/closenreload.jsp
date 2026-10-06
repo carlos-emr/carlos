@@ -5,12 +5,13 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 </head>
 <body>
 <c:set var="parentAjaxId" value="${not empty param.parentAjaxId ? param.parentAjaxId : parentAjaxId}" />
 <center>Closing Window, Please Wait....</center>
 <script type="text/javascript" language="javascript">
-    const parentAjaxId = "<carlos:encode value='${parentAjaxId}' context="forHtml"/>";
+    const parentAjaxId = "<carlos:encode value='${parentAjaxId}' context="javaScript"/>";
     if (window.opener && !window.opener.closed) {
         if (parentAjaxId !== "") {
             window.opener.reloadNav(parentAjaxId);

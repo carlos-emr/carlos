@@ -40,4 +40,4 @@ Please contact support with the date and time of this error.<br />
 
 <%@include file="/WEB-INF/jsp/layouts/caisi_html_bottom.jspf" %>
 
-<%@include file="/log_error.jspf" %>
+<%@include file="/WEB-INF/jsp/error/log_error.jspf" %>

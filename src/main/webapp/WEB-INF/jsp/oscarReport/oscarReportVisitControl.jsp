@@ -29,6 +29,15 @@
 
 --%>
 
+<%--
+  Purpose: Render the provider visit-report controls and report navigation.
+  Features: Provider/date selection and submission using the actual visitForm,
+  with links for paging through available report entries.
+  Parameters: limit1, limit2 and providerview select the view; reportAction,
+  xml_vdate and xml_appointment_date carry report selections. Session roles gate access.
+  @since 2026-09-17
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -101,6 +110,7 @@
 %>
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Reports</title>
     <script type="text/javascript">
 
@@ -232,7 +242,7 @@
     flatpickr("#xml_appointment_date", {dateFormat: "Y-m-d", allowInput: true});
 
     $(document).ready(function () {
-        $('#visitform').validate({
+        $('#visitForm').validate({
             rules: {
                 xml_vdate: {
                     required: false,

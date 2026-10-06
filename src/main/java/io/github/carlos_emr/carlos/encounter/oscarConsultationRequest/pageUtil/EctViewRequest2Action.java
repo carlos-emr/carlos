@@ -64,7 +64,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public class EctViewRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -80,8 +80,8 @@ public class EctViewRequest2Action extends ActionSupport {
 
         request.setAttribute("id", this.getRequestId());
 
-        logger.debug("Id:{}", LogSanitizer.sanitize(this.getRequestId()));
-        logger.debug("SegmentId:{}", LogSanitizer.sanitize(request.getParameter("segmentId")));
+        logger.debug("Id:{}", LogSafe.sanitize(this.getRequestId()));
+        logger.debug("SegmentId:{}", LogSafe.sanitize(request.getParameter("segmentId")));
 
         return SUCCESS;
     }
@@ -184,8 +184,12 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setPatientAge(demo.getAge());
 
         ProviderDao provDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-        Provider prov = provDao.getProvider(consult.getProviderNo());
-        thisForm.setProviderName(prov.getFormattedName());
+        // providerNo is nullable on consultationRequests (legacy/imported rows, and
+        // integration-created requests) and can also reference a since-removed
+        // provider. A missing referring provider must render as blank, not NPE the
+        // whole consultation view into a 500.
+        Provider prov = consult.getProviderNo() != null ? provDao.getProvider(consult.getProviderNo()) : null;
+        thisForm.setProviderName(prov != null ? prov.getFormattedName() : "");
 
         boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
         thisForm.seteReferral(isEReferral);

@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnItemPayment;
 import io.github.carlos_emr.carlos.commn.model.BillingOnTransaction;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -214,7 +214,7 @@ public class BillingPaymentSaveService {
                     MiscUtils.getLogger().warn(
                             "Skipping payment-save row for itemId={} with unknown selection [{}]",
                             line.itemId,
-                            LogSanitizer.sanitize(line.selection));
+                            LogSafe.sanitize(line.selection));
                 }
             }
         }

@@ -58,6 +58,7 @@
 
 <html>
 <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Issue Search</title>
     <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
     <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/css/casemgmt.css" type="text/css">

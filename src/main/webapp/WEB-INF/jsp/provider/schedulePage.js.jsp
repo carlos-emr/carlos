@@ -33,21 +33,29 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     String newticklerwarningwindow = null;
 
-    // Load "Open Encounter in Tab" preference
+    // Load schedule navigation separately from the legacy encounter-tab flag.
+    // Junior-dev note: focused schedule navigation should not change how other
+    // screens open encounters, so the old flag remains true only in "tab" mode.
     String curProviderNo = (String) session.getAttribute("user");
     boolean openEncounterInTab = false;
+    String scheduleNavigationMode = UserProperty.SCHEDULE_NAVIGATION_MODE_POPUP;
     if (curProviderNo != null) {
         UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
-        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+        UserProperty navProp = upDao.getProp(curProviderNo, UserProperty.SCHEDULE_NAVIGATION_MODE);
+        String savedMode = navProp != null ? navProp.getValue() : null;
+        scheduleNavigationMode = UserProperty.resolveScheduleNavigationMode(
+                savedMode,
+                tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue()));
+        openEncounterInTab = UserProperty.SCHEDULE_NAVIGATION_MODE_TAB.equals(scheduleNavigationMode);
     }
+    pageContext.setAttribute("scheduleNavigationModeValue", scheduleNavigationMode);
 %>
 function storeApptNo(apptNo) {
 var url = "<%= request.getContextPath() %>/provider/ViewStoreApptInSession";
@@ -167,6 +175,7 @@ function initializeQSArray() {
     qsParm['dboperation'] = null;
     qsParm['viewall'] = null;
     qsParm['provider_no'] = null;
+    qsParm['weekView'] = null;
 }
 
 function getQSValues() {
@@ -264,6 +273,9 @@ function getLocation(id, multiplier) {
     }
     if (qsParm['provider_no']) {
         destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
+    }
+    if (qsParm['weekView'] === 'true') {
+        destination += '&weekView=true';
     }
 
     window.location = destination;
@@ -405,6 +417,70 @@ popupPage2(queryString, 'appointment', height, width);
 }
 
 var openEncounterInTab = <%=openEncounterInTab%>;
+// Use the JSP encoder wrapper here so null modes render safely and match the rest of this file.
+var scheduleNavigationMode = '${carlos:forJavaScript(scheduleNavigationModeValue)}';
+
+function normalizeScheduleNavigationMode(mode) {
+if (mode === 'tab' || mode === 'focused') {
+return mode;
+}
+return 'popup';
+}
+
+function applyScheduleNavigationPreference(mode) {
+scheduleNavigationMode = normalizeScheduleNavigationMode(mode);
+openEncounterInTab = scheduleNavigationMode === 'tab';
+}
+
+function handleScheduleNavigationPreferenceMessage(message) {
+if (message && message.mode) {
+applyScheduleNavigationPreference(message.mode);
+}
+}
+
+try {
+var scheduleNavigationPreferenceChannel = new BroadcastChannel('carlos_schedule_navigation_mode');
+scheduleNavigationPreferenceChannel.onmessage = function(event) {
+handleScheduleNavigationPreferenceMessage(event.data);
+};
+} catch(e) { /* BroadcastChannel not supported */ }
+
+try {
+window.addEventListener('storage', function(event) {
+if (event.key !== 'carlos_schedule_navigation_mode' || !event.newValue) {
+return;
+}
+try {
+handleScheduleNavigationPreferenceMessage(JSON.parse(event.newValue));
+} catch(e) {}
+});
+} catch(e) {}
+
+function appendQueryParam(url, key, value) {
+var parts = String(url).split('#');
+var base = parts[0];
+var fragment = parts.length > 1 ? '#' + parts.slice(1).join('#') : '';
+var joiner = base.indexOf('?') === -1 ? '?' : '&';
+return base + joiner + encodeURIComponent(key) + '=' + encodeURIComponent(value) + fragment;
+}
+
+function openScheduleSection(url, popupAction, clickEvent) {
+var usesScheduleShell = scheduleNavigationMode === 'focused' || scheduleNavigationMode === 'tab';
+var targetUrl = usesScheduleShell ? appendQueryParam(url, 'scheduleNav', '1') : url;
+if (scheduleNavigationMode === 'focused' && !(clickEvent && clickEvent.altKey)) {
+window.location.href = targetUrl;
+return false;
+}
+if (scheduleNavigationMode === 'focused' && clickEvent && clickEvent.altKey && typeof popupTab === 'function') {
+// Alt-click gives power users a tab without the schedule shell while keeping the default focused flow simple.
+popupTab(url);
+return false;
+}
+if (typeof popupAction === 'function') {
+popupAction(targetUrl);
+}
+return false;
+}
 
 function setfocus() {
 this.focus();
@@ -437,21 +513,44 @@ popup.focus();
 }
 }
 
-function popupPageOfChangePassword(){
+function showPasswordExpiryWarning(){
 <%
-    Integer ed;
     String expired_days = "";
-    if (session.getAttribute("expired_days") != null) {
-        expired_days = (String) session.getAttribute("expired_days");
+    Object expiredDaysAttr = session.getAttribute("expired_days");
+    if (expiredDaysAttr != null) {
+        expired_days = String.valueOf(expiredDaysAttr).trim();
     }
-    if (!(expired_days.equals(" ") || expired_days.equals("") || expired_days == null)) {
+    if (!expired_days.isEmpty()) {
         //javascript
 %>
-
-window.open("<%= request.getContextPath() %>/provider/ViewChangePassword","changePassword","resizable=yes,scrollbars=yes,width=400,height=300");
-changePassword.moveTo(0,0);
+<fmt:message var="accountExpiringWithDaysMsg" key="provider.changePassword.msgAccountExpiringWithDays">
+    <fmt:param value="<%= expired_days %>"/>
+</fmt:message>
+<fmt:message var="changePasswordLabel" key="provider.providerchangepassword.title"/>
+var warningId = "password-expiry-warning";
+if (document.getElementById(warningId)) {
+return;
+}
+var warning = document.createElement("div");
+warning.id = warningId;
+warning.className = "alert alert-warning d-flex align-items-center justify-content-between gap-2 m-2";
+warning.setAttribute("role", "alert");
+var warningText = document.createElement("span");
+warningText.textContent = '${carlos:forJavaScript(accountExpiringWithDaysMsg)}';
+var changePasswordLink = document.createElement("a");
+changePasswordLink.className = "btn btn-sm btn-warning";
+changePasswordLink.href = "<%= request.getContextPath() %>/provider/ViewChangePassword";
+changePasswordLink.textContent = '${carlos:forJavaScript(changePasswordLabel)}';
+warning.appendChild(warningText);
+warning.appendChild(changePasswordLink);
+document.body.insertBefore(warning, document.body.firstChild);
 <%}%>
 }
+
+function popupPageOfChangePassword() {
+    showPasswordExpiryWarning();
+}
+
 function popupInboxManager(varpage, height = 700, width = 1215) {
 var page = "" + varpage;
 if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
@@ -545,9 +644,46 @@ document.location.reload();
 }
 }
 
+<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled" var="onUnbilledConfirmMessage"/>
 function onUnbilled(url) {
-if(confirm("<fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
-popupPage(700,720, url);
+if(confirm("${carlos:forJavaScript(onUnbilledConfirmMessage)}")) {
+var targetWindow = 'unbilled';
+var popupHeight = 700;
+var popupWidth = 720;
+var windowProps = "height="+popupHeight+",width="+popupWidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
+var existingFormCount = document.body ? document.body.getElementsByTagName('form').length : 0;
+var popup = null;
+if (openEncounterInTab && !isForceWindowUrl(url)) {
+targetWindow = '_blank';
+} else {
+popup = window.open('', targetWindow, windowProps);
+}
+postViaForm(url, targetWindow);
+window.setTimeout(function() {
+if (!document.body) {
+return;
+}
+var forms = document.body.getElementsByTagName('form');
+while (forms.length > existingFormCount) {
+var generatedForm = forms[forms.length - 1];
+if (generatedForm == null) {
+break;
+}
+if (generatedForm.parentNode != null) {
+generatedForm.parentNode.removeChild(generatedForm);
+} else if (typeof generatedForm.remove === 'function') {
+generatedForm.remove();
+} else {
+break;
+}
+}
+}, 0);
+if (popup != null) {
+if (popup.opener == null) {
+popup.opener = self;
+}
+popup.focus();
+}
 }
 }
 
@@ -568,7 +704,7 @@ pu.focus();
 }
 }
 
-popupPageOfChangePassword();
+showPasswordExpiryWarning();
 refreshAllTabAlerts();
 }
 
@@ -635,6 +771,7 @@ if (targetWindow) { form.target = targetWindow; }
 if (parts.length > 1) {
     var pairs = parts[1].split('&');
     for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
         var kv = pairs[i].split('=');
         var input = document.createElement('input');
         input.type = 'hidden';
@@ -662,6 +799,81 @@ if (csrfInput) {
 }
 document.body.appendChild(form);
 form.submit();
+}
+
+<fmt:message var="apptStatusUpdateErrorMessage" key="provider.appointmentProviderAdminDay.statusUpdateError"/>
+var apptStatusUpdateInFlight = false;
+/**
+ * Updates an appointment status in place via an AJAX POST instead of a
+ * full-page form submission. This keeps the schedule visible (avoiding the
+ * blank white page that a full-page POST/redirect causes), shows a busy
+ * cursor while the update is in flight, and on success navigates to the
+ * refreshed day view using a history-replacing GET so browser Back does not
+ * appear to replay the status transition. Falls back to the full-page
+ * postViaForm helper when the Fetch API is unavailable.
+ * @param {string} url - providercontrol AddStatus URL with query parameters
+ */
+function updateApptStatus(url) {
+if (apptStatusUpdateInFlight) {
+    return false;
+}
+if (typeof window.fetch !== 'function') {
+    apptStatusUpdateInFlight = true;
+    postViaForm(url);
+    return false;
+}
+var parts = url.split('?');
+var body = new URLSearchParams();
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i]) { continue; }
+        var kv = pairs[i].split('=');
+        var name = decodeURIComponent(kv[0]);
+        var value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        body.append(name, value);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+body.append('x', X);
+body.append('y', Y);
+// Inject CSRF token from an existing form (CSRFGuard injects into DOM forms at page load)
+var csrfInput = document.querySelector('input[name="CSRF-TOKEN"]');
+if (!csrfInput || !csrfInput.value) {
+    console.error(new Error('CSRF token unavailable'));
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+    return false;
+}
+body.append(csrfInput.name, csrfInput.value);
+var previousCursor = document.body.style.cursor;
+document.body.style.cursor = 'wait';
+apptStatusUpdateInFlight = true;
+fetch(parts[0], {
+    method: 'post',
+    headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'CSRF-TOKEN': csrfInput.value
+    },
+    body: body,
+    credentials: 'same-origin'
+}).then(function(response){
+    if (!response.ok) { throw new Error('HTTP ' + response.status); }
+    return response.text();
+}).then(function(target){
+    target = (target || '').trim();
+    if (target) {
+        window.location.replace(target);
+    } else {
+        throw new Error('empty response');
+    }
+}).catch(function(e){
+    apptStatusUpdateInFlight = false;
+    document.body.style.cursor = previousCursor;
+    console.error(e);
+    alert('${carlos:forJavaScript(apptStatusUpdateErrorMessage)}');
+});
+return false;
 }
 
 function scrollOnLoad() {

@@ -39,6 +39,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 
@@ -75,6 +77,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 import org.owasp.encoder.Encode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Service
 public class TicklerManagerImpl implements TicklerManager {
@@ -174,6 +177,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public boolean updateTickler(LoggedInInfo loggedInInfo, Tickler tickler) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -230,6 +234,16 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    public List<Tickler> getTicklers(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit,
+                                     boolean includeComments, boolean includeUpdates, boolean includeProvider,
+                                     boolean includeAssignee) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        return ticklerDao.getTicklers(filter, offset, limit, includeComments, includeUpdates, includeProvider,
+                includeAssignee);
+    }
+
+    @Override
     public List<Tickler> getTicklerByLabId(LoggedInInfo loggedInInfo, int labId, Integer demoNo) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -278,6 +292,8 @@ public class TicklerManagerImpl implements TicklerManager {
         return results;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<Tickler> filterTicklersByAccess(List<Tickler> ticklers, String providerNo, String programNo) {
         List<Tickler> filteredTicklers = new ArrayList<Tickler>();
@@ -348,7 +364,7 @@ public class TicklerManagerImpl implements TicklerManager {
             // if this providers wrote the tickler, they should see it..doesn't matter
             // about the role based access
             if (!add) {
-                if (t.getProvider().getProviderNo().equals(providerNo)) {
+                if (Objects.equals(t.getCreator(), providerNo)) {
                     add = true;
                 }
 
@@ -436,6 +452,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
 
@@ -740,6 +757,8 @@ public class TicklerManagerImpl implements TicklerManager {
      * @throws RuntimeException if the user lacks read privilege on _tickler
      * @since 2026-02-27
      */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit) {
         checkPrivilege(loggedInInfo, PRIVILEGE_READ);

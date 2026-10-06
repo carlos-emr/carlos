@@ -1,0 +1,78 @@
+# Custom Semgrep rule: JSP scriptlet XSS with CARLOS encoders
+#
+# Supplements the built-in JSP scriptlet XSS rule with CARLOS-specific
+# sanitizer awareness. The built-in rule remains enabled in the workflow so
+# Semgrep still covers variable-flow cases that generic-mode custom rules
+# cannot model as taint.
+
+rules:
+  - id: carlos.jsp-scriptlet-xss.direct-request
+    message: >
+      JSP scriptlet emits request-derived data without CARLOS output encoding.
+      Wrap it in <carlos:encode>, ${carlos:forXxx(...)}, SafeEncode.forXxx(...),
+      or OWASP Encode.forXxx(...) for the output context.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      category: security
+      technology: [jsp]
+      cwe:
+        - "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp:
+        - "A03:2021 - Injection"
+      confidence: HIGH
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+    paths:
+      include:
+        - "*.jsp"
+        - "*.jspf"
+        - "*.tag"
+        - "*.tagf"
+    patterns:
+      - pattern-regex: '(?m)^.*<%=.*request\s*\.\s*(?:getParameter|getParameterValues|getParameterMap|getParameterNames|getPart|getParts|getQueryString|getHeader|getHeaders|getRequestURI|getRequestURL|getPathInfo|getCookies)\s*\(.*%>.*$'
+      # CARLOS and OWASP encoders.
+      - pattern-not-regex: '(?m)^.*<carlos:encode\b.*$'
+      - pattern-not-regex: '(?m)^.*\$\{\s*carlos\s*:\s*for[A-Za-z0-9_]*\s*\(.*$'
+      - pattern-not-regex: '(?m)^.*(?:SafeEncode|Encode)\s*\.\s*for[A-Za-z0-9_]*\s*\(.*$'
+      - pattern-not-regex: '(?m)^.*URLEncoder\s*\.\s*encode\s*\(.*$'
+      # Known-safe scriptlet outputs: context path, boolean/constant control
+      # values, and server-side custom tag attributes.
+      - pattern-not-regex: '(?m)^.*<%=\s*request\s*\.\s*getContextPath\s*\(\s*\)\s*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*request\s*\.\s*getParameter\s*\([^)]*\)\s*==\s*null.*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*"true"\s*\.\s*equals\s*\(\s*request\s*\.\s*getParameter\s*\([^)]*\)\s*\).*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*\?\s*"[^"]*"\s*:\s*"[^"]*"\s*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*\?[^%]*"\s*selected"[^%]*:[^%]*""[^%]*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*\?[^%]*request\s*\.\s*getContextPath\s*\(\s*\)[^%]*:\s*"[^"]*"\s*%>.*$'
+      - pattern-not-regex: '(?m)^.*<%=.*\?\s*bundle\.getString\s*\([^)]*\)\s*:\s*bundle\.getString\s*\([^)]*\)\s*%>.*$'
+      - pattern-not-regex: '(?m)^.*<caisirole:SecurityAccess\b.*$'
+
+  - id: carlos.jsp-scriptlet-xss.variable-request
+    message: >
+      JSP scriptlet emits a variable initialized from request data without
+      CARLOS output encoding. Wrap the output in <carlos:encode>,
+      ${carlos:forXxx(...)}, SafeEncode.forXxx(...), or OWASP Encode.forXxx(...)
+      for the output context.
+    severity: WARNING
+    languages: [generic]
+    metadata:
+      category: security
+      technology: [jsp]
+      cwe:
+        - "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp:
+        - "A03:2021 - Injection"
+      confidence: MEDIUM
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+    paths:
+      include:
+        - "*.jsp"
+        - "*.jspf"
+        - "*.tag"
+        - "*.tagf"
+    patterns:
+      - pattern-regex: '(?s)<%(?:(?!%>).)*\b(?:[A-Za-z_$][A-Za-z0-9_$<>?,\[\] ]+\s+)?([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*request\s*\.\s*(?:getParameter|getParameterValues|getParameterMap|getParameterNames|getPart|getParts|getQueryString|getHeader|getHeaders|getRequestURI|getRequestURL|getPathInfo|getCookies)\s*\([^;]*;(?:(?!%>).)*%>(?:(?!<carlos:encode\b).)*?<%=\s*\1\s*%>'
+      - pattern-not-regex: '(?s)\?\s*"[^"]*"\s*:\s*"[^"]*"'
+      - pattern-not-regex: '(?s)(?:SafeEncode|Encode)\s*\.\s*for[A-Za-z0-9_]*\s*\('
+      - pattern-not-regex: '(?s)URLEncoder\s*\.\s*encode\s*\('

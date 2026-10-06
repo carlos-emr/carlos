@@ -34,7 +34,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.common;
 
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.ReflectionConstants;
 
@@ -64,13 +64,13 @@ public class Colour {
             if (colourClass.length() > 0) {
                 if (!colourClass.startsWith(ALLOWED_PACKAGE_PREFIX)) {
                     MiscUtils.getLogger().error("Rejected Colour class outside allowed package: {}",
-                            LogSanitizer.sanitize(colourClass));
+                            LogSafe.sanitize(colourClass));
                     return new Colour();
                 }
                 Class<?> clazz = Class.forName(colourClass); // nosemgrep: unsafe-reflection -- colourClass is validated against ALLOWED_PACKAGE_PREFIX above
                 if (!Colour.class.isAssignableFrom(clazz)) {
                     MiscUtils.getLogger().error("Rejected Colour class not assignable to Colour: {}",
-                            LogSanitizer.sanitize(colourClass));
+                            LogSafe.sanitize(colourClass));
                     return new Colour();
                 }
                 c = (Colour) clazz.getDeclaredConstructor().newInstance();

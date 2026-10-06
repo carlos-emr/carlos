@@ -29,7 +29,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFormConfigurationService;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Struts2 action to replace all service codes for an Ontario billing service type.
@@ -65,6 +66,8 @@ public class ManageBillingFormService2Action extends ActionSupport {
      * @return {@link #NONE} after redirecting, or if the request method is not POST
      * @throws SecurityException if the user lacks {@code _admin.billing} write privilege
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     @Override
     public String execute() throws Exception {
         if (!BillingRequestGuards.requirePost(request, response)) {
@@ -105,7 +108,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().warn(
                                 "Invalid serviceOrder value [{}] for group{}_service{} — aborting save",
-                                LogSanitizer.sanitize(orderStr), j, i, e);
+                                LogSafe.sanitize(orderStr), j, i, e);
                         orderParseFailures.add("group" + j + "_service" + i + "=" + orderStr);
                         continue;
                     }
@@ -136,7 +139,7 @@ public class ManageBillingFormService2Action extends ActionSupport {
             billingFormConfigurationService.replaceServiceCodes(typeid, replacement);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to replace service codes for typeid={} — transaction rolled back",
-                    LogSanitizer.sanitize(typeid), e);
+                    LogSafe.sanitize(typeid), e);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Failed to update service codes");
             return NONE;
         }

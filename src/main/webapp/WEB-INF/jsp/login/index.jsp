@@ -93,6 +93,14 @@
             }
 
             function setfocus() {
+                // Do not steal focus from a user (or password manager) that
+                // began entering credentials before every page asset finished.
+                // On a slow load, moving focus back to username can put the
+                // PIN or password into the wrong field.
+                const activeElement = document.activeElement;
+                if (activeElement && activeElement !== document.body && activeElement !== document.documentElement) {
+                    return;
+                }
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
             }
@@ -565,9 +573,12 @@ body {
 
     <div class="content">
         <div class="topbar">
-            <span id="buildInfo" style="color:black;">
-            	${carlos:forHtml(LoginResourceBean.buildTag)}
-            </span>
+            <%-- Build identity is deliberately NOT shown on the login page: it is disclosed to
+                 unauthenticated visitors and lets an attacker fingerprint the exact build to match
+                 against known CVEs before authenticating (CWE-200). It remains available to
+                 authenticated users on the About page (encounter/ViewAbout). The span is kept
+                 (empty) so the topbar layout is unchanged. --%>
+            <span id="buildInfo" style="color:black;"></span>
         </div>
 
         <div class="heading">
@@ -633,13 +644,13 @@ body {
                               NIST SP 800-63B (https://pages.nist.gov/800-63-3/sp800-63b.html) and
                               OWASP Authentication Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
                               which recommend allowing password managers for stronger credential hygiene
-                            - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
+                            - pin: "off" \u2014 shared clinical workstations; prevent autofill of another provider's identity
                         --%>
                         <form action="login" method="POST" name="loginForm">
 
                             <div class="mb-3 ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:message key="Logon.userName"/>"
-                                       value="" size="15" maxlength="15" autocomplete="off"
+                                       value="" size="15" maxlength="30" autocomplete="off"
                                        class="form-control" required>
                             </div>
 
@@ -658,7 +669,7 @@ body {
                             <div class="pin-wrapper">
                                 <div class="input-wrapper mb-3 ${ login_error }">
                                   <!-- The input starts with the secure-text class -->
-                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
+                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="off"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
                                     <button type="button" tabindex="-1"
                                       id="togglePin"

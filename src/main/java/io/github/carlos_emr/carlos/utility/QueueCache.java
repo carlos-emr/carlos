@@ -38,23 +38,75 @@ import java.util.TimerTask;
 public final class QueueCache<K, V> {
     private static Logger logger = MiscUtils.getLogger();
     private static Timer timer = null;
+    private static boolean sharedTimerShutdown = false;
     private HashMap<K, V>[] data;
     private int maxPoolSize;
     private QueueCacheValueCloner<V> cloner;
 
     public QueueCache(int pools, int objectsToCache, long maxTimeToCache, QueueCacheValueCloner<V> cloner) {
         this(pools, objectsToCache, cloner);
-        Class var6 = QueueCache.class;
+        // Timer.schedule requires a strictly positive period; integer division can
+        // yield 0 when maxTimeToCache < pools, which would throw IllegalArgumentException.
+        long shiftPeriod = Math.max(1L, maxTimeToCache / (long) pools);
+        schedulePeriodicPoolShift(shiftPeriod, shiftPeriod);
+    }
+
+    /**
+     * Schedules periodic pool shifting while tolerating a concurrent webapp
+     * shutdown. Scheduling shares the same class monitor as shutdown so timer
+     * creation, task registration, and cancellation cannot race during undeploy.
+     */
+    private void schedulePeriodicPoolShift(long delay, long period) {
         synchronized (QueueCache.class) {
+            if (sharedTimerShutdown) {
+                return;
+            }
             if (timer == null) {
                 timer = new Timer(QueueCache.class.getName(), true);
             }
+            timer.schedule(new ShiftTimerTask(), delay, period);
         }
+    }
 
-        timer.schedule(new QueueCache.ShiftTimerTask(), maxTimeToCache / (long) pools, maxTimeToCache / (long) pools);
+    /**
+     * Cancels the shared shift timer during webapp shutdown so Tomcat does not
+     * retain the CARLOS webapp class loader through the timer thread. The class
+     * monitor makes cancellation and the shutdown state visible to constructors
+     * racing with shutdown.
+     */
+    static void shutdownSharedTimer() {
+        synchronized (QueueCache.class) {
+            sharedTimerShutdown = true;
+            if (timer != null) {
+                // Timer.cancel() discards all scheduled tasks and terminates the
+                // timer thread; an additional purge() is unnecessary and would
+                // only iterate an already-empty queue post-cancel.
+                timer.cancel();
+                timer = null;
+            }
+        }
+    }
+
+    static boolean isSharedTimerInitialized() {
+        synchronized (QueueCache.class) {
+            return timer != null;
+        }
+    }
+
+    static void resetSharedTimerForTesting() {
+        synchronized (QueueCache.class) {
+            if (timer != null) {
+                timer.cancel();
+                timer = null;
+            }
+            sharedTimerShutdown = false;
+        }
     }
 
     public QueueCache(int pools, int objectsToCache, QueueCacheValueCloner<V> cloner) {
+        if (pools <= 0) {
+            throw new IllegalArgumentException("pools must be greater than 0");
+        }
         this.cloner = null;
         this.cloner = cloner;
         this.data = new HashMap[pools];

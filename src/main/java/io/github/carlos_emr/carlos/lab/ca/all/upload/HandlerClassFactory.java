@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MessageHandler;
 
 import java.io.InputStream;
 import java.util.List;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 public final class HandlerClassFactory {
 
@@ -67,7 +67,7 @@ public final class HandlerClassFactory {
         String msgType;
         String msgHandler = "";
 
-        logger.info("HandlerClassFactory.getHandler: Getting handler for type: {}", LogSanitizer.sanitize(type)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+        logger.info("HandlerClassFactory.getHandler: Getting handler for type: {}", LogSafe.sanitize(type)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
         
         if (type == null || type.equals("")) {
             logger.debug("Type not specified using Default Handler");
@@ -87,14 +87,14 @@ public final class HandlerClassFactory {
                 Element e = (Element) items.get(i);
                 msgType = e.getAttributeValue("name");
                 String className = e.getAttributeValue("className");
-                logger.debug("HandlerClassFactory.getHandler: Checking handler - name: {}, className: {}, looking for: {}", LogSanitizer.sanitize(msgType), LogSanitizer.sanitize(className), LogSanitizer.sanitize(type));
+                logger.debug("HandlerClassFactory.getHandler: Checking handler - name: {}, className: {}, looking for: {}", LogSafe.sanitize(msgType), LogSafe.sanitize(className), LogSafe.sanitize(type));
                 if (msgType.equals(type) && (className.indexOf(".") == -1)) {
                     msgHandler = "io.github.carlos_emr.carlos.lab.ca.all.upload.handlers." + e.getAttributeValue("className");
-                    logger.info("HandlerClassFactory.getHandler: Found matching handler for {}, will use class: {}", LogSanitizer.sanitize(type), LogSanitizer.sanitize(msgHandler));
+                    logger.info("HandlerClassFactory.getHandler: Found matching handler for {}, will use class: {}", LogSafe.sanitize(type), LogSafe.sanitize(msgHandler));
                 }
                 if (msgType.equals(type) && (className.indexOf(".") != -1)) {
                     msgHandler = className;
-                    logger.info("HandlerClassFactory.getHandler: Found matching handler for {}, will use fully qualified class: {}", LogSanitizer.sanitize(type), LogSanitizer.sanitize(msgHandler));
+                    logger.info("HandlerClassFactory.getHandler: Found matching handler for {}, will use fully qualified class: {}", LogSafe.sanitize(type), LogSafe.sanitize(msgHandler));
                 }
             }
         } catch (Exception e) {
@@ -102,18 +102,18 @@ public final class HandlerClassFactory {
         }
         // create and return the message handler
         if (msgHandler.equals("")) {
-            logger.warn("HandlerClassFactory.getHandler: No handler found for type '{}', using DefaultHandler", LogSanitizer.sanitize(type));
+            logger.warn("HandlerClassFactory.getHandler: No handler found for type '{}', using DefaultHandler", LogSafe.sanitize(type));
             return (new DefaultHandler());
         } else {
             try {
-                logger.info("HandlerClassFactory.getHandler: Attempting to create handler class: {}", LogSanitizer.sanitize(msgHandler));
+                logger.info("HandlerClassFactory.getHandler: Attempting to create handler class: {}", LogSafe.sanitize(msgHandler));
                 @SuppressWarnings("unchecked")
                 Class classRef = Class.forName(msgHandler);
                 MessageHandler mh = (MessageHandler) classRef.newInstance();
-                logger.info("HandlerClassFactory.getHandler: Message handler '{}' created successfully", LogSanitizer.sanitize(msgHandler));
+                logger.info("HandlerClassFactory.getHandler: Message handler '{}' created successfully", LogSafe.sanitize(msgHandler));
                 return (mh);
             } catch (Exception e) {
-                logger.error("HandlerClassFactory.getHandler: Could not create message handler: {}, Using default message handler instead", LogSanitizer.sanitize(msgHandler), e);
+                logger.error("HandlerClassFactory.getHandler: Could not create message handler: {}, Using default message handler instead", LogSafe.sanitize(msgHandler), e);
                 return (new DefaultHandler());
             }
         }

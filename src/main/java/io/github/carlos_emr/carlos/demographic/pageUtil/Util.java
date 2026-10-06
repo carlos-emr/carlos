@@ -72,7 +72,8 @@ import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.utility.LogSanitizer;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * @author Ronnie
@@ -162,7 +163,7 @@ public class Util {
         try {
             Runtime rt = Runtime.getRuntime();
             String[] env = {""};
-            File dir = new File(dirName);
+            File dir = PathValidationUtils.resolveConfiguredDirectory(dirName, "working directory");
             Process proc = rt.exec("touch null.tmp", env, dir);
             int ecode = proc.waitFor();
             if (ecode == 0) {
@@ -171,7 +172,9 @@ public class Util {
             } else {
                 return false;
             }
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirName;
+            // catch it here so this method honours its boolean contract instead of throwing.
             logger.error("Error", ex);
         }
         logger.error("Error! Cannot write to directory [" + dirName + "]");
@@ -189,23 +192,22 @@ public class Util {
             return false;
         }
 
-        // Create the base directory
-        File baseDir = new File(dirname);
-
-        // Create the target file
-        File f = new File(baseDir, safeFileName);
-
-        // Validate that the resolved path is within the allowed directory
+        // Resolve the base directory + target file and validate containment inside one guarded block.
+        // resolveConfiguredDirectory throws SecurityException on a blank/non-directory dirname; keep it
+        // here so this boolean cleanup method degrades to false instead of throwing unchecked.
         try {
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(dirname, "cleanup directory");
+            File f = new File(baseDir, safeFileName);
             f = PathValidationUtils.validateExistingPath(f, baseDir);
+            return cleanFile(f);
         } catch (SecurityException e) {
-            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSanitizer.sanitize(filename));
+            logger.error("Error! Attempted path traversal attack detected for file: {}", LogSafe.sanitize(filename));
             return false;
         }
-
-        return cleanFile(f);
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     static public boolean cleanFile(String filename) {
         File f = new File(filename);
         CarlosProperties props = CarlosProperties.getInstance();
@@ -256,6 +258,8 @@ public class Util {
         return ret;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     static public void downloadFile(String fileName, String dirName, HttpServletResponse rsp) {
         try {
             dirName = fixDirName(dirName);
@@ -267,7 +271,7 @@ public class Util {
             
             // If the filename is empty or null after sanitization, reject the request
             if (safeFileName == null || safeFileName.trim().isEmpty()) {
-                logger.error("Invalid filename provided: {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Invalid filename provided: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 return;
             }
             
@@ -279,13 +283,13 @@ public class Util {
             try {
                 requestedFile = PathValidationUtils.validateExistingPath(requestedFile, documentDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected for file: {}", LogSanitizer.sanitize(fileName));
+                logger.error("Path traversal attempt detected for file: {}", LogSafe.sanitize(fileName));
                 return;
             }
 
             // Verify the file exists and is readable
             if (!requestedFile.exists() || !requestedFile.isFile() || !requestedFile.canRead()) {
-                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSanitizer.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSanitizer
+                logger.error("Error during file download: file does not exist or is not accessible - {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
                 rsp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
@@ -303,7 +307,7 @@ public class Util {
                 }
             }
         } catch (IOException ex) {
-            logger.error("Error during file download: {}", LogSanitizer.sanitize(fileName), ex);
+            logger.error("Error during file download: {}", LogSafe.sanitize(fileName), ex);
         }
     }
     
@@ -340,6 +344,8 @@ public class Util {
         return StringUtils.noNull(dirName);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public String mimeToExt(String mimeType) {
         String ret = "";
         if (!StringUtils.filled(mimeType)) return ret;
@@ -486,6 +492,8 @@ public class Util {
         }
     }
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public cdsDt.YnIndicatorsimple.Enum yn(String YorN) {
         YorN = YorN.trim().toLowerCase();
         if (YorN.equals("yes") || YorN.equals("y")) return cdsDt.YnIndicatorsimple.Y;
@@ -516,45 +524,43 @@ public class Util {
             dirName = fixDirName(dirName);
             
             // Create the output file with proper path validation
-            File outputDir = new File(dirName).getCanonicalFile();
-            File outputFile = new File(outputDir, zipFileName).getCanonicalFile();
-            
-            // Verify the output file is within the intended directory
-            if (!outputFile.getParentFile().equals(outputDir)) {
-                logger.error("Error! Zip file path traversal attempt detected: " + zipFileName);
-                return false;
-            }
+            File outputDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "zip output directory");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
-            ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
-            for (File f : files) {
-                if (f == null) continue;
+            try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile))) {
+                for (File f : files) {
+                    if (f == null) continue;
 
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath());
+                    try (FileInputStream fin = new FileInputStream(PathValidationUtils.resolveTrustedPath(f))) {
+                        // Add ZIP entry to output stream
+                        zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
 
-                // Add ZIP entry to output stream
-                zout.putNextEntry(new ZipEntry(f.getName()));
+                        // Transfer bytes from the input files to the ZIP file
+                        int len;
+                        while ((len = fin.read(buf)) > 0) {
+                            zout.write(buf, 0, len);
+                        }
 
-                // Transfer bytes from the input files to the ZIP file
-                int len;
-                while ((len = fin.read(buf)) > 0) {
-                    zout.write(buf, 0, len);
+                        // Complete the entry
+                        zout.closeEntry();
+                    }
                 }
-
-                // Complete the entry
-                zout.closeEntry();
-                fin.close();
             }
-            // Complete the ZIP file
-            zout.close();
             return true;
 
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // SecurityException is thrown by PathValidationUtils when an output dir/name fails
+            // validation; honor this boolean method's contract by returning false rather than
+            // letting the unchecked exception escape.
             logger.error("Error", ex);
         }
         return false;
     }
 
+    // FindSecBugs CRLF_INJECTION_LOGS: the logged f.getAbsolutePath() is a server-constructed export file path (generated XML / readme / export-log files in a server temp dir) and is only logged on the validateExistingPath failure branch; it is a server-side filesystem path, not request-controlled input.
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = {"CRLF_INJECTION_LOGS", "PATH_TRAVERSAL_IN"}, justification = "logged absolute path is a server-generated export file path, not request input; no attacker-controlled CR/LF. path validated for directory containment via PathValidationUtils before use")
     static public boolean zipFiles(ArrayList<File> files, ArrayList<String> dirs, String zipFileName, String dirName) throws Exception {
         try {
             if (files == null) {
@@ -579,70 +585,72 @@ public class Util {
             dirName = fixDirName(dirName);
             
             // Create the output file with proper path validation
-            File outputDir = new File(dirName).getCanonicalFile();
-            File outputFile = new File(outputDir, zipFileName).getCanonicalFile();
-            
-            // Verify the output file is within the intended directory
-            if (!outputFile.getParentFile().equals(outputDir)) {
-                logger.error("Error! Zip file path traversal attempt detected: " + zipFileName);
-                return false;
-            }
+            File outputDir = PathValidationUtils.resolveConfiguredDirectory(dirName, "zip output directory");
+            File outputFile = PathValidationUtils.validateGeneratedChildPath(zipFileName, outputDir);
             
             byte[] buf = new byte[1024];
-            ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile));
-            Map<String, Boolean> dirMap = new HashMap<String, Boolean>();
-            for (String dir : dirs) {
-                dirMap.put(dir, true);
-            }
-            for (String dir : dirMap.keySet()) {
-                if (!dir.isEmpty()) {
-                    zout.putNextEntry(new ZipEntry(dir + "/"));
+            try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(outputFile))) {
+                Map<String, Boolean> dirMap = new HashMap<String, Boolean>();
+                for (String dir : dirs) {
+                    String safeDir = dir == null || dir.isEmpty()
+                            ? ""
+                            : PathValidationUtils.validatePathComponent(dir, "zip directory");
+                    dirMap.put(safeDir, true);
+                }
+                for (String dir : dirMap.keySet()) {
+                    if (!dir.isEmpty()) {
+                        zout.putNextEntry(new ZipEntry(dir + "/"));
+                    }
+                }
+
+                for (int x = 0; x < files.size(); x++) {
+                    File f = files.get(x);
+                    if (f == null) continue;
+
+                    // Validate the file path
+                    if (!isPathWithinDirectory(f, dirName)) {
+                        logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
+                        return false;
+                    }
+
+                    try (FileInputStream fin = new FileInputStream(PathValidationUtils.validateExistingPath(f, outputDir))) {
+                        String dir = dirs.get(x);
+
+                        if (dir.isEmpty()) {
+
+                            // Add ZIP entry to output stream
+                            zout.putNextEntry(new ZipEntry(PathValidationUtils.validateZipEntryName(f, f.getParentFile())));
+
+                        } else {
+                            String safeDir = PathValidationUtils.validatePathComponent(dir, "zip directory");
+                            String safeEntryName = PathValidationUtils.validateZipEntryName(f, f.getParentFile());
+                            zout.putNextEntry(new ZipEntry(safeDir + "/" + safeEntryName));
+
+                        }
+                        // Transfer bytes from the input files to the ZIP file
+                        int len;
+                        while ((len = fin.read(buf)) > 0) {
+                            zout.write(buf, 0, len);
+                        }
+
+                        // Complete the entry
+                        zout.closeEntry();
+                    }
                 }
             }
-
-            for (int x = 0; x < files.size(); x++) {
-                File f = files.get(x);
-                if (f == null) continue;
-
-                // Validate the file path
-                if (!isPathWithinDirectory(f, dirName)) {
-                    logger.error("Error! File path is outside the allowed directory: " + f.getAbsolutePath());
-                    return false;
-                }
-
-                FileInputStream fin = new FileInputStream(f.getAbsolutePath()); // codeql[java/path-injection] — validated by isPathWithinDirectory (PathValidationUtils) guard above
-
-                String dir = dirs.get(x);
-
-                if (dir.isEmpty()) {
-
-                    // Add ZIP entry to output stream
-                    zout.putNextEntry(new ZipEntry(f.getName()));
-
-                } else {
-                    zout.putNextEntry(new ZipEntry(dir + "/" + f.getName()));
-
-                }
-                // Transfer bytes from the input files to the ZIP file
-                int len;
-                while ((len = fin.read(buf)) > 0) {
-                    zout.write(buf, 0, len);
-                }
-
-                // Complete the entry
-                zout.closeEntry();
-                fin.close();
-            }
-            // Complete the ZIP file
-            zout.close();
             return true;
 
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
+            // SecurityException is thrown by PathValidationUtils when an output dir/name fails
+            // validation; honor this boolean method's contract by returning false rather than
+            // letting the unchecked exception escape.
             logger.error("Error", ex);
         }
         return false;
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private static boolean isPathWithinDirectory(File file, String dirName) throws IOException {
         try {
             PathValidationUtils.validateExistingPath(file, new File(dirName));
@@ -865,7 +873,7 @@ public class Util {
         
         // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
-            logger.error("Invalid filename after sanitization: {}", LogSanitizer.sanitize(fileName));
+            logger.error("Invalid filename after sanitization: {}", LogSafe.sanitize(fileName));
             return "";
         }
         

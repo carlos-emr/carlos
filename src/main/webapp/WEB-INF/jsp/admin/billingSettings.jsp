@@ -147,6 +147,7 @@
 
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="admin.billingSettings.title"/></title>
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 
@@ -258,7 +259,7 @@
                         <br>
                         <textarea style="resize: none;" rows="5" id="invoice_custom_clinic_info"
                                   name="invoice_custom_clinic_info" maxlength="250"
-                            ${empty dataBean["invoice_use_custom_clinic_info"] ? "disabled" : ""} >${"on" eq dataBean["invoice_use_custom_clinic_info"] ? dataBean["invoice_custom_clinic_info"] : clinicData.label }</textarea>
+                            ${empty dataBean["invoice_use_custom_clinic_info"] ? "disabled" : ""} >${carlos:forHtmlContent("on" eq dataBean["invoice_use_custom_clinic_info"] ? dataBean["invoice_custom_clinic_info"] : clinicData.label)}</textarea>
                     </td>
                 </tr>
             </oscar:oscarPropertiesCheck>

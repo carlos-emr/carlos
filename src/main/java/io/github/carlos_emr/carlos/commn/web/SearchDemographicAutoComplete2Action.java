@@ -66,6 +66,7 @@ import io.github.carlos_emr.CarlosProperties;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -75,6 +76,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
 
 
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = {"XSS_SERVLET", "IMPROPER_UNICODE"}, justification = "XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink. case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
@@ -192,6 +196,18 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 ? new HashMap<>()
                 : providerDao.getProviderSummariesByIds(providerNos);
 
+        // Batch-load the next appointments in a single query: this list is up to 100 rows and the
+        // schedule's quick search issues a request per keystroke, so a per-row lookup would be
+        // 100 queries a keystroke.
+        Map<Integer, String> nextAppointments = new HashMap<>();
+        if (workflowEnhance) {
+            List<Integer> demographicNos = new ArrayList<>();
+            for (Demographic demo : list) {
+                demographicNos.add(demo.getDemographicNo());
+            }
+            nextAppointments = AppointmentUtil.getNextAppointments(demographicNos);
+        }
+
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
@@ -222,7 +238,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("alert", alertText);
 
             if (workflowEnhance) {
-                h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
+                h.put("nextAppointment", nextAppointments.getOrDefault(demo.getDemographicNo(), ""));
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());

@@ -35,11 +35,12 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection;
@@ -49,13 +50,18 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 public class LabUpload2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String REQUEST_ATTRIBUTE_OUTCOME = "outcome";
+    private static final String OUTCOME_EXCEPTION = "exception";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -66,6 +72,11 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+        if (uploadValidationError != null) {
+            addActionError(uploadValidationError);
+            request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, OUTCOME_EXCEPTION);
+            return SUCCESS;
+        }
 
         String filename = "";
         String proNo = (String) request.getSession().getAttribute("user");
@@ -75,8 +86,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
                 _logger.error("No file provided for upload");
-                outcome = "exception";
-                request.setAttribute("outcome", outcome);
+                outcome = OUTCOME_EXCEPTION;
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                 return SUCCESS;
             }
 
@@ -85,8 +96,8 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                 importFile = PathValidationUtils.validateUpload(importFile);
             } catch (SecurityException e) {
                 _logger.error("Invalid upload source - potential path traversal: " + importFile.getPath());
-                outcome = "exception";
-                request.setAttribute("outcome", outcome);
+                outcome = OUTCOME_EXCEPTION;
+                request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
                 return SUCCESS;
             }
 
@@ -124,21 +135,23 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
                     } catch (Exception ex) {
                         //success = false; //<- for future when transactional
                         _logger.error("Error - oscar.PathNet.Contorller - Message: " + ex.getMessage() + " = " + ex.toString(), ex);
-                        outcome = "exception";
+                        outcome = OUTCOME_EXCEPTION;
                     }
                     //connection.Acknowledge(success);
                 }
                 //SAVE FILE TO DISK
                 is.reset();
-                saveFile(is, filename);
+                if (!saveFile(is, filename)) {
+                    outcome = OUTCOME_EXCEPTION;
+                }
             } else {
                 outcome = "uploadedPreviously";
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            outcome = "exception";
+            outcome = OUTCOME_EXCEPTION;
         }
-        request.setAttribute("outcome", outcome);
+        request.setAttribute(REQUEST_ATTRIBUTE_OUTCOME, outcome);
         return SUCCESS;
     }
 
@@ -158,7 +171,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         String retVal = null;
         boolean isAdded = true;
 
-        try {
+        File outputFile = null;
+
+        try (InputStream uploadStream = stream) {
             //retrieve the file data
             // ByteArrayOutputStream baos = new ByteArrayOutputStream();
             //InputStream stream = file.getInputStream();
@@ -167,44 +182,65 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 
-            if (!place.endsWith("/"))
-                place = new StringBuilder(place).insert(place.length(), "/").toString();
-            retVal = place + "LabUpload." + filename + "." + (new Date()).getTime();
-            MiscUtils.getLogger().debug(retVal);
-            //write the file to the file specified
-            OutputStream bos = new FileOutputStream(retVal);
-            int bytesRead = 0;
-            //byte[] buffer = file.getFileData();
-            //while ((bytesRead = stream.read(buffer)) != -1){
-            //   bos.write(buffer, 0, bytesRead);
-            while ((bytesRead = stream.read()) != -1) {
-                bos.write(bytesRead);
+            File baseDir = PathValidationUtils.resolveConfiguredDirectory(place, "PathNet lab upload directory");
+            outputFile = PathValidationUtils.validateGeneratedChildPath(
+                    PathValidationUtils.validateGeneratedFileName("LabUpload." + filename + "." + (new Date()).getTime()),
+                    baseDir);
+            // CREATE_NEW: the generated name is only millisecond-unique and a truncating open
+            // destroyed the colliding upload's lab.
+            try (OutputStream bos = Files.newOutputStream(outputFile.toPath(),
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
+                uploadStream.transferTo(bos);
             }
-            bos.close();
-
-            //close the stream
-            stream.close();
-        } catch (FileNotFoundException fnfe) {
-
-            MiscUtils.getLogger().debug("File not found");
-            MiscUtils.getLogger().error("Error", fnfe);
+            retVal = outputFile.getPath();
+        } catch (FileAlreadyExistsException nameCollision) {
+            MiscUtils.getLogger().error("Generated lab upload name is already in use; upload not written");
             return isAdded = false;
-
-        } catch (IOException ioe) {
-            MiscUtils.getLogger().error("Error", ioe);
+        } catch (IOException | SecurityException ioe) {
+            // Remove any partial output: the collision case is handled above, so a file existing
+            // here was created by this call. Left behind, it would look like a complete lab to the
+            // import scan.
+            deletePartialOutput(outputFile);
+            // exceptionTrace: the message of a filesystem exception here is the generated path,
+            // whose basename embeds the caller-supplied lab filename.
+            MiscUtils.getLogger().error("Error writing PathNet lab upload: {}", LogSafe.exceptionTrace(ioe));
             return isAdded = false;
         }
 
         return isAdded;
     }
 
+    /**
+     * Removes a partially written upload. Only ever called for a destination this invocation
+     * created exclusively via {@code CREATE_NEW}, so it cannot discard another upload's output.
+     *
+     * @param outputFile the destination to remove, or {@code null} if none was created
+     */
+    private static void deletePartialOutput(File outputFile) {
+        if (outputFile == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(outputFile.toPath());
+        } catch (IOException deleteException) {
+            MiscUtils.getLogger().error("Error deleting partial lab upload output ({})",
+                    deleteException.getClass().getSimpleName());
+        }
+    }
+
     private File importFile;
+    private String uploadValidationError;
 
     @Override
     public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
         if (uploadedFiles != null && !uploadedFiles.isEmpty()) {
             UploadedFile uploaded = uploadedFiles.get(0);
-            this.importFile = new File(uploaded.getAbsolutePath());
+            this.importFile = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            try {
+                PathValidationUtils.validateStrictFileName(uploaded.getOriginalName());
+            } catch (FileValidationException e) {
+                this.uploadValidationError = PathValidationUtils.INVALID_FILENAME_MESSAGE;
+            }
         }
     }
 
@@ -212,7 +248,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         return importFile;
     }
 
-    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

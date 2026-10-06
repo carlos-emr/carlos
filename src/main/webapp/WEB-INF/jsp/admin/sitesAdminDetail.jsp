@@ -26,6 +26,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%-- This JSP is the multi-site admin site detail page --%>
 <%@ include file="/taglibs.jsp" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -48,6 +49,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="admin.admin.sitesAdmin"/></title>
         <link rel="stylesheet" type="text/css"
@@ -82,7 +84,7 @@
                 <td class="MainTableRightColumn" valign="top">
                     <c:if test="${not empty savedMessage}">
                         <div class="messages">
-                                ${savedMessage}
+                                ${carlos:forHtml(savedMessage)}
                         </div>
                     </c:if>
 

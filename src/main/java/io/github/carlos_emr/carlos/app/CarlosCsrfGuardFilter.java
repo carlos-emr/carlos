@@ -47,8 +47,8 @@ import java.util.Locale;
  * stream and break downstream file upload processing.</p>
  *
  * <p>Operates in <strong>blocking mode</strong>: validates CSRF tokens and rejects requests
- * that fail validation. The configured CSRFGuard actions (Log, Redirect) handle the response
- * for invalid requests.</p>
+ * that fail validation. CSRFGuard logs invalid requests, and this filter returns an explicit
+ * 403 response when validation fails.</p>
  *
  * <p>Additionally wraps multipart/form-data requests with {@link MultiReadHttpServletRequest}
  * so that the request body input stream can be read multiple times — once by {@link CsrfValidator}
@@ -100,7 +100,7 @@ public class CarlosCsrfGuardFilter implements Filter {
             LOGGER.error("CsrfGuard is not initialized — cannot validate CSRF tokens. "
                     + "Rejecting {} request",
                     httpRequest.getMethod(), e);
-            httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             return;
         }
 
@@ -146,9 +146,8 @@ public class CarlosCsrfGuardFilter implements Filter {
         if (!valid) {
             LOGGER.warn("CSRF validation failed for {} method — request blocked",
                     httpRequest.getMethod());
-            // Actions (Log, Redirect) have already been executed by CsrfValidator.
-            // Defensive fallback: if the configured actions did not commit the response
-            // (e.g., Redirect action is misconfigured or absent), send 403 explicitly.
+            // Actions such as Log have already been executed by CsrfValidator.
+            // Send 403 explicitly unless another action already committed the response.
             if (!httpResponse.isCommitted()) {
                 httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             }
@@ -164,8 +163,10 @@ public class CarlosCsrfGuardFilter implements Filter {
             }
         } catch (Exception e) {
             LOGGER.error("Failed to generate CSRF tokens for validated {} request — "
-                    + "continuing without token generation (next POST from this page WILL fail validation)",
+                    + "rejecting with 503 so the failure is visible immediately",
                     httpRequest.getMethod(), e);
+            httpResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            return;
         }
 
         // Validation passed — continue the filter chain

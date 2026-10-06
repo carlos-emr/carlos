@@ -63,6 +63,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
         <title><fmt:message key="admin.adminnewgroup.title"/></title>
 
@@ -199,7 +200,9 @@
 
     <script>
         $(document).ready(function () {
-            parent.parent.resizeIframe($('html').height());
+            if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+                parent.parent.resizeIframe($('html').height());
+            }
 
         });
     </script>

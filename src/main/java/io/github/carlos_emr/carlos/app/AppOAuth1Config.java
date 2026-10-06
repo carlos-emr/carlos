@@ -145,10 +145,10 @@ public class AppOAuth1Config implements AppAuthConfig {
 
 
     public static Map<String, String> getKeySecret(String str) throws Exception {
-        logger.debug("token === " + str);
+        logger.debug("token XML length: {}", str == null ? 0 : str.length());
         Document doc = XmlUtils.toDocument(str);
         Node node = doc.getFirstChild();
-        logger.error(node.getNodeName());
+        logger.debug(node.getNodeName());
         String key = XmlUtils.getChildNodeTextContents(node, "key");
         String secret = XmlUtils.getChildNodeTextContents(node, "secret");
         Map<String, String> map = new HashMap<String, String>();

@@ -43,15 +43,47 @@ public interface AbstractDao<T extends AbstractModel<?>> {
 
     void persist(AbstractModel<?> o);
 
+    /**
+     * @deprecated Transaction semantics are ambiguous. Use an explicitly named batch method.
+     */
+    @Deprecated
     void batchPersist(List<T> oList);
 
+    /**
+     * @deprecated Transaction semantics are ambiguous. Use an explicitly named batch method.
+     */
+    @Deprecated
     void batchPersist(List<T> oList, int batchSize);
+
+    void batchPersistAtomically(List<T> oList);
+
+    void batchPersistAtomically(List<T> oList, int batchSize);
+
+    void batchPersistWithIndependentCommits(List<T> oList);
+
+    void batchPersistWithIndependentCommits(List<T> oList, int batchSize);
 
     void remove(AbstractModel<?> o);
 
+    /**
+     * @deprecated Transaction semantics are ambiguous. Use an explicitly named batch method.
+     */
+    @Deprecated
     void batchRemove(List<T> oList);
 
+    /**
+     * @deprecated Transaction semantics are ambiguous. Use an explicitly named batch method.
+     */
+    @Deprecated
     void batchRemove(List<T> oList, int batchSize);
+
+    void batchRemoveAtomically(List<T> oList);
+
+    void batchRemoveAtomically(List<T> oList, int batchSize);
+
+    void batchRemoveWithIndependentCommits(List<T> oList);
+
+    void batchRemoveWithIndependentCommits(List<T> oList, int batchSize);
 
     void refresh(AbstractModel<?> o);
 

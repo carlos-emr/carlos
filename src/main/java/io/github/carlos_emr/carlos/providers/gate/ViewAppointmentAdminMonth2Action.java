@@ -22,11 +22,11 @@ public final class ViewAppointmentAdminMonth2Action extends BaseProviderViewGate
 
     @Override
     protected String getSecurityObject() {
-        return "_appointment";
+        return ProviderAppointmentReadGate.SECURITY_OBJECT;
     }
 
     @Override
     protected String getAccessRight() {
-        return "r";
+        return ProviderAppointmentReadGate.ACCESS_RIGHT;
     }
 }

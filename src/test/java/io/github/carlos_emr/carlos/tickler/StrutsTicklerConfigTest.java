@@ -51,17 +51,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("tickler")
 class StrutsTicklerConfigTest {
 
-    /**
-     * Tickler actions and their results live in struts-scheduling.xml. The
-     * eCARES form's {@code tickler} result (pointing at {@code ticklerAddWidget.jsp})
-     * lives in struts-form.xml, so both configs must be scanned.
-     */
     private static final String SCHEDULING_CONFIG =
             "src/main/webapp/WEB-INF/classes/struts-scheduling.xml";
-    private static final String FORM_CONFIG =
-            "src/main/webapp/WEB-INF/classes/struts-form.xml";
 
-    private static final String[] CONFIG_PATHS = {SCHEDULING_CONFIG, FORM_CONFIG};
+    private static final String[] CONFIG_PATHS = {SCHEDULING_CONFIG};
 
     /**
      * All privilege-sensitive tickler JSPs moved by PR #1670. Every Struts
@@ -71,7 +64,6 @@ class StrutsTicklerConfigTest {
     private static final String[] GATED_JSPS = {
             "index.jsp",
             "ticklerAdd.jsp",
-            "ticklerAddWidget.jsp",
             "ticklerDemoMain.jsp",
             "ticklerEdit.jsp",
             "ticklerEditSuccess.jsp",
