@@ -236,10 +236,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                     String prnStr="";
                     if(prn) { prnStr="prn"; }
 
-                drugName=drugName.replace("'", "\\'");
-                drugName=drugName.replace("\"","\\\"");
-                byte[] drugNameBytes = drugName.getBytes("ISO-8859-1");
-                drugName= new String(drugNameBytes, "UTF-8");
+                // Preserve Unicode catalogue text; each output below encodes for its own context.
                 String fieldSetId = "set_" + rand;
 %>
 <%-- i18n variable declarations for this prescription card --%>
