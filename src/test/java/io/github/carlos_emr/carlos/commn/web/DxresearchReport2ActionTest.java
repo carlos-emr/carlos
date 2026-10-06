@@ -439,6 +439,26 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
                     .extracting("type", "dxSearchCode").containsExactly(tuple("icd9", "250"), tuple("icd10", "250"));
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"abc", "AbC", "ABC"})
+        void shouldMergeAlphabeticCodeIgnoringCase_withoutMergingCodingSystems(String manualCode) throws Exception {
+            addRequestParameter("method", "addSearchCode");
+            addRequestParameter("codesystem", "ichppccode");
+            addRequestParameter("codesearch", manualCode);
+            action.setQuickListName("Alphabetic");
+            when(mockDxresearchDAO.getQuickListItems("Alphabetic"))
+                    .thenReturn(List.of(code("ichppccode", "ABC")));
+            when(codingSystemManager.getCodeDescription("ichppccode", manualCode)).thenReturn("Alphabetic code");
+            setSessionAttribute("codeSearch", List.of(code("ichppccode", "abc"), code("icd10", "ABC")));
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+            assertThat((List<?>) mockSession.getAttribute("codeSearch"))
+                    .extracting("type", "dxSearchCode")
+                    .containsExactly(tuple("ichppccode", "ABC"), tuple("icd10", "ABC"));
+        }
+
         @Test
         void shouldRetainExistingCriteria_whenSelectedListHasNoItems() throws Exception {
             addRequestParameter("method", "addSearchCode");

@@ -33,6 +33,10 @@ function awaitUpdate(page, route) {
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const quickList = `F${marker.slice(-7)}"&`; // Ten-character name with HTML-sensitive characters.
+  const alphabeticCode = `P${marker.replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase()}`;
+  const alphabeticDescription = `${marker} mixed-case code`;
+  assert(sql.value(`SELECT COUNT(*) FROM ichppccode WHERE ichppccode=${sqlString(alphabeticCode)}`) === '0',
+    'The owned alphabetic code already exists');
   const ids = {};
   const status = code => `SELECT status FROM dxresearch WHERE dxresearch_no=${ids[code]} AND demographic_no=${patient}`;
   s.cleanup(() => {
@@ -41,12 +45,16 @@ async function workflow(s) {
     sql.execute(`DELETE FROM partial_date WHERE ${PARTIAL} AND table_id IN (${list});
       DELETE FROM dxresearch WHERE demographic_no=${patient};
       DELETE FROM quickList WHERE quickListName=${sqlString(quickList)};
-      DELETE FROM quickListUser WHERE quickListName=${sqlString(quickList)}`);
+      DELETE FROM quickListUser WHERE quickListName=${sqlString(quickList)};
+      DELETE FROM ichppccode WHERE ichppccode=${sqlString(alphabeticCode)} AND description=${sqlString(alphabeticDescription)}`);
     assert(sql.value(`SELECT (SELECT COUNT(*) FROM partial_date WHERE ${PARTIAL} AND table_id IN (${list}))
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(quickList)})`) === '0', 'Owned registry fixtures were not removed');
+      + (SELECT COUNT(*) FROM quickList WHERE quickListName=${sqlString(quickList)})
+      + (SELECT COUNT(*) FROM ichppccode WHERE ichppccode=${sqlString(alphabeticCode)})`) === '0', 'Owned registry fixtures were not removed');
   });
-  sql.execute(`INSERT INTO quickList (quickListName, createdByProvider, dxResearchCode, codingSystem)
+  sql.execute(`INSERT INTO ichppccode (ichppccode, description)
+    VALUES (${sqlString(alphabeticCode)}, ${sqlString(alphabeticDescription)});
+    INSERT INTO quickList (quickListName, createdByProvider, dxResearchCode, codingSystem)
     VALUES (${sqlString(quickList)}, ${sqlString(provider)}, '401', 'icd9'),
       (${sqlString(quickList)}, ${sqlString(provider)}, '250', 'icd9')`);
 
@@ -199,6 +207,29 @@ async function workflow(s) {
       'Changing report criteria modified the patient registry');
     await submit(report.getByRole('button', { name: 'Clear', exact: true }));
     assert(await codeRows().count() === 0, 'Clear left quick-list criteria behind');
+  });
+  await s.step('manual alphabetic codes and stored quick-list codes merge without case duplicates', async () => {
+    const diagnosesBefore = sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch
+      WHERE demographic_no=${patient} ORDER BY dxresearch_no`);
+    sql.execute(`INSERT INTO quickList (quickListName,createdByProvider,dxResearchCode,codingSystem)
+      VALUES (${sqlString(quickList)},${sqlString(provider)},${sqlString(alphabeticCode)},'ichppccode')`);
+    await report.locator('#codingSystem').selectOption('ichppccode');
+    await report.locator('#codesearch').fill(alphabeticCode.toLowerCase());
+    await submit(report.getByRole('button', { name: 'Add', exact: true }));
+    assert(await codeRows().count() === 1 && (await codeRows().innerText()).includes(alphabeticDescription),
+      'The lowercase manual code was not accepted by the database lookup');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await report.locator('select[name="quickListName"]').selectOption(quickList);
+      await submit(report.getByRole('button', { name: 'Add', exact: true }));
+      assert(await codeRows().count() === 3, 'Mixed-case list/manual codes produced duplicate report criteria');
+      const matching = codeRows().filter({ has: report.locator('td', { hasText: new RegExp(`^${alphabeticCode}$`, 'i') }) });
+      assert(await matching.count() === 1, 'The alphabetic code appears more than once');
+    }
+    assert(JSON.stringify(sql.rows(`SELECT dxresearch_no,dxresearch_code,status FROM dxresearch
+      WHERE demographic_no=${patient} ORDER BY dxresearch_no`)) === JSON.stringify(diagnosesBefore),
+      'Case-insensitive report criteria changed patient diagnoses');
+    await submit(report.getByRole('button', { name: 'Clear', exact: true }));
+    assert(await codeRows().count() === 0, 'Clear left alphabetic criteria behind');
   });
 }
 

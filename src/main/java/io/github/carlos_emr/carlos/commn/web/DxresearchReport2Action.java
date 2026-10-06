@@ -436,7 +436,12 @@ public class DxresearchReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    private record SearchCodeKey(String codingSystem, String code) { }
+    private record SearchCodeKey(String codingSystem, String code) {
+        private SearchCodeKey {
+            // Code lookup is case-insensitive; preserve the original bean for display.
+            code = code == null ? null : code.toUpperCase(Locale.ROOT);
+        }
+    }
 
     private String quickListName;
 
