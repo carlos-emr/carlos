@@ -79,8 +79,8 @@ async function workflow(s) {
     h.assert(messageIds().length === 0, 'Owned messages were not removed');
   });
 
-  // allowRefusal: a long text may be refused (the page alerts "could not be saved"); report that instead of waiting for a
-  // success marker that will never come. Returns {list, refusal} with refusal the alert text or null.
+  // allowRefusal exercises an oversized message: require a 400, a length warning, and an editable draft.
+  // Returns {list, refusal} with refusal the alert text or null for successful saves.
   async function addTickler(text, { allowRefusal = false } = {}) {
     const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
@@ -93,14 +93,21 @@ async function workflow(s) {
     }, null, { timeout: 30000 });
     let refusal = null;
     if (allowRefusal) {
-      await h.withExpectedDialogs(add, async () => {
-        await add.locator('input.btn-primary[name="Button"]').first().click();
-        const outcome = await Promise.race([
-          saved().then(() => null, () => null),
-          add.waitForEvent('dialog', { timeout: 30000 }).then(dialog => dialog.message(), () => null),
+      const mark = failureMark(s.recorder);
+      const dialogs = await h.withExpectedDialogs(add, async () => {
+        const [post] = await Promise.all([
+          add.waitForResponse(response => response.request().method() === 'POST'
+            && h.pathOnly(response.url()).endsWith('/tickler/DbTicklerAdd')),
+          add.waitForEvent('dialog', { timeout: 30000 }),
+          add.locator('input.btn-primary[name="Button"]').first().click(),
         ]);
-        refusal = outcome;
+        h.assert(post.status() === 400, `Oversized tickler answered HTTP ${post.status()} instead of 400`);
       }, { accept: true });
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/tickler\/DbTicklerAdd$/ });
+      h.assert(dialogs.length === 1 && b.lengthRefusal(dialogs[0].text), 'Oversized tickler did not show one length warning');
+      refusal = dialogs[0].text;
+      h.assert(await add.locator('textarea[name="ticklerMessage"]').inputValue() === text, 'Refusing the tickler discarded its draft');
+      h.assert(await add.locator('input.btn-primary[name="Button"]').first().isEnabled(), 'Refusing the tickler left Save disabled');
     } else {
       await add.locator('input.btn-primary[name="Button"]').first().click();
       await saved();
@@ -229,6 +236,17 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === String(Number(before) + 1),
       'Correcting the draft created extra messages');
     await leave(inbox);
+  });
+
+  await s.step('a tickler exactly filling the UTF-8 TEXT column is stored without losing supplementary characters', async () => {
+    const prefix = `${marker} capacity `;
+    const remaining = 65535 - Buffer.byteLength(prefix);
+    const message = prefix + '😀'.repeat(Math.floor(remaining / 4)) + 'x'.repeat(remaining % 4);
+    h.assert(Buffer.byteLength(message) === 65535, 'Test bug: wrong UTF-8 capacity fixture');
+    const { list } = await addTickler(message);
+    b.assertStored(sql, 'tickler', 'message', `${ownedTicklers} AND message LIKE ${h.sqlString(prefix + '%')}`,
+      message, 'Tickler at UTF-8 byte capacity');
+    await list.close();
   });
 
   await s.step('message rendering and oversized tickler text preserve the original content or explain refusal', async () => {

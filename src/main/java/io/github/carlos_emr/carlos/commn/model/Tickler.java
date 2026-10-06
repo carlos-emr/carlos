@@ -50,6 +50,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Entity
 @Table(name = "tickler")
 public class Tickler extends AbstractModel<Integer> {
+    public static final int MESSAGE_MAX_UTF8_BYTES = 65535;
 
     //These fields can be phased out in favor for the enums
     public static final String ACTIVE = "A";
@@ -200,7 +201,15 @@ public class Tickler extends AbstractModel<Integer> {
     }
 
     public void setMessage(String message) {
+        if (!isMessageWithinStorageLimit(message)) {
+            throw new IllegalArgumentException("Tickler message exceeds its maximum storage length");
+        }
         this.message = message;
+    }
+
+    /** MariaDB TEXT capacity is measured in encoded bytes, not Java characters. */
+    public static boolean isMessageWithinStorageLimit(String message) {
+        return message == null || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= MESSAGE_MAX_UTF8_BYTES;
     }
 
     public STATUS getStatus() {
