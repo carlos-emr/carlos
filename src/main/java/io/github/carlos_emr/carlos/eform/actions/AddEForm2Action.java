@@ -422,8 +422,8 @@ public class AddEForm2Action extends ActionSupport {
                     attachedHRMDocuments,
                     attachedForms
                 );
-                addEmailAttachmentsToSession(request, fid, settings);
-                redirectToEmailCompose(fid);
+                String draftKey = addEmailAttachmentsToSession(request, fid, settings);
+                redirectToEmailCompose(fid, draftKey);
                 return NONE;
             }
             // No trailing `else`: the template write it used to hold now runs above, before the
@@ -485,8 +485,8 @@ public class AddEForm2Action extends ActionSupport {
                     attachedHRMDocuments,
                     attachedForms
                 );
-                addEmailAttachmentsToSession(request, fid, settings);
-                redirectToEmailCompose(fid);
+                String draftKey = addEmailAttachmentsToSession(request, fid, settings);
+                redirectToEmailCompose(fid, draftKey);
                 return NONE;
             }
 
@@ -544,8 +544,10 @@ public class AddEForm2Action extends ActionSupport {
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin email compose path built from the current context path with an encoded eForm id.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin email compose path built from the current context path with an encoded eForm id")
-    private void redirectToEmailCompose(String fid) {
-        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid=" + SafeEncode.forUriComponent(fid);
+    private void redirectToEmailCompose(String fid, String draftKey) {
+        String path = request.getContextPath() + "/email/emailComposeAction?method=prepareComposeEFormMailer&fid="
+                + SafeEncode.forUriComponent(fid) + "&" + EmailComposeStaging.DRAFT_PARAMETER + "="
+                + SafeEncode.forUriComponent(draftKey);
         try {
             response.sendRedirect(path);
         } catch (IOException e) {
@@ -738,21 +740,23 @@ public class AddEForm2Action extends ActionSupport {
     }
 
     /**
-     * Stores one immutable email draft in session for use after redirect.
-     * Session attributes survive redirects, unlike request attributes.
+     * Stages one immutable email draft in the session, under its own one-time key, for use after
+     * the redirect (#4101). Session attributes survive redirects, unlike request attributes; the key
+     * ties the redirect to this draft, so two windows saving close together each open their own.
      *
      * <p>All boolean values are pre-validated via {@code "true".equals()} in
      * {@link EmailAttachmentSettings#of}. String values (email fields) are sanitized
      * via {@link EmailAttachmentSettings#of} before storage.</p>
      *
      * @param request HTTP request
-     * @param fid saved eForm template identifier, kept with the draft rather than the redirect URL
+     * @param fid saved eForm template identifier, kept with the draft
      * @param settings EmailAttachmentSettings containing all attachment configuration
+     * @return the draft's one-time key, for the redirect
      */
-    private void addEmailAttachmentsToSession(HttpServletRequest request, String fid, EmailAttachmentSettings settings) {
+    private String addEmailAttachmentsToSession(HttpServletRequest request, String fid, EmailAttachmentSettings settings) {
         // Publish the template, patient, message and selections together; separate session writes
         // can mix two patients when saves overlap. The settings own their attachment ID arrays.
-        EmailComposeStaging.stage(request.getSession(), fid, settings);
+        return EmailComposeStaging.stage(request.getSession(), fid, settings);
     }
 
     /**

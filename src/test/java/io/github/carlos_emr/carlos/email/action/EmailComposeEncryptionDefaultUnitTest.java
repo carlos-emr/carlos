@@ -110,6 +110,7 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
 
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);

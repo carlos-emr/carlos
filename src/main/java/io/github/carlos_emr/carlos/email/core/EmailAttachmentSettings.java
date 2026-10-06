@@ -98,6 +98,12 @@ public record EmailAttachmentSettings(
         return ids == null ? null : ids.clone();
     }
 
+    /** Redacted: the settings carry a patient's identifiers, message and sender; never log them. */
+    @Override
+    public String toString() {
+        return "EmailAttachmentSettings[redacted]";
+    }
+
     /** Simple email format validation pattern. */
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$");

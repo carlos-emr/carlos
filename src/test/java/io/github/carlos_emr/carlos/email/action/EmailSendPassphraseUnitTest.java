@@ -345,6 +345,7 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
 
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         EmailCompose2Action composeAction = new EmailCompose2Action();
 
         assertThat(composeAction.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);

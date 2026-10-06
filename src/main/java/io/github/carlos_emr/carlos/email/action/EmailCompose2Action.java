@@ -75,10 +75,11 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Request lifecycle (#3632):
  * <ol>
- *   <li><b>Prepare.</b> The eForm save stages one immutable draft in the HTTP session and redirects
- *       here. The first GET takes that draft out of the session in one step, generates the
- *       attachment PDFs, stores the one-time submission state with the staged values under an opaque
- *       view id, and redirects to {@code ?composeView=<id>}. It runs once per staged compose.</li>
+ *   <li><b>Prepare.</b> The eForm save stages one immutable draft in the HTTP session under a
+ *       one-time key and redirects here with that key (#4101). The first GET takes exactly that draft
+ *       out of the session, generates the attachment PDFs, stores the one-time submission state with
+ *       the staged values under an opaque view id, and redirects to {@code ?composeView=<id>}. It runs
+ *       once per staged compose; two windows that save close together each prepare their own.</li>
  *   <li><b>View.</b> A GET with {@code composeView} renders the stored state. It changes no session
  *       attribute, generates no file and consumes nothing, so a refresh or a repeated request shows
  *       the same compose screen. Consent, recipients and sender accounts are looked up again. The
@@ -199,24 +200,16 @@ public class EmailCompose2Action extends ActionSupport {
      * </ol>
      *
      * Session State Consumed:
-     * The current eForm writer publishes an {@link EmailComposeStaging.Draft}, including the
-     * template id and all settings. For compatibility, a session without that snapshot may
-     * supply the following legacy attributes, which are also cleared when a snapshot is taken:
-     * <ul>
-     *   <li>attachEFormItSelf (Boolean) - whether to attach the eForm itself</li>
-     *   <li>fdid (String) - form data ID for the eForm</li>
-     *   <li>demographicId (String) - patient demographic identifier (required)</li>
-     *   <li>attachedDocuments, attachedLabs, attachedForms, attachedEForms, attachedHRMDocuments
-     *       (String[]) - ids of the items to attach</li>
-     *   <li>senderEmail, subjectEmail, bodyEmail, encryptedMessageEmail, emailPatientChartOption
-     *       (String) - staged compose fields</li>
-     *   <li>isEmailEncrypted, isEmailAttachmentEncrypted, isEmailAutoSend, openEFormAfterEmail,
-     *       deleteEFormAfterEmail (Boolean) - staged compose options</li>
-     * </ul>
+     * The eForm save stages an {@link EmailComposeStaging.Draft}, including the template id and all
+     * settings, under a one-time key passed as the {@code draft} parameter; this takes exactly that
+     * draft. A missing, reused or dropped key gives "composeExpired", never another window's draft.
+     * If preparation then fails in a way a retry can fix, the draft is put back under its key. The
+     * separate compose attributes that earlier versions staged are no longer read; they are cleared.
      *
      * Request Parameters:
      * <ul>
-     *   <li>fid (String, optional) - legacy form identifier; modern drafts carry their own template id</li>
+     *   <li>draft (String) - the one-time key of the draft the eForm save staged</li>
+     *   <li>fid (String, optional) - informational only; the draft carries its own template id</li>
      * </ul>
      *
      * Server-Side State Stored:
@@ -232,7 +225,8 @@ public class EmailCompose2Action extends ActionSupport {
      * is unavailable, it returns "eFormError" with a generic unavailable-state message. Without read
      * access to the patient it throws {@code SecurityException} before generating anything. No
      * error path clears the session again: the staged values were already taken, and anything
-     * there now belongs to another compose.
+     * there now belongs to another compose. A keyed draft goes back under its own key after a
+     * generation or state failure, so refreshing retries; never after a denial.
      *
      * @return String {@code NONE} after redirecting to the prepared view, "composeExpired" if no
      *         compose is staged, or "eFormError" if attachment generation fails or the compose
@@ -246,7 +240,18 @@ public class EmailCompose2Action extends ActionSupport {
     public String prepareComposeEFormMailer() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        StagedCompose staged = takeStagedCompose(request.getSession(), request.getParameter("fid"));
+        HttpSession session = request.getSession();
+        String draftKey = request.getParameter(EmailComposeStaging.DRAFT_PARAMETER);
+        // A key names exactly one window's draft (#4101); a missing, reused or dropped key shows the
+        // expired page, never another window's draft.
+        EmailComposeStaging.Draft draft = EmailComposeStaging.take(session, draftKey);
+        if (draft == null) {
+            return composeExpired();
+        }
+        clearLegacySessionKeys(session);
+        StagedCompose staged = stagedCompose(draft);
+        // After a failure that a retry can fix, the same window gets its draft back under its own key.
+        Runnable restoreDraft = () -> EmailComposeStaging.restore(session, draftKey, draft);
         String demographicId = staged.demographicId();
         String fid = staged.fid();
 
@@ -277,6 +282,7 @@ public class EmailCompose2Action extends ActionSupport {
             workingDirectory = emailComposeSubmissionStateService.createWorkingDirectory();
         } catch (IllegalStateException e) {
             logger.warn("Unable to create email compose working directory", e);
+            restoreDraft.run();
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
         }
 
@@ -305,6 +311,7 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (PDFGenerationException | RuntimeException e) {
             workingDirectory.close();
             logger.error("Unable to prepare email attachments; causeType={}", e.getClass().getName());
+            restoreDraft.run();
             return emailComposeError(request, "This eForm and its attachments could not be prepared for email. Please reopen the compose window and try again.");
         }
 
@@ -346,6 +353,7 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (RuntimeException e) {
             workingDirectory.close();
             logger.warn("Unable to prepare email compose submission state", e);
+            restoreDraft.run();
             return emailComposeError(request, EMAIL_COMPOSE_STATE_UNAVAILABLE_MESSAGE);
         }
 
@@ -492,52 +500,29 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
-     * Takes the complete modern draft, or legacy session fields for older entry points, once.
-     * Modern drafts use their own session attribute and include the template id, so unrelated
-     * session fields and another window's redirect cannot change their patient/content tuple.
-     * The single slot may still be replaced by a later save before preparation begins.
+     * The compose values of a draft taken by its key. The draft is immutable and carries its own
+     * template id, so unrelated session fields and another window's redirect cannot change it.
      */
-    private static StagedCompose takeStagedCompose(HttpSession session, String legacyFid) {
+    private static StagedCompose stagedCompose(EmailComposeStaging.Draft draft) {
+        EmailAttachmentSettings settings = draft.settings();
+        return new StagedCompose(draft.fid(), settings.attachEFormItSelf(), settings.fdid(),
+                settings.demographicNo(), settings.attachedDocuments(), settings.attachedLabs(),
+                settings.attachedForms(), settings.attachedEForms(), settings.attachedHRMDocuments(),
+                settings.senderEmail(), settings.subjectEmail(), settings.bodyEmail(),
+                settings.encryptedMessageEmail(), settings.emailPatientChartOption(),
+                settings.isEmailEncrypted(), settings.isEmailAttachmentEncrypted(),
+                settings.isEmailAutoSend(), settings.openAfterEmail(), settings.deleteEFormAfterEmail());
+    }
+
+    /**
+     * Removes compose fields that versions before #4101 staged as separate session attributes. No
+     * current flow reads them, so clearing them cannot affect a keyed draft of another window.
+     */
+    private static void clearLegacySessionKeys(HttpSession session) {
         synchronized (WebUtils.getSessionMutex(session)) {
-            EmailComposeStaging.Draft draft = EmailComposeStaging.take(session);
-            StagedCompose staged;
-            if (draft != null) {
-                EmailAttachmentSettings settings = draft.settings();
-                staged = new StagedCompose(draft.fid(), settings.attachEFormItSelf(), settings.fdid(),
-                        settings.demographicNo(), settings.attachedDocuments(), settings.attachedLabs(),
-                        settings.attachedForms(), settings.attachedEForms(), settings.attachedHRMDocuments(),
-                        settings.senderEmail(), settings.subjectEmail(), settings.bodyEmail(),
-                        settings.encryptedMessageEmail(), settings.emailPatientChartOption(),
-                        settings.isEmailEncrypted(), settings.isEmailAttachmentEncrypted(),
-                        settings.isEmailAutoSend(), settings.openAfterEmail(), settings.deleteEFormAfterEmail());
-            } else {
-                // Compatibility for already-staged drafts and older callers. The current eForm
-                // save publishes a Draft above, never these independently mutable attributes.
-                staged = new StagedCompose(
-                    legacyFid,
-                    isTrue(session.getAttribute("attachEFormItSelf")),
-                    (String) session.getAttribute("fdid"),
-                    (String) session.getAttribute(DEMOGRAPHIC_ID_KEY),
-                    (String[]) session.getAttribute("attachedDocuments"),
-                    (String[]) session.getAttribute("attachedLabs"),
-                    (String[]) session.getAttribute("attachedForms"),
-                    (String[]) session.getAttribute("attachedEForms"),
-                    (String[]) session.getAttribute("attachedHRMDocuments"),
-                    (String) session.getAttribute("senderEmail"),
-                    (String) session.getAttribute("subjectEmail"),
-                    (String) session.getAttribute("bodyEmail"),
-                    (String) session.getAttribute("encryptedMessageEmail"),
-                    (String) session.getAttribute("emailPatientChartOption"),
-                    session.getAttribute("isEmailEncrypted"),
-                    session.getAttribute("isEmailAttachmentEncrypted"),
-                    session.getAttribute("isEmailAutoSend"),
-                    session.getAttribute("openEFormAfterEmail"),
-                    session.getAttribute("deleteEFormAfterEmail"));
-            }
             for (String key : EMAIL_SESSION_KEYS) {
                 session.removeAttribute(key);
             }
-            return staged;
         }
     }
 
