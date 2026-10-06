@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
@@ -45,6 +46,8 @@ class RxDiscontinueTransactionIntegrationTest extends CarlosTestBase {
     private static final AtomicInteger PATIENTS = new AtomicInteger(893000);
     @Autowired private DrugDao drugs;
     @Autowired private PlatformTransactionManager transactions;
+    @Autowired private CaseManagementManager productionNotes;
+    @Autowired private CaseManagementNoteLinkDAO productionLinks;
     @PersistenceContext private EntityManager entityManager;
 
     private TransactionTemplate transaction() { return new TransactionTemplate(transactions); }
@@ -92,10 +95,12 @@ class RxDiscontinueTransactionIntegrationTest extends CarlosTestBase {
         AtomicBoolean fail = new AtomicBoolean(true);
         when(notes.saveNoteSimpleReturnID(any())).thenAnswer(invocation -> {
             CaseManagementNote note = invocation.getArgument(0);
-            entityManager.persist(note);
+            // Exercise the production manager and its Spring-proxied note DAO; the
+            // wrapper only injects a failure after the real persistence operation.
+            Long noteId = productionNotes.saveNoteSimpleReturnID(note);
             entityManager.flush();
             if (fail.get() && "note".equals(failure)) throw new IllegalStateException("Injected note failure");
-            return note.getId();
+            return noteId;
         });
         WebApplicationContext context = mock(WebApplicationContext.class);
         when(context.getBean(CaseManagementManager.class)).thenReturn(notes);
@@ -110,13 +115,16 @@ class RxDiscontinueTransactionIntegrationTest extends CarlosTestBase {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
             spring.when(() -> SpringUtils.getBean(SecRoleDao.class)).thenReturn(roles);
+            spring.when(() -> SpringUtils.getBean(CaseManagementNoteLinkDAO.class)).thenReturn(productionLinks);
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
             contexts.when(() -> WebApplicationContextUtils.getRequiredWebApplicationContext(any())).thenReturn(context);
             documents.when(EDocUtil::getDmsDateTimeAsDate).thenAnswer(invocation -> new Date());
             documents.when(() -> EDocUtil.addCaseMgmtNoteLink(any())).thenAnswer(invocation -> {
-                entityManager.persist(invocation.<CaseManagementNoteLink>getArgument(0));
+                // Call EDocUtil and the production Spring-proxied link DAO before
+                // flushing and failing, so both production write paths must roll back.
+                invocation.callRealMethod();
                 entityManager.flush();
                 if (fail.get()) throw new IllegalStateException("Injected link failure");
                 return null;

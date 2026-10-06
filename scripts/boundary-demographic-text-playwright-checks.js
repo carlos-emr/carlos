@@ -7,7 +7,7 @@
  * Asserts: names with an apostrophe, accents, CJK, an emoji, a literal "&amp;", quotes, backslash,
  * "%41", "+" and ";" are stored byte for byte (utf8mb4, no "?" substitution, no double encoding); the
  * Master Record and the Edit form redisplay them identically; an unchanged Update leaves every column
- * as it was; every text box carries a maxlength equal to its column; a surname of exactly the column
+ * as it was; every text box declares a limit matching its column; a surname of exactly the column
  * length is stored whole and one more character is visibly limited; and, last, a preferred name /
  * pronoun / gender past their columns are refused or stored whole, never silently cut. (Patient search
  * by these characters is boundary-demographic-search.)
@@ -105,7 +105,7 @@ async function workflow(s) {
     await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
     const shown = async (name) => add.locator(`#editDemographic [name="${name}"]`).first().inputValue();
     for (const [input, column] of [['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']]) {
-      const limit = await add.locator(`#editDemographic [name="${input}"]`).getAttribute('maxlength');
+      const limit = await add.locator(`#editDemographic [name="${input}"]`).getAttribute('data-code-point-maxlength');
       h.assert(Number(limit) === b.columnLength(sql, 'demographic', column), `Edit form ${input} has an incorrect limit`);
     }
     const wrong = [];
@@ -125,7 +125,7 @@ async function workflow(s) {
   });
 
   const limitMismatches = [];
-  await s.step('the add form limits each text box to its column length (client maxlength equals the database VARCHAR)', async () => {
+  await s.step('the add form declares each text limit from its database column', async () => {
     add = await openAddForm(s, tag + 'M');
     const mapping = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'], ['address', 'address'],
       ['city', 'city'], ['residentialAddress', 'residentialAddress'], ['residentialCity', 'residentialCity'], ['postal', 'postal'],
@@ -134,10 +134,11 @@ async function workflow(s) {
     const mismatched = [];
     for (const [input, column] of mapping) {
       const box = add.locator(`form[name="adddemographic"] [name="${input}"]`).first();
-      const limit = await box.getAttribute('maxlength');
+      const attribute = ['nameUsed', 'pronouns', 'gender'].includes(input) ? 'data-code-point-maxlength' : 'maxlength';
+      const limit = await box.getAttribute(attribute);
       const declared = b.columnLength(sql, 'demographic', column);
-      if (limit === null) mismatched.push(`${input} has no maxlength (column ${column} holds ${declared})`);
-      else if (Number(limit) !== declared) mismatched.push(`${input} maxlength=${limit} but column ${column} holds ${declared}`);
+      if (limit === null) mismatched.push(`${input} has no ${attribute} (column ${column} holds ${declared})`);
+      else if (Number(limit) !== declared) mismatched.push(`${input} ${attribute}=${limit} but column ${column} holds ${declared}`);
     }
     await add.close();
     // Reported in the last step, so the storage checks below still run when the form limits are wrong.
@@ -162,18 +163,18 @@ async function workflow(s) {
     await add.close();
   });
 
-  await s.step('preferred name, pronoun and gender are visibly limited and stored exactly as displayed', async () => {
+  await s.step('preferred name, pronoun and gender accept supplementary characters up to their code-point limits', async () => {
     add = await openAddForm(s, tag + 'Q');
     const form = await fillBasics(add, tag + 'Q', 'Wide');
     const accepted = [];
-    for (const [input, column, prefix] of [['nameUsed', 'pref_name', 'P'], ['pronouns', 'pronoun', 'q'], ['gender', 'gender', 'g']]) {
+    for (const [input, column] of [['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']]) {
       const limit = b.columnLength(sql, 'demographic', column);
       const box = form.locator(`input[name="${input}"]`);
-      await box.fill(b.exactly(limit + 1, prefix));
+      await box.fill('😀'.repeat(limit + 1));
       // Name fields deliberately uppercase on blur; compare storage with that displayed value.
       await box.press('Tab');
       const value = await box.inputValue();
-      h.assert(b.cpLength(value) === limit, `${input} did not visibly enforce its column limit`);
+      h.assert(value === '😀'.repeat(limit), `${input} did not enforce its column limit in Unicode code points`);
       accepted.push([column, value]);
     }
     await submitAdd(add);
@@ -187,8 +188,16 @@ async function workflow(s) {
     await add.getByRole('link', { name: /Go to record/i }).first().click();
     await add.locator('#editBtn').click();
     await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
+    for (const [input, column] of [['nameUsed', 'pref_name'], ['pronouns', 'pronoun'], ['gender', 'gender']]) {
+      const box = add.locator(`#editDemographic [name="${input}"]`);
+      const limit = b.columnLength(sql, 'demographic', column);
+      h.assert(await box.inputValue() === '😀'.repeat(limit), `Edit redisplay damaged supplementary ${input}`);
+      await box.fill('😀'.repeat(limit + 1));
+      await box.press('Tab');
+      h.assert(await box.inputValue() === '😀'.repeat(limit), `Edit ${input} used UTF-16 units instead of code points`);
+    }
     const preferred = add.locator('#editDemographic [name="nameUsed"]');
-    await preferred.evaluate(element => element.removeAttribute('maxlength'));
+    await preferred.evaluate(element => { element.removeAttribute('maxlength'); element.removeAttribute('data-code-point-maxlength'); });
     await preferred.fill('P'.repeat(31));
     await add.locator('#editDemographic [name="city"]').fill('MUST NOT BE SAVED');
     const mark = failureMark(s.recorder);
@@ -209,7 +218,7 @@ async function workflow(s) {
       add = await openAddForm(s, tag + suffix);
       const form = await fillBasics(add, tag + suffix, 'Bypass');
       const box = form.locator(`input[name="${input}"]`);
-      await box.evaluate(element => element.removeAttribute('maxlength'));
+      await box.evaluate(element => { element.removeAttribute('maxlength'); element.removeAttribute('data-code-point-maxlength'); });
       await box.fill(b.exactly(b.columnLength(sql, 'demographic', column) + 1, 'X'));
       const mark = failureMark(s.recorder);
       const responsePromise = add.waitForResponse(response => response.request().method() === 'POST'

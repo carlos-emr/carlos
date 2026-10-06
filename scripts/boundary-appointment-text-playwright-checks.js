@@ -209,6 +209,8 @@ async function workflow(s) {
     const before = snapshot();
     const beforeArchives = archives();
     const edit = await openEdit(apptNo);
+    const providerLabel = await edit.locator('#mrp').inputValue();
+    h.assert(providerLabel.trim().length > 0, 'The fixture has no provider label to preserve');
     const values = { reason: 'R'.repeat(81), notes: 'N'.repeat(256), resources: 'S'.repeat(256) };
     for (const [name, value] of Object.entries(values)) {
       const box = edit.locator(`form [name="${name}"]`).first();
@@ -226,6 +228,7 @@ async function workflow(s) {
     consumeExpectedFailure(recorder, mark, { status: 400, path: /\/appointment\/UpdateRecord$/ });
     h.assert(snapshot() === before && archives() === beforeArchives, 'The refused edit changed or archived the appointment');
     h.assert(b.lengthRefusal(await edit.locator('body').innerText()), 'The edit refusal did not explain its text limit');
+    h.assert(await edit.locator('#mrp').inputValue() === providerLabel, 'The refused edit lost the patient provider label');
     for (const [name, value] of Object.entries(values)) {
       h.assert(await edit.locator(`form [name="${name}"]`).first().inputValue() === value,
         `The refused edit discarded ${name}`);

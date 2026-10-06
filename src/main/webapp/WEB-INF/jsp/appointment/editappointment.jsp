@@ -965,24 +965,9 @@
     <%
         }
 
-        //RJ 07/12/2006
-        //If page is loaded first time hit db for patient's family doctor
-        //Else if we are coming back from search this has been done for us
-        //Else how did we get here?
-        if (bFirstDisp) {
-            DemographicData dd = new DemographicData();
-            Demographic demo = dd.getDemographic(loggedInInfo, String.valueOf(appt.getDemographicNo()));
-            doctorNo = demo != null ? (demo.getProviderNo()) : "";
-        } else {
-            doctorNo = StringUtils.defaultString(request.getParameter("doctor_no"));
-        }
-
-	/* null check because demo.getProvider and/or request.getParameter("doctor_no") can
-     * BOTH return a null value that will cause the entire page to crash
-     */
-	if (doctorNo == null) {
-		doctorNo = "";
-    }
+        // The form posts a display label as doctorNo, while search links use doctor_no.
+        // The loaded patient is authoritative on both initial display and validation rerender.
+        doctorNo = demographicTmp == null ? "" : StringUtils.defaultString(demographicTmp.getProviderNo());
     %>
             <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
