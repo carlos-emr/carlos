@@ -85,8 +85,7 @@
 
 <a
         <c:set var="__enc_2"><carlos:encode value='<%= demographicNo %>' context="uriComponent"/></c:set>
-        href="javascript:p        
-opupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
+        href="javascript:popupPage(700, 980, '${pageContext.request.contextPath}/encounter/IncomingEncounter?demographicNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&reason=Lab+Results-Notes&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=<%=URLEncoder.encode("Lab Results","UTF-8")%>&status=');window.close();">Please
     click here to go to the patient's E-Chart.</a>
 
 </body>

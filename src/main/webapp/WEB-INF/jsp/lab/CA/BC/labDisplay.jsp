@@ -166,8 +166,7 @@
                             <% } %> <% if (request.getParameter("searchProviderNo") != null) { // we were called from e-chart %>
                             <input type="button"
                                    <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/></c:set>
-                                   value=" <fmt:message key="oscarMDS.segmen                                   
-tDisplay.btnEChart"/> "
+                                   value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                                    onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=BCP&segmentID=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
                             <% } %>
                             <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/></c:set>
