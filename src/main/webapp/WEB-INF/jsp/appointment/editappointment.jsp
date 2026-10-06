@@ -973,8 +973,8 @@
             DemographicData dd = new DemographicData();
             Demographic demo = dd.getDemographic(loggedInInfo, String.valueOf(appt.getDemographicNo()));
             doctorNo = demo != null ? (demo.getProviderNo()) : "";
-        } else if (!request.getParameter("doctor_no").equals("")) {
-            doctorNo = request.getParameter("doctor_no");
+        } else {
+            doctorNo = StringUtils.defaultString(request.getParameter("doctor_no"));
         }
 
 	/* null check because demo.getProvider and/or request.getParameter("doctor_no") can
