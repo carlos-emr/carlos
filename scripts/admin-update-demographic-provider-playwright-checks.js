@@ -162,12 +162,14 @@ async function workflow(s) {
     h.assert(mrp().every(no => no === from), 'The reverse update did not restore the original MRP');
     h.assert(others() === othersBefore, 'A demographic or demographicExt row this run does not own changed');
   });
-  await s.step('a GET carrying the MRP update parameters is refused without reassigning anyone', async () => {
-    const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider'), {
-      params: { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' }, maxRedirects: 0 });
-    const reassigned = mrp().filter(no => no === to).length;
-    h.assert(response.status() === 405 && reassigned === 0,
-      `GET answered HTTP ${response.status()} and reassigned ${reassigned} owned patient(s); expected 405 and none`);
+  await s.step('GET and HEAD carrying MRP update parameters are refused without reassigning anyone', async () => {
+    for (const method of ['GET', 'HEAD']) {
+      const response = await context.request.fetch(h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider'), {
+        method, params: { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' }, maxRedirects: 0 });
+      const reassigned = mrp().filter(no => no === to).length;
+      h.assert(response.status() === 405 && reassigned === 0,
+        `${method} answered HTTP ${response.status()} and reassigned ${reassigned} owned patient(s); expected 405 and none`);
+    }
   });
 }
 if (require.main === module) runWorkflow('admin-update-demographic-provider', workflow, { openPatient: false });
