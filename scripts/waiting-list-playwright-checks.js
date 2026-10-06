@@ -165,6 +165,37 @@ async function workflow(s) {
     h.assert((await s.master.locator(DATE_INPUT).first().inputValue()).startsWith('2026-03-04'), 'The reopened edit form lost the date');
   });
 
+  await s.step('a stale existing association rejects note edits, while an explicit no-list selection saves demographics only', async () => {
+    const fields = await s.master.locator('form[name="updatedelete"]')
+      .evaluate(element => Object.fromEntries(new FormData(element)));
+    h.assert(fields['CSRF-TOKEN'], 'The existing-association probe needs the real form CSRF token');
+    const before = JSON.stringify(currentRows());
+    const beforePatient = sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`);
+    const route = h.appUrl(s.config.baseUrl, '/demographic/DemographicUpdate');
+    try {
+      sql.execute(`UPDATE waitingListName SET is_history='Y' WHERE ID=${listId}`);
+      const rejected = await s.context.request.post(route, {
+        form: {...fields, list_id: listId, first_name: 'Rejected stale edit', waiting_list_note: `${marker} changed while stale`},
+        maxRedirects: 0,
+      });
+      h.assert(rejected.status() === 409, 'An unchanged stale list ID silently accepted edited waiting-list fields');
+      h.assert(JSON.stringify(currentRows()) === before, 'The stale existing association changed');
+      h.assert(sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`) === beforePatient,
+        'The refused combined edit partially saved patient data');
+      const saved = await s.context.request.post(route, {
+        form: {...fields, list_id: '0', first_name: 'Demographic-only edit'}, maxRedirects: 0,
+      });
+      h.assert(saved.status() === 302, `Demographic-only save returned HTTP ${saved.status()}`);
+      h.assert(sql.value(`SELECT first_name FROM demographic WHERE demographic_no=${patient}`) === 'Demographic-only edit',
+        'No-list selection prevented an ordinary demographic change');
+      h.assert(JSON.stringify(currentRows()) === before, 'Demographic-only save changed the unavailable waiting-list entry');
+    } finally {
+      sql.execute(`UPDATE waitingListName SET is_history='N' WHERE ID=${listId}`);
+    }
+    await s.master.reload({waitUntil: 'domcontentloaded'});
+    await openEditForm(s.master);
+  });
+
   await s.step('editing the note through Update Record keeps one current row and the old one as history', async () => {
     await s.master.locator(NOTE_INPUT).first().fill(secondNote);
     await saveMasterRecord(s.master);
