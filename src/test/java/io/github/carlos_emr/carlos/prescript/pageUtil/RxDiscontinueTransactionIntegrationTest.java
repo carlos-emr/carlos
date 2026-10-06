@@ -85,8 +85,8 @@ class RxDiscontinueTransactionIntegrationTest extends CarlosTestBase {
         when(security.hasPrivilege(eq(login), eq("_rx"), eq("u"), eq(patient))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, patient)).thenReturn(true);
         SecRoleDao roles = mock(SecRoleDao.class);
-        SecRole role = new SecRole();
-        role.setId(1);
+        SecRole role = mock(SecRole.class);
+        when(role.getId()).thenReturn(1);
         when(roles.findByName("doctor")).thenReturn(role);
         CaseManagementManager notes = mock(CaseManagementManager.class);
         AtomicBoolean fail = new AtomicBoolean(true);
