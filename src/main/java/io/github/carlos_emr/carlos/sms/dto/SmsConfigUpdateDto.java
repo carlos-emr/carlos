@@ -37,11 +37,13 @@ import java.util.Map;
  * @param webhookSecret      a new webhook secret, or blank to keep the stored one
  * @param clearWebhookSecret remove the stored webhook secret
  * @param credentials        new credential values by field name; blank values keep the stored ones
+ * @param expectedVersion    the settings version the page showed, or null when it showed nothing saved;
+ *                           the save is refused when the stored version differs
  * @since 2026-09-24
  */
 public record SmsConfigUpdateDto(SmsProviderType providerType, boolean enabled, boolean schedulerEnabled,
                                  String senderNumber, String webhookSecret, boolean clearWebhookSecret,
-                                 Map<String, String> credentials) {
+                                 Map<String, String> credentials, Integer expectedVersion) {
 
     public SmsConfigUpdateDto {
         credentials = credentials == null ? Map.of() : Map.copyOf(credentials);

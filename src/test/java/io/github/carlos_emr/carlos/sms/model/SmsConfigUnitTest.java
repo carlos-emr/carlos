@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 @Tag("model")
@@ -108,6 +109,22 @@ class SmsConfigUnitTest {
         assertThat(config.getProviderType()).isEqualTo(SmsProviderType.STUB);
         assertThat(config.isEnabled()).isFalse();
         assertThat(config.isSchedulerEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("without an encryption key, storing a secret fails with a dedicated error that names no secret")
+    void shouldThrowEncryptionError_whenNoKeyIsConfigured() {
+        SmsConfig config = new SmsConfig();
+        EncryptionKeyTestSupport.restoreKey(null);
+
+        assertThatThrownBy(() -> config.setWebhookSecret("webhook-value-123"))
+                .isInstanceOf(SmsSecretEncryptionException.class)
+                .hasNoCause()
+                .hasMessageNotContaining("webhook-value-123");
+        assertThatThrownBy(() -> config.setCredential("field_two", "value two"))
+                .isInstanceOf(SmsSecretEncryptionException.class)
+                .hasMessageNotContaining("value two");
+        assertThat(config.hasWebhookSecret()).isFalse();
     }
 
     @Test

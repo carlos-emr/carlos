@@ -39,17 +39,21 @@ import java.util.List;
  * @param systemTestEnabled whether {@code sms.systemTest.enabled} lets the system test send
  * @param resultKey         message key for the last action's result, or empty
  * @param errorKeys         message keys for validation errors
+ * @param version           the settings version the form is based on, sent back with a save so a save from
+ *                          an out-of-date page is refused; empty while nothing is saved
  * @since 2026-09-24
  */
 public record SmsConfigViewModel(String providerType, List<String> providerOptions, boolean enabled,
                                  boolean schedulerEnabled, boolean schedulerRunning, String senderNumber,
                                  boolean webhookSecretSet, List<CredentialField> credentialFields, boolean stored,
-                                 boolean systemTestEnabled, String resultKey, List<String> errorKeys) {
+                                 boolean systemTestEnabled, String resultKey, List<String> errorKeys,
+                                 String version) {
 
     public SmsConfigViewModel {
         providerOptions = providerOptions == null ? List.of() : List.copyOf(providerOptions);
         credentialFields = credentialFields == null ? List.of() : List.copyOf(credentialFields);
         errorKeys = errorKeys == null ? List.of() : List.copyOf(errorKeys);
+        version = version == null ? "" : version;
     }
 
     /**

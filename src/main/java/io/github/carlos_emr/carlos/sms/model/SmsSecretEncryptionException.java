@@ -19,25 +19,19 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.sms.service;
+package io.github.carlos_emr.carlos.sms.model;
 
 /**
- * Thrown by {@link SmsConfigService#save} when another save got there first: the page the settings came
- * from showed an older version than the one now stored (another administrator saved after it was loaded),
- * or two saves raced to create the settings row or to change the same version of it. Nothing from this
- * save is stored, and the other save stands.
+ * Thrown when an SMS secret cannot be encrypted for storage, usually because this server has no working
+ * {@code encryption.util.secret.key}. It carries neither the secret nor the underlying cause, either of
+ * which could put the secret into a log; the settings page shows it as a form error instead.
  *
- * @since 2026-09-28
+ * @since 2026-10-06
  */
-public class SmsConfigConflictException extends RuntimeException {
+public class SmsSecretEncryptionException extends IllegalStateException {
     private static final long serialVersionUID = 1L;
 
-    public SmsConfigConflictException(Throwable cause) {
-        super("SMS settings were changed by another save at the same time.", cause);
-    }
-
-    /** For a save from a page that showed an older version than the one now stored. */
-    public SmsConfigConflictException() {
-        super("SMS settings were saved by another save after this page was loaded.");
+    public SmsSecretEncryptionException() {
+        super("SMS secret could not be encrypted; check encryption.util.secret.key.");
     }
 }

@@ -107,6 +107,14 @@ public class SmsConfig extends AbstractModel<Integer> {
         return id;
     }
 
+    /**
+     * @return the row's version, which each save raises; null until first saved. The settings page sends
+     *         back the version it showed, so a save made from an out-of-date page can be refused.
+     */
+    public Integer getVersion() {
+        return version;
+    }
+
     public SmsProviderType getProviderType() {
         return providerType;
     }
@@ -258,7 +266,7 @@ public class SmsConfig extends AbstractModel<Integer> {
             return EncryptionUtils.encrypt(plainText);
         } catch (Exception e) {
             // No cause or value in the message: it would carry the secret into logs.
-            throw new IllegalStateException("SMS secret could not be encrypted; check encryption.util.secret.key.");
+            throw new SmsSecretEncryptionException();
         }
     }
 

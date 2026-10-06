@@ -69,6 +69,7 @@
 
     <form method="post" action="${ctx}/admin/ConfigureSms" id="smsConfigForm" autocomplete="off">
         <input type="hidden" name="method" value="configure"/>
+        <input type="hidden" name="version" value="<carlos:encode value='${smsConfig.version}' context='htmlAttribute'/>"/>
 
         <div class="mb-3">
             <label class="form-label" for="providerType"><fmt:message key="sms.config.provider"/></label>

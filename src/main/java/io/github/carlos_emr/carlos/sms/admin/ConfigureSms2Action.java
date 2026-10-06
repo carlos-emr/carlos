@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
@@ -63,6 +64,9 @@ public class ConfigureSms2Action extends ActionSupport {
     private static final String SECURITY_OBJECT = "_admin.sms";
     private static final String CREDENTIAL_PARAMETER_PREFIX = "credential.";
     static final String CONCURRENT_SAVE_ERROR = "sms.config.error.concurrentSave";
+    static final String ENCRYPTION_UNAVAILABLE_ERROR = "sms.config.error.encryptionUnavailable";
+    /** Stands in for a version field that is not a number: it matches no stored version, so the save is refused. */
+    private static final int UNREADABLE_VERSION = -1;
 
     private final SecurityInfoManager securityInfoManager;
     private final SmsConfigService configService;
@@ -118,7 +122,8 @@ public class ConfigureSms2Action extends ActionSupport {
                 trimToEmpty(request.getParameter("senderNumber")),
                 request.getParameter("webhookSecret"),
                 isChecked(request, "clearWebhookSecret"),
-                credentials
+                credentials,
+                parseVersion(request.getParameter("version"))
         );
         List<String> errors = validator.validate(update, configService.installedProviders());
         if (!errors.isEmpty()) {
@@ -130,8 +135,17 @@ public class ConfigureSms2Action extends ActionSupport {
         try {
             configService.save(update, loggedInInfo.getLoggedInProviderNo());
         } catch (SmsConfigConflictException e) {
+            if (configService.alreadySaved(update, loggedInInfo.getLoggedInProviderNo())) {
+                // A second click on Save: the first click already stored exactly these settings.
+                return redirect(request, response, "saved");
+            }
             // Re-displayed with 200 for the same reason as the validation errors above.
             request.setAttribute("smsConfig", assembler.assemble(null, List.of(CONCURRENT_SAVE_ERROR)));
+            return SUCCESS;
+        } catch (SmsSecretEncryptionException e) {
+            // Nothing was stored. Shown on the form, with what was submitted, instead of an error page.
+            request.setAttribute("smsConfig",
+                    assembler.assembleRejected(update, List.of(ENCRYPTION_UNAVAILABLE_ERROR)));
             return SUCCESS;
         }
         return redirect(request, response, "saved");
@@ -176,6 +190,20 @@ public class ConfigureSms2Action extends ActionSupport {
                 .filter(type -> type.name().equals(value))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * @return the settings version the page showed; null when it showed nothing saved (an empty field)
+     */
+    private static Integer parseVersion(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException e) {
+            return UNREADABLE_VERSION;
+        }
     }
 
     private static boolean isChecked(HttpServletRequest request, String name) {
