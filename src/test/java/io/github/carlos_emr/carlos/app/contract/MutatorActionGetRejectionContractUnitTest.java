@@ -236,6 +236,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
             // --- messenger ---
+            Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action",
+                    "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action",
                     "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action",
