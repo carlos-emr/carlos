@@ -19,10 +19,8 @@
  * the owned tickler with its comments, updates and attachments, restores the preference snapshot,
  * and asserts both.
  *
- * Env: the common contract (lib/playwright-harness.js readConfig()). TICKLER_PREFS_DIRECT=true
- * opens the form by its own route (/setTicklerPreferences?method=viewTicklerTaskAssignee) because
- * the Preferences link (setProviderStaleDate?method=viewTicklerTaskAssignee) renders
- * setNoteStaleDate.jsp on the current build; without it the first step fails on that defect.
+ * Env: the common contract (lib/playwright-harness.js readConfig()). The regression always
+ * follows the actual Preferences link so a direct-route fallback cannot hide a navigation bug.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -65,22 +63,14 @@ async function workflow(s) {
   });
 
   const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
-  // The preference form, entered through the Preferences popup link unless TICKLER_PREFS_DIRECT.
   async function openPreferenceForm(label) {
-    let settings;
-    if (process.env.TICKLER_PREFS_DIRECT === 'true') {
-      settings = await s.context.newPage();
-      await h.gotoApp(settings, s.config.baseUrl, '/setTicklerPreferences?method=viewTicklerTaskAssignee');
-      await h.assertNotErrorPage(settings, label);
-    } else {
-      const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
-      await revealAuditLink(prefs, link, 20000);
-      settings = await s.popup(prefs, link, label);
-    }
+    const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
+    await revealAuditLink(prefs, link, 20000);
+    const settings = await s.popup(prefs, link, label);
+    h.assert(h.pathOnly(settings.url()).endsWith('/setTicklerPreferences'),
+      'The "Set Tickler Preferences" link did not open its own action route');
     h.assert(await settings.locator('#taskAssigneeProvider').count() === 1,
-      'The "Set Tickler Preferences" link did not open the tickler preference form (it opens '
-      + 'setProviderStaleDate?method=viewTicklerTaskAssignee, mapped to setNoteStaleDate.jsp); '
-      + 'TICKLER_PREFS_DIRECT=true drives the form by its own route until the link is fixed');
+      'The "Set Tickler Preferences" link did not open the tickler-assignee form');
     return settings;
   }
 
