@@ -4,6 +4,8 @@ package io.github.carlos_emr.carlos.tickler.pageUtil;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerUpdateDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.TicklerUpdate;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -38,6 +40,8 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
     @Autowired private TicklerUpdateDao history;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager entities;
+    private record Fixture(int demographic, String provider) {}
+    private final java.util.Map<Integer, Fixture> fixtures = new java.util.HashMap<>();
     private final LoggedInInfo login = mock(LoggedInInfo.class);
 
     @Test
@@ -128,10 +132,21 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
 
     private int seed() {
         return new TransactionTemplate(transactions).execute(status -> {
+            Demographic patient = new Demographic();
+            patient.setFirstName("Owned"); patient.setLastName("Status fixture");
+            patient.setSex("U"); patient.setPatientStatus("AC");
+            entities.persist(patient);
+            String providerNo = "st" + UUID.randomUUID().toString().substring(0, 4);
+            assertThat(entities.find(Provider.class, providerNo)).isNull();
+            Provider provider = new Provider();
+            provider.setProviderNo(providerNo); provider.setFirstName("Owned"); provider.setLastName("Status fixture");
+            provider.setProviderType("doctor"); provider.setStatus("1");
+            entities.persist(provider);
             Tickler row = new Tickler();
-            row.setDemographicNo(1); row.setProgramId(0); row.setCreator("999998");
-            row.setTaskAssignedTo("999998"); row.setMessage("owned-status-" + UUID.randomUUID());
+            row.setDemographicNo(patient.getDemographicNo()); row.setCreator(providerNo);
+            row.setTaskAssignedTo(providerNo); row.setMessage("owned-status-" + UUID.randomUUID());
             ticklers.persist(row); entities.flush();
+            fixtures.put(row.getId(), new Fixture(patient.getDemographicNo(), providerNo));
             return row.getId();
         });
     }
@@ -148,6 +163,12 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             entities.createQuery("delete from TicklerUpdate t where t.ticklerNo=:id").setParameter("id", id).executeUpdate();
             entities.createQuery("delete from Tickler t where t.id=:id").setParameter("id", id).executeUpdate();
+            Fixture fixture = fixtures.get(id);
+            if (fixture != null) {
+                entities.createQuery("delete from Demographic d where d.demographicNo=:id").setParameter("id", fixture.demographic()).executeUpdate();
+                entities.createQuery("delete from Provider p where p.providerNo=:id").setParameter("id", fixture.provider()).executeUpdate();
+            }
         });
+        fixtures.remove(id);
     }
 }
