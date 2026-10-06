@@ -1,0 +1,37 @@
+# Offline-provider tests: no repository write token, App key, or paid API calls.
+name: CARLOS OpenCode Validation
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/opencode*.yml'
+      - 'scripts/opencode/**'
+      - 'scripts/opencode-workflow.test.js'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Test policy and publication
+        run: node --test scripts/opencode-workflow.test.js
+      - name: Install verified CLI
+        env:
+          TOOLS_DIR: ${{ runner.temp }}/opencode-tools
+        run: node scripts/opencode/worker.cjs install
+      - name: Exercise streaming and tool calls inside the isolated runtime
+        env:
+          TOOLS_DIR: ${{ runner.temp }}/opencode-tools
+        run: |
+          image="$(node -p 'require("./scripts/opencode/runtime.json").image')"
+          docker run --rm --read-only --cap-drop=ALL --security-opt=no-new-privileges \
+            --pids-limit=256 --memory=6g --cpus=2 --user "$(id -u):$(id -g)" \
+            --tmpfs /tmp:rw,exec,size=2g,mode=1777 \
+            -v "$TOOLS_DIR:/tools:ro" -v "$PWD/scripts/opencode:/runner:ro" \
+            "$image" node /runner/cli-smoke.cjs /tools/opencode

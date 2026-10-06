@@ -1,0 +1,6 @@
+{
+  "version": "1.18.34",
+  "url": "https://github.com/anomalyco/opencode/releases/download/v1.18.34/opencode-linux-x64-baseline.tar.gz",
+  "sha256": "24b0d458d21ef548b2752166303defcf7f4945b049fb4876ab78dfaf86d81b27",
+  "image": "node:22-bookworm@sha256:17b7fd60fd812617654c64b95f9b2dde94f103313073b672bc40fdad6dccbaa2"
+}

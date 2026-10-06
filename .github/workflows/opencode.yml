@@ -1,0 +1,178 @@
+# Licensed under the repository's LICENSE.
+# issue_comment is inactive until this file is promoted to the default branch.
+name: CARLOS OpenCode
+run-name: OpenCode ${{ format('#{0} comment {1}', github.event.issue.number, github.event.comment.id) }}
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+# queue:max prevents newer requests from silently replacing the pending request.
+concurrency:
+  group: carlos-opencode-${{ github.repository }}-${{ github.event.issue.number }}
+  queue: max
+  cancel-in-progress: false
+
+env:
+  OPENCODE_ENABLED: ${{ vars.OPENCODE_ENABLED }}
+  OPENCODE_ALLOWED_USERS: ${{ vars.OPENCODE_ALLOWED_USERS }}
+  OPENCODE_API_BASE_URL: ${{ vars.OPENCODE_API_BASE_URL }}
+  OPENCODE_MODEL_ID: ${{ vars.OPENCODE_MODEL_ID }}
+  OPENCODE_APP_ID: ${{ vars.OPENCODE_APP_ID }}
+
+jobs:
+  authorize:
+    if: >-
+      github.repository == 'carlos-emr/carlos' &&
+      github.event.comment.user.type == 'User' &&
+      (startsWith(github.event.comment.body, '/oc') || startsWith(github.event.comment.body, '/opencode'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      accepted: ${{ steps.gate.outputs.accepted }}
+      source: ${{ steps.gate.outputs.source }}
+      base: ${{ steps.gate.outputs.base }}
+      branch: ${{ steps.gate.outputs.branch }}
+      attempt: ${{ steps.gate.outputs.attempt }}
+      mode: ${{ steps.gate.outputs.mode }}
+      resume: ${{ steps.gate.outputs.resume }}
+    steps:
+      - name: Check out trusted controller
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Authorize and resolve request
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_DIR: ${{ runner.temp }}/opencode-request
+          PROVIDER_KEY_CONFIGURED: ${{ secrets.OPENCODE_API_KEY != '' }}
+          APP_KEY_CONFIGURED: ${{ secrets.OPENCODE_APP_PRIVATE_KEY != '' }}
+        run: node scripts/opencode/controller.cjs gate
+      - name: Save authorized request
+        if: steps.gate.outputs.accepted == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-request-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opencode-request/request.json
+          if-no-files-found: error
+          retention-days: 1
+
+  generate:
+    needs: authorize
+    if: needs.authorize.outputs.accepted == 'true' && needs.authorize.outputs.resume != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      attempt: ${{ steps.generation.outputs.attempt }}
+    steps:
+      - name: Check out trusted controller
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          path: control
+          persist-credentials: false
+      - name: Check out exact task source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.authorize.outputs.source }}
+          path: source
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Load authorized request
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opencode-request-${{ needs.authorize.outputs.attempt }}
+          path: ${{ runner.temp }}/opencode-request
+      - name: Install and verify pinned CLI
+        env:
+          TOOLS_DIR: ${{ runner.temp }}/opencode-tools
+        run: node control/scripts/opencode/worker.cjs install
+      - name: Generate in isolated container
+        id: generation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_BASE: ${{ needs.authorize.outputs.base }}
+          EXPECTED_BRANCH: ${{ needs.authorize.outputs.branch }}
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          EXPECTED_SOURCE: ${{ needs.authorize.outputs.source }}
+          SOURCE_DIR: ${{ github.workspace }}/source
+          WORK_DIR: ${{ runner.temp }}/opencode-work
+          TOOLS_DIR: ${{ runner.temp }}/opencode-tools
+          REQUEST_DIR: ${{ runner.temp }}/opencode-request
+          RESULT_DIR: ${{ runner.temp }}/opencode-result
+        run: |
+          node control/scripts/opencode/controller.cjs verify
+          node control/scripts/opencode/worker.cjs
+          echo "attempt=$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Save validated result
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-result-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/opencode-result/result.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Stop any remaining container
+        if: always()
+        env:
+          CONTAINER: carlos-opencode-${{ github.run_id }}
+        run: |
+          if docker container inspect "$CONTAINER" >/dev/null 2>&1; then
+            docker rm -f "$CONTAINER"
+          fi
+
+  publish:
+    needs: [authorize, generate]
+    if: >-
+      always() && !cancelled() && needs.authorize.result == 'success' &&
+      needs.authorize.outputs.accepted == 'true' &&
+      (needs.generate.result == 'success' || needs.authorize.outputs.resume == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Check out trusted publisher
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Load generated result
+        if: needs.authorize.outputs.resume != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opencode-result-${{ needs.generate.outputs.attempt }}
+          path: ${{ runner.temp }}/opencode-result
+      - name: Reauthorize and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE: ${{ needs.authorize.outputs.source }}
+          EXPECTED_BASE: ${{ needs.authorize.outputs.base }}
+          EXPECTED_BRANCH: ${{ needs.authorize.outputs.branch }}
+          RESULT_DIR: ${{ runner.temp }}/opencode-result
+          OPENCODE_APP_PRIVATE_KEY: ${{ secrets.OPENCODE_APP_PRIVATE_KEY }}
+        run: node scripts/opencode/controller.cjs publish
