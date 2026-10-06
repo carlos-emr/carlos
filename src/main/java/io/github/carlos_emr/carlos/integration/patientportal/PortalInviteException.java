@@ -77,9 +77,8 @@ public class PortalInviteException extends RuntimeException {
                 "This delivery was started against a different portal connection. Restore that connection "
                         + "to resolve it."),
         INVITE_STILL_LIVE("invite_still_live",
-                "The portal does not show this invitation's code as replaced or expired, so the email may "
-                        + "still be sent. It can be recorded as not arrived once the code has been replaced or "
-                        + "has expired."),
+                "The portal does not show this invitation's code as replaced or expired, so the email cannot "
+                        + "be recorded as not arrived: it may still be sent."),
         STATE_CHANGED("state_changed",
                 "This delivery changed while the request was running. Refresh the panel.");
 

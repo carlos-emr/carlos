@@ -169,8 +169,8 @@ The email links to `<public_base_url>/auth/activate` and carries the code as tex
 placed in a URL, a log, or a browser-visible message. The email asks the patient to confirm their email
 address, date of birth and health card number, and to enter the number without its version code (the
 letters after the number on an Ontario card): CARLOS sends the portal the chart's health card number
-(`hin`) only, never the version code (`ver`), and the portal compares it exactly, ignoring only spaces
-and dashes.
+(`hin`) only, never the version code (`ver`), and the portal compares it exactly, ignoring only case,
+spaces and dashes.
 
 The code is a credential that activates a patient's account, so CARLOS keeps it no longer than it must.
 It lives in the outbox row only between the store and the send, which is the window the portal's
@@ -207,14 +207,17 @@ A `COMMITTED` attempt may still have a paused sender, so its code is never revok
 offers **It arrived**: confirm that choice from actual arrival evidence; it records that evidence without
 cancelling the sender or sending another email. It also offers **It did not arrive**, but only once the
 portal shows its code already dead: replaced by a newer invitation, or still listed as pending but past
-its expiry by 15 minutes (the margin allows for a difference between the two clocks). The page offers it
+its expiry by an hour (the margin allows for a difference between the two clocks). The page offers it
 from the portal's list read with the panel, and CARLOS asks the portal again when staff choose it,
-refusing it if the code is still live or no longer listed, has been used (the email did arrive), or the
-portal cannot be reached. Nothing is revoked: the attempt finishes as `NOT_ARRIVED`, the stored email
+refusing it if the code is still live, revoked or no longer listed, has been used (the email did
+arrive), or the portal cannot be reached. Nothing is revoked: the attempt finishes as `NOT_ARRIVED`, the stored email
 loses its code, its outbox row is resolved as not sent, the chart gets a note saying staff confirmed the
 email did not arrive, and the decision is audited like the others. A paused sender that resumes later can
-then deliver only a code that no longer works. While the code is live, the attempt stays open; it can be
-closed this way once the code expires, seven days after activation. This deliberately narrows the original
+then deliver only a code that no longer works. While the code is live, the attempt stays open. Once the
+code expires, seven days after activation, it can be closed this way while the portal still lists the
+invitation: the portal's maintenance deletes expired, revoked and replaced invitations 30 days after their
+expiry by default, and an invitation it no longer lists is refused. A code revoked by hand (**Revoke**) is not
+counted as replaced or expired, so such an attempt cannot be closed this way. This deliberately narrows the original
 recovery choices in #3854. Explicit **Revoke**
 is still available as intentional code invalidation; it does not claim that no email was sent and
 cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
@@ -230,7 +233,7 @@ identify a lost preparation, list recovery matches its exact delivery operation 
 ownership from another attempt's age or missing invite id. No database row lock
 is held across a portal or email call. Deploy this recovery change to every CARLOS sender node
 together after draining or stopping existing sends: older nodes do not understand `ABANDONING`
-and retain the old recovery protocol. "It did not arrive" first marks the attempt `REVOKING`, which is
+or `NOT_ARRIVED` and retain the old recovery protocol. "It did not arrive; revoke it" first marks the attempt `REVOKING`, which is
 unfinished, and marks it `REVOKED` only once the portal has confirmed the code dead; if that is
 interrupted or the call fails, the attempt stays `REVOKING` and staff can revoke it again after the
 same wait. A timeout can still apply remotely, so positive confirmation stays unavailable unless the
@@ -251,7 +254,9 @@ A sent invitation is recorded on the patient's chart as a short signed note nami
 to, never the email itself: a chart note is permanent, and the email carries the account credential. The
 note is written when the send succeeds, or when staff confirm an uncertain one arrived. If the note
 cannot be written, the invitation stays sent and the attempt records `chart_note_failed`, which the page
-shows so staff can add the note by hand. Other patient emails can copy their full content to the chart;
+shows so staff can add the note by hand. When staff record that an activated invitation's email did not
+arrive (its code already replaced or expired), the note says so, again without the code; if it cannot
+be written, the attempt records `not_arrived_note_failed` for the same reason. Other patient emails can copy their full content to the chart;
 portal invitations must never be switched to that.
 
 ## Verification

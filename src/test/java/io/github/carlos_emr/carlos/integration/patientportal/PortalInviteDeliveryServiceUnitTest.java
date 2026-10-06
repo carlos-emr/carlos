@@ -181,13 +181,13 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             service.invite(user, patient, staff, emailRequest());
 
             // The portal gets the chart's hin alone, never its version code, and compares it exactly,
-            // ignoring only spaces and dashes.
+            // ignoring only case, spaces and dashes.
             verify(portal).prepareInvite(eq(PATIENT), eq("patient@example.com"), eq(LocalDate.of(1980, 5, 20)),
                     eq("1234567890"), anyString(), eq(staff));
             assertThat(bodyAtSend)
-                    .contains("3. Confirm your email address, date of birth and health card number, then choose "
-                            + "a username and password. Enter the health card number without its version code "
-                            + "(the one or two letters after the number on an Ontario card).\n\n");
+                    .contains("3. Confirm your email address, date of birth and health card number (without its "
+                            + "version code: the one or two letters after the number on an Ontario card), then "
+                            + "choose a username and password.\n\n");
         }
 
         @Test

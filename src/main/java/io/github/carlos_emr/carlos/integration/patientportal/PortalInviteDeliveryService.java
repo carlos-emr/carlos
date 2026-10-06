@@ -69,6 +69,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
  * staff, COMMITTED | SEND_UNCERTAIN -> SENT (verified "it arrived")
  * staff, SEND_UNCERTAIN        -> REVOKING -> REVOKED (confirmed code invalidation)
+ * staff, COMMITTED             -> NOT_ARRIVED (portal shows the code already replaced or expired; no revoke)
  * failed withdrawal/revocation stays ABANDONING/REVOKING when its work is interrupted
  * </pre>
  *
@@ -102,9 +103,9 @@ public class PortalInviteDeliveryService {
 
     /**
      * How long past its expiry a pending invitation must be before CARLOS treats its code as dead, allowing for
-     * a difference between CARLOS's clock and the portal's.
+     * a difference between CARLOS's clock and the portal's. Generous, since a code lives seven days.
      */
-    static final Duration CODE_EXPIRY_MARGIN = Duration.ofMinutes(15);
+    static final Duration CODE_EXPIRY_MARGIN = Duration.ofHours(1);
 
     static final String OPERATION_PREFIX = "inv-";
     static final String REFERENCE_PREFIX = "emaillog:";

@@ -79,7 +79,8 @@ final class InviteDeliveryJson {
         ArrayNode decisions = node.putArray("decisions");
         if (onCurrentConnection && service.isRecoverable(row)) {
             for (Decision decision : PortalInviteDeliveryService.decisionsFor(row.getState())) {
-                if (decision == Decision.CONFIRM_NOT_ARRIVED && !deadInviteIds.contains(row.getPortalInviteId())) {
+                if (decision == Decision.CONFIRM_NOT_ARRIVED && (row.getPortalInviteId() == null
+                        || !deadInviteIds.contains(row.getPortalInviteId()))) {
                     continue;
                 }
                 decisions.add(decision.requestValue());

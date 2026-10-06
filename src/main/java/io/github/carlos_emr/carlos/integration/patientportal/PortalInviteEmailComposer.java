@@ -57,11 +57,11 @@ class PortalInviteEmailComposer {
 
     /**
      * CARLOS gives the portal the chart's health card number ({@code hin}) without its version code
-     * ({@code ver}), and the portal compares the number exactly, ignoring only spaces and dashes. A patient
-     * who copies an Ontario card in full, version code included, would be refused at activation.
+     * ({@code ver}), and the portal compares the number exactly, ignoring only case, spaces and dashes. A
+     * patient who copies an Ontario card in full, version code included, would be refused at activation.
      */
-    static final String HEALTH_CARD_HINT = "Enter the health card number without its version code (the "
-            + "one or two letters after the number on an Ontario card).";
+    static final String HEALTH_CARD_HINT = "(without its version code: the one or two letters after the number "
+            + "on an Ontario card)";
 
     /**
      * Replaces the invitation code in the stored email once the send has resolved. CARLOS never re-sends
@@ -167,8 +167,8 @@ class PortalInviteEmailComposer {
                 + "You have been invited to create an account on your clinic's patient portal.\n\n"
                 + "1. Open " + settings.activationUrl() + "\n"
                 + "2. Enter this invitation code: " + inviteCode + "\n"
-                + "3. Confirm your email address, date of birth and health card number, then choose a "
-                + "username and password. " + HEALTH_CARD_HINT + "\n\n"
+                + "3. Confirm your email address, date of birth and health card number " + HEALTH_CARD_HINT
+                + ", then choose a username and password.\n\n"
                 + "The code works once and is valid for up to " + CODE_LIFETIME.toDays() + " days. If "
                 + "you did not expect this email, you can ignore it: no account is created unless "
                 + "the code is used.\n\n"
