@@ -32,6 +32,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.*;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -52,7 +54,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("ProviderTemplate2Action")
 @Tag("unit")
 @Tag("admin")
-class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
+class ProviderTemplate2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -110,6 +112,7 @@ class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
 
             ProviderTemplate2Action action = new ProviderTemplate2Action();
             assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
+            verifyNoInteractions(mockEncounterTemplateDao);
         }
     }
 
@@ -202,12 +205,12 @@ class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("dboperation", "Delete");
             mockRequest.setParameter("name", "ToDelete");
 
-            EncounterTemplate toDelete = mock(EncounterTemplate.class);
-            when(mockEncounterTemplateDao.find("ToDelete")).thenReturn(toDelete);
+            when(mockEncounterTemplateDao.remove("ToDelete")).thenReturn(true);
 
             action.execute();
 
-            verify(mockEncounterTemplateDao).remove(toDelete);
+            verify(mockEncounterTemplateDao).remove("ToDelete");
+            verify(mockEncounterTemplateDao, never()).remove(any(EncounterTemplate.class));
             assertThat((String) mockRequest.getAttribute("resultMsg"))
                 .isEqualTo("Template deleted.");
         }
@@ -219,11 +222,12 @@ class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
             mockRequest.setMethod("POST");
             mockRequest.setParameter("dboperation", "Delete");
             mockRequest.setParameter("name", "NonExistent");
-            when(mockEncounterTemplateDao.find("NonExistent")).thenReturn(null);
+            when(mockEncounterTemplateDao.remove("NonExistent")).thenReturn(false);
 
             action.execute();
 
-            verify(mockEncounterTemplateDao, never()).remove(any());
+            verify(mockEncounterTemplateDao).remove("NonExistent");
+            verify(mockEncounterTemplateDao, never()).remove(any(EncounterTemplate.class));
             assertThat((String) mockRequest.getAttribute("resultMsg"))
                 .isEqualTo("Template not found.");
         }
@@ -236,9 +240,7 @@ class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("dboperation", "Delete");
             mockRequest.setParameter("name", "FailDelete");
 
-            EncounterTemplate toDelete = mock(EncounterTemplate.class);
-            when(mockEncounterTemplateDao.find("FailDelete")).thenReturn(toDelete);
-            doThrow(new RuntimeException("DB error")).when(mockEncounterTemplateDao).remove(toDelete);
+            when(mockEncounterTemplateDao.remove("FailDelete")).thenThrow(new RuntimeException("DB error"));
 
             action.execute();
 
@@ -301,17 +303,19 @@ class ProviderTemplate2ActionTest extends CarlosUnitTestBase {
             verify(mockEncounterTemplateDao, never()).merge(any());
         }
 
-        @Test
-        @DisplayName("should not execute Delete on GET request")
-        void shouldNotExecuteDelete_onGetRequest() throws Exception {
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should not execute Delete on a read request")
+        void shouldNotExecuteDelete_onReadRequest(String method) throws Exception {
             ProviderTemplate2Action action = createActionWithPrivilege();
-            mockRequest.setMethod("GET");
+            mockRequest.setMethod(method);
             mockRequest.setParameter("dboperation", "Delete");
             mockRequest.setParameter("name", "MyTemplate");
 
             action.execute();
 
             verify(mockEncounterTemplateDao, never()).remove(any());
+            verify(mockEncounterTemplateDao, never()).remove(anyString());
         }
     }
 
