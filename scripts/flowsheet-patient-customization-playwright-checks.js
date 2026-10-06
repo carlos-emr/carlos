@@ -169,6 +169,8 @@ async function workflow(s, { editorOnly = false } = {}) {
     const section = page.locator('.preventionSection').filter({ has: page.locator('#printHPWT') });
     h.assert(await section.count() === 1,
       'Custom print from the Health Tracker does not list the patient\'s customised WT item');
+    h.assert(await page.locator('#printHPHT').count() === 0,
+      'Custom print brought back the removed HT item');
     h.assert((await section.locator('.headPrevention p span').first().innerText()).trim() === items.WT,
       'Custom print does not show the customised display name');
     await section.locator('.preventionProcedure p').filter({ hasText: '120' }).waitFor({ state: 'visible' });
