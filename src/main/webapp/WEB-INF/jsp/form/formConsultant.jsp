@@ -320,7 +320,6 @@
 
         <script type="text/javascript">
             function onPrint() {
-                let ret;
                 document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
@@ -346,8 +345,6 @@
 
                 const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
                 if (ret) {
-                const ret = confirm("<fmt:message key='global.msgDoYouWishMakeChanges'/>");
-                if (ret) {
                     setStyle('textareaDiv', 'position', 'absolute');
                     setStyle('textDiv', 'position', 'absolute');
                     setVisibility('textDiv', 'hidden');
@@ -364,7 +361,6 @@
             function onSave() {
                 document.forms[0].submit.value = "save";
                 const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
-                const ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
@@ -377,7 +373,6 @@
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
-                const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 const ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }
