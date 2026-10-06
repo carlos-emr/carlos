@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-class ViewFlowSheetPrint2ActionTest extends CarlosWebTestBase {
+class ViewFlowSheetPrint2ActionUnitTest extends CarlosWebTestBase {
     @BeforeEach
     void denyByDefault() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), any()))
