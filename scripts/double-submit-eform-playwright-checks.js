@@ -43,10 +43,12 @@ async function workflow(s) {
   h.assert(/^[1-9]\d*$/.test(fid), 'The eForm template fixture was not created');
   const chart = await s.chart();
   const v = verdicts('eform-submit');
-  // The Add eForm list stays open all run: unloading it throws on a null window.opener (known defect,
-  // covered by eform-groups), so it is never closed from here.
+  // Keep the template list open while exercising independently rendered submission identities.
   const list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
   await list.locator('#efmTable').waitFor();
+  // The owned template may sort past the first 15-row page on a populated installation.
+  await list.locator('#efmTable_filter input[type="search"]').fill(formName);
+  await list.locator('#efmTable a').filter({ hasText: formName }).first().waitFor({ state: 'visible' });
 
   for (const mode of MODES) {
     await s.step(`eForm Submit via ${mode.label} saves exactly one instance`, async () => {
