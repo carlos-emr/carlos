@@ -1090,8 +1090,10 @@
                         <td colspan="3">
                             <c:set var="__enc_3"><carlos:encode value='<%= String.valueOf(bill.getDemographicNo()) %>' context="uriComponent"/></c:set>
                             <c:set var="__enc_4"><carlos:encode value='<%= allFields.getProperty("billingCode", "") %>' context="uriComponent"/></c:set>
-                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value="            
-<%= StringUtils.noNull(messageNotes) %>" context="html"/></textarea>
+                            <%-- The scriptlet expression must be the whole attribute value. With text in front
+                                 of it, Jasper passes the code itself to the tag as a literal string, and saving
+                                 would store that text as the note. --%>
+                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context="html"/></textarea>
                         </td>
                         <td></td>
 
