@@ -143,10 +143,10 @@ async function workflow(s) {
     await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'tickler preference Submit' });
     await settings.locator('#AlertBanner').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(preferenceRows() === '0', 'Choosing Default did not delete the preference row');
+    await settings.close();
     const reopened = await openPreferenceForm('tickler-preferences-default-reopen');
     h.assert(await reopened.locator('#taskAssigneeDefault').isChecked(), 'Reopening did not select Default');
     await reopened.close();
-    await settings.close();
   });
 
   await s.step('a GET against setTicklerPreferences is refused and does not change the stored preference', async () => {
