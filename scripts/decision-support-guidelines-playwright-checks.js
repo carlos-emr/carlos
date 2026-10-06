@@ -29,7 +29,7 @@ async function workflow(s) {
   const title = `${marker} guideline "review"`;
   const author = 'FAKE-PW <b>check</b>';
   const warning = `${marker} review amino-acid transport plan`;
-  const xml = `<guideline title="${title.replaceAll('"', '&quot;')}"><conditions>`
+  const xml = `<guideline title="${marker} guideline &quot;review&quot;"><conditions>`
     + `<condition type="dxcodes" any="icd9:${DX_CODE}"/><condition type="sex" any="F"/>`
     + `</conditions><consequence><warning strength="warning">${warning}</warning></consequence></guideline>`;
   s.cleanup(() => {
