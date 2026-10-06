@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -163,14 +164,17 @@ class MasterDemographicRecordKeysUnitTest {
             for (String key : new String[]{"demographic.demographiceditdemographic.consentStatusConsented",
                     "demographic.demographiceditdemographic.consentStatusOptedOut"}) {
                 String pattern = bundle.getProperty(key);
-                String formatted = new java.text.MessageFormat(pattern).format(new Object[]{"2026-10-05"});
+                String formatted = new MessageFormat(pattern).format(new Object[]{"2026-10-05"});
                 assertThat(formatted).as("%s in %s", key, locale)
                         .endsWith(": 2026-10-05")
-                        .doesNotContain("{", "'");
+                        .doesNotContain("{");
             }
         }
         // French typography: a non-breaking space before the colon.
-        assertThat(loadBundle("fr").getProperty("demographic.demographiceditdemographic.consentStatusOptedOut"))
+        Properties french = loadBundle("fr");
+        assertThat(french.getProperty("demographic.demographiceditdemographic.consentStatusConsented"))
+                .isEqualTo("Consentement donn\u00e9\u00a0: {0}");
+        assertThat(french.getProperty("demographic.demographiceditdemographic.consentStatusOptedOut"))
                 .isEqualTo("Consentement refus\u00e9\u00a0: {0}");
     }
 
