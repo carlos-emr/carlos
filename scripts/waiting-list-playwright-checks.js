@@ -101,6 +101,9 @@ async function workflow(s) {
   const firstNote = `${marker} first "quoted" note & detail`;
   const secondNote = `${marker} note edited again`;
   await s.step('Update Record with a list, note and date adds the patient to the list', async () => {
+    // The generic synthetic patient has no postal code; satisfy the real form's
+    // Canadian address validation before submitting this owned patient's update.
+    await s.master.locator('form[name="updatedelete"] input[name="postal"]').fill('K1A 0B1');
     await s.master.locator(LIST_SELECT).selectOption(listId);
     await s.master.locator(NOTE_INPUT).first().fill(firstNote);
     await s.master.locator(DATE_INPUT).first().fill('2026-03-04');
