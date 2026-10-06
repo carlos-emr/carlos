@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
+import io.github.carlos_emr.carlos.waitinglist.util.WaitingListAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.logging.log4j.Logger;
@@ -88,6 +89,7 @@ public class DemographicUpdate2Action extends ActionSupport {
      * from the former {@code demographicupdatearecord.jsp} scriptlets.
      *
      * @return {@code "success"}, {@code "duplicate"}, or {@code "methodNotAllowed"},
+     *         {@code NONE} with HTTP 409 for an unavailable waiting-list selection,
      *         or {@code null} when a redirect has been issued
      * @throws SecurityException if the session is missing or the provider lacks
      *         {@code _demographic} write privilege
@@ -110,6 +112,16 @@ public class DemographicUpdate2Action extends ActionSupport {
             logger.warn("DemographicUpdate2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
+        }
+
+        String selectedListId = request.getParameter("list_id");
+        boolean hasWaitingListSelection = selectedListId != null && !selectedListId.isBlank()
+                && !"0".equals(selectedListId.trim());
+        // Reject stale selections before changing either the patient or waiting-list rows.
+        if (hasWaitingListSelection && !WaitingListAccess.isAvailable(loggedInInfo, selectedListId)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "The selected waiting list is no longer available. Reload the form and choose an active list.");
+            return NONE;
         }
 
         DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
@@ -414,47 +426,26 @@ public class DemographicUpdate2Action extends ActionSupport {
         LogAction.addLog(proNo, LogConst.UPDATE, LogConst.CON_DEMOGRAPHIC,
                 demoNo, request.getRemoteAddr(), demoNo);
 
-        io.github.carlos_emr.carlos.waitinglist.WaitingList wL =
-                io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
-        if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
-            WLWaitingListUtil.updateWaitingListRecord(
-                    request.getParameter("list_id"), request.getParameter("waiting_list_note"),
+        if (hasWaitingListSelection) {
+            String listId = selectedListId.trim();
+            WLWaitingListUtil.updateWaitingListRecord(listId, request.getParameter("waiting_list_note"),
                     demoNo, request.getParameter("waiting_list_referral_date"));
-
-            String listId = request.getParameter("list_id");
-            if (listId != null && !listId.isEmpty() && !"0".equalsIgnoreCase(listId)) {
-                int listIdInt;
-                try {
-                    listIdInt = Integer.parseInt(listId);
-                } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid list_id={}, treating as 0", listId);
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                    return null;
-                }
-                List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
-                        listIdInt, demographicNo);
-                if (waitingListList.isEmpty()) {
-                    List<Appointment> apptList = appointmentDao.findNonCancelledFutureAppointments(demographicNo);
-                    request.setAttribute("demographicNo", demoNo);
-                    request.setAttribute("wlDemoNo", demoNo);
-                    request.setAttribute("wlListId", listId);
-                    request.setAttribute("wlNote", StringUtils.noNull(request.getParameter("waiting_list_note")));
-                    request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
-                    request.setAttribute("addToWl", Boolean.TRUE);
-                    request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
-                    return SUCCESS;
-                } else {
-                    response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                    return null;
-                }
-            } else {
-                response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-                return null;
+            List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
+                    Integer.parseInt(listId), demographicNo);
+            if (waitingListList.isEmpty()) {
+                List<Appointment> apptList = appointmentDao.findNonCancelledFutureAppointments(demographicNo);
+                request.setAttribute("demographicNo", demoNo);
+                request.setAttribute("wlDemoNo", demoNo);
+                request.setAttribute("wlListId", listId);
+                request.setAttribute("wlNote", StringUtils.noNull(request.getParameter("waiting_list_note")));
+                request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
+                request.setAttribute("addToWl", Boolean.TRUE);
+                request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
+                return SUCCESS;
             }
-        } else {
-            response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
-            return null;
         }
+        response.sendRedirect(request.getContextPath() + "/demographic/DemographicEdit?demographic_no=" + demographicNo);
+        return null;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
