@@ -98,6 +98,25 @@ async function workflow(s) {
       h.assert(repeated.status() === 409, `Direct replay answered HTTP ${repeated.status()} instead of 409`);
       h.assert((await repeated.text()).includes('Check Sent Messages'), 'Direct replay omitted recovery guidance');
       h.assert(sql.value(q) === '1', 'Direct replay created another message');
+      if (mode.key === 'replay') {
+        for (const [locale, language, title] of [
+          ['en', 'en', 'Check message delivery'], ['fr', 'fr', 'Vérifier la remise du message'],
+          ['es', 'es', 'Comprobar la entrega del mensaje'], ['pl', 'pl', 'Sprawdź dostarczenie wiadomości'],
+          ['pt-BR', 'pt', 'Verificar entrega da mensagem'],
+          ['de-DE,fr;q=0.9', 'fr', 'Vérifier la remise du message'],
+          ['de-DE', 'en', 'Check message delivery'],
+        ]) {
+          const localized = await s.context.request.post(original.url(), {
+            data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'], 'Accept-Language': locale },
+            maxRedirects: 0,
+          });
+          const body = await localized.text();
+          h.assert(localized.status() === 409 && body.includes(`<html lang="${language}">`) && body.includes(title),
+            `Replay recovery did not render the ${locale} locale with HTTP 409`);
+          h.assert(!body.includes('???messenger.SubmissionConflict'), 'Recovery contains an unresolved message-bundle key');
+          h.assert(sql.value(q) === '1', 'Localized replay created another message');
+        }
+      }
       if (mode.key === 'slowResubmit') h.assert(posts.seen.length === 1, 'Send remained active during a delayed response');
       inbox.off('request', capture);
       inbox.off('response', captureResponse);

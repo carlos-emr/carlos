@@ -193,8 +193,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
         var attempt = MessengerSubmissionGuard.attempt(request.getSession(), submission, userNo);
         if (attempt.claim() == null) {
-            return submissionConflict("This message submission is unavailable or already being processed. "
-                    + "Check Sent Messages before composing another message.");
+            return submissionConflict("messenger.SubmissionConflict.msgUnavailable");
         }
         final String normalizedSubject = subject;
         final String recipients = sentToWho;
@@ -223,8 +222,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error("Message send transaction failed", e);
                 if (!claim.canRetry()) {
-                    return submissionConflict("Message delivery could not be confirmed. "
-                            + "Check Sent Messages before composing another message.");
+                    return submissionConflict("messenger.SubmissionConflict.msgUnconfirmed");
                 }
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 request.setAttribute("createMessageError", "The message was not sent. Your draft is retained; please try again.");
@@ -238,11 +236,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
     }
 
-    private String submissionConflict(String message) {
+    private String submissionConflict(String messageKey) {
         // sendError uses the shared error page, which intentionally hides servlet error details.
         // These fixed recovery messages must remain visible in the normal production configuration.
         response.setStatus(HttpServletResponse.SC_CONFLICT);
-        request.setAttribute("messageSubmissionError", message);
+        request.setAttribute("messageSubmissionErrorKey", messageKey);
         return "conflict";
     }
 

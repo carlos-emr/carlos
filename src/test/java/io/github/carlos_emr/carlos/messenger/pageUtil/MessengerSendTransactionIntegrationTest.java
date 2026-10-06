@@ -146,7 +146,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             if ("afterCommit".equals(failure)) {
                 assertThat(result).isEqualTo("conflict");
                 assertThat(response.getStatus()).isEqualTo(409);
-                assertThat(request.getAttribute("messageSubmissionError").toString()).contains("Check Sent Messages");
+                assertThat(request.getAttribute("messageSubmissionErrorKey")).isEqualTo("messenger.SubmissionConflict.msgUnconfirmed");
                 assertRows(ownedIds, 1);
             } else {
                 assertThat(result).isEqualTo("error");
@@ -163,7 +163,7 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(replayResponse);
             assertThat(send(marker)).isEqualTo("conflict");
             assertThat(replayResponse.getStatus()).isEqualTo(409);
-            assertThat(request.getAttribute("messageSubmissionError").toString()).contains("Check Sent Messages");
+            assertThat(request.getAttribute("messageSubmissionErrorKey")).isEqualTo("messenger.SubmissionConflict.msgUnavailable");
             assertRows(ownedIds, 1);
         } finally {
             if (!ownedIds.isEmpty()) new TransactionTemplate(transactions).executeWithoutResult(status -> {
