@@ -75,13 +75,19 @@ async function workflow(s) {
       const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
         { textField: form.locator('#remoteSubmitButton') });
       if (mode.key === 'slowResubmit') {
-        // fill() and this mode's synthetic clicks do not give the page sticky user activation.
-        // A real editing gesture is required before Chrome permits a beforeunload prompt.
+        // Establish an editing gesture before asking Chrome to show an unload prompt.
         await form.locator('#note').click();
+        h.assert(await form.evaluate(() => navigator.userActivation.hasBeenActive),
+          'The slow-submit fixture has no trusted user activation');
         await form.evaluate(() => window.addEventListener('beforeunload', event => {
           event.preventDefault(); event.returnValue = '';
         }, { once: true }));
-        const dialogs = await h.withExpectedDialogs(form, activate);
+        // noWaitAfter deliberately returns while navigation is pending. Keep the expected-dialog
+        // handler installed until the slow response actually reaches the unload confirmation.
+        const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
+          form.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'beforeunload', timeout: 15000 }),
+          activate(),
+        ]));
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
       const count = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
