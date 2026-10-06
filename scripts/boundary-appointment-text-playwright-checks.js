@@ -17,6 +17,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
@@ -168,9 +169,68 @@ async function workflow(s) {
         const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${second}`);
         if (stored.hex !== b.hex(typed)) problems.push(`${column}: ${b.cpLength(typed)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
       }
+    } else {
+      h.assert(b.lengthRefusal(await popup.locator('body').innerText()), 'The booking was refused without explaining its text limit');
     }
     await popup.close().catch(() => {});
     h.assert(problems.length === 0, problems.join(' || '));
+  });
+
+  await s.step('bypassed client limits refuse booking without inserting or discarding entered text', async () => {
+    await reloadDaySheet();
+    const before = sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`);
+    const popup = await openBooking();
+    const name = 'N'.repeat(51);
+    const resources = 'R'.repeat(256);
+    await popup.locator('#keyword').evaluate(element => element.removeAttribute('maxlength'));
+    await field(popup, 'resources').evaluate(element => element.removeAttribute('maxlength'));
+    await popup.locator('#keyword').fill(name);
+    await field(popup, 'resources').fill(resources);
+    const mark = failureMark(recorder);
+    const [post] = await Promise.all([
+      popup.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/appointment/AddRecord')),
+      popup.locator('#addButton').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong booking answered HTTP ${post.status()} instead of 400`);
+    await popup.waitForLoadState('load');
+    consumeExpectedFailure(recorder, mark, { status: 400, path: /\/appointment\/AddRecord$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`) === before,
+      'The refused booking inserted an appointment');
+    h.assert(b.lengthRefusal(await popup.locator('body').innerText()), 'The booking refusal did not explain its text limit');
+    h.assert(await popup.locator('#keyword').inputValue() === name
+      && await field(popup, 'resources').inputValue() === resources, 'The refused booking discarded entered text');
+    await popup.close();
+  });
+
+  await s.step('bypassed edit limits refuse all changes before archiving and preserve the draft', async () => {
+    const snapshot = () => JSON.stringify(sql.rows(`SELECT * FROM appointment WHERE ${byApptNo()}${apptNo}`));
+    const archives = () => sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${apptNo}`);
+    const before = snapshot();
+    const beforeArchives = archives();
+    const edit = await openEdit(apptNo);
+    const values = { reason: 'R'.repeat(81), notes: 'N'.repeat(256), resources: 'S'.repeat(256) };
+    for (const [name, value] of Object.entries(values)) {
+      const box = edit.locator(`form [name="${name}"]`).first();
+      await box.evaluate(element => element.removeAttribute('maxlength'));
+      await box.fill(value);
+    }
+    const mark = failureMark(recorder);
+    const [post] = await Promise.all([
+      edit.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/appointment/UpdateRecord')),
+      edit.locator('#updateButton').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong edit answered HTTP ${post.status()} instead of 400`);
+    await edit.waitForLoadState('load');
+    consumeExpectedFailure(recorder, mark, { status: 400, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(snapshot() === before && archives() === beforeArchives, 'The refused edit changed or archived the appointment');
+    h.assert(b.lengthRefusal(await edit.locator('body').innerText()), 'The edit refusal did not explain its text limit');
+    for (const [name, value] of Object.entries(values)) {
+      h.assert(await edit.locator(`form [name="${name}"]`).first().inputValue() === value,
+        `The refused edit discarded ${name}`);
+    }
+    await edit.close();
   });
 }
 

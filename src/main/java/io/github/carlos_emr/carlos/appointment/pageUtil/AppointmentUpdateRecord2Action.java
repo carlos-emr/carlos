@@ -86,6 +86,13 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             return NONE;
         }
 
+        boolean statusOnly = "Cancel Appt".equals(request.getParameter("buttoncancel"))
+                || "No Show".equals(request.getParameter("buttoncancel"));
+        AppointmentTextInput text = AppointmentTextInput.from(request, request.getParameter("keyword"));
+        if (!statusOnly && text.rejectIfTooLong(request, response)) {
+            return INPUT;
+        }
+
         Appointment appt;
         try {
             appt = appointmentDao.find(Integer.parseInt(apptNoStr));
@@ -101,9 +108,7 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
 
         String changedStatus = null;
 
-        if (request.getParameter("buttoncancel") != null
-                && (request.getParameter("buttoncancel").equals("Cancel Appt")
-                || request.getParameter("buttoncancel").equals("No Show"))) {
+        if (statusOnly) {
             changedStatus = request.getParameter("buttoncancel").equals("Cancel Appt") ? "C" : "N";
             appt.setStatus(changedStatus);
             appt.setLastUpdateUser(updateuser);
@@ -118,11 +123,11 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("start_time"))));
             appt.setEndTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
-            appt.setName(request.getParameter("keyword"));
-            appt.setNotes(request.getParameter("notes"));
-            appt.setReason(request.getParameter("reason"));
+            appt.setName(text.name());
+            appt.setNotes(text.notes());
+            appt.setReason(text.reason());
             appt.setLocation(request.getParameter("location"));
-            appt.setResources(request.getParameter("resources"));
+            appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
             appt.setStyle(request.getParameter("style"));
             appt.setBilling(request.getParameter("billing"));

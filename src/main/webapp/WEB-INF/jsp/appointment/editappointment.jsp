@@ -121,6 +121,7 @@
 
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = ("true".equals(request.getParameter("bFirstDisp")));
+    if (request.getAttribute("appointmentValidationErrors") != null) bFirstDisp = false;
 
     String mrpName = "";
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -857,6 +858,12 @@
         </script>
     </head>
     <body onload="setfocus();updateTime();locale()">
+        <c:if test="${not empty appointmentValidationErrors}">
+            <div class="alert alert-danger" role="alert">
+                <c:forEach var="error" items="${appointmentValidationErrors}"><p>${carlos:forHtml(error)}</p></c:forEach>
+            </div>
+        </c:if>
+
 
 <div id="editAppointment" >
     <div class="container" >
@@ -1058,8 +1065,8 @@
                                value="<fmt:message key="appointment.editappointment.btnSearch"/>">
                     </td>
                     <td>
-            	<input type="text" name="keyword" id="keyword" class="form-control"
-                               value="<carlos:encode value='<%= bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
+                <input type="text" name="keyword" id="keyword" maxlength="50" class="form-control"
+                               value="<carlos:encode value='<%= request.getAttribute("appointmentValidationErrors") != null ? StringUtils.defaultString(request.getParameter("keyword")) : bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "") %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
                 </tr>
@@ -1325,7 +1332,7 @@
                         <label><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
-                <input type="text" name="resources" tabindex="5" class="form-control"
+                <input type="text" name="resources" maxlength="255" tabindex="5" class="form-control"
                                value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
