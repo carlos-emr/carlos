@@ -38,6 +38,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -170,10 +172,12 @@ public class PortalPanel2Action extends PortalJsonAction {
         PatientPortalStaffContext staff = staffContextResolver.resolveForPatient(loggedInInfo, scope, demographicNo);
         ObjectNode payload = newPayload();
         boolean complete = true;
-        if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff)) {
+        // The invitations as the portal lists them now; the delivery section reads which codes are dead.
+        List<PatientPortalInviteDto> invitesNow = new ArrayList<>();
+        if (mayReadInvites && !addInvites(portal, payload, demographicNo, staff, invitesNow)) {
             complete = false;
         }
-        if (mayReadInvites && !addDeliveries(payload, demographicNo)) {
+        if (mayReadInvites && !addDeliveries(payload, demographicNo, invitesNow)) {
             complete = false;
         }
         if (mayReadAccount && !addAccount(portal, payload, demographicNo, staff)) {
@@ -196,10 +200,11 @@ public class PortalPanel2Action extends PortalJsonAction {
      */
     private boolean addInvites(
             PatientPortalService portal, ObjectNode payload, int demographicNo,
-            PatientPortalStaffContext staff) {
+            PatientPortalStaffContext staff, List<PatientPortalInviteDto> listed) {
         ArrayNode invites = payload.putArray("invites");
         try {
             List<PatientPortalInviteDto> found = portal.listInvites(demographicNo, staff);
+            listed.addAll(found);
             for (PatientPortalInviteDto invite : found) {
                 ObjectNode node = invites.addObject();
                 node.put("inviteId", invite.id());
@@ -231,9 +236,11 @@ public class PortalPanel2Action extends PortalJsonAction {
     /**
      * Adds the patient's recent invitation delivery attempts, newest first. They are read from CARLOS,
      * not the portal, so an unfinished delivery stays visible, with its recovery options, while the portal
-     * is unreachable.
+     * is unreachable. {@code invitesNow} is the portal's list from this same request; an activated
+     * attempt is offered "it did not arrive" only when that list shows its code dead, so with the portal
+     * unreachable the choice is not offered.
      */
-    private boolean addDeliveries(ObjectNode payload, int demographicNo) {
+    private boolean addDeliveries(ObjectNode payload, int demographicNo, List<PatientPortalInviteDto> invitesNow) {
         try {
             // Resolved inside the try: the invite settings are validated when their bean is created, so a
             // mistyped public URL must cost this section rather than the account and invitation sections.
@@ -241,9 +248,15 @@ public class PortalPanel2Action extends PortalJsonAction {
             if (invites == null) {
                 return true;
             }
+            Set<Long> deadInviteIds = new HashSet<>();
+            for (PatientPortalInviteDto invite : invitesNow) {
+                if (invites.isCodeDead(invite)) {
+                    deadInviteIds.add(invite.id());
+                }
+            }
             ArrayNode deliveries = payload.putArray("deliveries");
             for (PatientPortalInviteDelivery row : invites.recentFor(demographicNo)) {
-                InviteDeliveryJson.write(deliveries.addObject(), row, invites);
+                InviteDeliveryJson.write(deliveries.addObject(), row, invites, deadInviteIds);
             }
             return true;
         } catch (RuntimeException exception) {

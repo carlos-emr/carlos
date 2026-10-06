@@ -69,6 +69,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
  * staff, COMMITTED | SEND_UNCERTAIN -> SENT (verified "it arrived")
  * staff, SEND_UNCERTAIN        -> REVOKING -> REVOKED (confirmed code invalidation)
+ * staff, COMMITTED             -> NOT_ARRIVED (portal shows the code already replaced or expired; no revoke)
  * failed withdrawal/revocation stays ABANDONING/REVOKING when its work is interrupted
  * </pre>
  *
@@ -104,6 +105,12 @@ public class PortalInviteDeliveryService {
     /** How many recent attempts the panel shows per patient, beside every unfinished one. */
     public static final int RECENT_LIMIT = 10;
 
+    /**
+     * How long past its expiry a pending invitation must be before CARLOS treats its code as dead, allowing for
+     * a difference between CARLOS's clock and the portal's. Generous, since a code lives seven days.
+     */
+    static final Duration CODE_EXPIRY_MARGIN = Duration.ofHours(1);
+
     static final String OPERATION_PREFIX = "inv-";
     static final String REFERENCE_PREFIX = "emaillog:";
     // The status and endpoint named when a prepared code fails the format check.
@@ -124,6 +131,8 @@ public class PortalInviteDeliveryService {
             "Staff confirmed the invitation email did not arrive; it was revoked.";
     static final String EMAIL_ABANDONED_BY_STAFF =
             "Staff stopped this delivery; the invitation email was never sent.";
+    static final String EMAIL_CONFIRMED_NOT_ARRIVED =
+            "Staff confirmed the invitation email did not arrive; its code was already replaced or expired.";
 
     // Each staff decision is audited as AUDIT_ACTION_PREFIX + the decision's request value, or + WITHDRAW_STALE
     // for a stuck attempt withdrawn on the way to a new invitation.
@@ -140,7 +149,12 @@ public class PortalInviteDeliveryService {
         /** The patient received the email. */
         CONFIRM_SENT("confirmSent"),
         /** The email did not arrive; revoke the live token so a new invitation can be issued. */
-        CONFIRM_NOT_SENT("confirmNotSent");
+        CONFIRM_NOT_SENT("confirmNotSent"),
+        /**
+         * The email of an activated attempt did not arrive, and the portal shows its code already dead; nothing
+         * is revoked. See {@link #confirmNotArrived}.
+         */
+        CONFIRM_NOT_ARRIVED("confirmNotArrived");
 
         private final String requestValue;
 
@@ -296,6 +310,7 @@ public class PortalInviteDeliveryService {
                 yield recordOnChart(user, sent, emailLog, true);
             }
             case CONFIRM_NOT_SENT -> confirmNotSent(user, row, staff);
+            case CONFIRM_NOT_ARRIVED -> confirmNotArrived(user, row, staff);
         };
     }
 
@@ -335,8 +350,9 @@ public class PortalInviteDeliveryService {
         return switch (state) {
             case PREPARING, PREPARED, QUEUED, ABANDONING -> List.of(Decision.ABANDON);
             // COMMITTED may still have a paused sender between the gate and transport. Age cannot
-            // prove that it stopped; only an observed arrival can resolve it without racing dispatch.
-            case COMMITTED -> List.of(Decision.CONFIRM_SENT);
+            // prove that it stopped, so its code is never revoked here: an observed arrival resolves it, or,
+            // once the portal shows the code already dead, staff saying it did not arrive.
+            case COMMITTED -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_ARRIVED);
             case SEND_UNCERTAIN -> List.of(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_SENT);
             // A revocation that was interrupted: only asking the portal again can finish it.
             case REVOKING -> List.of(Decision.CONFIRM_NOT_SENT);
@@ -793,6 +809,78 @@ public class PortalInviteDeliveryService {
                 r -> r.setOutcome(Outcome.CONFIRMED_NOT_SENT));
         audit(user, revoked, Decision.CONFIRM_NOT_SENT.requestValue());
         return closeEmail(revoked, EMAIL_CONFIRMED_NOT_SENT);
+    }
+
+    /**
+     * Closes an activated attempt whose email staff say never arrived, without revoking anything. Such an
+     * attempt is {@link State#COMMITTED}: the portal activated its code, and CARLOS never learned how the
+     * send ended, usually because CARLOS stopped in between. Its sender may only be paused, so its code is
+     * never revoked on staff's word; this answer is accepted only when the portal, asked now rather than from
+     * the panel's earlier read, shows the code already dead: replaced by a newer invitation, or past its
+     * expiry by {@link #CODE_EXPIRY_MARGIN}. A sender that resumes afterwards can then deliver only a code
+     * that no longer works. The attempt is claimed from {@code COMMITTED} under the row lock, so a sender
+     * finishing at the same moment wins and this answer is refused.
+     *
+     * @throws PortalInviteException {@link Reason#INVITE_ALREADY_USED} when the patient used the code, so
+     *     the email did arrive; {@link Reason#INVITE_STILL_LIVE} when the portal shows the code live, or does
+     *     not list it; {@link Reason#STATE_CHANGED} when the attempt left {@code COMMITTED} meanwhile
+     * @throws PatientPortalException when the portal cannot be asked; the attempt is left as it was
+     */
+    private PatientPortalInviteDelivery confirmNotArrived(LoggedInInfo user, PatientPortalInviteDelivery row,
+            PatientPortalStaffContext staff) {
+        Long inviteId = row.getPortalInviteId();
+        PatientPortalInviteDto invite = inviteId == null ? null : portal.listInvites(row.getDemographicNo(), staff)
+                .stream()
+                .filter(listed -> listed.id() == inviteId)
+                .findFirst()
+                .orElse(null);
+        if (invite != null && STATUS_ACCEPTED.equals(invite.status())) {
+            throw new PortalInviteException(Reason.INVITE_ALREADY_USED);
+        }
+        if (invite == null || !isCodeDead(invite)) {
+            throw new PortalInviteException(Reason.INVITE_STILL_LIVE);
+        }
+        PatientPortalInviteDelivery closed = advance(row.getId(), State.COMMITTED, State.NOT_ARRIVED,
+                r -> r.setOutcome(Outcome.NOT_ARRIVED_CODE_DEAD));
+        audit(user, closed, Decision.CONFIRM_NOT_ARRIVED.requestValue());
+        closeEmail(closed, EMAIL_CONFIRMED_NOT_ARRIVED);
+        return noteNotArrived(user, closed);
+    }
+
+    /**
+     * Whether the portal's invitation can no longer be used to activate an account: it was replaced by a
+     * newer one, or it is still listed as pending but has been past its expiry for {@link #CODE_EXPIRY_MARGIN}
+     * (the portal refuses an expired code without changing its status). A revoked or accepted invitation is
+     * not counted here; see {@link #confirmNotArrived}.
+     */
+    public boolean isCodeDead(PatientPortalInviteDto invite) {
+        if (STATUS_SUPERSEDED.equals(invite.status())) {
+            return true;
+        }
+        return STATUS_PENDING.equals(invite.status()) && invite.expiresAt() != null
+                && !invite.expiresAt().plus(CODE_EXPIRY_MARGIN).isAfter(clock.instant());
+    }
+
+    /**
+     * Records on the chart that staff confirmed the invitation email did not arrive. Best effort, as for a
+     * sent invitation: the decision is already durable, and a failure is recorded on the attempt so the page
+     * asks staff to add the note by hand.
+     */
+    private PatientPortalInviteDelivery noteNotArrived(LoggedInInfo user, PatientPortalInviteDelivery row) {
+        Integer emailLogId = row.getEmailLogId();
+        EmailLog emailLog = emailLogId == null ? null : emailLogs.find(emailLogId.intValue());
+        if (emailLog != null && emailLog.getToEmail() != null && emailLog.getToEmail().length > 0) {
+            try {
+                emailManager.addEmailNote(user, emailLog, emails.notArrivedNote(emailLog.getToEmail()[0]));
+                return row;
+            } catch (RuntimeException exception) {
+                logger.warn("patient portal invitation chart note could not be written: {}",
+                        exception.getClass().getSimpleName());
+            }
+        }
+        PatientPortalInviteDelivery updated = deliveries.advance(row.getId(), State.NOT_ARRIVED, State.NOT_ARRIVED,
+                r -> r.setOutcome(Outcome.NOT_ARRIVED_NOTE_FAILED));
+        return updated != null ? updated : row;
     }
 
     /** What revoking an attempt's code found. */

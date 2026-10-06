@@ -10,8 +10,16 @@ const {createLogic} = require('../src/main/webapp/share/javascript/demographic/p
 
 const ROOT = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(ROOT, file), 'utf8');
-// Escapes every regular-expression metacharacter, so a key is matched as literal text.
-const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// A bundle's entries as key -> raw value, so keys are compared as plain strings.
+function bundleEntries(locale) {
+  const entries = new Map();
+  for (const line of read(`src/main/resources/oscarResources_${locale}.properties`).split('\n')) {
+    const separator = line.indexOf('=');
+    if (line.startsWith('#') || separator < 0) continue;
+    entries.set(line.slice(0, separator), line.slice(separator + 1));
+  }
+  return entries;
+}
 
 function logic(entries) {
   return createLogic(new Map(Object.entries(entries)));
@@ -60,6 +68,8 @@ test('calls what staff asked for good news, unless the code could not be withdra
   assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'abandoned_by_staff', revokeFailed: true}), false);
   assert.equal(page.isGoodNews({state: 'abandoned', outcome: 'commit_unconfirmed', revokeFailed: false}), false);
   assert.equal(page.isGoodNews({state: 'revoking', outcome: 'send_unconfirmed', revokeFailed: false}), false);
+  assert.equal(page.isGoodNews({state: 'not_arrived', outcome: 'not_arrived_code_dead', revokeFailed: false}), true);
+  assert.equal(page.isGoodNews({state: 'not_arrived', outcome: 'not_arrived_note_failed', revokeFailed: false}), false);
 });
 
 test('shows no replacement question for a press made while a request is running', () => {
@@ -141,17 +151,28 @@ test('has page text for every refusal code, except the one that carries its own 
   }
 });
 
-test('has English text in all five bundles for every key the page lists', () => {
-  const english = read('src/main/resources/oscarResources_en.properties');
-  for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
-    const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
-    for (const key of pageKeys()) {
-      const pattern = new RegExp(`^demographic\\.portal\\.${escapeRegExp(key)}=(.+)$`, 'm');
-      const expected = english.match(pattern);
-      const actual = bundle.match(pattern);
-      assert.ok(expected, `en: ${key}`);
-      assert.ok(actual, `${locale}: ${key}`);
-      assert.equal(actual[1], expected[1], `${locale}: ${key}`);
+// Words that are the same in English and the translation. Everything else must be translated.
+const SAME_AS_ENGLISH = {
+  fr: new Set(['invites.heading']),
+  es: new Set(),
+  pl: new Set(['account.field.status', 'invites.status']),
+  pt_BR: new Set(['account.field.status', 'invites.status'])
+};
+
+test('has translated text in every bundle for every portal page key', () => {
+  const english = bundleEntries('en');
+  const prefix = 'demographic.portal.';
+  const keys = [...english.keys()].filter(key => key.startsWith(prefix)).map(key => key.slice(prefix.length));
+  assert.ok(keys.length >= 100, 'the portal keys were read');
+  for (const key of pageKeys()) assert.ok(english.get(prefix + key), `en: ${key}`);
+  for (const locale of Object.keys(SAME_AS_ENGLISH)) {
+    const bundle = bundleEntries(locale);
+    for (const key of keys) {
+      const value = bundle.get(prefix + key);
+      assert.ok(value, `${locale}: ${key}`);
+      if (!SAME_AS_ENGLISH[locale].has(key)) {
+        assert.notEqual(value, english.get(prefix + key), `${locale}: ${key} is not translated`);
+      }
     }
   }
 });
@@ -161,10 +182,8 @@ test('has text in every bundle for every label the page prints directly', () => 
   const keys = [...new Set([...jsp.matchAll(/<fmt:message key="([A-Za-z0-9_.]+)"/g)].map(m => m[1]))];
   assert.ok(keys.length >= 20, 'the labels were read');
   for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
-    const bundle = read(`src/main/resources/oscarResources_${locale}.properties`);
-    for (const key of keys) {
-      assert.match(bundle, new RegExp(`^${escapeRegExp(key)}=.+$`, 'm'), `${locale}: ${key}`);
-    }
+    const bundle = bundleEntries(locale);
+    for (const key of keys) assert.ok(bundle.get(key), `${locale}: ${key}`);
   }
 });
 

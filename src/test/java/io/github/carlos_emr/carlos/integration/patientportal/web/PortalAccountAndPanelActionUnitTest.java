@@ -616,6 +616,71 @@ class PortalAccountAndPanelActionUnitTest {
             assertThat(payload.get("deliveries").get(0).get("decisions").get(0).asText()).isEqualTo("confirmSent");
         }
 
+        private PatientPortalInviteDelivery stuckActivation() {
+            PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-2", DEMOGRAPHIC_NO, "clinic",
+                    "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+            row.setState(PatientPortalInviteDelivery.State.COMMITTED);
+            row.setPortalInviteId(41L);
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
+            when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", "portal account not found"));
+            return row;
+        }
+
+        private List<String> decisionsShown() throws Exception {
+            List<String> shown = new java.util.ArrayList<>();
+            payload().get("deliveries").get(0).get("decisions").forEach(node -> shown.add(node.asText()));
+            return shown;
+        }
+
+        @Test
+        @DisplayName("should offer 'it did not arrive' for an activated attempt only when this read shows its code dead")
+        void shouldOfferNotArrived_onlyWhenThePortalShowsTheCodeDead() throws Exception {
+            request.setMethod("GET");
+            stuckActivation();
+            PatientPortalInviteDto replaced = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "superseded",
+                    "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
+                    java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(replaced));
+            when(invites.isCodeDead(replaced)).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent", "confirmNotArrived");
+        }
+
+        @Test
+        @DisplayName("should not offer 'it did not arrive' while the code is live")
+        void shouldNotOfferNotArrived_whileTheCodeIsLive() throws Exception {
+            request.setMethod("GET");
+            stuckActivation();
+            PatientPortalInviteDto live = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "pending",
+                    "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
+                    java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(live));
+            when(invites.isCodeDead(live)).thenReturn(false);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent");
+        }
+
+        @Test
+        @DisplayName("should not offer 'it did not arrive' when the portal's invitations cannot be read")
+        void shouldNotOfferNotArrived_whenThePortalCannotBeRead() throws Exception {
+            request.setMethod("GET");
+            stuckActivation();
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent");
+            verify(invites, never()).isCodeDead(any());
+        }
+
         @Test
         @DisplayName("should report the deliveries section unavailable rather than empty when it cannot be read")
         void shouldReportDeliveriesUnavailable_whenTheReadFails() throws Exception {

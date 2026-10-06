@@ -221,6 +221,54 @@ class PortalInvite2ActionDeliveryUnitTest {
     }
 
     @Test
+    @DisplayName("should record a stuck activated email as not arrived through the same route")
+    void shouldRecover_withTheNotArrivedDecision() throws Exception {
+        request.setParameter("method", "recover");
+        request.setParameter("deliveryId", "9");
+        request.setParameter("decision", "confirmNotArrived");
+        when(invites.recover(same(session), same(patient), eq(9L), eq(Decision.CONFIRM_NOT_ARRIVED), same(staff)))
+                .thenReturn(delivery(State.NOT_ARRIVED));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(payload().get("delivery").get("state").asText()).isEqualTo("not_arrived");
+    }
+
+    @Test
+    @DisplayName("should answer 409 with the code when the portal still shows the code live")
+    void shouldRefuseNotArrived_whileTheCodeIsLive() throws Exception {
+        request.setParameter("method", "recover");
+        request.setParameter("deliveryId", "9");
+        request.setParameter("decision", "confirmNotArrived");
+        when(invites.recover(any(), any(), eq(9L), eq(Decision.CONFIRM_NOT_ARRIVED), any()))
+                .thenThrow(new PortalInviteException(PortalInviteException.Reason.INVITE_STILL_LIVE));
+
+        execute();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(payload().get("reason").asText()).isEqualTo("invite_still_live");
+    }
+
+    @Test
+    @DisplayName("should list 'it did not arrive' after an action only when the panel's own read shows the code dead")
+    void shouldNotListNotArrived_afterAnAction() throws Exception {
+        request.setParameter("method", "recover");
+        request.setParameter("deliveryId", "9");
+        request.setParameter("decision", "confirmSent");
+        PatientPortalInviteDelivery committed = delivery(State.COMMITTED);
+        when(invites.recover(any(), any(), eq(9L), eq(Decision.CONFIRM_SENT), any())).thenReturn(committed);
+        when(invites.isRecoverable(committed)).thenReturn(true);
+        when(invites.isOnCurrentConnection(committed)).thenReturn(true);
+
+        execute();
+
+        List<String> decisions = new ArrayList<>();
+        payload().get("delivery").get("decisions").forEach(node -> decisions.add(node.asText()));
+        assertThat(decisions).containsExactly("confirmSent");
+    }
+
+    @Test
     @DisplayName("should refuse an unknown decision")
     void shouldRefuseRecovery_withAnUnknownDecision() throws Exception {
         request.setParameter("method", "recover");

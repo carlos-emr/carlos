@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteExcepti
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * The JSON shape of an invitation delivery attempt, shared by the invite and panel actions.
@@ -39,7 +40,9 @@ import java.util.Locale;
  * {@code decisions} lists what staff may do now; it is empty until the attempt has been idle for
  * {@link PortalInviteDeliveryService#RECOVERY_MIN_AGE}, so a UI never offers an action the server
  * would refuse as too early, and always empty when {@code onCurrentConnection} is false: an attempt made
- * on another portal connection can be resolved only once that connection is restored.
+ * on another portal connection can be resolved only once that connection is restored. "It did not arrive"
+ * for an activated attempt is listed only when the caller's own fresh read of the portal shows that
+ * attempt's code already dead; the service asks the portal again before accepting it.
  *
  * @since 2026-09-22
  */
@@ -49,6 +52,15 @@ final class InviteDeliveryJson {
     }
 
     static ObjectNode write(ObjectNode node, PatientPortalInviteDelivery row, PortalInviteDeliveryService service) {
+        return write(node, row, service, Set.of());
+    }
+
+    /**
+     * @param deadInviteIds the portal invitations the caller's fresh read of the portal shows can no longer be
+     *     used ({@link PortalInviteDeliveryService#isCodeDead}); empty when the caller did not read them
+     */
+    static ObjectNode write(ObjectNode node, PatientPortalInviteDelivery row, PortalInviteDeliveryService service,
+            Set<Long> deadInviteIds) {
         node.put("deliveryId", row.getId());
         node.put("state", row.getState().name().toLowerCase(Locale.ROOT));
         node.put("finished", row.getState().isTerminal());
@@ -67,6 +79,10 @@ final class InviteDeliveryJson {
         ArrayNode decisions = node.putArray("decisions");
         if (onCurrentConnection && service.isRecoverable(row)) {
             for (Decision decision : PortalInviteDeliveryService.decisionsFor(row.getState())) {
+                if (decision == Decision.CONFIRM_NOT_ARRIVED && (row.getPortalInviteId() == null
+                        || !deadInviteIds.contains(row.getPortalInviteId()))) {
+                    continue;
+                }
                 decisions.add(decision.requestValue());
             }
         }
@@ -82,8 +98,8 @@ final class InviteDeliveryJson {
             case DELIVERY_NOT_FOUND -> HttpServletResponse.SC_NOT_FOUND;
             case NOT_CONFIGURED, SENDER_UNAVAILABLE, CHANNEL_UNAVAILABLE -> HttpServletResponse.SC_SERVICE_UNAVAILABLE;
             case CONSENT_BLOCKED, STALE_ATTEMPT_EXISTS, PENDING_INVITE_EXISTS, INVITE_ALREADY_USED,
-                    INVITE_NOT_PENDING, RECOVERY_TOO_EARLY, RECOVERY_NOT_ALLOWED, PORTAL_CONNECTION_CHANGED,
-                    STATE_CHANGED -> HttpServletResponse.SC_CONFLICT;
+                    INVITE_NOT_PENDING, INVITE_STILL_LIVE, RECOVERY_TOO_EARLY, RECOVERY_NOT_ALLOWED,
+                    PORTAL_CONNECTION_CHANGED, STATE_CHANGED -> HttpServletResponse.SC_CONFLICT;
         };
     }
 

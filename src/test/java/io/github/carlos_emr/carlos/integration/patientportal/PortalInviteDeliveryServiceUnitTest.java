@@ -174,6 +174,23 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should tell the patient to leave out the health card's version code")
+        void shouldAskForTheHealthCardNumber_withoutItsVersionCode() {
+            Demographic patient = patient();
+            patient.setVer("AB");
+            service.invite(user, patient, staff, emailRequest());
+
+            // The portal gets the chart's hin alone, never its version code, and compares it exactly,
+            // ignoring only case, spaces and dashes.
+            verify(portal).prepareInvite(eq(PATIENT), eq("patient@example.com"), eq(LocalDate.of(1980, 5, 20)),
+                    eq("1234567890"), anyString(), eq(staff));
+            assertThat(bodyAtSend)
+                    .contains("3. Confirm your email address, date of birth and health card number (without its "
+                            + "version code: the one or two letters after the number on an Ontario card), then "
+                            + "choose a username and password.\n\n");
+        }
+
+        @Test
         @DisplayName("should mark the email as a portal invitation")
         void shouldMarkTheEmail_asAPortalInvite() {
             service.invite(user, patient(), staff, emailRequest());
@@ -594,7 +611,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
             PatientPortalInviteDelivery arrived = storedRow(State.COMMITTED, Duration.ofMinutes(16));
             PatientPortalInviteDelivery lost = storedRow(State.COMMITTED, Duration.ofMinutes(16));
             assertThat(PortalInviteDeliveryService.decisionsFor(State.COMMITTED))
-                    .containsExactly(Decision.CONFIRM_SENT);
+                    .containsExactly(Decision.CONFIRM_SENT, Decision.CONFIRM_NOT_ARRIVED);
 
             service.recover(user, patient(), arrived.getId(), Decision.CONFIRM_SENT, staff);
             assertThatThrownBy(() -> service.recover(user, patient(), lost.getId(), Decision.CONFIRM_NOT_SENT, staff))
@@ -1619,6 +1636,205 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
+    @DisplayName("recording an activated email that never arrived")
+    class ConfirmNotArrived {
+
+        private PatientPortalInviteDelivery stuck() {
+            PatientPortalInviteDelivery row = storedRow(State.COMMITTED, Duration.ofMinutes(16));
+            row.setOutcome(null);
+            return row;
+        }
+
+        private PatientPortalInviteDelivery recordNotArrived(PatientPortalInviteDelivery row) {
+            return service.recover(user, patient(), row.getId(), Decision.CONFIRM_NOT_ARRIVED, staff);
+        }
+
+        private void assertRefused(PatientPortalInviteDelivery row, Reason reason) {
+            assertThatThrownBy(() -> recordNotArrived(row))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(reason));
+            assertUntouched(row);
+        }
+
+        private void assertUntouched(PatientPortalInviteDelivery row) {
+            assertThat(row.getState()).isEqualTo(State.COMMITTED);
+            assertThat(row.getOutcome()).isNull();
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+            verify(emailLogs, never()).replaceBody(anyInt(), anyString());
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+            verify(emailManager, never()).addEmailNote(any(), any(EmailLog.class), anyString());
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should close the attempt without revoking, once the portal shows its invitation replaced")
+        void shouldClose_whenThePortalShowsTheInvitationReplaced() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "superseded")));
+
+            PatientPortalInviteDelivery closed = recordNotArrived(row);
+
+            assertThat(closed.getState()).isEqualTo(State.NOT_ARRIVED);
+            assertThat(closed.getState().isTerminal()).isTrue();
+            assertThat(closed.getOutcome()).isEqualTo(Outcome.NOT_ARRIVED_CODE_DEAD);
+            verify(portal).listInvites(PATIENT, staff);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+            verify(emailLogs).replaceBody(EMAIL_LOG, PortalInviteEmailComposer.CODE_FORGOTTEN);
+            verify(emailLogs).transitionEmailStatus(eq(EMAIL_LOG), eq(EmailStatus.PENDING), eq(EmailStatus.RESOLVED),
+                    eq(PortalInviteDeliveryService.EMAIL_CONFIRMED_NOT_ARRIVED), any());
+            ArgumentCaptor<String> note = ArgumentCaptor.forClass(String.class);
+            verify(emailManager).addEmailNote(eq(user), any(EmailLog.class), note.capture());
+            assertThat(note.getValue())
+                    .contains("patient@example.com did not arrive, as staff confirmed")
+                    .doesNotContain(CODE);
+            logActionMock.verify(() -> LogAction.addLog(user, "PortalInviteDeliveryService.recover.confirmNotArrived",
+                    "PortalInviteDelivery", String.valueOf(row.getId()), String.valueOf(PATIENT),
+                    "state=NOT_ARRIVED&outcome=NOT_ARRIVED_CODE_DEAD"));
+        }
+
+        @Test
+        @DisplayName("should close the attempt once its pending invitation is past its expiry by the margin")
+        void shouldClose_whenThePendingInvitationHasExpired() {
+            PatientPortalInviteDelivery row = stuck();
+            Instant expired = NOW.minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN);
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "pending", expired)));
+
+            assertThat(recordNotArrived(row).getState()).isEqualTo(State.NOT_ARRIVED);
+            verify(portal, never()).revokeInvite(anyInt(), anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse, leaving the attempt open, while its pending invitation is inside the margin")
+        void shouldRefuse_whenThePendingInvitationExpiredWithinTheMargin() {
+            PatientPortalInviteDelivery row = stuck();
+            Instant justExpired = NOW.minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN).plusSeconds(1);
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "pending", justExpired)));
+
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should refuse, leaving the attempt open, while the portal lists its code as live")
+        void shouldRefuse_whenTheCodeIsStillLive() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "pending")));
+
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should refuse when the portal shows a revoked invitation, as the decision covers only replaced or expired codes")
+        void shouldRefuse_whenTheInvitationWasRevoked() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "revoked")));
+
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should refuse when the portal no longer lists the invitation")
+        void shouldRefuse_whenThePortalDoesNotListTheInvitation() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE + 1, "superseded")));
+
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should refuse when the patient already used the code, so the email did arrive")
+        void shouldRefuse_whenThePatientUsedTheCode() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "accepted")));
+
+            assertRefused(row, Reason.INVITE_ALREADY_USED);
+        }
+
+        @Test
+        @DisplayName("should leave the attempt open when the portal cannot be asked")
+        void shouldLeaveTheAttemptOpen_whenThePortalCannotBeReached() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            assertThatThrownBy(() -> recordNotArrived(row)).isInstanceOf(PatientPortalException.class);
+            assertUntouched(row);
+        }
+
+        @Test
+        @DisplayName("should refuse when a resumed sender finishes the attempt while the portal is asked")
+        void shouldRefuse_whenTheSenderFinishesFirst() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenAnswer(invocation -> {
+                row.setState(State.SENT);
+                return List.of(invite(INVITE, "superseded"));
+            });
+
+            assertThatThrownBy(() -> recordNotArrived(row))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.STATE_CHANGED));
+            assertThat(row.getState()).isEqualTo(State.SENT);
+            verify(emailLogs, never()).transitionEmailStatus(anyInt(), any(), any(), any(), any());
+            logActionMock.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should record a chart note that could not be written, for staff to add by hand")
+        void shouldRecordTheMissingNote_whenTheChartNoteFails() {
+            PatientPortalInviteDelivery row = stuck();
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of(invite(INVITE, "superseded")));
+            doThrow(new IllegalStateException("chart unavailable"))
+                    .when(emailManager).addEmailNote(any(), any(EmailLog.class), anyString());
+
+            PatientPortalInviteDelivery closed = recordNotArrived(row);
+
+            assertThat(closed.getState()).isEqualTo(State.NOT_ARRIVED);
+            assertThat(closed.getOutcome()).isEqualTo(Outcome.NOT_ARRIVED_NOTE_FAILED);
+        }
+
+        @Test
+        @DisplayName("should refuse before the wait, another patient's attempt, and a changed connection, asking the portal nothing")
+        void shouldRefuse_beforeAskingThePortal() {
+            PatientPortalInviteDelivery fresh = storedRow(State.COMMITTED, Duration.ofMinutes(14));
+            assertThatThrownBy(() -> recordNotArrived(fresh))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.RECOVERY_TOO_EARLY));
+
+            PatientPortalInviteDelivery row = stuck();
+            Demographic other = patient();
+            other.setDemographicNo(PATIENT + 1);
+            assertThatThrownBy(() -> service.recover(user, other, row.getId(), Decision.CONFIRM_NOT_ARRIVED, staff))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.DELIVERY_NOT_FOUND));
+
+            service = new PortalInviteDeliveryService(portal, portalSettings("https://other-portal.clinic.example"),
+                    new PortalInviteSettings("https://portal.clinic.example", "clinic@example.invalid"),
+                    emailManager, deliveries, mock(EmailConfigDao.class), emailLogs, clockAtNow());
+            assertThatThrownBy(() -> recordNotArrived(row))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.PORTAL_CONNECTION_CHANGED));
+
+            verifyNoInteractions(portal);
+            assertUntouched(row);
+        }
+
+        @Test
+        @DisplayName("should offer it only for an activated attempt, and finish it for good")
+        void shouldApply_onlyToAnActivatedAttempt() {
+            for (State state : State.values()) {
+                assertThat(PortalInviteDeliveryService.decisionsFor(state).contains(Decision.CONFIRM_NOT_ARRIVED))
+                        .as(state.name())
+                        .isEqualTo(state == State.COMMITTED);
+            }
+            assertThat(State.unfinished()).doesNotContain(State.NOT_ARRIVED);
+            assertThat(PortalInviteDeliveryService.decisionsFor(State.NOT_ARRIVED)).isEmpty();
+
+            PatientPortalInviteDelivery uncertain = storedRow(State.SEND_UNCERTAIN, Duration.ofMinutes(16));
+            assertThatThrownBy(() -> recordNotArrived(uncertain))
+                    .isInstanceOfSatisfying(PortalInviteException.class,
+                            exception -> assertThat(exception.reason()).isEqualTo(Reason.RECOVERY_NOT_ALLOWED));
+        }
+    }
+
+    @Nested
     @DisplayName("abandonment ownership and sender races")
     class AbandonmentOwnership {
         @ParameterizedTest
@@ -2065,8 +2281,12 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
     }
 
     private PatientPortalInviteDto invite(long id, String status) {
+        return invite(id, status, PATIENT_EXPIRY);
+    }
+
+    private PatientPortalInviteDto invite(long id, String status, Instant expiresAt) {
         return new PatientPortalInviteDto(id, "clinic-a", PATIENT, status, "999998", "Dr Example", 1, NOW,
-                "Dr Example", PATIENT_EXPIRY, null, null);
+                "Dr Example", expiresAt, null, null);
     }
 
     private EmailLog emailLog() {
