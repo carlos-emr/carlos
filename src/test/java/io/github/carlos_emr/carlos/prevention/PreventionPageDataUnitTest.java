@@ -125,6 +125,11 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         assertThat(pageData.getDateOfBirth()).isEqualTo(patient.getBirthDay().getTime());
         verify(demographicManager).getDemographic(user, PATIENT);
         verifyNoMoreInteractions(demographicManager);
+        // Each distinct type is still read, once, alongside the single patient lookup.
+        verify(preventionDao).findByTypeAndDemoNo("Flu", 7);
+        verify(preventionDao).findByTypeAndDemoNo("PAP", 7);
+        verify(preventionDao).findByTypeAndDemoNo("MMR", 7);
+        verifyNoMoreInteractions(preventionDao);
     }
 
     @Test
