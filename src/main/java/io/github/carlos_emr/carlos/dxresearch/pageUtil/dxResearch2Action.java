@@ -50,13 +50,18 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class dxResearch2Action extends ActionSupport {
 
-    /** An ICD-9 code written with its decimal point: 151.9 or 250.01, V82.9 or V10.05, and E880.9. */
-    private static final Pattern DOTTED_ICD9 = Pattern.compile("[0-9]{3}\\.[0-9]{1,2}|[Vv][0-9]{2}\\.[0-9]{1,2}|[Ee][0-9]{3}\\.[0-9]");
+    /**
+     * An ICD-9 code written with its decimal point: 151.9 or 250.01, V82.9 or V10.05, and E880.9. The groups
+     * hold the parts on either side of the point (1 and 2, or 3 and 4 for an E code).
+     */
+    private static final Pattern DOTTED_ICD9 =
+            Pattern.compile("([0-9]{3}|[Vv][0-9]{2})\\.([0-9]{1,2})|([Ee][0-9]{3})\\.([0-9])");
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -207,9 +212,13 @@ public class dxResearch2Action extends ActionSupport {
     private String invalidCodeMessage(String code, String codingSystem,
             AbstractCodeSystemDao<AbstractCodeSystemModel<?>> csDao) {
         if (AbstractCodeSystemDao.codingSystem.icd9.name().equals(codingSystem) && code.contains(".")) {
-            String typed = code.strip();
-            if (DOTTED_ICD9.matcher(typed).matches()) {
-                AbstractCodeSystemModel<?> undotted = csDao.findByCode(typed.replace(".", ""));
+            Matcher dotted = DOTTED_ICD9.matcher(code.strip());
+            if (dotted.matches()) {
+                // Built from the matched parts, so the code looked up is exactly what the pattern accepted.
+                String withoutDecimal = dotted.group(1) != null
+                        ? dotted.group(1) + dotted.group(2)
+                        : dotted.group(3) + dotted.group(4);
+                AbstractCodeSystemModel<?> undotted = csDao.findByCode(withoutDecimal);
                 if (undotted != null) {
                     // Suggest the code as stored (V829, not v829); the lookup ignores letter case.
                     return getText("oscarResearch.oscarDxResearch.error.icd9DidYouMean",
