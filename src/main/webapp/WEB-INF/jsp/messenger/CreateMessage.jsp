@@ -211,6 +211,7 @@
     <!-- js -->
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
     <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-markdown.js"></script>
     <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
     <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
     <c:if test="${langCode != 'en-GB'}">
@@ -681,6 +682,7 @@ function validateFields() {
             el: document.getElementById('messagediv'),
             initialEditType: 'wysiwyg',
             usageStatistics: false,
+            plugins: [carlosMessengerMarkdown],
             height: '500px',
             language: '<fmt:message key="global.language.code" />',
             customHTMLSanitizer: function(html) {
