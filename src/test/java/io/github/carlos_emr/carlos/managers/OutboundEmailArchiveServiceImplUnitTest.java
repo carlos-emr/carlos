@@ -68,12 +68,16 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -1644,10 +1648,97 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
 
         @Test
         void shouldReadALegacyPlaintextArtifact_withoutTouchingTheKeyring(@TempDir Path documentDir) throws Exception {
-            byte[] read = readBack(documentDir, archiveUnderLegalHold(), RFC822_BYTES);
+            byte[] read;
+            List<String> messages;
+            try (LogCapture capture = LogCapture.forLogger(OutboundEmailArchiveServiceImpl.class)) {
+                read = readBack(documentDir, archiveUnderLegalHold(), RFC822_BYTES);
+                messages = capture.messages();
+            }
 
             assertThat(read).isEqualTo(RFC822_BYTES);
             verify(keyringService, never()).getKeyring();
+            assertThat(messages).containsExactly("Outbound email archive artifact archiveId=888 is stored unencrypted"
+                    + " (archived before #3448); it is read as plaintext until a re-encryption job exists");
+        }
+
+        /** A stripped marker must not turn an envelope into "legacy plaintext" and hand back ciphertext. */
+        @Test
+        void shouldRefuseAnEnvelopeWhoseMarkerWasRemoved_asAnIntegrityFailure(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            byte[] stripped = stored.get().clone();
+            stripped[0] = 'S';
+            clearInvocations(keyringService);
+
+            assertReadFails(documentDir, archive, stripped, "Archived artifact size does not match archive metadata",
+                    OutboundEmailArchiveReadAuditService.Event.INTEGRITY_FAILURE);
+            verify(keyringService, never()).getKeyring();
+        }
+
+        /** Ticket #3448: a read decrypts in memory and leaves no plaintext file behind. */
+        @Test
+        void shouldLeaveNoPlaintextFile_afterAnEncryptedRead(@TempDir Path documentDir) throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            Path temporaryDirectory = Path.of(System.getProperty("java.io.tmpdir"));
+            Set<Path> temporaryBefore = regularFiles(temporaryDirectory);
+
+            byte[] read = readBack(documentDir, archive, stored.get());
+
+            assertThat(read).isEqualTo(RFC822_BYTES);
+            Path artifact = documentDir.resolve(archive.getDocument().getDocfilename());
+            assertThat(regularFiles(documentDir)).containsExactly(artifact);
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
+            // Other test forks share the temporary directory: only new files are looked at, one that
+            // vanishes or cannot be read is skipped, and the match is the whole plaintext artifact.
+            String plaintext = new String(RFC822_BYTES, StandardCharsets.ISO_8859_1);
+            for (Path created : regularFiles(temporaryDirectory)) {
+                if (temporaryBefore.contains(created)) {
+                    continue;
+                }
+                try {
+                    if (Files.size(created) < 1024 * 1024) {
+                        assertThat(new String(Files.readAllBytes(created), StandardCharsets.ISO_8859_1))
+                                .as(created.toString()).doesNotContain(plaintext);
+                    }
+                } catch (IOException gone) {
+                    // Another fork's file, deleted or not ours to read.
+                }
+            }
+        }
+
+        /** Ticket #3448: legal hold and controlled deletion still work on an encrypted record. */
+        @Test
+        void shouldHoldReleaseAndRetireAnEncryptedArchive_keepingItsEncryptedBytes(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            Path artifact = documentDir.resolve(archive.getDocument().getDocfilename());
+            Files.write(artifact, stored.get());
+            clearInvocations(documentManager);
+            stubArchiveLookup(archive);
+            assertThat(archive.isLegalHold()).isTrue();
+
+            assertThatThrownBy(() -> service.recordControlledDeletion(loggedInInfo, 888, "Misdirected send"))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("legal hold");
+            service.releaseLegalHold(loggedInInfo, 888, "Counsel authorised release");
+            OutboundEmailArchiveDeletion deletion =
+                    service.recordControlledDeletion(loggedInInfo, 888, "Misdirected send");
+
+            assertThat(archive.isDeleted()).isTrue();
+            assertThat(deletion.getSha256Hash()).isEqualTo(sha256Hex(RFC822_BYTES));
+            assertThat(archive.getByteSize()).isEqualTo((long) RFC822_BYTES.length);
+            // Deletion is logical: the eDoc is not touched and still holds the same envelope.
+            verifyNoInteractions(documentManager);
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
+            stubArchiveArtifactRead(archive);
+            clearInvocations(keyringService);
+            withDocumentDir(documentDir, () -> assertThatThrownBy(() -> service.readArchivedArtifact(loggedInInfo, 888))
+                    .isInstanceOf(IllegalStateException.class));
+            verify(keyringService, never()).getKeyring();
+            assertThat(Files.readAllBytes(artifact)).isEqualTo(stored.get());
         }
 
         @Test
@@ -1680,6 +1771,20 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
             OutboundEmailArchive archive = archiveCapturing(stored);
             // Same patient and document, but a row describing a different artifact.
             archive.setContentType("application/json");
+
+            assertReadFails(documentDir, archive, stored.get(), "Archive artifact failed authentication",
+                    OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
+        }
+
+        @Test
+        void shouldRefuseCiphertextCopiedFromAnotherEmail_whenTheEmailLogDiffers(@TempDir Path documentDir)
+                throws Exception {
+            AtomicReference<byte[]> stored = new AtomicReference<>();
+            OutboundEmailArchive archive = archiveCapturing(stored);
+            // Same patient, content type, hash and size: only the email the row records differs.
+            EmailLog otherEmail = emailLog();
+            injectDependency(otherEmail, "id", 45);
+            archive.setEmailLog(otherEmail);
 
             assertReadFails(documentDir, archive, stored.get(), "Archive artifact failed authentication",
                     OutboundEmailArchiveReadAuditService.Event.DECRYPTION_FAILURE);
@@ -1769,6 +1874,12 @@ class OutboundEmailArchiveServiceImplUnitTest extends CarlosUnitTestBase {
                         .doesNotContain("synthetic-archive-test-key")
                         .doesNotContain("Subject: Test")
                         .doesNotContain(ciphertextBase64.substring(0, 40));
+            }
+        }
+
+        private Set<Path> regularFiles(Path directory) throws IOException {
+            try (Stream<Path> files = Files.list(directory)) {
+                return files.filter(Files::isRegularFile).collect(Collectors.toSet());
             }
         }
 

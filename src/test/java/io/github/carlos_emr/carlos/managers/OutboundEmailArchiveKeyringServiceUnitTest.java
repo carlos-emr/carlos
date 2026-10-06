@@ -44,22 +44,27 @@ import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings.keyring;
+import static io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings.material;
 import static io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveTestKeyrings.syntheticKeyBase64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -76,7 +81,10 @@ import static org.mockito.Mockito.when;
 @DisplayName("OutboundEmailArchiveKeyringService (#3448)")
 class OutboundEmailArchiveKeyringServiceUnitTest {
 
-    private static final String ARCHIVE_DDL = "CREATE TABLE outboundEmailArchive (id INT PRIMARY KEY, documentNo INT)";
+    private static final String ARCHIVE_DDL = "CREATE TABLE outboundEmailArchive (id INT PRIMARY KEY, documentNo INT,"
+            + " emailLogId BIGINT, demographicNo INT, contentType VARCHAR(100), sha256Hash VARCHAR(64), byteSize BIGINT)";
+    private static final byte[] SEALED_PLAINTEXT =
+            "Subject: synthetic sealed\r\n\r\nNot a real patient.".getBytes(StandardCharsets.US_ASCII);
     private static final String DOCUMENT_DDL = "CREATE TABLE document (document_no INT PRIMARY KEY, docfilename VARCHAR(255))";
 
     @TempDir
@@ -121,7 +129,7 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
 
             assertThat(created.currentKeyId()).isEqualTo(1);
             assertThat(keyringFile).exists();
-            assertThat(parseFile().encodedKey(1)).isEqualTo(created.encodedKey(1));
+            assertThat(material(parseFile(), 1)).isEqualTo(material(created, 1));
             assumeThat(keyringFile.getFileSystem().supportedFileAttributeViews()).contains("posix");
             assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(keyringFile))).isEqualTo("rw-------");
             assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith("Created the outbound email archive keyring at"));
@@ -272,7 +280,7 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
                     .resolveKeyring();
 
             assertThat(loaded.currentKeyId()).isEqualTo(5);
-            assertThat(parseFile().encodedKey(5)).isEqualTo(keyring(5, 5).encodedKey(5));
+            assertThat(material(parseFile(), 5)).isEqualTo(material(keyring(5, 5), 5));
             try (var leftovers = Files.list(configDir)) {
                 assertThat(leftovers.map(p -> p.getFileName().toString())).noneMatch(n -> n.endsWith(".tmp"));
             }
@@ -301,6 +309,9 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
             assertThat(loaded.currentKeyId()).isEqualTo(2);
             assertThat(loaded.keyIds()).containsExactly(1, 2);
             assertThat(Files.readAllBytes(keyringFile)).isEqualTo(before);
+            // No archive table yet: nothing to check, and nothing to warn about.
+            assertThat(serviceLog.messages()).noneMatch(m -> m.contains("could not be checked")
+                    || m.contains("could not be tried"));
         }
 
         @Test
@@ -313,6 +324,34 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
                     new OutboundEmailArchiveArtifactCensusLoader(unreachable)).resolveKeyring();
 
             assertThat(loaded.currentKeyId()).isEqualTo(1);
+        }
+
+        @Test
+        void shouldStartWithAWarning_whenTheDatabaseFailsWithoutAnSqlState() throws Exception {
+            writeKeyring(keyring(1, 1));
+            // How the connection pool reports an unreachable database: no SQLState at all.
+            DataSource unreachable = mock(DataSource.class);
+            when(unreachable.getConnection()).thenThrow(new SQLException("synthetic pool failure"));
+
+            OutboundEmailArchiveKeyring loaded = new OutboundEmailArchiveKeyringService(settings(false, null),
+                    new OutboundEmailArchiveArtifactCensusLoader(unreachable)).resolveKeyring();
+
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("could not be checked against the archive:"
+                    + " the database could not be read (SQLState null"))
+                    .noneMatch(m -> m.contains("synthetic pool failure"));
+        }
+
+        @Test
+        void shouldRefuseClearly_whenTheAcknowledgedRotationTargetIsNotAKeyId() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            writeKeyring(otherKeyring(1));
+            OutboundEmailArchiveKeyringService service = service(settings(true, "two"));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("email.archive.keyring.rotate_to must be a positive whole number");
         }
 
         @Test
@@ -333,6 +372,418 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
                             + " encrypted the most recent encrypted archived email. Archived emails encrypted with key 2"
                             + " cannot be read. This keyring may be an out-of-date copy: restore the newest keyring file"
                             + " from backup, then restart.");
+        }
+
+        @Test
+        void shouldRefuseToStartAndLeaveTheFileAlone_whenTheKeyringHasTheRightIdsButOtherKeys() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // A keyring created on a fresh start elsewhere: key 1, but not the key that sealed the archive.
+            writeKeyring(otherKeyring(1));
+            byte[] before = Files.readAllBytes(keyringFile);
+            OutboundEmailArchiveKeyringService service = service(settings(false, null));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessage("Outbound email archive keyring " + keyringFile + " holds the key ids of recent"
+                            + " encrypted archived emails, but the one it was tried on could not be decrypted with it"
+                            + " (key ids [1]). It is probably a different keyring (one created on a fresh start, or by"
+                            + " another server sharing this document store), not the one that encrypted them, or those"
+                            + " files were damaged or altered. Refusing to start: new archived emails would be encrypted"
+                            + " with a second, different key under an id already in use. Fix: restore the right keyring"
+                            + " file from backup (with several servers, copy the keyring of the server that encrypted"
+                            + " them), then restart. Only if that keyring is lost for good: set"
+                            + " email.archive.keyring.acknowledge_loss=true and email.archive.keyring.rotate_to to a key"
+                            + " id above 1 (and above every id in use), and restart; the archived emails it encrypted"
+                            + " stay unreadable. If that rotation is refused because some archive files cannot be read,"
+                            + " move this keyring file aside and set email.archive.keyring.acknowledge_loss=true alone:"
+                            + " CARLOS then creates a new keyring at a random high key id. If the files were damaged"
+                            + " instead, restore them from backup.");
+            assertThat(Files.readAllBytes(keyringFile)).isEqualTo(before);
+        }
+
+        @Test
+        void shouldStartAndRotatePast_whenTheLossOfTheRightKeysIsAcknowledgedWithARotation() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            writeKeyring(otherKeyring(1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(true, "5"));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(5);
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("ERROR"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                    .contains("the one it was tried on could not be decrypted with it (key ids [1])")
+                    .contains("email.archive.keyring.acknowledge_loss is set, so CARLOS accepts the loss and will"
+                            + " rotate to key 5");
+            assertThat(serviceLog.messages()).noneMatch(m -> m.contains("has no effect"));
+
+            // The next start, with both settings removed, reports the lost key 1 but no longer refuses.
+            serviceLog.close();
+            serviceLog = LogCapture.forLogger(OutboundEmailArchiveKeyringService.class);
+            assertThat(resolve(settings(false, null)).currentKeyId()).isEqualTo(5);
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("Every one of those keys is older than the"
+                    + " current key 5"));
+        }
+
+        @Test
+        void shouldRefuseToStart_whenTheLossIsAcknowledgedWithoutARotationPastIt() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            writeKeyring(otherKeyring(1));
+            OutboundEmailArchiveKeyringService service = service(settings(true, null));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("email.archive.keyring.acknowledge_loss is set, but without a rotation past"
+                            + " key 1 new archived emails would still be encrypted under an id already in use");
+        }
+
+        @Test
+        void shouldRefuse_whenTheAcknowledgedRotationDoesNotGoPastEveryKeyTheKeyringHolds() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // A foreign keyring holding keys 1 and 3: rotating "to 3" would only switch to its own key 3.
+            writeKeyring(otherKeyring(1).withCurrentKey(3, new SecureRandom()).withCurrentKey(1, new SecureRandom()));
+            for (String rotateTo : List.of("1", "3")) {
+                OutboundEmailArchiveKeyringService service = service(settings(true, rotateTo));
+
+                assertThatThrownBy(service::resolveKeyring)
+                        .as("rotate_to=" + rotateTo)
+                        .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                        .hasMessageContaining("without a rotation past key 3");
+            }
+        }
+
+        @Test
+        void shouldSearchOlderArchives_whenTheNewestFilesAreMissing() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // The document store restored only in part: the newest rows have no files.
+            for (int id = 2; id <= OutboundEmailArchiveKeyringService.NEWEST_ARTIFACTS_CHECKED + 1; id++) {
+                insertRow(id, "not-restored-" + id + ".eml");
+            }
+            writeKeyring(otherKeyring(1));
+            OutboundEmailArchiveKeyringService service = service(settings(false, null));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("the one it was tried on could not be decrypted with it (key ids [1])");
+        }
+
+        @Test
+        @org.junit.jupiter.api.Timeout(60)
+        void shouldSearchOlderArchivesAcrossSeveralPages() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // More rows without files than the newest 20 plus one page, so the search must page twice.
+            int newestWithoutFiles = OutboundEmailArchiveArtifactCensusLoader.OLDER_ROWS_PAGE
+                    + OutboundEmailArchiveKeyringService.NEWEST_ARTIFACTS_CHECKED + 1;
+            try (PreparedStatement document = keeper.prepareStatement("INSERT INTO document VALUES (?, ?)");
+                 PreparedStatement archive = keeper.prepareStatement(
+                         "INSERT INTO outboundEmailArchive (id, documentNo) VALUES (?, ?)")) {
+                for (int id = 2; id <= newestWithoutFiles + 1; id++) {
+                    document.setInt(1, id);
+                    document.setString(2, "not-restored-" + id + ".eml");
+                    document.addBatch();
+                    archive.setInt(1, id);
+                    archive.setInt(2, id);
+                    archive.addBatch();
+                }
+                document.executeBatch();
+                archive.executeBatch();
+            }
+            writeKeyring(keyring(1, 1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.endsWith("opened archived email 1 (key 1), the most"
+                    + " recent encrypted one it could open."));
+
+            writeKeyring(otherKeyring(1));
+            OutboundEmailArchiveKeyringService foreign = service(settings(false, null));
+            assertThatThrownBy(foreign::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("(key ids [1])");
+        }
+
+        @Test
+        void shouldWarn_whenTheArchiveTableLacksTheColumnsTheCheckReads() throws Exception {
+            // An older schema: the table is there, the bound columns are not.
+            execute("CREATE TABLE outboundEmailArchive (id INT PRIMARY KEY, documentNo INT)");
+            execute(DOCUMENT_DDL);
+            writeKeyring(keyring(1, 1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("could not be checked against the archive:"
+                    + " the database could not be read (SQLState 42S22"));
+        }
+
+        @Test
+        void shouldSkipAnArchive_largerThanTheTrialLimit() throws Exception {
+            withArchiveTables();
+            long overLimit = 50L * 1024 * 1024 + 1; // one byte over the 50 MiB trial limit
+            // A sparse envelope of the matching size under key 1: without the limit it would be read in full,
+            // fail authentication against the other key 1, and refuse startup.
+            Path file = documentDir.resolve("sealed-1.eml");
+            Files.write(file, Arrays.copyOf(sealedArtifact(keyring(1, 1)), OutboundEmailArchiveEnvelope.HEADER_BYTES));
+            try (java.io.RandomAccessFile sparse = new java.io.RandomAccessFile(file.toFile(), "rw")) {
+                sparse.setLength(overLimit + OutboundEmailArchiveEnvelope.OVERHEAD_BYTES);
+            }
+            insertRow(1, "sealed-1.eml");
+            execute("UPDATE outboundEmailArchive SET byteSize = " + overLimit + " WHERE id = 1");
+            writeKeyring(otherKeyring(1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.events()).noneMatch(e -> e.getLevel().name().equals("ERROR"));
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("1 archived email(s) could not be tried"));
+        }
+
+        @Test
+        void shouldReportAnError_whenNewerArchivesFailButAnOlderOneOpens() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // Sealed by another server's keyring with its own key 1.
+            archiveRow(2, "sealed-2.eml", sealedArtifact(otherKeyring(1)));
+            writeKeyring(keyring(1, 1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("ERROR"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                    .contains("1 newer encrypted archived email(s) sealed under key ids [1] it holds could not be"
+                            + " decrypted with it");
+        }
+
+        @Test
+        void shouldSearchOlderArchives_whenTheNewestAllUseKeysTheKeyringLacks() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            for (int id = 2; id <= OutboundEmailArchiveKeyringService.NEWEST_ARTIFACTS_CHECKED + 1; id++) {
+                archiveRow(id, "sealed-" + id + ".eml", sealedArtifact(keyring(2, 2)));
+            }
+            // A foreign keyring with only key 1: the newest archives use key 2, the oldest the real key 1.
+            writeKeyring(otherKeyring(1));
+            OutboundEmailArchiveKeyringService service = service(settings(false, null));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("the one it was tried on could not be decrypted with it (key ids [1])");
+        }
+
+        @Test
+        void shouldStart_whenTheOlderSearchOpensAnArchiveWithAnOutOfDateKeyring() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            for (int id = 2; id <= OutboundEmailArchiveKeyringService.NEWEST_ARTIFACTS_CHECKED + 1; id++) {
+                archiveRow(id, "sealed-" + id + ".eml", sealedArtifact(keyring(2, 2)));
+            }
+            // The right key 1, from a backup taken before key 2 was added.
+            writeKeyring(keyring(1, 1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.messages()).anyMatch(m -> m.endsWith("opened archived email 1 (key 1), the most recent encrypted one it could open."))
+                    .anyMatch(m -> m.contains("does not hold key 2"));
+        }
+
+        @Test
+        void shouldWarn_whenTheArchiveFilesAreNotThere() throws Exception {
+            withArchiveTables();
+            // DOCUMENT_DIR not mounted or not restored: the rows exist, their files do not.
+            insertRow(1, "not-on-disk-1.eml");
+            insertRow(2, "not-on-disk-2.eml");
+            writeKeyring(keyring(1, 1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith("Outbound email archive keyring " + keyringFile
+                    + ": 2 archived email(s) could not be tried"));
+        }
+
+        @Test
+        void shouldOpenAnArchive_whoseRecordedHashIsUpperCase() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // The read path lower-cases the recorded hash before binding it; the trial must too.
+            execute("UPDATE outboundEmailArchive SET sha256Hash = '" + sealedHash().toUpperCase(java.util.Locale.ROOT)
+                    + "' WHERE id = 1");
+            writeKeyring(keyring(1, 1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.endsWith("opened archived email 1 (key 1), the most recent encrypted one it could open."));
+        }
+
+        @Test
+        void shouldSkipAnArchive_whoseMetadataIsIncomplete() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            execute("UPDATE outboundEmailArchive SET demographicNo = NULL WHERE id = 1");
+            // Any key 1: an unreadable row is not evidence about the keys.
+            writeKeyring(otherKeyring(1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.events()).noneMatch(e -> e.getLevel().name().equals("ERROR"));
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("1 archived email(s) could not be tried"));
+        }
+
+        @Test
+        void shouldStartAndReportTheDamagedNewerArchive_whenAnOlderOneOpens() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            byte[] damaged = sealedArtifact(keyring(1, 1));
+            damaged[damaged.length - 1] ^= 0x01;
+            archiveRow(2, "sealed-2.eml", damaged);
+            writeKeyring(keyring(1, 1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.messages()).contains("Outbound email archive keyring " + keyringFile + " opened"
+                    + " archived email 1 (key 1), the most recent encrypted one it could open.");
+            // The damaged newer file is reported, not taken as a sign of the wrong keyring.
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("ERROR"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                    .contains("Either those files were damaged or altered");
+        }
+
+        @Test
+        void shouldStartWithAWarning_whenTheOnlyRecentEncryptedArchiveIsTruncated() throws Exception {
+            withArchiveTables();
+            byte[] sealed = sealedArtifact(keyring(1, 1));
+            archiveRow(1, "sealed-1.eml", Arrays.copyOf(sealed, sealed.length - 5));
+            // Any key 1 would do: a truncated file says nothing about the keys.
+            writeKeyring(otherKeyring(1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.events()).noneMatch(e -> e.getLevel().name().equals("ERROR"));
+            assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith("Outbound email archive keyring " + keyringFile
+                    + ": 1 archived email(s) could not be tried"));
+        }
+
+        @Test
+        void shouldOpenAnOlderArchive_whenTheNewestIsTruncated() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            byte[] sealed = sealedArtifact(keyring(1, 1));
+            archiveRow(2, "sealed-2.eml", Arrays.copyOf(sealed, sealed.length - 5));
+            writeKeyring(keyring(1, 1));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.endsWith("opened archived email 1 (key 1), the most recent encrypted one it could open."));
+        }
+
+        @Test
+        void shouldStartWithAnError_whenOnlyKeysOlderThanTheCurrentKeyFail() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            // After an acknowledged loss and a rotation past it: key 1 is the wrong key, key 7 is current.
+            OutboundEmailArchiveKeyring rotatedPast = otherKeyring(1).withCurrentKey(7, new SecureRandom());
+            writeKeyring(rotatedPast);
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            assertThat(loaded.currentKeyId()).isEqualTo(7);
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("ERROR"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                    .contains("Every one of those keys is older than the current key 7");
+        }
+
+        @Test
+        void shouldNotTryArchives_whoseKeyIdTheKeyringLacks() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(2, 2)));
+            writeKeyring(otherKeyring(1));
+
+            OutboundEmailArchiveKeyring loaded = resolve(settings(false, null));
+
+            // Not a wrong keyring: an out-of-date one, which the newest-key check reports.
+            assertThat(loaded.currentKeyId()).isEqualTo(1);
+            assertThat(serviceLog.messages()).anyMatch(m -> m.contains("does not hold key 2"));
+        }
+
+        @Test
+        void shouldWarnRatherThanError_whenAnArchiveOpensAndTheMissingNewestKeyIsOlder() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(5, 5)));
+            archiveRow(2, "sealed-2.eml", sealedArtifact(keyring(4, 4)));
+            // Key 4 was given up; key 5 is current and opens an archive, so this keyring is the right one.
+            writeKeyring(keyring(5, 5));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.events()).noneMatch(e -> e.getLevel().name().equals("ERROR"));
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("WARN"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .anyMatch(m -> m.contains("does not hold key 4") && m.contains("most likely given up"));
+        }
+
+        @Test
+        void shouldKeepTheError_whenTheMissingNewestKeyIsOlderButNoArchiveOpens() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(4, 4)));
+            // Nothing opens: this may be a foreign keyring at a random high id, not the right one.
+            writeKeyring(keyring(5, 5));
+
+            resolve(settings(false, null));
+
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("ERROR"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .anyMatch(m -> m.contains("does not hold key 4"));
+        }
+
+        @Test
+        void shouldRefuse_whenAnOlderKeyOpensButTheCurrentKeyFails() throws Exception {
+            withArchiveTables();
+            archiveRow(1, "sealed-1.eml", sealedArtifact(keyring(1, 1)));
+            archiveRow(2, "sealed-2.eml", sealedArtifact(keyring(2, 1, 2)));
+            archiveRow(3, "sealed-3.eml", sealedArtifact(keyring(2, 1, 2)));
+            // The right key 1, but a key 2 generated elsewhere (another server rotating on its own).
+            writeKeyring(keyring(1, 1).withCurrentKey(2, new SecureRandom()));
+            OutboundEmailArchiveKeyringService service = service(settings(false, null));
+
+            assertThatThrownBy(service::resolveKeyring)
+                    .isInstanceOf(OutboundEmailArchiveKeyringException.class)
+                    .hasMessageContaining("opens archived email 1 with key 1, but 2 newer encrypted archived email(s)"
+                            + " under key ids [2], including the current key 2 or a newer one, could not be decrypted"
+                            + " with it.")
+                    .hasMessageContaining("Refusing to start");
+        }
+
+        @Test
+        void shouldWarn_whenOthersCanWriteToTheKeyringDirectory() throws Exception {
+            assumeThat(keyringFile.getFileSystem().supportedFileAttributeViews()).contains("posix");
+            writeKeyring(keyring(1, 1));
+            Files.setPosixFilePermissions(keyringFile, PosixFilePermissions.fromString("rw-------"));
+            Set<PosixFilePermission> original = Files.getPosixFilePermissions(configDir);
+            Files.setPosixFilePermissions(configDir, PosixFilePermissions.fromString("rwxrwx---"));
+            try {
+                resolve(settings(false, null));
+            } finally {
+                Files.setPosixFilePermissions(configDir, original);
+            }
+
+            assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith("The directory of the outbound email archive"
+                    + " keyring " + keyringFile + " can be written by users other than its owner"));
         }
 
         @Test
@@ -404,6 +855,12 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
             resolve(settings(false, null));
 
             assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(keyringFile))).isEqualTo("rw-------");
+            // A WARN, not INFO: the keys may already have been read, so a rotation is advised.
+            assertThat(serviceLog.events())
+                    .filteredOn(e -> e.getLevel().name().equals("WARN"))
+                    .extracting(e -> e.getMessage().getFormattedMessage())
+                    .anyMatch(m -> m.contains("restricted it to owner-only access (0600)")
+                            && m.contains("email.archive.keyring.rotate_to"));
         }
     }
 
@@ -421,8 +878,8 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
             assertThat(rotated.currentKeyId()).isEqualTo(2);
             assertThat(onDisk.currentKeyId()).isEqualTo(2);
             assertThat(onDisk.keyIds()).containsExactly(1, 2);
-            assertThat(onDisk.encodedKey(1)).isEqualTo(keyring(1, 1).encodedKey(1));
-            assertThat(onDisk.encodedKey(2)).isEqualTo(rotated.encodedKey(2));
+            assertThat(material(onDisk, 1)).isEqualTo(material(keyring(1, 1), 1));
+            assertThat(material(onDisk, 2)).isEqualTo(material(rotated, 2));
             assertThat(serviceLog.messages()).anyMatch(m -> m.startsWith(
                     "Rotated the outbound email archive keyring at " + keyringFile + ": key 2 now encrypts"));
         }
@@ -448,9 +905,9 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
                 start.countDown();
                 OutboundEmailArchiveKeyring firstResult = first.get(10, TimeUnit.SECONDS);
                 OutboundEmailArchiveKeyring secondResult = second.get(10, TimeUnit.SECONDS);
-                assertThat(firstResult.encodedKey(2)).isEqualTo(secondResult.encodedKey(2));
-                assertThat(parseFile().encodedKey(2)).isEqualTo(firstResult.encodedKey(2));
-                assertThat(parseFile().encodedKey(1)).isEqualTo(keyring(1, 1).encodedKey(1));
+                assertThat(material(firstResult, 2)).isEqualTo(material(secondResult, 2));
+                assertThat(material(parseFile(), 2)).isEqualTo(material(firstResult, 2));
+                assertThat(material(parseFile(), 1)).isEqualTo(material(keyring(1, 1), 1));
             } finally {
                 start.countDown();
                 executor.shutdownNow();
@@ -467,8 +924,8 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
             OutboundEmailArchiveKeyring resolved = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                     service, "rotateIfRequested", keyringFile, keyringFile.toString(), staleSnapshot);
 
-            assertThat(resolved.encodedKey(2)).isEqualTo(keyring(2, 1, 2).encodedKey(2));
-            assertThat(parseFile().encodedKey(2)).isEqualTo(resolved.encodedKey(2));
+            assertThat(material(resolved, 2)).isEqualTo(material(keyring(2, 1, 2), 2));
+            assertThat(material(parseFile(), 2)).isEqualTo(material(resolved, 2));
         }
 
         @Test
@@ -588,7 +1045,7 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
                     }).resolveKeyring();
 
             assertThat(rotated.currentKeyId()).isEqualTo(2);
-            assertThat(rotated.encodedKey(2)).isEqualTo(keyring(1, 1, 2).encodedKey(2));
+            assertThat(material(rotated, 2)).isEqualTo(material(keyring(1, 1, 2), 2));
         }
 
         @Test
@@ -687,8 +1144,8 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
         assertThatThrownBy(duplicate::resolveKeyring).isInstanceOf(OutboundEmailArchiveKeyringException.class);
 
         List<String> secrets = new ArrayList<>(List.of(syntheticKeyBase64(1), syntheticKeyBase64(2),
-                Base64.getEncoder().encodeToString(created.encodedKey(1)),
-                Base64.getEncoder().encodeToString(rotated.encodedKey(2))));
+                Base64.getEncoder().encodeToString(material(created, 1)),
+                Base64.getEncoder().encodeToString(material(rotated, 2))));
         assertThat(serviceLog.messages()).isNotEmpty();
         for (String message : serviceLog.messages()) {
             for (String secret : secrets) {
@@ -735,14 +1192,20 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
         insertRow(id, fileName);
     }
 
-    private void insertRow(int id, String fileName) throws SQLException {
+    /** Inserts an archive row whose recorded facts are those {@link #sealedArtifact} binds. */
+    private void insertRow(int id, String fileName) throws Exception {
         try (PreparedStatement document = keeper.prepareStatement("INSERT INTO document VALUES (?, ?)");
-             PreparedStatement archive = keeper.prepareStatement("INSERT INTO outboundEmailArchive VALUES (?, ?)")) {
+             PreparedStatement archive = keeper.prepareStatement("INSERT INTO outboundEmailArchive VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             document.setInt(1, id);
             document.setString(2, fileName);
             document.executeUpdate();
             archive.setInt(1, id);
             archive.setInt(2, id);
+            archive.setLong(3, 1);
+            archive.setInt(4, 1);
+            archive.setString(5, "message/rfc822");
+            archive.setString(6, sealedHash());
+            archive.setLong(7, SEALED_PLAINTEXT.length);
             archive.executeUpdate();
         }
     }
@@ -753,11 +1216,19 @@ class OutboundEmailArchiveKeyringServiceUnitTest {
         }
     }
 
+    private static String sealedHash() throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(SEALED_PLAINTEXT));
+    }
+
     private static byte[] sealedArtifact(OutboundEmailArchiveKeyring keyring) throws Exception {
-        byte[] plaintext = "Subject: synthetic sealed\r\n\r\nNot a real patient.".getBytes(StandardCharsets.US_ASCII);
-        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(plaintext));
         return OutboundEmailArchiveEnvelope.seal(keyring,
-                new OutboundEmailArchiveEnvelope.ArtifactContext(1, 1, "message/rfc822", hash, plaintext.length),
-                plaintext);
+                new OutboundEmailArchiveEnvelope.ArtifactContext(1, 1, "message/rfc822", sealedHash(),
+                        SEALED_PLAINTEXT.length),
+                SEALED_PLAINTEXT.clone());
+    }
+
+    /** A keyring holding key {@code keyId} under fresh random material: same id, different key. */
+    private static OutboundEmailArchiveKeyring otherKeyring(int keyId) {
+        return OutboundEmailArchiveKeyring.generate(keyId, new SecureRandom());
     }
 }

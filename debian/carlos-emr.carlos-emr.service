@@ -97,8 +97,10 @@ TimeoutStopSec=120
 # bug can reach. The ReadWritePaths are the only writable locations:
 # Tomcat's work/temp/logs, the document store, and the one directory under /etc
 # that holds the outbound email archive keyring (0700 carlos). The keyring is
-# written there, not under /var/lib, so that it is backed up with the server
-# configuration rather than alongside the documents it decrypts.
+# written there, not under /var/lib, so that a copy of the document store alone
+# never carries the key that decrypts it. The nightly `files` snapshot holds
+# both directories (the restic repository is itself encrypted); README.Debian
+# asks for a separate escrowed copy of the keyring as well.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=

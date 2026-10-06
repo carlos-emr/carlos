@@ -36,11 +36,16 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -53,10 +58,12 @@ import java.util.TreeSet;
  *
  * <p>There is no database column recording which artifacts are encrypted (the key id lives in each
  * artifact's envelope header), so the answer comes from the stored files: every archive row's eDoc
- * file is opened and only its header bytes are read. The newest rows are checked first and a
- * {@link Scan#UNTIL_FIRST_ENCRYPTED} scan stops at the first encrypted artifact, so a server that has
- * lost its keyring is recognised after one small read. A whole scan happens when no archive is
- * encrypted (the one-off upgrade of a server holding only pre-#3448 plaintext archives), or when the
+ * file is opened and only its header bytes are read. ({@link #verifyNewest} is the exception: it
+ * reads and decrypts a few whole recent files, in memory, to prove a loaded keyring's keys.) The
+ * newest rows are checked first and a {@link Scan#UNTIL_FIRST_ENCRYPTED} scan stops at the first
+ * encrypted artifact, so a server that has lost its keyring is recognised after one small read. A
+ * whole scan happens when no archive is encrypted (the one-off upgrade of a server holding only
+ * pre-#3448 plaintext archives), or when the
  * caller asks for {@link Scan#ALL} to learn every key id in use: after an acknowledged keyring loss,
  * and before a rotation generates a new key.</p>
  *
@@ -77,12 +84,38 @@ public class OutboundEmailArchiveArtifactCensusLoader {
     /** "No such table or column": the X/Open codes MariaDB reports, and H2's variants. */
     private static final Set<String> ABSENT_OBJECT_STATES = Set.of("42S02", "42S03", "42S04", "42S22");
 
+    /** "No such table" (MariaDB's, and H2's variants) only: the trial treats a missing column as schema drift. */
+    private static final Set<String> TABLE_ABSENT_STATES = Set.of("42S02", "42S03", "42S04");
+
+    /** Rows per page of the older-rows search, so a large archive is never held in memory at once. */
+    public static final int OLDER_ROWS_PAGE = 500;
+
     private static final String COUNT_SQL = "SELECT COUNT(*) FROM outboundEmailArchive";
 
     /** Deleted archives included: controlled deletion keeps the bytes, and they may be encrypted. */
     private static final String FILE_NAMES_SQL = """
             SELECT d.docfilename FROM outboundEmailArchive a
             LEFT JOIN document d ON d.document_no = a.documentNo
+            ORDER BY a.id DESC
+            """;
+
+    /** The newest archive rows with what their envelopes are bound to, for the startup trial open. */
+    private static final String TRIAL_SQL = """
+            SELECT a.id, d.docfilename, a.emailLogId, a.demographicNo, a.contentType, a.sha256Hash, a.byteSize
+            FROM outboundEmailArchive a
+            LEFT JOIN document d ON d.document_no = a.documentNo
+            ORDER BY a.id DESC
+            """;
+
+    /** Largest artifact the startup trial open reads: the archive's own 50 MiB read limit. */
+    static final long MAX_TRIAL_PLAINTEXT_BYTES = 50L * 1024 * 1024;
+
+    /** {@link #TRIAL_SQL} below a given archive id, for the older-rows search. */
+    private static final String TRIAL_PAGE_SQL = """
+            SELECT a.id, d.docfilename, a.emailLogId, a.demographicNo, a.contentType, a.sha256Hash, a.byteSize
+            FROM outboundEmailArchive a
+            LEFT JOIN document d ON d.document_no = a.documentNo
+            WHERE a.id < ?
             ORDER BY a.id DESC
             """;
 
@@ -200,13 +233,287 @@ public class OutboundEmailArchiveArtifactCensusLoader {
         return OptionalInt.empty();
     }
 
+    /** What {@link #verifyNewest} found. */
+    public enum TrialOutcome {
+        /** An encrypted artifact opened with the keyring: its keys are the ones that sealed it. */
+        VERIFIED,
+        /** No encrypted artifact could be tried with a key the keyring holds. */
+        NOTHING_TO_CHECK,
+        /** Every encrypted artifact tried with a key the keyring holds failed authentication. */
+        WRONG_KEYS
+    }
+
+    /**
+     * @param outcome      what the trial found
+     * @param archiveId    the archive row that opened, for {@link TrialOutcome#VERIFIED}; otherwise 0
+     * @param keyId        the key that opened it, for {@link TrialOutcome#VERIFIED}; otherwise 0
+     * @param tried        artifacts that failed authentication with a key the keyring holds; with
+     *                     {@link TrialOutcome#VERIFIED}, those newer than the one that opened
+     * @param failedKeyIds the key ids of those artifacts
+     * @param skipped      recent rows that could not be checked: the file missing, unreadable, the wrong
+     *                     size or over {@link #MAX_TRIAL_PLAINTEXT_BYTES}, a damaged header, incomplete or
+     *                     malformed metadata, or a provider fault. Not evidence about the keys either way.
+     * @param failure      sanitized description of a database failure, or null
+     */
+    public record Trial(TrialOutcome outcome, long archiveId, int keyId, int tried, SortedSet<Integer> failedKeyIds,
+                        int skipped, String failure) {
+
+        public Trial {
+            failedKeyIds = Collections.unmodifiableSortedSet(new TreeSet<>(failedKeyIds));
+        }
+    }
+
+    /** One archive row, read before any whole file is opened so the connection is not held meanwhile. */
+    private record TrialRow(long archiveId, String fileName, OutboundEmailArchiveEnvelope.ArtifactContext context) {
+    }
+
+    private enum TrialResult { OPENED, AUTHENTICATION_FAILED, SKIPPED }
+
+    /** Running counts across the newest rows and, when needed, the deeper search. */
+    private static final class Tally {
+        private int tried;
+        private int skipped;
+        private boolean unheldKeySeen;
+        private final TreeSet<Integer> failedKeyIds = new TreeSet<>();
+
+        private Trial result(String failure) {
+            return new Trial(tried == 0 ? TrialOutcome.NOTHING_TO_CHECK : TrialOutcome.WRONG_KEYS, 0, 0, tried,
+                    failedKeyIds, skipped, failure);
+        }
+    }
+
+    /**
+     * Opens encrypted artifacts with {@code keyring}, one at a time and in memory, until one
+     * authenticates. A keyring with the right key ids but different key material (one created on a
+     * fresh start against the wrong database, by another server, or swapped in by hand) passes every
+     * id check, and new archives would then be sealed under a second, different key for an id already
+     * in use. This catches it before anything is written.
+     *
+     * <p>The newest {@code maxFiles} rows come first. When none of them could be tried (every encrypted
+     * one uses a key this keyring lacks, or their files are missing or damaged), older rows are
+     * searched, header by header, for up to {@code maxFiles} artifacts sealed with a key it holds, so
+     * a foreign keyring is tried even then. That search only runs in those states, which are already
+     * reported.</p>
+     *
+     * <p>Only an authentication failure with a key the keyring holds counts against the keyring. A
+     * file that is missing, unreadable, the wrong size or too large, a damaged header, a provider fault,
+     * or a row whose metadata the read path would refuse anyway, is counted as skipped: none of that
+     * says anything about the keys. Nothing read is kept or logged, the decrypted bytes are cleared at
+     * once, and no read-audit row is written, since no person reads the artifact.</p>
+     *
+     * @param documentDirectory the configured {@code DOCUMENT_DIR}; may be null or blank
+     * @param keyring           the loaded keyring
+     * @param maxFiles          how many of the newest rows to look at, and how many older candidates to
+     *                          collect at most
+     * @return {@link TrialOutcome#WRONG_KEYS} only when at least one artifact failed authentication and
+     *         none opened. A missing archive table is nothing to check; any other database failure is
+     *         nothing to check with {@link Trial#failure()} set.
+     */
+    public Trial verifyNewest(String documentDirectory, OutboundEmailArchiveKeyring keyring, int maxFiles) {
+        File directory = resolveDirectory(documentDirectory);
+        Tally tally = new Tally();
+        List<TrialRow> newest = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(TRIAL_SQL)) {
+            statement.setMaxRows(maxFiles);
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    newest.add(trialRow(result));
+                }
+            }
+        } catch (SQLException e) {
+            // Only a missing table is a fresh install here; a missing column is schema drift, reported.
+            // A pool or driver failure often has no SQLState at all; Set.of rejects a null lookup.
+            String state = e.getSQLState();
+            return state != null && TABLE_ABSENT_STATES.contains(state) ? tally.result(null) : tally.result(describe(e));
+        } catch (RuntimeException e) {
+            return tally.result(describe(e));
+        }
+        Trial opened = tryRows(directory, keyring, newest, tally);
+        // Search further back when nothing among the newest could be tried: they all use keys this
+        // keyring lacks, or their files were missing or damaged.
+        if (opened != null || tally.tried > 0 || directory == null || newest.size() < maxFiles
+                || (!tally.unheldKeySeen && tally.skipped == 0)) {
+            return opened != null ? opened : tally.result(null);
+        }
+        List<TrialRow> older = new ArrayList<>();
+        // Keyset pages below the oldest of the newest rows: bounded memory however large the archive.
+        long below = newest.stream().mapToLong(TrialRow::archiveId).min().orElse(0);
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(TRIAL_PAGE_SQL)) {
+            statement.setMaxRows(OLDER_ROWS_PAGE);
+            boolean more = below > 0;
+            while (more && older.size() < maxFiles) {
+                statement.setLong(1, below);
+                int rowsInPage = 0;
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) {
+                        rowsInPage++;
+                        TrialRow row = trialRow(result);
+                        below = row.archiveId();
+                        if (older.size() < maxFiles && holdsKeyOf(directory, keyring, row, tally)) {
+                            older.add(row);
+                        }
+                    }
+                }
+                more = rowsInPage == OLDER_ROWS_PAGE;
+            }
+        } catch (SQLException | RuntimeException e) {
+            return tally.result(describe(e));
+        }
+        opened = tryRows(directory, keyring, older, tally);
+        return opened != null ? opened : tally.result(null);
+    }
+
+    /** @return whether the row's file is an envelope sealed with a key the keyring holds; header only */
+    private static boolean holdsKeyOf(File directory, OutboundEmailArchiveKeyring keyring, TrialRow row, Tally tally) {
+        try {
+            Inspection inspection = inspect(directory, row.fileName());
+            return inspection.state() == FileState.ENCRYPTED && inspection.keyId() > 0
+                    && keyring.key(inspection.keyId()).isPresent();
+        } catch (RuntimeException e) {
+            // A platform path quirk or the like: the row is not evidence about the keys.
+            tally.skipped++;
+            return false;
+        }
+    }
+
+    /** @return a VERIFIED trial for the first row that opens, or null; the tally records the rest */
+    private static Trial tryRows(File directory, OutboundEmailArchiveKeyring keyring, List<TrialRow> rows,
+                                 Tally tally) {
+        for (TrialRow row : rows) {
+            try {
+                Trial opened = tryRow(directory, keyring, row, tally);
+                if (opened != null) {
+                    return opened;
+                }
+            } catch (RuntimeException e) {
+                // A platform path quirk or the like: the row is not evidence about the keys.
+                tally.skipped++;
+            }
+        }
+        return null;
+    }
+
+    /** @return a VERIFIED trial when this row opens, otherwise null; the tally records the rest */
+    private static Trial tryRow(File directory, OutboundEmailArchiveKeyring keyring, TrialRow row, Tally tally) {
+        Inspection inspection = inspect(directory, row.fileName());
+        if (inspection.state() == FileState.PLAINTEXT) {
+            return null;
+        }
+        if (inspection.state() == FileState.UNCHECKABLE || inspection.keyId() <= 0) {
+            tally.skipped++;
+            return null;
+        }
+        if (keyring.key(inspection.keyId()).isEmpty()) {
+            tally.unheldKeySeen = true;
+            return null;
+        }
+        TrialResult result = row.context() == null
+                ? TrialResult.SKIPPED
+                : open(directory, row.fileName(), keyring, row.context());
+        if (result == TrialResult.OPENED) {
+            return new Trial(TrialOutcome.VERIFIED, row.archiveId(), inspection.keyId(), tally.tried,
+                    tally.failedKeyIds, tally.skipped, null);
+        }
+        if (result == TrialResult.AUTHENTICATION_FAILED) {
+            tally.tried++;
+            tally.failedKeyIds.add(inspection.keyId());
+        } else {
+            tally.skipped++;
+        }
+        return null;
+    }
+
+    /** Reads one {@link #TRIAL_SQL} row, columns left to right. */
+    private static TrialRow trialRow(ResultSet row) throws SQLException {
+        long archiveId = row.getLong(1);
+        String fileName = row.getString(2);
+        long emailLogId = row.getLong(3);
+        boolean emailLogMissing = row.wasNull();
+        int demographicNo = row.getInt(4);
+        boolean demographicMissing = row.wasNull();
+        String contentType = row.getString(5);
+        String sha256Hex = normalizedSha256(row.getString(6));
+        long byteSize = row.getLong(7);
+        boolean byteSizeMissing = row.wasNull();
+        OutboundEmailArchiveEnvelope.ArtifactContext context = emailLogMissing || demographicMissing || byteSizeMissing
+                || contentType == null || sha256Hex == null || byteSize < 0 || byteSize > MAX_TRIAL_PLAINTEXT_BYTES
+                ? null
+                : new OutboundEmailArchiveEnvelope.ArtifactContext(emailLogId, demographicNo, contentType, sha256Hex,
+                        byteSize);
+        return new TrialRow(archiveId, fileName, context);
+    }
+
+    /** The read path's normalization: 64 hex digits, trimmed and lower-cased; anything else is null. */
+    private static String normalizedSha256(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.length() != 64) {
+            return null;
+        }
+        for (int i = 0; i < trimmed.length(); i++) {
+            if (Character.digit(trimmed.charAt(i), 16) < 0 || trimmed.charAt(i) > 'f') {
+                return null;
+            }
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean absentTable(SQLException e) {
+        return e.getSQLState() != null && ABSENT_OBJECT_STATES.contains(e.getSQLState());
+    }
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "The stored eDoc filename is validated as one path component and resolved inside DOCUMENT_DIR; links are not followed.")
+    private static TrialResult open(File directory, String fileName, OutboundEmailArchiveKeyring keyring,
+                                    OutboundEmailArchiveEnvelope.ArtifactContext context) {
+        byte[] stored = null;
+        byte[] plaintext = null;
+        try {
+            String safeName = PathValidationUtils.validatePathComponent(fileName, "archive eDoc filename");
+            Path path = new File(directory, safeName).toPath();
+            long expected = context.byteSize() + OutboundEmailArchiveEnvelope.OVERHEAD_BYTES;
+            // Sized first, so a wrong-size file is skipped without reading it; and a regular file only,
+            // which narrows the window in which something swapped in (a FIFO, say) could block startup.
+            BasicFileAttributes attributes = Files.readAttributes(path, BasicFileAttributes.class,
+                    LinkOption.NOFOLLOW_LINKS);
+            if (!attributes.isRegularFile() || attributes.size() != expected) {
+                return TrialResult.SKIPPED;
+            }
+            stored = new byte[(int) expected];
+            try (InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+                if (input.readNBytes(stored, 0, stored.length) != stored.length || input.read() != -1) {
+                    return TrialResult.SKIPPED;
+                }
+            }
+            plaintext = OutboundEmailArchiveEnvelope.open(keyring, context, stored);
+            return TrialResult.OPENED;
+        } catch (OutboundEmailArchiveEnvelopeException e) {
+            return e.getReason() == OutboundEmailArchiveEnvelopeException.Reason.AUTHENTICATION_FAILED
+                    ? TrialResult.AUTHENTICATION_FAILED
+                    : TrialResult.SKIPPED;
+        } catch (IOException | SecurityException e) {
+            return TrialResult.SKIPPED;
+        } finally {
+            if (stored != null) {
+                Arrays.fill(stored, (byte) 0);
+            }
+            if (plaintext != null) {
+                Arrays.fill(plaintext, (byte) 0);
+            }
+        }
+    }
+
     /** @return the number of archive rows, or empty when this schema has no archive table */
     private static OptionalLong countArchives(Connection connection) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(COUNT_SQL);
              ResultSet result = statement.executeQuery()) {
             return OptionalLong.of(result.next() ? result.getLong(1) : 0);
         } catch (SQLException e) {
-            if (e.getSQLState() != null && ABSENT_OBJECT_STATES.contains(e.getSQLState())) {
+            if (absentTable(e)) {
                 return OptionalLong.empty();
             }
             throw e;

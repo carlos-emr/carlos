@@ -225,7 +225,11 @@ includes. Anywhere else, add it to the configuration backup yourself.
   exist, or CARLOS cannot rule that out, CARLOS refuses to start and logs one ERROR
   that names the fix: restore the keyring file from backup.
   `email.archive.keyring.acknowledge_loss=true` gets past that only when the keyring
-  is lost for good, and leaves those archived emails unreadable.
+  is lost for good, and leaves those archived emails unreadable. CARLOS also refuses to start
+  when the keyring holds the right key numbers but cannot decrypt the newest archived
+  emails: it is a different keyring, and the right one must be restored.
+- **Several servers:** create the keyring on one server and copy it to the others
+  before they first start; two servers starting without one would each make their own.
 - **Rotate** with `email.archive.keyring.rotate_to=<next key number>` and a restart.
   Old keys are kept, so older archived emails stay readable. Rotation does not
   re-encrypt what is already archived.

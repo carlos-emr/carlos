@@ -332,6 +332,12 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
             // patient-record checks. Verification then runs on the plaintext, never the ciphertext.
             artifactBytes = openStoredArtifact(archive, expectedSha256Hash, expectedByteSize, storedBytes);
             validateArchivedArtifactHash(expectedSha256Hash, artifactBytes);
+            if (!OutboundEmailArchiveEnvelope.hasEnvelopeMagic(storedBytes)) {
+                // Keeps the plaintext still on disk visible until a re-encryption job exists.
+                MiscUtils.getLogger().warn("Outbound email archive artifact archiveId={} is stored unencrypted"
+                        + " (archived before #3448); it is read as plaintext until a re-encryption job exists",
+                        archive.getId());
+            }
         } catch (IOException e) {
             auditArtifactReadFailure(loggedInInfo, archive, document, e);
             throw e;
@@ -1033,7 +1039,7 @@ public class OutboundEmailArchiveServiceImpl implements OutboundEmailArchiveServ
      * Returns the plaintext artifact held by the stored bytes.
      *
      * <p>Bytes without the envelope marker are a legacy artifact written before #3448 and are
-     * returned as stored. Otherwise the envelope is authenticated against this archive row's
+     * returned as stored; the caller logs a WARN once they verify. Otherwise the envelope is authenticated against this archive row's
      * context (email log, patient, content type, recorded hash and size) and decrypted; nothing is
      * returned unless the GCM tag verifies. The caller still checks the plaintext hash.</p>
      */

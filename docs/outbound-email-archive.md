@@ -280,6 +280,12 @@ key.2=<Base64 of 32 random bytes>
 older artifacts. Never delete or change a `key.N` line, and never reuse a number
 for different key material.
 
+**Permissions.** At every start, a keyring that users other than its owner can read is
+restricted to `0600`, with a WARN advising a rotation in case someone already read it.
+CARLOS also warns when users other than its owner can write to the keyring's directory,
+since they could replace the file. Both are warnings, not refusals: a mounted secret may
+be owned by another account in a directory CARLOS cannot change.
+
 **Backups.** The keyring MUST be backed up with the server configuration, and a copy
 kept off the server; without it every encrypted archive is permanently unreadable.
 On a Debian install it is inside `/etc/carlos-emr`, so the nightly `carlos-emr-backup`
@@ -291,24 +297,34 @@ sealed with the new key need the new file.
 **Restore drill.** On a Debian install the weekly `carlos-emr-backup verify` drill
 fails, and alerts, when the restored database holds archived emails but the newest
 `files` snapshot has no keyring. For a full drill, restore the configuration,
-including the keyring, and the database to a scratch host and start CARLOS. A start
-without the keyring refusal below shows the keyring was restored and parses; it does
-not prove it is the right keyring (the startup ERROR about the newest archive's key
-catches an out-of-date copy). Until an archive read entry point exists (#3222), proving that historical
-artifacts decrypt needs a developer to call `readArchivedArtifact` for a sample.
+including the keyring, the database and the document store (`DOCUMENT_DIR`) to a
+scratch host and start CARLOS. A clean start shows the keyring was restored and parses.
+Look for the INFO line
+`Outbound email archive keyring <path> opened archived email N (key K), the most recent
+encrypted one it could open.`: it proves the keyring opens archive N. Compare N with the
+newest archive id in the restored database; a gap means newer archives were not tried.
+A WARN that recent archived emails could not be tried means the document store is
+missing or incomplete, even when an older archive opened. Without either line, and
+without an ERROR or WARN about the keyring, no encrypted archive was there to try. It does not prove every historical artifact
+decrypts; until an archive read entry point exists (#3222), that needs a developer to
+call `readArchivedArtifact` for a sample.
 
 ### Startup
 
 | Situation | What CARLOS does |
 |---|---|
-| Keyring present and valid | Loads it; logs `Loaded the outbound email archive keyring from <path>: current key N, keys [..].` If the newest encrypted archive (of the 20 most recent files) uses a key the keyring lacks, it also logs an ERROR suggesting an out-of-date copy was restored, but still starts. |
+| Keyring present and valid | Loads it; logs `Loaded the outbound email archive keyring from <path>: current key N, keys [..].` It decrypts, in memory, the newest encrypted archive (of the 20 most recent rows) whose key id the keyring holds, trying older ones until one opens, and logs an INFO naming the archive and key. If newer archives under keys it holds failed first, it logs an ERROR (damaged files, or a second keyring with the same ids, such as another server's), unless they include the current key id or a newer one and the archive that opened uses another key: that is refused (next row). A file that is missing, unreadable, the wrong size or over 50 MiB, a damaged header, a row with incomplete metadata, or a cryptography provider fault is skipped with a WARN; a database read failure is a WARN too. None says anything about the keys. When nothing among the 20 could be tried (every encrypted one uses a key the keyring lacks, or their files are missing or damaged), older rows are searched, header by header, for archives sealed with a key it holds, and tried the same way. If the newest encrypted archive uses a key the keyring lacks, it also logs an ERROR suggesting an out-of-date copy was restored (a WARN when that key is older than the current key and an archive opened, as after an acknowledged loss), but still starts. |
+| Keyring present, holds the archives' key ids, but archives under its current key id (or a newer one) do not open | Refuses to start when a failing archive uses the current key id or a newer one, even if an archive under an older key opens: it is a different keyring with the same ids (one created on a fresh start, or by another server sharing the document store), or the files were damaged or altered, and new archives would be sealed with a second, different key under an id already in use. With `acknowledge_loss` set **and** `rotate_to` above the failing key ids and every key id the keyring holds, it starts with an ERROR and rotates; `acknowledge_loss` alone is refused. If that rotation is itself refused because some archive files cannot be read, move the keyring file aside and set `acknowledge_loss` alone: a new keyring is created at a random high key id. When every failing key is older than the current key (lost keys rotated past), it starts with an ERROR. |
 | Keyring present but unreadable or malformed | Refuses to start, always. It never replaces an existing keyring file. |
 | Keyring missing, no archived artifact encrypted | Creates it (a fresh install, or an upgrade from plaintext-only archives). |
 | Keyring missing, encrypted artifacts found | Refuses to start with one ERROR naming the fix. |
 | Keyring missing, a stored file could not be checked, or the database could not be read | Refuses to start: encrypted artifacts cannot be ruled out. |
 
-The check reads only the database's archive rows and the first bytes of each stored
-file, newest first, and stops at the first encrypted one. A missing
+When the keyring is missing, the check reads only the database's archive rows and the
+first bytes of each stored file, newest first, and stops at the first encrypted one.
+(The trial open of a present keyring reads and decrypts whole recent files, in memory.
+It writes no read-audit row, since no person reads the artifact, and keeps and logs
+nothing it decrypted.) A missing
 `outboundEmailArchive` table counts as a fresh install. The refusal reads, for
 example:
 
@@ -329,18 +345,21 @@ creates a new keyring, and every archived email encrypted with the old one stays
 2. Only if it cannot be recovered, set `email.archive.keyring.acknowledge_loss=true`
    (`yes` and `on` also work; the same style as `encryption.util.secret.key.acknowledge_loss`,
    #4098, pending) and restart. CARLOS creates a new keyring and logs one ERROR. Its
-   first key never reuses a lost key's id, so if the old keyring turns up later its
-   `key.N` lines can be copied back into the new file. When every archived file could
+   first key avoids every key id found in a surviving archive, so if the old keyring
+   turns up later the `key.N` lines that sealed those archives can be copied back into
+   the new file (a lost key that sealed nothing still on disk may share an id with a new
+   one; it is not needed). When every archived file could
    be read, the first key is one above the highest key id found. When the check was
    incomplete (the database or some files could not be read), the lost ids are not all
    known, so the first key gets a random id between 16777216 and 1073741823 and a WARN
    says so. Reading an archive sealed with a lost key fails with an audited
    `keyUnavailable`.
 3. Back up the new keyring, then remove `email.archive.keyring.acknowledge_loss`.
-   CARLOS logs a WARN at every start while it is set.
+   It applies on every start while it is set, with a WARN each time, so it must not be
+   left in place.
 
 Logs never contain key material, file content or archive content: they carry the
-path, key ids, counts, property names and exception class names.
+path, key ids, archive ids, counts, property names and exception class names.
 
 ### Rotating the archive key
 
@@ -374,8 +393,11 @@ holding an exclusive filesystem lock. The directory must be writable, and the
 filesystem must support locks shared by every process using it. Leave that lock
 file in place. Ordinary reads of a mounted keyring do not need a writable lock file.
 
-For multiple CARLOS servers, stop sends on every server before rotating, then restart
-all servers with the updated keyring before resuming sends. Running servers keep their
+For multiple CARLOS servers sharing one document store, create the keyring once, on
+the first server, and copy it to every other server before that server first starts:
+two servers starting without a keyring would each create a different key 1. Stop sends
+on every server before rotating, then restart all servers with the updated keyring
+before resuming sends. Running servers keep their
 startup keyring in memory and cannot read a newly added key until restarted. Manual
 keyring edits must also happen while every server is stopped.
 
@@ -397,8 +419,8 @@ archive has no re-encryption job yet, so its old keys are never retired.
 
 Encrypted reads add two audit events to those listed above:
 
-- `readArchivedArtifact.decryptionFailure`: the envelope failed authentication, or
-  is malformed or of an unsupported version. Either the stored file or the row's
+- `readArchivedArtifact.decryptionFailure`: the envelope failed authentication, is
+  malformed or of an unsupported version, or the cryptography provider failed. Either the stored file or the row's
   recorded values changed, or the key under that id is not the key that sealed it
   (the wrong keyring restored). Stop using the artifact; compare the file and the
   keyring with backups. Do not edit the recorded hash or size to silence it.
@@ -407,6 +429,9 @@ Encrypted reads add two audit events to those listed above:
 
 The application log line is
 `Outbound email archive artifact read failure archiveId=<id> failureType=<type> event=<event>`.
+A successful read of a pre-#3448 plaintext artifact logs a WARN,
+`Outbound email archive artifact archiveId=<id> is stored unencrypted (archived before #3448); ...`,
+so the plaintext still on disk stays visible.
 A plaintext size or SHA-256 mismatch after a successful decryption is still
 `integrityFailure`.
 
@@ -441,7 +466,13 @@ repository as plaintext, and encrypted it costs its full size every time.
 - **A KMS or HSM.** Keys live in a file protected by file permissions.
 - **Streaming (#3211).** A write or read holds the plaintext and the ciphertext in
   memory at once, bounded by the 50 MiB limit.
-- **Detecting a wrong keyring at startup.** An out-of-date copy that lacks the newest
-  archive's key is reported at startup (ERROR, not a refusal). A keyring holding
-  different key material under the same ids is found only when an artifact is read
-  (`decryptionFailure`).
+- **Refusing an out-of-date keyring at startup.** A copy that lacks the newest
+  archive's key is reported at startup (an ERROR, or a WARN when that key is older
+  than the current key and an archive opened), not refused. (A keyring holding
+  different key material under the same ids is refused; see Startup.)
+- **Rotation through the admin job framework.** Rotation is a startup property
+  (`email.archive.keyring.rotate_to`) applied at the next start, not a batched,
+  restartable admin job, and it does not re-encrypt anything.
+- **An explicit end to plaintext reads.** Pre-#3448 plaintext artifacts are read
+  without decryption for as long as they exist; each such read logs a WARN naming the
+  archive id. There is no switch that refuses them yet.

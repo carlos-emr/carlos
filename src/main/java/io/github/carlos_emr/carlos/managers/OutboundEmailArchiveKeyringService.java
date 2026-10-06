@@ -45,6 +45,7 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystemException;
 import java.nio.file.Files;
@@ -86,16 +87,22 @@ import java.util.TreeSet;
  * <h2>Startup</h2>
  * <ul>
  *   <li><b>File present:</b> loaded and validated. Unreadable or malformed stops startup, always:
- *       a keyring file is never replaced, not even with the override. The newest encrypted archive's
- *       key id is then checked against it; a missing key is logged as an ERROR (an out-of-date
- *       keyring restored from backup), not refused.</li>
+ *       a keyring file is never replaced, not even with the override. Recent encrypted archives
+ *       are then trial-opened with it, in memory. When archives under the current key id or a newer
+ *       one fail authentication (whether or not one under an older key opens), it is a different
+ *       keyring with the same ids, and startup is refused unless the loss is acknowledged together
+ *       with a rotation past every id it holds. Failures only under older ids are an ERROR. The
+ *       newest encrypted archive's key id is also checked against it; a missing key is logged as an
+ *       ERROR (an out-of-date keyring restored from backup), or a WARN when it is older than the
+ *       current key and an archive opened (given up with an acknowledged loss), not refused.</li>
  *   <li><b>File missing, and no archived artifact is encrypted</b> (a fresh install, or an upgrade
  *       from plaintext-only archives): a keyring with key 1 is created, owner-only, never replacing a
  *       file another process created meanwhile.</li>
  *   <li><b>File missing, and encrypted artifacts exist or cannot be ruled out</b> (a file could not
  *       be checked, or the database could not be read): startup is refused with one ERROR naming the
  *       fix, restore the keyring from backup. {@value #ACKNOWLEDGE_LOSS_PROPERTY}{@code =true}
- *       accepts the loss for one start, in the style of {@code encryption.util.secret.key.acknowledge_loss}
+ *       accepts the loss on every start while it is set, so remove it again after one start, in the
+ *       style of {@code encryption.util.secret.key.acknowledge_loss}
  *       (#4098, pending). The new keyring's first key id must not reuse a lost one: it is one above
  *       the highest key id on disk when every archive could be read, and otherwise a random id
  *       between 2<sup>24</sup> and 2<sup>30</sup>.</li>
@@ -164,6 +171,8 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
     private Settings settings;
     private String contextName = DEFAULT_CONTEXT_NAME;
     private volatile OutboundEmailArchiveKeyring keyring;
+    /** Whether this start's trial open succeeded; the newest-key report reads it. */
+    private boolean newestTrialOpened;
 
     /**
      * Configuration read once at startup.
@@ -269,7 +278,8 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
         boolean existed = Files.exists(file);
         if (existed) {
             resolved = load(file, path);
-            if (settings.acknowledgeLoss()) {
+            boolean overrideUsed = checkKeysOpenNewestArchives(path, resolved);
+            if (settings.acknowledgeLoss() && !overrideUsed) {
                 logger.warn("{} is set but has no effect while the outbound email archive keyring exists. Remove it,"
                                 + " so that a future loss of the keyring stops startup instead of being accepted.",
                         ACKNOWLEDGE_LOSS_PROPERTY);
@@ -349,14 +359,142 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
     }
 
     /**
+     * Trial-opens recent encrypted archives with the loaded keyring. A keyring holding the right key
+     * ids but other key material (created on a fresh start against the wrong database, by another
+     * server, or swapped in by hand) would otherwise start cleanly, fail every older read, and seal new
+     * archives under a second, different key for an id already in use, which a later restore of the
+     * right keyring could not open. That is refused whenever archives under the current key id or a
+     * newer one fail, even if an archive under an older key opens. Failures only under ids older than
+     * the current key are keys given up with an acknowledged loss or rotated past: new archives cannot
+     * clash with them, so that is an ERROR, not a refusal.
+     *
+     * @return true when the keys failed and {@value #ACKNOWLEDGE_LOSS_PROPERTY} let startup continue
+     * @throws OutboundEmailArchiveKeyringException when the tried archives fail under the current key
+     *         id or a newer one, and the loss is not acknowledged together with a rotation past them
+     */
+    private boolean checkKeysOpenNewestArchives(String path, OutboundEmailArchiveKeyring loaded) {
+        OutboundEmailArchiveArtifactCensusLoader.Trial trial = censusLoader.verifyNewest(
+                settings.documentDirectory(), loaded, NEWEST_ARTIFACTS_CHECKED);
+        newestTrialOpened = trial.outcome() == OutboundEmailArchiveArtifactCensusLoader.TrialOutcome.VERIFIED;
+        if (trial.failure() != null) {
+            logger.warn("Outbound email archive keyring {} could not be checked against the archive: the database"
+                    + " could not be read ({}).", path, trial.failure());
+        }
+        if (trial.skipped() > 0) {
+            logger.warn("Outbound email archive keyring {}: {} archived email(s) could not be tried (file missing"
+                            + " or unreadable, wrong size, larger than 50 MiB, a damaged header, incomplete metadata, or a"
+                            + " cryptography provider fault). Check DOCUMENT_DIR and that the document store is mounted"
+                            + " and fully restored.", path, trial.skipped());
+        }
+        int currentKeyId = loaded.currentKeyId();
+        if (newestTrialOpened) {
+            logger.info("Outbound email archive keyring {} opened archived email {} (key {}), the most recent encrypted"
+                    + " one it could open.", path, trial.archiveId(), trial.keyId());
+            if (trial.tried() == 0) {
+                return false;
+            }
+            boolean currentKeyFailed = trial.keyId() < currentKeyId
+                    ? trial.failedKeyIds().last() >= currentKeyId
+                    : trial.keyId() > currentKeyId && trial.failedKeyIds().contains(currentKeyId);
+            if (!currentKeyFailed) {
+                logger.error("Outbound email archive keyring {}: {} newer encrypted archived email(s) sealed under key"
+                                + " ids {} it holds could not be decrypted with it. Either those files were damaged or"
+                                + " altered, or a second keyring with the same ids sealed them (for example another"
+                                + " server sharing this document store with its own keyring). Compare them with"
+                                + " backups, and make every server use the same keyring.",
+                        path, trial.tried(), trial.failedKeyIds());
+                return false;
+            }
+            // Another key opens, but archives under the current key id (or a newer one) do not: the current
+            // key is not the one that sealed them, and new archives would share an id with them.
+            return refuseOrAcceptLoss(path, loaded, trial, "Outbound email archive keyring " + path + " opens archived"
+                    + " email " + trial.archiveId() + " with key " + trial.keyId() + ", but " + trial.tried()
+                    + " newer encrypted archived email(s) under key ids " + trial.failedKeyIds()
+                    + ", including the current key " + currentKeyId + " or a newer one, could not be decrypted with it.");
+        }
+        if (trial.outcome() != OutboundEmailArchiveArtifactCensusLoader.TrialOutcome.WRONG_KEYS) {
+            return false;
+        }
+        String problem = "Outbound email archive keyring " + path + " holds the key ids of recent encrypted archived"
+                + " emails, but " + (trial.tried() == 1
+                        ? "the one it was tried on could not be decrypted with it"
+                        : "none of the " + trial.tried() + " it was tried on could be decrypted with it")
+                + " (key ids " + trial.failedKeyIds() + ").";
+        if (trial.failedKeyIds().last() < currentKeyId) {
+            logger.error("{} Every one of those keys is older than the current key {}, so they were given up with {}"
+                    + " or rotated past, and new archived emails cannot share an id with them. Archived emails"
+                    + " encrypted with them stay unreadable until the right keys are restored, unless the files were"
+                    + " damaged or altered.", problem, currentKeyId, ACKNOWLEDGE_LOSS_PROPERTY);
+            return false;
+        }
+        return refuseOrAcceptLoss(path, loaded, trial, problem);
+    }
+
+    /**
+     * Refuses startup for a keyring whose current key id, or a newer one, failed on archived emails,
+     * unless the loss is acknowledged together with a rotation past every key id the keyring holds.
+     *
+     * @return true when {@value #ACKNOWLEDGE_LOSS_PROPERTY} let startup continue
+     */
+    private boolean refuseOrAcceptLoss(String path, OutboundEmailArchiveKeyring loaded,
+            OutboundEmailArchiveArtifactCensusLoader.Trial trial, String problem) {
+        problem += " It is probably a different keyring (one created on a fresh start, or by another server sharing"
+                + " this document store), not the one that encrypted them, or those files were damaged or altered.";
+        // A rotation onto an id this keyring already holds would only switch to its existing key.
+        int mustRotatePast = Math.max(trial.failedKeyIds().last(), loaded.keyIds().last());
+        String lossFix = "Only if that keyring is lost for good: set " + ACKNOWLEDGE_LOSS_PROPERTY + "=true and "
+                + ROTATE_TO_PROPERTY + " to a key id above " + mustRotatePast + " (and above every id in use), and"
+                + " restart; the archived emails it encrypted stay unreadable. If that rotation is refused because"
+                + " some archive files cannot be read, move this keyring file aside and set " + ACKNOWLEDGE_LOSS_PROPERTY
+                + "=true alone: CARLOS then creates a new keyring at a random high key id. If the files were damaged"
+                + " instead, restore them from backup.";
+        if (!settings.acknowledgeLoss()) {
+            throw refuse(problem + " Refusing to start: new archived emails would be encrypted with a second, different"
+                    + " key under an id already in use. Fix: restore the right keyring file from backup (with several"
+                    + " servers, copy the keyring of the server that encrypted them), then restart. " + lossFix);
+        }
+        if (rotationTarget() <= mustRotatePast) {
+            throw refuse(problem + " " + ACKNOWLEDGE_LOSS_PROPERTY + " is set, but without a rotation past key "
+                    + mustRotatePast + " new archived emails would still be encrypted under an id already in use."
+                    + " Refusing to start. Fix: restore the right keyring file from backup, then restart. " + lossFix);
+        }
+        logger.error("{} {} is set, so CARLOS accepts the loss and will rotate to key {}: archived emails encrypted"
+                        + " with the lost keys are unreadable. If the rotation is refused because some archive files"
+                        + " cannot be read, move this keyring file aside and set {} alone. After a start, back up the"
+                        + " keyring, then remove {} and {}.",
+                problem, ACKNOWLEDGE_LOSS_PROPERTY, rotationTarget(), ACKNOWLEDGE_LOSS_PROPERTY,
+                ACKNOWLEDGE_LOSS_PROPERTY, ROTATE_TO_PROPERTY);
+        return true;
+    }
+
+    /**
+     * @return the requested rotation target, or 0 when none is set
+     * @throws OutboundEmailArchiveKeyringException when it is set but is not a key id
+     */
+    private int rotationTarget() {
+        String raw = settings.rotateTo();
+        return raw == null ? 0 : parseRotateTo(raw);
+    }
+
+    /**
      * A loaded keyring that lacks the key of the newest encrypted archive is most likely an older
      * backup copy. Reported, not refused: every other archive may still read, and the rotation check
-     * stops a new key from reusing the missing id.
+     * stops a new key from reusing the missing id. A missing id below the current key, when this start's
+     * trial opened an archive, is a key given up with an acknowledged loss, so it is a WARN rather than a
+     * repeated ERROR; when nothing opened, the keyring may be a foreign one and it stays an ERROR.
      */
     private void reportIfNewestKeyIsMissing(String path, OutboundEmailArchiveKeyring loaded) {
         OptionalInt newest = censusLoader.newestEncryptedKeyId(settings.documentDirectory(), NEWEST_ARTIFACTS_CHECKED);
         if (newest.isPresent() && !loaded.keyIds().contains(newest.getAsInt())) {
             int keyId = newest.getAsInt();
+            if (keyId < loaded.currentKeyId() && newestTrialOpened) {
+                logger.warn("Outbound email archive keyring {} does not hold key {}, which encrypted the most recent"
+                                + " encrypted archived email; the current key {} is newer, so key {} was most likely given"
+                                + " up with {} and rotated past. Archived emails encrypted with it cannot be read until it"
+                                + " is restored.",
+                        path, keyId, loaded.currentKeyId(), keyId, ACKNOWLEDGE_LOSS_PROPERTY);
+                return;
+            }
             logger.error("Outbound email archive keyring {} does not hold key {}, which encrypted the most recent"
                             + " encrypted archived email. Archived emails encrypted with key {} cannot be read. This"
                             + " keyring may be an out-of-date copy: restore the newest keyring file from backup, then"
@@ -497,6 +635,11 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
             try (FileChannel channel = FileChannel.open(lockFile, options, ownerOnlyAttributes(file.getParent()));
                     FileLock ignored = channel.lock()) {
                 return rotateUnderLock(file, path, load(file, path), target);
+            } catch (OverlappingFileLockException e) {
+                throw refuse("Could not lock the outbound email archive keyring at " + path + " for rotation: another"
+                        + " CARLOS webapp in this server holds the lock, so two contexts share one keyring path. Refusing"
+                        + " to start. Fix: set " + ROTATE_TO_PROPERTY + " for one context at a time, or give each context"
+                        + " its own keyring (" + FILE_OVERRIDES + "), then restart.");
             } catch (IOException e) {
                 throw refuse("Could not lock the outbound email archive keyring at " + path
                         + " for rotation (" + e.getClass().getSimpleName() + "). Refusing to start. Fix: make its"
@@ -679,8 +822,13 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
         }
     }
 
-    /** Owner-only where the platform has POSIX permissions; a warning when it cannot be enforced. */
+    /**
+     * Owner-only where the platform has POSIX permissions; a warning when it cannot be enforced, or
+     * when other users can write to the keyring's directory and so could replace the file. Only a
+     * warning: a mounted secret is often owned by another user in a directory CARLOS cannot change.
+     */
     private static void restrictToOwner(Path file, String path) {
+        warnIfDirectoryIsWritableByOthers(file.getParent(), path);
         PosixFileAttributeView view = Files.getFileAttributeView(file, PosixFileAttributeView.class);
         if (view == null) {
             return;
@@ -691,11 +839,38 @@ public class OutboundEmailArchiveKeyringService implements InitializingBean, Ser
                 return;
             }
             view.setPermissions(OWNER_ONLY);
-            logger.info("Restricted the outbound email archive keyring {} to owner-only access (0600).", path);
+            logger.warn("Outbound email archive keyring {} could be read by users other than its owner; CARLOS"
+                    + " restricted it to owner-only access (0600). If anyone else may have read it, rotate to a new"
+                    + " key ({}) so that new archived emails use a key nobody else has seen.", path, ROTATE_TO_PROPERTY);
         } catch (IOException | SecurityException e) {
             String failure = e.getClass().getSimpleName();
             logger.warn("Outbound email archive keyring {} can be read by users other than its owner, and CARLOS could"
                     + " not restrict it ({}). Fix: chmod 600 on the file.", path, failure);
+        }
+    }
+
+    private static void warnIfDirectoryIsWritableByOthers(Path directory, String path) {
+        if (directory == null) {
+            return;
+        }
+        PosixFileAttributeView view = Files.getFileAttributeView(directory, PosixFileAttributeView.class);
+        if (view == null) {
+            return;
+        }
+        try {
+            // A read-only mount (a Kubernetes secret volume, say) cannot be written whatever its mode says.
+            if (Files.getFileStore(directory).isReadOnly()) {
+                return;
+            }
+            Set<PosixFilePermission> permissions = view.readAttributes().permissions();
+            if (permissions.contains(PosixFilePermission.GROUP_WRITE)
+                    || permissions.contains(PosixFilePermission.OTHERS_WRITE)) {
+                logger.warn("The directory of the outbound email archive keyring {} can be written by users other than"
+                        + " its owner, who could replace the keyring. Fix: make the directory writable by its owner"
+                        + " only (for example chmod 700), or move the keyring to such a directory.", path);
+            }
+        } catch (IOException | SecurityException e) {
+            logger.debug("Archive keyring directory permissions could not be read ({})", e.getClass().getSimpleName());
         }
     }
 

@@ -207,7 +207,7 @@ public final class OutboundEmailArchiveEnvelope {
                     "Archive artifact failed authentication");
         } catch (GeneralSecurityException e) {
             throw new OutboundEmailArchiveEnvelopeException(
-                    OutboundEmailArchiveEnvelopeException.Reason.AUTHENTICATION_FAILED,
+                    OutboundEmailArchiveEnvelopeException.Reason.DECRYPTION_ERROR,
                     "Archive artifact could not be decrypted", e);
         }
     }

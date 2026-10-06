@@ -53,6 +53,11 @@ public class OutboundEmailArchiveEnvelopeException extends IOException {
          * changed, or the key under that id is not the key that sealed it.
          */
         AUTHENTICATION_FAILED,
+        /**
+         * Decryption failed inside the JCE provider for a reason other than the tag: a provider or
+         * configuration fault, not evidence about the artifact or the key.
+         */
+        DECRYPTION_ERROR,
         /** Sealing failed inside the JCE provider. */
         ENCRYPTION_FAILED
     }

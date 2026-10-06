@@ -146,13 +146,15 @@ public final class OutboundEmailArchiveKeyring {
     }
 
     /**
-     * Raw key material, for writing the keyring file and nothing else.
+     * Raw key material, for writing the keyring file and nothing else. Package-private, so code outside
+     * this package cannot take single keys from the keyring bean; the file format itself
+     * ({@link OutboundEmailArchiveKeyringParser#format}) is the one other way out, for writing the file.
      *
      * @param keyId a key id in this keyring
      * @return a copy of the 32 key bytes
      * @throws IllegalArgumentException when the id is not in the keyring
      */
-    public byte[] encodedKey(int keyId) {
+    byte[] encodedKey(int keyId) {
         SecretKey key = keys.get(keyId);
         if (key == null) {
             throw new IllegalArgumentException("Archive key " + keyId + " is not in the keyring");

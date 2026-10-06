@@ -53,6 +53,18 @@ public final class OutboundEmailArchiveTestKeyrings {
     }
 
     /**
+     * Raw key material for assertions in other packages; production code outside this package has no
+     * way to read it.
+     *
+     * @param keyring a keyring
+     * @param keyId   a key id in it
+     * @return a copy of that key's 32 bytes
+     */
+    public static byte[] material(OutboundEmailArchiveKeyring keyring, int keyId) {
+        return keyring.encodedKey(keyId);
+    }
+
+    /**
      * @param currentKeyId the key that encrypts new artifacts
      * @param keyIds       every key in the keyring; must include {@code currentKeyId}
      * @return a keyring of synthetic keys
