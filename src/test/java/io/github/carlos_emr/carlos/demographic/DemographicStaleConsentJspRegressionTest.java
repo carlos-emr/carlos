@@ -143,6 +143,7 @@ class DemographicStaleConsentJspRegressionTest {
         int box = section.indexOf("name=\"recordExplicit_${carlos:forHtmlAttribute(consentType.type)}\"");
         assertThat(guard).as("implied-record guard").isGreaterThanOrEqualTo(0);
         assertThat(box).as("checkbox inside the guard").isGreaterThan(guard);
+        assertThat(section.substring(guard, box)).as("guard still open at the checkbox").doesNotContain("</c:if>");
         int boxEnd = section.indexOf("/>", box);
         String checkbox = section.substring(section.lastIndexOf("<input", box), boxEnd);
         assertThat(checkbox)

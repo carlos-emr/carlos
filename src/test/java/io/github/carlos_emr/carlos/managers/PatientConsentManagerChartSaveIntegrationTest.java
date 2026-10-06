@@ -24,7 +24,9 @@ package io.github.carlos_emr.carlos.managers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -44,6 +46,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -60,6 +63,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @DisplayName("PatientConsentManager chart save with the real consent DAOs")
 @Tag("integration")
 @Tag("manager")
+@Tag("consent")
 class PatientConsentManagerChartSaveIntegrationTest extends CarlosTestBase {
 
     private static final int PATIENT = 521;
@@ -112,10 +116,19 @@ class PatientConsentManagerChartSaveIntegrationTest extends CarlosTestBase {
         entityManager.clear();
 
         ChartConsentOutcome outcome;
-        try (MockedStatic<LogAction> ignored = mockStatic(LogAction.class)) {
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             // The page showed this implied opt-out; staff pick Opt-in and tick the box.
             outcome = manager.saveChartConsent(loggedInInfo, PATIENT, emailType.getId(), new ChartConsentRequest(
                     ChartConsentRequest.Choice.OPT_IN, true, true, impliedOptOut.getId(), Boolean.TRUE));
+
+            // One save, two required audit entries: the switch, then the confirmation.
+            InOrder audits = inOrder(LogAction.class);
+            audits.verify(logAction, () -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
+                    eq("PatientConsentManager.changeConsent"), eq("consent"), eq(String.valueOf(impliedOptOut.getId())),
+                    eq(PATIENT), contains("opt-out->opt-in")));
+            audits.verify(logAction, () -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"),
+                    eq(String.valueOf(impliedOptOut.getId())), eq(PATIENT), contains("implied->explicit")));
         }
         entityManager.flush();
         entityManager.clear();
@@ -128,5 +141,7 @@ class PatientConsentManagerChartSaveIntegrationTest extends CarlosTestBase {
         assertThat(decided.isOptout()).isFalse();
         assertThat(decided.isExplicit()).isTrue();
         assertThat(decided.getLastEnteredBy()).isEqualTo("999998");
+        assertThat(decided.getEditDate()).isAfter(new Date(1_000L));
+        assertThat(decided.getConsentDate()).as("restamped when the patient confirmed").isNotNull();
     }
 }
