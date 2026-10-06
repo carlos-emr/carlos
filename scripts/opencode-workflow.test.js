@@ -18,6 +18,7 @@ function fixture() {
   const env = { GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: '42', GITHUB_ACTOR: 'Alice',
     GITHUB_TRIGGERING_ACTOR: 'Alice', GITHUB_RUN_ATTEMPT: '1',
     OPENCODE_ENABLED: 'true', OPENCODE_ALLOWED_USERS: '["alice"]', OPENCODE_PROVIDER_1_CONFIGURED: 'true',
+    OPENCODE_MODEL_ALLOWED_USERS: '{"deepseek41flash":["alice"],"kimi":["alice"]}',
     OPENCODE_MODELS: JSON.stringify({ deepseek41flash: { model: 'vendor/model', provider: 1, adapter: 'openai-compatible' } }), OPENCODE_APP_ID: '123' };
   const ctx = c.context(event, env);
   const data = {
@@ -490,4 +491,96 @@ test('availability notice skips disabled, unlisted, read-only and bot authors; A
   const f = fixture(); makePR(f); f.data[`${f.ctx.root}/pulls/3`].user = { login: 'Alice', type: 'User' };
   f.data[`${f.ctx.root}/collaborators/Alice/permission`] = new Error('lookup failed');
   await assert.rejects(c.notice(f.api, event, f.env), /lookup failed/);
+});
+
+test('per-model grants deny by default, validate the entire mapping, and match exact usernames', () => {
+  for (const value of [undefined, '', '{}', '{"sonnet":[]}']) assert.deepEqual(p.modelsForUser(p.modelGrants(value), 'Alice'), []);
+  const grants = p.modelGrants('{"sonnet":["ALICE","alice"],"kimi":["alice2"]}');
+  assert.deepEqual(p.modelsForUser(grants, 'Alice'), ['sonnet']);
+  assert.deepEqual(p.modelsForUser(grants, 'alice2'), ['kimi']);
+  for (const value of ['null', '[]', '"alice"', '{bad', '{"unknown":["alice"]}', '{"KIMI":["alice"]}',
+    '{"sonnet":null}', '{"sonnet":"alice"}', '{"sonnet":[12]}', '{"sonnet":["*"]}',
+    '{"sonnet":["alice[bot]"]}', '{"__proto__":["alice"]}', '{"kimi":["alice"],"sonnet":false}']) {
+    assert.throws(() => p.modelGrants(value), /OPENCODE_MODEL_ALLOWED_USERS/);
+  }
+});
+
+test('all command modes and aliases enforce model grants on default and explicit selections', async () => {
+  for (const mode of ['explain', 'review', 'implement']) {
+    for (const alias of p.MODEL_ALIASES) {
+      const f = fixture();
+      f.env.OPENCODE_MODELS = JSON.stringify(Object.fromEntries(p.MODEL_ALIASES.map(name => [name,
+        { provider: 1, model: `vendor/${name}`, adapter: 'openrouter' }])));
+      f.env.OPENCODE_MODEL_ALLOWED_USERS = JSON.stringify({ [alias]: ['aLiCe'] });
+      const body = `/oc ${mode} --model ${alias} requested work`;
+      f.ctx.event.comment.body = body; f.data[`${f.ctx.root}/issues/comments/12`].body = body;
+      assert.equal((await c.authorize(f.api, f.ctx, f.env)).settings.alias, alias);
+      f.env.OPENCODE_MODEL_ALLOWED_USERS = '{}';
+      await assert.rejects(c.authorize(f.api, f.ctx, f.env), /must each be granted/);
+      assert.ok(!f.calls.some(x => x.method !== 'GET'));
+    }
+  }
+  const f = fixture(); f.env.OPENCODE_MODEL_ALLOWED_USERS = '{"sonnet":["alice"]}';
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /granted deepseek41flash/);
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '';
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /granted deepseek41flash/);
+});
+
+test('model grants cannot bypass global membership, live permissions or rerunning actor restrictions', async () => {
+  const f = fixture();
+  f.env.OPENCODE_ALLOWED_USERS = '["Alice","Bob"]';
+  f.env.GITHUB_TRIGGERING_ACTOR = 'Bob';
+  f.data[`${f.ctx.root}/collaborators/Bob/permission`] = { permission: 'admin' };
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /must each be granted/);
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '{"deepseek41flash":["Alice","Bob"]}';
+  await c.authorize(f.api, f.ctx, f.env);
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '{"deepseek41flash":["Bob"]}';
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /must each be granted/);
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '{"deepseek41flash":["Alice","Bob"]}';
+  f.env.OPENCODE_ALLOWED_USERS = '["Bob"]';
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /explicitly allowlisted/);
+  f.env.OPENCODE_ALLOWED_USERS = '["Alice","Bob"]';
+  f.data[`${f.ctx.root}/collaborators/Alice/permission`] = { permission: 'read' };
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /live repository write/);
+});
+
+test('revoked model grants block publication and recovery before minting a write token', async t => {
+  const f = publication(t);
+  const denyToken = async () => { assert.fail('a revoked grant must not mint a token'); };
+  process.env.OPENCODE_MODEL_ALLOWED_USERS = '{}';
+  await assert.rejects(c.publish(f.api, f.ctx, denyToken), /must each be granted/);
+  f.data[`${f.ctx.root}/git/ref/heads/opencode/comment-12`] = { object: { sha } };
+  f.data[`${f.ctx.root}/commits?sha=${sha}&per_page=100`] = [{ sha, commit: { message: `fix\n\n${p.marker(repo, 12)}` } }];
+  await assert.rejects(c.publish(f.api, f.ctx, denyToken), /must each be granted/);
+  assert.equal(f.writes.length, 0);
+});
+
+test('a grant revoked during preparation prevents attaching generated code and revokes the token', async t => {
+  const f = publication(t);
+  const original = f.app.api.request;
+  f.app.api.request = async (route, method, body) => {
+    const result = await original(route, method, body);
+    if (route.endsWith('/git/commits') && method === 'POST') process.env.OPENCODE_MODEL_ALLOWED_USERS = '{}';
+    return result;
+  };
+  await assert.rejects(c.publish(f.api, f.ctx, async () => f.app), /must each be granted/);
+  assert.ok(!f.writes.some(x => x.route.includes('/git/refs') || x.route.endsWith('/pulls')));
+  assert.equal(f.writes.at(-1).route, '/installation/token');
+});
+
+test('availability notes show only author-specific grants and never suggest an ungranted default', async () => {
+  const f = fixture(); makePR(f);
+  f.data[`${f.ctx.root}/pulls/3`].user = { login: 'Alice', type: 'User' };
+  f.data[`${f.ctx.root}/issues/3/comments`] = [];
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '{"sonnet":["alice"],"kimi":["bob"]}';
+  const event = { repository: { full_name: repo }, pull_request: { number: 3 } };
+  await c.notice(f.api, event, f.env);
+  const body = f.calls.find(x => x.method === 'POST').body.body;
+  assert.match(body, /`\/oc review --model sonnet`/);
+  assert.match(body, /`\/oc implement --model sonnet <request>`/);
+  assert.doesNotMatch(body, /kimi|deepseek41flash|glm53|`\/oc review`/);
+  const before = f.calls.filter(x => x.method === 'POST').length;
+  f.env.OPENCODE_MODEL_ALLOWED_USERS = '{}';
+  await c.notice(f.api, event, f.env);
+  assert.equal(f.calls.filter(x => x.method === 'POST').length, before);
 });

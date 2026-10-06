@@ -36,13 +36,28 @@ function command(body) {
   return { mode, prompt, ...options };
 }
 
-function allowlist(value) {
+function allowlist(value, setting = 'OPENCODE_ALLOWED_USERS') {
   let list;
-  try { list = JSON.parse(value || '[]'); } catch { throw new Error('OPENCODE_ALLOWED_USERS must be a JSON username array.'); }
+  try { list = JSON.parse(value || '[]'); } catch { throw new Error(`${setting} must be a JSON username array.`); }
   if (!Array.isArray(list) || list.some(x => typeof x !== 'string' || !/^[a-z\d](?:[a-z\d-]{0,37}[a-z\d])?$/i.test(x))) {
-    throw new Error('OPENCODE_ALLOWED_USERS must contain GitHub usernames only.');
+    throw new Error(`${setting} must contain GitHub usernames only.`);
   }
   return new Set(list.map(x => x.toLowerCase()));
+}
+
+function modelGrants(value) {
+  let grants;
+  try { grants = JSON.parse(value || '{}'); } catch { throw new Error('OPENCODE_MODEL_ALLOWED_USERS must be a JSON model-to-user-array mapping.'); }
+  if (!grants || typeof grants !== 'object' || Array.isArray(grants) ||
+      Object.keys(grants).some(alias => !MODEL_ALIASES.includes(alias))) {
+    throw new Error('OPENCODE_MODEL_ALLOWED_USERS must map supported model aliases to username arrays.');
+  }
+  return new Map(Object.entries(grants).map(([alias, users]) =>
+    [alias, allowlist(JSON.stringify(users), `OPENCODE_MODEL_ALLOWED_USERS.${alias}`)]));
+}
+
+function modelsForUser(grants, login) {
+  return MODEL_ALIASES.filter(alias => grants.get(alias)?.has(String(login).toLowerCase()));
 }
 
 function permitted(list, login, response) {
@@ -164,5 +179,5 @@ function blobHash(bytes) {
   return crypto.createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 }
 
-module.exports = { BASE, MAX_BYTES, MAX_FILES, USAGE, MODEL_ALIASES, endpoint, command, allowlist, permitted, settings,
+module.exports = { BASE, MAX_BYTES, MAX_FILES, USAGE, MODEL_ALIASES, endpoint, command, allowlist, modelGrants, modelsForUser, permitted, settings,
   protectedHead, safePath, validateBundle, parseEvents, config, marker, blobHash };

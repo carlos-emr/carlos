@@ -74,7 +74,14 @@ async function authorize(api, ctx, environment = env) {
     const permission = await api.request(`${ctx.root}/collaborators/${encodeURIComponent(actor)}/permission`);
     if (!p.permitted(list, actor, permission)) throw new Error('Denied: live repository write permission is required.');
   }
-  const settings = p.settings(environment, parsed.modelAlias);
+  const alias = parsed.modelAlias || 'deepseek41flash';
+  const grants = p.modelGrants(environment.OPENCODE_MODEL_ALLOWED_USERS);
+  for (const actor of actors) {
+    if (!p.modelsForUser(grants, actor).includes(alias)) {
+      throw new Error(`Denied: the author and rerunning actor must each be granted ${alias} in OPENCODE_MODEL_ALLOWED_USERS.`);
+    }
+  }
+  const settings = p.settings(environment, alias);
   const issue = await api.request(`${ctx.root}/issues/${ctx.number}`);
   if (issue.state !== 'open' || issue.locked) throw new Error('The issue or PR must be open and unlocked.');
   let pr = null, branch, source, base, baseline = '';
@@ -303,11 +310,15 @@ async function notice(api, event, environment = env) {
   if (!list.has(pr.user.login.toLowerCase())) return;
   const permission = await api.request(`${root}/collaborators/${encodeURIComponent(pr.user.login)}/permission`);
   if (!p.permitted(list, pr.user.login, permission)) return;
+  const models = p.modelsForUser(p.modelGrants(environment.OPENCODE_MODEL_ALLOWED_USERS), pr.user.login);
+  if (!models.length) return;
   const marker = '<!-- carlos-opencode-availability -->';
   const comments = await api.pages(`${root}/issues/${number}/comments`);
   if (comments.some(comment => comment.user?.type === 'Bot' && comment.user.login === 'github-actions[bot]' && comment.body?.startsWith(marker))) return;
   const fork = pr.head.repo?.full_name !== 'carlos-emr/carlos';
-  const body = `${marker}\nOpenCode is available to allowlisted contributors with repository write access. Post a new PR comment:\n\n\`/oc review\` — review with the default DeepSeek V4.1 Flash.\n\n\`/oc review --model kimi focus on authorization and regressions\` — choose a model and add direction. Models: \`deepseek41flash\`, \`kimi\`, \`glm53\`, \`sonnet\`; unconfigured models decline. Reviews double-check findings.\n\n\`/oc implement <request>\` — prepare changes for approval before publication.${fork ? '\n\nThis PR uses a fork: execution requires a branch in carlos-emr/carlos, so commands on this fork will be declined.' : ''}\n\n[Usage and setup](https://github.com/carlos-emr/carlos/blob/main/docs/opencode-workflow.md)`;
+  const option = models[0] === 'deepseek41flash' ? '' : ` --model ${models[0]}`;
+  const example = models[1] || models[0];
+  const body = `${marker}\nOpenCode is available to this PR author with repository write access. Post a new PR comment:\n\n\`/oc review${option}\` — review with ${models[0]}.\n\n\`/oc review --model ${example} focus on authorization and regressions\` — choose a model and add direction. Models granted to this author: ${models.map(alias => `\`${alias}\``).join(', ')}. Grants are checked on each command; unconfigured models decline. Reviews double-check findings.\n\n\`/oc implement${option} <request>\` — prepare changes for approval before publication.${fork ? '\n\nThis PR uses a fork: execution requires a branch in carlos-emr/carlos, so commands on this fork will be declined.' : ''}\n\n[Usage and setup](https://github.com/carlos-emr/carlos/blob/main/docs/opencode-workflow.md)`;
   await api.request(`${root}/issues/${number}/comments`, 'POST', { body });
 }
 

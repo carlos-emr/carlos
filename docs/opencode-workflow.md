@@ -40,7 +40,8 @@ Set these **repository Actions variables**:
 | Variable | Value |
 | --- | --- |
 | `OPENCODE_ENABLED` | `false` initially; only the exact value `true` enables inference |
-| `OPENCODE_ALLOWED_USERS` | JSON array, e.g. `["alice","bob"]`; default `[]` |
+| `OPENCODE_ALLOWED_USERS` | Global JSON username allowlist, e.g. `["alice","bob"]`; default `[]` |
+| `OPENCODE_MODEL_ALLOWED_USERS` | JSON mapping model aliases to allowed username arrays; default `{}` denies every model |
 | `OPENCODE_MODELS` | JSON mapping the four permitted aliases to model IDs, provider slots and adapters; see below |
 | `OPENCODE_REVIEW_PASSES` | `2` by default; set `3` for another verification pass; other values are rejected |
 | `OPENCODE_APP_ID` | Numeric ID of the dedicated App |
@@ -124,18 +125,48 @@ Sources: [OpenRouter model catalog](https://openrouter.ai/api/v1/models),
 [OpenCode custom providers](https://opencode.ai/docs/providers/),
 [GitHub comment events](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#issue_comment).
 
-To grant access, add a complete username to `OPENCODE_ALLOWED_USERS`; the user
-must also retain write-or-higher permission. Names match case-insensitively. No
-owner, collaborator, or organization member is automatically exempt from the
-allowlist. Custom roles qualify only if the permission response includes push
-access. To revoke access, remove the username or remove repository write access.
-The workflow checks live permissions again before publishing. A rerunning user
-must also be allowlisted and have write access.
+To grant access, add a complete username to `OPENCODE_ALLOWED_USERS` **and** to
+each permitted model's array in `OPENCODE_MODEL_ALLOWED_USERS`. The user must
+also retain repository write-or-higher permission. For example, with global
+allowlist `["alice","bob"]`, configure the model grants as:
+
+```json
+{
+  "deepseek41flash": ["alice", "bob"],
+  "kimi": ["alice", "bob"],
+  "glm53": ["alice"],
+  "sonnet": ["alice"]
+}
+```
+
+Here Bob can use DeepSeek Flash and Kimi; Alice can use all four. A model grant
+alone does not grant global workflow access or repository write permission.
+Names match exactly and case-insensitively. Wildcards, roles, unknown model
+aliases and malformed mappings are rejected. Missing mappings, omitted aliases
+and empty arrays deny access, including to the default model. There is no
+implicit owner/admin exemption and no fallback to another model when denied.
+A user granted only Sonnet must explicitly use `--model sonnet`; bare `/oc review`
+continues to select `deepseek41flash` and will be denied for that user.
+
+The grant applies to explain, review and implementation, including every review
+verification pass. **Both the comment author and any rerunning actor** need the
+selected model's grant, global allowlist membership and live write permission.
+The trusted controller rechecks authorization before inference, before response
+or publication, and immediately before attaching newly generated commits.
+The model grant map is not passed to the agent or stored in its artifacts.
+
+To revoke a model, remove the username from that model's array. To revoke all
+access, remove global allowlist membership or repository write permission.
+Cancel queued and active runs when revoking access; do not rely on variable
+edits to stop work that was already authorized. Custom repository roles qualify
+only if the live permission response includes push access.
 
 When enabled, the availability workflow posts one brief usage note on a PR
-opened, reopened or marked ready by an allowlisted author with live write
-permission. It checks the **PR author's** access, not the actor performing the
-transition. It ignores bots and nonmembers, deduplicates its own authentic bot
+opened, reopened or marked ready for an allowlisted author with live write
+permission and at least one model grant. The note lists only that author's
+granted aliases and uses an explicit `--model` when the default is not granted.
+It checks the **PR author's** access, not the actor performing the transition.
+It ignores bots and nonmembers, deduplicates its own authentic bot
 comment, and never invokes the provider. Forks get an explicit note that their
 heads cannot execute commands. Disabled automation does not advertise itself.
 The notifier reads PR metadata only and checks out the trusted default branch;
@@ -303,8 +334,9 @@ Remove this exception when actionlint supports it.
 After merging, verify all four workflows exist on the live default branch,
 configure one permitted writer and the protected environment, then test an
 explanation, reviews using default and alternate models with extra direction,
-missing-model/secret declines, issue implementations targeting `release/2026.08` and an alternate
-branch, a same-repository PR update, publication approval/rejection and errors.
+missing-model/secret and denied-model declines, issue implementations targeting
+`release/2026.08` and an alternate branch, a same-repository PR update,
+publication approval/rejection and errors.
 Confirm the App's publication triggers CI and DCO guidance. Only then broaden the
 allowlist. Until these live checks pass, operational acceptance remains pending.
 

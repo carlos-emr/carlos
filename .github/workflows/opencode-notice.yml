@@ -33,4 +33,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OPENCODE_ENABLED: ${{ vars.OPENCODE_ENABLED }}
           OPENCODE_ALLOWED_USERS: ${{ vars.OPENCODE_ALLOWED_USERS }}
+          OPENCODE_MODEL_ALLOWED_USERS: ${{ vars.OPENCODE_MODEL_ALLOWED_USERS }}
         run: node scripts/opencode/controller.cjs notice

@@ -18,12 +18,10 @@ concurrency:
 env:
   OPENCODE_ENABLED: ${{ vars.OPENCODE_ENABLED }}
   OPENCODE_ALLOWED_USERS: ${{ vars.OPENCODE_ALLOWED_USERS }}
+  OPENCODE_MODEL_ALLOWED_USERS: ${{ vars.OPENCODE_MODEL_ALLOWED_USERS }}
   OPENCODE_MODELS: ${{ vars.OPENCODE_MODELS }}
   OPENCODE_APP_ID: ${{ vars.OPENCODE_APP_ID }}
   OPENCODE_REVIEW_PASSES: ${{ vars.OPENCODE_REVIEW_PASSES }}
-  OPENCODE_PROVIDER_1_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_1_API_KEY != '' && secrets.OPENCODE_PROVIDER_1_BASE_URL != '' }}
-  OPENCODE_PROVIDER_2_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_2_API_KEY != '' && secrets.OPENCODE_PROVIDER_2_BASE_URL != '' }}
-  OPENCODE_PROVIDER_3_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_3_API_KEY != '' && secrets.OPENCODE_PROVIDER_3_BASE_URL != '' }}
 
 jobs:
   authorize:
@@ -66,6 +64,9 @@ jobs:
       - name: Authorize and resolve request
         id: gate
         env:
+          OPENCODE_PROVIDER_1_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_1_API_KEY != '' && secrets.OPENCODE_PROVIDER_1_BASE_URL != '' }}
+          OPENCODE_PROVIDER_2_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_2_API_KEY != '' && secrets.OPENCODE_PROVIDER_2_BASE_URL != '' }}
+          OPENCODE_PROVIDER_3_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_3_API_KEY != '' && secrets.OPENCODE_PROVIDER_3_BASE_URL != '' }}
           GH_TOKEN: ${{ github.token }}
           REQUEST_DIR: ${{ runner.temp }}/opencode-request
         run: node scripts/opencode/controller.cjs gate
@@ -128,6 +129,9 @@ jobs:
       - name: Generate in isolated container
         id: generation
         env:
+          OPENCODE_PROVIDER_1_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_1_API_KEY != '' && secrets.OPENCODE_PROVIDER_1_BASE_URL != '' }}
+          OPENCODE_PROVIDER_2_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_2_API_KEY != '' && secrets.OPENCODE_PROVIDER_2_BASE_URL != '' }}
+          OPENCODE_PROVIDER_3_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_3_API_KEY != '' && secrets.OPENCODE_PROVIDER_3_BASE_URL != '' }}
           GH_TOKEN: ${{ github.token }}
           EXPECTED_BASE: ${{ needs.authorize.outputs.base }}
           EXPECTED_BRANCH: ${{ needs.authorize.outputs.branch }}
@@ -203,6 +207,9 @@ jobs:
           path: ${{ runner.temp }}/opencode-result
       - name: Reauthorize and publish
         env:
+          OPENCODE_PROVIDER_1_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_1_API_KEY != '' && secrets.OPENCODE_PROVIDER_1_BASE_URL != '' }}
+          OPENCODE_PROVIDER_2_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_2_API_KEY != '' && secrets.OPENCODE_PROVIDER_2_BASE_URL != '' }}
+          OPENCODE_PROVIDER_3_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_3_API_KEY != '' && secrets.OPENCODE_PROVIDER_3_BASE_URL != '' }}
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SOURCE: ${{ needs.authorize.outputs.source }}
           EXPECTED_BASELINE: ${{ needs.authorize.outputs.baseline }}
@@ -250,6 +257,9 @@ jobs:
           path: ${{ runner.temp }}/opencode-result
       - name: Reauthorize and respond
         env:
+          OPENCODE_PROVIDER_1_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_1_API_KEY != '' && secrets.OPENCODE_PROVIDER_1_BASE_URL != '' }}
+          OPENCODE_PROVIDER_2_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_2_API_KEY != '' && secrets.OPENCODE_PROVIDER_2_BASE_URL != '' }}
+          OPENCODE_PROVIDER_3_CONFIGURED: ${{ secrets.OPENCODE_PROVIDER_3_API_KEY != '' && secrets.OPENCODE_PROVIDER_3_BASE_URL != '' }}
           GH_TOKEN: ${{ github.token }}
           EXPECTED_SOURCE: ${{ needs.authorize.outputs.source }}
           EXPECTED_BASELINE: ${{ needs.authorize.outputs.baseline }}
