@@ -83,12 +83,12 @@ class AddEForm2ActionEmailStagingUnitTest extends CarlosUnitTestBase {
     }
 
     /** Waits until {@code thread} is blocked on the session's own mutex, not on some other lock. */
-    private static void awaitBlocked(Thread thread, MockHttpSession session) throws InterruptedException {
+    private static void awaitBlocked(Thread thread, MockHttpSession session) {
         Object mutex = org.springframework.web.util.WebUtils.getSessionMutex(session);
         String lockName = mutex.getClass().getName() + '@' + Integer.toHexString(System.identityHashCode(mutex));
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (thread.getState() != Thread.State.BLOCKED && thread.isAlive() && System.nanoTime() < deadline) {
-            Thread.sleep(5);
+            java.util.concurrent.locks.LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(5));
         }
         assertThat(thread.getState()).isEqualTo(Thread.State.BLOCKED);
         assertThat(java.lang.management.ManagementFactory.getThreadMXBean().getThreadInfo(thread.getId()).getLockName())

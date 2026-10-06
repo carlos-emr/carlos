@@ -363,8 +363,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(prepareRequest(session, key));
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            assertThatThrownBy(() -> new EmailCompose2Action().prepareComposeEFormMailer())
-                    .isInstanceOf(SecurityException.class);
+            EmailCompose2Action action = new EmailCompose2Action();
+            assertThatThrownBy(action::prepareComposeEFormMailer).isInstanceOf(SecurityException.class);
         }
         assertThat(EmailComposeStaging.take(session, key)).as("a denial is not retried").isNull();
     }
@@ -381,8 +381,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(prepareRequest(session, key));
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            assertThatThrownBy(() -> new EmailCompose2Action().prepareComposeEFormMailer())
-                    .isInstanceOf(SecurityException.class);
+            EmailCompose2Action action = new EmailCompose2Action();
+            assertThatThrownBy(action::prepareComposeEFormMailer).isInstanceOf(SecurityException.class);
             assertThat(prepareResult(servlet, prepareRequest(session, key)))
                     .isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
         }

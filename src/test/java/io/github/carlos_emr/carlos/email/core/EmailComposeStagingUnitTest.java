@@ -123,7 +123,8 @@ class EmailComposeStagingUnitTest {
         EmailComposeStaging.take(session, first);
 
         assertThat(published).hasSize(1).containsKey(first);
-        assertThat(session.getAttribute(ATTRIBUTE)).isNotSameAs(published);
+        Map<String, Object> current = (Map<String, Object>) session.getAttribute(ATTRIBUTE);
+        assertThat(current).isNotSameAs(published);
         assertThatThrownBy(published::clear).isInstanceOf(UnsupportedOperationException.class);
     }
 
