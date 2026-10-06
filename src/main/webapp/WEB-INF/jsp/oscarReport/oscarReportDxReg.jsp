@@ -169,7 +169,8 @@
             <form action="${pageContext.request.contextPath}/report/DxresearchReport?method=addSearchCode" method="post" accept-charset="UTF-8">
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
-                    <select name="quickListName" class="sel">
+                    <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
                         <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
                             <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed}>
