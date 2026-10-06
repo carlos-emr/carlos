@@ -19,6 +19,24 @@ const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowS
 
 const q = h.sqlString;
 
+async function traceNavigation(page) {
+  if (!process.env.DS_DEBUG) return;
+  page.on('console', message => {
+    if (message.type() === 'debug' && message.text().startsWith('EFORM_TRACE ')) console.log(message.text());
+  });
+  page.on('framenavigated', frame => console.log('EFORM_TRACE navigation', frame === page.mainFrame(), h.pathOnly(frame.url())));
+  page.on('close', () => console.log('EFORM_TRACE closed'));
+  await page.evaluate(() => {
+    for (const name of ['click', 'submit', 'beforeunload', 'pagehide']) {
+      window.addEventListener(name, event => console.debug('EFORM_TRACE ' + JSON.stringify({
+        event: name, trusted: event.isTrusted, prevented: event.defaultPrevented,
+        active: navigator.userActivation.isActive, everActive: navigator.userActivation.hasBeenActive,
+        target: event.target?.id || event.target?.tagName || 'window',
+      })), true);
+    }
+  });
+}
+
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const formName = `${marker} dbl form`;
@@ -54,6 +72,7 @@ async function workflow(s) {
     await s.step(`eForm Submit via ${mode.label} saves exactly one instance`, async () => {
       const form = await s.popup(list, list.locator('#efmTable a').filter({ hasText: formName }).first(), 'eform-fill');
       await form.locator('#remoteSubmitButton').waitFor({ state: 'visible' });
+      await traceNavigation(form);
       const subject = `${marker}-${mode.tag}`;
       await form.locator('#remote_eform_subject').fill(subject);
       await form.locator('#note').fill('double submit');
