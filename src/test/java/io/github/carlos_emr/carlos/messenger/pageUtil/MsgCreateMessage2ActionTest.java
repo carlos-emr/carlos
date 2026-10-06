@@ -60,6 +60,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        mockRequest.setMethod("POST");
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);

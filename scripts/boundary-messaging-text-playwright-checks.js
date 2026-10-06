@@ -17,6 +17,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 
 function fillCodePoints(length, parts, pad = 'x') {
@@ -191,24 +192,47 @@ async function workflow(s) {
     await leave(box);
   });
 
-  await s.step('a subject past the column and a tickler text past the TEXT column are refused or stored whole', async () => {
-    const problems = viewBodyProblem ? [viewBodyProblem] : [];
+  await s.step('an oversized subject preserves the draft and recipients, and a corrected retry sends once', async () => {
     const column = b.columnLength(sql, 'messagetbl', 'thesubject');
     const longSubject = `${marker} ${b.exactly(column + 1 - b.cpLength(marker) - 1, 'S')}`;
     const inbox = await compose();
-    const seen = await h.withExpectedDialogs(inbox, () => send(inbox, longSubject, 'long subject body'), { accept: true });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const rows = sql.rows(`SELECT HEX(thesubject), CHAR_LENGTH(thesubject) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)} AND CHAR_LENGTH(thesubject) < ${column + 1} AND thesubject LIKE ${h.sqlString(`${marker} S%`)}`);
-    if (rows.length && rows[0][0] !== b.hex(longSubject)) {
-      problems.push(`subject: ${b.cpLength(longSubject)} characters were typed into a Subject box with no maxlength and the message was sent, but ${rows[0][1]} were stored (messagetbl.thesubject is ${column}); silent truncation`);
-    } else if (!rows.length) {
-      // Not stored is only acceptable when the user is told: an alert, or a refusal on the page.
-      const pageText = (await inbox.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
-      // An alert must name the length too, and an error page is a crash, not a refusal.
-      const told = seen.some(dialog => b.lengthRefusal(dialog.text)) || b.lengthRefusal(pageText);
-      if (!told) problems.push('subject: a subject past the column was not sent and the user was not told its length was the problem');
+    const before = sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`);
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      inbox.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/messenger/CreateMessage')),
+      send(inbox, longSubject, 'long subject body'),
+    ]);
+    h.assert(post.status() === 400, `Oversized subject answered HTTP ${post.status()} instead of 400`);
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/messenger\/CreateMessage$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === before,
+      'An oversized subject still sent a message');
+    h.assert(b.lengthRefusal(await inbox.locator('body').innerText()), 'The refusal did not explain the subject length');
+    h.assert(await inbox.locator('#subject').inputValue() === longSubject, 'The refusal discarded the subject draft');
+    h.assert((await inbox.locator('.toastui-editor-ww-container .ProseMirror').first().innerText()).trim() === 'long subject body',
+      'The refusal discarded or changed the message draft');
+    h.assert(await inbox.locator(`input[name="provider"][id^="0-"][value^="${provider}-"]`).first().isChecked(),
+      'The refusal discarded the selected recipient');
+    for (const method of ['GET', 'HEAD']) {
+      const refused = await inbox.context().request.fetch(h.appUrl(s.config.baseUrl, '/messenger/CreateMessage'), {
+        method, params: { subject: `${marker} GET must not send`, message: 'must not send', provider: `${provider}-0` },
+      });
+      h.assert(refused.status() === 405 && refused.headers().allow === 'POST', `${method} did not refuse message creation`);
     }
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === before,
+      'A read-method replay sent a message');
+    const corrected = `${marker} corrected subject`;
+    await inbox.locator('#subject').fill(corrected);
+    await inbox.locator('button[type="submit"]', { hasText: /Send Message/i }).click();
+    await pollFor(sql, `SELECT COUNT(*) FROM messagetbl WHERE thesubject=${h.sqlString(corrected)}`, value => value === '1',
+      'The corrected draft was not sent exactly once');
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === String(Number(before) + 1),
+      'Correcting the draft created extra messages');
     await leave(inbox);
+  });
+
+  await s.step('message rendering and oversized tickler text preserve the original content or explain refusal', async () => {
+    const problems = viewBodyProblem ? [viewBodyProblem] : [];
     const textBytes = 65535;
     const longTickler = `${marker} ${'long tickler text '.repeat(Math.ceil(textBytes / 18) + 40)}`;
     h.assert(Buffer.byteLength(longTickler) > textBytes, 'Test bug: the long tickler text is not past the column');

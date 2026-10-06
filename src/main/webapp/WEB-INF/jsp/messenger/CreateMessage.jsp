@@ -412,7 +412,7 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
-            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
 
@@ -525,7 +525,7 @@ function validateFields() {
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
 														<input type="checkbox" name="provider" class="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
-															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
+															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" ${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId) ? 'checked' : ''} >
 
 														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
 															${carlos:forHtml(member.lastName)}, ${carlos:forHtml(member.firstName)}
@@ -549,7 +549,7 @@ function validateFields() {
 											<c:forEach items="${ localMembers }" var="member">
 
 												<%-- Nested forEach checks replyList to pre-select recipients for replies --%>
-												<c:set var="providerChecked" value="false" />
+												<c:set var="providerChecked" value="${not empty rejectedRecipientIds and rejectedRecipientIds.contains(member.id.compositeId)}" />
 												<c:forEach var="replyId" items="${ replyList }">
 													<c:if test="${ replyId.compositeId eq member.id.compositeId }">
 														<c:set var="providerChecked" value="true" />
@@ -598,8 +598,10 @@ function validateFields() {
 							<br>
 							<fmt:message key="messenger.CreateMessage.msgAttachments" />
 							<%
-							bean.setSubject(null);
-							bean.setMessage(null);
+							if (request.getAttribute("createMessageError") == null) {
+								bean.setSubject(null);
+								bean.setMessage(null);
+							}
 						}%>
 					<%-- Client-side indicator shown when attachment popup closes (onAttachmentAdded callback).
 					     Separate from the server-side block above so it can appear even when

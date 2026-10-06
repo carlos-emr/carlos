@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -100,6 +101,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -130,13 +136,15 @@ public class MsgCreateMessage2Action extends ActionSupport {
         String userName = bean.getUserName();
         String att = bean.getAttachment();
         String pdfAtt = bean.getPDFAttachment();
-        bean.nullAttachment();
         String message = this.getMessage();
         String[] providers = this.getProvider();
         String subject = this.getSubject();
-        // Clear message data from session after retrieval
-        bean.setMessage(null);
-        bean.setSubject(null);
+        // Error results redisplay the exact draft and chosen recipients. Do not consume
+        // attachments or session drafts until the send has succeeded.
+        request.setAttribute("ReSubject", subject);
+        request.setAttribute("ReText", message);
+        request.setAttribute("rejectedRecipientIds", providers == null ? java.util.Set.of()
+                : new java.util.HashSet<>(Arrays.asList(providers)));
 
         MiscUtils.getLogger().debug("Providers: " + Arrays.toString(providers));
         MiscUtils.getLogger().debug("Subject length: " + (subject != null ? subject.length() : 0));
@@ -148,6 +156,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
         if (demographic_no != null && (demographic_no.equals("") || "null".equals(demographic_no))) {
             demographic_no = null;
         }
+        request.setAttribute("demographic_no", demographic_no);
 
         java.util.ArrayList<MsgProviderData> providerListing;
 
@@ -155,6 +164,12 @@ public class MsgCreateMessage2Action extends ActionSupport {
         subject = (subject == null) ? "" : subject.trim();
         if (subject.isEmpty()) {
             subject = "none";
+        }
+        if (subject.codePointCount(0, subject.length()) > MessageTbl.SUBJECT_MAX_LENGTH) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute("createMessageError", "Subject exceeds the maximum length of "
+                    + MessageTbl.SUBJECT_MAX_LENGTH + " characters. Shorten it and send again.");
+            return ERROR;
         }
 
         //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
@@ -189,6 +204,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
 
         request.setAttribute("SentMessageProvs", sentToWho);
+        bean.nullAttachment();
+        bean.setMessage(null);
+        bean.setSubject(null);
 
         return SUCCESS;
     }
