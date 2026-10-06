@@ -170,6 +170,8 @@ async function workflow(s) {
       const limit = b.columnLength(sql, 'demographic', column);
       const box = form.locator(`input[name="${input}"]`);
       await box.fill(b.exactly(limit + 1, prefix));
+      // Name fields deliberately uppercase on blur; compare storage with that displayed value.
+      await box.press('Tab');
       const value = await box.inputValue();
       h.assert(b.cpLength(value) === limit, `${input} did not visibly enforce its column limit`);
       accepted.push([column, value]);
