@@ -292,9 +292,29 @@ async function report(api, event) {
   await status(api, ctx, `**Workflow ${run.conclusion}.** Inspect the run for the failed stage. A partial publication may already exist; reruns check for it before generating again.`);
 }
 
+async function notice(api, event, environment = env) {
+  if (environment.GITHUB_REPOSITORY !== 'carlos-emr/carlos' || event.repository?.full_name !== 'carlos-emr/carlos' ||
+      !Number.isSafeInteger(event.pull_request?.number)) throw new Error('Unexpected availability-notice event.');
+  if (environment.OPENCODE_ENABLED !== 'true') return;
+  const root = '/repos/carlos-emr/carlos', number = event.pull_request.number;
+  const pr = await api.request(`${root}/pulls/${number}`);
+  if (pr.state !== 'open' || pr.locked || pr.user?.type !== 'User') return;
+  const list = p.allowlist(environment.OPENCODE_ALLOWED_USERS);
+  if (!list.has(pr.user.login.toLowerCase())) return;
+  const permission = await api.request(`${root}/collaborators/${encodeURIComponent(pr.user.login)}/permission`);
+  if (!p.permitted(list, pr.user.login, permission)) return;
+  const marker = '<!-- carlos-opencode-availability -->';
+  const comments = await api.pages(`${root}/issues/${number}/comments`);
+  if (comments.some(comment => comment.user?.type === 'Bot' && comment.user.login === 'github-actions[bot]' && comment.body?.startsWith(marker))) return;
+  const fork = pr.head.repo?.full_name !== 'carlos-emr/carlos';
+  const body = `${marker}\nOpenCode is available to allowlisted contributors with repository write access. Post a new PR comment:\n\n\`/oc review\` — review with the default DeepSeek V4.1 Flash.\n\n\`/oc review --model kimi focus on authorization and regressions\` — choose a model and add direction. Models: \`deepseek41flash\`, \`kimi\`, \`glm53\`, \`sonnet\`; unconfigured models decline. Reviews double-check findings.\n\n\`/oc implement <request>\` — prepare changes for approval before publication.${fork ? '\n\nThis PR uses a fork: execution requires a branch in carlos-emr/carlos, so commands on this fork will be declined.' : ''}\n\n[Usage and setup](https://github.com/carlos-emr/carlos/blob/main/docs/opencode-workflow.md)`;
+  await api.request(`${root}/issues/${number}/comments`, 'POST', { body });
+}
+
 async function main() {
   const event = JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
   const api = new GitHub(env.GH_TOKEN);
+  if (process.argv[2] === 'notice') return notice(api, event);
   if (process.argv[2] === 'report') return report(api, event);
   const ctx = context(event);
   if (process.argv[2] === 'verify') {
@@ -312,5 +332,5 @@ async function main() {
   }
 }
 
-module.exports = { GitHub, context, status, authorize, existing, prompt, gate, publish, report, publicationProtection };
+module.exports = { GitHub, context, status, authorize, existing, prompt, gate, publish, report, publicationProtection, notice };
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });

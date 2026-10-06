@@ -456,3 +456,38 @@ test('a model configuration change before publication cannot silently change the
   await assert.rejects(c.publish(f.api, f.ctx, async () => { minted = true; return f.app; }), /configuration changed/);
   assert.equal(minted, false);
 });
+
+test('availability notice is brief, grant-aware, idempotent and treats fork metadata as data', async () => {
+  const f = fixture(); makePR(f);
+  f.data[`${f.ctx.root}/issues/3/comments`] = [];
+  const pr = f.data[`${f.ctx.root}/pulls/3`]; pr.number = 3; pr.user = { login: 'Alice', type: 'User' };
+  const event = { repository: { full_name: repo }, pull_request: { number: 3 } };
+  await c.notice(f.api, event, f.env);
+  const posted = f.calls.find(x => x.method === 'POST');
+  assert.match(posted.body.body, /\/oc review --model kimi focus/);
+  assert.ok(posted.body.body.length < 1200);
+  f.data[`${f.ctx.root}/issues/3/comments`] = [{ user: { type: 'Bot', login: 'github-actions[bot]' }, body: posted.body.body }];
+  await c.notice(f.api, event, f.env);
+  assert.equal(f.calls.filter(x => x.method === 'POST').length, 1);
+  f.data[`${f.ctx.root}/issues/3/comments`][0].user = { type: 'User', login: 'attacker' };
+  pr.head.repo.full_name = 'someone/fork';
+  await c.notice(f.api, event, f.env);
+  assert.match(f.calls.at(-1).body.body, /fork will be declined/);
+});
+
+test('availability notice skips disabled, unlisted, read-only and bot authors; API errors remain visible', async () => {
+  const event = { repository: { full_name: repo }, pull_request: { number: 3 } };
+  for (const change of ['disabled', 'unlisted', 'read-only', 'bot']) {
+    const f = fixture(); makePR(f);
+    const pr = f.data[`${f.ctx.root}/pulls/3`]; pr.user = { login: 'Alice', type: 'User' };
+    if (change === 'disabled') f.env.OPENCODE_ENABLED = 'false';
+    if (change === 'unlisted') f.env.OPENCODE_ALLOWED_USERS = '[]';
+    if (change === 'read-only') f.data[`${f.ctx.root}/collaborators/Alice/permission`] = { permission: 'read' };
+    if (change === 'bot') pr.user.type = 'Bot';
+    await c.notice(f.api, event, f.env);
+    assert.equal(f.calls.filter(x => x.method === 'POST').length, 0);
+  }
+  const f = fixture(); makePR(f); f.data[`${f.ctx.root}/pulls/3`].user = { login: 'Alice', type: 'User' };
+  f.data[`${f.ctx.root}/collaborators/Alice/permission`] = new Error('lookup failed');
+  await assert.rejects(c.notice(f.api, event, f.env), /lookup failed/);
+});

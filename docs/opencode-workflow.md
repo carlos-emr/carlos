@@ -132,6 +132,15 @@ access. To revoke access, remove the username or remove repository write access.
 The workflow checks live permissions again before publishing. A rerunning user
 must also be allowlisted and have write access.
 
+When enabled, the availability workflow posts one brief usage note on a PR
+opened, reopened or marked ready by an allowlisted author with live write
+permission. It checks the **PR author's** access, not the actor performing the
+transition. It ignores bots and nonmembers, deduplicates its own authentic bot
+comment, and never invokes the provider. Forks get an explicit note that their
+heads cannot execute commands. Disabled automation does not advertise itself.
+The notifier reads PR metadata only and checks out the trusted default branch;
+it never fetches or executes PR code. Comment/API failures fail its Actions job.
+
 ## Commands and results
 
 Post a new top-level issue or PR conversation comment beginning with:
@@ -291,7 +300,7 @@ The queue must remain `max` with `cancel-in-progress: false`; see
 [GitHub's queue documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
 Remove this exception when actionlint supports it.
 
-After merging, verify all three workflows exist on the live default branch,
+After merging, verify all four workflows exist on the live default branch,
 configure one permitted writer and the protected environment, then test an
 explanation, reviews using default and alternate models with extra direction,
 missing-model/secret declines, issue implementations targeting `release/2026.08` and an alternate
