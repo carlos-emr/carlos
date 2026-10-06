@@ -116,8 +116,14 @@ async function workflow(s) {
     await aSheet.waitForTimeout(300);
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/provider\/providercontrol$/, appConsole: /^Error: HTTP 409/ });
     h.assert(sql.value(apptStatus(statusId)) === advanced, 'The refused stale status click changed the status again');
+    // Appointment's JPA @PreUpdate callback advances updatedatetime, but the database column
+    // has second precision. Model two writes sharing that timestamp using only the owned fixture:
+    // retain the committed status change and restore the rendered timestamp. A timestamp-only
+    // stale check would now incorrectly accept the original form.
+    sql.execute(`UPDATE appointment SET updatedatetime=${h.sqlString(beforeTime)}
+      WHERE appointment_no=${statusId} AND demographic_no=${patient} AND status=${h.sqlString(advanced)}`);
     h.assert(sql.value(`SELECT updatedatetime FROM appointment WHERE appointment_no=${statusId}`) === beforeTime,
-      'This control must exercise a legacy status writer that leaves updatedatetime untouched');
+      'The owned same-timestamp status-race fixture was not established');
     const reason = `${marker} retained after status-only race`;
     await staleEdit.locator('#reason').fill(reason);
     const editMark = failureMark(s.recorder);
