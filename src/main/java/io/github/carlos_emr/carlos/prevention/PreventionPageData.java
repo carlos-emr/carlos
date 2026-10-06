@@ -33,7 +33,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * What the prevention page reads about one patient, read once for the request.
+ * The patient lookup and prevention lists behind the prevention page's per-type loops, read
+ * once for the request. The page's name/age header and decision-support input still make their
+ * own lookups.
  *
  * <p>The page goes through every prevention type, and each type used to look the patient up
  * again, with its privilege checks, for the date of birth, age and sex. With the vaccine

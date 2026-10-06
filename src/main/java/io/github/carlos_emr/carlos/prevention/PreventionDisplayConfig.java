@@ -329,7 +329,13 @@ public class PreventionDisplayConfig {
      * Whether a prevention type shows for the patient, as
      * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
      * already looked up through {@code DemographicManager}, which checks the caller's privileges.
-     * The prevention page calls this once per type with one lookup for the whole page.
+     * In its default view the prevention page calls this once per type, passing the patient from
+     * its {@link PreventionPageData}.
+     *
+     * @param setHash the prevention type
+     * @param demograph the patient
+     * @param numberOfPrevs how many preventions of this type the patient has
+     * @return whether the type shows; {@code false} also on an error such as a missing patient
      */
     public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
         boolean display = false;

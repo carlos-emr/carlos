@@ -225,12 +225,20 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         Map<String, String> men = Map.of("name", "PSA", "sex", "M");
         Map<String, Object> adultSet = Map.of("minAge", "18");
         Map<String, Object> childSet = Map.of("maxAge", "17");
+        Map<String, Object> womenSet = Map.of("sex", "F");
+        Map<String, Object> menSet = Map.of("sex", "M");
+        String hidden = "style=\"display:none;\"";
 
         assertThat(config.display(adults, patient, 0)).isTrue();
         assertThat(config.display(children, patient, 0)).isFalse();
         assertThat(config.display(men, patient, 0)).isFalse();
         assertThat(config.getDisplay(adultSet, patient)).isEmpty();
-        assertThat(config.getDisplay(childSet, patient)).isEqualTo("style=\"display:none;\"");
+        assertThat(config.getDisplay(womenSet, patient)).isEmpty();
+        assertThat(config.getDisplay(childSet, patient)).isEqualTo(hidden);
+        assertThat(config.getDisplay(menSet, patient)).isEqualTo(hidden);
+        assertThat(config.getDisplay(Map.of(), patient)).isEqualTo(hidden);
+        assertThat(config.getDisplay(adultSet, null)).isEqualTo(hidden);
+        assertThat(config.display(adults, null, 0)).isFalse();
         verifyNoInteractions(demographicManager);
 
         assertThat(config.display(user, adults, PATIENT, 0)).isTrue();
