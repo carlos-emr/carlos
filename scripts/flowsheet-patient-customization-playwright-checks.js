@@ -233,9 +233,17 @@ async function workflow(s, { editorOnly = false } = {}) {
     s.cleanup(() => fixture.cleanup());
     for (const object of ['_demographic', '_eChart']) {
       const login = fixture.addLogin('doctor');
-      fixture.lockPatient(login, patient, [object]);
       const restricted = await signIn(s, login);
       try {
+        const previewUrl = new URL(printUrl);
+        previewUrl.searchParams.set('printView', 'true');
+        previewUrl.searchParams.set('printHP', 'WT');
+        for (const [method, url] of [['GET', printUrl], ['POST', previewUrl.href]]) {
+          const answer = await probe(restricted.context, url, { method, needles: [items.WT] });
+          h.assert(answer.status === 200 && answer.fromApp && answer.found.includes(items.WT),
+            `Unlocked doctor could not ${method} the same patient print before applying ${object}`);
+        }
+        fixture.lockPatient(login, patient, [object]);
         for (const method of ['GET', 'HEAD', 'POST']) {
           const url = new URL(printUrl);
           if (method === 'POST') {
