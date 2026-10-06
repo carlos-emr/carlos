@@ -138,9 +138,8 @@ class TicklerStatusTransactionIntegrationTest extends CarlosTestBase {
             entities.persist(patient);
             String providerNo = "st" + UUID.randomUUID().toString().substring(0, 4);
             assertThat(entities.find(Provider.class, providerNo)).isNull();
-            Provider provider = new Provider();
-            provider.setProviderNo(providerNo); provider.setFirstName("Owned"); provider.setLastName("Status fixture");
-            provider.setProviderType("doctor"); provider.setStatus("1");
+            Provider provider = new Provider(providerNo, "Status fixture", "doctor", "M", "GP", "Owned");
+            provider.setStatus("1");
             entities.persist(provider);
             Tickler row = new Tickler();
             row.setDemographicNo(patient.getDemographicNo()); row.setCreator(providerNo);
