@@ -3580,11 +3580,9 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [
-        "TICKLER_PREFS_DIRECT"
-      ],
+      "env": [],
       "fixtures": "property tickler_task_assignee snapshotted and restored; one owned tickler created to prove the default assignee.",
-      "notes": "Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it)."
+      "notes": "Checks actual Preferences navigation, saved/default tickler assignees, reopen persistence, and refused GET mutations."
     },
     {
       "name": "my-groups",
