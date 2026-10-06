@@ -174,7 +174,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     .isInstanceOf(RuntimeException.class)
                     .hasCauseInstanceOf(IllegalStateException.class)
                     .cause()
-                    .hasMessageContaining(KEY + " is missing or blank, but 1 items in the database may be encrypted")
+                    .hasMessageContaining(KEY + " is missing or blank, but 1 item in the database may be encrypted")
                     .hasMessageContaining(kind.label() + ": 1")
                     .hasMessageContaining("restore the original " + KEY + " from backup")
                     .hasMessageContaining(ACK + "=true");
@@ -184,8 +184,14 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(savedPropertiesFile()).doesNotExist();
             assertThat(logs.errors()).hasSize(1);
             assertThat(logs.errors().get(0))
-                    .startsWith(KEY + " is missing or blank, but 1 items in the database may be encrypted")
+                    .startsWith(KEY + " is missing or blank, but 1 item in the database may be encrypted")
                     .contains(kind.label() + ": 1", kind.remedy());
+            // The note about plaintext signatures appears only when signatures are all there is.
+            if (kind == Kind.DIGITAL_SIGNATURES) {
+                assertThat(logs.errors().get(0)).contains("Only signature images were found");
+            } else {
+                assertThat(logs.errors().get(0)).doesNotContain("Only signature images");
+            }
             assertThat(logs.startupMessages()).doesNotContain("Unexpected error.", "New Secret Key generated...");
             logs.assertNoSecretMaterial(secretMaterial);
         }
@@ -411,10 +417,11 @@ class StartupEncryptionKeyGuardUnitTest {
         assertThatThrownBy(() -> startup.contextInitialized(event))
                 .isInstanceOf(RuntimeException.class)
                 .cause()
-                .hasMessageContaining("but 1 items in the database may be encrypted with the original key (fax accounts: 1)");
+                .hasMessageContaining("but 1 item in the database may be encrypted with the original key (fax accounts: 1)");
     }
 
     @Test
+    @DisplayName("should refuse to replace a missing key when ciphertext starts like a bitmap")
     void shouldRefuseToReplaceMissingKey_whenCiphertextLooksLikeBitmap() throws Exception {
         database.withAllTables();
         database.insertDigitalSignature(1, EncryptedDataTestDatabase.encryptWithIvPrefix(new byte[] {0x42, 0x4d}));
@@ -428,6 +435,7 @@ class StartupEncryptionKeyGuardUnitTest {
     }
 
     @Test
+    @DisplayName("should require the deliberate override, and say why, when only legacy signatures exist")
     void shouldRequireDeliberateOverride_whenLegacySignatureHasNoKey() throws Exception {
         database.withAllTables();
         byte[] legacy = EncryptedDataTestDatabase.plaintextPng();
@@ -436,10 +444,33 @@ class StartupEncryptionKeyGuardUnitTest {
 
         assertThatThrownBy(() -> new Startup().contextInitialized(newStartupEvent()))
                 .isInstanceOf(RuntimeException.class)
-                .cause().hasMessageContaining("may be encrypted");
+                .cause().hasMessageContaining("but 1 item in the database may be encrypted")
+                .hasMessageContaining("Only signature images were found")
+                // About the database's history: a server rebuilt from a backup never had a key.
+                .hasMessageContaining("Look for the key first. Plain OSCAR never had an " + KEY + " line")
+                .hasMessageContaining("even if this server was later rebuilt from a backup without it")
+                // init-config (also run by finish-install and the package scripts) writes a missing key.
+                .hasMessageContaining("until the key is restored, do not run carlos-ctl init-config or finish-install,"
+                        + " and do not install, upgrade, reconfigure or remove the carlos-emr packages")
+                // The whole plaintext condition: a later OpenO EMR build encrypts signatures, and refused
+                // starts must not disqualify the case.
+                .hasMessageContaining("Only if the database comes straight from OSCAR, or from an OpenO EMR build from"
+                        + " before December 2024, and no OpenO EMR build from December 2024 or later and no CARLOS ran"
+                        + " on it, other than starts refused like this one, are the signatures plaintext; then setting "
+                        + ACK + "=true loses nothing")
+                .hasMessageContaining("If you are not sure, treat them as encrypted")
+                // Restoring the key comes before the narrow case where the override is safe.
+                .satisfies(refusal -> assertThat(refusal.getMessage().indexOf("Look for the key first"))
+                        .isLessThan(refusal.getMessage().indexOf("loses nothing")))
+                .hasMessageContaining("See \"Limits of the check\" in https://github.com/carlos-emr/carlos/blob/develop/"
+                        + "docs/email/provider-to-patient-email-operations.md#credential-encryption-key (the copy");
         assertThat(savedPropertiesFile()).doesNotExist();
         props.setProperty(ACK, "true");
-        new Startup().contextInitialized(newStartupEvent());
+        try (StartupLogs logs = new StartupLogs()) {
+            new Startup().contextInitialized(newStartupEvent());
+            assertThat(logs.errors()).singleElement().asString()
+                    .contains("over 1 possibly encrypted item (stored digital signature images: 1)");
+        }
         assertThat(props.getProperty(KEY)).isNotBlank();
         assertThat(savedPropertiesFile()).exists();
         // The startup probe only reads lengths; no signature bytes are rewritten.

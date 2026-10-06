@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.login;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.email.core.EmailConfigSecrets;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -55,8 +56,8 @@ import java.util.StringJoiner;
  *
  * <p>What is counted, one record per account, user or image:</p>
  * <ul>
- *   <li>{@code emailConfig.configDetails}: the {@code password} or {@code api_key} JSON field
- *       (written by {@code EmailConfigSecrets}).</li>
+ *   <li>{@code emailConfig.configDetails}: the JSON fields named by
+ *       {@link EmailConfigSecrets#secretFieldNames()}.</li>
  *   <li>{@code fax_config.passwd} and {@code fax_config.faxPasswd} ({@code FaxConfig}).</li>
  *   <li>{@code property.value} where {@code name = 'teleplan_password'} ({@code TeleplanUserPassDAO}).
  *       The table is common to every province; only BC installs have the row.</li>
@@ -90,9 +91,6 @@ final class EncryptedDataCountLoader {
      * MySQL Connector/J report; 42S03 and 42S04 are H2's variants of 42S02.
      */
     private static final Set<String> ABSENT_OBJECT_STATES = Set.of("42S02", "42S03", "42S04", "42S22");
-
-    /** The {@code configDetails} JSON field NAMES that hold credentials; mirrors EmailConfigSecrets. */
-    private static final List<String> EMAIL_SECRET_FIELDS = List.of("password", "api_key"); // NOSONAR java:S2068 - JSON field names, not credentials
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -155,6 +153,11 @@ final class EncryptedDataCountLoader {
         /** @return records that may hold ciphertext, across all kinds */
         int total() {
             return counts.values().stream().mapToInt(Integer::intValue).sum();
+        }
+
+        /** @return true when signature images are the only kind found, in a complete check */
+        boolean onlySignatures() {
+            return complete() && counts.size() == 1 && counts.containsKey(Kind.DIGITAL_SIGNATURES);
         }
 
         /** @return true when every place was checked; signature counts remain conservative */
@@ -335,7 +338,7 @@ final class EncryptedDataCountLoader {
         if (root == null || !root.isObject()) {
             return false;
         }
-        for (String field : EMAIL_SECRET_FIELDS) {
+        for (String field : EmailConfigSecrets.secretFieldNames()) {
             JsonNode value = root.get(field);
             if (value != null && value.isValueNode() && EncryptionUtils.isWellFormedCiphertext(value.asText())) {
                 return true;

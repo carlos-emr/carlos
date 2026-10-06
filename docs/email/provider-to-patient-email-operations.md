@@ -136,9 +136,27 @@ followed by well-formed Base64 long enough to hold the IV and tag. Digital signa
 have no encryption marker: random ciphertext can start with a valid image header.
 Every signature of at least 28 bytes is therefore treated as possibly encrypted,
 including legacy plaintext images. This can refuse startup on an older installation
-holding only plaintext signatures when its key is absent. Restore the original key
-first; if you have confirmed the signatures were never encrypted, use the deliberate
-override above to create the first key. Plaintext signatures remain unchanged.
+holding only plaintext signatures when its key is absent; the refusal then says that only
+signature images were found. What matters is the database's history, not the server's.
+
+- **Look for the key first.** Plain OSCAR never had an `encryption.util.secret.key` line, so
+  if the old server's properties file, or a backup of it, has one, restore it. CARLOS and
+  OpenO EMR (since September 2024) create the key by themselves, so any database they have
+  run on had a key, even if nobody set one, and even if this server was later rebuilt from a
+  backup without it. On the old server (or this one) or in its backup, look in
+  `/etc/carlos-emr/carlos.properties` (packaged install), in `<context>.properties` in the
+  home directory of the user Tomcat runs as (for example `carlos.properties` or
+  `oscar.properties`), and in the file named by `-Dcarlos_override_properties` or, on an
+  OpenO EMR server, `-Doscar_override_properties`. On a packaged install, until the key is
+  restored, do not run `carlos-ctl init-config` or `finish-install`, and do not install,
+  upgrade, reconfigure or remove the `carlos-emr` packages: each of these can write a new
+  key, and CARLOS then starts without this check.
+- **Only** if the database comes straight from OSCAR, or from an OpenO EMR build from before
+  December 2024, and no OpenO EMR build from December 2024 or later and no CARLOS ran on it,
+  other than starts refused by this check, are the signatures plaintext. Then the deliberate
+  override above loses nothing, and the plaintext signatures stay as they are.
+- If you are not sure, treat the signatures as encrypted and keep looking for the key.
+
 Plaintext strings shaped like ciphertext are also counted (see #3132). The check runs only
 when the key is missing: a valid but wrong key, such as a new one pasted in by
 hand, is not detected at startup.

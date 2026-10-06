@@ -264,8 +264,8 @@ public class Startup implements ServletContextListener {
         String key = EncryptionUtils.SECRET_KEY_ENV_VAR;
         StringBuilder message = new StringBuilder(key).append(" is missing or blank, ");
         if (existing.complete()) {
-            message.append("but ").append(existing.total())
-                    .append(" items in the database may be encrypted with the original key (")
+            message.append("but ").append(items(existing.total(), ""))
+                    .append(" in the database may be encrypted with the original key (")
                     .append(existing.describeCounts())
                     .append("). Refusing to start: a new key cannot decrypt data encrypted with the original key.");
         } else {
@@ -276,6 +276,33 @@ public class Startup implements ServletContextListener {
         }
         message.append(" Fix: restore the original ").append(key)
                 .append(" from backup into the properties file, then restart.");
+        if (existing.onlySignatures()) {
+            // Signatures carry no encryption marker, so an older install whose signatures were
+            // never encrypted is refused too; its operator has no original key to restore.
+            // The question is the database's history, not this server's: a server rebuilt from a
+            // backup never had a key, yet its database's signatures may be encrypted. Restoring the
+            // key comes first; the case where the override is safe comes last and is narrow.
+            message.append(" Only signature images were found; without the key, a plaintext image cannot be told")
+                    .append(" apart from an encrypted one. Look for the key first. Plain OSCAR never had an ")
+                    .append(key).append(" line, so if the old server's properties file, or a backup of it, has one,")
+                    .append(" restore it. CARLOS and OpenO EMR (since September 2024) create the key by themselves, so")
+                    .append(" any database they have run on had a key, even if nobody set one, and even if this server")
+                    .append(" was later rebuilt from a backup without it. On the old server (or this one) or in its")
+                    .append(" backup, look in /etc/carlos-emr/carlos.properties (packaged install), in")
+                    .append(" <context>.properties in the home directory of the user Tomcat runs as (for example")
+                    .append(" carlos.properties or oscar.properties), and in the file named by")
+                    .append(" -Dcarlos_override_properties or, on an OpenO EMR server, -Doscar_override_properties. On")
+                    .append(" a packaged install, until the key is restored, do not run carlos-ctl init-config or")
+                    .append(" finish-install, and do not install, upgrade, reconfigure or remove the carlos-emr")
+                    .append(" packages: each of these can write a new key, and CARLOS then starts without this check.")
+                    .append(" Only if the database comes straight from OSCAR, or from an OpenO EMR build from before")
+                    .append(" December 2024, and no OpenO EMR build from December 2024 or later and no CARLOS ran on")
+                    .append(" it, other than starts refused like this one, are the signatures plaintext; then setting ")
+                    .append(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append("=true loses nothing. If you are not sure, treat")
+                    .append(" them as encrypted and keep looking for the key. See \"Limits of the check\" in")
+                    .append(" https://github.com/carlos-emr/carlos/blob/develop/docs/email/provider-to-patient-email-operations.md")
+                    .append("#credential-encryption-key (the copy in the docs folder of your release may differ).");
+        }
         if (!existing.complete()) {
             message.append(" If the database could not be reached, fix that and restart so the check can run.");
         }
@@ -293,11 +320,12 @@ public class Startup implements ServletContextListener {
         StringBuilder message = new StringBuilder(ACKNOWLEDGE_KEY_LOSS_PROPERTY).append(" is set: generated a new ")
                 .append(EncryptionUtils.SECRET_KEY_ENV_VAR);
         if (existing.complete()) {
-            message.append(" over ").append(existing.total()).append(" possibly encrypted items (")
+            message.append(" over ").append(items(existing.total(), "possibly encrypted")).append(" (")
                     .append(existing.describeCounts()).append("). Any data encrypted with the old key is now unreadable.");
         } else {
-            message.append(". Any data encrypted with the old key is now unreadable. Found ").append(existing.total())
-                    .append(" items (").append(existing.describeCounts()).append("), but could not read ")
+            message.append(". Any data encrypted with the old key is now unreadable. Found ")
+                    .append(items(existing.total(), ""))
+                    .append(" (").append(existing.describeCounts()).append("), but could not read ")
                     .append(existing.describeFailures()).append(", so there may be more.");
         }
         if (existing.total() > 0) {
@@ -305,6 +333,11 @@ public class Startup implements ServletContextListener {
         }
         return message.append(" Then remove ").append(ACKNOWLEDGE_KEY_LOSS_PROPERTY)
                 .append(" from the properties file.").toString();
+    }
+
+    /** "1 item" or "N items", with an optional word before "item". */
+    private static String items(int count, String qualifier) {
+        return count + " " + qualifier + (qualifier.isEmpty() ? "" : " ") + (count == 1 ? "item" : "items");
     }
 
     /** Startup refused because a new key would orphan encrypted data; already logged when thrown. */

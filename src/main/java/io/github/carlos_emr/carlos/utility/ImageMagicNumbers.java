@@ -35,16 +35,15 @@ package io.github.carlos_emr.carlos.utility;
 public final class ImageMagicNumbers {
 
     /** Bytes needed to recognise every format checked here. */
-    public static final int PREFIX_BYTES = 4;
+    private static final int PREFIX_BYTES = 4;
 
     private ImageMagicNumbers() {
     }
 
     /**
      * True when the bytes begin with a known raster-image magic number (JPEG, PNG, GIF, or BMP).
-     * Only the first {@link #PREFIX_BYTES} bytes are read, so a prefix of a larger value is enough.
      *
-     * @param bytes the value, or its first bytes; may be null
+     * @param bytes the value; may be null
      * @return true when the bytes start like a JPEG, PNG, GIF or BMP image
      */
     public static boolean isKnownRasterImage(byte[] bytes) {

@@ -35,6 +35,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -156,6 +157,20 @@ class EncryptedDataCountLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should say signatures are the only kind only when nothing else was found and every place was read")
+    void shouldReportOnlySignatures_whenSignaturesAreAllThereIs() {
+        assertThat(new EncryptedDataCountLoader.Result(Map.of(Kind.DIGITAL_SIGNATURES, 2), List.of())
+                .onlySignatures()).isTrue();
+        assertThat(new EncryptedDataCountLoader.Result(
+                Map.of(Kind.DIGITAL_SIGNATURES, 2, Kind.FAX_CREDENTIALS, 1), List.of()).onlySignatures()).isFalse();
+        assertThat(new EncryptedDataCountLoader.Result(
+                Map.of(Kind.DIGITAL_SIGNATURES, 2), List.of("fax_config.passwd (SQLState 42000)")).onlySignatures())
+                .isFalse();
+        assertThat(new EncryptedDataCountLoader.Result(Map.of(), List.of()).onlySignatures()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should count ciphertext whose IV starts like an image header")
     void shouldCountCiphertext_whenItsIvMatchesAnImageHeader() throws Exception {
         byte[][] prefixes = {{0x42, 0x4d}, {(byte) 0xff, (byte) 0xd8, (byte) 0xff},
                 {(byte) 0x89, 0x50, 0x4e, 0x47}, {0x47, 0x49, 0x46, 0x38}};
@@ -170,6 +185,7 @@ class EncryptedDataCountLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should count every signature long enough to be ciphertext, plaintext images included")
     void shouldCountAmbiguousSignatures_whenLongEnoughForCiphertext() throws Exception {
         try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
             database.insertDigitalSignature(1, EncryptedDataTestDatabase.plaintextPng());
