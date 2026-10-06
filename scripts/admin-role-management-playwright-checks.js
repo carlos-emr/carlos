@@ -299,7 +299,7 @@ async function workflow(s) {
         SELECT ${M},objectName,privilege,priority,provider_no FROM secObjPrivilege
         WHERE roleUserGroup='doctor' AND LEFT(objectName,6)<>'_admin';
       INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-        VALUES (${M},'_admin.misc','rw',0,${h.sqlString(s.provider)})`);
+        VALUES (${M},'_admin.misc','w',0,${h.sqlString(s.provider)})`);
     miscFixture.create({ roleNames: [miscRole] });
     h.assert(sql.value(`SELECT GROUP_CONCAT(objectName) FROM secObjPrivilege
       WHERE roleUserGroup=${M} AND LEFT(objectName,6)='_admin'`) === '_admin.misc', 'The fixture has an extra admin grant');
