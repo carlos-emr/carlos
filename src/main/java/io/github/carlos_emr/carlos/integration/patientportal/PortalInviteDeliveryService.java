@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -69,7 +70,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * PREPARING, outcome unknown   stays PREPARING until staff withdraw it
  * staff, COMMITTED | SEND_UNCERTAIN -> SENT (verified "it arrived")
  * staff, SEND_UNCERTAIN        -> REVOKING -> REVOKED (confirmed code invalidation)
- * staff, COMMITTED             -> NOT_ARRIVED (portal shows the code already replaced or expired; no revoke)
+ * staff, COMMITTED             -> NOT_ARRIVED (portal shows the code already dead; no revoke)
  * failed withdrawal/revocation stays ABANDONING/REVOKING when its work is interrupted
  * </pre>
  *
@@ -112,6 +113,15 @@ public class PortalInviteDeliveryService {
      */
     static final Duration CODE_EXPIRY_MARGIN = Duration.ofHours(1);
 
+    /**
+     * How long past its expiry the portal keeps an invitation before its maintenance deletes it (the portal's
+     * default transient retention). An activated invitation the portal no longer lists counts as dead only
+     * once this and {@link #CODE_EXPIRY_MARGIN} have passed since its expiry; see {@link #isCodeDead}. Safety
+     * does not rest on it: by then the code is long expired. A clinic whose portal keeps invitations for less
+     * time only waits longer for the choice, and one that keeps them longer still sees them listed.
+     */
+    static final Duration PORTAL_PRUNE_WINDOW = Duration.ofDays(30);
+
     static final String OPERATION_PREFIX = "inv-";
     static final String REFERENCE_PREFIX = "emaillog:";
     // The status and endpoint named when a prepared code fails the format check.
@@ -133,7 +143,7 @@ public class PortalInviteDeliveryService {
     static final String EMAIL_ABANDONED_BY_STAFF =
             "Staff stopped this delivery; the invitation email was never sent.";
     static final String EMAIL_CONFIRMED_NOT_ARRIVED =
-            "Staff confirmed the invitation email did not arrive; its code was already replaced or expired.";
+            "Staff confirmed the invitation email did not arrive; its code was already replaced, revoked or expired.";
 
     // Each staff decision is audited as AUDIT_ACTION_PREFIX + the decision's request value, or + WITHDRAW_STALE
     // for a stuck attempt withdrawn on the way to a new invitation.
@@ -817,28 +827,29 @@ public class PortalInviteDeliveryService {
      * attempt is {@link State#COMMITTED}: the portal activated its code, and CARLOS never learned how the
      * send ended, usually because CARLOS stopped in between. Its sender may only be paused, so its code is
      * never revoked on staff's word; this answer is accepted only when the portal, asked now rather than from
-     * the panel's earlier read, shows the code already dead: replaced by a newer invitation, or past its
-     * expiry by {@link #CODE_EXPIRY_MARGIN}. A sender that resumes afterwards can then deliver only a code
-     * that no longer works. The attempt is claimed from {@code COMMITTED} under the row lock, so a sender
-     * finishing at the same moment wins and this answer is refused.
+     * the panel's earlier read, shows the code already dead ({@link #isCodeDead}). A sender that resumes
+     * afterwards can then deliver only a code that no longer works. The attempt is claimed from
+     * {@code COMMITTED} under the row lock, so a sender finishing at the same moment wins and this answer is
+     * refused.
      *
      * @throws PortalInviteException {@link Reason#INVITE_ALREADY_USED} when the patient used the code, so
-     *     the email did arrive; {@link Reason#INVITE_STILL_LIVE} when the portal shows the code live, or does
-     *     not list it; {@link Reason#STATE_CHANGED} when the attempt left {@code COMMITTED} meanwhile
+     *     the email did arrive; {@link Reason#INVITE_STILL_LIVE} when the code may still work, including an
+     *     invitation the portal does not list that is too recent to have been deleted; {@link
+     *     Reason#STATE_CHANGED} when the attempt left {@code COMMITTED} meanwhile
      * @throws PatientPortalException when the portal cannot be asked; the attempt is left as it was
      */
     private PatientPortalInviteDelivery confirmNotArrived(LoggedInInfo user, PatientPortalInviteDelivery row,
             PatientPortalStaffContext staff) {
-        Long inviteId = row.getPortalInviteId();
-        PatientPortalInviteDto invite = inviteId == null ? null : portal.listInvites(row.getDemographicNo(), staff)
-                .stream()
-                .filter(listed -> listed.id() == inviteId)
-                .findFirst()
-                .orElse(null);
+        if (row.getPortalInviteId() == null) {
+            throw new PortalInviteException(Reason.INVITE_STILL_LIVE);
+        }
+        List<PatientPortalInviteDto> listed = portal.listInvites(row.getDemographicNo(), staff);
+        PatientPortalInviteDto invite = listedInvite(row, listed);
         if (invite != null && STATUS_ACCEPTED.equals(invite.status())) {
             throw new PortalInviteException(Reason.INVITE_ALREADY_USED);
         }
-        if (invite == null || !isCodeDead(invite)) {
+        // The state was checked on entry; a sender finishing meanwhile is caught by the claim below.
+        if (!isListedCodeDead(row, listed)) {
             throw new PortalInviteException(Reason.INVITE_STILL_LIVE);
         }
         PatientPortalInviteDelivery closed = advance(row.getId(), State.COMMITTED, State.NOT_ARRIVED,
@@ -849,17 +860,63 @@ public class PortalInviteDeliveryService {
     }
 
     /**
-     * Whether the portal's invitation can no longer be used to activate an account: it was replaced by a
-     * newer one, or it is still listed as pending but has been past its expiry for {@link #CODE_EXPIRY_MARGIN}
-     * (the portal refuses an expired code without changing its status). A revoked or accepted invitation is
-     * not counted here; see {@link #confirmNotArrived}.
+     * Whether an activated attempt's code can no longer be used to activate an account, judged from the
+     * portal's list of the patient's invitations as read now. A listed invitation is dead when it was
+     * replaced by a newer one or revoked, or when it is still listed as pending but has been past its expiry
+     * for {@link #CODE_EXPIRY_MARGIN} (the portal refuses an expired code without changing its status). An
+     * accepted invitation is not dead: its code was used.
+     *
+     * <p>An invitation the portal no longer lists is dead only once its expiry is past by
+     * {@link #PORTAL_PRUNE_WINDOW} and the margin, when the portal's maintenance has deleted it. Missing any
+     * earlier, it may be a portal fault, so it is not counted. The expiry is the one the portal returned when
+     * it activated the code. When none was recorded, the attempt's last change plus
+     * {@link PortalInviteEmailComposer#CODE_LIFETIME} stands in for it: CARLOS keeps no separate activation
+     * time, and an activated attempt last changed when it was activated or later, so this can only make the
+     * wait longer. The portal never deletes an accepted invitation, so one it no longer lists was, in
+     * practice, not used (only one pushed past the newest 100 could have been); either way its code no longer
+     * works.
+     *
+     * @param listedNow the portal's list from a read that succeeded; never stand in an empty list for a read
+     *     that failed, as every unlisted code would then look deleted
+     * @return false for an attempt that is not {@code COMMITTED}, the only state this reasoning covers
      */
-    public boolean isCodeDead(PatientPortalInviteDto invite) {
-        if (STATUS_SUPERSEDED.equals(invite.status())) {
+    public boolean isCodeDead(PatientPortalInviteDelivery row, List<PatientPortalInviteDto> listedNow) {
+        Objects.requireNonNull(listedNow, "listedNow");
+        return row.getState() == State.COMMITTED && isListedCodeDead(row, listedNow);
+    }
+
+    private boolean isListedCodeDead(PatientPortalInviteDelivery row, List<PatientPortalInviteDto> listedNow) {
+        if (row.getPortalInviteId() == null) {
+            return false;
+        }
+        PatientPortalInviteDto invite = listedInvite(row, listedNow);
+        if (invite == null) {
+            return isPastPruning(row);
+        }
+        if (STATUS_SUPERSEDED.equals(invite.status()) || STATUS_REVOKED.equals(invite.status())) {
             return true;
         }
         return STATUS_PENDING.equals(invite.status()) && invite.expiresAt() != null
                 && !invite.expiresAt().plus(CODE_EXPIRY_MARGIN).isAfter(clock.instant());
+    }
+
+    private static PatientPortalInviteDto listedInvite(PatientPortalInviteDelivery row,
+            List<PatientPortalInviteDto> listed) {
+        long inviteId = row.getPortalInviteId();
+        return listed.stream().filter(invite -> invite.id() == inviteId).findFirst().orElse(null);
+    }
+
+    /** Whether the attempt's code expired long enough ago for the portal to have deleted its invitation. */
+    private boolean isPastPruning(PatientPortalInviteDelivery row) {
+        Instant expiry;
+        if (row.getExpiresAt() != null) {
+            expiry = row.getExpiresAt().toInstant();
+        } else if (row.getUpdatedAt() != null) {
+            expiry = row.getUpdatedAt().toInstant().plus(PortalInviteEmailComposer.CODE_LIFETIME);
+        } else {
+            return false;
+        }
+        return !expiry.plus(PORTAL_PRUNE_WINDOW).plus(CODE_EXPIRY_MARGIN).isAfter(clock.instant());
     }
 
     /**

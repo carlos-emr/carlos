@@ -66,6 +66,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * The account mutations and the panel read.
@@ -621,6 +622,7 @@ class PortalAccountAndPanelActionUnitTest {
                     "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
             row.setState(PatientPortalInviteDelivery.State.COMMITTED);
             row.setPortalInviteId(41L);
+            ReflectionTestUtils.setField(row, "id", 7L);
             when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
             when(invites.isRecoverable(row)).thenReturn(true);
             when(invites.isOnCurrentConnection(row)).thenReturn(true);
@@ -639,12 +641,12 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should offer 'it did not arrive' for an activated attempt only when this read shows its code dead")
         void shouldOfferNotArrived_onlyWhenThePortalShowsTheCodeDead() throws Exception {
             request.setMethod("GET");
-            stuckActivation();
+            PatientPortalInviteDelivery row = stuckActivation();
             PatientPortalInviteDto replaced = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "superseded",
                     "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
                     java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
             when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(replaced));
-            when(invites.isCodeDead(replaced)).thenReturn(true);
+            when(invites.isCodeDead(row, List.of(replaced))).thenReturn(true);
 
             panelWithDeliveries().execute();
 
@@ -655,12 +657,12 @@ class PortalAccountAndPanelActionUnitTest {
         @DisplayName("should not offer 'it did not arrive' while the code is live")
         void shouldNotOfferNotArrived_whileTheCodeIsLive() throws Exception {
             request.setMethod("GET");
-            stuckActivation();
+            PatientPortalInviteDelivery row = stuckActivation();
             PatientPortalInviteDto live = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "pending",
                     "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
                     java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
             when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(live));
-            when(invites.isCodeDead(live)).thenReturn(false);
+            when(invites.isCodeDead(row, List.of(live))).thenReturn(false);
 
             panelWithDeliveries().execute();
 
@@ -678,7 +680,21 @@ class PortalAccountAndPanelActionUnitTest {
             panelWithDeliveries().execute();
 
             assertThat(decisionsShown()).containsExactly("confirmSent");
-            verify(invites, never()).isCodeDead(any());
+            // A failed read is not an empty list: an empty one could make an old unlisted code look deleted.
+            verify(invites, never()).isCodeDead(any(), any());
+        }
+
+        @Test
+        @DisplayName("should ask about an unlisted code with the empty list the portal returned")
+        void shouldOfferNotArrived_whenTheServiceCountsAnUnlistedCodeDead() throws Exception {
+            request.setMethod("GET");
+            PatientPortalInviteDelivery row = stuckActivation();
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(invites.isCodeDead(row, List.of())).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent", "confirmNotArrived");
         }
 
         @Test

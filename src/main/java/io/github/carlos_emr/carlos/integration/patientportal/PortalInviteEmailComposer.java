@@ -146,14 +146,14 @@ class PortalInviteEmailComposer {
 
     /**
      * The chart note recording that staff confirmed an invitation email did not arrive, once the portal
-     * showed its code replaced or expired. Like {@link #chartNote}, it never holds the code.
+     * showed its code replaced, revoked or expired. Like {@link #chartNote}, it never holds the code.
      *
      * @param recipient the address the invitation was sent to
      */
     String notArrivedNote(String recipient) {
         return "Patient portal invitation email to " + recipient + " did not arrive, as staff confirmed. Its code "
-                + "had already been replaced by a newer invitation or had expired on the portal, so it no longer "
-                + "works.\nThe invitation code is not recorded in CARLOS.";
+                + "had already been replaced by a newer invitation, revoked, or had expired on the portal, so it "
+                + "no longer works.\nThe invitation code is not recorded in CARLOS.";
     }
 
     /** @return whether {@code code} has the portal's token format, so it is safe to put in an email */
