@@ -8,15 +8,21 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import jakarta.persistence.OptimisticLockException;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.StaleStateException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Date;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -136,9 +142,10 @@ public class SmsQueueProcessingService {
                     if (outcome == DispatchOutcome.SENT) {
                         processed++;
                     }
-                    // A write failure is unlikely to be about one row; stop rather than strand the rest of
-                    // the queue SENDING one row at a time.
-                    shouldContinue = outcome != DispatchOutcome.WRITE_FAILED;
+                    // A write failure is unlikely to be about one row, and an unusable permit is handled like a
+                    // failed consent check: stop rather than work through the rest of the queue one row at a time.
+                    shouldContinue = outcome != DispatchOutcome.WRITE_FAILED
+                            && outcome != DispatchOutcome.CONSENT_UNUSABLE;
                 }
             }
         }
@@ -186,14 +193,19 @@ public class SmsQueueProcessingService {
      * @return {@link DispatchOutcome#SENT} once the send was attempted; otherwise nothing was sent
      */
     private DispatchOutcome sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision) {
-        SmsTransaction recorded;
+        if (decision.consentStatus() == null) {
+            // A permit naming no consent state can never be recorded on the row. Handing the claim back would
+            // retry it at once on every run, so it is backed off like a failed consent check instead: the
+            // attempt counts, and the row fails for review at the retry limit.
+            deferAfterConsentCheckFailure(claimed);
+            return DispatchOutcome.CONSENT_UNUSABLE;
+        }
+        SmsTransaction recorded = claimed;
         try {
             // The permit wait can outlast the stale-send timeout, and another worker run's stale recovery may
             // then have taken the row over and found it unsent at the SMS provider.
             recorded = transactionRecorder.renewClaim(claimed, new Date());
-            // A permit naming no consent state never counts as already recorded, even against an empty
-            // snapshot; the row refuses to record it, so it ends below as not sent.
-            if (decision.consentStatus() == null || !recorded.hasConsentSnapshot(decision)) {
+            if (!recorded.hasConsentSnapshot(decision)) {
                 recorded = transactionRecorder.recordConsentDecision(recorded, decision);
             }
         } catch (SmsTransactionClaimConflictException e) {
@@ -201,14 +213,56 @@ public class SmsQueueProcessingService {
             // next. The recorder logs why the write was dropped.
             return DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
         } catch (RuntimeException e) {
-            // The row stays SENDING, and stale recovery will fail it for manual review unless the SMS
-            // provider can confirm by lookup that it never received the message.
-            LOGGER.warn("SMS transaction {} not sent: its claim or dispatch-time consent could not be recorded;{}",
-                    claimed.getId(), LogSafe.exceptionTrace(e));
+            if (isConcurrentChange(e)) {
+                // A version check at flush lost to another writer: the row changed under the claim, as above.
+                LOGGER.info("SMS transaction {} not sent: another update changed it under the claim", claimed.getId());
+                return DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
+            }
+            // Nothing has been sent, so hand the claim back (the row is retried when due). The latest row is
+            // used so a renewal that did commit does not make the hand-back's own version check drop it.
+            handBackAfterWriteFailure(recorded, e);
             return DispatchOutcome.WRITE_FAILED;
         }
         processTransaction(recorded);
         return DispatchOutcome.SENT;
+    }
+
+    /**
+     * Hands an unsent row's claim back after its renewal or consent snapshot could not be written. Never
+     * throws: if the hand-back fails too, the row stays SENDING and stale recovery reconciles it.
+     */
+    private void handBackAfterWriteFailure(SmsTransaction row, RuntimeException failure) {
+        try {
+            SmsTransaction released = transactionRecorder.releaseClaim(row, new Date());
+            if (released != null && released.getStatus() == SmsStatus.QUEUED) {
+                LOGGER.warn("SMS transaction {} not sent: its claim or dispatch-time consent could not be recorded,"
+                        + " so the claim was handed back;{}", row.getId(), LogSafe.exceptionTrace(failure));
+            } else {
+                // The hand-back's version check lost to a newer write, which stands.
+                LOGGER.warn("SMS transaction {} not sent: its claim or dispatch-time consent could not be recorded,"
+                                + " and the claim was not handed back (the row is {}); stale recovery reconciles it;{}",
+                        row.getId(), released == null ? "gone" : released.getStatus(), LogSafe.exceptionTrace(failure));
+            }
+        } catch (RuntimeException releaseFailure) {
+            if (releaseFailure != failure) {
+                releaseFailure.addSuppressed(failure);
+            }
+            LOGGER.warn("SMS transaction {} not sent: its claim or dispatch-time consent could not be recorded,"
+                    + " and the claim could not be handed back;{}", row.getId(), LogSafe.exceptionTrace(releaseFailure));
+        }
+    }
+
+    /** Whether {@code failure} is a lost version race (optimistic lock) rather than a failed write. */
+    static boolean isConcurrentChange(Throwable failure) {
+        // Bounded and cycle-safe: a cause chain can loop through initCause.
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = failure; cause != null && seen.size() < 16 && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof OptimisticLockException || cause instanceof OptimisticLockingFailureException
+                    || cause instanceof StaleStateException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** What became of a claimed row whose dispatch-time consent recheck permitted the send. */
@@ -218,10 +272,15 @@ public class SmsQueueProcessingService {
         /** The row changed or vanished under the claim: nothing sent, and the next row may be tried. */
         ROW_CHANGED_UNDER_CLAIM,
         /**
-         * The claim renewal or consent snapshot could not be written: nothing sent, and draining stops for
-         * this run.
+         * The claim renewal or consent snapshot could not be written: nothing sent, the claim is handed back
+         * when possible, and draining stops for this run.
          */
-        WRITE_FAILED
+        WRITE_FAILED,
+        /**
+         * The permit named no consent state: nothing sent, the row is backed off like a failed consent check,
+         * and draining stops for this run.
+         */
+        CONSENT_UNUSABLE
     }
 
     /**

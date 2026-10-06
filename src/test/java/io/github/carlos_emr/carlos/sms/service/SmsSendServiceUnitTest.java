@@ -219,6 +219,61 @@ class SmsSendServiceUnitTest {
     }
 
     @Test
+    @DisplayName("send reports an unknown outcome when the hand-back loses to another claim and the row stays SENDING")
+    void shouldReportOutcomeUnknown_whenReleaseReturnsSendingRow() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                // Another worker's claim won the version race: the row comes back still SENDING.
+                return transaction;
+            }
+        };
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> false,
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.status()).isEqualTo(SmsStatus.SENDING);
+        assertThat(result.messages()).containsExactly(SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE);
+    }
+
+    @Test
+    @DisplayName("send reports the newer outcome when the hand-back finds the row already delivered")
+    void shouldReportNewerOutcome_whenReleaseReturnsDeliveredRow() {
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService() {
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                // A delivery result was recorded first, so the hand-back returns that newer row.
+                transaction.markProviderResult(SmsProviderSendResultDto.accepted("provider-42", SmsStatus.DELIVERED));
+                return transaction;
+            }
+        };
+        SmsSendService service = new SmsSendService(
+                new SmsSendValidator(),
+                command -> CONSENTED,
+                new SmsProviderClientResolver(List.of(new StubSmsProviderClient())),
+                recorder,
+                providerType -> false,
+                new SmsDefaultProviderResolver(() -> "STUB")
+        );
+
+        SmsSendResultDto result = service.send(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"));
+
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.status()).isEqualTo(SmsStatus.DELIVERED);
+        assertThat(result.providerMessageId()).isEqualTo("provider-42");
+    }
+
+    @Test
     @DisplayName("send confirms a queued result when the limiter fails and the claim is released")
     void shouldReleaseClaim_whenRateLimiterThrows() {
         List<String> events = new ArrayList<>();

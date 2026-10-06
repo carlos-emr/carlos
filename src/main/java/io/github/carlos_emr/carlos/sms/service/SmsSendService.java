@@ -139,7 +139,7 @@ public class SmsSendService {
             // A version conflict (or removed row) prevented a confirmed handoff. Preserve the newer
             // claim and tell the caller to reconcile its outcome before creating another send.
             return new SmsSendResultDto(false, SmsStatus.SENDING, released.getProviderMessageId(),
-                    List.of("SMS send outcome is unknown; awaiting provider status lookup. Do not resend manually."));
+                    List.of(SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE));
         }
         return SmsSendResultDto.fromTransaction(released);
     }

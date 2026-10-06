@@ -693,7 +693,7 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("a failed dispatch-time snapshot write stops draining that SMS provider for the run")
+    @DisplayName("a consent snapshot that cannot be written hands the claim back and stops draining that SMS provider")
     void shouldStopDraining_whenDispatchConsentSnapshotCannotBeWritten() {
         SmsTransaction first = queuedTransaction();
         first.recordConsentDecision(SmsConsentDecisionDto.permitted(
@@ -720,9 +720,11 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(worker.processDueMessages(5)).isZero();
 
-        // A write failure is unlikely to be about one row, so the rest of the queue is left unclaimed
-        // rather than stranded SENDING one row at a time.
-        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        // A write failure is unlikely to be about one row, so the rest of the queue is left unclaimed; the
+        // row whose snapshot failed is handed back, unsent.
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
         assertThat(second)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .containsExactly(SmsStatus.QUEUED, 0);
@@ -769,7 +771,7 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("a claim renewal that cannot be written stops draining that SMS provider for the run")
+    @DisplayName("a claim renewal that cannot be written hands the claim back and stops draining that SMS provider")
     void shouldStopDraining_whenClaimRenewalCannotBeWritten() {
         SmsTransaction first = queuedTransaction();
         SmsTransaction second = SmsTransaction.outboundAttempt(
@@ -796,10 +798,51 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(worker.processDueMessages(5)).isZero();
 
         verify(client, never()).send(any(), anyString());
-        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        // Nothing was sent, so the claim is handed back rather than left SENDING for stale recovery.
+        assertThat(first)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
         assertThat(second)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .containsExactly(SmsStatus.QUEUED, 0);
+    }
+
+    @Test
+    @DisplayName("a claim renewal that loses a version race is treated as a changed row and the next row is sent")
+    void shouldSendNextRow_whenClaimRenewalLosesVersionRace() {
+        SmsTransaction first = queuedTransaction();
+        SmsTransaction second = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(456, "416-555-3434", "Appointment reminder", "999998"),
+                SmsProviderType.STUB
+        );
+        assignId(second, 2L);
+        second.recordConsentDecision(CONSENTED);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(first, second)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                if (Long.valueOf(1L).equals(row.getId())) {
+                    // The flush's version check lost to another writer.
+                    throw new org.springframework.orm.ObjectOptimisticLockingFailureException(SmsTransaction.class, 1L);
+                }
+                return super.renewClaim(row, attemptAt);
+            }
+
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction transaction, Date dueAt) {
+                throw new AssertionError("a row that changed under the claim belongs to whoever changed it");
+            }
+        };
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+
+        assertThat(first.getStatus()).isEqualTo(SmsStatus.SENDING);
+        assertThat(second.getStatus()).isEqualTo(SmsStatus.SENT);
     }
 
     @Test
@@ -823,6 +866,44 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(worker.processDueMessages(1)).isZero();
 
         verify(client, never()).send(any(), anyString());
+        // Backed off like a failed consent check, with the attempt counted, rather than handed back.
+        assertThat(transaction)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED", 1);
+
+        // Not due again at once, so a permit that can never be recorded does not loop on every run.
+        assertThat(worker.processDueMessages(1)).isZero();
+        assertThat(transaction.getAttemptCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a claim renewal failure whose hand-back also fails leaves the row SENDING and ends the run cleanly")
+    void shouldLeaveRowSending_whenHandBackAlsoFails() {
+        SmsTransaction transaction = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction)) {
+            @Override
+            public SmsTransaction renewClaim(SmsTransaction row, Date attemptAt) {
+                throw new IllegalStateException("database unavailable");
+            }
+
+            @Override
+            public SmsTransaction releaseClaim(SmsTransaction row, Date dueAt) {
+                throw new IllegalStateException("database still unavailable");
+            }
+        };
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(),
+                providerType -> true,
+                command -> CONSENTED);
+
+        assertThat(worker.processDueMessages(5)).isZero();
+
+        verify(client, never()).send(any(), anyString());
+        assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENDING);
     }
 
     @Test
