@@ -16,6 +16,7 @@ function fixture() {
     issue_url: `https://api.github.com/repos/${repo}/issues/3` };
   const event = { repository: { full_name: repo }, issue: { number: 3 }, comment };
   const env = { GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: '42', GITHUB_ACTOR: 'Alice',
+    GITHUB_TRIGGERING_ACTOR: 'Alice', GITHUB_RUN_ATTEMPT: '1',
     OPENCODE_ENABLED: 'true', OPENCODE_ALLOWED_USERS: '["alice"]', OPENCODE_API_BASE_URL: 'https://example.com/v1',
     OPENCODE_MODEL_ID: 'vendor/model', OPENCODE_APP_ID: '123' };
   const ctx = c.context(event, env);
