@@ -109,11 +109,17 @@ public final class EmailComposeStaging {
 
     /**
      * Puts a taken draft back under its own key, for example after its preparation failed, so the
-     * same window can try again. Another window's draft is never touched.
+     * same window can try again. Another window's draft is never replaced; as with any staging, the
+     * oldest pending draft is dropped when {@value #MAX_DRAFTS} are already waiting. Nothing happens
+     * when the session has meanwhile been invalidated.
      */
     public static void restore(HttpSession session, String key, Draft draft) {
         if (isKey(key) && draft != null) {
-            put(session, key, draft);
+            try {
+                put(session, key, draft);
+            } catch (IllegalStateException invalidated) {
+                // The session ended (logout or timeout) while the draft was being prepared.
+            }
         }
     }
 

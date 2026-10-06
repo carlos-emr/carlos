@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,12 +61,24 @@ class EmailComposeStagingUnitTest {
         assertThat(first).isNotEqualTo(second);
         assertThat(EmailComposeStaging.isKey(first)).isTrue();
         assertThat(EmailComposeStaging.isKey(second)).isTrue();
-        // Either order: each window takes its own draft, never the other one.
+        // Second window first here; the next test takes them the other way round.
         assertThat(EmailComposeStaging.take(session, second).settings().subjectEmail()).isEqualTo("FAKE subject B");
         assertThat(EmailComposeStaging.take(session, first).fid()).isEqualTo("40001");
         assertThat(EmailComposeStaging.take(session, first)).as("a reused key").isNull();
         assertThat(EmailComposeStaging.take(session, second)).as("a reused key").isNull();
         assertThat(session.getAttribute(ATTRIBUTE)).as("nothing left behind").isNull();
+    }
+
+    @Test
+    @DisplayName("should give each window its own draft when the first window takes first")
+    void shouldTakeEachDraftOnce_inSavingOrder() {
+        MockHttpSession session = new MockHttpSession();
+        String first = EmailComposeStaging.stage(session, "40001", settings("10001", "A"));
+        String second = EmailComposeStaging.stage(session, "40002", settings("10002", "B"));
+
+        assertThat(EmailComposeStaging.take(session, first).settings().subjectEmail()).isEqualTo("FAKE subject A");
+        assertThat(EmailComposeStaging.take(session, second).fid()).isEqualTo("40002");
+        assertThat(EmailComposeStaging.take(session, first)).isNull();
     }
 
     @Test
@@ -132,10 +146,18 @@ class EmailComposeStagingUnitTest {
     @DisplayName("should keep drafts serializable for a persisted or replicated session, and redacted")
     void shouldSerializeAndRedactDrafts_forSessionStorage() throws Exception {
         MockHttpSession session = new MockHttpSession();
-        EmailComposeStaging.stage(session, "40001", settings("10001", "A"));
-        try (ObjectOutputStream out = new ObjectOutputStream(new ByteArrayOutputStream())) {
+        String key = EmailComposeStaging.stage(session, "40001", settings("10001", "A"));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
             out.writeObject(session.getAttribute(ATTRIBUTE));
         }
+        MockHttpSession restored = new MockHttpSession();
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored.setAttribute(ATTRIBUTE, in.readObject());
+        }
+        EmailComposeStaging.Draft back = EmailComposeStaging.take(restored, key);
+        assertThat(back.fid()).isEqualTo("40001");
+        assertThat(back.settings().attachedDocuments()).containsExactly("3010001");
         EmailComposeStaging.Draft draft = new EmailComposeStaging.Draft("40001", settings("10001", "A"));
         assertThat(draft.toString()).doesNotContain("FAKE").doesNotContain("10001");
         assertThat(draft.settings().toString()).doesNotContain("FAKE").doesNotContain("10001");

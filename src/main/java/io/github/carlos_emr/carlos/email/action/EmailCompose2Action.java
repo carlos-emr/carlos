@@ -90,7 +90,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Security Considerations:
  * <ul>
- *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
+ *   <li>Validates the staged fid to ensure numeric format (prevents injection)</li>
  *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
  *   <li>Generates random PDF passphrases without using patient demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
@@ -189,9 +189,9 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * This method runs the state-changing half of the compose workflow:
      * <ol>
-     *   <li>Takes the staged compose values out of the HTTP session in one step, so a duplicate
-     *       request finds nothing to prepare instead of generating the attachments twice</li>
-     *   <li>Validates form ID (fid) parameter for numeric format to prevent injection</li>
+     *   <li>Takes the draft staged under the request's key out of the HTTP session in one step, so a
+     *       duplicate request finds nothing to prepare instead of generating the attachments twice</li>
+     *   <li>Validates the draft's form ID (fid) for numeric format to prevent injection</li>
      *   <li>Prepares all attachment types: eForms, eDocuments, labs, forms, HRM documents</li>
      *   <li>Sanitizes attachment filenames for security</li>
      *   <li>Generates a server-assigned random PDF passphrase and stores the one-time submission
@@ -209,7 +209,8 @@ public class EmailCompose2Action extends ActionSupport {
      * Request Parameters:
      * <ul>
      *   <li>draft (String) - the one-time key of the draft the eForm save staged</li>
-     *   <li>fid (String, optional) - informational only; the draft carries its own template id</li>
+     *   <li>fid (String, optional) - read by the eForm error page this may forward to; the compose
+     *       itself uses the template id carried by the draft</li>
      * </ul>
      *
      * Server-Side State Stored:
@@ -259,7 +260,7 @@ public class EmailCompose2Action extends ActionSupport {
             return composeExpired();
         }
 
-        // Validate fid is numeric if provided
+        // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
             if (logger.isWarnEnabled()) {
                 String sanitizedFid = LogSafe.sanitize(fid);
@@ -320,8 +321,9 @@ public class EmailCompose2Action extends ActionSupport {
         // contain content, the protected channel deliberately wins: there is no reliable way to
         // distinguish a meaningful historical cleartext body from the fixed notice stored by the
         // unified workflow.
-        // Fail closed when older entry points do not seed either session flag: only an explicit
-        // Boolean false may open the composer with message or attachment encryption disabled.
+        // Fail closed: only an explicit false opens the composer with message or attachment encryption
+        // disabled. The eForm save already reads a missing request flag as encrypted
+        // (EmailAttachmentSettings.of), so a draft carries a real true or false here.
         boolean isEmailEncrypted = !Boolean.FALSE.equals(staged.isEmailEncrypted());
         boolean isEmailAttachmentEncrypted = !Boolean.FALSE.equals(staged.isEmailAttachmentEncrypted());
         isEmailEncrypted = EmailData.resolveMergedMessageEncryption(
@@ -350,6 +352,10 @@ public class EmailCompose2Action extends ActionSupport {
                             isTrue(staged.deleteEFormAfterEmail())),
                     workingDirectory,
                     view);
+        } catch (SecurityException e) {
+            // A denial is not a failure to retry: the draft stays taken.
+            workingDirectory.close();
+            throw e;
         } catch (RuntimeException e) {
             workingDirectory.close();
             logger.warn("Unable to prepare email compose submission state", e);

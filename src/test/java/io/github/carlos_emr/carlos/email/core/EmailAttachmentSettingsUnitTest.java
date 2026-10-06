@@ -46,7 +46,8 @@ class EmailAttachmentSettingsUnitTest {
             + "." + "c".repeat(63) + "." + "d".repeat(61);
 
     @Test
-    void attachmentArraysRemainDetachedAcrossConstructionAndAccess() {
+    @DisplayName("should keep attachment id arrays detached from the caller's arrays on the way in and out")
+    void shouldKeepAttachmentArraysDetached_acrossConstructionAndAccess() {
         String[] ids = {"30001"};
         EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                 new MockHttpServletRequest(), "20001", "10001", ids, ids, ids, ids, ids);

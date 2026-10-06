@@ -29,6 +29,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -179,12 +181,12 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         ComposeMocks mocks = registerComposeMocks();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         HttpSession session = request.getSession();
-        var settings = new io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings(
+        var settings = new EmailAttachmentSettings(
                 "20001", "10001", new String[]{"21001"}, new String[]{"30001"}, new String[]{"31001"},
                 new String[]{"32001"}, new String[]{"33001"}, true, true, false, false, false, true,
                 "fake-a@example.com", "FAKE subject A", "FAKE message A", null, "FULL");
-        String key = io.github.carlos_emr.carlos.email.core.EmailComposeStaging.stage(session, "40001", settings);
-        request.setParameter(io.github.carlos_emr.carlos.email.core.EmailComposeStaging.DRAFT_PARAMETER, key);
+        String key = EmailComposeStaging.stage(session, "40001", settings);
+        request.setParameter(EmailComposeStaging.DRAFT_PARAMETER, key);
         // Generic patient navigation and an older window's redirect must not alter the draft tuple.
         session.setAttribute("demographicId", 10002);
         session.setAttribute("fdid", "20002");
@@ -254,18 +256,26 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         return new EmailCompose2Action().prepareComposeEFormMailer();
     }
 
-    @Test
-    @DisplayName("should open each window's own compose when two eForms are saved close together")
-    void shouldOpenOwnCompose_whenTwoWindowsSaveCloseTogether() throws Exception {
+    @ParameterizedTest(name = "second window prepares first: {0}")
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should open each window's own compose when two eForms are saved close together, in either order")
+    void shouldOpenOwnCompose_whenTwoWindowsSaveCloseTogether(boolean secondWindowFirst) throws Exception {
         registerComposeMocks();
         HttpSession session = new MockHttpServletRequest().getSession(true);
         String windowOne = stageDraft(session, "40001", "10001", "one");
         String windowTwo = stageDraft(session, "40002", "10002", "two");
 
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
-            // The second window's prepare runs first; the first window still gets its own eForm.
-            String viewTwo = prepare(servlet, prepareRequest(session, windowTwo), new MockHttpServletResponse());
-            String viewOne = prepare(servlet, prepareRequest(session, windowOne), new MockHttpServletResponse());
+            // Both eForms were saved before either prepare ran; each window still gets its own eForm.
+            String viewOne;
+            String viewTwo;
+            if (secondWindowFirst) {
+                viewTwo = prepare(servlet, prepareRequest(session, windowTwo), new MockHttpServletResponse());
+                viewOne = prepare(servlet, prepareRequest(session, windowOne), new MockHttpServletResponse());
+            } else {
+                viewOne = prepare(servlet, prepareRequest(session, windowOne), new MockHttpServletResponse());
+                viewTwo = prepare(servlet, prepareRequest(session, windowTwo), new MockHttpServletResponse());
+            }
 
             MockHttpServletRequest two = view(servlet, session, viewTwo, new MockHttpServletResponse(), "compose");
             MockHttpServletRequest one = view(servlet, session, viewOne, new MockHttpServletResponse(), "compose");
@@ -285,8 +295,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         HttpSession session = new MockHttpServletRequest().getSession(true);
         String key = stageDraft(session, "40001", "10001", "one");
         String otherWindow = stageDraft(session, "40002", "10002", "two");
-        // Legacy attributes must not stand in for a keyed draft that is gone.
-        session.setAttribute("demographicId", "123");
 
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
             prepare(servlet, prepareRequest(session, key), new MockHttpServletResponse());
@@ -301,6 +309,23 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                     .isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
         }
         assertThat(EmailComposeStaging.take(session, otherWindow)).as("the other window's draft").isNotNull();
+    }
+
+    @Test
+    @DisplayName("should show expired when only an earlier version's compose attributes are staged and no key is sent")
+    void shouldShowExpired_whenOnlyLegacyAttributesAreStaged() throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        HttpSession session = request.getSession(true);
+        session.setAttribute("demographicId", "123");
+        session.setAttribute("fdid", "456");
+        session.setAttribute("attachEFormItSelf", true);
+        session.setAttribute("subjectEmail", "FAKE legacy subject");
+
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            assertThat(prepareResult(servlet, request)).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_RESULT);
+        }
+        verify(mocks.emailComposeManager(), never()).prepareEFormAttachments(any(), any(), any(), any());
     }
 
     @Test
@@ -373,7 +398,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -433,7 +458,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
                 .thenThrow(new PDFGenerationException("later renderer failed"));
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -479,7 +504,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.getSession(true).setAttribute("demographicId", "not-a-number");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -518,7 +543,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -562,7 +587,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stubEmptyAttachmentPreparation(emailComposeManager);
         when(emailPdfPasswordService.generatePassphrase()).thenReturn(EXAMPLE_GENERATED_VALUE);
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
@@ -605,7 +630,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("isEmailEncrypted", false);
         request.getSession(false).setAttribute("bodyEmail", "Staged body");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             MockHttpServletResponse firstResponse = new MockHttpServletResponse();
@@ -668,7 +693,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             MockHttpServletRequest first = view(servletActionContext, request.getSession(), viewId,
@@ -692,7 +717,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
 
@@ -719,6 +744,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             prepare(servletActionContext, request, new MockHttpServletResponse());
             MockHttpServletRequest repeat = new MockHttpServletRequest("GET", "/email/compose");
             repeat.setSession(request.getSession());
+            repeat.setParameter(EmailComposeStaging.DRAFT_PARAMETER, draftKey);  // the same redirect again
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(repeat);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
 
@@ -758,7 +784,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(false).setAttribute("attachEFormItSelf", true);
         request.getSession(false).setAttribute("fdid", "456");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             verify(previews, times(1)).issue(any(), any(), any());
@@ -806,7 +832,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         // Every token still resolves: only its age decides.
         when(previews.resolve(any(), any(), anyString())).thenAnswer(invocation -> ownedPdf.get());
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             Map<String, IssuedPreview> stored = composeSubmissionStateService.findView(request, viewId)
@@ -843,7 +869,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
                 .thenThrow(new PDFGenerationException("PDF preview is unavailable"));
         when(previews.resolve(any(), any(), anyString())).thenReturn(null);
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
 
@@ -869,7 +895,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
@@ -892,7 +918,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stageOneEFormAttachment(mocks, request);
         when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             SecurityInfoManager restricted = mock(SecurityInfoManager.class);
@@ -932,7 +958,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
@@ -954,7 +980,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         stageOneEFormAttachment(mocks, request);
         when(mocks.pdfPreviewCapabilityService().issue(any(), any(), any())).thenReturn("preview-1");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             when(mocks.pdfPreviewCapabilityService().resolve(any(), any(), any()))
@@ -1036,7 +1062,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
@@ -1056,7 +1082,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
             registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
@@ -1085,7 +1111,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         request.getSession(true).setAttribute("demographicId", "123");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        String draftKey = EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
