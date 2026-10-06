@@ -75,6 +75,9 @@ async function workflow(s) {
       const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
         { textField: form.locator('#remoteSubmitButton') });
       if (mode.key === 'slowResubmit') {
+        // fill() and this mode's synthetic clicks do not give the page sticky user activation.
+        // A real editing gesture is required before Chrome permits a beforeunload prompt.
+        await form.locator('#note').click();
         await form.evaluate(() => window.addEventListener('beforeunload', event => {
           event.preventDefault(); event.returnValue = '';
         }, { once: true }));
