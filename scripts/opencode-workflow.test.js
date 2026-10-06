@@ -17,14 +17,15 @@ function fixture() {
   const event = { repository: { full_name: repo }, issue: { number: 3 }, comment };
   const env = { GITHUB_REPOSITORY: repo, GITHUB_RUN_ID: '42', GITHUB_ACTOR: 'Alice',
     GITHUB_TRIGGERING_ACTOR: 'Alice', GITHUB_RUN_ATTEMPT: '1',
-    OPENCODE_ENABLED: 'true', OPENCODE_ALLOWED_USERS: '["alice"]', OPENCODE_API_BASE_URL: 'https://example.com/v1',
-    OPENCODE_MODEL_ID: 'vendor/model', OPENCODE_APP_ID: '123' };
+    OPENCODE_ENABLED: 'true', OPENCODE_ALLOWED_USERS: '["alice"]', OPENCODE_PROVIDER_1_CONFIGURED: 'true',
+    OPENCODE_MODELS: JSON.stringify({ deepseek41flash: { model: 'vendor/model', provider: 1, adapter: 'openai-compatible' } }), OPENCODE_APP_ID: '123' };
   const ctx = c.context(event, env);
   const data = {
     [`${ctx.root}/issues/comments/12`]: structuredClone(comment),
     [`${ctx.root}/collaborators/Alice/permission`]: { permission: 'write' },
     [`${ctx.root}/issues/3`]: { state: 'open', title: 'Issue', body: 'Context' },
     [`${ctx.root}/branches/release%2F2026.08`]: { commit: { sha } },
+    [`${ctx.root}/environments/opencode-publish`]: { protection_rules: [{ type: 'required_reviewers', reviewers: [{ type: 'User', reviewer: { login: 'Alice' } }] }] },
   };
   const calls = [];
   const api = { request: async (route, method = 'GET', body) => {
@@ -38,14 +39,15 @@ function fixture() {
 function makePR(f) {
   f.data[`${f.ctx.root}/issues/3`].pull_request = {};
   f.data[`${f.ctx.root}/pulls/3`] = { state: 'open', head: { repo: { full_name: repo }, ref: 'topic', sha },
-    base: { repo: { full_name: repo }, ref: 'release/2026.08' } };
+    base: { repo: { full_name: repo }, ref: 'release/2026.08', sha: 'c'.repeat(40) } };
   f.data[`${f.ctx.root}/branches/topic`] = { protected: false };
+  f.data[`${f.ctx.root}/compare/${'c'.repeat(40)}...${sha}?per_page=1`] = { merge_base_commit: { sha: 'd'.repeat(40) } };
 }
 
 test('only exact slash commands parse, including aliases and hostile text as data', () => {
   assert.deepEqual(p.command('/OC fix $(echo nope)\n`code`'), { mode: 'implement', prompt: '$(echo nope)\n`code`' });
   for (const text of ['hello /oc fix it', '/octopus fix it', '```\n/oc fix it', '> /oc fix it']) assert.equal(p.command(text), null);
-  for (const text of ['/oc', '/oc deploy foo', '/opencode review ']) assert.throws(() => p.command(text), /Use/);
+  for (const text of ['/oc', '/oc deploy foo', '/opencode implement ']) assert.throws(() => p.command(text), /Use/);
 });
 
 test('allowlist is exact, case-insensitive, deny-by-default and validates malformed input', () => {
@@ -57,12 +59,13 @@ test('allowlist is exact, case-insensitive, deny-by-default and validates malfor
   assert.equal(p.permitted(p.allowlist('["alice"]'), 'alice', { permission: 'triage' }), false);
 });
 
-test('settings require explicit enablement and HTTPS; model IDs may include a provider slash', () => {
+test('settings require enablement and configured credentials; endpoints require HTTPS', () => {
   const { env } = fixture();
   assert.equal(p.settings(env).model, 'vendor/model');
-  for (const changes of [{ OPENCODE_ENABLED: '' }, { OPENCODE_MODEL_ID: '' }, { OPENCODE_APP_ID: '' },
-    { OPENCODE_API_BASE_URL: 'http://example.com' }, { OPENCODE_API_BASE_URL: 'https://user:pass@example.com' },
-    { OPENCODE_API_BASE_URL: 'https://example.com?key=secret' }]) assert.throws(() => p.settings({ ...env, ...changes }));
+  for (const changes of [{ OPENCODE_ENABLED: '' }, { OPENCODE_MODELS: '{}' }, { OPENCODE_APP_ID: '' },
+    { OPENCODE_PROVIDER_1_CONFIGURED: 'false' }]) assert.throws(() => p.settings({ ...env, ...changes }));
+  for (const url of ['http://example.com', 'https://user:pass@example.com', 'https://example.com?key=secret', '']) assert.throws(() => p.endpoint(url));
+  assert.equal(p.endpoint('https://example.com/v1/'), 'https://example.com/v1');
 });
 
 test('authorization resolves issues explicitly from release/2026.08', async () => {
@@ -70,6 +73,21 @@ test('authorization resolves issues explicitly from release/2026.08', async () =
   const task = await c.authorize(f.api, f.ctx, f.env);
   assert.equal(task.base, 'release/2026.08'); assert.equal(task.source, sha);
   assert.equal(task.branch, 'opencode/comment-12');
+});
+
+test('explicit issue base targets an existing repository branch and is rejected on PRs', async () => {
+  const f = fixture();
+  f.ctx.event.comment.body = '/oc implement --base develop requested fix';
+  f.data[`${f.ctx.root}/issues/comments/12`].body = f.ctx.event.comment.body;
+  f.data[`${f.ctx.root}/branches/develop`] = { commit: { sha: 'd'.repeat(40) } };
+  const task = await c.authorize(f.api, f.ctx, f.env);
+  assert.equal(task.base, 'develop'); assert.equal(task.source, 'd'.repeat(40));
+  assert.equal(task.prompt, 'requested fix');
+  makePR(f);
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /only on issues/);
+  assert.throws(() => p.command('/oc review --base main request'), /Use/);
+  assert.throws(() => p.command('/oc implement --base develop'), /Use/);
+  assert.equal(p.command('/oc fix --base=release/2026.08 issue').requestedBase, 'release/2026.08');
 });
 
 test('authorization rejects missing grants, revoked access, lookup failures and rerunning actors', async () => {
@@ -200,7 +218,8 @@ function publication(t, pr = false) {
   const f = fixture(); if (pr) makePR(f);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-publish-'));
   const old = { ...process.env };
-  Object.assign(process.env, f.env, { EXPECTED_SOURCE: sha, EXPECTED_BASE: 'release/2026.08',
+  Object.assign(process.env, f.env, { EXPECTED_MODEL: 'vendor/model', EXPECTED_PROVIDER: '1',
+    EXPECTED_ALIAS: 'deepseek41flash', EXPECTED_ADAPTER: 'openai-compatible', EXPECTED_REVIEW_PASSES: '2', EXPECTED_SOURCE: sha, EXPECTED_BASE: 'release/2026.08',
     EXPECTED_BRANCH: pr ? 'topic' : 'opencode/comment-12', RESULT_DIR: dir });
   t.after(() => {
     for (const key of Object.keys(process.env)) if (!(key in old)) delete process.env[key];
@@ -295,4 +314,145 @@ test('completion reporter handles cancellation and overflow using metadata, igno
   const before = f.calls.filter(x => x.method === 'POST').length;
   await c.report(f.api, { workflow_run: run });
   assert.equal(f.calls.filter(x => x.method === 'POST').length, before);
+});
+
+test('publisher preserves an explicit alternate issue base', async t => {
+  const f = publication(t);
+  f.ctx.event.comment.body = '/oc implement --base develop fix';
+  f.data[`${f.ctx.root}/issues/comments/12`].body = f.ctx.event.comment.body;
+  f.data[`${f.ctx.root}/branches/develop`] = { commit: { sha } };
+  process.env.EXPECTED_BASE = 'develop';
+  await c.publish(f.api, f.ctx, async () => f.app);
+  assert.equal(f.writes.find(x => x.route.endsWith('/pulls')).body.base, 'develop');
+});
+
+test('provider gateway enforces endpoint/model, hides credentials/errors, and bounds requests', async t => {
+  const { startGateway, startForwarder, close } = require('./opencode/gateway.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-gateway-'));
+  const calls = [];
+  let failure = false;
+  const gateway = await startGateway({ socket: path.join(dir, 'api.sock'), baseURL: 'https://provider.example/v1',
+    model: 'chosen-model', key: 'real-host-only-key', fetcher: async (url, init) => {
+      calls.push({ url, init });
+      return failure ? new Response('real-host-only-key secret upstream diagnostics', { status: 401 }) : Response.json({ choices: [] });
+    } });
+  const forwarder = await startForwarder(path.join(dir, 'api.sock'));
+  t.after(async () => { await close(forwarder); await close(gateway); fs.rmSync(dir, { recursive: true, force: true }); });
+  const root = `http://127.0.0.1:${forwarder.address().port}`;
+  const send = (body, url = '/v1/chat/completions') => fetch(root + url, { method: 'POST',
+    headers: { Authorization: 'Bearer attacker', 'X-Api-Key': 'attacker' }, body: JSON.stringify(body) });
+  const body = { model: 'chosen-model', messages: [{ role: 'user', content: 'hello' }], stream: false,
+    max_tokens: 999999, baseURL: 'https://evil.example', headers: { Authorization: 'attacker' } };
+  assert.equal((await send(body, '/v1/files')).status, 403);
+  assert.equal((await fetch(root + '/v1/chat/completions')).status, 403);
+  assert.equal((await send({ ...body, model: 'other-model' })).status, 400);
+  assert.equal((await send(body)).status, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://provider.example/v1/chat/completions');
+  assert.equal(calls[0].init.redirect, 'error');
+  assert.deepEqual(calls[0].init.headers, { 'Content-Type': 'application/json', Authorization: 'Bearer real-host-only-key' });
+  assert.deepEqual(JSON.parse(calls[0].init.body), { model: body.model, messages: body.messages, stream: false, max_tokens: 8192 });
+  failure = true;
+  const rejected = await send(body);
+  assert.equal(rejected.status, 401); assert.doesNotMatch(await rejected.text(), /real-host-only-key|diagnostics/);
+  const oversized = await send({ ...body, messages: ['x'.repeat(2 * 1024 * 1024)] });
+  assert.equal(oversized.status, 413);
+  for (let i = 0; i < 98; i++) await (await send({ ...body, model: 'denied' })).text();
+  assert.equal((await send(body)).status, 429);
+  assert.equal(calls.length, 2);
+});
+
+test('publication fails closed before creating a token if required reviewers are removed', async t => {
+  const f = publication(t);
+  let minted = false;
+  for (const protection of [null, { protection_rules: [] }, { protection_rules: [{ type: 'required_reviewers', reviewers: [] }] }]) {
+    f.data[`${f.ctx.root}/environments/opencode-publish`] = protection;
+    await assert.rejects(c.publish(f.api, f.ctx, async () => { minted = true; return f.app; }), /required reviewers/);
+    assert.equal(minted, false);
+  }
+});
+
+test('publication preview includes exact source, target, text and deletion/binary notices', () => {
+  const preview = w.reviewText({ source: sha, response: 'Tests not run.', files: [
+    { path: 'text', mode: '100644', content: Buffer.from('review this').toString('base64') },
+    { path: 'removed', content: null }, { path: 'binary', mode: '100644', content: 'AA==' },
+  ] }, 'develop');
+  for (const expected of [sha, 'Target base: develop', 'review this', 'DELETE removed', 'Binary:', 'Tests not run.']) assert.ok(preview.includes(expected));
+});
+
+test('review requires configurable verification passes and resolves the PR merge base exactly', async () => {
+  const f = fixture(); makePR(f);
+  f.ctx.event.comment.body = '/oc review potential regressions';
+  f.data[`${f.ctx.root}/issues/comments/12`].body = f.ctx.event.comment.body;
+  const task = await c.authorize(f.api, f.ctx, f.env);
+  assert.equal(task.baseline, 'd'.repeat(40));
+  assert.equal(task.settings.reviewPasses, 2);
+  assert.equal(p.settings({ ...f.env, OPENCODE_REVIEW_PASSES: '3' }).reviewPasses, 3);
+  for (const value of ['1', '0', '4', 'banana']) assert.throws(() => p.settings({ ...f.env, OPENCODE_REVIEW_PASSES: value }), /REVIEW_PASSES/);
+  f.data[`${f.ctx.root}/compare/${'c'.repeat(40)}...${sha}?per_page=1`] = {};
+  await assert.rejects(c.authorize(f.api, f.ctx, f.env), /merge base/);
+});
+
+test('verified review rejects invented paths, quotations, line ranges, duplicate findings and malformed output', t => {
+  const review = require('./opencode/review.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-evidence-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, 'sample.js'), 'const value = null;\nvalue.run();\n');
+  const finding = { severity: 'high', title: 'Null dereference', path: 'sample.js', startLine: 1, endLine: 2,
+    evidence: 'const value = null;\nvalue.run();', explanation: 'Calling run always throws for this null value.' };
+  const report = { findings: [finding], tests: ['Read source.'], limitations: ['No executable tests run.'] };
+  assert.match(review.render(JSON.stringify(report), dir, sha, 2), /sample.js#L1-L2/);
+  for (const changes of [{ path: '../secret' }, { path: '/etc/passwd' }, { path: 'missing.js' },
+    { startLine: 2, endLine: 3 }, { evidence: 'hallucinated' }, { severity: 'critical' }]) {
+    assert.throws(() => review.render(JSON.stringify({ ...report, findings: [{ ...finding, ...changes }] }), dir, sha, 2));
+  }
+  assert.throws(() => review.render('Unstructured confident answer', dir, sha, 2), /required evidence report/);
+  assert.throws(() => review.render(JSON.stringify({ ...report, findings: [finding, finding] }), dir, sha, 2), /duplicate/);
+  assert.match(review.render(JSON.stringify({ ...report, findings: [] }), dir, sha, 2), /No sufficiently supported defects/);
+  fs.symlinkSync(path.join(dir, 'sample.js'), path.join(dir, 'link'));
+  assert.throws(() => review.render(JSON.stringify({ ...report, findings: [{ ...finding, path: 'link' }] }), dir, sha, 2), /symlink/);
+});
+
+test('each review pass must read real files from every required snapshot', () => {
+  const { assertInspection, verificationPrompt } = require('./opencode/review.cjs');
+  const read = filePath => JSON.stringify({ type: 'tool_use', part: { tool: 'read', state: { status: 'completed',
+    input: { filePath }, metadata: { display: { type: 'file' } } } } });
+  assert.throws(() => assertInspection('', false), /did not inspect/);
+  assertInspection(read('/work/source.js'), false);
+  assert.throws(() => assertInspection(read('/work/source.js'), true), /did not inspect/);
+  assertInspection(read('/work/source.js') + '\n' + read('/baseline/source.js'), true);
+  const prompt = verificationPrompt({ prompt: 'Original request' }, 'Candidate finding', 2, 2);
+  assert.match(prompt, /Original request/); assert.match(prompt, /Candidate finding/);
+  assert.match(prompt, /VERIFICATION PASS 2 OF 2/); assert.match(prompt, /Drop unsupported/);
+});
+
+test('review accepts extra direction and configured model options in either order with issue bases', async () => {
+  assert.deepEqual(p.command('/oc review --model kimi focus on authorization\nand tenant boundaries'), {
+    mode: 'review', modelAlias: 'kimi', prompt: 'focus on authorization\nand tenant boundaries',
+  });
+  assert.match(p.command('/oc review').prompt, /correctness/);
+  assert.equal(p.command('/oc review --model sonnet').modelAlias, 'sonnet');
+  for (const command of ['/oc implement --model glm53 --base release/2026.08 fix it', '/oc implement --base release/2026.08 --model=glm53 fix it']) {
+    assert.deepEqual(p.command(command), { mode: 'implement', requestedBase: 'release/2026.08', modelAlias: 'glm53', prompt: 'fix it' });
+  }
+  for (const command of ['/oc review --model', '/oc review --model unknown check', '/oc review --model kimi --model sonnet check', '/oc review --bad-option x']) assert.throws(() => p.command(command));
+  const f = fixture();
+  f.env.OPENCODE_MODELS = JSON.stringify(Object.fromEntries(p.MODEL_ALIASES.map(alias => [alias, { provider: 2, model: `vendor/${alias}`, adapter: 'openrouter' }])));
+  f.env.OPENCODE_PROVIDER_2_CONFIGURED = 'true';
+  for (const alias of p.MODEL_ALIASES) {
+    const settings = p.settings(f.env, alias);
+    assert.equal(settings.alias, alias); assert.equal(settings.provider, 2);
+    assert.equal(settings.model, `vendor/${alias}`); assert.equal(settings.adapter, 'openrouter');
+  }
+  f.env.OPENCODE_PROVIDER_2_CONFIGURED = 'false';
+  assert.throws(() => p.settings(f.env, 'kimi'), /Declined.*both the API key and base URL/);
+  assert.throws(() => p.settings(fixture().env, 'sonnet'), /not configured/);
+});
+
+test('a model configuration change before publication cannot silently change the requested model', async t => {
+  const f = publication(t);
+  process.env.OPENCODE_MODELS = JSON.stringify({ deepseek41flash: { provider: 1, model: 'changed-model', adapter: 'openrouter' } });
+  let minted = false;
+  await assert.rejects(c.publish(f.api, f.ctx, async () => { minted = true; return f.app; }), /configuration changed/);
+  assert.equal(minted, false);
 });
