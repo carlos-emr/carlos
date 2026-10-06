@@ -36,7 +36,9 @@
 package io.github.carlos_emr.carlos.decisionSupport.web;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -47,6 +49,7 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineFactory;
+import io.github.carlos_emr.carlos.decisionSupport.model.DecisionSupportException;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -86,12 +89,21 @@ public class DSGuideline2Action extends ActionSupport {
         return list();
     }
 
-    public String list() {
+    public String list() throws DecisionSupportException {
         String providerNo = request.getParameter("provider_no");
         List<DSGuideline> providerGuidelines = new ArrayList<DSGuideline>();
         if (providerNo != null)
             providerGuidelines = dsService.getDsGuidelinesByProvider(providerNo);
         request.setAttribute("guidelines", providerGuidelines);
+        String demographicNo = request.getParameter("demographic_no");
+        Map<Integer, Boolean> guidelineResults = new LinkedHashMap<>();
+        if (demographicNo != null && !demographicNo.isBlank()) {
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            for (DSGuideline guideline : providerGuidelines) {
+                guidelineResults.put(guideline.getId(), guideline.evaluateBoolean(loggedInInfo, demographicNo));
+            }
+        }
+        request.setAttribute("guidelineResults", guidelineResults);
         return "guidelineList";
     }
 

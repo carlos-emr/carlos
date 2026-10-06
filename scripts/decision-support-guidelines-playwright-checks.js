@@ -26,9 +26,10 @@ async function conditionRows(page) {
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const uuid = h.sqlString(marker);
-  const title = `${marker} guideline`;
+  const title = `${marker} guideline "review"`;
+  const author = 'FAKE-PW <b>check</b>';
   const warning = `${marker} review amino-acid transport plan`;
-  const xml = `<guideline title="${title}"><conditions>`
+  const xml = `<guideline title="${title.replaceAll('"', '&quot;')}"><conditions>`
     + `<condition type="dxcodes" any="icd9:${DX_CODE}"/><condition type="sex" any="F"/>`
     + `</conditions><consequence><warning strength="warning">${warning}</warning></consequence></guideline>`;
   s.cleanup(() => {
@@ -40,7 +41,7 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient})`) === '0', 'Owned guideline fixtures were not removed');
   });
   const guideline = sql.value(`INSERT INTO dsGuidelines (uuid,title,version,author,xml,source,engine,dateStart,status)
-    VALUES (${uuid},${h.sqlString(title)},1,'FAKE-PW check',${h.sqlString(xml)},'local','drools',NOW(),'A');
+    VALUES (${uuid},${h.sqlString(title)},1,${h.sqlString(author)},${h.sqlString(xml)},'local','drools',NOW(),'A');
     SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(guideline), 'The owned guideline was not created');
   sql.execute(`INSERT INTO dsGuidelineProviderMap (provider_no,guideline_uuid) VALUES (${h.sqlString(provider)},${uuid})`);
@@ -85,6 +86,20 @@ async function workflow(s) {
     ]), 'Guideline detail did not evaluate both conditions as passed with the patient\'s actual values');
   });
 
+  await s.step('the heading list evaluates the matching patient and renders stored labels as text', async () => {
+    const list = await s.popup(chart, heading(), 'guideline-list-matching');
+    const row = list.locator('table.dsTable tr').filter({ hasText: title });
+    await row.waitFor({ state: 'visible' });
+    const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
+    h.assert(cells[1] === title && cells[2] === author && cells[4] === 'Active' && /^Passed\b/.test(cells[5]),
+      'Guideline list does not show the matching patient as passed with literal stored labels');
+    h.assert(await row.locator('b').count() === 0, 'The stored author was rendered as HTML');
+    const url = new URL(await row.locator('a').getAttribute('href'), list.url());
+    h.assert(url.searchParams.get('guidelineId') === guideline && url.searchParams.get('demographic_no') === patient,
+      'The list detail link changed the guideline or patient');
+    await list.close();
+  });
+
   await s.step('resolving the diagnosis in the Dx Registry persists the change', async () => {
     const registry = await s.popup(chart, chart.locator('a[onclick*="setupDxResearch"]').first(), 'diagnosis-registry');
     const row = registry.locator(`#startdate1st${dx}`).locator('xpath=ancestor::tr[1]');
@@ -121,7 +136,7 @@ async function workflow(s) {
       const row = list.locator('table.dsTable tr').filter({ hasText: title });
       await row.waitFor({ state: 'visible' });
       const cells = (await row.locator('td').allInnerTexts()).map(text => text.trim());
-      h.assert(cells[0] === '1' && cells[2] === 'FAKE-PW check' && cells[4] === 'Active' && /^Failed\b/.test(cells[5]),
+      h.assert(cells[0] === '1' && cells[2] === author && cells[4] === 'Active' && /^Failed\b/.test(cells[5]),
         'Guideline list does not show the owned guideline as active and failed for the resolved patient');
     } catch (error) {
       defects.push(`Decision Support Alerts heading: ${error.message}`);
