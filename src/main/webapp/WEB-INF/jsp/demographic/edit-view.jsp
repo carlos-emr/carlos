@@ -675,12 +675,12 @@
                                                                                             <c:choose>
                                                                                                 <c:when test="${ patientConsent.optout }">
                                                                                                     <span class="info"
-                                                                                                          style="color:red;"> <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"/>:${carlos:forHtml(patientConsent.optoutDate)}</span>
+                                                                                                          style="color:red;"> <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"><fmt:param value="${carlos:forHtml(patientConsent.optoutDate)}"/></fmt:message></span>
                                                                                                 </c:when>
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"/><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}</span>
+                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"><fmt:param value="${carlos:forHtml(patientConsent.consentDate)}"/></fmt:message><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if></span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 

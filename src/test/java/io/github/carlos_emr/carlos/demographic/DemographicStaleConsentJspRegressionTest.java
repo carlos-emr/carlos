@@ -156,12 +156,12 @@ class DemographicStaleConsentJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should mark an implied consent after the consented label on the edit form and the view")
+    @DisplayName("should mark an implied consent after the consented label and date on the edit form and the view")
     void shouldMarkImpliedConsent_afterConsentedLabel() throws Exception {
-        String implied = "<fmt:message key=\"demographic.demographiceditdemographic.consentStatusConsented\"/>"
+        String implied = "<fmt:message key=\"demographic.demographiceditdemographic.consentStatusConsented\">"
+                + "<fmt:param value=\"${carlos:forHtml(patientConsent.consentDate)}\"/></fmt:message>"
                 + "<c:if test=\"${ not patientConsent.explicit }\"> (<fmt:message key="
-                + "\"demographic.demographiceditdemographic.consentImplied\"/>)</c:if>"
-                + ":${carlos:forHtml(patientConsent.consentDate)}";
+                + "\"demographic.demographiceditdemographic.consentImplied\"/>)</c:if>";
         assertThat(Files.readString(CLINICAL_FORM_JSP, StandardCharsets.UTF_8)).contains(implied);
         assertThat(Files.readString(resolveProjectPath(Path.of(
                 "src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp")), StandardCharsets.UTF_8)).contains(implied);

@@ -968,13 +968,13 @@
                                                                                             <c:when test="${ patientConsent.optout }">
                                                                                                 <div id="consentDate_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:red;white-space:nowrap;">
-                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"/>:${carlos:forHtml(patientConsent.optoutDate)}
+                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusOptedOut"><fmt:param value="${carlos:forHtml(patientConsent.optoutDate)}"/></fmt:message>
                                                                                                 </div>
                                                                                             </c:when>
                                                                                             <c:otherwise>
                                                                                                 <div id="consentDate_${carlos:forHtmlAttribute(consentType.type)}"
                                                                                                      style="color:green;white-space:nowrap;">
-                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"/><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>:${carlos:forHtml(patientConsent.consentDate)}
+                                                                                                    <fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"><fmt:param value="${carlos:forHtml(patientConsent.consentDate)}"/></fmt:message><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if>
                                                                                                 </div>
                                                                                             </c:otherwise>
                                                                                         </c:choose>
