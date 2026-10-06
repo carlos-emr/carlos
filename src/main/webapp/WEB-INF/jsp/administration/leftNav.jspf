@@ -666,9 +666,20 @@ Properties oscarVariables = CarlosProperties.getInstance();
 <%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/FacilityManager"><fmt:message key="admin.admin.manageFacilities"/></a></li>--%>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/encounter/oscarMeasurements/adminFlowsheet/ViewNewFlowsheet"><fmt:message key="admin.admin.newFlowsheet"/></a></li>
 					</security:oscarSec>
-					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc,_admin.flowsheet" rights="w" reverse="<%=false%>">
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					<%-- Check objects separately: combined SecurityTag lookups collapse each role's grants. --%>
+					<c:set var="canManageFlowsheets" value="${false}" />
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+						<c:set var="canManageFlowsheets" value="${true}" />
 					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="w">
+						<c:set var="canManageFlowsheets" value="${true}" />
+					</security:oscarSec>
+					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="w">
+						<c:set var="canManageFlowsheets" value="${true}" />
+					</security:oscarSec>
+					<c:if test="${canManageFlowsheets}">
+					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ManageFlowsheets"><fmt:message key="admin.admin.flowsheetManager"/></a></li>
+					</c:if>
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
 			      	<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrAddRecordHtm"><fmt:message key="admin.admin.add_lot_nr.title"/></a></li>
 					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/ViewLotNrSearchRecordsHtm"><fmt:message key="admin.lotnrsearchrecordshtm.title"/></a></li>
