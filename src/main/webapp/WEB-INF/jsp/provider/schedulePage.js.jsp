@@ -96,6 +96,46 @@ document.addEventListener('DOMContentLoaded', function() {
     initCancelledVisibility();
 });
 
+// Sticky day-sheet header: keeps the provider names exactly under the top bar
+// (--schedule-header-height), and keeps the whole bar reachable while a wide
+// schedule scrolls sideways (see "sticky-schedule-header" in
+// receptionistapptstyle.css).
+document.addEventListener('DOMContentLoaded', function () {
+    var header = document.getElementById('fixedHeaderWrapper');
+    if (!header || !window.ResizeObserver) { return; }
+    var root = document.documentElement;
+    var last = '';
+    document.body.classList.add('sticky-schedule-header');
+    function fitHeader() {
+        // The window's width without its vertical scrollbar.
+        var visible = root.clientWidth;
+        root.style.setProperty('--schedule-visible-width', visible + 'px');
+        var height = header.offsetHeight;
+        // The exact (fractional) width, so the bar's right end lands exactly on the
+        // window's edge, with no sliver under page zoom.
+        var left = Math.min(0, visible - header.getBoundingClientRect().width);
+        var now = visible + '/' + height + '/' + left;
+        if (now === last) { return; }
+        last = now;
+        root.style.setProperty('--schedule-header-height', height + 'px');
+        root.style.setProperty('--schedule-header-left', left + 'px');
+    }
+    // Changes are applied on the next frame, never inside the observer's own
+    // callback, so resizing the page cannot start a ResizeObserver loop.
+    var queued = false;
+    function fitSoon() {
+        if (queued) { return; }
+        queued = true;
+        requestAnimationFrame(function () { queued = false; fitHeader(); });
+    }
+    var observer = new ResizeObserver(fitSoon);
+    observer.observe(header);
+    // A vertical scrollbar appearing narrows the window without a resize event.
+    observer.observe(root);
+    window.addEventListener('resize', fitSoon);
+    fitHeader();
+});
+
 // Toggle Cancelled Appointments Visibility
 // Toggles .Cancelled elements and saves state to localStorage
 function toggleCancelled() {
