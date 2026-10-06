@@ -95,8 +95,8 @@ async function workflow(s) {
       const repeated = await s.context.request.post(original.url(), {
         data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'] }, maxRedirects: 0,
       });
-      h.assert(repeated.status() === 409 && (await repeated.text()).includes('Check Sent Messages'),
-        'Direct replay was accepted or omitted recovery guidance');
+      h.assert(repeated.status() === 409, `Direct replay answered HTTP ${repeated.status()} instead of 409`);
+      h.assert((await repeated.text()).includes('Check Sent Messages'), 'Direct replay omitted recovery guidance');
       h.assert(sql.value(q) === '1', 'Direct replay created another message');
       if (mode.key === 'slowResubmit') h.assert(posts.seen.length === 1, 'Send remained active during a delayed response');
       inbox.off('request', capture);
@@ -108,6 +108,12 @@ async function workflow(s) {
       // One recipient was ticked, so exactly one delivery row must exist: a duplicated or lost
       // delivery is as much a double-submit defect as a duplicated message row.
       v.record(`${mode.label} (delivery rows)`, Number(listRows), { exactly: 1 });
+      if (mode.key === 'replay') {
+        const recovery = inbox.getByRole('link', { name: 'Check Sent Messages', exact: true });
+        await ui.clickAndAwaitReload(inbox, recovery, { required: true });
+        h.assert(new URL(inbox.url()).searchParams.get('boxType') === '1', 'Recovery did not open Sent Messages');
+        h.assert((await inbox.locator('body').innerText()).includes(subj(mode.tag)), 'Sent Messages omitted the saved message');
+      }
       await leave(inbox, opened);
     });
   }

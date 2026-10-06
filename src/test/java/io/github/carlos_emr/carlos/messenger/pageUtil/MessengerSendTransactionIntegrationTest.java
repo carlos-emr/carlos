@@ -144,8 +144,9 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             assertThat(draft.getAttachment()).isEqualTo("owned attachment");
             assertThat(draft.getMessage()).isEqualTo("Owned body");
             if ("afterCommit".equals(failure)) {
-                assertThat(result).isEqualTo("none");
+                assertThat(result).isEqualTo("conflict");
                 assertThat(response.getStatus()).isEqualTo(409);
+                assertThat(request.getAttribute("messageSubmissionError").toString()).contains("Check Sent Messages");
                 assertRows(ownedIds, 1);
             } else {
                 assertThat(result).isEqualTo("error");
@@ -160,8 +161,9 @@ class MessengerSendTransactionIntegrationTest extends CarlosTestBase {
             fail.set(false);
             var replayResponse = new MockHttpServletResponse();
             servlet.when(ServletActionContext::getResponse).thenReturn(replayResponse);
-            assertThat(send(marker)).isEqualTo("none");
+            assertThat(send(marker)).isEqualTo("conflict");
             assertThat(replayResponse.getStatus()).isEqualTo(409);
+            assertThat(request.getAttribute("messageSubmissionError").toString()).contains("Check Sent Messages");
             assertRows(ownedIds, 1);
         } finally {
             if (!ownedIds.isEmpty()) new TransactionTemplate(transactions).executeWithoutResult(status -> {

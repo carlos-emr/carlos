@@ -193,9 +193,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
         var attempt = MessengerSubmissionGuard.attempt(request.getSession(), submission, userNo);
         if (attempt.claim() == null) {
-            response.sendError(HttpServletResponse.SC_CONFLICT,
-                    "This message submission is unavailable or already being processed. Check Sent Messages before composing another message.");
-            return NONE;
+            return submissionConflict("This message submission is unavailable or already being processed. "
+                    + "Check Sent Messages before composing another message.");
         }
         final String normalizedSubject = subject;
         final String recipients = sentToWho;
@@ -224,9 +223,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
             } catch (RuntimeException e) {
                 MiscUtils.getLogger().error("Message send transaction failed", e);
                 if (!claim.canRetry()) {
-                    response.sendError(HttpServletResponse.SC_CONFLICT,
-                            "Message delivery could not be confirmed. Check Sent Messages before composing another message.");
-                    return NONE;
+                    return submissionConflict("Message delivery could not be confirmed. "
+                            + "Check Sent Messages before composing another message.");
                 }
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 request.setAttribute("createMessageError", "The message was not sent. Your draft is retained; please try again.");
@@ -238,6 +236,14 @@ public class MsgCreateMessage2Action extends ActionSupport {
             bean.setSubject(null);
             return SUCCESS;
         }
+    }
+
+    private String submissionConflict(String message) {
+        // sendError uses the shared error page, which intentionally hides servlet error details.
+        // These fixed recovery messages must remain visible in the normal production configuration.
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        request.setAttribute("messageSubmissionError", message);
+        return "conflict";
     }
 
     private String[] provider = new String[0];
