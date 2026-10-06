@@ -52,6 +52,12 @@ async function saveMasterRecord(master) {
   await h.assertNotErrorPage(master, 'the Master Record after Update Record');
 }
 
+/**
+ * Verify waiting-list availability, exact text, history and protected removal
+ * through the real Master Record workflow using only owned fixture rows.
+ * @param {object} s Authenticated workflow session with SQL and cleanup helpers.
+ * @returns {Promise<void>} Resolves after every UI and database assertion passes.
+ */
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   let listId;
