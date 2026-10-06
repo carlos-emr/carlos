@@ -41,7 +41,7 @@ for (const [page, mount] of [
     function Editor(configuration) { options.push(configuration); }
     Editor.factory = Editor;
     const sanitized = [];
-    vm.runInNewContext(constructors[0][0], {
+    const context = vm.createContext({
       Editor, toastui: { Editor }, content: 'Synthetic message',
       document: {
         getElementById: id => ({ id }),
@@ -49,6 +49,14 @@ for (const [page, mount] of [
       },
       DOMPurify: { sanitize: html => { sanitized.push(html); return 'sanitized HTML'; } },
     });
+    if (page === 'messenger/CreateMessage.jsp') {
+      const pluginScript = source.match(/<script src="[^"\n]*\/messenger\/messenger-markdown\.js"><\/script>/);
+      assert.ok(pluginScript && pluginScript.index < constructors[0].index,
+        'Compose must load its Markdown plugin before initializing the editor');
+      vm.runInContext(fs.readFileSync(path.join(__dirname,
+        '../src/main/webapp/messenger/messenger-markdown.js'), 'utf8'), context);
+    }
+    vm.runInContext(constructors[0][0], context);
     assert.equal(options.length, 1);
     assert.equal(options[0].usageStatistics, false, 'Usage beacons must be explicitly disabled');
     assert.equal(options[0].el.id, mount);
