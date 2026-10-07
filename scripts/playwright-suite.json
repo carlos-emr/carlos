@@ -2081,6 +2081,20 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-letters-entry",
+      "script": "scripts/patient-letters-entry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned patient and report-denied login/role; all owned rows removed and checked. Envelope PDF is read only.",
+      "notes": "Real master-record Print / Labels entry, selected patient, template-management navigation, retained envelope PDF and report-permission visibility (#3665 finding 1)."
+    },
+    {
       "name": "patient-letters-envelopes",
       "script": "scripts/patient-letters-envelopes-playwright-checks.js",
       "tiers": [
