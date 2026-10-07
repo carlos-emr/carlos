@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -45,15 +46,18 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInvite
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestNotSentException;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.net.ConnectException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +66,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -152,6 +158,20 @@ class PortalAccountAndPanelActionUnitTest {
 
     private PatientPortalAccountAcknowledgementDto acknowledgement() {
         return new PatientPortalAccountAcknowledgementDto(5L, "active", true, null);
+    }
+
+    /** Failures the portal answered (or that never left CARLOS): not "the portal cannot be reached". */
+    static Stream<Arguments> answeredOrNotSent() {
+        return Stream.of(
+                Arguments.of("429 throttled", PatientPortalException.ofStatus(429, "/y/{id}", null)),
+                Arguments.of("400 rejected", PatientPortalException.ofStatus(400, "/y/{id}", null)),
+                Arguments.of("404 ambiguous", PatientPortalException.ofStatus(404, "/y/{id}", null)),
+                Arguments.of("499, just below the server errors",
+                        PatientPortalException.ofStatus(499, "/y/{id}", null)),
+                Arguments.of("malformed answer",
+                        PatientPortalException.ofMalformedResponse(200, "/y/{id}", null)),
+                Arguments.of("never sent (CARLOS busy)",
+                        PatientPortalException.ofTransportFailure("/y/{id}", new PortalRequestNotSentException("busy"))));
     }
 
     private JsonNode payload() throws IOException {
@@ -751,6 +771,59 @@ class PortalAccountAndPanelActionUnitTest {
                     .contains("accountError")
                     // The kind is carried so a caller can tell an outage from a permission problem.
                     .contains("transport_failure");
+        }
+
+        @Test
+        @DisplayName("should say the portal cannot be reached when no answer came back, without its host or the cause")
+        void shouldMarkSectionsPortalUnavailable_whenThePortalCannotBeReached() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x/{id}",
+                            new ConnectException("portal.clinic.example refused")));
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(503, "/y/{id}", "upstream down"));
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.path("invitesErrorReason").asText()).isEqualTo("portal_unavailable");
+            assertThat(payload.path("accountErrorReason").asText()).isEqualTo("portal_unavailable");
+            assertThat(response.getContentAsString())
+                    .doesNotContain("portal.clinic.example")
+                    .doesNotContain("refused")
+                    .doesNotContain("upstream down");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccountAndPanelActionUnitTest#answeredOrNotSent")
+        @DisplayName("should keep the generic message when the portal answered or CARLOS never sent the request")
+        void shouldNotMarkPortalUnavailable_whenThePortalAnsweredOrNothingWasSent(String label,
+                PatientPortalException failure) throws Exception {
+            request.setMethod("GET");
+            doThrow(failure).when(patientPortalService).listInvites(anyInt(), any());
+            doThrow(failure).when(patientPortalService).findAccount(anyInt(), any());
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            // Both sections did fail; they are just not called unreachable.
+            assertThat(payload.get("invitesError").asText()).isEqualTo("unavailable");
+            assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
+            assertThat(payload.has("invitesErrorReason")).isFalse();
+            assertThat(payload.has("accountErrorReason")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should call the first server error, 500, unreachable")
+        void shouldMarkPortalUnavailable_fromStatus500() throws Exception {
+            request.setMethod("GET");
+            doThrow(PatientPortalException.ofStatus(500, "/x/{id}", null)).when(patientPortalService)
+                    .listInvites(anyInt(), any());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            assertThat(payload().path("invitesErrorReason").asText()).isEqualTo("portal_unavailable");
         }
 
         @Test

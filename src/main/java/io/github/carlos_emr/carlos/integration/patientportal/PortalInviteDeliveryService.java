@@ -866,15 +866,15 @@ public class PortalInviteDeliveryService {
      * for {@link #CODE_EXPIRY_MARGIN} (the portal refuses an expired code without changing its status). An
      * accepted invitation is not dead: its code was used.
      *
-     * <p>An invitation the portal no longer lists is dead only once its expiry is past by
-     * {@link #PORTAL_PRUNE_WINDOW} and the margin, when the portal's maintenance has deleted it. Missing any
-     * earlier, it may be a portal fault, so it is not counted. The expiry is the one the portal returned when
-     * it activated the code. When none was recorded, the attempt's last change plus
-     * {@link PortalInviteEmailComposer#CODE_LIFETIME} stands in for it: CARLOS keeps no separate activation
-     * time, and an activated attempt last changed when it was activated or later, so this can only make the
-     * wait longer. The portal never deletes an accepted invitation, so one it no longer lists was, in
-     * practice, not used (only one pushed past the newest 100 could have been); either way its code no longer
-     * works.
+     * <p>An invitation the portal no longer lists is dead only once its expiry is past by {@link #PORTAL_PRUNE_WINDOW}
+     * and the margin, when the portal's maintenance has deleted it. Missing any earlier, it may be a portal fault, so
+     * it is not counted. The wait runs from the later of two times: the expiry the portal returned when it activated
+     * the code, and the attempt's last change plus {@link PortalInviteEmailComposer#CODE_LIFETIME} (alone when no
+     * expiry was stored). The first is on the portal's clock, so a portal clock running behind would make it early; the
+     * second is on CARLOS's clock, and an activated attempt last changed when it was activated or later, so it can only
+     * make the wait longer. CARLOS keeps no separate activation time. The portal never deletes an accepted invitation,
+     * so one it no longer lists was, in practice, not used (only one pushed past the newest 100 could have been);
+     * either way its code no longer works.
      *
      * @param listedNow the portal's list from a read that succeeded; never stand in an empty list for a read
      *     that failed, as every unlisted code would then look deleted
@@ -906,14 +906,20 @@ public class PortalInviteDeliveryService {
         return listed.stream().filter(invite -> invite.id() == inviteId).findFirst().orElse(null);
     }
 
-    /** Whether the attempt's code expired long enough ago for the portal to have deleted its invitation. */
+    /**
+     * Whether the attempt's code expired long enough ago for the portal to have deleted its invitation:
+     * the later of the stored expiry (the portal's clock) and the last change plus the code's life
+     * (CARLOS's clock), past by the prune window and the margin.
+     */
     private boolean isPastPruning(PatientPortalInviteDelivery row) {
-        Instant expiry;
-        if (row.getExpiresAt() != null) {
-            expiry = row.getExpiresAt().toInstant();
-        } else if (row.getUpdatedAt() != null) {
-            expiry = row.getUpdatedAt().toInstant().plus(PortalInviteEmailComposer.CODE_LIFETIME);
-        } else {
+        Instant expiry = row.getExpiresAt() == null ? null : row.getExpiresAt().toInstant();
+        if (row.getUpdatedAt() != null) {
+            Instant byLastChange = row.getUpdatedAt().toInstant().plus(PortalInviteEmailComposer.CODE_LIFETIME);
+            if (expiry == null || byLastChange.isAfter(expiry)) {
+                expiry = byLastChange;
+            }
+        }
+        if (expiry == null) {
             return false;
         }
         return !expiry.plus(PORTAL_PRUNE_WINDOW).plus(CODE_EXPIRY_MARGIN).isAfter(clock.instant());

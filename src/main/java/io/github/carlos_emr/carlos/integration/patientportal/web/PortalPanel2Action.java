@@ -67,10 +67,12 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Absence is therefore overloaded, and a caller has to read the error markers to disambiguate: a
  * section is also dropped when the portal read failed, in which case {@code invitesError} and
- * {@code invitesErrorKind} (or the account equivalents) are present alongside. Treating a missing
- * key as "no data" — the natural {@code payload.invites || []} idiom — would report an outage as an
- * empty list, which is why {@code ok} is the guard against that: it is {@code false} whenever a
- * section the caller asked for could not be read. It used to be hardcoded {@code true}, so the one
+ * {@code invitesErrorKind} (or the account equivalents) are present alongside, plus
+ * {@code invitesErrorReason} (or {@code accountErrorReason}) set to {@code portal_unavailable} when the
+ * portal could not be reached, or answered with a server error (5xx). Treating a missing key as "no data" — the natural
+ * {@code payload.invites || []} idiom — would report an outage as an empty list, which is why
+ * {@code ok} is the guard against that: it is {@code false} whenever a section the caller asked for
+ * could not be read. It used to be hardcoded {@code true}, so the one
  * field a client would reasonably branch on was the one field that could not be wrong.
  *
  * <p>One portal failure does not blank the panel. If invitations load and the account lookup fails,
@@ -84,6 +86,8 @@ public class PortalPanel2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;
 
     private static final String SECTION_UNAVAILABLE = "unavailable";
+    /** Set beside a section's error when the portal could not be reached at all, so the page can say so. */
+    private static final String PORTAL_UNAVAILABLE = "portal_unavailable";
     private static final String SECTION_FAILED_LOG =
             "patient portal panel section {} could not be read: kind={}";
 
@@ -225,6 +229,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             payload.remove("invites");
             payload.put("invitesError", SECTION_UNAVAILABLE);
             payload.put("invitesErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            putUnavailableReason(payload, "invitesErrorReason", exception);
             logger.log(
                     failureLogLevel(exception),
                     SECTION_FAILED_LOG,
@@ -273,6 +278,28 @@ public class PortalPanel2Action extends PortalJsonAction {
     }
 
     /**
+     * Marks a section whose portal call never got an answer the portal meant: no complete response
+     * (connection refused, timeout, TLS or pin failure) or a server error (5xx). The page then says the
+     * portal cannot be reached, instead of asking staff to refresh. A request CARLOS itself did not send
+     * (its transport busy) and any other refusal keep the generic message. Only a fixed code is sent:
+     * never the host, the status or the exception's text.
+     */
+    private static void putUnavailableReason(ObjectNode payload, String field, PatientPortalException exception) {
+        if (isPortalUnreachable(exception)) {
+            payload.put(field, PORTAL_UNAVAILABLE);
+        }
+    }
+
+    /** @return whether the portal could not be reached: no complete answer to a request that left CARLOS, or a 5xx */
+    private static boolean isPortalUnreachable(PatientPortalException exception) {
+        if (exception.isRequestNotSent()) {
+            return false;
+        }
+        return exception.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                || (exception.kind() == PatientPortalException.Kind.UNEXPECTED_STATUS && exception.statusCode() >= 500);
+    }
+
+    /**
      * Adds the account, or an explicit {@code "account": null} when the portal confirms the patient
      * has none. That is a complete answer, not a failed read: it is the state of every patient who
      * has not activated yet. Any other 404 stays ambiguous and is reported as unavailable.
@@ -300,6 +327,7 @@ public class PortalPanel2Action extends PortalJsonAction {
             }
             payload.put("accountError", SECTION_UNAVAILABLE);
             payload.put("accountErrorKind", exception.kind().name().toLowerCase(Locale.ROOT));
+            putUnavailableReason(payload, "accountErrorReason", exception);
             logger.log(
                     failureLogLevel(exception),
                     SECTION_FAILED_LOG,

@@ -56,6 +56,32 @@ test('shows a known refusal in the page language, and any other as the server wo
   assert.equal(page.refusal({}), 'Fehler.');
 });
 
+test('says the portal cannot be reached only when the server says so, and points below only when records are shown', () => {
+  const page = logic({'error.portalUnavailable': 'Portal nicht erreichbar.',
+    'error.portalUnavailableRecordsBelow': 'Portal nicht erreichbar; Einträge unten.', 'error.generic': 'Fehler.'});
+  assert.equal(page.sectionError('portal_unavailable', true), 'Portal nicht erreichbar; Einträge unten.');
+  assert.equal(page.sectionError('portal_unavailable', false), 'Portal nicht erreichbar.');
+  assert.equal(page.sectionError(undefined, true), 'Fehler.');
+  assert.equal(page.sectionError('unavailable', true), 'Fehler.');
+  assert.equal(page.sectionError('transport_failure', false), 'Fehler.');
+});
+
+test('shows a card only for a section the panel carries, or its error', () => {
+  const page = logic({});
+  assert.equal(page.sectionShown({}, 'invites'), false);
+  assert.equal(page.sectionShown({account: null}, 'account'), true);
+  assert.equal(page.sectionShown({deliveries: []}, 'deliveries'), true);
+  assert.equal(page.sectionShown({invitesError: 'unavailable'}, 'invites'), true);
+});
+
+test('points to CARLOS records below only when there are some', () => {
+  const page = logic({});
+  assert.equal(page.recordsShown({deliveries: [{state: 'sent'}]}), true);
+  assert.equal(page.recordsShown({deliveries: []}), false);
+  assert.equal(page.recordsShown({deliveriesError: 'unavailable'}), false);
+  assert.equal(page.recordsShown({}), false);
+});
+
 test('never builds a selector from a portal value: an odd status is looked up, not interpreted', () => {
   const page = logic({});
   assert.equal(page.text('invites.status."] , *'), 'invites.status."] , *');

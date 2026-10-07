@@ -268,25 +268,26 @@ A `COMMITTED` attempt may still have a paused sender, so its code is never revok
 offers **It arrived**: confirm that choice from actual arrival evidence; it records that evidence without
 cancelling the sender or sending another email. It also offers **It did not arrive**, but only once its
 code is already dead. A code is dead when the portal lists its invitation as replaced by a newer one, as
-revoked (for example by **Revoke**), or as still pending but past its expiry by an hour (the margin allows
-for a difference between the two clocks). An invitation the portal no longer lists is dead only once its
-expiry is at least 30 days and an hour past: the portal's maintenance deletes expired, revoked and replaced
-invitations 30 days after their expiry by default, and never deletes an accepted one, so an invitation it
-no longer lists was, in practice, not used; either way its code no longer works. The portal lists a
-patient's newest 100 invitations, so an older one also drops out of the list; the same wait applies.
-CARLOS uses the expiry the portal returned when it activated the code or, when none was stored, the
-attempt's last change plus the code's seven-day life (CARLOS keeps no separate activation time, and an
-activated attempt last changed when it was activated or later, so this can only make the wait longer). A
-younger invitation missing from the list is not counted, since it may be missing because of a portal fault.
-Ben approved counting revoked and deleted invitations this way on 6 October 2026. The page offers the
-choice from the portal's list read with the panel, never after a failed read, and CARLOS asks the portal
-again when staff choose it, refusing it if the code may still work, has been used (the email did arrive),
-or the portal cannot be reached. Nothing is revoked: the attempt finishes as `NOT_ARRIVED`, the stored
-email loses its code, its outbox row is resolved as not sent, the chart gets a note saying staff confirmed
-the email did not arrive, and the decision is audited like the others. A paused sender that resumes later
-can then deliver only a code that no longer works. While the code is live, the attempt stays open. This
-deliberately narrows the original recovery choices in #3854. Explicit **Revoke**
-is still available as intentional code invalidation; it does not claim that no email was sent and
+revoked (for example by **Revoke**), or as still pending but past its expiry by an hour (the margin
+allows for a difference between the two clocks). An invitation the portal no longer lists is dead only
+once its expiry is at least 30 days and an hour past: the portal's maintenance deletes expired, revoked
+and replaced invitations 30 days after their expiry by default, and never deletes an accepted one, so an
+invitation it no longer lists was, in practice, not used; either way its code no longer works. The portal
+lists a patient's newest 100 invitations, so an older one also drops out of the list; the same wait
+applies. CARLOS waits from the later of two times: the expiry the portal returned when it activated the
+code, and the attempt's last change plus the code's seven-day life (alone when no expiry was stored). So
+a portal clock running behind cannot shorten the wait (CARLOS keeps no separate activation time, and an
+activated attempt last changed when it was activated or later). Ben approved the later-of rule on 7
+October 2026. A younger invitation missing from the list is not counted, since it may be missing because
+of a portal fault. Ben approved counting revoked and deleted invitations this way on 6 October 2026. The
+page offers the choice from the portal's list read with the panel, never after a failed read, and CARLOS
+asks the portal again when staff choose it, refusing it if the code may still work, has been used (the
+email did arrive), or the portal cannot be reached. Nothing is revoked: the attempt finishes as
+`NOT_ARRIVED`, the stored email loses its code, its outbox row is resolved as not sent, the chart gets a
+note saying staff confirmed the email did not arrive, and the decision is audited like the others. A
+paused sender that resumes later can then deliver only a code that no longer works. While the code is
+live, the attempt stays open. This deliberately narrows the original recovery choices in #3854.
+Explicit **Revoke** is still available as intentional code invalidation; it does not claim that no email was sent and
 cannot cancel or recall an email already in progress. Stopping first atomically marks the attempt `ABANDONING`, before
 looking up or revoking any code. This blocks a paused sender from advancing to `COMMITTED` and
 sending; if the sender already advanced, stopping fails without revoking. The 15-minute wait only

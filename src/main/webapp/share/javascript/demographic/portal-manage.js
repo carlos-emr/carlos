@@ -68,6 +68,31 @@
             return parts;
         }
 
+        /**
+         * The text for a section the portal did not answer: that the portal cannot be reached when the
+         * server says so, otherwise the generic message. Pointing at CARLOS's own records below is only
+         * true when the deliveries card is shown.
+         */
+        function sectionError(reason, recordsShown) {
+            if (reason !== 'portal_unavailable') {
+                return text('error.generic');
+            }
+            return text(recordsShown ? 'error.portalUnavailableRecordsBelow' : 'error.portalUnavailable');
+        }
+
+        /**
+         * Whether the panel carries the named section, or its error. A section left out is one this user
+         * may not read: its card is hidden rather than claiming there is nothing in it.
+         */
+        function sectionShown(payload, name) {
+            return payload[name] !== undefined || Boolean(payload[name + 'Error']);
+        }
+
+        /** Whether CARLOS's own invitation records are listed below the portal's cards. */
+        function recordsShown(payload) {
+            return Array.isArray(payload.deliveries) && payload.deliveries.length > 0;
+        }
+
         /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
         function refusal(body) {
             if (body && body.reason && message('refusal.' + body.reason)) {
@@ -125,7 +150,8 @@
             return Boolean(body && body.reason === 'stale_attempt_exists' && !params.withdrawStale);
         }
 
-        return {message: message, text: text, describe: describe, refusal: refusal, isGoodNews: isGoodNews,
+        return {message: message, text: text, describe: describe, refusal: refusal, sectionError: sectionError,
+            sectionShown: sectionShown, recordsShown: recordsShown, isGoodNews: isGoodNews,
             offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
     }
 
@@ -166,6 +192,9 @@
     var text = logic.text;
     var describe = logic.describe;
     var refusal = logic.refusal;
+    var sectionError = logic.sectionError;
+    var sectionShown = logic.sectionShown;
+    var recordsShown = logic.recordsShown;
 
     function element(tag, className, content) {
         var node = document.createElement(tag);
@@ -304,17 +333,32 @@
         }
     }
 
+    /**
+     * Shows or hides the card holding {@code box}. A section is absent from the panel, not empty, when
+     * this user may not read it; its card is hidden rather than claiming there is nothing to show.
+     *
+     * @return whether the card is shown
+     */
+    function showSection(box, shown) {
+        var section = box.closest('section');
+        if (section) {
+            section.hidden = !shown;
+        }
+        return !!shown;
+    }
+
     function renderAccount(payload) {
         var box = document.getElementById('portal-account');
         box.replaceChildren();
+        if (!showSection(box, sectionShown(payload, 'account'))) {
+            return;
+        }
         if (payload.accountError) {
-            box.appendChild(element('p', 'portal-error', text('error.generic')));
+            box.appendChild(element('p', 'portal-error',
+                sectionError(payload.accountErrorReason, recordsShown(payload))));
             return;
         }
         var account = payload.account;
-        if (account === undefined) {
-            return;
-        }
         // A patient with an account has nothing to be invited to; the server refuses it too.
         document.getElementById('portal-invite-form').hidden = !can.invite || account !== null;
         if (account === null) {
@@ -388,8 +432,13 @@
     function renderInvites(payload) {
         var box = document.getElementById('portal-invites');
         box.replaceChildren();
+        if (!showSection(box, sectionShown(payload, 'invites'))) {
+            lastInvites = [];
+            return;
+        }
         if (payload.invitesError) {
-            box.appendChild(element('p', 'portal-error', text('error.generic')));
+            box.appendChild(element('p', 'portal-error',
+                sectionError(payload.invitesErrorReason, recordsShown(payload))));
             return;
         }
         lastInvites = payload.invites || [];
@@ -438,6 +487,9 @@
     function renderDeliveries(payload) {
         var box = document.getElementById('portal-deliveries');
         box.replaceChildren();
+        if (!showSection(box, sectionShown(payload, 'deliveries'))) {
+            return;
+        }
         if (payload.deliveriesError) {
             box.appendChild(element('p', 'portal-error', text('error.generic')));
             return;
