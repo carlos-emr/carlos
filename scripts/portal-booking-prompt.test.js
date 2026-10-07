@@ -5,8 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 const fragment = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/portalBookingPrompt.jsp'), 'utf8');
+// French uses the same word as English for this one.
+const SAME_AS_ENGLISH = new Set(['fr:portal.booking.routine']);
 test('every booking label exists, with its own text, in all five catalogs', () => {
-  const bundles = ['en', 'es', 'fr', 'pl', 'pt_BR'].map(locale => {
+  const locales = ['en', 'es', 'fr', 'pl', 'pt_BR'];
+  const bundles = locales.map(locale => {
     const entries = fs.readFileSync(path.join(root, `src/main/resources/oscarResources_${locale}.properties`), 'utf8')
       .split('\n').filter(line => line.startsWith('portal.booking.'));
     const map = Object.fromEntries(entries.map(line => {
@@ -16,8 +19,13 @@ test('every booking label exists, with its own text, in all five catalogs', () =
   });
   for (const key of [...fragment.matchAll(/<fmt:message key="(portal\.booking\.[^"]+)"/g)].map(match => match[1])) {
     assert.ok(bundles[0][key], `missing English label ${key}`);
-    // Each catalog carries its own (translated) text; none may be missing or blank.
-    bundles.forEach(bundle => assert.ok(bundle[key] && bundle[key].trim(), key));
+    // Each catalog carries its own translated text; none may be missing, blank or still English.
+    bundles.forEach((bundle, index) => {
+      assert.ok(bundle[key] && bundle[key].trim(), key);
+      if (index > 0 && !SAME_AS_ENGLISH.has(`${locales[index]}:${key}`)) {
+        assert.notEqual(bundle[key], bundles[0][key], `${locales[index]} ${key} is still the English text`);
+      }
+    });
   }
 });
 test('appointment binds the shared panel to the persisted patient and signals autocomplete changes', () => {
