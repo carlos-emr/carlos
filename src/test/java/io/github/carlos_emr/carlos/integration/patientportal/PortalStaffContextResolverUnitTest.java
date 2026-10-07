@@ -287,13 +287,15 @@ class PortalStaffContextResolverUnitTest {
         assertThat(resolver.resolveForPatient(loggedInInfo, ALL_OBJECTS, 123).permissions())
                 .containsExactly(PatientPortalStaffContext.PERMISSION_INVITE_MANAGE);
     }
+
     @Test
+    @DisplayName("should grant only the booking permission when only booking is allowed for this patient")
     void shouldGrantBookingOnly_whenPatientScopedBookingReadIsAllowed() {
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), eq("123"))).thenReturn(false);
         when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
                 eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
         PatientPortalStaffContext staff = resolver.resolveForPatient(loggedInInfo,
-                Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT), 123);
+                Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT, PortalStaffContextResolver.OBJECT_ACCOUNT), 123);
         assertThat(staff.permissions()).containsExactly(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
     }
-
 }
