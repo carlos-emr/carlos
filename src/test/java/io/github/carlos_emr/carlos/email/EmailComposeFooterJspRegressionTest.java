@@ -72,25 +72,29 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("aria-describedby=\"footerEmailHelp\"");
         String english = bundle("en").getProperty("email.compose.footer.help");
         assertThat(english).contains("plain text", "not saved to the chart", "Do not include patient information");
+        assertThat(bundle("en").getProperty("email.compose.footer.heading")).isEqualTo("Footer");
         for (String locale : LOCALES) {
-            // New keys carry the English text in every locale until a translator supplies one.
-            assertThat(bundle(locale).getProperty("email.compose.footer.help")).as(locale).isEqualTo(english);
-            assertThat(bundle(locale).getProperty("email.compose.footer.heading")).as(locale).isEqualTo("Footer");
+            if ("en".equals(locale)) {
+                continue;
+            }
+            // Every locale carries its own translation, not the English text.
+            assertThat(bundle(locale).getProperty("email.compose.footer.help")).as(locale)
+                    .isNotBlank().isNotEqualTo(english);
+            assertThat(bundle(locale).getProperty("email.compose.footer.heading")).as(locale)
+                    .isNotBlank().isNotEqualTo("Footer");
         }
     }
 
     @Test
-    @DisplayName("should swap in the new account's default only while the footer follows the sender")
-    void shouldApplySenderDefault_onlyWhileFooterFollowsSender() throws IOException {
+    @DisplayName("should not swap the footer when staff choose another sending account")
+    void shouldKeepFooter_whenSenderChanges() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
-                .contains("data-default-footer=\"${carlos:forHtmlAttribute(senderDefaultFooters[senderAccount.id])}\"")
-                .contains("onchange=\"showAdditionalParamOption(); applySenderDefaultFooter()\"")
-                .contains("data-follows-sender=\"${footerFollowsSender ? 'true' : 'false'}\"")
-                .contains("oninput=\"this.dataset.followsSender = 'false'\"")
-                .contains("footer.dataset.followsSender !== 'true'")
-                .contains("footer.value = selectedSender.getAttribute('data-default-footer') || '';");
+                .contains("onchange=\"showAdditionalParamOption()\"")
+                .doesNotContain("data-default-footer")
+                .doesNotContain("applySenderDefaultFooter")
+                .doesNotContain("followsSender");
     }
 
     private static Properties bundle(String locale) throws IOException {

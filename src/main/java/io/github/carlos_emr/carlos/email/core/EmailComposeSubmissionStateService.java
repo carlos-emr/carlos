@@ -778,8 +778,7 @@ public class EmailComposeSubmissionStateService {
      * @param fid validated eForm template id, or null
      * @param message unified message field seed, already merged for the encryption state
      * @param previews preview capability per prepared attachment file path
-     * @param footerEmail footer the eForm supplied, or null; the sending account's default is
-     *                    applied when the view is rendered, so an account change shows up on refresh
+     * @param footerEmail footer the eForm supplied, or null
      */
     public record EmailComposeView(
             String fid,

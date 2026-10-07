@@ -40,14 +40,12 @@ function sql(query) {
 }
 
 // The Footer box on a copied email: the footer that was sent, the 2,000-character limit, the
-// plain-text/not-charted help line, and a place in the posted form. A copied footer is kept when
-// staff switch sender; only a footer the page took from an account default follows the sender.
+// plain-text/not-charted help line, and a place in the posted form. Switching sender never
+// changes the footer.
 async function assertCopiedFooter(compose) {
   const footer = compose.locator('#footerEmail');
   assert(await footer.inputValue() === footerText, 'Copying a log lost its footer');
   assert(await footer.getAttribute('maxlength') === '2000', 'Footer box lost its 2,000-character limit');
-  assert(await footer.getAttribute('data-follows-sender') === 'false',
-    'A copied footer would be replaced when the sender changes');
   const help = await compose.locator('#footerEmailHelp').innerText();
   assert(/plain text/i.test(help) && /not saved to the chart/i.test(help) && /patient information/i.test(help),
     'Footer help line does not warn that the footer is plain text, not charted and PHI-free');

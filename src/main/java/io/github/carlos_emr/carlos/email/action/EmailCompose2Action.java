@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -366,7 +365,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken</li>
      *   <li>emailAttachmentList (display copies carrying each file's current preview token)</li>
      *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
-     *   <li>footerEmail, footerFollowsSender (see {@link #resolveComposeFooter})</li>
+     *   <li>footerEmail (see {@link #resolveComposeFooter})</li>
      *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
      *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
      * </ul>
@@ -426,10 +425,7 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderEmail", view.senderEmail());
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
-        ComposeFooter footer = resolveComposeFooter(view.footerEmail(), senderAccounts, view.senderEmail());
-        request.setAttribute("footerEmail", footer.text());
-        request.setAttribute("footerFollowsSender", footer.followsSender());
-        request.setAttribute("senderDefaultFooters", senderDefaultFooters(senderAccounts));
+        request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail()));
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
         request.setAttribute("fdid", context.fdid());
@@ -447,101 +443,14 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
-     * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged;
-     * otherwise the default footer of the sending account the page opens with selected; otherwise
-     * empty.
-     *
-     * <p>{@code followsSender} is true when the footer did not come from the eForm. The page then
-     * swaps in the new account's default when staff choose another sending account, until they
-     * type in the footer themselves. An eForm's footer is never replaced that way.</p>
+     * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged,
+     * otherwise empty (a blank one counts as none). Staff can type or change it before sending.
      *
      * @param stagedFooter footer the eForm posted, or null
-     * @param senderAccounts active sending accounts in the order the page lists them
-     * @param senderEmail sender address the eForm staged, or null
-     * @return the footer text, never null, and whether a sender change may replace it
+     * @return the footer text, never null
      */
-    static ComposeFooter resolveComposeFooter(String stagedFooter, List<EmailConfig> senderAccounts,
-            String senderEmail) {
-        if (stagedFooter != null && !stagedFooter.isBlank()) {
-            return new ComposeFooter(stagedFooter, false);
-        }
-        return new ComposeFooter(composeDefaultFooter(selectedSenderAccount(senderAccounts, senderEmail)), true);
-    }
-
-    /**
-     * Each sending account's default footer as the page may fill it in when staff switch account,
-     * keyed by account id (the {@code data-default-footer} on each sender option). A default
-     * longer than the limit is reported once here, by account id only, never its text.
-     */
-    static Map<Integer, String> senderDefaultFooters(List<EmailConfig> senderAccounts) {
-        Map<Integer, String> footers = new HashMap<>();
-        if (senderAccounts == null) {
-            return footers;
-        }
-        for (EmailConfig account : senderAccounts) {
-            if (account == null || account.getId() == null) {
-                continue;
-            }
-            String configured = account.getDefaultFooter();
-            if (configured != null
-                    && configured.replace("\r\n", "\n").length() > EmailData.FOOTER_MAX_LENGTH) {
-                logger.warn("Email sending account {} has a default footer over {} characters; the compose "
-                        + "screen fills in the start of it only", account.getId(), EmailData.FOOTER_MAX_LENGTH);
-            }
-            footers.put(account.getId(), composeDefaultFooter(account));
-        }
-        return footers;
-    }
-
-    /**
-     * An account's default footer as the compose screen uses it: never longer than
-     * {@link EmailData#FOOTER_MAX_LENGTH}, which the send action enforces. The default is set by
-     * SQL and nothing else limits it, so without the cut every send from such an account would be
-     * refused for a footer nobody typed.
-     *
-     * @param account the sending account, or null
-     * @return the default footer, cut to the limit (line breaks counted once, as the send action
-     *         counts them); empty when there is none
-     */
-    static String composeDefaultFooter(EmailConfig account) {
-        String footer = account == null ? null : account.getDefaultFooter();
-        if (footer == null) {
-            return "";
-        }
-        String normalised = footer.replace("\r\n", "\n");
-        if (normalised.length() <= EmailData.FOOTER_MAX_LENGTH) {
-            return footer;
-        }
-        int end = EmailData.FOOTER_MAX_LENGTH;
-        // never split a surrogate pair: half a character is not a character
-        if (Character.isHighSurrogate(normalised.charAt(end - 1))) {
-            end--;
-        }
-        return normalised.substring(0, end);
-    }
-
-    /**
-     * The account emailCompose.jsp opens with selected: the one whose address matches the staged
-     * sender (the last, if several do, as a browser picks the last selected option), otherwise
-     * the first. Kept in step with the {@code selected} test on the sender options.
-     */
-    private static EmailConfig selectedSenderAccount(List<EmailConfig> senderAccounts, String senderEmail) {
-        if (senderAccounts == null || senderAccounts.isEmpty()) {
-            return null;
-        }
-        EmailConfig selected = senderAccounts.get(0);
-        if (senderEmail != null) {
-            for (EmailConfig account : senderAccounts) {
-                if (senderEmail.equals(account.getSenderEmail())) {
-                    selected = account;
-                }
-            }
-        }
-        return selected;
-    }
-
-    /** The footer a compose screen opens with, and whether a sender change may replace it. */
-    record ComposeFooter(String text, boolean followsSender) {
+    static String resolveComposeFooter(String stagedFooter) {
+        return stagedFooter == null || stagedFooter.isBlank() ? "" : stagedFooter;
     }
 
     /**

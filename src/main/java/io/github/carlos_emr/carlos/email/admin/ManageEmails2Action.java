@@ -447,8 +447,8 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
-        // The footer that was sent (issue #3981), not the account's current default: this is a
-        // copy. A log written before footers existed has none.
+        // The footer that was sent (issue #3981): this is a copy. A log written before footers
+        // existed has none.
         request.setAttribute("footerEmail", emailLog.getFooter());
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
