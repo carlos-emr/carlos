@@ -239,14 +239,16 @@ exists, bounces reach staff only as email:
 - Bounces and NDRs often carry the whole original message: the subject, any
   body text that was not moved into the encrypted PDF, and the attachments
   (unencrypted attachments in clear). Treat the mailbox as holding patient
-  information: limit who can read it, and delete bounces once they have been
-  handled, following the clinic's retention policy for patient correspondence.
+  information and limit who can read it.
 - When a bounce arrives for a patient email, find the row in **Admin > Manage
   Emails** by date and patient, correct the patient's email address if it is
   wrong, and reach the patient another way if the message mattered clinically.
-- Record the bounce in the patient's chart. The chart note for the email
-  ("Sent on ...") and its "Accepted by mail server" status stay as they were,
-  so without a note the chart still suggests the patient was informed.
+- Record the bounce in the patient's chart. Any chart note written for the
+  email ("Sent on ...") stays as it was, and the row in Manage Emails still
+  reads "Accepted by mail server", so without a note the chart still suggests
+  the patient was informed.
+- Once the bounce is handled and recorded, delete it from the mailbox,
+  following the clinic's retention policy for patient correspondence.
 
 ## Safety Notes
 

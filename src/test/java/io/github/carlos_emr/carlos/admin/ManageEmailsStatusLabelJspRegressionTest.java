@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -68,11 +69,11 @@ class ManageEmailsStatusLabelJspRegressionTest {
         // One block: the default label, then the override ONLY inside the SUCCESS test. Separate
         // contains() checks would still pass if the message moved outside the c:if and every row
         // read "Accepted".
-        assertThat(jsp).containsPattern(java.util.regex.Pattern.compile(
+        assertThat(jsp).containsPattern(Pattern.compile(
                 "<c:set var=\"emailStatusLabel\" value=\"\\$\\{emailStatusResult\\.status}\"/>\\s*"
                         + "<c:if test=\"\\$\\{emailStatusResult\\.status eq 'SUCCESS'}\">\\s*"
-                        + "<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"emailStatusLabel\"/>\\s*"
-                        + "</c:if>"));
+                        + "<fmt:message key=\"" + Pattern.quote(ACCEPTED_LABEL_KEY) + "\" var=\"emailStatusLabel\"/>\\s*"
+                        + "</c:if>\\s*<!-- Email Card -->"));
         assertThat(jsp)
                 .contains("${carlos:forHtml(emailStatusLabel)}")
                 .contains("status-tag-${fn:toLowerCase(emailStatusResult.status)}")
@@ -84,10 +85,10 @@ class ManageEmailsStatusLabelJspRegressionTest {
     void shouldLabelSuccessAsAcceptedByMailServer_inStatusFilterOptions() throws IOException {
         String jsp = Files.readString(MANAGE_EMAILS_JSP, StandardCharsets.UTF_8);
 
-        assertThat(jsp).containsPattern(java.util.regex.Pattern.compile(
+        assertThat(jsp).containsPattern(Pattern.compile(
                 "<c:set var=\"statusLabel\" value=\"\\$\\{status}\"/>\\s*"
                         + "<c:if test=\"\\$\\{status eq 'SUCCESS'}\">\\s*"
-                        + "<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"statusLabel\"/>\\s*"
+                        + "<fmt:message key=\"" + Pattern.quote(ACCEPTED_LABEL_KEY) + "\" var=\"statusLabel\"/>\\s*"
                         + "</c:if>\\s*"
                         + "<option value=\"\\$\\{ status }\">\\s*"
                         + "\\$\\{carlos:forHtml\\(statusLabel\\)}\\s*</option>"));
