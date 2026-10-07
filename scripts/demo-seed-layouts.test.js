@@ -62,6 +62,8 @@ function verifyPrescriptions(sql) {
   }
   const {prescription, drugs} = tables;
   assert.equal(drugs.size, 63, 'keep all original demo medication rows');
+  assert.deepEqual([...drugs.keys()].map(Number).sort((a, b) => a - b),
+    Array.from({length: 63}, (_, index) => index + 1), 'keep the original demo medication IDs');
   for (const row of prescription.values()) {
     assert.ok([...drugs.values()].some(drug => drug.script_no === row.script_no
       && drug.demographic_no === row.demographic_no),
@@ -71,7 +73,10 @@ function verifyPrescriptions(sql) {
   const latest = Math.max(...[...prescription.values()]
     .filter(row => row.demographic_no === '1').map(row => Number(row.script_no)));
   assert.equal(latest, 45, 'a plain MAX(script_no) must select a usable reprint fixture');
-  for (const id of ['41', '42', '43', '44', '45']) assert.ok(prescription.has(id));
+  assert.deepEqual([...prescription.keys()].map(Number).sort((a, b) => a - b),
+    [17, 19, 20, 21, 22, 23, 24, 26, 27, 28, 29, 30, 31, 32, 33, 34,
+      35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45],
+    'keep every usable demo prescription ID');
 }
 
 test('every demo prescription has medication rows for its own patient', () => {
