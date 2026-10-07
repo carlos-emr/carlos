@@ -39,6 +39,20 @@
   ],
   "checks": [
     {
+      "name": "retired-view-aliases",
+      "script": "scripts/retired-view-aliases-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Read-only issue3665 findings2/4: retired aliases return404; retained template management opens Add New without saving."
+    },
+    {
       "name": "annotate-document",
       "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
       "tiers": [
