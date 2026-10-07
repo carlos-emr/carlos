@@ -300,9 +300,13 @@ async function workflow(s) {
     for (const claim of raClaims) {
       const cells = (await summary.locator('#ra_table tbody tr').filter({ hasText: claim.code }).first()
         .locator('td').allInnerTexts()).map(cell => cell.trim());
+      // The existing summary renders a blank MOH error code as its "**" marker.
+      const displayedError = claim.error || '**';
       h.assert(cells[0] === claim.id && cells[6] === claim.code && Number(cells[7]) === Number(claim.fee)
-        && Number(cells[8]) === Number(claim.paid) && cells[12] === claim.error,
-      `Summary fields differ for owned claim ${claim.id}: expected ${JSON.stringify([claim.id, claim.code, claim.fee, claim.paid, claim.error])}; observed ${JSON.stringify([cells[0], cells[6], cells[7], cells[8], cells[12]])}`);
+        && Number(cells[8]) === Number(claim.paid) && cells[12] === displayedError,
+      `Summary fields differ for owned claim ${claim.id}: expected ${JSON.stringify([claim.id, claim.code, claim.fee, claim.paid, displayedError])}; observed ${JSON.stringify([cells[0], cells[6], cells[7], cells[8], cells[12]])}`);
+      h.assert(cells[2] === `${marker},Workflow` && cells[4] === owned.hin,
+        'The stored remittance version prevented the summary from matching the owned patient');
     }
     h.assert((await summary.locator('#amountPay').innerText()).trim() === remittance.cheque, 'The summary paid total is wrong');
     h.assert(sql.value(`SELECT content FROM raheader WHERE raheader_no=${raNo}`).includes(`<xml_total>${remittance.cheque}</xml_total>`),
