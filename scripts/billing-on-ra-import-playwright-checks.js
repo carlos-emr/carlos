@@ -137,6 +137,13 @@ function raRow(frame, marker) {
 }
 
 async function workflow(s) {
+  // The supported upload path forwards to ViewGenRA; the retired duplicate
+  // must not become a hidden dependency of any exercised UI operation.
+  const legacyPath = '/billing/CA/ON/ImportOnRA';
+  const legacyRequests = [];
+  s.context.on('request', request => {
+    if (new URL(request.url()).pathname.endsWith(legacyPath)) legacyRequests.push(request.method());
+  });
   const { sql, marker } = s;
   const documentDir = directory('RA_DOCUMENT_DIR', DEFAULT_DOCUMENT_DIR);
   const edtInbox = directory('RA_EDT_INBOX', DEFAULT_EDT_INBOX);
@@ -348,8 +355,26 @@ async function workflow(s) {
     h.assert(statuses() === 'S|B', 'Settle did not settle exactly the paid claim');
     h.assert(sql.value(`SELECT status FROM raheader WHERE raheader_no=${raNo}`) === 'S', 'Settle did not mark the RA settled');
     const settled = raRow(frame, marker);
+    await settled.locator('a', { hasText: 'S35' }).waitFor({ state: 'visible', timeout: 30000 });
     h.assert(await settled.locator('a', { hasText: 'Settle' }).count() === 0
       && await settled.locator('a', { hasText: 'S35' }).count() === 1, 'The settled RA still offers Settle');
+  });
+
+  await s.step('unused ImportOnRA is absent for authenticated GET, HEAD and CSRF-valid POST', async () => {
+    h.assert(legacyRequests.length === 0, 'The supported RA workflow still calls the retired import route');
+    const token = await ui.csrfTokenPresent(s.schedule);
+    const before = sql.value('SELECT CONCAT((SELECT COUNT(*) FROM raheader),"|",(SELECT COUNT(*) FROM radetail))');
+    for (const method of ['GET', 'HEAD', 'POST']) {
+      const response = await s.context.request.fetch(h.appUrl(s.config.baseUrl, legacyPath), {
+        method, maxRedirects: 0,
+        ...(method === 'POST' ? { form: { 'CSRF-TOKEN': token }, headers: { 'CSRF-TOKEN': token } } : {}),
+      });
+      const status = response.status();
+      await response.dispose();
+      h.assert(status === 404, `Retired ImportOnRA must return 404 for ${method}, received ${status}`);
+    }
+    h.assert(sql.value('SELECT CONCAT((SELECT COUNT(*) FROM raheader),"|",(SELECT COUNT(*) FROM radetail))') === before,
+      'Requests to the retired route changed RA records');
   });
 }
 
