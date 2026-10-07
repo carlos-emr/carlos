@@ -196,6 +196,9 @@ async function workflow(s) {
     const details = sql.rows(`SELECT billing_no, providerohip_no, service_code, service_count, amountclaim, amountpay,
       service_date, error_code, billtype FROM radetail WHERE raheader_no=${raNo} ORDER BY billing_no`);
     h.assert(details.length === 2, 'The import did not write one radetail per RA item');
+    h.assert(sql.rows(`SELECT hin FROM radetail WHERE raheader_no=${raNo}`)
+      .every(([hin]) => hin === `${field(owned.hin, 12)}ZZ`),
+    'The remittance import truncated the health number or version');
     for (const claim of raClaims) {
       const row = details.find(r => r[0] === claim.id);
       h.assert(row && row.slice(1).join('|') === [owned.ohipNo, claim.code, '01', claim.fee, claim.paid, SERVICE_DATE,
