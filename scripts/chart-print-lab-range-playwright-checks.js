@@ -25,6 +25,12 @@ async function workflow(s) {
   const owned = [];
   s.cleanup(() => fs.rmSync(scratch, { recursive: true, force: true }));
   s.cleanup(() => {
+    const notes = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
+    sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note_link WHERE note_id IN (${notes});
+      DELETE FROM casemgmt_note WHERE demographic_no=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}`) === '0', 'Owned notes remain');
     sql.execute(`DELETE FROM eChart WHERE demographicNo=${patient}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient}`) === '0', 'Owned chart row remains');
     for (const id of owned) {
@@ -40,6 +46,16 @@ async function workflow(s) {
         + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id=${id})`) === '0', 'Owned lab rows remain');
     }
   });
+  const program = sql.value("SELECT id FROM program WHERE name='OSCAR' ORDER BY id LIMIT 1");
+  const role = sql.value(`SELECT role_id FROM program_provider WHERE provider_no=${q(provider)} AND program_id=${program || 0} LIMIT 1`);
+  h.assert(program && role, 'The default program or test provider role is missing');
+  const noteTokens = { inside: `${marker} NOTEINSIDE`, outside: `${marker} NOTEOUTSIDE` };
+  for (const [key, date] of [['inside', '2021-06-15 12:00:00'], ['outside', '2021-06-17 12:00:00']]) {
+    sql.execute(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,note,signed,
+        signing_provider_no,encounter_type,program_no,reporter_caisi_role,history,uuid,locked,archived)
+      VALUES (NOW(),${q(date)},${patient},${q(provider)},${q(noteTokens[key])},1,${q(provider)},'',${q(program)},
+        ${q(role)},${q(noteTokens[key])},UUID(),'0',0)`);
+  }
   const cases = [
     ['BEFORE', '2021-06-14 23:59:59', 'BEFORE'],
     ['START', '2021-06-15 00:00:00', 'START'],
@@ -79,6 +95,7 @@ async function workflow(s) {
     await print.setFlags(chart, ['printLabs']);
     const { text } = await print.pressPrint(chart, scratch);
     assertLabs(text, ['BEFORE', 'START', 'END', 'AFTER', 'NEWER']);
+    h.assert(Object.values(noteTokens).every(token => text.includes(token)), 'Unrestricted print omitted an owned note');
   });
   await s.step('date-range print includes both boundary days and the latest version inside the range', async () => {
     await print.openPrintDialog(chart);
@@ -90,6 +107,8 @@ async function workflow(s) {
     });
     const { text } = await print.pressPrint(chart, scratch);
     assertLabs(text, ['START', 'END', 'OLDER']);
+    h.assert(text.includes(noteTokens.inside) && !text.includes(noteTokens.outside),
+      'Date-range print failed to hydrate the in-range note or included an out-of-range note');
   });
 }
 
