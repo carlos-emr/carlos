@@ -55,7 +55,9 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const {
+  buildArtifactPath, installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING,
+} = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -399,13 +401,30 @@ async function providerOptions(page) {
   })));
 }
 
+// Module scope so the SIGINT/SIGTERM handler (issue #3600) can reach the same
+// fixture identity the finally block cleans up.
+let providerNo = null;
+let username = null;
+// Stable across the providerNo reassignment below: seedProviderViaUi names the
+// created row Account<fixture id>, so cleanup can find it by name even after
+// providerNo is replaced with the app-assigned number.
+let fixtureFirstName = null;
+
+// Idempotent. Removes the fixture rows and the cleartext MySQL password file; a
+// finally does not run when the process is killed, so this is also the signal path.
+function cleanupRunFixtures() {
+  try {
+    if (mysqlDefaults && providerNo && username) {
+      cleanupRows(providerNo, username, fixtureFirstName);
+    }
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunFixtures);
+
 async function run() {
-  let providerNo = null;
-  let username = null;
-  // Stable across the providerNo reassignment below: seedProviderViaUi names the
-  // created row Account<fixture id>, so cleanup can find it by name even after
-  // providerNo is replaced with the app-assigned number.
-  let fixtureFirstName = null;
   let browser = null;
 
   try {
@@ -432,7 +451,7 @@ async function run() {
 
     cleanupRows(providerNo, username, fixtureFirstName);
 
-    const launchOptions = { headless: true };
+    const launchOptions = { headless: true, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
     if (chromePath) {
       launchOptions.executablePath = chromePath;
     }
@@ -557,13 +576,8 @@ async function run() {
         await browser.close();
       }
     } finally {
-      try {
-        if (providerNo && username) {
-          cleanupRows(providerNo, username, fixtureFirstName);
-        }
-      } finally {
-        cleanupMysqlDefaultsFile();
-      }
+      signalHandlers.dispose();
+      cleanupRunFixtures();
     }
   }
 }

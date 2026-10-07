@@ -54,7 +54,9 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -173,16 +175,46 @@ async function assertPreviewRenders(hostFrame, label) {
   return frame.url();
 }
 
+// Module scope so the SIGINT/SIGTERM handler (issue #3600) reaches the same state
+// the finally block cleans up: a finally does not run when the process is killed.
+let browser = null;
+let stagedLinkIds = null;
+let foreignPatient = null;
+const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
+
+// Restores the staged pharmacy links, closes the browser, removes the owned foreign
+// patient and its prescription rows, then drops the cleartext MySQL password file.
+// Safe to call before any of that exists and safe to call twice.
+async function cleanupRun() {
+  try {
+    restorePharmacy(stagedLinkIds);
+  } catch (restoreError) {
+    console.error(`FAIL failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
+    process.exitCode = 1;
+  }
+  try {
+    await cleanupOwnedWorkflow({
+      browser,
+      sql: { value: sql, execute: sql, dispose() {} }, patient: foreignPatient, marker: foreignMarker,
+      cleanups: foreignPatient ? [() => sql(`DELETE FROM drugs WHERE demographic_no=${foreignPatient};
+        DELETE FROM prescription WHERE demographic_no=${foreignPatient};
+        DELETE FROM DigitalSignature WHERE demographicId=${foreignPatient}`)] : [],
+    });
+  } catch (cleanupError) {
+    console.error(`FAIL owned preview fixture cleanup: ${cleanupError.message}`);
+    process.exitCode = 1;
+  }
+  cleanupMysqlDefaults();
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRun);
+
 (async () => {
   const recorder = createRecorder();
-  let browser = null;
-  let stagedLinkIds = null;
-  let foreignPatient = null;
-  const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   try {
     initMysqlDefaults();
     scriptId = resolvePrescriptionScriptId();
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
     stagedLinkIds = stageNoPharmacy();
 
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
@@ -423,24 +455,7 @@ async function assertPreviewRenders(hostFrame, label) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    try {
-      restorePharmacy(stagedLinkIds);
-    } catch (restoreError) {
-      console.error(`FAIL failed to restore demographicPharmacy links (${stagedLinkIds}): ${restoreError.message}`);
-      process.exitCode = 1;
-    }
-    try {
-      await cleanupOwnedWorkflow({
-        browser,
-        sql: { value: sql, execute: sql, dispose() {} }, patient: foreignPatient, marker: foreignMarker,
-        cleanups: foreignPatient ? [() => sql(`DELETE FROM drugs WHERE demographic_no=${foreignPatient};
-          DELETE FROM prescription WHERE demographic_no=${foreignPatient};
-          DELETE FROM DigitalSignature WHERE demographicId=${foreignPatient}`)] : [],
-      });
-    } catch (cleanupError) {
-      console.error(`FAIL owned preview fixture cleanup: ${cleanupError.message}`);
-      process.exitCode = 1;
-    }
-    cleanupMysqlDefaults();
+    signalHandlers.dispose();
+    await cleanupRun();
   }
 })();

@@ -82,7 +82,9 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -318,10 +320,26 @@ function documentRowCount() {
   return Number(sql(`SELECT COUNT(*) FROM document WHERE docfilename LIKE '%${probeName}'`) || '0');
 }
 
+let workDir = null;
+
+// Everything the run owns outside the browser. Idempotent, and also run from
+// SIGINT/SIGTERM (issue #3600): a finally does not run when the process is killed,
+// which would leave the probe document rows (and the temp PDF) behind.
+function cleanupRunResources() {
+  if (mysqlDefaults) cleanupProbeDocuments();
+  cleanupMysqlDefaults();
+  if (workDir) {
+    fs.rmSync(workDir, { recursive: true, force: true });
+    workDir = null;
+  }
+}
+
+const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+  workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-upload-'));
   initMysqlDefaults();
   try {
     const probePdf = writeProbePdf(workDir);
@@ -589,9 +607,8 @@ function documentRowCount() {
     // report it needs and fails it. A failing run here was silently failing a
     // sibling. The rows are listed as they are removed, so a failure is still
     // diagnosable from this output without leaving the fixture poisoned.
-    cleanupProbeDocuments();
-    cleanupMysqlDefaults();
-    fs.rmSync(workDir, { recursive: true, force: true });
+    signalHandlers.dispose();
+    cleanupRunResources();
     await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 })();

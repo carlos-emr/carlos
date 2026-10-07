@@ -40,6 +40,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
@@ -288,6 +289,18 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label} did not look like a schedule page`);
 }
 
+// This check rewrites the seeded test user's password row, so an interrupted run
+// would leave carlosdoc on a throwaway password (issue #3600). A finally does not
+// run when the process is killed; this does. restoreOriginal() is a no-op until the
+// original row has been captured, and the cleartext MySQL password file goes too.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    restoreOriginal();
+  } finally {
+    cleanupMysqlDefaultsFile();
+  }
+});
+
 (async () => {
   Object.assign(original, securityRow());
   if (!baselineHash) {
@@ -298,6 +311,7 @@ async function expectSchedulePage(page, label) {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -548,6 +562,7 @@ async function expectSchedulePage(page, label) {
       restoreOriginal();
       console.log(`Restored ${testUser} security row`);
     } finally {
+      signalHandlers.dispose();
       cleanupMysqlDefaultsFile();
     }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
@@ -565,6 +580,7 @@ async function expectSchedulePage(page, label) {
   } catch (restoreError) {
     console.error(`Restore failed: ${restoreError.stack || restoreError}`);
   } finally {
+    signalHandlers.dispose();
     cleanupMysqlDefaultsFile();
   }
   process.exit(1);

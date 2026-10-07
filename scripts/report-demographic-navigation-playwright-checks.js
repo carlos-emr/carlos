@@ -58,6 +58,7 @@ const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 const path = require('path');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
@@ -587,10 +588,15 @@ async function checkBackButtonDirectEntryFallback(context) {
   await page.close();
 }
 
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the saved-query row and the cleartext MySQL password file behind. Idempotent.
+const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
+
 (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -622,6 +628,7 @@ async function checkBackButtonDirectEntryFallback(context) {
 
     console.log('PASS demographic report navigation stays in-tab and offers a way back');
   } finally {
+    signalHandlers.dispose();
     cleanupSavedQueryRow();
     await browser.close();
   }
