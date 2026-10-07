@@ -116,9 +116,11 @@ table#scheduleTable tfoot {
         background-color: whitesmoke;
     }
     body.sticky-schedule-header table#scheduleTable {
-        /* The body may now be as wide as the bar: keep the schedule at the
-           window's width when it fits (it still grows when it needs to). */
-        width: var(--schedule-visible-width, 100%);
+        /* The schedule spans the page's full width, which is the bar's when the
+           bar is wider than the window. Its columns, and the provider names
+           stuck above them, then scroll sideways with the bar, so no column
+           ever runs out of name row and no part of the page lacks schedule. */
+        width: 100%;
     }
     body.sticky-schedule-header #system_message,
     body.sticky-schedule-header #facility_message {
