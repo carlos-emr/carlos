@@ -116,50 +116,48 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
             return SUCCESS;
         }
 
+        AcceptableUseAgreementManager.updateAgreement(() -> publishLoginText(prop));
+        return SUCCESS;
+    }
+
+    private void publishLoginText(Property prop) {
         boolean error = false;
         PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-
-        // The agreement readers synchronize on this class while loading text.
-        // Keep them from seeing a replacement before its validity property commits.
-        synchronized (AcceptableUseAgreementManager.class) {
-            PublishedLoginText published = null;
-            boolean restored = false;
-            try {
-                if (importFile == null) {
-                    _logger.warn("No file uploaded; skipping login text write");
-                } else if (!importFile.getName().isEmpty()) {
-                    published = writeLoginTextFile();
+        PublishedLoginText published = null;
+        boolean restored = false;
+        try {
+            if (importFile == null) {
+                _logger.warn("No file uploaded; skipping login text write");
+            } else if (!importFile.getName().isEmpty()) {
+                published = writeLoginTextFile();
+            }
+            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+            if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
+                    || !prop.getValue().equals(latestProperty.getValue())) {
+                propertyDao.persist(prop);
+                AcceptableUseAgreementManager.invalidateCache();
+            }
+        } catch (Exception e) {
+            if (published != null) {
+                try {
+                    restoreLoginTextFile(published);
+                    restored = true;
+                } catch (IOException restoreError) {
+                    e.addSuppressed(restoreError);
                 }
-                Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-                if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
-                        || !prop.getValue().equals(latestProperty.getValue())) {
-                    propertyDao.persist(prop);
-                    AcceptableUseAgreementManager.invalidateCache();
-                }
-            } catch (Exception e) {
-                if (published != null) {
-                    try {
-                        restoreLoginTextFile(published);
-                        restored = true;
-                    } catch (IOException restoreError) {
-                        e.addSuppressed(restoreError);
-                    }
-                }
-                MiscUtils.getLogger().error("Error", e);
-                error = true;
-            } finally {
-                if (published != null && (!error || restored) && published.backup() != null) {
-                    try {
-                        Files.deleteIfExists(published.backup());
-                    } catch (IOException cleanupError) {
-                        _logger.warn("Could not remove agreement backup after update", cleanupError);
-                    }
+            }
+            MiscUtils.getLogger().error("Error", e);
+            error = true;
+        } finally {
+            if (published != null && (!error || restored) && published.backup() != null) {
+                try {
+                    Files.deleteIfExists(published.backup());
+                } catch (IOException cleanupError) {
+                    _logger.warn("Could not remove agreement backup after update", cleanupError);
                 }
             }
         }
-
         request.setAttribute("error", error);
-        return SUCCESS;
     }
 
     private record PublishedLoginText(Path destination, Path backup) { }

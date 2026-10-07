@@ -95,6 +95,19 @@ public class AcceptableUseAgreementManager {
         }
     }
 
+    /**
+     * Keeps agreement readers out while an administrator publishes text and
+     * persists its validity, including any rollback after a persistence error.
+     * The update may call the cache methods reentrantly without exposing the monitor.
+     *
+     * @param update the complete publication, validity update and rollback operation
+     */
+    public static void updateAgreement(Runnable update) {
+        synchronized (CACHE_LOCK) {
+            update.run();
+        }
+    }
+
     private static void loadAUA() {
         synchronized (CACHE_LOCK) {
             try {
