@@ -43,10 +43,10 @@ async function openHub(session, masterPage, name, timeout) {
 
 /** Click one footer link and require a healthy popup; returns the findings. */
 async function footerLink(session, page, text, timeout, reported) {
-  // callers supply only the fixed About and License labels.
-  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+  const labels = { About: /^\s*About\s*$/, License: /^\s*License\s*$/ };
+  h.assert(Object.hasOwn(labels, text), 'Unsupported footer label');
   const link = page.locator(`a[href*="/encounter/View${text}"]`)
-    .filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) });
+    .filter({ hasText: labels[text] });
   if (await link.count() !== 1) return [`expected one "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
   const problems = [];
   const before = session.recorder.pageErrors.length;
