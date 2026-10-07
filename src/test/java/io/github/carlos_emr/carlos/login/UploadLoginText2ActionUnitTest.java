@@ -41,14 +41,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -293,6 +299,47 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
             synchronized (AcceptableUseAgreementManager.class) {
                 assertThat(executor.submit(access).get(5, TimeUnit.SECONDS)).isNotNull();
             }
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPublishAgreementToReaders_onlyAfterValidityUpdateCompletes(boolean failPersistence) throws Exception {
+        addValidDurationParameters();
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Original agreement", StandardCharsets.UTF_8);
+        Path upload = Files.writeString(uploadDir.resolve("replacement.txt"), "Replacement agreement", StandardCharsets.UTF_8);
+        UploadLoginText2Action action = new UploadLoginText2Action();
+        action.setImportFile(upload.toFile());
+        var executor = Executors.newSingleThreadExecutor();
+        var reader = new AtomicReference<Future<String>>();
+        PropertyDao dao = mock(PropertyDao.class);
+        doAnswer(invocation -> {
+            // Publication has happened, but validity has not finished saving.
+            assertThat(agreement).hasContent("Replacement agreement");
+            var started = new CountDownLatch(1);
+            reader.set(executor.submit(() -> {
+                started.countDown();
+                return AcceptableUseAgreementManager.getAUAText();
+            }));
+            assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> reader.get().get(500, TimeUnit.MILLISECONDS))
+                    .isInstanceOf(TimeoutException.class);
+            if (failPersistence) throw new IllegalStateException("Synthetic validity write outage");
+            return null;
+        }).when(dao).persist(any(Property.class));
+        replaceSpringUtilsBean(PropertyDao.class, dao);
+        try {
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(getMockRequest().getAttribute("error")).isEqualTo(failPersistence);
+            String expected = failPersistence ? "Original agreement" : "Replacement agreement";
+            assertThat(reader.get()).isNotNull();
+            assertThat(reader.get().get(5, TimeUnit.SECONDS)).isEqualTo(expected);
+            assertThat(agreement).hasContent(expected);
         } finally {
             executor.shutdownNow();
             assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
