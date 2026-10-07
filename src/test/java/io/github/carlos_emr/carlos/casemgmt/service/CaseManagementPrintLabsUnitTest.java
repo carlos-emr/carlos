@@ -111,6 +111,17 @@ class CaseManagementPrintLabsUnitTest extends CarlosUnitTestBase {
         assertThat(printLabs(List.of(), true, false)).isEmpty();
     }
 
+    @Test
+    void shouldPrintSingleReceivedLab_whenNativeTimestampIncludesFractionalSeconds() throws Exception {
+        LabResultData result = new LabResultData();
+        result.labType = LabResultData.HL7TEXT;
+        result.segmentID = "101";
+        result.accessionNumber = "FAKE-RECEIVED";
+        result.dateTime = io.github.carlos_emr.carlos.util.NativeQueryValues.asString(
+                java.time.LocalDateTime.ofInstant(Instant.parse("2026-03-08T12:00:00Z"), ZoneId.systemDefault()));
+        assertThat(printLabs(List.of(result), true, true)).containsExactly("101");
+    }
+
     private List<String> printLabs(List<LabResultData> stored, boolean useRange, boolean includeLabs) throws Exception {
         // CommonLabResultData resolves these static dependencies before Mockito
         // can intercept its constructor.
