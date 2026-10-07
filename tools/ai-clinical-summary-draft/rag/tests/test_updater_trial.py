@@ -4,6 +4,7 @@
 Run from tools/ai-clinical-summary-draft:
     python3 -m unittest discover -s rag/tests -t .
 """
+import json
 from pathlib import Path
 import sqlite3
 import sys
@@ -72,6 +73,17 @@ class RetrievalTest(unittest.TestCase):
         self.assertEqual(len(trial.top_passages(chunks, [1.0, 0.0], k=5)), 2)
 
 
+class DevDocumentTest(unittest.TestCase):
+    def test_a_development_note_is_any_committed_synthetic_note_and_nothing_else(self):
+        notes = committed()
+        doc = trial.dev_document(notes, 'NHSSYN006:10')
+        self.assertEqual((doc['patient'], doc['note']), ('NHSSYN006', 10))
+        trial.incoming_document(notes, doc)
+        for bad in ('NHSSYN006:999', 'PATIENT1:1', 'NHSSYN006:x'):
+            with self.assertRaises(ValueError):
+                trial.dev_document(notes, bad)
+
+
 class OutgoingGuardTest(unittest.TestCase):
     def test_only_an_exact_slice_of_that_patients_committed_note_may_leave(self):
         notes = committed()
@@ -97,11 +109,22 @@ class ChartReviewTest(unittest.TestCase):
         self.passages = {'1': [chunk], '2': []}
 
     def test_each_candidate_lists_only_its_own_passages(self):
-        payload, listed = trial.chart_review_payload(self.config, 'source', self.candidates, self.passages)
-        self.assertEqual(listed, {'1': ['C7'], '2': []})
-        item = payload['response_format']['json_schema']['schema']['properties']['decisions']['items']['properties']
-        self.assertEqual(item['chart_ref']['enum'], ['', 'C7'])
-        self.assertEqual(payload['provider']['data_collection'], 'deny')
+        for variant in ('v1', 'v2'):
+            payload, listed = trial.chart_review_payload(self.config, 'source', self.candidates, self.passages, variant)
+            self.assertEqual(listed, {'1': ['C7'], '2': []})
+            item = payload['response_format']['json_schema']['schema']['properties']['decisions']['items']['properties']
+            self.assertEqual(item['chart_ref']['enum'], ['', 'C7'])
+            self.assertEqual(payload['provider']['data_collection'], 'deny')
+            self.assertIn(trial.PROMPTS[variant], payload['messages'][0]['content'])
+
+    def test_v2_puts_the_passage_text_inside_its_candidate(self):
+        payload, _listed = trial.chart_review_payload(self.config, 'source', self.candidates, self.passages, 'v2')
+        content = json.loads(payload['messages'][1]['content'])
+        self.assertNotIn('chart_passages', content)
+        self.assertEqual(content['candidates']['1']['chart_passages'],
+                         [{'id': 'C7', 'date': '2026-01-10', 'section': 'Plan',
+                           'text': 'Maintain nimodipine 30 mg every 4 hours'}])
+        self.assertEqual(content['candidates']['2']['chart_passages'], [])
 
     def test_valid_decisions_are_kept_with_their_chart_status(self):
         review = {'decisions': [
@@ -126,6 +149,58 @@ class ChartReviewTest(unittest.TestCase):
             {'id': '2', 'keep': True, 'reason': 'x', 'chart_status': 'already_recorded', 'chart_ref': 'C7'}]}
         decisions = trial.chart_review_decisions(review, self.candidates, {'1': ['C7'], '2': []})
         self.assertFalse(decisions['2']['ref_offered'])
+
+
+class ChartQuoteTest(unittest.TestCase):
+    texts = {'C7': 'Plan - Maintain nimodipine 30 mg every 4 hours'}
+
+    def setUp(self):
+        self.candidates = {'1': {'kind': 'review', 'destination': 'Medications', 'evidence': 'Nimodipine 30 mg PO QDS'},
+                           '2': {'kind': 'history', 'destination': 'Concerns', 'evidence': 'HR: 84'}}
+
+    def review(self, quote, status='conflict', ref='C7'):
+        return {'decisions': [
+            {'id': '1', 'keep': True, 'reason': 'x', 'chart_status': status, 'chart_ref': ref, 'chart_quote': quote},
+            {'id': '2', 'keep': True, 'reason': 'x', 'chart_status': 'new', 'chart_ref': '', 'chart_quote': ''}]}
+
+    def test_v3_schema_requires_a_bounded_quote(self):
+        config = ChartReviewTest.config
+        payload, _ = trial.chart_review_payload(config, 'source', self.candidates, {'1': [
+            {'id': 7, 'date': '2026-01-10', 'heading': 'Plan', 'text': self.texts['C7']}]}, 'v3')
+        item = payload['response_format']['json_schema']['schema']['properties']['decisions']['items']
+        self.assertIn('chart_quote', item['required'])
+        self.assertEqual(item['properties']['chart_quote']['maxLength'], 200)
+
+    def test_an_exact_quote_of_the_cited_passage_is_shown(self):
+        decisions = trial.chart_review_decisions(self.review('nimodipine 30 mg every 4 hours'), self.candidates,
+                                                 {'1': ['C7'], '2': []}, self.texts)
+        self.assertTrue(decisions['1']['quote_exact'])
+        self.assertEqual(trial.shown_status(decisions['1']), 'conflict')
+        self.assertTrue(decisions['2']['quote_exact'])
+
+    def test_a_reworded_or_unoffered_quote_drops_the_hint(self):
+        listed = {'1': ['C7'], '2': []}
+        reworded = trial.chart_review_decisions(self.review('nimodipine 30mg q4h'), self.candidates, listed, self.texts)
+        self.assertFalse(reworded['1']['quote_exact'])
+        self.assertEqual(trial.shown_status(reworded['1']), 'new')
+        unoffered = trial.chart_review_decisions(self.review('nimodipine 30 mg every 4 hours'), self.candidates,
+                                                 {'1': [], '2': ['C7']}, self.texts)
+        self.assertFalse(unoffered['1']['quote_exact'])
+
+    def test_only_whitespace_may_differ_in_a_quote(self):
+        self.assertTrue(trial.quote_matches('Plan -  Maintain\nnimodipine', self.texts['C7']))
+        for bad in ('plan - maintain nimodipine', 'Plan - Maintain nimodipne', 'Pl', '   '):
+            self.assertFalse(trial.quote_matches(bad, self.texts['C7']), bad)
+
+    def test_a_new_fact_may_not_quote_and_the_quote_field_is_required(self):
+        bad = self.review('', status='new', ref='')
+        bad['decisions'][1]['chart_quote'] = 'HR'
+        with self.assertRaises(ValueError):
+            trial.chart_review_decisions(bad, self.candidates, {'1': ['C7'], '2': []}, self.texts)
+        missing = self.review('nimodipine 30 mg every 4 hours')
+        del missing['decisions'][0]['chart_quote']
+        with self.assertRaises(ValueError):
+            trial.chart_review_decisions(missing, self.candidates, {'1': ['C7'], '2': []}, self.texts)
 
 
 class TransportTest(unittest.TestCase):
@@ -170,6 +245,14 @@ class ScoreTest(unittest.TestCase):
         self.assertEqual(result['duplicates_unflagged'], 1)
         self.assertEqual(result['wrong_section'], ['new:MedHistory'])
         self.assertEqual(result['hints_correct'], 0)
+
+    def test_a_hint_with_an_inexact_quote_counts_as_not_shown(self):
+        arms = json.loads(json.dumps(self.arms))
+        arms['with']['3'].update(chart_quote='QDS', quote_exact=False)
+        result = trial.score_arm(self.labels, arms, 'with')
+        self.assertEqual(result['conflicts_flagged'], 0)
+        self.assertEqual(result['hints_wrong'], ['new:already_recorded', 'conf:new'])
+        self.assertEqual(result['quotes_not_exact'], 1)
 
     def test_with_arm_scores_hints_including_a_false_already_recorded(self):
         result = trial.score_arm(self.labels, self.arms, 'with')
