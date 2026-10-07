@@ -79,7 +79,7 @@ public class BillingONEAReport extends AbstractModel<Integer> implements Seriali
     @Temporal(TemporalType.TIMESTAMP)
     private Date admittedDate;
 
-    @Column(name = "claim_error")
+    @Column(name = "claim_error", length = 40)
     private String claimError;
 
     @Column(name = "code")

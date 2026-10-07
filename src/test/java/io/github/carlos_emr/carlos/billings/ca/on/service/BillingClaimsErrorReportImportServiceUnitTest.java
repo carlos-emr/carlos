@@ -250,6 +250,18 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         assertThat(saved).containsExactly("A001A|" + String.join("; ", explanations), "A007A|");
     }
 
+    @Test
+    void shouldSeparateAndPreserveAllTenClaimAndRegistrationErrors() throws IOException {
+        List<String> errors = new ArrayList<>();
+        doAnswer(call -> {
+            errors.add(((BillingErrorReportDto) call.getArgument(0)).getClaim_error());
+            return 1;
+        }).when(erRepObj).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
+        svc.importStream(writeAndOpen(headerLine("1") + "\n" + claimLine() + "\n"
+                + registrationLine() + "\n" + transactionLine()), "ten-errors.err");
+        assertThat(errors).containsExactly("E01 E02 E03 E04 E05 R01 R02 R03 R04 R05");
+    }
+
     private List<String> capturePersistedItems() {
         List<String> saved = new ArrayList<>();
         // Snapshot at the call: retaining the mutable DTO in an ArgumentCaptor can

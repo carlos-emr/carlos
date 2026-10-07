@@ -99,8 +99,8 @@ const ERROR_EXPLANATIONS = [
 function buildErrorReport({ owned, claim }) {
   const lines = [
     record(`HX1V03G${' '.repeat(10)}000000${owned.groupNo}${owned.ohipNo}00000${PROCESS_DATE}`),
-    record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9${' '.repeat(12)}`),
-    record(`HXR${field('PWREG001', 12)}${field('FAKEPW', 9)}${field('WORK', 5)}FON${' '.repeat(32)}R01${' '.repeat(12)}`),
+    record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9E02E03E04E05`),
+    record(`HXR${field('PWREG001', 12)}${field('FAKEPW', 9)}${field('WORK', 5)}FON${' '.repeat(32)}R01R02R03R04R05`),
     record(`HXT${claim.code}  ${cents(claim.fee, 6)}01${SERVICE_DATE}250 ${' '.repeat(34)}A3F${' '.repeat(12)}`),
     ...ERROR_EXPLANATIONS.map(message => record(`HX8A3${field(message, 55)}`)),
     record(`HX9${'0000001'.repeat(3)}0000004`),
@@ -254,7 +254,7 @@ async function workflow(s) {
     h.assert(rows.length === 1, 'The error report did not write exactly one billing_on_eareport row');
     const [billingNo, ohipNo, groupNo, code, unit, rowFee, codeError, claimError, rowStatus] = rows[0];
     h.assert(billingNo === rejectedClaim.id && ohipNo === owned.ohipNo && groupNo === owned.groupNo && code === 'A001A'
-      && unit === '01' && Number(rowFee) === Number(fee.A001A) && codeError.startsWith('A3F') && claimError.startsWith('VH9')
+      && unit === '01' && Number(rowFee) === Number(fee.A001A) && codeError.startsWith('A3F') && claimError === 'VH9 E02 E03 E04 E05 R01 R02 R03 R04 R05'
       && rowStatus === 'N', 'The billing_on_eareport row does not equal the uploaded report');
     h.assert(fs.existsSync(path.join(documentDir, errorName)), 'The error report was not stored in DOCUMENT_DIR');
     h.assert(statuses() === 'B|B', 'Importing the error report changed the claim statuses');

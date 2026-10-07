@@ -193,7 +193,7 @@ public class BillingClaimsErrorReportImportService {
                     record.setReCode5(nextline.substring(76, 79));
                     records.add(record);
 
-                    claimError += nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
+                    claimError = claimError.stripTrailing() + " " + nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
                             + nextline.substring(70, 73).trim() + " " + nextline.substring(73, 76).trim() + " "
                             + nextline.substring(76, 79);
                 }
