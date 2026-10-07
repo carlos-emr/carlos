@@ -3,8 +3,9 @@
 (function () {
     'use strict';
     // The action refused these before anything reached the portal, or the portal refused
-    // them outright: that attempt stored nothing. The retry identity is dropped only when no
-    // earlier attempt with it went unconfirmed (that one may have been stored).
+    // them outright: that attempt stored nothing. The retry identity is dropped only when it
+    // was made for that very attempt; one that was tried before, or was found in storage
+    // (the page may have died mid-send), may already be stored, so it is kept.
     const DEFINITE_REFUSALS = [400, 403, 404];
     const CSRF_WAIT_MS = 15000;
     function newOperationId() {
@@ -51,8 +52,7 @@
                 pending = JSON.parse(saved);
                 if (!/^[a-f0-9-]{36}$/.test(pending.operationId)
                         || !['routine', 'soon', 'as_soon_as_possible'].includes(pending.urgency)
-                        || !['follow_up', 'annual_exam', 'lab_review'].includes(pending.appointmentType)
-                        || pending.uncertain !== undefined && typeof pending.uncertain !== 'boolean') {
+                        || !['follow_up', 'annual_exam', 'lab_review'].includes(pending.appointmentType)) {
                     throw new Error('invalid pending request');
                 }
             }
@@ -79,14 +79,20 @@
         async function csrfToken() {
             // csrf-token.jspf publishes its token fetch as window.csrfTokenReady on
             // DOMContentLoaded. It may reject, and a form on the page may already carry the token.
+            let timer;
             try {
                 if (window.csrfTokenReady) {
-                    await Promise.race([window.csrfTokenReady,
-                        new Promise((_, reject) => setTimeout(() => reject(new Error('csrf wait timed out')), CSRF_WAIT_MS))]);
+                    await Promise.race([window.csrfTokenReady, new Promise((_, reject) => {
+                        timer = setTimeout(() => reject(new Error('csrf wait timed out')), CSRF_WAIT_MS);
+                    })]);
                 }
-            } catch (_) { /* re-checked below */ }
+            } catch (_) { /* re-checked below */ } finally { clearTimeout(timer); }
             const input = Array.from(document.querySelectorAll('input[name="CSRF-TOKEN"]')).find(field => field.value);
-            if (!input) { throw new Error('csrf unavailable'); }
+            if (!input) {
+                const failure = new Error('csrf unavailable');
+                failure.notSent = true;
+                throw failure;
+            }
             return input.value;
         }
         async function post(values) {
@@ -155,7 +161,7 @@
                 const inactive = body.mayCreate && !eligible ? 'inactive' : null;
                 if (pending) {
                     // The unconfirmed request stays in view, with the reason it cannot be retried now.
-                    status('uncertain', inactive);
+                    status(lead, 'uncertain', inactive);
                 } else {
                     // lead: what just happened (sent, withdrawn, not sent), then the account state.
                     status(lead, inactive || (lead ? null : storageReady ? 'ready' : 'storage'));
@@ -170,6 +176,7 @@
         }
         async function submit() {
             if (busy || !eligible || !storageReady || !samePatient()) { update(); return; }
+            const fresh = !pending;
             try {
                 if (!pending) {
                     // Kept only once it is saved, so a failed save never looks like an unconfirmed send.
@@ -192,14 +199,12 @@
                 pending = null; confirmed = true;
                 status('sent');
             } catch (failure) {
-                refused = DEFINITE_REFUSALS.includes(failure.status);
-                if (refused && !pending.uncertain) {
+                refused = failure.notSent === true || DEFINITE_REFUSALS.includes(failure.status);
+                if (refused && fresh) {
                     try { sessionStorage.removeItem(key); } catch (_) { /* nothing left to retry */ }
                     pending = null;
                 } else {
-                    // Kept and marked: this or an earlier attempt may have reached the portal.
-                    pending = Object.assign({}, pending, { uncertain: true });
-                    try { sessionStorage.setItem(key, JSON.stringify(pending)); } catch (_) { /* still held in this page */ }
+                    // Kept: this or an earlier attempt with it may have reached the portal.
                     status('uncertain');
                 }
             }

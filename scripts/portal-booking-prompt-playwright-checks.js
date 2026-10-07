@@ -168,6 +168,7 @@ async function main() {
     loseCreate = true; await page.reload(); await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     const unconfirmed = calls.filter(call => call.method === 'create').at(-1).operationId;
+    await page.reload(); await waitReady();
     refuseCreate = true; await send.click();
     await page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled
       && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
@@ -176,7 +177,20 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, unconfirmed);
     assert.equal(notifications, noticesBefore);
-    console.log('PASS a refusal after an unconfirmed attempt keeps the identity; no second notice');
+    console.log('PASS a refusal after an unconfirmed attempt (and a reload) keeps the identity; no second notice');
+    // A page that died mid-send leaves its entry in storage; a refusal of the retry must keep it.
+    const stranded = '0f8d2c1e-5b7a-4c3d-9e1f-2a3b4c5d6e7f';
+    await page.evaluate(id => sessionStorage.setItem('portal.booking.pending:999998:123',
+      JSON.stringify({ operationId: id, urgency: 'routine', appointmentType: 'follow_up' })), stranded);
+    await page.reload(); await waitReady(); refuseCreate = true; await send.click();
+    await page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled
+      && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    assert.doesNotMatch(await status.innerText(), /was not sent/);
+    assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, stranded);
+    refuseCreate = false; await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, stranded);
+    console.log('PASS a stored entry from an interrupted page is kept when its retry is refused');
     await page.goto(url + '/master-late-csrf');
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
@@ -228,7 +242,7 @@ async function main() {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 21 browser scenarios; no page errors');
+    console.log('PASS all 22 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
