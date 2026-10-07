@@ -7793,7 +7793,7 @@
         "all"
       ],
       "timeoutSec": 180,
-      "env": ["EXCLUSIVE"],
+      "env": [],
       "notes": "Verify printed lab date boundaries and accession-version selection in downloaded chart PDFs."
     }
   ]

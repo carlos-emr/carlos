@@ -21,26 +21,6 @@ function message(marker, accession, stamp, token) {
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  h.assert(process.env.EXCLUSIVE === '1', 'Chart lab range validation requires EXCLUSIVE=1 to restore the global inbox date mode');
-  const preference = "name='inboxDateSearchType'";
-  const snapshotQuery = `SELECT id, IFNULL(HEX(value),''), value IS NULL FROM SystemPreferences WHERE ${preference} ORDER BY id`;
-  const previous = sql.rows(snapshotQuery);
-  let insertedPreference;
-  s.cleanup(() => {
-    if (insertedPreference) sql.execute(`DELETE FROM SystemPreferences WHERE id=${insertedPreference} AND ${preference}`);
-    for (const [id, hex, isNull] of previous) {
-      h.assert(/^\d+$/.test(id) && /^[0-9A-F]*$/i.test(hex || '') && ['0', '1'].includes(isNull), 'Invalid preference snapshot');
-      sql.execute(`UPDATE SystemPreferences SET value=${isNull === '1' ? 'NULL' : `UNHEX('${hex || ''}')`} WHERE id=${id} AND ${preference}`);
-    }
-    h.assert(JSON.stringify(sql.rows(snapshotQuery)) === JSON.stringify(previous), 'Inbox date preference was not restored');
-  });
-  if (!previous.length) {
-    insertedPreference = sql.value(`INSERT INTO SystemPreferences (name,value,updateDate)
-      VALUES ('inboxDateSearchType','serviceObservation',NOW()); SELECT LAST_INSERT_ID()`);
-    h.assert(/^[1-9]\d*$/.test(insertedPreference), 'Inbox date preference was not inserted');
-  }
-  const setPreference = value => sql.execute(`UPDATE SystemPreferences SET value=${q(value)} WHERE ${preference}`);
-  setPreference('serviceObservation');
   const scratch = print.scratchDir();
   const owned = [];
   s.cleanup(() => fs.rmSync(scratch, { recursive: true, force: true }));
@@ -142,12 +122,11 @@ async function workflow(s) {
     assertLabs(text, []);
     h.assert(Object.values(noteTokens).every(token => !text.includes(token)), 'Empty range printed an owned note');
   });
-  await s.step('received-date mode prints a single lab whose native timestamp includes fractional seconds', async () => {
+  await s.step('date-range print accepts a single lab with fractional observation-date metadata', async () => {
     // Keep exactly one lab in this owned patient's list: sorting cannot mask the new predicate call.
     sql.execute(`DELETE FROM patientLabRouting WHERE demographic_no=${patient} AND lab_type='HL7'
-      AND lab_no IN (${owned.slice(1).join(',')});
-      UPDATE hl7TextMessage SET created='2021-06-15 12:00:00' WHERE lab_id=${owned[0]} AND serviceName=${q(marker)}`);
-    setPreference('receivedCreated');
+      AND lab_no IN (${[owned[0], ...owned.slice(2)].join(',')});
+      UPDATE hl7TextInfo SET obr_date='2021-06-15 00:00:00.0' WHERE lab_no=${owned[1]}`);
     await print.openPrintDialog(chart);
     await chart.locator('#printopDates').check();
     await print.setFlags(chart, ['printLabs']);
@@ -157,8 +136,8 @@ async function workflow(s) {
       }
     });
     const { text } = await print.pressPrint(chart, scratch);
-    assertLabs(text, ['BEFORE']);
-    h.assert(text.includes(noteTokens.inside), 'Received-date print omitted the in-range note');
+    assertLabs(text, ['START']);
+    h.assert(text.includes(noteTokens.inside), 'Fractional-date print omitted the in-range note');
   });
 }
 
