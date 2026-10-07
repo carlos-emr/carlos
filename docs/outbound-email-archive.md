@@ -149,7 +149,8 @@ are cleaned up after preparation failure, archive failure, and transport complet
 A cleanup failure is logged without replacing the delivery result.
 
 An archive means capture succeeded, not that the recipient received the email. A failure
-known to occur before acceptance keeps its archive and records FAILED. Ambiguous transport
+known to occur before acceptance keeps its archive and records FAILED. That includes a mail
+server refusing the recipient address: check the patient's address before resending. Ambiguous transport
 failures, including a lost SMTP acknowledgement or possible partial delivery, leave PENDING
 and return an unconfirmed outcome: check the mail server and outbox before retrying.
 An accepted send stays accepted even if its status or chart-note update fails; the

@@ -34,7 +34,8 @@ import java.util.Objects;
 @Service
 public class PdfPreviewCapabilityService {
 
-    private static final Duration TTL = Duration.ofMinutes(2);
+    /** How long an issued capability resolves; callers that reuse one must re-issue before this. */
+    public static final Duration TTL = Duration.ofMinutes(2);
     private static final long MAX_CAPABILITIES = 2_000L;
     private static final int TOKEN_BYTES = 32;
 
