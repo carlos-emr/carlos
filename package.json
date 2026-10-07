@@ -168,6 +168,7 @@
     "test:inbox-preview-boundary-resync-playwright": "node scripts/inbox-preview-boundary-resync-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
+    "test:retired-view-aliases-playwright": "node scripts/retired-view-aliases-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
     "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
     "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js",
