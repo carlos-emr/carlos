@@ -223,6 +223,7 @@
     "test:consultation-response-attachments-playwright": "node scripts/consultation-response-attachments-playwright-checks.js",
     "test:encounter-legacy-note-soft-wrap-playwright": "node scripts/encounter-legacy-note-soft-wrap-playwright-checks.js",
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
+    "test:rest-birth-date-playwright": "node scripts/rest-birth-date-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
     "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js",
     "test:pathnet-status": "node scripts/pathnet-status.test.js",
