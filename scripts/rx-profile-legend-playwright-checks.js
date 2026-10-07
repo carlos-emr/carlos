@@ -66,8 +66,7 @@ async function workflow(s) {
     });
     try {
       await rx.getByRole('link', {name:'Longterm/Acute', exact:true}).click();
-      const deadline = Date.now() + 15000;
-      while (completed.length < 2 && Date.now() < deadline) await rx.waitForTimeout(50);
+      await waitUntil(() => completed.length >= 2, 'both filtered profile responses');
       h.assert(completed.length === 2 && requests.length === 2, 'Both filtered profile requests must complete');
       await rx.waitForLoadState('networkidle');
       const headings = await rx.locator('#drugProfile h4').allTextContents();
