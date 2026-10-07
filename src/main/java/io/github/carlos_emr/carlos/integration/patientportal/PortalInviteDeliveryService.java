@@ -85,12 +85,17 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *
  * <p>The invite code is stored by CARLOS only in the body of the email's outbox row, and only until the
  * send settles or staff resolve the delivery, when it is replaced there; a crash in the middle of a send
- * leaves it in that row until then. It is never stored on the attempt, in the archive, or on the chart. A
+ * leaves it in that row until then. {@link PortalInviteCodeSweeper} periodically retries removal for
+ * emails recorded SUCCESS or BLOCKED, FAILED ones whose attempt ended {@link State#SEND_FAILED} (a
+ * definite "not sent" after the code went live), and RESOLVED ones whose attempt ended
+ * {@link State#NOT_ARRIVED}; any other is cleared once its code is past its life plus a day. The code is never stored
+ * on the attempt, in the archive, or on the chart. A
  * lost prepare response is recovered by retrying with the same operation id, which the portal answers
  * with the same token.
  *
  * <p>Recovery is by staff, as for every other CARLOS email: a stuck attempt is shown as incomplete and
- * can be resolved after {@link #RECOVERY_MIN_AGE}. Nothing here runs in the background.
+ * can be resolved after {@link #RECOVERY_MIN_AGE}. Recovery never runs in the background; only the code
+ * cleanup in {@link PortalInviteCodeSweeper} does, and it changes no attempt.
  *
  * @since 2026-09-22
  */

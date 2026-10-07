@@ -179,8 +179,69 @@ stored body is replaced with a note saying the code is not kept. `EmailManager` 
 body-only cleanup when a synchronous failure precedes the dispatch gate, including consent snapshot,
 archive or authorization failures. Cleanup failure preserves the send result and is logged without
 email content. Process crashes can still leave stored bodies; this finalizer does not guarantee
-cleanup after process death. The outbound email archive, a
-permanent patient document, never holds it: the service names the code in
+cleanup after process death.
+
+When cleanup does not happen because CARLOS stops mid-send or the body replacement fails, CARLOS retries cleanup for emails whose transport is known to
+have settled: `SUCCESS` (transport returned), `BLOCKED` (consent refused dispatch), or `FAILED` when
+the invitation attempt that names the email ended `SEND_FAILED` with outcome `SEND_REFUSED`. The send
+writes that itself, and only after a definite "not sent" once the code went live: the mail server
+refused the message, the connection or login was refused, or, rarely, the commit gate failed after the
+attempt was already recorded as committed. These are all the definite not-sent outcomes after the code
+went live, as approved by Ben (decision D22 A): in every one nothing was sent and the sender has
+finished. The state is final. Every other `FAILED` row is excluded:
+staff abandonment can also write `FAILED` while the original preparation is still running (its attempt
+ends `ABANDONED`), a permission refusal after the gate leaves the attempt `SEND_UNCERTAIN`, a refused
+or unrecorded commit ends it `ABANDONED`, and an error before the gate leaves no attempt naming the
+email. A `RESOLVED` email counts as settled only when staff recorded that it never arrived once the
+portal showed its code dead (attempt `NOT_ARRIVED`).
+
+Whatever its status, an invitation email is also cleared once its code is past its seven-day life plus
+a day (#4083, option B, approved by Ben on 2026-10-06). When the attempt naming the email recorded the
+portal's expiry, the email is cleared a day after that expiry. When none did (the code never went live,
+CARLOS never learned its expiry, or no attempt names the email), it is cleared once the email row has
+been unchanged for eight days: the row's timestamp is its creation time until its status changes and
+later afterwards, so this can only come later than eight days after creation, never earlier. The send asks
+the portal to activate a code seconds after saving the email, and CARLOS never sends a saved invitation
+email again, so by then the code has expired on the portal and nothing still needs it, even a send that
+never finished.
+It checks all ages in batches of at most 200 ids. Cleanup runs
+at startup and every 15 minutes after the preceding run completes. Each run processes at most 200
+rows, continuing from the preceding batch, then starts a new pass after reaching the end. A settled row must have been unchanged for 15 minutes. Both selection and the atomic
+body-only update check eligibility, so a concurrent status change cannot be overwritten. Failures are
+retried on a later pass without requiring another invitation; logs contain counts and exception class
+names, never credentials.
+
+**Deadline (#4083):** an idle timestamp does not prove that a sender on another server has stopped,
+so unfinished or manually resolved emails, and failed ones whose attempt did not end `SEND_FAILED`
+(such as a staff-abandoned or permission-refused send, a staff abort left `ABANDONING`, or a failure
+before the gate that no attempt names), are not cleared as settled. The age rule above clears them
+instead, once their code is past its life plus a day. So after a crash at any point, the code is gone
+from the saved email once a day has passed since its expiry, or eight days since the email's last change
+when CARLOS never recorded an expiry, at the next sweep after that (every 15 minutes, and at startup; a
+few sweeps later when more than 200 emails are waiting, since each sweep handles 200). This clears the
+stored body of an email whose sender might, in theory, still be running, which #4083 asked never to do;
+Ben accepted it (option B) because only the body changes and the code it held has expired by then.
+Clearing the saved body does not erase existing database backups.
+
+Administrators with database read access can check for remaining bodies without displaying any code.
+Run this count-only query against the CARLOS database:
+
+```sql
+SELECT COUNT(*) AS invitation_bodies_remaining
+FROM emailLog
+WHERE transactionType = 'PORTAL_INVITE'
+  AND (body IS NULL OR body <> CAST(REPLACE(TO_BASE64(
+    'This invitation''s code is not kept by CARLOS. Resend the invitation to issue a new code.'
+  ), CHAR(10), '') AS BINARY));
+```
+
+The count includes every age and status. A nonzero count is conservative: it includes active sends,
+unknown outcomes, null bodies, and any body that does not exactly match the removal note. Zero verifies
+that every current invitation row has the removal note at the time of the query; it says nothing about
+older backups. Do not print the bodies to investigate the count.
+
+The outbound email archive, a permanent patient
+document, never holds it: the service names the code in
 `EmailData.setArchiveRedactions`, and `EmailManager` archives the message with it replaced by
 `[redacted]` and the artifact type suffixed `_REDACTED` (`SMTP_RFC822_REDACTED` or
 `API_PAYLOAD_REDACTED`), so the copy is never mistaken for the
@@ -247,8 +308,8 @@ same wait. A timeout can still apply remotely, so positive confirmation stays un
 portal proves the invitation was already accepted (an irreversible state that cannot be revoked). Recovery re-checks that the patient and the portal connection match
 the attempt, and the page offers no decision for an attempt made on another portal connection. Each
 decision is written to the CARLOS audit log as `PortalInviteDeliveryService.recover.<decision>`, with the
-delivery id, the patient, and the state and outcome codes it left; never the code. Nothing runs in the
-background.
+delivery id, the patient, and the state and outcome codes it left; never the code. Recovery itself never
+runs in the background; only the code cleanup described above does, and it changes no attempt.
 
 An attempt stuck before the commit usually leaves a prepared code on the portal, which blocks every new
 invitation for that patient until it expires. So when staff next invite or resend, an attempt stuck that
