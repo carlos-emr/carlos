@@ -1,0 +1,29 @@
+{
+  "about": "Round 3 held-out check (2026-10-07): new plain-language questions for 24 existing probes (the 17 that nomic missed at the top 8 in round 2, plus 7 it found). Written before any held-out result was seen, and plain_words.json was not changed afterwards. Each keeps its probe's labels; only the question is new.",
+  "questions": {
+    "NHSSYN001:no-allergies": "Has she ever had a reaction to a medication?",
+    "NHSSYN001:no-regular-meds": "Did she normally take any tablets at home?",
+    "NHSSYN002:anaesthesia": "What kind of anaesthetic did he have for the knee operation?",
+    "NHSSYN002:mobilisation": "Was he able to walk after the knee replacement?",
+    "NHSSYN002:no-dvt-infection": "Were there any problems with clots or the wound afterwards?",
+    "NHSSYN002:ward-round-vitals-retained": "What were his observations on the ward round on the day of surgery?",
+    "NHSSYN003:cxr-findings": "What did his first X-ray of the chest show?",
+    "NHSSYN003:allergy-pollen": "Does he have any allergies?",
+    "NHSSYN003:no-meds-on-admission": "Did he use any medicines at home before admission?",
+    "NHSSYN003:conservative-management": "Was he treated with an operation or managed without one?",
+    "NHSSYN003:repeat-cxr-reduction": "Was the air in his chest getting less on the repeat X-ray?",
+    "NHSSYN003:final-cxr-resolution": "Was the chest X-ray clear by the time he left hospital?",
+    "NHSSYN003:resp-followup": "Who is following him up as an outpatient?",
+    "NHSSYN002:neg-complications": "Did the surgery go smoothly?",
+    "NHSSYN003:neg-haemoptysis": "Was there any blood when he coughed?",
+    "NHSSYN003:neg-pneumothorax": "Did the X-ray show that his lung had collapsed?",
+    "NHSSYN003:fam-nil": "Do any heart or chest problems run in his family?",
+    "NHSSYN001:family-history": "Is there a history of illness among her relatives?",
+    "NHSSYN002:tinzaparin": "Which injection did he get to stop blood clots?",
+    "NHSSYN003:recurrence-education": "What warning signs should make him come back?",
+    "NHSSYN001:neurology-followup": "Is she booked to see the neurologists again?",
+    "NHSSYN002:followup-appt": "When is his next appointment at the clinic?",
+    "NHSSYN003:chest-pain": "Why did he come to A&E?",
+    "NHSSYN001:ct-negative": "Was there any bleed on her first head CT?"
+  }
+}

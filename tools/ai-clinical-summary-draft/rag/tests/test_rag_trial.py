@@ -535,5 +535,55 @@ class EvaluateSmokeTest(unittest.TestCase):
         self.assertTrue(all('rank_needed' in e for e in result['details']['vector']))
 
 
+
+class PlainWordsTest(unittest.TestCase):
+    """Round 3: the small hand-written list of plain words and chart words (plain_words.json)."""
+
+    def setUp(self):
+        self.entries = rag.load_plain_words()
+
+    def test_question_with_a_plain_phrase_gets_the_charts_words(self):
+        asked = 'Was there a collapsed lung on the X-ray?'
+        self.assertEqual(rag.expand_question(asked, self.entries),
+                         asked + ' (pneumothorax; PTX; CXR; chest radiograph)')
+
+    def test_question_without_a_plain_phrase_is_unchanged(self):
+        self.assertEqual(rag.expand_question('What was the main diagnosis?', self.entries),
+                         'What was the main diagnosis?')
+
+    def test_plain_phrases_need_whole_words(self):
+        # "pulse" names the heart rate; "impulse" must not.
+        self.assertEqual(rag.expand_question('Any impulse control problems?', self.entries),
+                         'Any impulse control problems?')
+
+    def test_chart_abbreviations_match_case_and_word_edges(self):
+        self.assertEqual(rag.plain_words_for_chunk('three hours; bp fine; the hr team', self.entries), [])
+        self.assertIn('blood pressure', rag.plain_words_for_chunk('BP 124/78, HR 88', self.entries))
+        self.assertIn('oxygen level', rag.plain_words_for_chunk('SpO2 97% on air', self.entries))
+
+    def test_chunk_plain_words_change_only_the_embedded_text(self):
+        notes = [('NHSSYN001', '2026-01-05', 'Investigations\nCXR: no PTX.\n\nPlan\nHome tomorrow.')]
+        plain = rag.chunk_corpus(notes, plain_words=self.entries)
+        bare = rag.chunk_corpus(notes)
+        self.assertEqual([c['text'] for c in plain], [c['text'] for c in bare])
+        with_words = [c for c in plain if 'Plain words:' in c['embed_text']]
+        self.assertEqual(len(with_words), 1)
+        self.assertIn('collapsed lung', with_words[0]['embed_text'])
+        self.assertIn('chest film', with_words[0]['embed_text'])
+
+    def test_every_entry_has_plain_and_chart_words(self):
+        self.assertGreaterEqual(len(self.entries), 20)
+        for entry in self.entries:
+            self.assertTrue(entry['plain'] and entry['chart'])
+
+    def test_result_tags_keep_each_mode_apart(self):
+        args = mock.Mock(index_dir='r2', labels='direct', plain_words='off')
+        self.assertEqual(rag.result_tag(args), 'r2-direct')
+        args.plain_words = 'query'
+        self.assertEqual(rag.result_tag(args), 'r2-direct-pwq')
+        args.index_dir, args.plain_words = 'r4', 'both'
+        self.assertEqual(rag.result_tag(args), 'r4-direct-pwb')
+
+
 if __name__ == '__main__':
     unittest.main()

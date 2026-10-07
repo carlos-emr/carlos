@@ -1,9 +1,85 @@
-# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06)
+# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06, round 3 2026-10-07)
 
 Retrieval only, on FAKE NHS synthetic patients, with local Ollama embeddings. No text
 was generated and no hosted API was called. Full per-probe detail is in
 `target/rag/results/` (`<model>-<index folder>-<labels>-eval.json`, `recall-at-k.json`, and
 `report-<tag>.md` with every miss; round 1's own files are `<model>-eval.json` and `report.md`).
+
+## Round 3 (2026-10-07): plain words
+
+Same 10 patients, 78 probes, three models and round 2 cutter. Round 3 adds a small,
+local, hand-written list (`plain_words.json`, 29 entries, no model) that pairs plain
+wording with the chart's own words, for example "collapsed lung" = pneumothorax, PTX;
+"go wrong" = complications; "react badly" / "allergic" = allergies, NKA, NKDA; "heart rate"
+= HR; "chest film" / "x-ray" = CXR. It is used in two ways:
+
+- **Query side** (`--plain-words query`, on the round 2 index as it is): a question that
+  uses a listed plain phrase gets the chart's words added, for example "Was there a
+  collapsed lung on the X-ray? (pneumothorax; PTX; CXR; chest radiograph)". 30 of the 78
+  questions were expanded.
+- **Both sides** (`--plain-words both`, new index folder `r4`): every chunk that uses a
+  listed chart word also gets a "Plain words:" line in its embedded text, for example
+  "collapsed lung, lung collapse" on a chunk that says "no PTX". 562 of 1,110 chunks
+  changed and were embedded again (about 4, 9 and 14 minutes for nomic, bge-m3 and qwen3);
+  the stored chunk text is unchanged.
+
+**Important caveat:** the list was written from round 2's misses, so scores on the same 78
+probes are optimistic. To measure that, 24 probes got a new, held-out wording
+(`heldout.json`, same labels: the 17 that nomic missed at the top 8 in round 2, plus 7 it
+found), written before any held-out result was seen; the list was not changed afterwards.
+
+**The 78 probes (vector recall @3 / @8 / @16 / @24):**
+
+| Setup | nomic-embed-text | bge-m3 | qwen3-embedding:0.6b |
+|---|---|---|---|
+| Round 2 (no plain words) | 0.55 / 0.78 / 0.88 / 0.91 | 0.58 / 0.78 / 0.90 / 0.95 | 0.65 / 0.78 / 0.87 / 0.94 |
+| Plain words on questions | 0.69 / 0.92 / 0.94 / 0.97 | 0.72 / 0.87 / 0.95 / 0.96 | 0.73 / 0.88 / 0.97 / 0.99 |
+| **Plain words on questions and chunks** | **0.77 / 0.95 / 0.99 / 1.00** | **0.72 / 0.88 / 0.97 / 0.99** | **0.86 / 0.96 / 0.97 / 0.99** |
+
+Rank of the CRITICAL "Complications: None" (question: "Did anything go wrong during the
+operation?"): round 2 14 / 10 / 11; questions only 4 / 2 / 4; both 2 / 1 / 1. **It is now in
+the top 8 for every model.** Keyword search alone rose from 0.49 to 0.67 at the top 8, and
+there were again **0 cross-patient results** in every run.
+
+**The 24 held-out questions (vector recall @3 / @8 / @16 / @24):**
+
+| Setup | nomic-embed-text | bge-m3 | qwen3-embedding:0.6b |
+|---|---|---|---|
+| Round 2 (no plain words) | 0.29 / 0.46 / 0.67 / 0.75 | 0.46 / 0.58 / 0.79 / 0.83 | 0.42 / 0.63 / 0.75 / 0.79 |
+| Plain words on questions | 0.42 / 0.54 / 0.71 / 0.83 | 0.50 / 0.71 / 0.83 / 0.83 | 0.46 / 0.67 / 0.75 / 0.83 |
+| **Plain words on questions and chunks** | **0.54 / 0.67 / 0.88 / 0.96** | **0.67 / 0.75 / 0.88 / 0.92** | **0.67 / 0.83 / 0.92 / 0.96** |
+
+These questions are hard on purpose (most rephrase round 2's misses), so their baseline is
+much lower than the 78 probes'. Only 7 of the 24 used a listed plain phrase, so the query
+side helped little; the chunk side did most of the work. For example, "Was there any blood
+when he coughed?" was not expanded, but the chunk that says "haemoptysis" now also carries
+"coughing up blood", and it moved from rank 11 to 1 (nomic). "Do any heart or chest problems
+run in his family?" moved from 49 to 4.
+
+**Findings:**
+
+- **A plain-word list closes most of the wording gap, mainly from the chunk side.** On new
+  wording it lifted nomic from 0.46 to 0.67 at the top 8 and from 0.67 to 0.88 at the top 16;
+  qwen3 reached 0.83 / 0.92. That is real but much smaller than the 0.95 on the questions
+  the list was written from.
+- **"Complications: None" is still fragile.** It reaches the top 8 only when the question uses
+  a listed phrase ("go wrong"). The held-out "Did the surgery go smoothly?" left it at rank
+  24 / 14 / 23. A critical negative still depends on the exact words someone types.
+- **The list costs almost nothing at query time** (a text append) and changes no stored text;
+  the chunk side needs one re-embedding of about half the chunks. A few probes moved down
+  slightly (for example a family-history question from rank 1 to 2), so expansions add
+  some noise.
+- **Number-heavy questions are untouched:** "What were his observations on the ward round on
+  the day of surgery?" stays around rank 60. Look-alike observation sets need dates or
+  structure, not words.
+
+**Recommendation after round 3:** if "ask the chart" is built, use plain words on **both**
+sides with a maintained list (reviewed by a clinician, kept small) and show the **top 16**:
+on new wording that found 0.88 to 0.92 of the answers. Retrieval is still not fit to be the
+only input to a whole-chart summary: about 1 answer in 10 is still missing at the top 16 for
+new wording, and a critical negative like "Complications: None" can still be missed.
+qwen3-embedding was the best on new wording (0.83 at 8) but is the slowest to index; nomic
+stays a reasonable default.
 
 ## Round 2 (2026-10-06): direct labels and the form-field fix
 

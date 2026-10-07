@@ -50,6 +50,12 @@ Three local embedding models are compared: `nomic-embed-text`, `bge-m3` and
 3. **Prefix** every chunk with its note date and section heading, for example
    `Date: 2026-01-07. Section: Family History.`. That way "Mother has type 2
    diabetes" never travels without "Family History".
+   Round 3 (`--plain-words`): a small hand-written list, `plain_words.json`, pairs plain
+   wording with the chart's words ("collapsed lung" = pneumothorax, PTX; "go wrong" =
+   complications). `query` adds the chart's words to a question that uses a plain phrase;
+   `both` also adds a "Plain words:" line to the embedded text of every chunk that uses a
+   chart word (for example "collapsed lung, lung collapse" on a chunk that says "no PTX").
+   The stored chunk text never changes. No model is involved.
 4. **Store** one SQLite file per model in `target/rag/<model>.sqlite`. Each file has a
    `chunks` table, an FTS5 keyword table and a sqlite-vec `vec0` vector table. The
    vector table is partitioned by patient. Raw vectors are also kept as blobs.
@@ -96,6 +102,13 @@ heavy python3 $T evaluate --model nomic-embed-text --labels regex   # round 1 as
 heavy python3 $T index --model nomic-embed-text --index-dir r2 --reuse-from '' --form-fields label
 heavy python3 $T evaluate --model nomic-embed-text --index-dir r2 --labels direct
 python3 $T report --tag r2-direct                  # writes target/rag/results/report-r2-direct.md
+# round 3: plain words on the questions only (reuses the r2 index as it is) ...
+heavy python3 $T evaluate --model nomic-embed-text --index-dir r2 --plain-words query
+# ... and on the chunks too: a new folder; only chunks that gain a "Plain words:" line are embedded
+heavy python3 $T index --model nomic-embed-text --index-dir r4 --reuse-from r2 --plain-words both
+heavy python3 $T evaluate --model nomic-embed-text --index-dir r4 --plain-words both
+# the held-out wording (heldout.json: 24 rephrased questions, same labels) for any setup
+heavy python3 $T evaluate --model nomic-embed-text --index-dir r4 --plain-words both --questions heldout
 
 # offline tests (no Ollama, no network)
 cd tools/ai-clinical-summary-draft && python3 -m unittest discover -s rag/tests -t .
@@ -159,5 +172,8 @@ that decision.
 - `rag_trial.py`: chunker, host guard, SQLite storage, the three search modes,
   evaluation and report.
 - `probes.json`: the probe questions and relevance rules.
+- `labels.json`: round 2's direct labels (the exact chart phrases that answer each probe).
+- `plain_words.json`: round 3's plain-word list.
+- `heldout.json`: round 3's held-out wording for 24 probes, written before any held-out result was seen.
 - `tests/test_rag_trial.py`: offline unit tests.
-- `RESULTS.md`: the results of the 2026-10-05 run.
+- `RESULTS.md`: the results of rounds 1 to 3.

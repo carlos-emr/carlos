@@ -40,6 +40,22 @@ FACTS = TOOL / 'quality' / 'facts'
 PROBES = HERE / 'probes.json'
 LABELS = HERE / 'labels.json'
 LABEL_SETS = ('direct', 'regex')
+PLAIN_WORDS = HERE / 'plain_words.json'
+# Round 3: 'off' = rounds 1-2; 'query' adds chart words to a question that uses a plain phrase;
+# 'both' also adds the plain words to every chunk that uses a chart word (needs its own index).
+PLAIN_WORD_MODES = ('off', 'query', 'both')
+HELDOUT = HERE / 'heldout.json'
+QUESTION_SETS = ('probes', 'heldout')  # heldout: new wording for some probes, same labels
+
+
+def heldout_probes(probes, path=HELDOUT):
+    """The probes that have a held-out question, each with that question instead of its own."""
+    questions = json.loads(Path(path).read_text(encoding='utf-8'))['questions']
+    known = {p['id'] for p in probes}
+    unknown = sorted(set(questions) - known)
+    if unknown:
+        raise ValueError(f'held-out questions name unknown probes: {unknown}')
+    return [dict(p, question=questions[p['id']]) for p in probes if p['id'] in questions]
 if str(TOOL) not in sys.path:
     sys.path.insert(0, str(TOOL))
 
@@ -376,13 +392,65 @@ def chunk_note(patient, note_id, note_date, body, form_fields='label'):
     return result
 
 
-def chunk_corpus(notes, form_fields='label'):
+def chunk_corpus(notes, form_fields='label', plain_words=None):
+    """plain_words (from load_plain_words) adds a 'Plain words:' line to the EMBEDDED text only."""
     notes = assert_synthetic(notes)
     counters, chunks = {}, []
     for patient, note_date, body in notes:
         counters[patient] = counters.get(patient, 0) + 1
         chunks.extend(chunk_note(patient, f'{patient}-n{counters[patient]:03d}', note_date, body, form_fields))
+    if plain_words:
+        for chunk in chunks:
+            extra = plain_words_for_chunk(chunk['text'], plain_words)
+            if extra:
+                chunk['embed_text'] += f"\nPlain words: {', '.join(extra)}."
     return chunks
+
+
+# ---------------------------------------------------------------- round 3: plain words
+
+def term_pattern(term, plain=False):
+    """Whole words or phrases, any run of whitespace. A chart abbreviation (two capitals, or a
+    digit, such as PTX, HR or SpO2) must match its case, so 'hr' in 'three' or 'bp' never counts;
+    plain phrases and full clinical words ignore case."""
+    body = r'\s+'.join(re.escape(word) for word in term.split())
+    exact = not plain and bool(re.search(r'[A-Z].*[A-Z]|\d', term))
+    return re.compile(r'(?<![A-Za-z0-9])' + body + r'(?![A-Za-z0-9])', 0 if exact else re.I)
+
+
+def load_plain_words(path=PLAIN_WORDS):
+    entries = []
+    for entry in json.loads(Path(path).read_text(encoding='utf-8'))['entries']:
+        plain = [p.strip() for p in entry['plain'] if p.strip()]
+        chart = [c.strip() for c in entry['chart'] if c.strip()]
+        if not plain or not chart:
+            raise ValueError(f'plain-words entry needs plain and chart words: {entry!r}')
+        entries.append({'plain': plain, 'chart': chart,
+                        'plain_patterns': [term_pattern(p, plain=True) for p in plain],
+                        'chart_patterns': [term_pattern(c) for c in chart]})
+    return entries
+
+
+def plain_words_digest(path=PLAIN_WORDS):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+
+
+def expand_question(question, entries):
+    """Adds the chart's words for any plain phrase in the question, e.g. '... (pneumothorax; PTX)'."""
+    extra = []
+    for entry in entries:
+        if any(pattern.search(question) for pattern in entry['plain_patterns']):
+            extra.extend(term for term in entry['chart'] if term not in extra)
+    return f"{question} ({'; '.join(extra)})" if extra else question
+
+
+def plain_words_for_chunk(text, entries, per_entry=2):
+    """The first plain phrases of every entry whose chart words appear in the chunk text."""
+    extra = []
+    for entry in entries:
+        if any(pattern.search(text) for pattern in entry['chart_patterns']):
+            extra.extend(p for p in entry['plain'][:per_entry] if p not in extra)
+    return extra
 
 
 # ---------------------------------------------------------------- storage and search
@@ -782,7 +850,9 @@ def cmd_index(args):
     if not set(patients) <= known:
         raise SafetyError('Patient scope names a fixture that is not in the committed corpus')
     # Number chunks over the WHOLE corpus so ids never depend on the chosen scope.
-    numbered = [(n, c) for n, c in enumerate(chunk_corpus(notes, args.form_fields), 1) if c['patient_id'] in patients]
+    plain = load_plain_words() if getattr(args, 'plain_words', 'off') == 'both' else None
+    numbered = [(n, c) for n, c in enumerate(chunk_corpus(notes, args.form_fields, plain), 1)
+                if c['patient_id'] in patients]
     info = model_info(model)
     if info is None:
         raise RuntimeError(f'{model} is not pulled; run the pull subcommand first')
@@ -863,6 +933,9 @@ def cmd_index(args):
                     steady_s, time.perf_counter() - started, loaded, None))
     elif not has_table(db, 'chunks'):
         raise SystemExit('Nothing to index')
+    # Which plain-words list (if any) is in the embedded text, so evaluate can refuse a mismatch.
+    db.execute("INSERT OR REPLACE INTO meta VALUES ('plain_words', ?)",
+               (plain_words_digest() if plain else 'off',))
     stats = index_stats(db, model, info)
     stats['remaining_in_scope'] = len(missing) - len(todo)
     stats['this_call'] = {'chunks': len(todo), 'embed_seconds': round(embed_seconds, 2),
@@ -909,7 +982,9 @@ def evaluate_db(db, model, probes, query_vectors, use_vec, embed_latency=None):
                                              if is_hit(prep, ranked[:k], by_id)), None)
             if prep['answerable'] and not entry['hit@8']:
                 entry['miss_kind'] = classify_miss(probe, prep, top, by_id)
-                entry['question'] = probe['question']
+                entry['question'] = probe.get('asked', probe['question'])
+                if probe['question'] != entry['question']:
+                    entry['expanded_question'] = probe['question']
                 if prep['relevant']:
                     expected = [f"{by_id[c]['date']} {by_id[c]['heading']}" for c in prep['relevant']]
                 else:
@@ -973,7 +1048,9 @@ GENERIC_QUESTIONS = ['What medicines is the patient on?', 'What was the main dia
 
 
 def result_tag(args):
-    return f"{args.index_dir or 'r1'}-{args.labels}"
+    suffix = {'off': '', 'query': '-pwq', 'both': '-pwb'}[getattr(args, 'plain_words', 'off')]
+    held = '-ho' if getattr(args, 'questions', 'probes') == 'heldout' else ''
+    return f"{args.index_dir or 'r1'}-{args.labels}{suffix}{held}"
 
 
 def cmd_evaluate(args):
@@ -990,6 +1067,19 @@ def cmd_evaluate(args):
     if not all(PATIENT_ID.fullmatch(p) for p in patients):
         raise SafetyError('Index holds a non-synthetic patient id')
     probes = load_probes(label_set=args.labels)
+    if getattr(args, 'questions', 'probes') == 'heldout':
+        probes = heldout_probes(probes)
+    built_with = dict(db.execute('SELECT key, value FROM meta')).get('plain_words', 'off')
+    mode = getattr(args, 'plain_words', 'off')
+    if mode == 'both' and built_with != plain_words_digest():
+        raise SystemExit('Index was not built with the current plain-words list; run index --plain-words both')
+    if mode != 'both' and built_with != 'off':
+        raise SystemExit('Index has plain words in its chunks; evaluate it with --plain-words both')
+    generic_questions = GENERIC_QUESTIONS
+    if mode != 'off':
+        plain = load_plain_words()
+        probes = [dict(p, asked=p['question'], question=expand_question(p['question'], plain)) for p in probes]
+        generic_questions = [expand_question(q, plain) for q in GENERIC_QUESTIONS]
     unembedded = db.execute('SELECT COUNT(*) FROM chunks WHERE id NOT IN (SELECT chunk_id FROM vectors)').fetchone()[0]
     if unembedded or not {p['patient'] for p in probes} <= patients:
         raise SystemExit(f'Index incomplete ({unembedded} chunks without vectors, or probe patients missing); '
@@ -1001,13 +1091,15 @@ def cmd_evaluate(args):
         tick = time.perf_counter()
         vectors[probe['id']] = embed(model, [prefix + probe['question']])[0]
         embed_ms.append(1000 * (time.perf_counter() - tick))
-    generic = embed(model, [prefix + q for q in GENERIC_QUESTIONS])
+    generic = embed(model, [prefix + q for q in generic_questions])
     unload(model)
     result = evaluate_db(db, model, probes, vectors, use_vec,
                          {'median': round(statistics.median(embed_ms), 1),
                           'p95': round(percentile(embed_ms, 0.95), 1)})
     result['backend'] = backend if use_vec else 'python-exact-cosine'
-    result['isolation'] = isolation_check(db, generic, GENERIC_QUESTIONS, use_vec)
+    result['isolation'] = isolation_check(db, generic, generic_questions, use_vec)
+    result['plain_words'] = {'mode': mode,
+                             'expanded_questions': sum(p.get('asked', p['question']) != p['question'] for p in probes)}
     result['index'] = index_stats(db, model)
     result['index']['db_bytes'] = path.stat().st_size
     result['evaluated_on'] = date.today().isoformat()
@@ -1101,7 +1193,14 @@ def main(argv=None):
         if name in ('index', 'evaluate'):
             command.add_argument('--index-dir', default='', metavar='FOLDER',
                                  help="index subfolder of target/rag, e.g. r2 ('' = round 1, the default)")
+            command.add_argument('--plain-words', default='off', choices=PLAIN_WORD_MODES,
+                                 help='round 3 plain-word list (plain_words.json): add chart words to questions '
+                                      '(query), and also plain words to chunks (both; index too) '
+                                      '(default %(default)s)')
         if name == 'evaluate':
+            command.add_argument('--questions', default='probes', choices=QUESTION_SETS,
+                                 help='probes.json questions, or the held-out wording in heldout.json for '
+                                      'some of them (same labels) (default %(default)s)')
             command.add_argument('--labels', default='direct', choices=LABEL_SETS,
                                  help='relevance labels: direct (labels.json) or regex (round 1) (default %(default)s)')
     report = sub.add_parser('report')
