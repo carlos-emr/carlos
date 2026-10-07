@@ -483,9 +483,11 @@ public class OutboundEmailArchiveArtifactCensusLoader {
             if (!attributes.isRegularFile() || attributes.size() != expected) {
                 return TrialResult.SKIPPED;
             }
-            stored = new byte[(int) expected];
             try (InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-                if (input.readNBytes(stored, 0, stored.length) != stored.length || input.read() != -1) {
+                // Read into the array readNBytes returns: a pre-allocated zero array reaching the cipher reads,
+                // to CodeQL, as a static nonce (java/static-initialization-vector).
+                stored = input.readNBytes((int) expected);
+                if (stored.length != expected || input.read() != -1) {
                     return TrialResult.SKIPPED;
                 }
             }
