@@ -251,7 +251,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
     }
 
     @Test
-    void shouldSeparateAndPreserveAllTenClaimAndRegistrationErrors() throws IOException {
+    void shouldPreserveAllTenErrors_whenClaimAndRegistrationErrorsArePresent() throws IOException {
         List<String> errors = new ArrayList<>();
         doAnswer(call -> {
             errors.add(((BillingErrorReportDto) call.getArgument(0)).getClaim_error());
