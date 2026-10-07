@@ -778,6 +778,23 @@
       "timeoutSec": 300
     },
     {
+      "name": "pathnet-status",
+      "script": "scripts/pathnet-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PATHNET_LABS"
+      ],
+      "fixtures": "Owned synthetic patient and two legacy BCP reports; requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows."
+    },
+    {
       "name": "echart-new-patient-notes",
       "script": "scripts/echart-new-patient-notes-playwright-checks.js",
       "tiers": [

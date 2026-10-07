@@ -223,6 +223,8 @@
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
     "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js",
+    "test:pathnet-status": "node scripts/pathnet-status.test.js",
+    "test:pathnet-status-playwright": "node scripts/pathnet-status-playwright-checks.js",
     "test:admin-messages-playwright": "node scripts/admin-messages-playwright-checks.js",
     "test:admin-audit-log-playwright": "node scripts/admin-audit-log-playwright-checks.js",
     "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
