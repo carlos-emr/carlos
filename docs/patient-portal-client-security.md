@@ -149,7 +149,7 @@ Settings and transport construction tests reject absent pins before any connecti
 `POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`.
 Every request checks patient-record access and the patient's booking privilege; list requires read,
 and create/withdraw require write. Create also requires `_portal.account` read and checks for an
-active account before requesting a prompt. The normal Struts CSRF protection applies.
+active account before requesting a prompt. The CSRFGuard filter protects every POST, including list.
 
 Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
 an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
@@ -170,5 +170,4 @@ This draft provides the Java API, permission mapping, and action contract. The s
 appointment and master-record screens, their English catalog keys, and a separately approved
 security-object/default-role database seed remain required before #3849 is complete. No permission
 is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
-system principal, and decline/expiry ticklers belong to #3850. The draft is stacked on #3478 and
-requires that client before mainline integration.
+system principal, and decline/expiry ticklers belong to #3850.
