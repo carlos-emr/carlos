@@ -62,7 +62,7 @@ class EctDeleteMeasurementStyleSheet2ActionIntegrationTest extends CarlosTestBas
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD"})
+    @ValueSource(strings = {"GET", "HEAD", "post", "PoSt", "PO\u017fT"})
     void shouldPreserveTheOrphan_whenTheRequestMethodIsUnsafe(String method) throws Exception {
         MeasurementCSSLocation selected = location();
         MeasurementGroupStyle orphan = style(selected.getId());
