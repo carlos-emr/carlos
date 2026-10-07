@@ -87,7 +87,7 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/ManageTeleplan | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action | Manages Teleplan billing configurations |
 | billing/CA/BC/ProcessRemittance | io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action | Processes MSP remittance files |
 | billing/CA/BC/receivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action | Records payment receipts |
-| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | Reprocesses rejected bills |
+| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | GET opens Bill Status, or a bill's adjust page with `billingmaster_no`; POST saves an adjusted bill (`billingmasterNo`) or a Bill Status mass edit (`billCheck`) |
 | billing/CA/BC/saveAssocAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action | Saves code associations |
 | billing/CA/BC/SaveBilling | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action | Saves billing records |
 | billing/CA/BC/saveBillingPreferencesAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action | Saves billing preferences |
