@@ -65,10 +65,17 @@ class DemographicBirthDayTimezoneUnitTest extends CarlosUnitTestBase {
             assertThat(birthday.get(Calendar.MINUTE)).isZero();
             assertThat(birthday.get(Calendar.SECOND)).isZero();
             assertThat(birthday.get(Calendar.MILLISECOND)).isZero();
-            assertThat(demographic(date).getFormattedDob()).isEqualTo(date);
         } finally {
             TimeZone.setDefault(original);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1980-06-15", "1980-01-15", "2000-02-29", "1970-01-01", "2018-11-04"})
+    void shouldFormatRecordedDate_whenUsingJvmStartupTimezone(String date) {
+        // DateFormatUtils caches its timezone. Exercise formatting in the separate
+        // Toronto/Tokyo JVM runs, without changing the default after initialization.
+        assertThat(demographic(date).getFormattedDob()).isEqualTo(date);
     }
 
     @ParameterizedTest
