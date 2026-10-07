@@ -711,9 +711,11 @@ shared helper.
   transport. They cost money, need credentials, or take an hour.
 - **Routes with no UI entry**: no check — the finding is that the route is dead (or
   service-only), tracked for removal or documentation under the cleanup policy. Found while
-  verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` (now reached from the master toolbar and Print / Labels menu;
-  `patient-letters-entry` covers its selected patient and permission visibility; spreadsheet retirement is tracked in #3965);
-  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
+  verifying this plan: `prevention/printPrevention`; the originally unlinked
+  `report/ViewGenerateLetters` (now reached from the master toolbar and Print / Labels;
+  `patient-letters-entry` covers selection and permission visibility; spreadsheet retirement
+  is tracked in #3965); the retired `provider/ViewProviderEncounterHistory` and
+  `providercontrol` history/vary modes;
   the immunization *set* configuration pages (`encounter/immunization/config/*`);
   `admin/ViewDbConnection`; the retired `billing/CA/ON/ImportOnRA` duplicate (Upload MOH files
   imports through `ViewGenRA` instead); and several `View*` fragments only

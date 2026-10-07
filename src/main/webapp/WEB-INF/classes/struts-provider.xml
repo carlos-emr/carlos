@@ -197,9 +197,6 @@
         <action name="provider/ViewProviderDisplayMyGroup" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderDisplayMyGroup2Action">
             <result name="success">/WEB-INF/jsp/provider/providerdisplaymygroup.jsp</result>
         </action>
-        <action name="provider/ViewProviderEncounterHistory" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterHistory2Action">
-            <result name="success">/WEB-INF/jsp/provider/providerencounterhistory.jsp</result>
-        </action>
         <action name="provider/ViewProviderEncounterPrint" class="io.github.carlos_emr.carlos.providers.gate.ViewProviderEncounterPrint2Action">
             <result name="success">/WEB-INF/jsp/provider/providerencounterprint.jsp</result>
         </action>

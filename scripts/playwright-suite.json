@@ -3704,6 +3704,21 @@
       "fixtures": "Creates one marker-named provider group (test provider + two active demo providers) through Administration and the provider My Group pages; snapshots and restores ProviderPreference.myGroupNo; deletes the group through the UI and again in cleanup. The Group Preferences (billing form) step runs only when the Ontario link is present."
     },
     {
+      "name": "retired-provider-history",
+      "script": "scripts/retired-provider-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Issue3665 finding5: retired history route and provider dispatcher modes refuse authenticated GET/HEAD/CSRF-valid POST; raw WEB-INF resources stay inaccessible; real schedule/master/chart navigation remains available.",
+      "fixtures": "Owned patient and expiring schedule-only login with a unique appointment/message-read role; every owned row removed."
+    },
+    {
       "name": "schedule-views",
       "script": "scripts/schedule-views-playwright-checks.js",
       "tiers": [

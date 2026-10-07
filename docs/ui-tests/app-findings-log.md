@@ -36,11 +36,12 @@ have silently had a feature taken away.
 | 2 | `admin/ViewDbConnection` | Packaged live audit: empty view, no entry among 120 Administration controls, and no source caller. Removed the route and its dedicated gate; retained `admin/dbconnection.jsp`, a static include used by other JSPs. `retired-view-aliases-playwright-checks.js` asserts GET/HEAD return 404. | `fixed` |
 | 3 | `billing/CA/ON/ImportOnRA` | Packaged live audit passed Upload MOH files, reconciliation reports, summary and settlement without calling this route. `RA_FORWORD` points to the working `ViewGenRA` upload gate. Removed only the unused duplicate action and mapping; retained `OnRaImportService`, `ViewGenRA` and `ViewOnGenRA`. `billing-on-ra-import-playwright-checks.js` verifies the real workflow plus authenticated GET/HEAD/CSRF-valid POST returning 404 for the removed route. | `fixed` |
 | 4 | `encounter/immunization/config/ViewImmunizationSetDisplay` | The original claim that the whole configuration area was unreachable was incorrect. The live template list offers Add New and four display links through `ImmunizationSetDisplay`; Add New opens the name editor. Only the unused `ViewImmunizationSetDisplay` alias returned 500 because it bypassed the action that supplies `setId`. Removed that alias, preserving the working routes and shared display JSP. `retired-view-aliases-playwright-checks.js` checks removal and the retained editor. | `fixed` |
-| 5 | `provider/ViewProviderEncounterHistory` | Referenced only as a `dboperation` dispatch-table entry in `providercontrol.jsp` (`{"encounterhistory", "/provider/ViewProviderEncounterHistory"}`), and `dboperation=encounterhistory` is referenced only by `providerencounterhistory.jsp` itself. Nothing sets it, so the dispatch entry is never taken. | `needs-live-check` |
+| 5 | `provider/ViewProviderEncounterHistory` | Packaged audit found no entry among 517 schedule, month, master-record and chart controls. With a valid owned patient, the legacy view returned 500 from its obsolete encounter-column mapping. Its sole application caller of `displaymode=vary` also allowed an appointment/message-read account to include the protected translation bundle (direct access 403; included access 200). Removed the history view, its gate/mapping and the history/vary dispatcher modes; unknown modes return 404. `retired-provider-history-playwright-checks.js` checks authenticated GET/HEAD/CSRF-valid POST refusals and retained real navigation. | `fixed` |
 
-All five are filed as #3665. Findings 1–4 are addressed separately;
-finding 5 is covered by PR #4381. Later letter-generation repairs in #3997
-and the live envelope check support retaining the letters/envelopes flow.
+All five are filed as #3665; their resolutions are recorded above.
+Spreadsheet retirement is tracked separately in #3965 / PR #4354. The later
+letter-generation repairs in #3997 and live envelope check support retaining
+and exposing the letters/envelopes flow.
 
 **Why `needs-live-check` rather than `open`:** all five were verified by source
 search, which cannot see a link built at runtime from a database row or a
