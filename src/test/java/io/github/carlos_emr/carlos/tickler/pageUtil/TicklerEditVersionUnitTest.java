@@ -42,7 +42,8 @@ class TicklerEditVersionUnitTest {
         assertThat(TicklerEditVersion.of(tickler)).isEqualTo(original);
         tickler.setMessage("a"); tickler.setCreator("bc");
         assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
-        tickler.setMessage(null); original = TicklerEditVersion.of(tickler);
-        tickler.setMessage(""); assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
+        // The message getter normalizes null to empty; creator preserves that distinction.
+        tickler.setCreator(null); original = TicklerEditVersion.of(tickler);
+        tickler.setCreator(""); assertThat(TicklerEditVersion.of(tickler)).isNotEqualTo(original);
     }
 }

@@ -68,6 +68,7 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
         int id = seed();
         try (var audit = mockStatic(LogAction.class)) {
             AtomicBoolean fail = new AtomicBoolean(true);
+            AtomicBoolean injected = new AtomicBoolean(false);
             String provider = fixtures.get(id).provider();
             when(login.getLoggedInProviderNo()).thenReturn(provider);
             var security = mock(SecurityInfoManager.class);
@@ -75,13 +76,15 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             var historyWrites = mock(TicklerUpdateDao.class);
             doAnswer(call -> {
                 history.persist((TicklerUpdate) call.getArgument(0)); entities.flush();
-                if (fail.get() && "history".equals(failure)) throw new IllegalStateException("Injected history failure");
+                if (fail.get() && "history".equals(failure)) {
+                    injected.set(true);
+                    throw new IllegalStateException("Injected history failure");
+                }
                 return null;
             }).when(historyWrites).persist(any());
             var commentWrites = mock(TicklerCommentDao.class);
             doAnswer(call -> {
                 comments.persist((TicklerComment) call.getArgument(0)); entities.flush();
-                if (fail.get() && "comment".equals(failure)) throw new IllegalStateException("Injected comment failure");
                 return null;
             }).when(commentWrites).persist(any());
             TicklerManager realManager = manager(security, historyWrites, commentWrites);
@@ -90,9 +93,20 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             when(manager.updateTickler(eq(login), any())).thenAnswer(call -> {
                 boolean result = realManager.updateTickler(login, call.getArgument(1));
                 entities.flush();
+                if (fail.get() && "comment".equals(failure)) {
+                    // A history flush may already cascade the new comment, bypassing commentDao.persist.
+                    // Inject only after verifying the real comment INSERT reached this transaction.
+                    assertThat(entities.createQuery("select count(c) from TicklerComment c where c.ticklerNo=:id", Long.class)
+                            .setParameter("id", id).getSingleResult()).isEqualTo(1L);
+                    injected.set(true);
+                    throw new IllegalStateException("Injected flushed comment failure");
+                }
                 if (fail.get() && "afterCommit".equals(failure)) {
                     TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                        @Override public void afterCommit() { throw new IllegalStateException("Injected acknowledgement failure"); }
+                        @Override public void afterCommit() {
+                            injected.set(true);
+                            throw new IllegalStateException("Injected acknowledgement failure");
+                        }
                     });
                 }
                 return result;
@@ -100,7 +114,10 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
             PlatformTransactionManager completion = new PlatformTransactionManager() {
                 @Override public TransactionStatus getTransaction(TransactionDefinition definition) { return transactions.getTransaction(definition); }
                 @Override public void commit(TransactionStatus status) {
-                    if (fail.get() && "rollbackOnly".equals(failure)) status.setRollbackOnly();
+                    if (fail.get() && "rollbackOnly".equals(failure)) {
+                        injected.set(true);
+                        status.setRollbackOnly();
+                    }
                     transactions.commit(status);
                 }
                 @Override public void rollback(TransactionStatus status) { transactions.rollback(status); }
@@ -126,7 +143,9 @@ class TicklerEditTransactionIntegrationTest extends CarlosTestBase {
                 servlet.when(ServletActionContext::getRequest).thenReturn(request);
                 servlet.when(ServletActionContext::getResponse).thenReturn(response);
                 loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
-                assertThat(new TestableEdit().execute()).isEqualTo("conflict");
+                String outcome = new TestableEdit().execute();
+                assertThat(injected).as("the requested transaction failure was exercised").isTrue();
+                assertThat(outcome).isEqualTo("conflict");
                 assertThat(response.getStatus()).isEqualTo(500);
                 assertThat(request.getParameter("newMessage")).isEqualTo("Retained owned draft");
                 assertThat(request.getParameter(TicklerEditVersion.PARAMETER)).isEqualTo(version);
