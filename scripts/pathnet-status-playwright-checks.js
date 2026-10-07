@@ -69,7 +69,7 @@ async function workflow(s) {
     await page.locator('#labResultsTbl').waitFor();
     for (const [index, status] of ['Final', 'Partial'].entries()) {
       const row = page.locator('#labResultsTbl tbody tr').filter({has:
-        page.locator(`a[href*="/lab/CA/BC/ViewLabDisplay?"][href*="segmentID=${owned[index]}&"]`)});
+        page.locator(`a[href*="/lab/CA/BC/ViewLabDisplay?"][href*="segmentID=${owned[index]}"]`)});
       h.assert(await row.count() === 1, `PathNet ${status} report was omitted from the patient listing`);
       h.assert((await row.innerText()).includes(marker), 'PathNet row lost its owned ordering provider');
       h.assert((await row.locator('td').nth(4).innerText()).trim() === status,
