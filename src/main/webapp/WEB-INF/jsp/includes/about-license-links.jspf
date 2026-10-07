@@ -1,0 +1,5 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources" var="aboutLicenseBundle"/>
+<a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about" bundle="${aboutLicenseBundle}"/></a>
+| <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license" bundle="${aboutLicenseBundle}"/></a>

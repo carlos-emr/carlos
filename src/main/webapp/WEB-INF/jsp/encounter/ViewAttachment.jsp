@@ -205,28 +205,28 @@
 
                 <table cellspacing="1" valign="top">
                     <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgFrom"/>:
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgFrom"/>:
                         </td>
-                        <td bgcolor="#CCCCFF"><%= sentBy%> <fmt:message key="encounter.ViewAttachment.msgAt"/> <%=remoteName%>
+                        <td style="background-color: #CCCCFF"><%= sentBy%> <fmt:message key="encounter.ViewAttachment.msgAt"/> <%=remoteName%>
                         </td>
                     </tr>
                     <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgSubject"/>:
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgSubject"/>:
                         </td>
-                        <td bgcolor="#BBBBFF"><%= thesubject%>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgDate"/>:
-                        </td>
-                        <td bgcolor="#B8B8FF"><%= thedate %>&nbsp;&nbsp; <%= theime %>
+                        <td style="background-color: #BBBBFF"><%= thesubject%>
                         </td>
                     </tr>
 
                     <tr>
-                        <td bgcolor="#EEEEFF"></td>
-                        <td bgcolor="#EEEEFF"><textarea name="Message" wrap="hard"
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgDate"/>:
+                        </td>
+                        <td style="background-color: #B8B8FF"><%= thedate %>&nbsp;&nbsp; <%= theime %>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="background-color: #EEEEFF"></td>
+                        <td style="background-color: #EEEEFF"><textarea name="Message" wrap="hard"
                                                         readonly="true" rows="18" cols="60"><%=themessage%></textarea>
                         </td>
                     </tr>
