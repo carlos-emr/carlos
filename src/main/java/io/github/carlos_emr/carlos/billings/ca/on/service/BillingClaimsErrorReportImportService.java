@@ -86,7 +86,7 @@ public class BillingClaimsErrorReportImportService {
                                  List<BillingClaimsErrorReportRecordDto> records) {
         String nextline;
         BillingClaimsErrorReportRecordDto record = new BillingClaimsErrorReportRecordDto();
-        boolean isNewHin = false;
+        BillingClaimsErrorReportRecordDto pendingClaim = null;
 
         BillingErrorReportDto erObj = null;
         String claimError = "";
@@ -114,6 +114,7 @@ public class BillingClaimsErrorReportImportService {
                     pendingTransaction = false;
                 }
                 if (headerCount.compareTo("1") == 0) {
+                    pendingClaim = null;
                     erObj = new BillingErrorReportDto();
                     record = new BillingClaimsErrorReportRecordDto();
                     record.setTechSpec(nextline.substring(3, 6));
@@ -140,7 +141,6 @@ public class BillingClaimsErrorReportImportService {
                 }
 
                 if (headerCount.compareTo("H") == 0) {
-                    isNewHin = true;
                     record = new BillingClaimsErrorReportRecordDto();
                     record.setHin(nextline.substring(3, 13));
                     record.setVer(nextline.substring(13, 15));
@@ -158,6 +158,7 @@ public class BillingClaimsErrorReportImportService {
                     record.setHeCode3(nextline.substring(70, 73));
                     record.setHeCode4(nextline.substring(73, 76));
                     record.setHeCode5(nextline.substring(76, 79));
+                    pendingClaim = record;
 
                     erObj.setHin(nextline.substring(3, 13));
                     erObj.setVer(nextline.substring(13, 15));
@@ -198,11 +199,10 @@ public class BillingClaimsErrorReportImportService {
                 }
 
                 if (headerCount.compareTo("T") == 0) {
-                    if (!isNewHin) {
-                        record = new BillingClaimsErrorReportRecordDto();
-                    } else {
-                        isNewHin = false;
-                    }
+                    // A registration row between HXH and HXT must not replace
+                    // the claim identity or become aliased as a transaction row.
+                    record = pendingClaim != null ? pendingClaim : new BillingClaimsErrorReportRecordDto();
+                    pendingClaim = null;
                     record.setServicecode(nextline.substring(3, 8));
                     record.setAmountsubmitStoredCents(nextline.substring(10, 16));
                     record.setServiceno(nextline.substring(16, 18));

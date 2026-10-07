@@ -194,6 +194,19 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         assertThat(persisted.getValue().getBilling_no()).isEqualTo("123456");
         assertThat(persisted.getValue().getClaim_error()).contains("R01");
         assertThat(persisted.getValue().getExp()).startsWith("01|");
+        for (BillingClaimsErrorReportParser rendered : List.of(parser,
+                new BillingClaimsErrorReportParser(writeAndOpen(content)))) {
+            assertThat(rendered.getClaimsErrorReportRecords())
+                    .filteredOn(row -> "A001A".equals(row.getServicecode()))
+                    .singleElement().satisfies(row -> {
+                        assertThat(row.getAccount()).isEqualTo("FC123456");
+                        assertThat(row.getHin()).isEqualTo("9999999990");
+                        assertThat(row.getVer()).isEqualTo("AB");
+                    });
+            assertThat(rendered.getClaimsErrorReportRecords())
+                    .filteredOn(row -> "REG000000001".equals(row.getRegNumber()))
+                    .singleElement().satisfies(row -> assertThat(row.getServicecode()).isNull());
+        }
     }
 
     @Test
