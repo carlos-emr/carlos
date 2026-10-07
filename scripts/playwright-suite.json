@@ -1903,6 +1903,19 @@
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
+      "name": "rest-birth-date",
+      "script": "scripts/rest-birth-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "patient-search-modes",
       "script": "scripts/patient-search-modes-playwright-checks.js",
       "tiers": [
@@ -7758,19 +7771,6 @@
     {
       "name": "rourke-measurement",
       "script": "scripts/rourke-measurement-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 180,
-      "env": []
-    },
-    {
-      "name": "rest-birth-date",
-      "script": "scripts/rest-birth-date-playwright-checks.js",
       "tiers": [
         "core"
       ],
