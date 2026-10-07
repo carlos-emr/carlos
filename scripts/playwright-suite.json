@@ -25,10 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
-    "manual      the check is never part of a tier run: it needs credentials",
-    "            the harness contract does not carry (the installer's",
-    "            initial-admin.txt) and changes the administrator password,",
-    "            so it runs only when named with --only.",
+    "manual      the check is never part of a tier run: it needs explicit",
+    "            fixture permissions or credentials beyond the common contract",
+    "            (for example, the installer's initial-admin.txt). It runs only",
+    "            when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -38,6 +38,20 @@
     "in the PR that measures the tier, not by guess."
   ],
   "checks": [
+    {
+      "name": "retired-view-aliases",
+      "script": "scripts/retired-view-aliases-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Read-only issue3665 findings2/4: retired aliases return404; retained template management opens Add New without saving."
+    },
     {
       "name": "annotate-document",
       "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
@@ -778,6 +792,23 @@
       "timeoutSec": 300
     },
     {
+      "name": "pathnet-status",
+      "script": "scripts/pathnet-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PATHNET_LABS"
+      ],
+      "fixtures": "Owned synthetic patient and two legacy BCP reports; requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows."
+    },
+    {
       "name": "echart-new-patient-notes",
       "script": "scripts/echart-new-patient-notes-playwright-checks.js",
       "tiers": [
@@ -1448,6 +1479,34 @@
       ]
     },
     {
+      "name": "lab-patient-dob",
+      "script": "scripts/lab-patient-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Search the real lab patient-matching DOB form for days 01-09 and 15 using the owned patient."
+    },
+    {
+      "name": "chart-print-lab-range",
+      "script": "scripts/chart-print-lab-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verify printed lab date boundaries and accession-version selection in downloaded chart PDFs."
+    },
+    {
       "name": "lab-requisition-links",
       "script": "scripts/lab-requisition-links-playwright-checks.js",
       "tiers": [
@@ -1521,6 +1580,21 @@
       ],
       "timeoutSec": 360,
       "env": []
+    },
+    {
+      "name": "rx-profile-legend",
+      "script": "scripts/rx-profile-legend-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
     },
     {
       "name": "rx-stash-deletion",
@@ -3940,6 +4014,21 @@
       "fixtures": "Owns a synthetic patient, FAKEPW<hex> measurement types, groups and a style sheet (DB row plus the file in MEASUREMENT_CSS_UPLOAD_DIR, the server's oscarMeasurement_css_upload_path); removes and verifies all of them. SKIPs when MEASUREMENT_CSS_UPLOAD_DIR is not set."
     },
     {
+      "name": "measurement-stylesheet-delete",
+      "script": "scripts/measurement-stylesheet-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Deletes an orphan group-style mapping from an already-open administration form after a competing stylesheet removal; preserves a peer, checks refusal for referenced styles and replay/GET/HEAD safety.",
+      "fixtures": "Two per-run marker CSS locations and group-style mappings; cleanup removes only marker-owned rows and verifies none remain."
+    },
+    {
       "name": "report-age-sex-visit",
       "script": "scripts/report-age-sex-visit-playwright-checks.js",
       "tiers": [
@@ -4016,7 +4105,9 @@
         "all"
       ],
       "timeoutSec": 420,
-      "env": ["EXCLUSIVE"],
+      "env": [
+        "EXCLUSIVE"
+      ],
       "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding.",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
@@ -7782,6 +7873,25 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "jasper-production",
+      "script": "scripts/jasper-production-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PLAYWRIGHT_ALLOW_JSP_FIXTURE_WRITE",
+        "JASPER_WEBAPP_DIR",
+        "JASPER_CLASS_DIR"
+      ],
+      "notes": "Isolated installed-package check. Creates one owned cold JSP, verifies effective production settings and no on-access recompilation, then removes source/generated files. Caller must restart Tomcat afterward to release the in-memory probe wrapper."
     }
   ]
 }

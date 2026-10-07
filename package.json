@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "test:rx-profile-legend": "node scripts/rx-profile-legend-playwright-checks.js",
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
     "build": "docusaurus build",
@@ -140,6 +141,8 @@
     "test:messenger-group-admin-playwright": "node scripts/messenger-group-admin-playwright-checks.js",
     "test:lab-requisition-links-playwright": "node scripts/lab-requisition-links-playwright-checks.js",
     "test:lab-pdf-footer-playwright": "node scripts/lab-pdf-footer-playwright-checks.js",
+    "test:lab-patient-dob-playwright": "node scripts/lab-patient-dob-playwright-checks.js",
+    "test:chart-print-lab-range-playwright": "node scripts/chart-print-lab-range-playwright-checks.js",
     "test:lab-acknowledge-playwright": "node scripts/lab-acknowledge-playwright-checks.js",
     "test:lab-line-break-rendering-playwright": "node scripts/lab-line-break-rendering-playwright-checks.js",
     "test:prevention-recall-report-playwright": "node scripts/prevention-recall-report-playwright-checks.js",
@@ -168,6 +171,7 @@
     "test:inbox-preview-boundary-resync-playwright": "node scripts/inbox-preview-boundary-resync-playwright-checks.js",
     "test:mutator-get-rejection-live-playwright": "node scripts/mutator-get-rejection-live-playwright-checks.js",
     "test:schedule-date-navigation-playwright": "node scripts/schedule-date-navigation-playwright-checks.js",
+    "test:retired-view-aliases-playwright": "node scripts/retired-view-aliases-playwright-checks.js",
     "test:anonymous-access-refused-playwright": "node scripts/anonymous-access-refused-playwright-checks.js",
     "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
     "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js",
@@ -221,6 +225,8 @@
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
     "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js",
+    "test:pathnet-status": "node scripts/pathnet-status.test.js",
+    "test:pathnet-status-playwright": "node scripts/pathnet-status-playwright-checks.js",
     "test:admin-messages-playwright": "node scripts/admin-messages-playwright-checks.js",
     "test:admin-audit-log-playwright": "node scripts/admin-audit-log-playwright-checks.js",
     "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
@@ -257,6 +263,7 @@
     "test:decision-support-guidelines-playwright": "node scripts/decision-support-guidelines-playwright-checks.js",
     "test:eform-groups-playwright": "node scripts/eform-groups-playwright-checks.js",
     "test:measurement-type-group-admin-playwright": "node scripts/measurement-type-group-admin-playwright-checks.js",
+    "test:measurement-stylesheet-delete-playwright": "node scripts/measurement-stylesheet-delete-playwright-checks.js",
     "test:report-age-sex-visit-playwright": "node scripts/report-age-sex-visit-playwright-checks.js",
     "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js",
     "test:admin-api-keygen-playwright": "node scripts/admin-api-keygen-playwright-checks.js",
@@ -482,7 +489,8 @@
     "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js",
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
-    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js"
+    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
+    "test:jasper-production-playwright": "node scripts/jasper-production-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

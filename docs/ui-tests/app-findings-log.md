@@ -33,12 +33,14 @@ have silently had a feature taken away.
 | # | Route | Evidence | Status |
 |---|---|---|---|
 | 1 | `report/ViewGenerateLetters`, and the letters / envelopes / spreadsheet generation behind it (`report/GenerateLetters`, `GenerateEnvelopes`, `GenerateSpreadsheet`) | `grep -rl` across `src/main/webapp` and `src/main/java` for `.jsp`/`.jspf`/`.js`/`.java`/`.xml` returns **0** references outside the JSP itself and `struts-report.xml`. `report/GenerateLetters.jsp` exists and references `ViewManageLetters`, but nothing links to the page that would start the flow. | `needs-live-check` |
-| 2 | `admin/ViewDbConnection` | **0** references outside its own JSP and the Struts config. Not linked from the Administration panel or the `/administration` shell left nav. | `needs-live-check` |
+| 2 | `admin/ViewDbConnection` | Packaged live audit: empty view, no entry among 120 Administration controls, and no source caller. Removed the route and its dedicated gate; retained `admin/dbconnection.jsp`, a static include used by other JSPs. `retired-view-aliases-playwright-checks.js` asserts GET/HEAD return 404. | `fixed` |
 | 3 | `billing/CA/ON/ImportOnRA` | **0** UI callers. `ImportOnRa2Action` exists and is mapped, but the Billing Reconciliation page reads the MOH files directory instead of posting here, so the route is service-only. Either it is dead, or the reconciliation page is meant to use it. | `needs-live-check` |
-| 4 | `encounter/immunization/config/*` (the immunization **set** configuration pages, e.g. `ViewImmunizationSetDisplay`) | **0** references. `CreateImmunizationSetInit.jsp` posts to `CreateInitImmunization`, but nothing links to `CreateImmunizationSetInit.jsp` itself, so the whole set-configuration area has no way in. | `needs-live-check` |
+| 4 | `encounter/immunization/config/ViewImmunizationSetDisplay` | The original claim that the whole configuration area was unreachable was incorrect. The live template list offers Add New and four display links through `ImmunizationSetDisplay`; Add New opens the name editor. Only the unused `ViewImmunizationSetDisplay` alias returned 500 because it bypassed the action that supplies `setId`. Removed that alias, preserving the working routes and shared display JSP. `retired-view-aliases-playwright-checks.js` checks removal and the retained editor. | `fixed` |
 | 5 | `provider/ViewProviderEncounterHistory` | Referenced only as a `dboperation` dispatch-table entry in `providercontrol.jsp` (`{"encounterhistory", "/provider/ViewProviderEncounterHistory"}`), and `dboperation=encounterhistory` is referenced only by `providerencounterhistory.jsp` itself. Nothing sets it, so the dispatch entry is never taken. | `needs-live-check` |
 
-All five are filed as #3665.
+All five are filed as #3665. Findings 2 and 4 are addressed separately;
+findings 1, 3 and 5 remain open. Later letter-generation repairs in #3997 mean
+the original proposal to remove the entire letters flow needs reassessment.
 
 **Why `needs-live-check` rather than `open`:** all five were verified by source
 search, which cannot see a link built at runtime from a database row or a

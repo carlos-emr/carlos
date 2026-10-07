@@ -611,6 +611,9 @@ public class BillingOnRaService {
                     String demo_name = "";
                     String localServiceDate = "";
                     String demo_hin = r.getHin() != null ? r.getHin() : "";
+                    // New imports retain the trailing version; older rows may contain
+                    // only the 12-character number. Match the patient number in either case.
+                    if (demo_hin.length() > 12) demo_hin = demo_hin.substring(0, 12);
                     demo_hin = demo_hin.trim();
                     String site = "";
                     String famProviderNo = null;
