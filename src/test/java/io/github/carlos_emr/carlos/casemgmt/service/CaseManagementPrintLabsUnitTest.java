@@ -24,11 +24,15 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -108,6 +112,12 @@ class CaseManagementPrintLabsUnitTest extends CarlosUnitTestBase {
     }
 
     private List<String> printLabs(List<LabResultData> stored, boolean useRange, boolean includeLabs) throws Exception {
+        // CommonLabResultData resolves these static dependencies before Mockito
+        // can intercept its constructor.
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        createAndRegisterMock(SecurityInfoManager.class);
         createAndRegisterMock(AllergyDao.class);
         createAndRegisterMock(CaseManagementManager.class);
         createAndRegisterMock(NoteService.class);
