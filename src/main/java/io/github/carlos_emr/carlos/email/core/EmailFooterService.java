@@ -57,12 +57,13 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Saves run at READ COMMITTED, as {@code PatientConsentManagerImpl}'s do: under MariaDB's
  * default REPEATABLE READ with {@code innodb_snapshot_isolation} on (the default from 11.6), a save
  * that read rows another save then changed fails with error 1020 instead of reading the committed
- * rows. Once a clinic footer exists, a clinic save that changes it locks that row and the users'
- * footers it reads, so a second save waits and then sees what the first one committed (the very
- * first clinic save has no row to lock yet). Saves that still collide (a deadlock, or a row the
- * other save removed) fail with a Spring {@code ConcurrencyFailureException}, whether the failure
- * comes at commit or from a flush partway through, and the pages turn it into "please try
- * again".</p>
+ * rows. A clinic save that changes the footer locks the clinic row and the users' footers it
+ * reads, so a second save waits and then sees what the first one committed (the very first clinic
+ * save has no clinic row to lock yet, so two first saves can both go through). Saves that still
+ * collide (a deadlock, or a row the other save removed, including a user's footer removed between
+ * the clinic save's read and its lock) fail with a Spring {@code ConcurrencyFailureException},
+ * whether the failure comes at commit or from a flush partway through, and the pages turn it into
+ * "please try again".</p>
  *
  * @since 2026-10-07
  */
@@ -440,11 +441,11 @@ public class EmailFooterService {
 
     /**
      * Whether the pages' encoder (OWASP {@code forHtmlContent}) shows this code point as a space:
-     * control characters other than tab, line feed and NEL, Unicode non-characters, and lone
+     * control characters other than tab, line breaks and NEL, Unicode non-characters, and lone
      * surrogates (a pair arrives here as one code point).
      */
     private static boolean shownAsSpace(int cp) {
-        if (cp == '\t' || cp == '\n' || cp == 0x85) {
+        if (cp == '\t' || cp == '\n' || cp == '\r' || cp == 0x85) {
             return false;
         }
         return Character.isISOControl(cp)

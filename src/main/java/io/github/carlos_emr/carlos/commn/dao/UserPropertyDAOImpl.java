@@ -53,6 +53,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implements UserPropertyDAO {
 
+    /** JPQL conditions for rows of a user, and for clinic-wide rows (no provider). */
+    private static final String PROVIDER_ROWS = " and p.providerNo is not null and p.providerNo <> ''";
+    private static final String CLINIC_ROWS = " and (p.providerNo is null or p.providerNo = '')";
+
+
     /**
      * Creates a new instance of UserPropertyDAO
      */
@@ -147,9 +152,6 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     public List<UserProperty> lockProviderProperties(String name) {
         return lockEach(rows(name, PROVIDER_ROWS));
     }
-
-    private static final String PROVIDER_ROWS = " and p.providerNo is not null and p.providerNo <> ''";
-    private static final String CLINIC_ROWS = " and (p.providerNo is null or p.providerNo = '')";
 
     private List<UserProperty> rows(String name, String whose) {
         Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1" + whose

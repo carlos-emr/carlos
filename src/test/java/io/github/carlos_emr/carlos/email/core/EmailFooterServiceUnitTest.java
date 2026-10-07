@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PessimisticLockException;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -170,6 +171,8 @@ class EmailFooterServiceUnitTest {
 
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).lockProviderProperties(anyString());
+        // The text the page showed: nothing is read or locked.
+        verify(dao, never()).lockClinicProperties(anyString());
 
         UserPropertyDAO emptyDao = mock(UserPropertyDAO.class);
         assertThat(saveClinic(new EmailFooterService(emptyDao, true), "").changed()).isFalse();
@@ -269,8 +272,10 @@ class EmailFooterServiceUnitTest {
         EmailFooterService.ClinicDefaultSaved saved =
                 service.saveClinicDefault("Old clinic footer\r\n", EmailFooterService.fingerprint("Old clinic footer"));
 
-        // A's unedited save neither undoes B's footer nor replaces users' footers a second time.
+        // A's unedited save neither undoes B's footer nor replaces users' footers a second time,
+        // and takes no lock.
         assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
+        verify(dao, never()).lockClinicProperties(anyString());
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).delete(any(UserProperty.class));
         verify(dao, never()).lockProviderProperties(anyString());
@@ -315,7 +320,7 @@ class EmailFooterServiceUnitTest {
 
         assertThat(saved.changed()).isFalse();
         verify(dao, never()).saveProp(any(UserProperty.class));
-        verify(dao, never()).lockProviderProperties(anyString());
+        verify(dao, never()).lockClinicProperties(anyString());
         // Tabs and line breaks are kept, as the page shows them.
         assertThat(EmailFooterService.fingerprint("a\tb\nc")).isNotEqualTo(EmailFooterService.fingerprint("a b c"));
     }
@@ -345,8 +350,7 @@ class EmailFooterServiceUnitTest {
         }
         assertThat(mismatches).isEmpty();
         for (String lone : new String[] {"a\uD800b", "a\uDC00b", "a\uDBFF\uD83D\uDE00b"}) {
-            assertThat(EmailFooterService.normalise(lone))
-                    .isEqualTo(Encode.forHtmlContent(lone).replace("&#x1f600;", "\uD83D\uDE00"));
+            assertThat(EmailFooterService.normalise(lone)).isEqualTo(Encode.forHtmlContent(lone));
         }
     }
 
@@ -354,9 +358,10 @@ class EmailFooterServiceUnitTest {
     @DisplayName("should report a deadlock partway through a clinic save as a lock failure, so the page asks to retry")
     void shouldThrowCannotAcquireLock_whenClinicSaveDeadlocks() {
         clinicDefault("Old clinic footer");
-        // What Hibernate raises for MariaDB error 1213 during a flush.
-        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenThrow(new LockAcquisitionException(
-                "Deadlock found", new SQLTransactionRollbackException("Deadlock found", "40001", 1213), "select"));
+        // What Hibernate raises through JPA for MariaDB error 1213 during a flush or a lock.
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenThrow(new PessimisticLockException(
+                "Deadlock found", new LockAcquisitionException("Deadlock found",
+                        new SQLTransactionRollbackException("Deadlock found", "40001", 1213), "select")));
 
         assertThatThrownBy(() -> saveClinic(service, "New clinic footer"))
                 .isInstanceOf(CannotAcquireLockException.class);
