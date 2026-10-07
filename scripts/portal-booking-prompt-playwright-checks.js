@@ -170,7 +170,7 @@ async function main() {
     console.log('PASS unconfirmed request during an outage shows both');
     outage = false; const notified = notifications; await page.reload(); await waitReady();
     assert.match(await send.innerText(), /same request/); await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(notifications, notified); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     console.log('PASS unconfirmed request retried once the portal is back, no second notice');
     await page.reload(); await waitReady(); refuseCreate = true; active = false; await send.click();
@@ -189,7 +189,7 @@ async function main() {
       && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, unconfirmed);
     refuseCreate = false; const noticesBefore = notifications; await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, unconfirmed);
     assert.equal(notifications, noticesBefore);
     console.log('PASS a refusal after an unconfirmed attempt (and a reload) keeps the identity; no second notice');
@@ -203,13 +203,13 @@ async function main() {
     assert.doesNotMatch(await status.innerText(), /was not sent/);
     assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, stranded);
     refuseCreate = false; await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, stranded);
     console.log('PASS a stored entry from an interrupted page is kept when its retry is refused');
     await page.goto(url + '/master-late-csrf');
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     console.log('PASS waits for the page CSRF bootstrap on first load');
     await page.goto(url + '/master-reject-csrf');
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
@@ -221,7 +221,7 @@ async function main() {
     await plainPage.locator('[data-role="send"]').waitFor({ state: 'visible' });
     await plainPage.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled);
     await plainPage.locator('[data-role="send"]').click();
-    await plainPage.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await plainPage.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.match(calls.filter(call => call.method === 'create').at(-1).operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     await plain.close();
     console.log('PASS operation IDs without randomUUID (plain HTTP) are random version-4 UUIDs');
