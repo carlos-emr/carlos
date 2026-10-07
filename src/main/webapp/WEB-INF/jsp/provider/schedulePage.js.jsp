@@ -104,12 +104,21 @@ document.addEventListener('DOMContentLoaded', function () {
     var header = document.getElementById('fixedHeaderWrapper');
     if (!header || !window.ResizeObserver) { return; }
     var root = document.documentElement;
+    var schedule = document.getElementById('scheduleTable');
     var last = '';
     document.body.classList.add('sticky-schedule-header');
     function fitHeader() {
         // The window's width without its vertical scrollbar.
         var visible = root.clientWidth;
         root.style.setProperty('--schedule-visible-width', visible + 'px');
+        if (schedule) {
+            // Measured at the window's width: "schedule-overflows" marks a schedule
+            // whose own columns need more room, which then spans the page instead
+            // of holding still (see receptionistapptstyle.css).
+            document.body.classList.remove('schedule-overflows');
+            document.body.classList.toggle('schedule-overflows',
+                    schedule.getBoundingClientRect().width > visible + 0.5);
+        }
         var height = header.offsetHeight;
         // The exact (fractional) width, so the bar's right end lands exactly on the
         // window's edge, with no sliver under page zoom.
