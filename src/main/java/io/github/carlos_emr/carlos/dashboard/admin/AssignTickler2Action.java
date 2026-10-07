@@ -87,6 +87,7 @@ public class AssignTickler2Action extends ActionSupport {
         request.setAttribute("providers", providers);
         request.setAttribute("ticklerCategories", ticklerCategories);
         request.setAttribute("demographics", demographics);
+        request.setAttribute("ticklerSubmission", TicklerSubmission.issue(request.getSession(), demographics));
 
         return SUCCESS;
     }
@@ -95,22 +96,47 @@ public class AssignTickler2Action extends ActionSupport {
     @SuppressWarnings({"unchecked", "unused"})
     public String saveTickler() {
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return null;
+        }
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.WRITE, null)) {
             return "unauthorized";
         }
 
-        TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
-        ticklerHandler.createMasterTickler(request.getParameterMap());
         ObjectNode jsonObject = objectMapper.createObjectNode();
-
-        if (ticklerHandler.addTickler(request.getParameter("demographics"))) {
+        TicklerRequest parsed;
+        String submission;
+        try {
+            parsed = TicklerRequest.parse(request.getParameterMap());
+            submission = TicklerRequest.single(request.getParameterMap(), "ticklerSubmission");
+        } catch (IllegalArgumentException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            jsonObject.put("success", "false");
+            return writeResult(jsonObject);
+        }
+        parsed.tickler().setCreator(loggedInInfo.getLoggedInProviderNo());
+        Boolean saved = TicklerSubmission.execute(request.getSession(false), submission,
+                request.getParameterMap(), () -> {
+                    TicklerHandler ticklerHandler = new TicklerHandler(loggedInInfo, ticklerManager);
+                    ticklerHandler.setMasterTickler(parsed.tickler());
+                    return ticklerHandler.addTickler(parsed.patients());
+                });
+        if (saved == null) response.setStatus(HttpServletResponse.SC_CONFLICT);
+        if (Boolean.TRUE.equals(saved)) {
             jsonObject.put("success", "true");
         } else {
             jsonObject.put("success", "false");
         }
 
+        return writeResult(jsonObject);
+    }
+
+    private String writeResult(ObjectNode jsonObject) {
         try {
             JsonResponseWriter.write(response, jsonObject);
         } catch (IOException e) {

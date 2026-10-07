@@ -137,6 +137,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.List;
@@ -175,6 +176,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     String admProviderNo = null;
     Demographic demographic = null;
     String demographicNo = null;
+    private int importedPatients;
+    private int refusedPatients;
     String patientName = null;
     String programId = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
@@ -236,15 +239,27 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         programId = new EctProgram(request.getSession()).getProgram(admProviderNo);
         matchProviderNames = this.isMatchProviderNames();
 
+        importedPatients = 0;
+        refusedPatients = 0;
         if (uploadValidationError != null) {
-            addActionError(uploadValidationError);
-            return SUCCESS;
+            generateResponse(response, new ArrayList<>(List.of(uploadValidationError)), null);
+            return NONE;
         }
 
         if (!hasUploadedImportFile(importFile, importFileFileName)) {
             return SUCCESS;
         }
 
+        try (CdsImportLock importLock = CdsImportLock.acquire(SpringUtils.getBean(DataSource.class))) {
+            if (importLock == null) {
+                generateResponse(response, new ArrayList<>(List.of("Another CDS import is still running. Please retry this file after it finishes.")), null);
+                return NONE;
+            }
+            return importUploadedFile(loggedInInfo);
+        }
+    }
+
+    private String importUploadedFile(LoggedInInfo loggedInInfo) throws Exception {
         ArrayList<String> warnings = new ArrayList<>();
         ArrayList<String[]> logs = new ArrayList<>();
         List<Path> validXmlFiles = new ArrayList<>();
@@ -375,7 +390,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         request.setAttribute("importlog", importLog.getPath());
         resetProviderBean(request);
         generateResponse(response, warnings, importLog.getPath());
-        return SUCCESS;
+        return NONE;
     }
 
     private static final ObjectMapper jsonMapper = new ObjectMapper();
@@ -388,6 +403,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         try {
             json.set("warnings", jsonMapper.valueToTree(warnings));
             json.put("importLog", importLog);
+            json.put("importedPatients", importedPatients);
+            json.put("refusedPatients", refusedPatients);
             response.getWriter().write(json.toString());
         } catch (IOException e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
@@ -520,8 +537,12 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
      * Process a single patient XML / CDS / CMS file import and add to OSCAR's database.
      */
     private void processXmlFile(LoggedInInfo loggedInInfo, Path xmlFile, Path importRoot, ArrayList<String> warnings, ArrayList<String[]> logs, HttpServletRequest request, int timeshiftInDays, List<Provider> students, int courseId, List<Path> validXmlFiles) throws Exception {
+        int importedBefore = importedPatients;
         String[] logResult = importXML(loggedInInfo, xmlFile.toString(), importRoot, warnings, request, timeshiftInDays, students, courseId, false);
-        validXmlFiles.add(xmlFile);
+        // Refused patients must not receive a second pass that writes contacts.
+        if (importedPatients > importedBefore) {
+            validXmlFiles.add(xmlFile);
+        }
         logs.add(logResult);
     }
 
@@ -605,6 +626,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             Integer pid = programManager.getProgramIdByProgramName("program" + student.getProviderNo());
             if (pid == null) {
                 logger.warn("student's program not found");
+                refusedPatients++;
+                warnings.add("Patient not imported: the target student's program was not found.");
                 continue;
             }
             Program p = programManager.getProgram(pid);
@@ -835,6 +858,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     private String[] importXML(LoggedInInfo loggedInInfo, String xmlFile, Path importRoot, ArrayList<String> warnings, HttpServletRequest request, int timeShiftInDays, Provider student, Program admitTo, int courseId, boolean cleanFile) throws SQLException, Exception {
+        // A batch reuses this action; a refused record must not inherit the prior patient's ID.
+        demographicNo = null;
+        demographic = null;
         ArrayList<String> err_demo = new ArrayList<String>(); //errors: duplicate demographics
         ArrayList<String> err_data = new ArrayList<String>(); //errors: discrete data
         ArrayList<String> err_summ = new ArrayList<String>(); //errors: summary
@@ -967,6 +993,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         if (demodup.size() > 0) {
             err_data.clear();
             err_demo.add("Error! Patient " + patientName + " already exist! Not imported.");
+            refusedPatients++;
             return packMsgs(err_demo, err_data, err_summ, err_othe, err_note, warnings);
         }
 
@@ -1300,6 +1327,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 */
         demoRes = dd.addDemographic(loggedInInfo, title, lastName, firstName, middleNames, address, city, province, postalCode, residentialAddress, residentialCity, residentialProvince, residentialPostalCode, homePhone, workPhone, year_of_birth, month_of_birth, date_of_birth, hin, versionCode, rosterStatus, rosterDate, termDate, termReason, rosterEnrolledTo, patient_status, psDate, ""/*date_joined*/, chart_no, official_lang, spoken_lang, primaryPhysician, sex, ""/*end_date*/, ""/*eff_date*/, ""/*pcn_indicator*/, hc_type, hc_renew_date, ""/*family_doctor*/, email, ""/*alias*/, ""/*previousAddress*/, ""/*children*/, ""/*sourceOfIncome*/, ""/*citizenship*/, sin);
         demographicNo = demoRes.getId();
+        if (StringUtils.filled(demographicNo)) {
+            importedPatients++;
+        } else {
+            refusedPatients++;
+        }
         /*        }
 
          */

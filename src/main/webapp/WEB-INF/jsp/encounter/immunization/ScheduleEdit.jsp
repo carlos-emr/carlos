@@ -54,7 +54,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
-<link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/encounterStyles.css">
+<link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

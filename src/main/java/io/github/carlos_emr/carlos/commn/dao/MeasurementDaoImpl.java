@@ -759,7 +759,7 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
-    public List<Object[]> findByCreateDate(Date from, Date to) {
+    public List<Integer> findByCreateDate(Date from, Date to) {
         Query query = createQuery("SELECT DISTINCT m.demographicId", "m",
                 "m.createDate >= ?1 AND m.createDate <= ?2");
         query.setParameter(1, from);

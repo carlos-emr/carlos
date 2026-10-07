@@ -5,8 +5,8 @@
 // the owned CDM group ▸ Continue to "patients who met guideline", "patients in abnormal range"
 // and "frequency of relevant tests" ▸ Generate Report. NO MENU OPENS THIS ENTRY PAGE (finding:
 // the plan's "Query By Example ▸ CDM report" link does not exist), so this check alone opens
-// its route by address and drives every form from there; the gate routes View*CDMReport are
-// reached only as the actions' validation redirect.
+// its route by address and drives every form from there. Invalid submissions return the
+// same authorized form with visible validation feedback.
 // Asserts each report line for the owned measurement type equals the counts SQL gives for the
 // same window (two owned patients, latest reading semantics, date-window exclusion), and that
 // the clinic-wide "patients seen" figure equals SQL. cdm-measurement-report already covers the
@@ -15,6 +15,7 @@
 // a second marker patient, five readings; all deleted and checked gone in cleanup.
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 
 const SETUP_ROUTE = '/oscarReport/oscarMeasurements/SetupSelectCDMReport';
 const INSTRUCTION = 'fixture reading';
@@ -129,6 +130,13 @@ async function workflow(s) {
   await s.step('"Patients in abnormal range" 3 to 5 counts only the owned patient whose latest reading is 4 (1 of 2)', async () => {
     const page = await openScreen(s, group, 'patientInAbnormalRange');
     const row = await rowOf(page, 'measurementTypeC', type);
+    for (const [field, label] of [['upperBound', 'Upper Bound'], ['lowerBound', 'Lower Bound']]) {
+      h.assert(await page.getByRole('columnheader', {name: label, exact: true}).count() === 1,
+        `The ${label} heading was replaced by a validation-message template`);
+      h.assert((await page.locator(`input[name="${field}"]`).nth(row).getAttribute('aria-label'))
+        === `${display} - ${label}`, `The ${label} accessible name contains an unfilled argument`);
+    }
+
     await page.locator('input[name="patientSeenCheckbox"]').uncheck();
     await page.locator(`input[name="abnormalCheckbox"][value="${row}"]`).check();
     await page.locator('input[name="lowerBound"]').nth(row).fill('3');
@@ -139,17 +147,37 @@ async function workflow(s) {
     await page.close();
   });
 
-  // The three report actions answer an invalid date with a redirect to their View* gate route.
+  // Invalid dates return the same authorized form with escaped validation feedback.
   const invalidDate = [
     ['patientWhoMetGuideline', 'measurementType', 'guidelineCheckbox', 'startDateB', 'InitializePatientsMetGuidelineCDMReport'],
     ['patientInAbnormalRange', 'measurementTypeC', 'abnormalCheckbox', 'startDateC', 'InitializePatientsInAbnormalRangeCDMReport'],
     ['freqencyOfReleventTests', 'measurementTypeD', 'frequencyCheckbox', 'startDateD', 'InitializeFrequencyOfRelevantTestsCDMReport'],
   ];
-  const lostMessages = [];
-  await s.step('an invalid start date returns each CDM form through its View gate with the owned row and no report', async () => {
+  await s.step('an invalid start date returns each CDM form with its error, owned row, and no report', async () => {
     for (const [forward, prefix, checkbox, dateField, route] of invalidDate) {
       const page = await openScreen(s, group, forward);
       const row = await rowOf(page, prefix, type);
+      for (const field of ['startDateA', `${dateField}[${row}]`, `${dateField.replace('start', 'end')}[${row}]`]) {
+        const calendar = page.locator(`button[onclick*="type=${field}&"]`);
+        const label = await calendar.getAttribute('aria-label');
+        h.assert(label.trim().length > 0, `${route} has an unnamed calendar control`);
+        if (field !== 'startDateA') {
+          h.assert(label.includes(display), 'The per-measurement calendar label omits its measurement');
+          const input = page.locator(`input[name="${field.split('[')[0]}"]`).nth(row);
+          h.assert((await input.getAttribute('aria-label')) === label,
+            'The measurement date input and calendar have different accessible labels');
+        }
+        await calendar.focus();
+        const [popup] = await Promise.all([page.waitForEvent('popup'), calendar.press('Enter')]);
+        await popup.waitForURL(url => url.pathname.endsWith('/oscarReport/ViewOscarReportCalendarPopup'));
+        await popup.locator('span.title').waitFor({state: 'visible'});
+        await h.assertNotErrorPage(popup, `${route} calendar`);
+        const params = new URL(popup.url()).searchParams;
+        h.assert(params.get('type') === field && /^[0-9]{4}$/.test(params.get('year'))
+          && Number(params.get('month')) >= 1 && Number(params.get('month')) <= 12,
+          `${route} keyboard calendar opened the wrong date field or an invalid year/month`);
+        await popup.close();
+      }
       await page.locator(`input[name="${checkbox}"][value="${row}"]`).check();
       if (forward === 'patientWhoMetGuideline') await page.locator('input[name="guidelineB"]').nth(row).fill('6');
       if (forward === 'patientInAbnormalRange') {
@@ -159,22 +187,47 @@ async function workflow(s) {
       if (forward === 'freqencyOfReleventTests') {
         for (const name of ['exactly', 'moreThan', 'lessThan']) await page.locator(`input[name="${name}"]`).nth(row).fill('1');
       }
+      await page.locator('input[name="patientSeenCheckbox"]').uncheck();
+      const instructionPrefix = prefix.replace('measurementType', 'mInstrcsCheckbox');
+      const instruction = page.locator(`input[type="checkbox"][name^="value(${instructionPrefix}${row}"]`).first();
+      const instructionName = await instruction.getAttribute('name');
+      await instruction.uncheck();
+      if (forward === 'patientWhoMetGuideline') {
+        await page.locator(`input[name="value(aboveBelow${row})"][value="<"]`).check();
+      }
       await page.locator(`input[name="${dateField}"]`).nth(row).fill('not-a-date');
-      await Promise.all([
-        page.waitForURL(url => url.pathname.endsWith(`/oscarReport/oscarMeasurements/View${route}`)),
+      const [validationResponse] = await Promise.all([
+        page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/oscarReport/oscarMeasurements/${route}`) && response.status() === 200),
         page.locator('input[type="submit"][name="submitBtn"]').click(),
       ]);
-      await h.assertNotErrorPage(page, `CDM View${route}`);
-      h.assert(await rowOf(page, prefix, type) === row, `View${route} lost the owned measurement row`);
+      // Response headers arrive before the navigation's HTML body is parsed.
+      // Wait for the returned validation form before inspecting its contents.
+      await validationResponse.finished();
+      await page.locator('.action-errors[role="alert"]').waitFor({state: 'visible'});
+      await h.assertNotErrorPage(page, `CDM ${route}`);
+      h.assert(await rowOf(page, prefix, type) === row, `${route} lost the owned measurement row`);
       const text = await page.locator('body').innerText();
-      h.assert(!text.includes(line), `View${route} produced a report for an invalid date`);
-      if (!text.includes(`The date of ${type} is invalid`)) lostMessages.push(`View${route} does not say the date is invalid`);
+      h.assert(!text.includes(line), `${route} produced a report for an invalid date`);
+      h.assert(await page.locator('.action-errors[role="alert"]').innerText() === `The date of ${type} is invalid`, `${route} does not show the invalid-date error`);
+      h.assert(await page.locator(`input[name="${dateField}"]`).nth(row).inputValue() === 'not-a-date',
+        `${route} replaced the submitted invalid date`);
+      h.assert(await page.locator(`input[name="${checkbox}"][value="${row}"]`).isChecked(), `${route} cleared the selected report row`);
+      h.assert(!(await page.locator('input[name="patientSeenCheckbox"]').isChecked()), `${route} reselected the patient count`);
+      h.assert(!(await page.locator(`input[name="${instructionName}"]`).isChecked()), `${route} reselected an omitted instruction`);
+      const numbers = forward === 'patientWhoMetGuideline' ? [['guidelineB', '6']]
+        : forward === 'patientInAbnormalRange' ? [['lowerBound', '3'], ['upperBound', '5']]
+          : [['exactly', '1'], ['moreThan', '1'], ['lessThan', '1']];
+      for (const [name, value] of numbers) {
+        h.assert(await page.locator(`input[name="${name}"]`).nth(row).inputValue() === value, `${route} lost ${name}`);
+      }
+      if (forward === 'patientWhoMetGuideline') {
+        h.assert(await page.locator(`input[name="value(aboveBelow${row})"][value="<"]`).isChecked(), `${route} lost the comparison`);
+      }
       await page.close();
     }
   });
 
-  // Known-defect area last: every provable step above has already passed.
-  await s.step('validation messages survive the redirect; "frequency of relevant tests" and "patients seen" equal SQL', async () => {
+  await s.step('"frequency of relevant tests" and "patients seen" equal SQL', async () => {
     const page = await openScreen(s, group, 'freqencyOfReleventTests');
     const row = await rowOf(page, 'measurementTypeD', type);
     const [start, end] = await Promise.all(['startDateA', 'endDateA'].map(name => page.locator(`input[name="${name}"]`).inputValue()));
@@ -187,7 +240,7 @@ async function workflow(s) {
     const seenBefore = Number(sql.value(seenSql));
     const text = await generate(page, 'InitializeFrequencyOfRelevantTestsCDMReport');
     const seenAfter = Number(sql.value(seenSql));
-    const defects = [...lostMessages];
+    const defects = [];
     // Other workflows may add or remove readings while the report runs: bracket the SQL figure.
     const seen = /There are (\d+) patients seen from/.exec(text);
     const inBracket = n => n >= Math.min(seenBefore, seenAfter) && n <= Math.max(seenBefore, seenAfter);
@@ -212,10 +265,78 @@ async function workflow(s) {
       if (more[0] !== 2) defects.push(`more than 0 counted ${more[0]} patients; SQL gives 2`);
       if (less[0] !== exact[1] - 2) defects.push(`less than 1 counted ${less[0]} of ${exact[1]} patients seen; expected ${exact[1] - 2}`);
       if (!inBracket(exact[1])) defects.push(`the frequency denominator is ${exact[1]}; SQL counts ${seenBefore}..${seenAfter}`);
+      if (!inBracket(more[1])) defects.push(`the more-than denominator is ${more[1]}; SQL counts ${seenBefore}..${seenAfter}`);
+      if (!inBracket(less[1])) defects.push(`the less-than denominator is ${less[1]}; SQL counts ${seenBefore}..${seenAfter}`);
     }
     h.assert(!defects.length, `CDM report defects: ${defects.join('; ')}`);
     await page.close();
   });
+  await s.step('A frequency conversion failure preserves authorized access and refuses an unprivileged user', async () => {
+    const route = '/oscarReport/oscarMeasurements/InitializeFrequencyOfRelevantTestsCDMReport';
+    const authorized = await openScreen(s, group, 'freqencyOfReleventTests');
+    const authorizedToken = await authorized.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    for (const field of ['exactly', 'moreThan', 'lessThan']) {
+      const allowed = await s.context.request.post(h.appUrl(s.config.baseUrl, route), {
+        form: {'CSRF-TOKEN': authorizedToken, [field]: 'not-an-integer'}, maxRedirects: 0,
+      });
+      const body = await allowed.text();
+      h.assert(allowed.status() === 200 && body.includes('name="submitBtn"'),
+        `An authorized ${field} conversion failure did not return the frequency INPUT form`);
+      const errorText = await authorized.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
+        .querySelector('.action-errors[role="alert"]')?.textContent, body);
+      h.assert(errorText && errorText.includes(field),
+        `The ${field} conversion failure returned no visible field error`);
+      const submitted = await authorized.evaluate(({html, field}) => new DOMParser().parseFromString(html, 'text/html')
+        .querySelector(`input[name="${field}"]`)?.value, {html: body, field});
+      h.assert(submitted === 'not-an-integer', `The ${field} conversion failure discarded the invalid value`);
+      await allowed.dispose();
+    }
+    await authorized.close();
+    const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
+    const role = `${marker}-nr`; // secObjPrivilege.roleUserGroup is limited to 30 characters.
+    let roleNo;
+    let roleNameWasAbsent = false;
+    s.cleanup(() => {
+      fixture.cleanup();
+      if (/^[1-9]\d*$/.test(roleNo || '')) {
+        sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg')`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'An owned role grant remains');
+      }
+      // A successful INSERT can leave its owned row even if retrieving its ID fails.
+      if (roleNameWasAbsent) {
+        sql.execute(`DELETE FROM secRole WHERE role_name=${q(role)}`);
+        h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned no-report role remains');
+      }
+    });
+    h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'The owned role already exists');
+    roleNameWasAbsent = true;
+    roleNo = sql.value(`INSERT INTO secRole (role_name, description) VALUES (${q(role)}, 'Owned report denial fixture'); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(roleNo), 'No role ID was returned');
+    sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
+      VALUES (${q(role)},'_appointment','r',0,${q(provider)}), (${q(role)},'_msg','r',0,${q(provider)});
+      `);
+    fixture.create({roleNames: [role], expiresTomorrow: true});
+    h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(fixture.providerNo)} AND role_name<>${q(role)}`) === '0',
+      'The denial fixture inherited another role');
+    h.assert(sql.value(`SELECT COUNT(*) FROM security WHERE security_no=${fixture.securityNo} AND b_ExpireSet=1
+      AND date_ExpireDate=DATE_ADD(CURDATE(), INTERVAL 1 DAY)`) === '1', 'The denial login has no enforced expiry');
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}
+      AND objectName='_appointment' AND privilege='r'`) === '1', 'The schedule-only grant was not stored exactly');
+    h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName='_report'`) === '0',
+      'The denial fixture unexpectedly has report access');
+    const context = await h.newContext(s.context.browser(), s.config);
+    s.cleanup(() => context.close());
+    const schedule = await h.login(context, {...s.config, testUser: fixture.username}, s.recorder, {label: 'cdm-no-report'});
+    const token = await schedule.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const response = await context.request.post(h.appUrl(s.config.baseUrl, route), {
+      form: {'CSRF-TOKEN': token, lessThan: 'not-an-integer'}, maxRedirects: 0,
+    });
+    h.assert(response.status() === 403, `Frequency INPUT without report permission answered HTTP ${response.status()}`);
+    h.assert(!(await response.text()).includes('name="submitBtn"'), 'An unprivileged user received the report form');
+    await response.dispose();
+    await context.close();
+  });
+
 }
 
 if (require.main === module) runWorkflow('report-cdm', workflow, { openPatient: true, openMaster: false });

@@ -37,6 +37,9 @@ import java.util.List;
 import java.util.Map;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.springframework.stereotype.Repository;
@@ -54,6 +57,30 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         super(UserProperty.class);
     }
 
+
+    /**
+     * Serializes preference creation against the existing owner row, including when there is
+     * no property row to lock yet. Deleting all matching rows also repairs historical duplicates.
+     * The owner lock and replacement remain in one transaction, so Default cannot leave a stale copy.
+     */
+    @Override
+    @Transactional
+    public void replaceTicklerTaskAssignee(String providerNo, String value) {
+        if (providerNo == null || entityManager.find(Provider.class, providerNo, LockModeType.PESSIMISTIC_WRITE) == null) {
+            throw new IllegalArgumentException("Unknown tickler preference owner");
+        }
+        entityManager.createQuery("delete from UserProperty p where p.providerNo = :owner and p.name = :name")
+                .setParameter("owner", providerNo)
+                .setParameter("name", UserProperty.TICKLER_TASK_ASSIGNEE)
+                .executeUpdate();
+        if (value != null) {
+            UserProperty property = new UserProperty();
+            property.setProviderNo(providerNo);
+            property.setName(UserProperty.TICKLER_TASK_ASSIGNEE);
+            property.setValue(value);
+            entityManager.persist(property);
+        }
+    }
 
     @Override
     public void delete(UserProperty prop) {

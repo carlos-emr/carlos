@@ -33,6 +33,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -363,10 +366,9 @@ public class DxresearchReport2Action extends ActionSupport {
     public String addSearchCode() {
 
         String quickListName = this.getQuickListName();
-        List<dxCodeSearchBean> codeSearch = dxresearchdao.getQuickListItems(quickListName);
+        List<dxCodeSearchBean> codeSearch = new ArrayList<>(dxresearchdao.getQuickListItems(quickListName));
         String codeSingle = request.getParameter("codesearch");
         String codeSystem = request.getParameter("codesystem");
-        String action = request.getParameter("action");
         dxCodeSearchBean newAddition = null;
 
         // Validate diagnostic code format (alphanumeric with dots, 1-10 chars)
@@ -381,7 +383,7 @@ public class DxresearchReport2Action extends ActionSupport {
         if (codeSystem != null && !codeSystem.isEmpty()) {
             // Whitelist codeSystem against the known coding-system enum to prevent trust
             // boundary violation (CWE-501) before storing request data in session.
-            String normalizedCodeSystem = codeSystem.toLowerCase().trim();
+            String normalizedCodeSystem = codeSystem.toLowerCase(Locale.ROOT).trim();
             try {
                 // Use valueOf() as an allowlist check; the result is intentionally discarded —
                 // only validation is needed here, and getCodeDescription() accepts the String form.
@@ -395,7 +397,7 @@ public class DxresearchReport2Action extends ActionSupport {
 
         if (codeDescription != null && !codeDescription.isEmpty()) {
             newAddition = new dxCodeSearchBean();
-            newAddition.setType(codeSystem);
+            newAddition.setType(codeSystem.toLowerCase(Locale.ROOT).trim());
             newAddition.setDxSearchCode(codeSingle);
             newAddition.setDescription(codeDescription);
         }
@@ -407,6 +409,14 @@ public class DxresearchReport2Action extends ActionSupport {
         if (newAddition != null) {
             codeSearch.add(newAddition);
         }
+
+        // Applying a list repeatedly, or combining it with an individual code,
+        // must not duplicate report criteria. The coding system is part of the key.
+        Map<SearchCodeKey, dxCodeSearchBean> uniqueCodes = new LinkedHashMap<>();
+        for (dxCodeSearchBean code : codeSearch) {
+            uniqueCodes.putIfAbsent(new SearchCodeKey(code.getType(), code.getDxSearchCode()), code);
+        }
+        codeSearch = new ArrayList<>(uniqueCodes.values());
 
         request.getSession().setAttribute("codeSearch", codeSearch); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- codeSystem allowlisted via enum valueOf(); codeSingle validated by CODE_PATTERN; codeDescription from DAO lookup
         return SUCCESS;
@@ -424,6 +434,13 @@ public class DxresearchReport2Action extends ActionSupport {
         request.getSession().setAttribute("codeSearch", existcodeSearch); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- cleared list from existing session attribute, no new user input
 
         return SUCCESS;
+    }
+
+    private record SearchCodeKey(String codingSystem, String code) {
+        private SearchCodeKey {
+            // Code lookup is case-insensitive; preserve the original bean for display.
+            code = code == null ? null : code.toUpperCase(Locale.ROOT);
+        }
     }
 
     private String quickListName;

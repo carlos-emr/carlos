@@ -3580,11 +3580,9 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [
-        "TICKLER_PREFS_DIRECT"
-      ],
+      "env": [],
       "fixtures": "property tickler_task_assignee snapshotted and restored; one owned tickler created to prove the default assignee.",
-      "notes": "Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it)."
+      "notes": "Checks actual Preferences navigation, saved/default tickler assignees, reopen persistence, and refused GET mutations."
     },
     {
       "name": "my-groups",
@@ -4018,8 +4016,8 @@
         "all"
       ],
       "timeoutSec": 420,
-      "env": [],
-      "notes": "Fails at its last step on 2026.08: TypeError on Assign Role/Rights to Object, the Administration link 403s for plain doctors, and GET FixRolesOnNotes reaches the bulk update (500 on the probe's invalid role).",
+      "env": ["EXCLUSIVE"],
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding.",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
     {
@@ -4146,7 +4144,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils).",
+      "notes": "Imports a schema-valid owned CDS patient, verifies demographic and clinical rows plus the event-log download, then proves a refused duplicate reports zero imported and one refused. Mixed and all-refused ZIP imports must show exact patient counts without duplicating clinical records. Empty submissions still raise the client alert; all imported fixture rows are removed.",
       "fixtures": "The imported patient (marker surname) and every child row the import wrote (drugs, allergies, casemgmt_note/link, partial_date, admission) are deleted by demographic_no. The CDS XML is built per run and validated with xmllint against the shipped schema; names the test login's own provider so no provider rows are created."
     },
     {
@@ -4161,7 +4159,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link, and the Ontario Billing Settings Save (no options shown) writes NULL rows for the BC-only property keys and invoice SystemPreferences. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
+      "notes": "Ontario Billing Settings has no Save control; explicit POSTs preserve BC-only property and invoice preference rows byte-exact. Administration Help uses the saved website, preserves literal markup in its URL, and refuses executable or malformed URLs. Website, Details, day-sheet and shell paths remain covered. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -4334,7 +4332,7 @@
         "DOCUMENT_DIR",
         "INCOMINGDOCUMENT_DIR"
       ],
-      "notes": "Fails on 2026.08: the Note Browser page has a JavaScript syntax error (identifiers split across lines) and its controls POST to a GET-only gate; note edits also overwrite rather than add revisions.",
+      "notes": "Verifies note editing, document delete/restore/refile, and printed latest-note content. Stored text history must match the database in newest-first order and render literal markup as text.",
       "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
