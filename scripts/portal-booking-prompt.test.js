@@ -5,8 +5,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.join(__dirname, '..');
 const fragment = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/portalBookingPrompt.jsp'), 'utf8');
-// French uses the same word as English for this one.
-const SAME_AS_ENGLISH = new Set(['fr:portal.booking.routine']);
 test('every booking label exists, with its own text, in all five catalogs', () => {
   const locales = ['en', 'es', 'fr', 'pl', 'pt_BR'];
   const bundles = locales.map(locale => {
@@ -22,7 +20,7 @@ test('every booking label exists, with its own text, in all five catalogs', () =
     // Each catalog carries its own translated text; none may be missing, blank or still English.
     bundles.forEach((bundle, index) => {
       assert.ok(bundle[key] && bundle[key].trim(), key);
-      if (index > 0 && !SAME_AS_ENGLISH.has(`${locales[index]}:${key}`)) {
+      if (index > 0) {
         assert.notEqual(bundle[key], bundles[0][key], `${locales[index]} ${key} is still the English text`);
       }
     });
