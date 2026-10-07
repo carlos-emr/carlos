@@ -65,10 +65,15 @@ class ManageEmailsStatusLabelJspRegressionTest {
     void shouldLabelSuccessAsAcceptedByMailServer_inStatusResultsTag() throws IOException {
         String jsp = Files.readString(EMAIL_STATUS_RESULTS_JSP, StandardCharsets.UTF_8);
 
+        // One block: the default label, then the override ONLY inside the SUCCESS test. Separate
+        // contains() checks would still pass if the message moved outside the c:if and every row
+        // read "Accepted".
+        assertThat(jsp).containsPattern(java.util.regex.Pattern.compile(
+                "<c:set var=\"emailStatusLabel\" value=\"\\$\\{emailStatusResult\\.status}\"/>\\s*"
+                        + "<c:if test=\"\\$\\{emailStatusResult\\.status eq 'SUCCESS'}\">\\s*"
+                        + "<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"emailStatusLabel\"/>\\s*"
+                        + "</c:if>"));
         assertThat(jsp)
-                .contains("<c:set var=\"emailStatusLabel\" value=\"${emailStatusResult.status}\"/>")
-                .contains("<c:if test=\"${emailStatusResult.status eq 'SUCCESS'}\">")
-                .contains("<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"emailStatusLabel\"/>")
                 .contains("${carlos:forHtml(emailStatusLabel)}")
                 .contains("status-tag-${fn:toLowerCase(emailStatusResult.status)}")
                 .doesNotContain("${carlos:forHtml(emailStatusResult.status)}");
@@ -79,11 +84,14 @@ class ManageEmailsStatusLabelJspRegressionTest {
     void shouldLabelSuccessAsAcceptedByMailServer_inStatusFilterOptions() throws IOException {
         String jsp = Files.readString(MANAGE_EMAILS_JSP, StandardCharsets.UTF_8);
 
+        assertThat(jsp).containsPattern(java.util.regex.Pattern.compile(
+                "<c:set var=\"statusLabel\" value=\"\\$\\{status}\"/>\\s*"
+                        + "<c:if test=\"\\$\\{status eq 'SUCCESS'}\">\\s*"
+                        + "<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"statusLabel\"/>\\s*"
+                        + "</c:if>\\s*"
+                        + "<option value=\"\\$\\{ status }\">\\s*"
+                        + "\\$\\{carlos:forHtml\\(statusLabel\\)}\\s*</option>"));
         assertThat(jsp)
-                .contains("<option value=\"${ status }\">")
-                .contains("<c:set var=\"statusLabel\" value=\"${status}\"/>")
-                .contains("<c:if test=\"${status eq 'SUCCESS'}\">")
-                .contains("<fmt:message key=\"" + ACCEPTED_LABEL_KEY + "\" var=\"statusLabel\"/>")
                 .contains("${carlos:forHtml(statusLabel)}")
                 .contains(".status-tag-success")
                 .doesNotContain("${carlos:forHtml(status)}");
@@ -92,13 +100,19 @@ class ManageEmailsStatusLabelJspRegressionTest {
     @Test
     @DisplayName("accepted-by-mail-server label should resolve in every shipped locale")
     void shouldDefineAcceptedByMailServerLabel_inEveryLocale() throws IOException {
+        String english = loadBundle("en").getProperty(ACCEPTED_LABEL_KEY);
+        assertThat(english).isEqualTo("Accepted by mail server");
         for (String locale : LOCALES) {
-            assertThat(loadBundle(locale).getProperty(ACCEPTED_LABEL_KEY))
+            String label = loadBundle(locale).getProperty(ACCEPTED_LABEL_KEY);
+            assertThat(label)
                     .as("oscarResources_%s.properties should define %s", locale, ACCEPTED_LABEL_KEY)
                     .isNotBlank();
+            if (!"en".equals(locale)) {
+                // Translated, not an English placeholder (the bundles' translation rule).
+                assertThat(label).as("oscarResources_%s.properties translates %s", locale, ACCEPTED_LABEL_KEY)
+                        .isNotEqualTo(english);
+            }
         }
-        assertThat(loadBundle("en").getProperty(ACCEPTED_LABEL_KEY))
-                .isEqualTo("Accepted by mail server");
     }
 
     @Test

@@ -760,7 +760,7 @@ public class EmailManager {
      * overwritten.
      *
      * Common status values:
-     * - SUCCESS: Email sent successfully
+     * - SUCCESS: the transport accepted the email (not proof of delivery; see issue #3834)
      * - FAILED: Email transmission failed
      *
      * @param loggedInInfo LoggedInInfo the logged-in user session information
