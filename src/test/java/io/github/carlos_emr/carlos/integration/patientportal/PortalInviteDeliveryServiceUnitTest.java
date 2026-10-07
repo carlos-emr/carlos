@@ -1750,8 +1750,8 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should close an unlisted attempt once its stored expiry is 30 days and an hour past")
         void shouldClose_whenAnUnlistedInvitationReachesItsStoredExpiryPlusPruning() {
-            // Activated seven days before its stored expiry, as the portal sets it.
-            PatientPortalInviteDelivery row = stuckFor(prunedAfter);
+            // Last changed long before, so the stored expiry alone is the later time, exactly on the boundary.
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
             row.setExpiresAt(Date.from(NOW.minus(PortalInviteDeliveryService.PORTAL_PRUNE_WINDOW)
                     .minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN)));
             List<PatientPortalInviteDto> listed = List.of(invite(INVITE + 1, "pending"));
@@ -1765,7 +1765,7 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should refuse an unlisted attempt one second before its stored expiry plus the wait")
         void shouldRefuse_whenAnUnlistedInvitationIsYoungerThanItsStoredExpiryAndPruning() {
-            // Old by its last change, but the stored expiry comes first.
+            // Old by its last change: the stored expiry is the later of the two, so it decides.
             PatientPortalInviteDelivery row = stuckFor(prunedAfter.plusDays(5));
             row.setExpiresAt(Date.from(NOW.minus(PortalInviteDeliveryService.PORTAL_PRUNE_WINDOW)
                     .minus(PortalInviteDeliveryService.CODE_EXPIRY_MARGIN).plusSeconds(1)));
@@ -1833,6 +1833,44 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
                 PatientPortalInviteDelivery row = storedRow(state, prunedAfter.plusDays(5));
                 assertThat(service.isCodeDead(row, revoked)).as(state.name()).isEqualTo(state == State.COMMITTED);
             }
+        }
+
+        @Test
+        @DisplayName("should wait from CARLOS's own clock when the portal's stored expiry is far behind it")
+        void shouldRefuse_whenTheStoredExpiryIsFarBehindTheAttemptsOwnLastChange() {
+            // Activated a day ago on CARLOS's clock, but the portal stored an expiry 60 days in the past (its
+            // clock far behind): the later of the two decides, so the attempt stays open.
+            PatientPortalInviteDelivery row = stuckFor(Duration.ofDays(1));
+            row.setExpiresAt(Date.from(NOW.minus(Duration.ofDays(60))));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of());
+
+            assertThat(service.isCodeDead(row, List.of())).isFalse();
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
+        }
+
+        @Test
+        @DisplayName("should close once the later of the two times is past the prune window and the margin")
+        void shouldClose_whenTheLaterOfStoredExpiryAndLastChangeIsPastPruning() {
+            // Last change 37 days and an hour ago (so plus the life, 30 days and an hour ago); stored expiry older.
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter);
+            row.setExpiresAt(Date.from(NOW.minus(Duration.ofDays(45))));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of());
+
+            assertThat(service.isCodeDead(row, List.of())).isTrue();
+            assertThat(recordNotArrived(row).getState()).isEqualTo(State.NOT_ARRIVED);
+        }
+
+        @Test
+        @DisplayName("should refuse one second before the last change plus the life is past the prune window")
+        void shouldRefuse_whenTheLastChangePlusTheLifeIsNotYetPastPruning() {
+            // The stored expiry is long past, but the last change plus seven days is not yet 30 days and an hour
+            // past: the seven days count, not the raw last change.
+            PatientPortalInviteDelivery row = stuckFor(prunedAfter.minusSeconds(1));
+            row.setExpiresAt(Date.from(NOW.minus(Duration.ofDays(45))));
+            when(portal.listInvites(anyInt(), any())).thenReturn(List.of());
+
+            assertThat(service.isCodeDead(row, List.of())).isFalse();
+            assertRefused(row, Reason.INVITE_STILL_LIVE);
         }
 
         @Test
