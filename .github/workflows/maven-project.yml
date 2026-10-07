@@ -348,6 +348,14 @@ jobs:
             make install --run-tests
           "
 
+      - name: Verify demographic dates in non-UTC JVMs
+        run: |
+          for timezone in America/Toronto Asia/Tokyo; do
+            docker exec -e JAVA_TOOL_OPTIONS="-Duser.timezone=$timezone" carlos-tomcat-dev \
+              mvn --batch-mode test -Dtest.forkCount=1 \
+              -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest
+          done
+
   encode-lint:
     # Encoder null-safety lint — catches two silent-failure classes:
     #   A) <e:forXxx> tags used without the owasp.encoder.jakarta taglib
