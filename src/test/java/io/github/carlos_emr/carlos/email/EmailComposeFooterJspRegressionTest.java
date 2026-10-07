@@ -22,8 +22,9 @@ import io.github.carlos_emr.carlos.email.core.EmailData;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the compose screen's Footer box (issue #3981): its limit, its encoding, its help line and
- * the sender-switch prefill.
+ * Pins the compose screen's Footer box (issue #3981): its limit, its encoding, its help line, the
+ * encrypted-message notice that says the footer stays visible, and that choosing another sending
+ * account leaves the footer alone.
  *
  * @since 2026-09-29
  */
@@ -46,10 +47,12 @@ class EmailComposeFooterJspRegressionTest {
         int textarea = jsp.indexOf("<textarea class=\"form-control\" name=\"footerEmail\" id=\"footerEmail\"");
         assertThat(textarea).isGreaterThanOrEqualTo(0);
         String element = jsp.substring(textarea, jsp.indexOf("</textarea>", textarea) + "</textarea>".length());
+        // The limit comes from the constant the send action enforces, so the two cannot drift.
         assertThat(element)
-                .contains("maxlength=\"" + EmailData.FOOTER_MAX_LENGTH + "\"")
-                .contains("maxlength=\"2000\"")
+                .contains("maxlength=\"<%= EmailData.FOOTER_MAX_LENGTH %>\"")
                 .endsWith("><carlos:encode value=\"${footerEmail}\"/></textarea>");
+        assertThat(jsp).contains("<%@ page import=\"io.github.carlos_emr.carlos.email.core.EmailData\" %>");
+        assertThat(EmailData.FOOTER_MAX_LENGTH).isEqualTo(2000);
         assertThat(jsp)
                 .doesNotContain(">${footerEmail}<")
                 .doesNotContain("e:forHtmlContent value=\"${footerEmail}\"");
@@ -60,7 +63,7 @@ class EmailComposeFooterJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should show the help line from the bundle in every locale")
+    @DisplayName("should show the help line and the encrypted-message notice from the bundle in every locale")
     void shouldShowFooterHelpLine_fromBundleKey() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
 
@@ -73,6 +76,8 @@ class EmailComposeFooterJspRegressionTest {
         String english = bundle("en").getProperty("email.compose.footer.help");
         assertThat(english).contains("plain text", "not saved to the chart", "Do not include patient information");
         assertThat(bundle("en").getProperty("email.compose.footer.heading")).isEqualTo("Footer");
+        String englishNotice = bundle("en").getProperty("email.compose.msg.encryptedMessageNotice");
+        assertThat(englishNotice).contains("password-protected PDF", "the footer remain visible");
         for (String locale : LOCALES) {
             if ("en".equals(locale)) {
                 continue;
@@ -82,6 +87,8 @@ class EmailComposeFooterJspRegressionTest {
                     .isNotBlank().isNotEqualTo(english);
             assertThat(bundle(locale).getProperty("email.compose.footer.heading")).as(locale)
                     .isNotBlank().isNotEqualTo("Footer");
+            assertThat(bundle(locale).getProperty("email.compose.msg.encryptedMessageNotice")).as(locale)
+                    .isNotBlank().isNotEqualTo(englishNotice);
         }
     }
 
