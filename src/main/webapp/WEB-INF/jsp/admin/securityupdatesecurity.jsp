@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%
+    response.setHeader("Cache-Control", "no-store");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
 %>
@@ -58,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.web.SecurityEditVersion" %>
 
 
 <%!
@@ -243,8 +245,10 @@
             <form method="post" action="${pageContext.request.contextPath}/admin/SecurityUpdate" name="updatearecord" onsubmit="return onsub()">
                 <%
                     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
-                    Integer securityId = Integer.valueOf(request.getParameter("keyword"));
-                    Security security = securityDao.find(securityId);
+                    boolean isDraft = request.getAttribute("securityEditDraft") instanceof Security;
+                    Security draft = (Security) request.getAttribute("securityEditDraft");
+                    Integer securityId = isDraft ? draft.getId() : Integer.valueOf(request.getParameter("keyword"));
+                    Security security = isDraft ? draft : securityDao.find(securityId);
 
                     if (security == null) {
                 %>
@@ -254,6 +258,15 @@
                 <%
                 } else {
                 %>
+                <% if (isDraft) { %>
+                <tr><td colspan="2">
+                    <h1 id="security-edit-refused" role="alert"><fmt:message key="${securityEditErrorKey}"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></h1>
+                    <% if (Boolean.TRUE.equals(request.getAttribute("securityReviewAvailable"))) { %>
+                    <a id="reviewCurrentSecurity" target="_blank" rel="noopener"
+                       href="${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=<%=securityId%>"><fmt:message key="admin.securityupdate.linkReviewCurrent"/></a>
+                    <% } %>
+                </td></tr>
+                <% } %>
                 <tr>
                     <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
                     </td>
@@ -263,7 +276,7 @@
                 <tr>
                     <td align="right" nowrap><label for="password"><fmt:message key="admin.securityrecord.formPassword"/>:</label>
                     </td>
-                    <td><input type="password" id="password" name="password" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"> <span
+                    <td><input type="password" id="password" name="password" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("password"), "") : "*********" %>' context="htmlAttribute"/>" autocomplete="new-password" aria-describedby="passwordLengthHelp"> <span
                             style="font-size: x-small">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
                         <%=org.owasp.encoder.Encode.forHtml(op.getProperty("password_min_length"))%> <fmt:message key="admin.securityrecord.msgSymbols"/>)</span>
                         <div id="passwordLengthHelp"><fmt:message key="admin.securityupdate.msgMaximumCharacters"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></div></td>
@@ -271,7 +284,7 @@
                 <tr>
                     <td align="right"><label for="conPassword"><fmt:message key="admin.securityrecord.formConfirm"/>:</label>
                     </td>
-                    <td><input type="password" id="conPassword" name="conPassword" value="*********" autocomplete="new-password" aria-describedby="passwordLengthHelp"></td>
+                    <td><input type="password" id="conPassword" name="conPassword" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPassword"), "") : "*********" %>' context="htmlAttribute"/>" autocomplete="new-password" aria-describedby="passwordLengthHelp"></td>
                 </tr>
                 <tr>
                     <td>
@@ -289,7 +302,7 @@
                     <td><input type="checkbox" name="b_ExpireSet" value="1"
                             <%= security.getBExpireset()==0?"":"checked" %>> <fmt:message key="admin.securityrecord.formDate"/>: <input
                             type="text" name="date_ExpireDate" id="date_ExpireDate"
-                            value="<%=  security.getDateExpiredate() ==null?"": security.getDateExpiredate()  %>"
+                            value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("date_ExpireDate"), "") : java.util.Objects.toString(security.getDateExpiredate(), "") %>' context="htmlAttribute"/>"
                             size="10" readonly/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                       id="date_ExpireDate_cal"/></td>
                 </tr>
@@ -318,7 +331,7 @@
                 <tr>
                     <td align="right" nowrap><fmt:message key="admin.securityrecord.formPIN"/>:
                     </td>
-                    <td><input type="password" name="pin" value="****" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
+                    <td><input type="password" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
                             size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
                         <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</font>
                     </td>
@@ -326,7 +339,7 @@
                 <tr>
                     <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
                     </td>
-                    <td><input type="password" name="conPin" value="****" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
+                    <td><input type="password" name="conPin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
                 </tr>
 
 		<% } %>
@@ -386,11 +399,15 @@
 
                 <tr>
                     <td colspan="2" align="center">
+                        <input type="hidden" name="securityEditVersion"
+                               value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter(SecurityEditVersion.PARAMETER), "") : SecurityEditVersion.of(security) %>' context="htmlAttribute"/>">
                         <input type="hidden" name="security_no" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
                         <input type="submit" name="subbutton"
                                value='<fmt:message key="admin.securityupdatesecurity.btnSubmit"/>'>
+                        <% if (!isDraft) { %>
                         <input type="button" value="<fmt:message key="admin.securityupdatesecurity.btnDelete"/>"
                                onclick="document.getElementById('deleteSecurityForm').submit()">
+                        <% } %>
                     </td>
                 </tr>
                 <%
@@ -398,7 +415,7 @@
                 %>
             </form>
             <%
-                if (security != null) {
+                if (security != null && !isDraft) {
             %>
             <form id="deleteSecurityForm" method="post" action="${pageContext.request.contextPath}/admin/SecurityDelete" style="display:none">
                 <input type="hidden" name="keyword" value="<carlos:encode value='<%= String.valueOf(security.getSecurityNo()) %>' context="htmlAttribute"/>">
