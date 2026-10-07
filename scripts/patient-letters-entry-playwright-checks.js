@@ -61,7 +61,7 @@ async function workflow(s) {
   s.cleanup(() => {
     fixture.cleanup();
     if (roleOwned) {
-      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg','_demographic','_search')`);
+      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg','_demographic','_search','_report')`);
       h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'Unexpected role grants retained for investigation');
       sql.execute(`DELETE FROM secRole WHERE role_name=${q(role)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'Owned report-denied role remains');
@@ -80,7 +80,7 @@ async function workflow(s) {
     AND (objectName NOT IN ('_appointment','_msg','_demographic','_search') OR privilege<>'r')`) === '0', 'Audit role has unexpected privileges');
   const restricted = await h.newContext(s.context.browser(), s.config);
   s.cleanup(() => restricted.close());
-  await s.step('a patient reader without report permission is not offered either letters entry', async () => {
+  await s.step('a read-only patient account sees letters entries only when granted report read', async () => {
     const schedule = await h.login(restricted, { ...s.config, testUser: fixture.username }, s.recorder, { label: 'report-denied patient reader' });
     await h.assertNotErrorPage(schedule, 'report-denied patient reader schedule');
     h.assert(await schedule.locator('#search a').count() > 0, 'The isolated patient reader lacks its Search entry');
@@ -88,6 +88,15 @@ async function workflow(s) {
       { searchTerm: marker, preferredDemographicNo: s.patient, timeout: 20000 });
     await h.assertNotErrorPage(masterPage, 'report-denied patient master record');
     h.assert(await masterPage.locator(LETTER_ENTRY).count() === 0, 'A patient reader without report permission was offered Generate Letters');
+    // Keep demographic access read-only: granting only report read must expose both entries.
+    sql.execute(`INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)
+      VALUES(${q(role)},'_report','r',0,${q(provider)})`);
+    await masterPage.reload({ waitUntil: 'networkidle' });
+    await h.assertNotErrorPage(masterPage, 'report-enabled patient reader master record');
+    h.assert(await masterPage.locator(LETTER_ENTRY).count() === 2,
+      'A patient reader with report permission was not offered both Generate Letters entries');
+    h.assert(await masterPage.locator('#editBtn').count() === 0,
+      'The report-enabled patient reader unexpectedly gained demographic write access');
   });
 }
 
