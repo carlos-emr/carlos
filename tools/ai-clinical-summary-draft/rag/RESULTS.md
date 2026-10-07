@@ -1,9 +1,107 @@
-# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06, round 3 2026-10-07)
+# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06, round 3 and the chart-updater trial 2026-10-07)
 
-Retrieval only, on FAKE NHS synthetic patients, with local Ollama embeddings. No text
-was generated and no hosted API was called. Full per-probe detail is in
+Rounds 1 to 3: retrieval only, on FAKE NHS synthetic patients, with local Ollama
+embeddings. No text was generated and no hosted API was called. The chart-updater trial
+(next section) is the one part that calls a hosted model, and only for the updater's own
+review step. Full per-probe detail is in
 `target/rag/results/` (`<model>-<index folder>-<labels>-eval.json`, `recall-at-k.json`, and
 `report-<tag>.md` with every miss; round 1's own files are `<model>-eval.json` and `report.md`).
+
+## Chart updater + RAG trial (OpenRouter, 2026-10-07)
+
+**Question:** if the chart updater can see what the chart already says, does it suggest
+fewer duplicates and point out conflicts, without losing facts or inventing anything?
+
+**Set-up.** Three FAKE notes are the incoming documents: the late ward-round notes
+NHSSYN001 note 17, NHSSYN002 note 17 and NHSSYN003 note 15. Each patient's EARLIER notes
+are "the chart" (16, 16 and 14 notes). 38 facts were hand-labelled (`updater_labels.json`,
+commit f388c26299) before any model call. Each fact is labelled new, already recorded or
+conflict, with the right sections. The updater's selection runs once per note. The same
+cards (51 in all) then go through two reviews:
+
+- **without**: the updater's review exactly as it is today;
+- **with**: the same review, plus, for each card, the top 3 passages from that patient's
+  earlier notes (local round-3 index: nomic, plain words both ways). Each card also gets a
+  hint: `already_recorded`, `conflict` or `new`, citing one offered passage. The hint only
+  annotates. It never adds, merges or rewrites a card.
+
+Model: `qwen/qwen3.5-35b-a3b` through Parasail on OpenRouter, via the #4065 gateway (no
+fallbacks, no data collection, zero data retention). Searching and embedding stayed on
+this machine. Every passage was checked against the committed synthetic notes before it
+was sent; all 239 earlier-note chunks of the three patients pass that check.
+
+**Prompts.** v1 listed passage ids on each card and put the passages in a separate block.
+On NHSSYN001 it called 13 of 15 cards new, although the right passage was ranked first.
+v2 and v3 were then written on an UNLABELLED note (NHSSYN006 note 10):
+
+- **v2** puts each card's passages inside the card. It swung the other way and called
+  today's readings "already recorded".
+- **v3** separates lasting facts (diagnoses, medicines, advice, follow-ups, identical
+  results) from today's readings, exam findings and status lines. It also makes every hint
+  copy the matching words of the cited passage. The host drops a hint whose quote is not in
+  that passage: only whitespace may differ, and the passage must be one offered for that
+  card. v3 was frozen before the labelled v2 and v3 runs.
+
+**Results** (totals over the three notes; "repeat" is a second v3 pass on the same cards):
+
+| | Without | With v3 | With v3, repeat | With v2 |
+|---|---|---|---|---|
+| Labelled facts covered by a kept card | 35 | 34 | 34 | 34 |
+| Facts missed (not counting optional ones) | 3 | 4 | 4 | 4 |
+| Already-in-chart facts suggested again | 20 | 20 | 20 | 20 |
+| ... of which flagged as already recorded or conflict | 0 | 8 | 8 | 9 |
+| Right hint, per covered fact | - | 21 of 34 | 19 of 34 | 15 of 34 |
+| False "already recorded" (fact is new) | - | 0 | 0 | 1 |
+| False "conflict" (facts) | - | 5 | 7 | 11 |
+| Real conflicts flagged (of 2) | - | 1 | 2 | 1 |
+| Wrong section | 3 | 3 | 3 | 3 |
+| Evidence not quoted exactly | 0 | 0 | 0 | 0 |
+| Hints dropped by the quote check (cards) | - | 10 of 32 | 9 of 33 | (no quotes) |
+| Keep decisions changed by the chart context | - | 1 | 1 | 1 |
+
+v1 ran on NHSSYN001 and NHSSYN002 only. On NHSSYN003 it ran past the output limit and
+returned nothing. On those two notes it flagged 3 of 16 duplicates and gave the right
+hint for 10 of 25 facts, with 1 false "already recorded" and 3 false conflicts.
+
+Per note (v3 / repeat), right hints: NHSSYN001 8/11 and 7/11, NHSSYN002 10/14 and
+10/14, NHSSYN003 3/9 and 2/9. On NHSSYN003, today's observations, exam and "no new
+meds" lines were called conflicts with yesterday's, despite the prompt rule.
+
+**Where it goes wrong:**
+
+- **Retrieval is not the problem.** For 20 of the 22 already-in-chart facts that got a
+  card, a passage from the earlier note named in the labels was in the top 3. When it
+  was, the hint was right only 11 of 20 times.
+- **The quote check is mixed.** Per card, v3 lost 5 right and 3 wrong hints to it (repeat:
+  6 right, 1 wrong). Per fact it cost 0 (repeat: 1), because another card usually carried
+  the right hint. Every hint that survives points at real words in an earlier note.
+- **The chart context changed a keep decision every time.** All three chart-aware reviews
+  (v2, v3 and the repeat) dropped NHSSYN003's "Arrange routine OP follow-up in Resp
+  clinic" Tickler, giving "destination is empty" as the reason. The plain review kept it.
+  A lost outpatient follow-up is the most harmful kind of miss.
+- Missed facts and wrong sections are the same in both arms. They come from selection,
+  which retrieval does not touch. No evidence was invented in any run.
+
+**Cost:** 27 calls in all: 4 for the v1 run, 6 on the development note, 17 on the
+labelled notes. Total $0.053 as reported by OpenRouter (120,497 prompt and 35,051 output
+tokens). The chart-aware review adds 1 to 3 calls per note, about $0.002 to $0.008.
+
+**Recommendation.** Do not add retrieval to the chart updater's review as it stands.
+Retrieval itself is good enough, but this model's judgement step is not: it flags 40%
+of duplicates, gives the right hint for about 6 facts in 10, raises false conflicts on
+today's readings, and it disturbs the keep decision. If this is taken further:
+
+1. Leave the existing review untouched. Add a separate chart-check call that only
+   annotates cards that are already kept, so it cannot drop a card.
+2. Keep the quote check, and show a hint as information only ("Similar entry on
+   <date>: <quote>"). Never hide, merge or auto-file a card because of it.
+3. Do not ask about today's observations and exam sections at all (a host rule by
+   section), since that is where false conflicts came from.
+4. Re-test on newly labelled notes (at least five), with a clinician's labels for
+   unclear cases such as "CXR stable" after an earlier "slight reduction".
+
+Run detail: `target/rag/updater/` (`<patient>-<prompt>[-r2]-run.json`,
+`score-<prompt>.json`, `usage.jsonl`).
 
 ## Round 3 (2026-10-07): plain words
 

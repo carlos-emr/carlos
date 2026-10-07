@@ -215,6 +215,17 @@ class TransportTest(unittest.TestCase):
             transport({}, 'chat/completions', {'model': 'x'})
         self.assertEqual(transport.summary(), {'calls': 2, 'prompt_tokens': 20, 'completion_tokens': 10, 'cost_usd': 0.002})
 
+    def test_a_failed_attempt_still_counts_against_the_budget(self):
+        def failing(config, endpoint, payload):
+            raise agent.UpstreamError('API key rejected (HTTP 401)')
+        transport = trial.CountingTransport(failing, budget=1)
+        with self.assertRaises(agent.UpstreamError):
+            transport({}, 'chat/completions', {'model': 'x'})
+        with self.assertRaises(ValueError):
+            transport({}, 'chat/completions', {'model': 'x'})
+        self.assertEqual(transport.summary()['calls'], 1)
+        self.assertIsNone(transport.summary()['cost_usd'])
+
     def test_only_completions_are_allowed(self):
         with self.assertRaises(ValueError):
             trial.CountingTransport(lambda *a: {}, budget=5)({}, 'key')
@@ -253,6 +264,7 @@ class ScoreTest(unittest.TestCase):
         self.assertEqual(result['conflicts_flagged'], 0)
         self.assertEqual(result['hints_wrong'], ['new:already_recorded', 'conf:new'])
         self.assertEqual(result['quotes_not_exact'], 1)
+        self.assertEqual(result['hints_correct_before_quote_check'], 2)
 
     def test_with_arm_scores_hints_including_a_false_already_recorded(self):
         result = trial.score_arm(self.labels, self.arms, 'with')
@@ -263,6 +275,21 @@ class ScoreTest(unittest.TestCase):
         self.assertEqual(result['conflicts_flagged'], 1)
         self.assertEqual(result['unlabelled_kept'], 1)
         self.assertEqual(result['citations_not_offered'], 0)
+        self.assertEqual(result['false_conflicts'], [])
+        self.assertEqual(result['keep_changed_vs_without'], ['4'])
+
+    def test_totals_sum_numbers_and_count_lists_across_patients(self):
+        other = dict(self.labels, patient='NHSSYN002')
+        result = trial.score({'documents': [self.labels, other]},
+                             [dict(self.arms, patient='NHSSYN001'), dict(self.arms, patient='NHSSYN002')])
+        self.assertEqual(result['total']['with']['hints_correct'], 4)
+        self.assertEqual(result['total']['without']['missed'], 2)
+        self.assertEqual(result['total']['with']['facts_covered'], 6)
+
+    def test_a_conflict_on_a_fact_that_cannot_conflict_is_a_false_conflict(self):
+        arms = json.loads(json.dumps(self.arms))
+        arms['with']['2'].update(chart_status='conflict')
+        self.assertEqual(trial.score_arm(self.labels, arms, 'with')['false_conflicts'], ['new'])
 
 
 if __name__ == '__main__':

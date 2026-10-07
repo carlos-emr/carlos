@@ -339,10 +339,11 @@ class CountingTransport:
         require(endpoint == 'chat/completions', 'Only completions are used')
         require(len(self.calls) < self.budget, 'Trial call budget exhausted; no further model calls')
         payload = dict(payload, usage={'include': True})
+        self.calls.append({})  # counted before sending: a failed attempt may still be billed
         result = self.transport(config, endpoint, payload)
         usage = result.get('usage') if isinstance(result, dict) else None
-        self.calls.append({k: usage.get(k) for k in ('prompt_tokens', 'completion_tokens', 'cost')}
-                          if isinstance(usage, dict) else {})
+        if isinstance(usage, dict):
+            self.calls[-1] = {k: usage.get(k) for k in ('prompt_tokens', 'completion_tokens', 'cost')}
         return result
 
     def summary(self):
@@ -405,9 +406,11 @@ def score_arm(doc_labels, run, arm):
     facts = doc_labels['facts']
     covering = {f['id']: [ref for ref, row in kept.items() if any(cue in row['evidence'] for cue in f['cues'])]
                 for f in facts}
-    result = {'kept': len(kept), 'missed': [], 'duplicates_suggested': 0, 'duplicates_unflagged': 0,
+    result = {'kept': len(kept), 'facts_covered': 0, 'missed': [], 'duplicates_suggested': 0, 'duplicates_unflagged': 0,
               'hints_correct': 0, 'hints_wrong': [], 'false_already_recorded': 0, 'conflicts_flagged': 0,
-              'conflict_facts': 0, 'wrong_section': [], 'unlabelled_kept': 0}
+              'conflict_facts': 0, 'false_conflicts': [], 'wrong_section': [], 'unlabelled_kept': 0}
+    if arm == 'with':
+        result['hints_correct_before_quote_check'] = 0
     mapped = set()
     for fact in facts:
         refs = covering[fact['id']]
@@ -418,6 +421,7 @@ def score_arm(doc_labels, run, arm):
             if not fact.get('optional'):
                 result['missed'].append(fact['id'])
             continue
+        result['facts_covered'] += 1
         for ref in refs:
             if destination_of(kept[ref]) not in fact['dest']:
                 result['wrong_section'].append(f"{fact['id']}:{destination_of(kept[ref])}")
@@ -429,6 +433,10 @@ def score_arm(doc_labels, run, arm):
                 result['hints_correct'] += 1
             else:
                 result['hints_wrong'].append(f"{fact['id']}:{'/'.join(statuses)}")
+            if any(decisions[ref]['chart_status'] in fact['accept'] for ref in refs):
+                result['hints_correct_before_quote_check'] += 1
+            if 'conflict' not in fact['accept'] and 'conflict' in statuses:
+                result['false_conflicts'].append(fact['id'])
             if fact['status'] == 'already_recorded' and not any(s in ('already_recorded', 'conflict') for s in statuses):
                 result['duplicates_unflagged'] += 1
             if fact['status'] == 'new' and 'already_recorded' not in fact['accept'] \
@@ -444,13 +452,24 @@ def score_arm(doc_labels, run, arm):
         result['citations'] = len(cited)
         result['citations_not_offered'] = sum(not d['ref_offered'] for d in cited)
         result['quotes_not_exact'] = sum(not d.get('quote_exact', True) for d in cited)
+        result['keep_changed_vs_without'] = sorted(ref for ref, d in decisions.items()
+                                                   if d['keep'] != run['without'][ref]['keep'])
     return result
 
 
 def score(labels, runs):
+    """Per patient and arm, plus 'total': numbers summed and lists counted across patients."""
     by_patient = {doc['patient']: doc for doc in labels['documents']}
-    return {run['patient']: {arm: score_arm(by_patient[run['patient']], run, arm) for arm in ('without', 'with')}
-            for run in runs}
+    result = {run['patient']: {arm: score_arm(by_patient[run['patient']], run, arm) for arm in ('without', 'with')}
+              for run in runs}
+    total = {}
+    for arms in result.values():
+        for arm, values in arms.items():
+            bucket = total.setdefault(arm, {})
+            for key, value in values.items():
+                bucket[key] = bucket.get(key, 0) + (len(value) if isinstance(value, list) else value)
+    result['total'] = total
+    return result
 
 
 # ---------------------------------------------------------------- CLI

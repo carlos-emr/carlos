@@ -110,6 +110,12 @@ heavy python3 $T evaluate --model nomic-embed-text --index-dir r4 --plain-words 
 # the held-out wording (heldout.json: 24 rephrased questions, same labels) for any setup
 heavy python3 $T evaluate --model nomic-embed-text --index-dir r4 --plain-words both --questions heldout
 
+# chart-updater + RAG trial (OpenRouter for the updater's review only; see RESULTS.md)
+heavy python3 rag/updater_trial.py run --dev NHSSYN006:10 --prompt v3        # an unlabelled note
+heavy python3 rag/updater_trial.py run --patients NHSSYN001,NHSSYN002,NHSSYN003 --prompt v3
+heavy python3 rag/updater_trial.py run --patients NHSSYN001 --prompt v3 --reuse-from v3 --tag r2
+python3 rag/updater_trial.py score --prompt v3                                # offline
+
 # offline tests (no Ollama, no network)
 cd tools/ai-clinical-summary-draft && python3 -m unittest discover -s rag/tests -t .
 ```
@@ -152,6 +158,21 @@ These limits are enforced in code and covered by the tests:
 - **One model at a time**, small batches (16 texts per call). Each model is unloaded
   (`keep_alive: 0`) when its step finishes, because memory on this machine is shared.
 
+### Chart-updater trial limits (`updater_trial.py`)
+
+- Embedding and search keep every limit above. Only the chart updater's own model calls
+  leave the machine, through the #4065 gateway's OpenRouter transport (no fallbacks, no
+  data collection, zero data retention). The OpenRouter key is read by
+  `openrouter_agent.read_config` and is never printed, logged or copied.
+- The incoming document must pass the updater's own request check (a complete committed
+  synthetic note). Every earlier-note passage is checked against the committed synthetic
+  corpus, for the same patient and date, before it is sent.
+- A hard call budget covers the whole trial (`MAX_CALLS = 40`, counted in
+  `target/rag/updater/usage.jsonl`). Usage and cost are recorded for every call.
+- Evidence must still quote the incoming note exactly (`chart_updates.validate_output` on
+  both arms). A chart hint is shown only if its quote is in the cited passage, and that
+  passage was offered for that card.
+
 ## If this is ever built for real
 
 Decision: the index lives **inside CARLOS's own MariaDB**, using MariaDB's native
@@ -176,4 +197,7 @@ that decision.
 - `plain_words.json`: round 3's plain-word list.
 - `heldout.json`: round 3's held-out wording for 24 probes, written before any held-out result was seen.
 - `tests/test_rag_trial.py`: offline unit tests.
-- `RESULTS.md`: the results of rounds 1 to 3.
+- `updater_labels.json`: the chart-updater trial's hand labels (38 facts in three notes), committed before any model call.
+- `updater_trial.py`: the chart-updater + RAG trial (two reviews of the same cards, budget, scoring).
+- `tests/test_updater_trial.py`: its offline tests (no Ollama, no network, no key).
+- `RESULTS.md`: the results of rounds 1 to 3 and of the chart-updater trial.
