@@ -7270,7 +7270,7 @@
         "MASTER_RECORD_DEMOGRAPHIC_NO"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does. Skips the Rx stale-date '*' and favourite 'copy' links, which write.",
-      "notes": "Expected to FAIL today at Manage Contacts (About/License) and at the add-prevention forms (14 of 24 sampled): footer links throw ReferenceError popupStart is not defined (prevention/AddPreventionData.jsp:697-698 and others)."
+      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage."
     },
     {
       "name": "page-health-footer-links",
@@ -7287,7 +7287,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
-      "notes": "Focused proof of the dead footer links. Expected to FAIL today at the end of step 2: Manage Contacts and the add-prevention form footer About/License throw ReferenceError popupStart is not defined and open no popup (about 40 JSPs, see risk-page-health.md C1)."
+      "notes": "Clicks About and License from Manage Contacts, an add-prevention form and Preferences > Edit Text Signature. Requires healthy same-origin destinations with no opener access, unchanged editor pages, and retention of an unsaved signature draft. Covers the native-link fix for #4178."
     },
     {
       "name": "page-health-help-link-offhost",
