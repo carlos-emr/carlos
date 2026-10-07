@@ -98,7 +98,7 @@ public class BillingONEAReport extends AbstractModel<Integer> implements Seriali
     @Column(name = "dx")
     private String dx;
 
-    @Column(name = "exp")
+    @Column(name = "exp", length = 255)
     private String exp;
 
     @Column(name = "code_error")

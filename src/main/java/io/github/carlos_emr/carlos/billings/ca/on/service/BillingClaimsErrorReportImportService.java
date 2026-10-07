@@ -236,7 +236,10 @@ public class BillingClaimsErrorReportImportService {
                     record.setError(nextline.substring(5, 60));
                     records.add(record);
 
-                    erObj.setExp(nextline.substring(3, 5) + "|" + nextline.substring(5, 60));
+                    // MOH permits up to four HX8 messages per item. Retain each
+                    // description in order instead of overwriting earlier messages.
+                    String explanation = nextline.substring(3, 5) + "|" + nextline.substring(5, 60).stripTrailing();
+                    erObj.setExp((erObj.getExp() == null || erObj.getExp().isEmpty()) ? explanation : erObj.getExp() + "; " + explanation);
                 }
 
                 if (headerCount.compareTo("T") == 0) {

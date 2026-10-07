@@ -234,6 +234,22 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         assertThat(saved).containsExactly("A001A|01|Explanation row text");
     }
 
+    @Test
+    void shouldPreserveFourFullWidthExplanations_thenResetForTheNextItem() throws IOException {
+        List<String> saved = capturePersistedItems();
+        StringBuilder report = new StringBuilder(headerLine("1") + "\n" + claimLine() + "\n" + transactionLine());
+        List<String> explanations = new ArrayList<>();
+        for (int i = 1; i <= 4; i++) {
+            String message = ("Message " + i + " ").repeat(6) + "!";
+            assertThat(message).hasSize(55);
+            report.append("\nHE80").append(i).append(message);
+            explanations.add("0" + i + "|" + message);
+        }
+        report.append("\n").append(transactionLine().replace("A001A", "A007A"));
+        svc.importStream(writeAndOpen(report.toString()), "four.err");
+        assertThat(saved).containsExactly("A001A|" + String.join("; ", explanations), "A007A|");
+    }
+
     private List<String> capturePersistedItems() {
         List<String> saved = new ArrayList<>();
         // Snapshot at the call: retaining the mutable DTO in an ArgumentCaptor can

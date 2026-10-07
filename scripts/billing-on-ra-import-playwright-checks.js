@@ -88,6 +88,13 @@ function buildRemittance({ owned, marker, claims }) {
   return { text: `${lines.join('\r\n')}\r\n`, cheque: cheque.toFixed(2) };
 }
 
+const ERROR_EXPLANATIONS = [
+  'SYNTHETIC SERVICE CODE REJECTION',
+  'SECOND EXPLANATION MUST SURVIVE',
+  'THIRD EXPLANATION MUST SURVIVE',
+  'FOURTH EXPLANATION MUST SURVIVE',
+];
+
 /** A Claims Error Report (E…) rejecting one owned claim item. */
 function buildErrorReport({ owned, claim }) {
   const lines = [
@@ -95,8 +102,8 @@ function buildErrorReport({ owned, claim }) {
     record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9${' '.repeat(12)}`),
     record(`HXR${field('PWREG001', 12)}${field('FAKEPW', 9)}${field('WORK', 5)}FON${' '.repeat(32)}R01${' '.repeat(12)}`),
     record(`HXT${claim.code}  ${cents(claim.fee, 6)}01${SERVICE_DATE}250 ${' '.repeat(34)}A3F${' '.repeat(12)}`),
-    record(`HX8A3${field('SYNTHETIC SERVICE CODE REJECTION', 55)}`),
-    record(`HX9${'0000001'.repeat(4)}`),
+    ...ERROR_EXPLANATIONS.map(message => record(`HX8A3${field(message, 55)}`)),
+    record(`HX9${'0000001'.repeat(3)}0000004`),
   ];
   // Header indexes are fixed by the parser; prove the builder honours them.
   h.assert(lines[1].slice(23, 31) === claim.id.padStart(8, '0') && lines[1].slice(64, 67) === 'VH9'
@@ -260,9 +267,12 @@ async function workflow(s) {
     h.assert(text.includes(owned.hin) && text.includes('FAKEPW')
       && await page.getByText('A001A', { exact: true }).count() === 1,
     'The registration row replaced the claim identity or duplicated the transaction in the report');
+    for (const explanation of ERROR_EXPLANATIONS) {
+      h.assert(text.includes(explanation), 'The report page omitted an explanation record');
+    }
     const persistedDetails = () => sql.rows(`SELECT process_date, dob, RTRIM(exp), hin, ver
       FROM billing_on_eareport WHERE report_name=${h.sqlString(errorName)}`);
-    const expected = ['2004-05-20', '1980-01-02', 'A3|SYNTHETIC SERVICE CODE REJECTION', owned.hin, 'ZZ'];
+    const expected = ['2004-05-20', '1980-01-02', ERROR_EXPLANATIONS.map(message => `A3|${message}`).join('; '), owned.hin, 'ZZ'];
     h.assert(JSON.stringify(persistedDetails()) === JSON.stringify([expected]),
       'The imported error report lost its dates, following explanation or health-number fields');
     const replay = await uploadMohFile(s, admin, errorName, buildErrorReport({ owned, claim: raClaims[1] }),
