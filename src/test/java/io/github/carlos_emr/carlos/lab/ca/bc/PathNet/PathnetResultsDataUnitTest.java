@@ -1,8 +1,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet;
 
-import io.github.carlos_emr.carlos.billing.CA.BC.dao.*;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.*;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MessageDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MshDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7ObrDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7ObxDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7OrcDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults;
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
