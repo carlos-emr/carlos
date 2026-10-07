@@ -200,7 +200,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
     }
 
     @Nested
-    @DisplayName("findProviderProperties(name) and findClinicProperty(name)")
+    @DisplayName("findProviderProperties(name) and findClinicProperties(name)")
     class ProviderAndClinicRows {
 
         @Test
@@ -229,22 +229,22 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
             UserProperty clinic = createProperty(null, name, "clinic value");
             userPropertyDAO.flush();
 
-            assertThat(userPropertyDAO.findClinicProperty(name)).extracting(UserProperty::getValue)
-                    .isEqualTo("clinic value");
-            assertThat(userPropertyDAO.findClinicProperty(name).getId()).isEqualTo(clinic.getId());
-            assertThat(userPropertyDAO.findClinicProperty(uniqueName("missing"))).isNull();
+            assertThat(userPropertyDAO.findClinicProperties(name)).extracting(UserProperty::getId)
+                    .containsExactly(clinic.getId());
+            assertThat(userPropertyDAO.findClinicProperties(uniqueName("missing"))).isEmpty();
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should treat a blank provider as clinic-wide and pick the oldest clinic row")
-        void shouldPickOldestClinicRow_includingBlankProvider() throws Exception {
+        @DisplayName("should treat a blank provider as clinic-wide and list clinic rows oldest first")
+        void shouldListClinicRowsOldestFirst_includingBlankProvider() throws Exception {
             String name = uniqueName("clinicFooter");
             UserProperty blank = createProperty("", name, "first");
-            createProperty(null, name, "second");
+            UserProperty unset = createProperty(null, name, "second");
             userPropertyDAO.flush();
 
-            assertThat(userPropertyDAO.findClinicProperty(name).getId()).isEqualTo(blank.getId());
+            assertThat(userPropertyDAO.findClinicProperties(name)).extracting(UserProperty::getId)
+                    .containsExactly(blank.getId(), unset.getId());
         }
     }
 }

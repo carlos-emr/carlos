@@ -7,7 +7,8 @@
   a clinic change replaced (or, with that rule switched off, kept) the user's own footer. Every
   change is a POST to email/saveMyEmailFooter; the provider comes from the session.
   Request attributes: myFooter, followsClinicDefault, clinicFooter, clinicChangeNotice,
-  ownFootersReplaced, myFooterTooLong (set by ViewMyEmailFooter2Action and SaveMyEmailFooter2Action).
+  ownFootersReplaced, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
+  SaveMyEmailFooter2Action). The page needs _email write, as saving does.
   Request parameters: saved (true after a change).
   @since 2026-10-07
 --%>
@@ -15,6 +16,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailData" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
@@ -35,6 +37,9 @@
     </c:if>
     <c:if test="${myFooterTooLong}">
         <div class="alert alert-danger" role="alert" id="myFooterTooLong"><fmt:message key="email.myFooter.tooLong"/></div>
+    </c:if>
+    <c:if test="${myFooterSaveConflict}">
+        <div class="alert alert-danger" role="alert" id="myFooterSaveConflict"><fmt:message key="email.footer.saveConflict"/></div>
     </c:if>
 
     <%-- A clinic change affected this user's footer: show what they had and let them choose. --%>
@@ -83,7 +88,7 @@
             </c:choose>
         </p>
         <label for="myFooter" class="form-label"><fmt:message key="email.myFooter.label"/></label>
-        <textarea class="form-control" id="myFooter" name="myFooter" rows="4" maxlength="2000"
+        <textarea class="form-control" id="myFooter" name="myFooter" rows="4" maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>"
                   aria-describedby="myFooterHelp"><carlos:encode value="${myFooter}"/></textarea>
         <div id="myFooterHelp" class="form-text"><fmt:message key="email.compose.footer.help"/></div>
         <div class="d-flex flex-wrap gap-2 mt-2">

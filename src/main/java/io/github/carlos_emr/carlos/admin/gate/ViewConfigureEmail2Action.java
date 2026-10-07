@@ -30,7 +30,9 @@ import org.apache.struts2.ServletActionContext;
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
  * <p>It also supplies the clinic's default email footer for the form that
- * {@code admin/saveClinicEmailFooter} saves.</p>
+ * {@code admin/saveClinicEmailFooter} saves, the fingerprint the form sends back so a save can tell
+ * whether the footer changed after the page was opened, and whether saving replaces users' own
+ * footers (the page's wording follows it).</p>
  *
  * @since 2026-04-13
  */
@@ -58,7 +60,10 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        request.setAttribute("clinicFooter", emailFooterService.clinicDefault());
+        String clinicFooter = emailFooterService.clinicDefault();
+        request.setAttribute("clinicFooter", clinicFooter);
+        request.setAttribute("clinicFooterFingerprint", EmailFooterService.fingerprint(clinicFooter));
+        request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
         return SUCCESS;
     }
 }

@@ -60,12 +60,13 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     List<UserProperty> findProviderProperties(String name);
 
     /**
-     * The clinic-wide property with this name (a row with no provider), never a provider's row.
+     * The clinic-wide properties with this name (rows with no provider), never a provider's row.
+     * Normally there is one; two first saves at the same moment can leave two.
      *
      * @param name property name
-     * @return the oldest such row, or null
+     * @return the clinic rows, oldest first
      */
-    UserProperty findClinicProperty(String name);
+    List<UserProperty> findClinicProperties(String name);
 
     UserProperty getProp(String prov, String name);
 

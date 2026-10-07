@@ -41,6 +41,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -114,7 +116,7 @@ class MyEmailFooter2ActionUnitTest {
     @Test
     @DisplayName("should show the clinic default as the footer of a user who has none of their own")
     void shouldExposeClinicDefault_whenUserFollowsIt() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", "r", null)).thenReturn(true);
+        allowEmailWrite();
         when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
                 new EmailFooterService.UserFooterSettings(null, "Riverside Clinic", "Dr A footer", true));
 
@@ -129,8 +131,11 @@ class MyEmailFooter2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should refuse the footer page to a user without _email read")
-    void shouldThrowSecurityException_whenEmailReadMissing() {
+    @DisplayName("should refuse the footer page to a user who can read email but not send it")
+    void shouldThrowSecurityException_whenEmailWriteMissingOnPage() {
+        // Read alone would show Save buttons that all end in an error.
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", "r", null)).thenReturn(true);
+
         assertThatThrownBy(() -> new ViewMyEmailFooter2Action(securityInfoManager, emailFooterService).execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_email)");
@@ -244,6 +249,43 @@ class MyEmailFooter2ActionUnitTest {
         assertThat(request.getAttribute("followsClinicDefault")).isEqualTo(false);
         assertThat(response.getRedirectedUrl()).isNull();
         verify(dao, never()).saveProp(anyString(), anyString(), anyString());
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should keep the typed footer and ask to try again when the save collided with another")
+    void shouldAskToRetry_whenSaveCollides() throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
+        request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, "Dr A new footer");
+        doThrow(new ObjectOptimisticLockingFailureException("UserProperty", 7))
+                .when(emailFooterService).saveOwnFooter(PROVIDER, "Dr A new footer");
+        when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
+                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, true));
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("myFooterSaveConflict")).isEqualTo(true);
+        assertThat(request.getAttribute("myFooter")).isEqualTo("Dr A new footer");
+        assertThat(request.getAttribute("followsClinicDefault")).isEqualTo(false);
+        assertThat(response.getRedirectedUrl()).isNull();
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should show the page as stored and ask to try again when a button's change collided")
+    void shouldShowStoredFooter_whenButtonChangeCollides() throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "useClinicDefault");
+        doThrow(new ObjectOptimisticLockingFailureException("UserProperty", 7))
+                .when(emailFooterService).useClinicDefault(PROVIDER);
+        when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
+                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, true));
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("myFooterSaveConflict")).isEqualTo(true);
+        assertThat(request.getAttribute("myFooter")).isEqualTo("Dr A footer");
         logAction.verifyNoInteractions();
     }
 

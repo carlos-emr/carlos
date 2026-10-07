@@ -40,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -48,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -100,8 +102,17 @@ class SaveClinicEmailFooter2ActionUnitTest {
         servletActionContext.close();
     }
 
+    /** The fingerprint the page sent: it showed "Riverside Clinic". */
+    private static final String SHOWN = EmailFooterService.fingerprint("Riverside Clinic");
+
     private SaveClinicEmailFooter2Action action() {
         return new SaveClinicEmailFooter2Action(securityInfoManager, emailFooterService);
+    }
+
+    private void post(String footer) {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, footer);
+        request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, SHOWN);
     }
 
     @Test
@@ -131,28 +142,27 @@ class SaveClinicEmailFooter2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should save the footer, audit who changed it without the text, and go back to the page")
+    @DisplayName("should save the footer, audit who changed it and how many users were told, and go back to the page")
     void shouldSaveAndRedirect_whenPostedByAdmin() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, "Riverside Clinic\r\nBook online");
-        when(emailFooterService.saveClinicDefault("Riverside Clinic\r\nBook online"))
-                .thenReturn(new EmailFooterService.ClinicDefaultSaved(true, 2));
+        post("Riverside Clinic\r\nBook online");
+        when(emailFooterService.saveClinicDefault("Riverside Clinic\r\nBook online", SHOWN))
+                .thenReturn(new EmailFooterService.ClinicDefaultSaved(EmailFooterService.ClinicDefaultOutcome.CHANGED, 2));
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
-        verify(emailFooterService).saveClinicDefault("Riverside Clinic\r\nBook online");
+        verify(emailFooterService).saveClinicDefault("Riverside Clinic\r\nBook online", SHOWN);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?clinicFooterSaved=true");
+        // The audit holds the count, never the footer text.
         logAction.verify(() -> LogAction.addLog(eq("999998"), eq("update"), eq("emailFooterClinicDefault"), eq(""),
-                anyString()));
+                anyString(), isNull(), eq("noticed=2")));
     }
 
     @Test
     @DisplayName("should not audit a save that left the clinic footer unchanged")
     void shouldSkipAudit_whenClinicFooterUnchanged() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
-        request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, "Riverside Clinic");
-        when(emailFooterService.saveClinicDefault("Riverside Clinic"))
-                .thenReturn(new EmailFooterService.ClinicDefaultSaved(false, 0));
+        post("Riverside Clinic");
+        when(emailFooterService.saveClinicDefault("Riverside Clinic", SHOWN))
+                .thenReturn(new EmailFooterService.ClinicDefaultSaved(EmailFooterService.ClinicDefaultOutcome.UNCHANGED, 0));
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
@@ -164,11 +174,67 @@ class SaveClinicEmailFooter2ActionUnitTest {
     @DisplayName("should answer a post without the footer field with 400 and change nothing")
     void shouldRejectPost_whenFooterFieldMissing() throws Exception {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, SHOWN);
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         verifyNoInteractions(emailFooterService);
+        logAction.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "fingerprint \"{0}\"")
+    @ValueSource(strings = {"", "abc", "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ", "missing"})
+    @DisplayName("should answer a post without a well-formed fingerprint of the shown footer with 400")
+    void shouldRejectPost_whenFingerprintMissingOrMalformed(String fingerprint) throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, "Riverside Clinic");
+        if (!"missing".equals(fingerprint)) {
+            request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, fingerprint);
+        }
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(emailFooterService);
+    }
+
+    @Test
+    @DisplayName("should show the current footer and keep the admin's text when the footer changed since the page opened")
+    void shouldShowCurrentFooter_whenChangedSincePageOpened() throws Exception {
+        post("Edited footer");
+        when(emailFooterService.saveClinicDefault("Edited footer", SHOWN))
+                .thenReturn(new EmailFooterService.ClinicDefaultSaved(
+                        EmailFooterService.ClinicDefaultOutcome.CHANGED_SINCE_SHOWN, 0));
+        when(emailFooterService.clinicDefault()).thenReturn("Footer saved by someone else");
+        when(emailFooterService.ownFootersReplacedOnClinicChange()).thenReturn(true);
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("clinicFooterChangedSinceShown")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("Edited footer");
+        assertThat(request.getAttribute("clinicFooterCurrent")).isEqualTo("Footer saved by someone else");
+        // The form now carries the current footer's fingerprint, so saving again goes through.
+        assertThat(request.getAttribute("clinicFooterFingerprint"))
+                .isEqualTo(EmailFooterService.fingerprint("Footer saved by someone else"));
+        assertThat(request.getAttribute("ownFootersReplacedOnClinicChange")).isEqualTo(true);
+        assertThat(response.getRedirectedUrl()).isNull();
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should ask the admin to try again when the save collided with another")
+    void shouldAskToRetry_whenSaveCollides() throws Exception {
+        post("Edited footer");
+        when(emailFooterService.saveClinicDefault("Edited footer", SHOWN))
+                .thenThrow(new CannotAcquireLockException("Deadlock found when trying to get lock"));
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("clinicFooterSaveConflict")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("Edited footer");
+        assertThat(request.getAttribute("clinicFooterFingerprint")).isEqualTo(SHOWN);
+        assertThat(response.getRedirectedUrl()).isNull();
         logAction.verifyNoInteractions();
     }
 
@@ -179,12 +245,16 @@ class SaveClinicEmailFooter2ActionUnitTest {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         String tooLong = "x".repeat(EmailData.FOOTER_MAX_LENGTH + 1);
         request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, tooLong);
+        request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, SHOWN);
 
         String result = new SaveClinicEmailFooter2Action(securityInfoManager, new EmailFooterService(dao)).execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(request.getAttribute("clinicFooter")).isEqualTo(tooLong);
         assertThat(request.getAttribute("clinicFooterTooLong")).isEqualTo(true);
+        // Still the footer the page first showed, so the next save checks against it.
+        assertThat(request.getAttribute("clinicFooterFingerprint")).isEqualTo(SHOWN);
+        assertThat(request.getAttribute("ownFootersReplacedOnClinicChange")).isEqualTo(true);
         assertThat(response.getRedirectedUrl()).isNull();
         verifyNoInteractions(dao);
         logAction.verifyNoInteractions();

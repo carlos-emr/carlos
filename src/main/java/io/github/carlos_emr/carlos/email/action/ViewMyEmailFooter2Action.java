@@ -33,7 +33,8 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Shows the logged-in user's email footer page ({@code email/myEmailFooter.jsp}): their own footer
  * or the clinic default they follow, and a notice when a clinic change affected their footer.
- * Read only; {@link SaveMyEmailFooter2Action} saves.
+ * Read only; {@link SaveMyEmailFooter2Action} saves. It needs {@code _email} write, as saving does:
+ * a user who cannot send email has no footer to manage, and would only meet Save buttons that fail.
  *
  * @since 2026-10-07
  */
@@ -56,7 +57,7 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
     public String execute() {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
         exposeSettings(request, emailFooterService.settingsFor(loggedInInfo.getLoggedInProviderNo()));

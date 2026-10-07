@@ -1358,8 +1358,8 @@
                 <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
-                <%-- Only users who can send patient email (_email) have an email footer to set. --%>
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="r" reverse="<%=false%>">
+                <%-- Only users who can send patient email (_email write) have an email footer to set. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="w" reverse="<%=false%>">
                 <a href="${pageContext.request.contextPath}/email/myEmailFooter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-envelope-open-text"></i> <fmt:message key="provider.providerpreference.link.myEmailFooter"/>
                 </a>

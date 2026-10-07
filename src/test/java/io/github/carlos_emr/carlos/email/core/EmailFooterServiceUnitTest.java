@@ -71,8 +71,13 @@ class EmailFooterServiceUnitTest {
     }
 
     private void clinicDefault(String text) {
-        when(dao.findClinicProperty(EmailFooterService.CLINIC_DEFAULT))
-                .thenReturn(property(null, EmailFooterService.CLINIC_DEFAULT, text));
+        when(dao.findClinicProperties(EmailFooterService.CLINIC_DEFAULT))
+                .thenReturn(List.of(property(null, EmailFooterService.CLINIC_DEFAULT, text)));
+    }
+
+    /** Saves as the Configure Email page does when it showed the footer stored now. */
+    private static EmailFooterService.ClinicDefaultSaved saveClinic(EmailFooterService service, String footer) {
+        return service.saveClinicDefault(footer, EmailFooterService.fingerprint(service.clinicDefault()));
     }
 
     @Test
@@ -130,7 +135,7 @@ class EmailFooterServiceUnitTest {
 
         assertThatThrownBy(() -> service.saveOwnFooter("101", tooLong))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
-        assertThatThrownBy(() -> service.saveClinicDefault(tooLong))
+        assertThatThrownBy(() -> service.saveClinicDefault(tooLong, EmailFooterService.fingerprint("")))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
         verifyNoInteractions(dao);
     }
@@ -140,15 +145,16 @@ class EmailFooterServiceUnitTest {
     void shouldChangeNothing_whenClinicFooterUnchanged() {
         clinicDefault("Riverside Clinic\nBook online");
 
-        assertThat(service.saveClinicDefault("Riverside Clinic\r\nBook online").changed()).isFalse();
+        assertThat(saveClinic(service, "Riverside Clinic\r\nBook online").outcome())
+                .isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
         // A browser drops a textarea's first line break; the same text with blank lines around it is unchanged.
-        assertThat(service.saveClinicDefault("\nRiverside Clinic\nBook online\n").changed()).isFalse();
+        assertThat(saveClinic(service, "\nRiverside Clinic\nBook online\n").changed()).isFalse();
 
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).findProviderProperties(anyString());
 
         UserPropertyDAO emptyDao = mock(UserPropertyDAO.class);
-        assertThat(new EmailFooterService(emptyDao, true).saveClinicDefault("").changed()).isFalse();
+        assertThat(saveClinic(new EmailFooterService(emptyDao, true), "").changed()).isFalse();
         verify(emptyDao, never()).saveProp(any(UserProperty.class));
         verify(emptyDao, never()).findProviderProperties(anyString());
     }
@@ -167,9 +173,9 @@ class EmailFooterServiceUnitTest {
         ownRows("104", EmailFooterService.CLINIC_CHANGE_NOTICE,
                 property("104", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr D first footer"));
 
-        EmailFooterService.ClinicDefaultSaved saved = service.saveClinicDefault("New clinic footer");
+        EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "New clinic footer");
 
-        assertThat(saved.changed()).isTrue();
+        assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.CHANGED);
         assertThat(saved.noticed()).isEqualTo(3);
         verify(dao).delete(custom);
         verify(dao).delete(wasOldDefault);
@@ -195,7 +201,7 @@ class EmailFooterServiceUnitTest {
         UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
         when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
 
-        assertThat(service.saveClinicDefault("Riverside Clinic").noticed()).isEqualTo(1);
+        assertThat(saveClinic(service, "Riverside Clinic").noticed()).isEqualTo(1);
 
         verify(dao).delete(noFooter);
         verify(dao).saveProp("105", EmailFooterService.CLINIC_CHANGE_NOTICE, "");
@@ -208,7 +214,7 @@ class EmailFooterServiceUnitTest {
         UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
         when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
 
-        EmailFooterService.ClinicDefaultSaved saved = service.saveClinicDefault("");
+        EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "");
 
         assertThat(saved.changed()).isTrue();
         assertThat(saved.noticed()).isZero();
@@ -225,13 +231,79 @@ class EmailFooterServiceUnitTest {
         UserProperty wasOldDefault = property("102", EmailFooterService.USER_FOOTER, "Old clinic footer");
         when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom, wasOldDefault));
 
-        assertThat(keeping.saveClinicDefault("New clinic footer").noticed()).isEqualTo(2);
+        assertThat(saveClinic(keeping, "New clinic footer").noticed()).isEqualTo(2);
 
         verify(dao, never()).delete(custom);
         verify(dao, never()).delete(wasOldDefault);
         verify(dao).saveProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A footer");
         verify(dao).saveProp("102", EmailFooterService.CLINIC_CHANGE_NOTICE, "Old clinic footer");
         assertThat(keeping.ownFootersReplacedOnClinicChange()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should change nothing when the page is saved unedited, even after someone else changed the footer")
+    void shouldChangeNothing_whenPageSavedUneditedAfterAnotherChange() {
+        // Administrator A opened the page showing "Old"; administrator B then saved "New".
+        clinicDefault("New clinic footer");
+        UserProperty custom = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
+        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom));
+
+        EmailFooterService.ClinicDefaultSaved saved =
+                service.saveClinicDefault("Old clinic footer\r\n", EmailFooterService.fingerprint("Old clinic footer"));
+
+        // A's unedited save neither undoes B's footer nor replaces users' footers a second time.
+        assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).delete(any(UserProperty.class));
+        verify(dao, never()).findProviderProperties(anyString());
+    }
+
+    @Test
+    @DisplayName("should save nothing when the footer changed after the page was opened and the text was edited")
+    void shouldSaveNothing_whenFooterChangedSincePageOpened() {
+        clinicDefault("New clinic footer");
+
+        EmailFooterService.ClinicDefaultSaved saved =
+                service.saveClinicDefault("Edited footer", EmailFooterService.fingerprint("Old clinic footer"));
+
+        assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.CHANGED_SINCE_SHOWN);
+        assertThat(saved.changed()).isFalse();
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).delete(any(UserProperty.class));
+        verify(dao, never()).findProviderProperties(anyString());
+    }
+
+    @Test
+    @DisplayName("should save into the oldest clinic row and remove a second one left by two first saves")
+    void shouldKeepOneClinicRow_whenTwoFirstSavesLeftTwo() {
+        UserProperty older = property(null, EmailFooterService.CLINIC_DEFAULT, "First");
+        UserProperty newer = property("", EmailFooterService.CLINIC_DEFAULT, "Second");
+        when(dao.findClinicProperties(EmailFooterService.CLINIC_DEFAULT)).thenReturn(List.of(older, newer));
+
+        assertThat(service.clinicDefault()).isEqualTo("First");
+        assertThat(saveClinic(service, "Third").changed()).isTrue();
+
+        assertThat(older.getValue()).isEqualTo("Third");
+        verify(dao).saveProp(older);
+        verify(dao).delete(newer);
+    }
+
+    @Test
+    @DisplayName("should give the same fingerprint to footers that save the same, and a different one otherwise")
+    void shouldFingerprintNormalisedFooter_forStaleCheck() {
+        String fingerprint = EmailFooterService.fingerprint("Riverside Clinic\nBook online");
+
+        assertThat(fingerprint).matches("[0-9a-f]{64}");
+        assertThat(EmailFooterService.fingerprint("\nRiverside Clinic\r\nBook online \n")).isEqualTo(fingerprint);
+        assertThat(EmailFooterService.fingerprint("Riverside Clinic")).isNotEqualTo(fingerprint);
+        assertThat(EmailFooterService.fingerprint(null)).isEqualTo(EmailFooterService.fingerprint(""));
+    }
+
+    @Test
+    @DisplayName("should replace users' own footers on a clinic change in the application, as decided on 6 Oct")
+    void shouldReplaceOwnFooters_withProductionSetting() {
+        assertThat(EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE).isTrue();
+        assertThat(new EmailFooterService(dao).ownFootersReplacedOnClinicChange()).isTrue();
     }
 
     @Test

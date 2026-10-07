@@ -31,9 +31,12 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.dao.ConcurrencyFailureException;
 
 /**
  * Saves the logged-in user's own email footer (follow-up to #3981). A user can only change their
@@ -47,8 +50,8 @@ import org.apache.struts2.ServletActionContext;
  *   <li>{@code restorePrevious}: make the footer a clinic change replaced their own again;</li>
  *   <li>{@code keepCurrent}: dismiss the clinic-change notice.</li>
  * </ul>
- * <p>A footer over the limit is refused and shown again for editing. Changes to the footer are
- * audited without the text.</p>
+ * <p>A footer over the limit, or a save that collided with another (two tabs saving at once), is
+ * shown again for editing. Changes to the footer are audited without the text.</p>
  *
  * @since 2026-10-07
  */
@@ -56,6 +59,8 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
 
     static final String FOOTER_PARAM = "myFooter";
     static final String ACTION_PARAM = "footerAction";
+
+    private static final Logger logger = MiscUtils.getLogger();
 
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterService emailFooterService;
@@ -91,6 +96,25 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        try {
+            return apply(request, response, providerNo, footerAction);
+        } catch (ConcurrencyFailureException e) {
+            // Another save of this user's footer ran at the same moment; this one was rolled back.
+            logger.warn("Email footer save collided with another save; asked the user to retry ({})",
+                    e.getClass().getSimpleName());
+            ViewMyEmailFooter2Action.exposeSettings(request, emailFooterService.settingsFor(providerNo));
+            String typed = request.getParameter(FOOTER_PARAM);
+            if ("save".equals(footerAction) && typed != null) {
+                request.setAttribute(FOOTER_PARAM, typed);
+                request.setAttribute("followsClinicDefault", false);
+            }
+            request.setAttribute("myFooterSaveConflict", true);
+            return INPUT;
+        }
+    }
+
+    private String apply(HttpServletRequest request, HttpServletResponse response, String providerNo,
+            String footerAction) throws IOException {
         switch (footerAction) {
             case "save" -> {
                 String footer = request.getParameter(FOOTER_PARAM);

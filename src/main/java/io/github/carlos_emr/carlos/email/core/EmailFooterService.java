@@ -24,12 +24,15 @@ package io.github.carlos_emr.carlos.email.core;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -45,6 +48,12 @@ import org.springframework.transaction.annotation.Transactional;
  * row without a provider, users' footers and notices per provider. Its {@code value} column holds
  * 2000 characters, the footer limit, so line breaks are stored as one character each, as the send
  * action counts them. A longer footer is refused, never cut.</p>
+ *
+ * <p>Saves run at READ COMMITTED, as {@code PatientConsentManagerImpl}'s do: under MariaDB's
+ * default REPEATABLE READ with {@code innodb_snapshot_isolation} on (the default from 11.6), a save
+ * that read rows another save then changed fails with error 1020 instead of reading the committed
+ * rows. Two saves that still collide (both removing the same row, or a deadlock) fail with a
+ * {@code ConcurrencyFailureException}, which the pages turn into "please try again".</p>
  *
  * @since 2026-10-07
  */
@@ -103,19 +112,47 @@ public class EmailFooterService {
             boolean ownFootersReplaced) {
     }
 
+    /** What saving the clinic default did. */
+    public enum ClinicDefaultOutcome {
+        /** The default changed and was applied to users' footers. */
+        CHANGED,
+        /** The text was the one the page showed, or the one in force: nothing changed. */
+        UNCHANGED,
+        /** Someone changed the default after the page was opened: nothing was saved. */
+        CHANGED_SINCE_SHOWN
+    }
+
     /**
      * The outcome of saving the clinic default.
      *
-     * @param changed whether the default changed (saving the same text again changes nothing)
+     * @param outcome what the save did
      * @param noticed how many own-footer rows differed from the new default and got (or kept) a notice
      */
-    public record ClinicDefaultSaved(boolean changed, int noticed) {
+    public record ClinicDefaultSaved(ClinicDefaultOutcome outcome, int noticed) {
+
+        /** @return whether the default changed */
+        public boolean changed() {
+            return outcome == ClinicDefaultOutcome.CHANGED;
+        }
     }
 
     /** @return the clinic default, empty when none is set */
     public String clinicDefault() {
-        UserProperty property = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
+        UserProperty property = firstClinicRow();
         return property == null || property.getValue() == null ? "" : property.getValue();
+    }
+
+    /**
+     * A fingerprint of a footer, for a page to send back with its form: comparing it with the
+     * stored footer's tells whether the footer changed after the page was opened, without putting
+     * the text in a hidden field. Footers that differ only in line-break style or surrounding
+     * whitespace have the same fingerprint, as they save the same.
+     *
+     * @param footer a footer, or null for none
+     * @return the fingerprint, 64 hexadecimal characters
+     */
+    public static String fingerprint(String footer) {
+        return DigestUtils.sha256Hex(normalise(footer));
     }
 
     /**
@@ -165,7 +202,7 @@ public class EmailFooterService {
      * @param footer the footer as typed
      * @throws FooterTooLongException when the footer is over the limit; nothing is saved
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void saveOwnFooter(String providerNo, String footer) {
         String normalised = withinLimit(footer);
         writeRow(providerNo, USER_FOOTER, normalised);
@@ -177,7 +214,7 @@ public class EmailFooterService {
      *
      * @param providerNo the logged-in user
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void useClinicDefault(String providerNo) {
         deleteRows(providerNo, USER_FOOTER);
         deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
@@ -189,7 +226,7 @@ public class EmailFooterService {
      * @param providerNo the logged-in user
      * @return false when there was no notice to restore from
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean restorePreviousFooter(String providerNo) {
         UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
         if (notice == null) {
@@ -206,7 +243,7 @@ public class EmailFooterService {
      * @param providerNo the logged-in user
      * @return false when there was no notice
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean dismissClinicChangeNotice(String providerNo) {
         boolean hadNotice = firstRow(providerNo, CLINIC_CHANGE_NOTICE) != null;
         deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
@@ -216,7 +253,13 @@ public class EmailFooterService {
     /**
      * Saves the clinic default and applies it to users' own footers.
      *
-     * <p>Saving the same text again changes nothing. Otherwise, a user's own footer equal to the
+     * <p>The page sends back the fingerprint of the footer it showed. Saving that text unedited
+     * changes nothing, even when someone has changed the default since: an administrator who opens
+     * the page and saves it as it is must not undo another's change, nor replace users' footers a
+     * second time. Saving a different text when the default has changed since the page was opened
+     * saves nothing either, so the administrator can see the current footer first.</p>
+     *
+     * <p>Otherwise, a user's own footer equal to the
      * new default is removed, so the user follows the default from now on. With own footers
      * replaced on a clinic change, every other own footer is removed too, and the user gets a
      * notice holding their previous text, unless it was the old default word for word (they were
@@ -225,17 +268,24 @@ public class EmailFooterService {
      * "no footer", a choice of its own, so it always gets the notice.</p>
      *
      * @param footer the clinic default as typed; empty means no clinic default
-     * @return whether the default changed, and how many own footers got a notice
+     * @param shownFingerprint the {@link #fingerprint} of the footer the page showed
+     * @return what the save did, and how many own footers got a notice
      * @throws FooterTooLongException when the footer is over the limit; nothing is saved
      */
-    @Transactional
-    public ClinicDefaultSaved saveClinicDefault(String footer) {
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ClinicDefaultSaved saveClinicDefault(String footer, String shownFingerprint) {
+        Objects.requireNonNull(shownFingerprint, "shownFingerprint");
         String normalised = withinLimit(footer);
-        UserProperty clinic = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
+        List<UserProperty> clinicRows = userPropertyDao.findClinicProperties(CLINIC_DEFAULT);
+        UserProperty clinic = clinicRows.isEmpty() ? null : clinicRows.get(0);
         String previous = clinic == null ? "" : normalise(clinic.getValue());
-        // Saving the text already in force, including an empty form when none is set, changes nothing.
-        if (normalised.equals(previous)) {
-            return new ClinicDefaultSaved(false, 0);
+        // Unedited: the text the page showed, whatever is stored now. Then the text in force,
+        // including an empty form when none is set.
+        if (fingerprint(normalised).equals(shownFingerprint) || normalised.equals(previous)) {
+            return new ClinicDefaultSaved(ClinicDefaultOutcome.UNCHANGED, 0);
+        }
+        if (!fingerprint(previous).equals(shownFingerprint)) {
+            return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED_SINCE_SHOWN, 0);
         }
         if (clinic == null) {
             clinic = new UserProperty();
@@ -243,6 +293,8 @@ public class EmailFooterService {
         }
         clinic.setValue(normalised);
         userPropertyDao.saveProp(clinic);
+        // Two first saves at the same moment can each add a row: keep the oldest only.
+        clinicRows.stream().skip(1).forEach(userPropertyDao::delete);
 
         int noticed = 0;
         for (UserProperty own : userPropertyDao.findProviderProperties(USER_FOOTER)) {
@@ -268,7 +320,11 @@ public class EmailFooterService {
             }
             noticed++;
         }
-        return new ClinicDefaultSaved(true, noticed);
+        return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED, noticed);
+    }
+
+    private UserProperty firstClinicRow() {
+        return userPropertyDao.findClinicProperties(CLINIC_DEFAULT).stream().findFirst().orElse(null);
     }
 
     /** The user's oldest row with this name; a double submit can leave more than one. */
