@@ -326,22 +326,27 @@ async function workflow(s) {
 
   await s.step('Settle reconciles the RA: the paid claim settles, the rejected claim stays billed', async () => {
     frame = await openAdminFrame(admin, '/billing/CA/ON/ViewGenRA', 'table');
+    await frame.waitForLoadState('load');
     const row = raRow(frame, marker);
     let response;
     const dialogs = await h.withExpectedDialogs(frame.page(), async () => {
       [response] = await settleOperations([
         admin.waitForResponse(r => r.request().method() === 'POST'
           && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewOnGenRAsettle'), { timeout: 30000 }),
+        // The response page replaces itself with the RA list. Wait for that
+        // new document before inspecting it; opening another iframe here can
+        // abort the list's script and stylesheet requests mid-load.
+        admin.waitForEvent('framenavigated', {timeout: 30000, predicate: f => f === frame
+          && new URL(f.url()).pathname.endsWith('/billing/CA/ON/ViewGenRA')})
+          .then(f => f.waitForLoadState('load')),
         row.locator('a', { hasText: 'Settle' }).click(),
       ]);
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === RECONCILE_CONFIRM,
       'Settle must ask the reconcile confirmation exactly once');
     h.assert(response.status() === 200, `Settle answered HTTP ${response.status()}`);
-    await frame.waitForLoadState('load').catch(() => {});
     h.assert(statuses() === 'S|B', 'Settle did not settle exactly the paid claim');
     h.assert(sql.value(`SELECT status FROM raheader WHERE raheader_no=${raNo}`) === 'S', 'Settle did not mark the RA settled');
-    frame = await openAdminFrame(admin, '/billing/CA/ON/ViewGenRA', 'table');
     const settled = raRow(frame, marker);
     h.assert(await settled.locator('a', { hasText: 'Settle' }).count() === 0
       && await settled.locator('a', { hasText: 'S35' }).count() === 1, 'The settled RA still offers Settle');
