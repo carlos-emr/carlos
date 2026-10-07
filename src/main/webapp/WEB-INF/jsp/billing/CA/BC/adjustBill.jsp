@@ -1082,7 +1082,7 @@
             <td>
                 <table width="100%">
                     <tr bgcolor="#CCCCFF">
-                        <td class="bCellData">Billing Notes</td>
+                        <td class="bCellData"><label for="messageNotes">Billing Notes</label></td>
                     </tr>
                     <tr>
 
@@ -1093,7 +1093,7 @@
                             <%-- The scriptlet expression must be the whole attribute value. With text in front
                                  of it, Jasper passes the code itself to the tag as a literal string, and saving
                                  would store that text as the note. --%>
-                            <textarea cols="60" rows="5" name="messageNotes"><carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context="html"/></textarea>
+                            <textarea cols="60" rows="5" id="messageNotes" name="messageNotes"><carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context="html"/></textarea>
                         </td>
                         <td></td>
 

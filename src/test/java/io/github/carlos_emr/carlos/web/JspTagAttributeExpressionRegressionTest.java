@@ -65,18 +65,21 @@ class JspTagAttributeExpressionRegressionTest {
             "\\s+([\\w:.-]+)\\s*=\\s*(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*')");
     private static final Pattern NOTES_TEXTAREA = Pattern.compile(
             "<textarea\\b[^>]*\\bname=\"messageNotes\"[^>]*>(.*?)</textarea>", Pattern.DOTALL);
+    private static final Pattern ENCODED_STORED_NOTE = Pattern.compile(
+            "<carlos:encode\\s+value='<%=\\s*StringUtils\\.noNull\\(messageNotes\\)\\s*%>'\\s+context=\"html\"\\s*/>");
 
     @Test
     @Tag("billing-bc")
-    @DisplayName("should print the stored note, not the code, in the adjust bill notes box")
+    @DisplayName("should fill the adjust bill notes box with only the encoded stored note")
     void shouldPrintStoredNote_inAdjustBillNotesTextarea() throws IOException {
         String jsp = Files.readString(ADJUST_BILL_JSP, StandardCharsets.UTF_8);
         Matcher textarea = NOTES_TEXTAREA.matcher(jsp);
 
         assertThat(textarea.find()).as("messageNotes textarea in %s", ADJUST_BILL_JSP).isTrue();
-        // Exact: any whitespace inside the textarea is shown in the box and saved with the note.
-        assertThat(textarea.group(1))
-                .isEqualTo("<carlos:encode value='<%= StringUtils.noNull(messageNotes) %>' context=\"html\"/>");
+        String content = textarea.group(1);
+        // Any text or whitespace around the tag is shown in the box and saved with the note.
+        assertThat(content).as("text around the encode tag in the notes box").isEqualTo(content.strip());
+        assertThat(content).matches(ENCODED_STORED_NOTE);
     }
 
     @Test
@@ -109,8 +112,9 @@ class JspTagAttributeExpressionRegressionTest {
     @Test
     @DisplayName("should report text after the expression and two expressions in one value")
     void shouldReportMixedAttribute_forTrailingTextOrTwoExpressions() {
-        String source = "<c:set var=\"a\" value=\"<%= first %> \"/>\n"
-                + "<c:set var=\"b\" value='<%= first %><%= second %>'/>";
+        String source = """
+                <c:set var="a" value="<%= first %> "/>
+                <c:set var="b" value='<%= first %><%= second %>'/>""";
 
         assertThat(findMixedExpressionAttributes(source)).containsExactly("1 c:set value", "2 c:set value");
     }
@@ -118,11 +122,12 @@ class JspTagAttributeExpressionRegressionTest {
     @Test
     @DisplayName("should accept whole expressions, including escaped quotes and plain attributes")
     void shouldAcceptWholeExpression_withEscapedQuotesOrNoExpression() {
-        String source = "<carlos:encode value=\"<%=bundle.getString(\\\"key.name\\\") %>\" context=\"javascriptBlock\"/>\n"
-                + "<carlos:encode value='<%= note %>' context=\"html\"/>\n"
-                + "<fmt:message key=\"global.btnSave\"/>\n"
-                + "<%-- <carlos:encode value=\" <%= commentedOut %>\"/> --%>\n"
-                + "<input value=\"  <%= templateTextIsFine %>  \">";
+        String source = """
+                <carlos:encode value="<%=bundle.getString(\\"key.name\\") %>" context="javascriptBlock"/>
+                <carlos:encode value='<%= note %>' context="html"/>
+                <fmt:message key="global.btnSave"/>
+                <%-- <carlos:encode value=" <%= commentedOut %>"/> --%>
+                <input value="  <%= templateTextIsFine %>  ">""";
 
         assertThat(findMixedExpressionAttributes(source)).isEmpty();
     }
