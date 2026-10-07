@@ -25,10 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
-    "manual      the check is never part of a tier run: it needs credentials",
-    "            the harness contract does not carry (the installer's",
-    "            initial-admin.txt) and changes the administrator password,",
-    "            so it runs only when named with --only.",
+    "manual      the check is never part of a tier run: it needs explicit",
+    "            fixture permissions or credentials beyond the common contract",
+    "            (for example, the installer's initial-admin.txt). It runs only",
+    "            when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -4016,7 +4016,9 @@
         "all"
       ],
       "timeoutSec": 420,
-      "env": ["EXCLUSIVE"],
+      "env": [
+        "EXCLUSIVE"
+      ],
       "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding.",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
@@ -7767,6 +7769,25 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "jasper-production",
+      "script": "scripts/jasper-production-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PLAYWRIGHT_ALLOW_JSP_FIXTURE_WRITE",
+        "JASPER_WEBAPP_DIR",
+        "JASPER_CLASS_DIR"
+      ],
+      "notes": "Isolated installed-package check. Creates one owned cold JSP, verifies effective production settings and no on-access recompilation, then removes source/generated files. Caller must restart Tomcat afterward to release the in-memory probe wrapper."
     }
   ]
 }
