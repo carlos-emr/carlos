@@ -101,7 +101,11 @@ async function workflow(s) {
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Long-term change did not ask for confirmation');
     await rx.waitForLoadState('networkidle');
     await ready(['Long Term Meds','Acute','Inactive','External']);
-    h.assert(sql.value(`SELECT long_term FROM drugs WHERE drugid=${id}`) === '1', 'Long-term change was not saved');
+    // The action preserves history: it inserts the changed drug and archives its source.
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${id}`) === '1', 'Long-term change did not archive its source');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(`${marker}-ACUTE`)} AND archived=0 AND long_term=1 AND drugid<>${id}`) === '1',
+    'Long-term change did not save exactly one active replacement');
     h.assert((await profile.locator('table[id="Drug_tableLong Term Meds"]').innerText()).includes(`${marker}-ACUTE`),
       'Refresh did not move the changed medication into Long Term Meds');
     h.assert((await combinedLink().getAttribute('class') || '').includes('selected'), 'Refresh changed the selected legend');
