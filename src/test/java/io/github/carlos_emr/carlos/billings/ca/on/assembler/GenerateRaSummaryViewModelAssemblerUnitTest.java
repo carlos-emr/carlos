@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -45,7 +47,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("GenerateRaSummaryViewModelAssembler")
 @Tag("unit")
 @Tag("billing")
-class GenerateRaSummaryViewModelAssemblerUnitTest {
+class GenerateRaSummaryViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({

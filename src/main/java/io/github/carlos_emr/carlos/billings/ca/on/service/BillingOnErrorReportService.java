@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
@@ -113,7 +114,12 @@ public class BillingOnErrorReportService {
 
     /** Delete every imported row that belongs to the provider/process-date/billing tuple carried by the DTO. */
     public boolean deleteErrorReport(BillingErrorReportDto val) {
-        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date(), "yyyyMMdd"), Integer.parseInt(val.getBilling_no()));
+        // Imports carry yyyyMMdd; DTOs returned to report screens carry yyyy-MM-dd.
+        String processDate = val.getProcess_date();
+        Date parsedProcessDate = processDate != null && processDate.length() == 8
+                ? ConversionUtils.fromDateString(processDate, "yyyyMMdd")
+                : ConversionUtils.fromDateString(processDate);
+        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), parsedProcessDate, Integer.parseInt(val.getBilling_no()));
         for (BillingONEAReport b : bs) {
             billingONEARReportDao.remove(b.getId());
         }

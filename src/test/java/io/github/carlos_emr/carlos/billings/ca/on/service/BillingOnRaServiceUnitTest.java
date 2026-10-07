@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
@@ -72,7 +74,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingOnRaService")
 @Tag("unit")
 @Tag("billing")
-class BillingOnRaServiceUnitTest {
+class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
 
     private RaDetailDao raDetailDao;
     private RaHeaderDao raHeaderDao;

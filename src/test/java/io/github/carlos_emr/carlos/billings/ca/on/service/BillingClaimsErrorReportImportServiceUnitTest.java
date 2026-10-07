@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimsErrorReportRecordDto;
 
@@ -58,7 +60,7 @@ import org.mockito.ArgumentCaptor;
 @DisplayName("BillingClaimsErrorReportImportService")
 @Tag("unit")
 @Tag("billing")
-class BillingClaimsErrorReportImportServiceUnitTest {
+class BillingClaimsErrorReportImportServiceUnitTest extends CarlosUnitTestBase {
 
     @TempDir
     Path tempDir;

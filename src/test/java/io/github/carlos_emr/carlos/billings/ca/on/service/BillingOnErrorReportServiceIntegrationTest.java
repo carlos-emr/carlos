@@ -22,7 +22,9 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Date;
+import java.util.List;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
@@ -109,6 +111,35 @@ public class BillingOnErrorReportServiceIntegrationTest extends CarlosTestBase {
         assertThat(entityManager.find(BillingONEAReport.class, original)).isNull();
         assertThat(entityManager.find(BillingONEAReport.class, otherDate)).isNotNull();
         assertThat(entityManager.find(BillingONEAReport.class, replacement)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should delete a returned report DTO while preserving another process date")
+    void shouldDeleteMatchingRows_whenReturnedReportDtoIsPassedBack() {
+        BillingONEAReport original = persistEAReport('N');
+        original.setProcessDate(ConversionUtils.fromDateString("2026-01-01"));
+        original.setCodeDate(ConversionUtils.fromDateString("2025-12-31"));
+        original.setReportName("returned-date.err");
+        BillingONEAReport otherDate = persistEAReport('N');
+        otherDate.setProcessDate(ConversionUtils.fromDateString("2026-01-02"));
+        otherDate.setCodeDate(ConversionUtils.fromDateString("2025-12-31"));
+        otherDate.setReportName("other-date.err");
+        entityManager.flush();
+        entityManager.clear();
+
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("999998");
+        provider.setBillingGroupNo("0000");
+        provider.setSpecialtyCode("00");
+        List<BillingErrorReportDto> reports = service.getErrorRecords(
+                provider, "2025-12-01", "2026-01-31", "returned-date.err");
+        assertThat(reports).hasSize(1);
+        assertThat(reports.get(0).getProcess_date()).isEqualTo("2026-01-01");
+        assertThat(service.deleteErrorReport(reports.get(0))).isTrue();
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.find(BillingONEAReport.class, original.getId())).isNull();
+        assertThat(entityManager.find(BillingONEAReport.class, otherDate.getId())).isNotNull();
     }
 
     @Test

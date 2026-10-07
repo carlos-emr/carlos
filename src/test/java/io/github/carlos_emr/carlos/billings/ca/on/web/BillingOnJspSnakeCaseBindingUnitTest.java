@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
@@ -56,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Billing ON JSP snake_case bindings")
 @Tag("unit")
 @Tag("billing")
-class BillingOnJspSnakeCaseBindingUnitTest {
+class BillingOnJspSnakeCaseBindingUnitTest extends CarlosUnitTestBase {
 
     private static final Path BILLING_ON_JSP_ROOT = Path.of(
             "src/main/webapp/WEB-INF/jsp/billing/CA/ON");
