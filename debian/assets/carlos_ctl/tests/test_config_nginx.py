@@ -18,6 +18,9 @@ from unittest import mock
 
 from carlos_ctl import config
 
+# The IPv4 wildcard as test input: a CARLOS_BIND_IP value. No test binds a socket.
+WILDCARD_IPV4 = "0.0.0.0"  # nosec B104
+
 
 def _cp(rc=0, stdout=""):
     return subprocess.CompletedProcess(args=[], returncode=rc, stdout=stdout, stderr="")
@@ -138,7 +141,7 @@ class TestApplyNginx(unittest.TestCase):
         self.processes = "1 nginx: master process /usr/sbin/nginx\n2 nginx: worker process"
         self.ss_outputs = [self._ss("0.0.0.0:80", "0.0.0.0:443")]
         with self.assertRaises(SystemExit):
-            self._apply("0.0.0.0")
+            self._apply(WILDCARD_IPV4)
 
     def test_a_worker_holding_the_socket_counts_even_after_a_master_entry(self):
         self.processes = "1 nginx: master process /usr/sbin/nginx\n2 nginx: worker process"
@@ -182,7 +185,7 @@ class TestApplyNginx(unittest.TestCase):
 
     def test_wildcard_bind_is_matched_as_written(self):
         self.ss_outputs = [self._ss("0.0.0.0:80", "0.0.0.0:443", "[::]:80", "[::]:443")]
-        self.assertEqual(self._apply("0.0.0.0"), 0)
+        self.assertEqual(self._apply(WILDCARD_IPV4), 0)
         self.assertNotIn(["systemctl", "restart", "nginx.service"], self.calls)
 
     def test_ipv6_literal_is_matched_without_brackets(self):
@@ -323,7 +326,7 @@ class TestListenFragments(unittest.TestCase):
 
     def test_an_ipv4_address_is_written_as_given(self):
         self.assertEqual(self._listen("127.0.0.1"), "127.0.0.1")
-        self.assertEqual(self._listen("0.0.0.0"), "0.0.0.0")
+        self.assertEqual(self._listen(WILDCARD_IPV4), WILDCARD_IPV4)
 
     def test_an_ipv6_literal_is_bracketed(self):
         self.assertEqual(self._listen("::1"), "[::1]")
@@ -379,7 +382,7 @@ class TestNginxRendering(unittest.TestCase):
     def test_default_only_adds_ipv6_wildcards_when_available(self):
         for available in (True, False):
             with self.subTest(ipv6_available=available):
-                rendered = self.render("0.0.0.0", available)
+                rendered = self.render(WILDCARD_IPV4, available)
                 self.assertIn("listen 0.0.0.0:80;", rendered["listen-http.conf"])
                 self.assertEqual("listen [::]:80;" in rendered["listen-http.conf"], available)
                 self.assertEqual("listen [::]:443 ssl;" in rendered["listen-https.conf"], available)
@@ -418,7 +421,7 @@ class TestBindAddressCanonicalisation(unittest.TestCase):
         self.assertEqual(self._settings("2001:0db8:0000::5").bind_ip, "2001:db8::5")
 
     def test_an_ipv4_address_is_left_exactly_as_written(self):
-        for raw in ("0.0.0.0", "127.0.0.1", "192.0.2.8"):
+        for raw in (WILDCARD_IPV4, "127.0.0.1", "192.0.2.8"):
             self.assertEqual(self._settings(raw).bind_ip, raw)
 
     def test_invalid_addresses_are_rejected_before_rendering_or_service_changes(self):

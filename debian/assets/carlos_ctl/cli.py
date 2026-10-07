@@ -138,7 +138,9 @@ def _cmd_lifecycle(verb: str) -> int:
         # util.reset_emr_start_limit for why this is needed and why it does not
         # weaken crash-loop protection.
         util.reset_emr_start_limit()
-    os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])
+    # No shell is involved: a fixed program and an argv list, with verb already
+    # limited by the dispatcher to the service verbs.
+    os.execvp("systemctl", ["systemctl", verb, "carlos-emr.service"])  # nosec B606
     raise AssertionError("unreachable: execvp replaces the process")
 
 
@@ -171,7 +173,9 @@ def _refuse_start_during_o19_import(verb: str) -> None:
 
 def _cmd_cert(argv) -> int:
     need_root("cert")
-    os.execv(os.path.join(LIB, "carlos-emr-cert"),
+    # No shell is involved: the packaged helper by absolute path, and the
+    # operator's own arguments passed through as an argv list.
+    os.execv(os.path.join(LIB, "carlos-emr-cert"),  # nosec B606
              [os.path.join(LIB, "carlos-emr-cert")] + list(argv))
     raise AssertionError("unreachable: execv replaces the process")
 
@@ -179,7 +183,8 @@ def _cmd_cert(argv) -> int:
 def _cmd_cert_renew(argv) -> int:
     # Aligned with the podman verb name; the timer calls the helper directly.
     need_root("cert-renew")
-    os.execv(os.path.join(LIB, "carlos-emr-cert"),
+    # No shell is involved: the packaged helper by absolute path, fixed argv.
+    os.execv(os.path.join(LIB, "carlos-emr-cert"),  # nosec B606
              [os.path.join(LIB, "carlos-emr-cert"), "renew"])
     raise AssertionError("unreachable: execv replaces the process")
 
@@ -215,13 +220,17 @@ def _cmd_backup(argv) -> int:
         else:
             util.warn("the restore drill FAILED — journalctl -u carlos-emr-backup-verify -n 50")
         return rc
-    os.execvp("runuser", ["runuser", "-u", "carlos-backup", "--",
+    # No shell is involved: runuser drops to the backup account and runs the
+    # packaged helper, with the operator's own arguments passed through as an
+    # argv list.
+    os.execvp("runuser", ["runuser", "-u", "carlos-backup", "--",  # nosec B606
                           os.path.join(LIB, "carlos-emr-backup")] + sub)
     raise AssertionError("unreachable: execvp replaces the process")
 
 
 def _cmd_logs(argv) -> int:
-    os.execvp("journalctl", ["journalctl", "-u", "carlos-emr.service"] + list(argv))
+    # No shell is involved: the operator's own journalctl options, as an argv list.
+    os.execvp("journalctl", ["journalctl", "-u", "carlos-emr.service"] + list(argv))  # nosec B606
     raise AssertionError("unreachable: execvp replaces the process")
 
 
