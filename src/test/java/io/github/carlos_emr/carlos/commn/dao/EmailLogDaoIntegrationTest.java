@@ -61,12 +61,11 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should persist the footer apart from the body and the sending account's default footer")
-    void shouldPersistFooterAndDefaultFooter_whenLogAndAccountSaved() {
+    @DisplayName("should persist the footer apart from the body")
+    void shouldPersistFooter_whenLogSaved() {
         EmailConfig config = new EmailConfig(EmailConfig.EmailType.SMTP, EmailConfig.EmailProvider.LOCAL,
                 "footer.sender@example.org");
         config.setActive(true);
-        config.setDefaultFooter("Riverside Clinic\nNot monitored for urgent issues.");
         entityManager.persist(config);
         EmailLog log = new EmailLog(config, "footer.sender@example.org",
                 new String[] {"footer.recipient@example.org"}, "Footer regression", "Body",
@@ -83,8 +82,6 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         EmailLog saved = entityManager.find(EmailLog.class, log.getId());
         assertThat(saved.getBody()).isEqualTo("Body");
         assertThat(saved.getFooter()).isEqualTo("Riverside Clinic");
-        assertThat(saved.getEmailConfig().getDefaultFooter())
-                .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
         assertThat(entityManager.find(EmailLog.class, legacy.getId()).getFooter()).isEmpty();
     }
 

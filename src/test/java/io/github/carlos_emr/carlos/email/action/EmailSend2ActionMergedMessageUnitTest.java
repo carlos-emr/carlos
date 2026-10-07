@@ -370,8 +370,6 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
         assertThat(request.getAttribute("footerEmail"))
                 .isEqualTo("Riverside Clinic\r\nNot monitored for urgent issues.");
-        // A retry keeps the footer staff sent; the page must not swap in an account default.
-        assertThat(request.getAttribute("footerFollowsSender")).isNull();
     }
 
     @Test

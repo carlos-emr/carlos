@@ -5,7 +5,7 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  footerEmail, footerFollowsSender, senderDefaultFooters, emailAttachmentList, isEmailEncrypted,
+  footerEmail, emailAttachmentList, isEmailEncrypted,
   isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
   footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
@@ -391,11 +391,10 @@
                                 <div class="mb-3">
                                     <label class="form-label" for="senderEmailAddress">${emailComposeSenderLabel}</label>
                                     <select class="form-select" name="senderConfigId" id="senderEmailAddress"
-                                            onchange="showAdditionalParamOption(); applySenderDefaultFooter()">
+                                            onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
                                             <option value="${carlos:forHtmlAttribute(senderAccount.id)}"
                                                     data-email-type="${carlos:forHtmlAttribute(senderAccount.emailType)}"
-                                                    data-default-footer="${carlos:forHtmlAttribute(senderDefaultFooters[senderAccount.id])}"
                                                     <c:if test="${ senderAccount.id eq senderConfigId or senderAccount.senderEmail eq senderEmail }">selected</c:if>>
                                                 ${carlos:forHtml(senderAccount.senderFirstName)} ${carlos:forHtml(senderAccount.senderLastName)} (${carlos:forHtml(senderAccount.senderEmail)})
                                             </option>
@@ -601,11 +600,8 @@
                 <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
                      stays in clear text when encryption is on (it follows the secure-message notice and is
                      never inside the encrypted PDF), and it is never written to the chart note. The value
-                     is seeded server-side as footerEmail: the eForm's footer, else the selected sending
-                     account's default, else empty; a resend or failed-send retry seeds the footer it had.
-                     data-follows-sender is true only when the footer did not come from an eForm, a resend
-                     or a retry: then choosing another sending account shows that account's default (see
-                     applySenderDefaultFooter) until staff type in the footer. --%>
+                     is seeded server-side as footerEmail: the eForm's footer, else empty; a resend or
+                     failed-send retry seeds the footer it had. --%>
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">${emailComposeFooterLabel}</h5>
@@ -616,9 +612,7 @@
                                 <div class="col-sm-12">
                                     <label for="footerEmail" class="visually-hidden">${emailComposeFooterLabel}</label>
                                     <textarea class="form-control" name="footerEmail" id="footerEmail" rows="3"
-                                              maxlength="2000" aria-describedby="footerEmailHelp"
-                                              data-follows-sender="${footerFollowsSender ? 'true' : 'false'}"
-                                              oninput="this.dataset.followsSender = 'false'"><carlos:encode value="${footerEmail}"/></textarea>
+                                              maxlength="2000" aria-describedby="footerEmailHelp"><carlos:encode value="${footerEmail}"/></textarea>
                                 </div>
                             </div>
                         </div>
@@ -1221,19 +1215,6 @@
         } else {
             document.getElementById('additionalParams').classList.add('d-none');
         }
-    }
-
-    // Shows the newly selected sending account's default footer, but only while the footer is
-    // still the one the page chose from the account (issue #3981). A footer from an eForm, a
-    // resend or a retry, or one staff have typed in, is left alone.
-    function applySenderDefaultFooter() {
-        const footer = document.getElementById('footerEmail');
-        const senderEmailAddress = document.getElementById('senderEmailAddress');
-        const selectedSender = senderEmailAddress.options[senderEmailAddress.selectedIndex];
-        if (!footer || !selectedSender || footer.dataset.followsSender !== 'true') {
-            return;
-        }
-        footer.value = selectedSender.getAttribute('data-default-footer') || '';
     }
 
     function showAdditionalParamsTextBox() {

@@ -427,7 +427,7 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
-        // The footer as submitted, not the account default: a retry keeps what staff sent.
+        // The footer as submitted: a retry keeps what staff sent.
         request.setAttribute(PARAM_FOOTER_EMAIL, request.getParameter(PARAM_FOOTER_EMAIL));
         // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit
         // "false" re-renders a toggle OFF, so a failed draft cannot silently lose protection.

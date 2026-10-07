@@ -442,8 +442,6 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(request.getAttribute("message")).isEqualTo("body");
         assertThat(request.getAttribute("footerEmail"))
                 .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
-        // A copy keeps its footer: switching sender must not swap in an account default.
-        assertThat(request.getAttribute("footerFollowsSender")).isNull();
     }
 
     @Test

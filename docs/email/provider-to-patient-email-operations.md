@@ -113,35 +113,13 @@ or a line saying the mailbox is not checked for urgent issues.
   from the same window keeps the footer. Emails sent before footers existed have
   no footer.
 - **Limit.** 2,000 characters. The box stops at 2,000, and a longer footer sent
-  another way is refused. A longer footer from an eForm, or a longer sending
-  account default, is cut to 2,000 when the compose screen fills it in; the
-  server log names the account (never its footer) when a default is too long.
+  another way is refused. A longer footer from an eForm is cut to 2,000 when the
+  eForm is saved, before the compose screen shows it.
 
-The compose screen fills in the footer from the first of these that has text:
-
-1. The footer the eForm sends, in a field named `footerEmail` (the same way an
-   eForm can send `bodyEmail` for the message).
-2. The default footer of the sending account selected on the compose screen
-   (`emailConfig.defaultFooter`). If staff choose another sending account, the
-   footer changes to that account's default, until they type in the footer
-   themselves. After that, changing account leaves the footer alone. A footer
-   from an eForm, a copied email or a retry is never replaced this way.
-3. Nothing: the footer starts empty.
-
-### Setting a sending account's default footer
-
-There is no screen for this yet, so set it in the database. Keep it to 2,000
-characters or fewer, and free of patient information. For example:
-
-```sql
-UPDATE emailConfig
-   SET defaultFooter = 'Riverside Family Clinic\nBook online: https://clinic.example.org/book\nThis mailbox is not checked for urgent issues. In an emergency, call 911.'
- WHERE id = 1;
-```
-
-MariaDB reads `\n` in a quoted string as a line break unless the server runs with
-the `NO_BACKSLASH_ESCAPES` SQL mode. Set it to `NULL` to remove the default.
-Compose windows opened or refreshed after the change use the new default.
+The compose screen fills in the footer the eForm sends, in a field named
+`footerEmail` (the same way an eForm can send `bodyEmail` for the message).
+Otherwise the footer starts empty. Changing the sending account never changes
+the footer.
 
 ## Local Development
 
@@ -324,8 +302,7 @@ password clue and surrounding email body remain normal email content. Choose
 subjects, body text, and password clues accordingly.
 
 The footer is always normal email content, even when the message is encrypted.
-Never put patient information in a footer or in a sending account's default
-footer.
+Never put patient information in a footer.
 
 ## Known Gaps and Related Work
 
