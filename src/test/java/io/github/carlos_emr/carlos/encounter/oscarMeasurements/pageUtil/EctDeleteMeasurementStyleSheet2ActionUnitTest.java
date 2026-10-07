@@ -86,7 +86,9 @@ class EctDeleteMeasurementStyleSheet2ActionUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
         MeasurementCSSLocation location = new MeasurementCSSLocation();
         location.setLocation("<script>owned</script>");
-        when(locations.find(27)).thenReturn(location);
+        // The action passes ConversionUtils' Integer result to find(Object),
+        // which is distinct from the DAO's primitive find(int) overload.
+        when(locations.find(Integer.valueOf(27))).thenReturn(location);
         doReturn("Stylesheet still in use").when(action).getText(
                 eq("error.encounter.Measurements.cannotDeleteStyleSheet"), any(String[].class));
         assertThat(action.execute()).isEqualTo("error");
