@@ -226,6 +226,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <link rel="stylesheet" href="${ctx}/share/css/transitions.css" type="text/css" />
         <script type="text/javascript" src="${ctx}/js/global.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/carlos-ajax.js"></script>
+        <script type="text/javascript" src="${ctx}/share/javascript/rx-profile-loader.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/screen.js"></script>
         <script type="text/javascript" src="${ctx}/share/javascript/rx.js"></script>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
@@ -274,11 +275,13 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
 
+        <fmt:message key="SearchDrug.js.profileLoadFailed" var="msg_profileLoadFailed"/>
         <fmt:message key="SearchDrug.js.favoriteLoadFailed" var="msg_favoriteLoadFailed"/>
         <script type="text/javascript">
             let selectedReRxIDs = [];
             // i18n message strings for JavaScript alerts and confirm dialogs
             var jsMsg = {
+                profileLoadFailed: '${carlos:forJavaScript(msg_profileLoadFailed)}',
                 favoriteLoadFailed: '${carlos:forJavaScript(msg_favoriteLoadFailed)}',
                 handlerNotRemoved: '${carlos:forJavaScript(msg_handlerNotRemoved)}',
                 confirmMedRecComplete: '${carlos:forJavaScript(msg_confirmMedRecComplete)}',
@@ -691,7 +694,7 @@ function renderRxStage() {
   		  method: 'post',
   		  parameters: {method: 'update', direction: 'down', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
   		  onSuccess: function(transport) {
-  			callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+            refreshDrugProfile();
             resetStash();
   		  }
   		});
@@ -702,7 +705,7 @@ function renderRxStage() {
     		  method: 'post',
     		  parameters: {method: 'update', direction: 'up', drugId: drugId, swapDrugId: swapDrugId, demographicNo: demographicNo},
     		  onSuccess: function(transport) {
-    			  callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                  refreshDrugProfile();
                   resetStash();
     		  }
     		});
@@ -715,7 +718,8 @@ function renderRxStage() {
     var Lst;
 
     function CngClass(obj){
-    	document.getElementById("selected_default").removeAttribute("style");
+        var current = document.getElementById("selected_default");
+        if (current) current.removeAttribute("style");
      if (Lst) Lst.className='';
      obj.className='selected';
      Lst=obj;
@@ -1042,7 +1046,7 @@ function renderRxStage() {
 																			<tr>
 																				<%if(show_current){%>
 																				<td >
-		                                                                            <a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('current', this);"
 		                                                                            	id="selected_default" style="color:#000000; text-decoration: none;"
 		                                                                            	TITLE="<fmt:message key='SearchDrug.msgShowCurrentDesc'/>">
 		                                                                            	<fmt:message key="SearchDrug.msgShowCurrent"/>
@@ -1050,21 +1054,21 @@ function renderRxStage() {
 	                                                                            </td>
 																				<%}if(show_all){%>
 	                                                                            <td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?show=all','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('all', this);"
 																						Title="<fmt:message key='SearchDrug.msgShowAllDesc'/>">
 																						<fmt:message key="SearchDrug.msgShowAll"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(active){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=active','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('active', this);"
 																						TITLE="<fmt:message key='SearchDrug.msgActiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgActive"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(inactive){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?status=inactive','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('inactive', this);"
 																						TITLE="<fmt:message key='SearchDrug.msgInactiveDesc'/>">
 																						<fmt:message key="SearchDrug.msgInactive"/>
 																					</a>
@@ -1073,14 +1077,14 @@ function renderRxStage() {
 
 																				if(longterm_acute){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('longTermAcute', this);"
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcute"/>
 																					</a>
 	                                                                            </td>
 																				<%}if(longterm_acute_inactive_external){%>
 																				<td >
-																					<a href="javascript:void(0);" onclick="callReplacementWebService('/rx/ViewListDrugs?longTermOnly=true&heading=Long Term Meds','drugProfile'); callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Acute&status=active','drugProfile');callAdditionWebService('/rx/ViewListDrugs?longTermOnly=acute&heading=Inactive&status=inactive','drugProfile');callAdditionWebService('/rx/ViewListDrugs?heading=External&drugLocation=external','drugProfile');CngClass(this);" 
+                                                                                    <a href="javascript:void(0);" onclick="selectDrugProfile('combined', this);"
                                                                                    TITLE="<fmt:message key='SearchDrug.msgLongTermAcuteInactiveExternalDesc'/>">
                                                                                     <fmt:message key="SearchDrug.msgLongTermAcuteInactiveExternal"/>
 																					</a>
@@ -1303,7 +1307,7 @@ function renderRxStage() {
                     var json = null;
                     try { json = JSON.parse(transport.responseText); } catch(e) { checkboxRevertStatus(element); return; }
                     if (json != null && (json.success === 'true' || json.success === true)) {
-                        callReplacementWebService('/rx/ViewListDrugs','drugProfile');
+                        refreshDrugProfile();
                     } else {
                         checkboxRevertStatus(element);
                     }
@@ -1896,33 +1900,28 @@ function popForm2(scriptId, saveAndPrint){
         }
     }
 
-     function callAdditionWebService(url,id){
-         var contextPath = '${carlos:forJavaScript(ctx)}';
-         if (url.indexOf(contextPath) !== 0) {
-             // url typically begins with '/rx/...' (already context-relative).
-             // Only prepend contextPath; don't double-stack '/rx/'.
-             url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
-         }
-         var ran_number=Math.round(Math.random()*1000000);
-         var params = "demographicNo=<%=demoNo%>&rand="+ran_number;  //hack to get around ie caching the page
-         var updater=CarlosAjax.updater(id,url, {method:'get',parameters:params,insertion: 'bottom',evalScripts:true});
-     }
+    var drugProfile = document.getElementById('drugProfile');
+    var rxProfileLoader = RxProfileLoader.create({
+        updater: CarlosAjax.updater,
+        contextPath: '${carlos:forJavaScript(ctx)}',
+        demographicNo: '<%=demoNo%>',
+        loading: function (loading) {
+            drugProfile.hidden = loading;
+            drugProfile.setAttribute('aria-busy', String(loading));
+        },
+        failed: function () { drugProfile.textContent = jsMsg.profileLoadFailed; }
+    });
 
-			function callReplacementWebService(url, id) {
-            var contextPath = '${carlos:forJavaScript(ctx)}';
-            if (url.indexOf(contextPath) !== 0) {
-                // url typically begins with '/rx/...' (already context-relative).
-                // Only prepend contextPath; don't double-stack '/rx/'.
-                url = contextPath + (url.charAt(0) === '/' ? url : '/rx/' + url);
-            }
-				var ran_number = Math.round(Math.random() * 1000000);
-				// alert(url + "  " + id + "  " + ran_number);
-				var params = "demographicNo=<%=demoNo%>&rand=" + ran_number;  //hack to get around ie caching the page
-            var updater = CarlosAjax.updater(id, url, {method: 'get', parameters: params, evalScripts: true});
-			}
+    function selectDrugProfile(view, link) {
+        CngClass(link);
+        rxProfileLoader.select(view);
+    }
 
-			//callReplacementWebService("/rx/ViewInteractionDisplay",'interactionsRx');
-			callReplacementWebService("/rx/ViewListDrugs", 'drugProfile');
+    function refreshDrugProfile() {
+        rxProfileLoader.refresh();
+    }
+
+    refreshDrugProfile();
 
 
 			function searchResultsHandler(type, args) {
@@ -2921,7 +2920,7 @@ function updateQty(element){
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
 
-                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
@@ -2964,7 +2963,7 @@ function updateQty(element){
                     reportRefusedSave(transport);
                     return;
                 }
-                callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
+                refreshDrugProfile();
                 clearStashDisplay();
             },
             onFailure: reportRefusedSave});
