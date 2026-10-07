@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (c) 2026 CARLOS Contributors.
 """Exercise the restore drill's archive/keyring gate with fake database replies.
 
