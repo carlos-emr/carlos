@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptRequest;
@@ -152,7 +153,7 @@ class PortalBookingPrompt2ActionUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "delete", "CREATE", "panel"})
+    @ValueSource(strings = {"", "delete", "CREATE", "approve"})
     void shouldRejectUnsupportedMethod_beforeSending(String method) throws Exception {
         request.setParameter("method", method);
         execute();
@@ -260,7 +261,10 @@ class PortalBookingPrompt2ActionUnitTest {
         when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "read")));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getContentAsString()).contains("read");
+        var prompts = new ObjectMapper().readTree(response.getContentAsString()).get("prompts");
+        assertThat(prompts).hasSize(1);
+        assertThat(prompts.get(0).get("id").asLong()).isEqualTo(7);
+        assertThat(prompts.get(0).get("state").asText()).isEqualTo("read");
         verify(portal, never()).findAccount(anyInt(), any());
     }
 
@@ -272,6 +276,21 @@ class PortalBookingPrompt2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
         verify(portal, never()).withdrawBookingPrompt(anyInt(), anyLong(), any());
+    }
+
+    @Test
+    void shouldRefuseUnlistedPrompt_beforeWithdrawal() throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", "7");
+        Instant timestamp = Instant.parse("2026-10-01T12:00:00Z");
+        var otherPrompt = new PatientPortalBookingPromptDto(8, 123, "soon", "follow_up", null, "sent",
+                "Synthetic Provider", timestamp, timestamp.plusSeconds(86400), null, null, null, null);
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(otherPrompt));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentAsString()).contains("booking_prompt_not_verified");
+        verify(portal, never()).withdrawBookingPrompt(anyInt(), anyLong(), any());
+        audit.verifyNoInteractions();
     }
 
     @Test

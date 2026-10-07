@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -138,24 +139,64 @@ class PatientPortalBookingPromptCallsUnitTest {
         assertThat(exchange.sent.getFirst().getMethod()).isEqualTo("GET");
         assertThat(exchange.sent.getFirst().getRequestUri()).isEqualTo("/internal/carlos/patients/123/booking-prompts");
         assertThat(prompt.id()).isEqualTo(7);
+        assertThat(prompt.demographicNo()).isEqualTo(123);
+        assertThat(prompt.urgency()).isEqualTo("soon");
+        assertThat(prompt.appointmentType()).isEqualTo("follow_up");
+        assertThat(prompt.state()).isEqualTo("sent");
+        assertThat(prompt.createdAt()).isEqualTo(Instant.parse("2026-10-01T12:00:00Z"));
+        assertThat(prompt.expiresAt()).isEqualTo(Instant.parse("2026-12-01T12:00:00Z"));
+        assertThat(prompt.notifiedAt()).isNull();
         assertThat(prompt.readAt()).isNull();
-        assertThat(prompt.createdAt()).isNotNull();
+        assertThat(prompt.withdrawnAt()).isNull();
         assertThat(prompt.toString()).doesNotContain("123", "Synthetic Provider", "follow_up");
+    }
+
+    @Test
+    void shouldReadNoticeAndWithdrawalTimes_whenListingWithdrawnPrompt() {
+        String withdrawn = PROMPT.replace("\"state\":\"sent\"", "\"state\":\"withdrawn\"")
+                .replace("\"notified_at\":null", "\"notified_at\":\"2026-10-01T12:05:00Z\"")
+                .replace("\"read_at\":null", "\"read_at\":\"2026-10-02T08:00:00Z\"")
+                .replace("\"withdrawn_at\":null", "\"withdrawn_at\":\"2026-10-03T09:30:00Z\"")
+                .replace("\"withdrawn_by\":null", "\"withdrawn_by\":\"Synthetic Provider\"");
+        PatientPortalBookingPromptDto prompt = service(new Exchange().reply(200, "[" + withdrawn + "]"))
+                .listBookingPrompts(123, STAFF).getFirst();
+        assertThat(prompt.state()).isEqualTo("withdrawn");
+        assertThat(prompt.notifiedAt()).isEqualTo(Instant.parse("2026-10-01T12:05:00Z"));
+        assertThat(prompt.readAt()).isEqualTo(Instant.parse("2026-10-02T08:00:00Z"));
+        assertThat(prompt.withdrawnAt()).isEqualTo(Instant.parse("2026-10-03T09:30:00Z"));
+        assertThat(prompt.withdrawnBy()).isEqualTo("Synthetic Provider");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"urgency", "appointment_type", "state"})
+    void shouldRejectListing_whenAnEntryUsesUnknownVocabulary(String field) {
+        String reply = switch (field) {
+            case "urgency" -> PROMPT.replace("\"urgency\":\"soon\"", "\"urgency\":\"whenever\"");
+            case "appointment_type" -> PROMPT.replace("\"follow_up\"", "\"spa_day\"");
+            case "state" -> PROMPT.replace("\"state\":\"sent\"", "\"state\":\"archived\"");
+            default -> throw new AssertionError(field);
+        };
+        PatientPortalService service = service(new Exchange().reply(200, "[" + reply + "]"));
+        assertThatThrownBy(() -> service.listBookingPrompts(123, STAFF))
+                .isInstanceOfSatisfying(PatientPortalException.class,
+                        failure -> assertThat(failure.kind()).isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"id", "patient", "state"})
     void shouldRefuseWrongWithdrawal_whenAcknowledgementIsUnrelated(String mismatch) {
-        String reply = PROMPT.replace("sent", "withdrawn");
+        String reply = PROMPT.replace("\"state\":\"sent\"", "\"state\":\"withdrawn\"");
         reply = switch (mismatch) {
             case "id" -> reply.replace("\"id\":7", "\"id\":8");
-            case "patient" -> reply.replace("123", "456");
-            case "state" -> reply.replace("withdrawn", "sent");
+            case "patient" -> reply.replace("\"demographic_no\":123", "\"demographic_no\":456");
+            // A well-formed prompt that is simply not withdrawn: only the state check can refuse it.
+            case "state" -> reply.replace("\"state\":\"withdrawn\"", "\"state\":\"sent\"");
             default -> throw new AssertionError(mismatch);
         };
         PatientPortalService service = service(new Exchange().reply(200, reply));
         assertThatThrownBy(() -> service.withdrawBookingPrompt(123, 7, STAFF))
-                .isInstanceOf(PatientPortalException.class);
+                .isInstanceOfSatisfying(PatientPortalException.class,
+                        failure -> assertThat(failure.kind()).isEqualTo(PatientPortalException.Kind.MALFORMED_RESPONSE));
     }
 
     @Test

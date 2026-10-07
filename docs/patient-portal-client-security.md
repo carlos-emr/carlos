@@ -146,7 +146,8 @@ Settings and transport construction tests reject absent pins before any connecti
 
 `PatientPortalService` can create, list, and withdraw the portal's fixed-vocabulary booking prompts.
 `portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
-`POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`.
+`POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`
+(withdraw also takes `promptId`).
 Every request checks patient-record access and the patient's booking privilege; list requires read,
 and create/withdraw require write. Create also requires `_portal.account` read and checks for an
 active account before requesting a prompt. The CSRFGuard filter protects every POST, including list.
