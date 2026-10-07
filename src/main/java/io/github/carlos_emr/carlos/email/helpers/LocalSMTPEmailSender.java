@@ -50,6 +50,7 @@ public class LocalSMTPEmailSender extends SMTPEmailSender {
         properties.put("mail.debug", "false");
 
         applySmtpTimeouts(properties);
+        applyAllOrNothingRecipients(properties);
         mailSender.setJavaMailProperties(properties);
         return mailSender;
     }

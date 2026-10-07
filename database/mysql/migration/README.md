@@ -35,6 +35,7 @@ migration/
            V1.0.32__add_sms_consent.sql
            V1.0.41__patient_portal_security_objects.sql
            V1.0.42__portal_email_delivery.sql
+           V1.0.54__activate_sms_consent.sql  # above develop and release/2026.08 (V1.0.53)
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
