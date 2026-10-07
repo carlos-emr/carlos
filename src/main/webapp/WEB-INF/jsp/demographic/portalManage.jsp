@@ -164,7 +164,7 @@
         <%-- page --%>
         <li data-key="yes"><fmt:message key="global.yes"/></li>
         <li data-key="no"><fmt:message key="global.no"/></li>
-        <c:forTokens var="key" delims="," items="done,error.generic,loading">
+        <c:forTokens var="key" delims="," items="done,error.generic,error.portalUnavailable,error.portalUnavailableRecordsBelow,loading">
             <li data-key="${carlos:forHtmlAttribute(key)}"><fmt:message key="demographic.portal.${key}"/></li>
         </c:forTokens>
         <%-- account --%>

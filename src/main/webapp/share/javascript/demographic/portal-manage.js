@@ -68,6 +68,18 @@
             return parts;
         }
 
+        /**
+         * The text for a section the portal did not answer: that the portal cannot be reached when the
+         * server says so, otherwise the generic message. Pointing at CARLOS's own records below is only
+         * true when the deliveries card is shown.
+         */
+        function sectionError(reason, recordsShown) {
+            if (reason !== 'portal_unavailable') {
+                return text('error.generic');
+            }
+            return text(recordsShown ? 'error.portalUnavailableRecordsBelow' : 'error.portalUnavailable');
+        }
+
         /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
         function refusal(body) {
             if (body && body.reason && message('refusal.' + body.reason)) {
@@ -125,8 +137,8 @@
             return Boolean(body && body.reason === 'stale_attempt_exists' && !params.withdrawStale);
         }
 
-        return {message: message, text: text, describe: describe, refusal: refusal, isGoodNews: isGoodNews,
-            offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
+        return {message: message, text: text, describe: describe, refusal: refusal, sectionError: sectionError,
+            isGoodNews: isGoodNews, offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
     }
 
     if (typeof module !== 'undefined' && module.exports) {
@@ -166,6 +178,7 @@
     var text = logic.text;
     var describe = logic.describe;
     var refusal = logic.refusal;
+    var sectionError = logic.sectionError;
 
     function element(tag, className, content) {
         var node = document.createElement(tag);
@@ -304,17 +317,32 @@
         }
     }
 
+    /**
+     * Shows or hides the card holding {@code box}. A section is absent from the panel, not empty, when
+     * this user may not read it; its card is hidden rather than claiming there is nothing to show.
+     *
+     * @return whether the card is shown
+     */
+    function showSection(box, shown) {
+        var section = box.closest('section');
+        if (section) {
+            section.hidden = !shown;
+        }
+        return !!shown;
+    }
+
     function renderAccount(payload) {
         var box = document.getElementById('portal-account');
         box.replaceChildren();
+        if (!showSection(box, payload.account !== undefined || payload.accountError)) {
+            return;
+        }
         if (payload.accountError) {
-            box.appendChild(element('p', 'portal-error', text('error.generic')));
+            box.appendChild(element('p', 'portal-error',
+                sectionError(payload.accountErrorReason, Array.isArray(payload.deliveries))));
             return;
         }
         var account = payload.account;
-        if (account === undefined) {
-            return;
-        }
         // A patient with an account has nothing to be invited to; the server refuses it too.
         document.getElementById('portal-invite-form').hidden = !can.invite || account !== null;
         if (account === null) {
@@ -388,8 +416,13 @@
     function renderInvites(payload) {
         var box = document.getElementById('portal-invites');
         box.replaceChildren();
+        if (!showSection(box, payload.invites !== undefined || payload.invitesError)) {
+            lastInvites = [];
+            return;
+        }
         if (payload.invitesError) {
-            box.appendChild(element('p', 'portal-error', text('error.generic')));
+            box.appendChild(element('p', 'portal-error',
+                sectionError(payload.invitesErrorReason, Array.isArray(payload.deliveries))));
             return;
         }
         lastInvites = payload.invites || [];
@@ -438,6 +471,9 @@
     function renderDeliveries(payload) {
         var box = document.getElementById('portal-deliveries');
         box.replaceChildren();
+        if (!showSection(box, payload.deliveries !== undefined || payload.deliveriesError)) {
+            return;
+        }
         if (payload.deliveriesError) {
             box.appendChild(element('p', 'portal-error', text('error.generic')));
             return;
