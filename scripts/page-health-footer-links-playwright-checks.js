@@ -17,6 +17,7 @@
  * not defined" and nothing opens. Asserts: each click opens a popup that is not an error
  * page, with no uncaught error recorded. The destination must be correct and have no
  * opener access, and the originating page and unsaved signature must stay intact.
+ * Close is clicked inside each destination; closing a Playwright page is cleanup only.
  *
  * READ-ONLY on an existing demo patient, no fixtures, nothing submitted.
  *
@@ -42,6 +43,19 @@ async function openHub(session, masterPage, name, timeout) {
   return page;
 }
 
+/** Verify the destination and exercise its own Close control. */
+async function verifyFooterPopup(session, page, popup, text, sourceUrl, timeout) {
+  const destination = new URL(popup.url());
+  const expected = new URL(h.appUrl(session.config.baseUrl, `/encounter/View${text}`));
+  h.assert(destination.origin === expected.origin && destination.pathname === expected.pathname,
+    `The ${text} footer opened the wrong destination`);
+  h.assert(await popup.evaluate(() => window.opener === null), 'The footer destination has access to the editor window');
+  const close = popup.locator('a[href="javascript:window.close()"]:visible').first();
+  h.assert(await close.count() === 1, `The ${text} page has no Close control`);
+  await Promise.all([popup.waitForEvent('close', { timeout }), close.click()]);
+  h.assert(!page.isClosed() && page.url() === sourceUrl, 'A footer interaction replaced or closed the editor');
+}
+
 /** Click one footer link and require a healthy popup; returns the findings. */
 async function footerLink(session, page, text, timeout, reported) {
   const labels = { About: /^\s*About\s*$/, License: /^\s*License\s*$/ };
@@ -57,12 +71,7 @@ async function footerLink(session, page, text, timeout, reported) {
       context: session.context, label: `footer ${text}`, recorder: session.recorder, timeout,
     });
     try {
-      const destination = new URL(popup.url());
-      const expected = new URL(h.appUrl(session.config.baseUrl, `/encounter/View${text}`));
-      h.assert(destination.origin === expected.origin && destination.pathname === expected.pathname,
-        `The ${text} footer opened the wrong destination`);
-      h.assert(await popup.evaluate(() => window.opener === null), 'The footer destination has access to the editor window');
-      h.assert(!page.isClosed() && page.url() === sourceUrl, 'Opening a footer replaced or closed the editor');
+      await verifyFooterPopup(session, page, popup, text, sourceUrl, timeout);
     } finally { await popup.close().catch(() => {}); }
   } catch (error) {
     problems.push(`"${text}" footer link on ${sourceUrl.split('?')[0].split('/').pop()}: ${error.message}`);
@@ -138,4 +147,4 @@ if (require.main === module) {
   h.runCheck({ name: 'page-health-footer-links', run: main });
 }
 
-module.exports = { main };
+module.exports = { main, verifyFooterPopup };

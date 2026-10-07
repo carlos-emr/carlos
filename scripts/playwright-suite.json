@@ -7273,6 +7273,21 @@
       "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage."
     },
     {
+      "name": "prevention-footer-popups",
+      "script": "scripts/prevention-footer-popups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient and two temporary Tdap-IPV catalogue mappings; cleanup verifies their removal. Never saves a prevention.",
+      "notes": "Issue3437: reach vaccine picker and entry form through UI; verify independent About/License popups, their Close controls, opener isolation and unsaved-draft retention when popups are blocked."
+    },
+    {
       "name": "page-health-footer-links",
       "script": "scripts/page-health-footer-links-playwright-checks.js",
       "tiers": [
@@ -7287,7 +7302,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
-      "notes": "Clicks About and License from Manage Contacts, an add-prevention form and Preferences > Edit Text Signature. Requires healthy same-origin destinations with no opener access, unchanged editor pages, and retention of an unsaved signature draft. Covers the native-link fix for #4178."
+      "notes": "Clicks About and License from Manage Contacts, an add-prevention form and Preferences > Edit Text Signature. Requires healthy same-origin destinations with no opener access, unchanged editor pages, and retention of an unsaved signature draft. Clicks each destination's Close control. Covers #4178 and #3437."
     },
     {
       "name": "page-health-help-link-offhost",

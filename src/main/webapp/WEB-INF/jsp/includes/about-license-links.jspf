@@ -1,5 +1,6 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<script src="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath())%>/share/javascript/popupLink.js"></script>
 <fmt:setBundle basename="oscarResources" var="aboutLicenseBundle"/>
-<a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about" bundle="${aboutLicenseBundle}"/></a>
-| <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license" bundle="${aboutLicenseBundle}"/></a>
+<a class="js-popup" href="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath())%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about" bundle="${aboutLicenseBundle}"/></a>
+| <a class="js-popup" href="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath())%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license" bundle="${aboutLicenseBundle}"/></a>
