@@ -96,8 +96,7 @@ table#scheduleTable tfoot {
     margin-bottom: 0;
 }
 
-/* The day sheet's top bar keeps all of itself reachable while the schedule scrolls
-   sideways. schedulePage.js.jsp adds the class and the variables; without them,
+/* The day sheet's top bar keeps all of itself reachable on a sideways scroll. schedulePage.js.jsp adds the class and the variables; without them,
    nothing here applies and the page behaves as before. Month view, reports and
    other pages using this file do not load that script, so they are unaffected. */
 @media screen {
@@ -223,18 +222,31 @@ tr td.infirmaryView {
     z-index: 10; /* above appointment rows, below #fixedHeaderWrapper (1000) */
 }
 
-/* #868 item 3: a soft shadow under the names. Chrome does not draw a
-   box-shadow on a cell of a border-collapse table, so draw a strip below
-   the cell instead (the sticky cell is its containing block). */
-tr td.infirmaryView::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    height: 4px;
-    background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0));
-    pointer-events: none;
+/* The provider's name and buttons, inside the name cell: they stay in the visible part of their
+   own column when only part of it is in view, for example a column widened to fill a page that
+   the bar makes wider than the window. */
+@media screen {
+    tr td.infirmaryView > .providerNameSticky {
+        display: inline-block;
+        position: sticky;
+        left: 0;
+        right: 0;
+    }
+
+    /* #868 item 3: a soft shadow under the names. Chrome does not draw a
+       box-shadow on a cell of a border-collapse table, so draw a strip below
+       the cell instead (the sticky cell is its containing block). Screen only:
+       printed, it would lie over the first row. */
+    tr td.infirmaryView::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        height: 4px;
+        background: linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0));
+        pointer-events: none;
+    }
 }
 
 td#group {

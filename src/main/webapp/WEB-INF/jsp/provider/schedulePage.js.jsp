@@ -97,9 +97,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Sticky day-sheet header: keeps the provider names exactly under the top bar
-// (--schedule-header-height), and keeps the whole bar reachable while a wide
-// schedule scrolls sideways (see "sticky-schedule-header" in
-// receptionistapptstyle.css).
+// (--schedule-header-height), keeps the whole bar reachable on a sideways scroll,
+// and marks a schedule wider than the window "schedule-overflows" (see
+// "sticky-schedule-header" in receptionistapptstyle.css).
+// toggleCancelled and toggleReason change the schedule's width without resizing
+// anything watched here, so they send "schedule-content-changed".
 document.addEventListener('DOMContentLoaded', function () {
     var header = document.getElementById('fixedHeaderWrapper');
     if (!header || !window.ResizeObserver) { return; }
@@ -108,26 +110,33 @@ document.addEventListener('DOMContentLoaded', function () {
     var last = '';
     document.body.classList.add('sticky-schedule-header');
     function fitHeader() {
-        // The window's width without its vertical scrollbar.
-        var visible = root.clientWidth;
+        // The window's width without its vertical scrollbar, unrounded (zoom makes it fractional).
+        var visible = root.getBoundingClientRect().width;
         root.style.setProperty('--schedule-visible-width', visible + 'px');
         if (schedule) {
             // Measured at the window's width: "schedule-overflows" marks a schedule
             // whose own columns need more room, which then spans the page instead
             // of holding still (see receptionistapptstyle.css).
             document.body.classList.remove('schedule-overflows');
+            // Half a pixel absorbs rounding: a schedule exactly as wide as the window fits.
             document.body.classList.toggle('schedule-overflows',
                     schedule.getBoundingClientRect().width > visible + 0.5);
         }
-        var height = header.offsetHeight;
+        // Rounded down, so the names tuck a fraction of a pixel under the bar rather than
+        // leaving a gap that rows show through.
+        var height = Math.floor(header.getBoundingClientRect().height);
+        var names = document.querySelector('td.infirmaryView');
+        // Keyboard focus and find-in-page keep their target below the bar and the names.
+        var padding = height + (names ? Math.ceil(names.getBoundingClientRect().height) : 0);
         // The exact (fractional) width, so the bar's right end lands exactly on the
         // window's edge, with no sliver under page zoom.
         var left = Math.min(0, visible - header.getBoundingClientRect().width);
-        var now = visible + '/' + height + '/' + left;
+        var now = visible + '/' + height + '/' + left + '/' + padding;
         if (now === last) { return; }
         last = now;
         root.style.setProperty('--schedule-header-height', height + 'px');
         root.style.setProperty('--schedule-header-left', left + 'px');
+        root.style.scrollPaddingTop = padding + 'px';
     }
     // Changes are applied on the next frame, never inside the observer's own
     // callback, so resizing the page cannot start a ResizeObserver loop.
@@ -141,7 +150,11 @@ document.addEventListener('DOMContentLoaded', function () {
     observer.observe(header);
     // A vertical scrollbar appearing narrows the window without a resize event.
     observer.observe(root);
+    // The schedule growing wider (more columns, longer content) is a reason to re-measure.
+    if (schedule) { observer.observe(schedule); }
+    // Belt and braces with the observer: some browsers report a zoom change as a resize only.
     window.addEventListener('resize', fitSoon);
+    document.addEventListener('schedule-content-changed', fitSoon);
     fitHeader();
 });
 
@@ -180,6 +193,8 @@ function toggleCancelled() {
     } catch (e) {
         // localStorage may be unavailable (e.g., private browsing); ignore
     }
+    // The schedule may now be wider or narrower: the sticky header re-measures it.
+    document.dispatchEvent(new CustomEvent('schedule-content-changed'));
 }
 
 // Initialize cancelled appointments visibility on page load
@@ -407,6 +422,8 @@ function toggleReason(event, providerNo) {
 
     // Update tooltips for this provider's appointments to respect privacy toggle
     updateTooltipsForProvider(providerNo, isVisible);
+    // The schedule may now be wider or narrower: the sticky header re-measures it.
+    document.dispatchEvent(new CustomEvent('schedule-content-changed'));
 }
 
 /**
