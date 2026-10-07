@@ -257,6 +257,7 @@
     "test:decision-support-guidelines-playwright": "node scripts/decision-support-guidelines-playwright-checks.js",
     "test:eform-groups-playwright": "node scripts/eform-groups-playwright-checks.js",
     "test:measurement-type-group-admin-playwright": "node scripts/measurement-type-group-admin-playwright-checks.js",
+    "test:measurement-stylesheet-delete-playwright": "node scripts/measurement-stylesheet-delete-playwright-checks.js",
     "test:report-age-sex-visit-playwright": "node scripts/report-age-sex-visit-playwright-checks.js",
     "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js",
     "test:admin-api-keygen-playwright": "node scripts/admin-api-keygen-playwright-checks.js",
