@@ -221,6 +221,8 @@
     "test:patient-search-rest-dob-playwright": "node scripts/patient-search-rest-dob-playwright-checks.js",
     "test:stored-document-mutations-playwright": "node scripts/stored-document-mutations-playwright-checks.js",
     "test:lab-results-table-playwright": "node scripts/lab-results-table-playwright-checks.js",
+    "test:pathnet-status": "node scripts/pathnet-status.test.js",
+    "test:pathnet-status-playwright": "node scripts/pathnet-status-playwright-checks.js",
     "test:admin-messages-playwright": "node scripts/admin-messages-playwright-checks.js",
     "test:admin-audit-log-playwright": "node scripts/admin-audit-log-playwright-checks.js",
     "test:demographic-merge-playwright": "node scripts/demographic-merge-playwright-checks.js",
@@ -480,9 +482,7 @@
     "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js",
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
-    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
-    "test:pathnet-status": "node scripts/pathnet-status.test.js",
-    "test:pathnet-status-playwright": "node scripts/pathnet-status-playwright-checks.js"
+    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
