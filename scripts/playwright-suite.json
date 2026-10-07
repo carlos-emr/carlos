@@ -3940,6 +3940,21 @@
       "fixtures": "Owns a synthetic patient, FAKEPW<hex> measurement types, groups and a style sheet (DB row plus the file in MEASUREMENT_CSS_UPLOAD_DIR, the server's oscarMeasurement_css_upload_path); removes and verifies all of them. SKIPs when MEASUREMENT_CSS_UPLOAD_DIR is not set."
     },
     {
+      "name": "measurement-stylesheet-delete",
+      "script": "scripts/measurement-stylesheet-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Deletes an orphan group-style mapping from an already-open administration form after a competing stylesheet removal; preserves a peer, checks refusal for referenced styles and replay/GET/HEAD safety.",
+      "fixtures": "Two per-run marker CSS locations and group-style mappings; cleanup removes only marker-owned rows and verifies none remain."
+    },
+    {
       "name": "report-age-sex-visit",
       "script": "scripts/report-age-sex-visit-playwright-checks.js",
       "tiers": [
