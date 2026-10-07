@@ -40,6 +40,9 @@ import org.mockito.MockedStatic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -265,6 +268,35 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("A replacement agreement with different content");
         Files.delete(agreement);
         assertThat(AcceptableUseAgreementManager.getAUAText()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"text", "availability", "cutoff", "invalidate"})
+    void shouldCompleteCacheOperation_whenClassMonitorIsHeldExternally(String operation) throws Exception {
+        Path agreement = documentDir.resolve("login/AcceptableUseAgreement.txt");
+        Files.createDirectories(agreement.getParent());
+        Files.writeString(agreement, "Agreement monitor fixture", StandardCharsets.UTF_8);
+        Callable<Object> access = () -> switch (operation) {
+            case "text" -> AcceptableUseAgreementManager.getAUAText();
+            case "availability" -> AcceptableUseAgreementManager.hasAUA();
+            case "cutoff" -> AcceptableUseAgreementManager.getAgreementCutoffDate();
+            case "invalidate" -> {
+                AcceptableUseAgreementManager.invalidateCache();
+                yield Boolean.TRUE;
+            }
+            default -> throw new IllegalArgumentException(operation);
+        };
+        var executor = Executors.newSingleThreadExecutor();
+        try {
+            // A caller can acquire the public Class monitor. That must not block
+            // cache readers or invalidation on another request thread.
+            synchronized (AcceptableUseAgreementManager.class) {
+                assertThat(executor.submit(access).get(5, TimeUnit.SECONDS)).isNotNull();
+            }
+        } finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test
