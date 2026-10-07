@@ -125,18 +125,14 @@ document.addEventListener('DOMContentLoaded', function () {
         // Rounded down, so the names tuck a fraction of a pixel under the bar rather than
         // leaving a gap that rows show through.
         var height = Math.floor(header.getBoundingClientRect().height);
-        var names = document.querySelector('td.infirmaryView');
-        // Keyboard focus and find-in-page keep their target below the bar and the names.
-        var padding = height + (names ? Math.ceil(names.getBoundingClientRect().height) : 0);
         // The exact (fractional) width, so the bar's right end lands exactly on the
         // window's edge, with no sliver under page zoom.
         var left = Math.min(0, visible - header.getBoundingClientRect().width);
-        var now = visible + '/' + height + '/' + left + '/' + padding;
+        var now = visible + '/' + height + '/' + left;
         if (now === last) { return; }
         last = now;
         root.style.setProperty('--schedule-header-height', height + 'px');
         root.style.setProperty('--schedule-header-left', left + 'px');
-        root.style.scrollPaddingTop = padding + 'px';
     }
     // Changes are applied on the next frame, never inside the observer's own
     // callback, so resizing the page cannot start a ResizeObserver loop.

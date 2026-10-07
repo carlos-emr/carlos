@@ -96,7 +96,8 @@ table#scheduleTable tfoot {
     margin-bottom: 0;
 }
 
-/* The day sheet's top bar keeps all of itself reachable on a sideways scroll. schedulePage.js.jsp adds the class and the variables; without them,
+/* The day sheet's top bar keeps all of itself reachable on a sideways
+   scroll. schedulePage.js.jsp adds the class and the variables; without them,
    nothing here applies and the page behaves as before. Month view, reports and
    other pages using this file do not load that script, so they are unaffected. */
 @media screen {
