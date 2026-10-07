@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Verify the remittance-column migration on disposable local MariaDB schemas.
+"""Verify billing report migrations on disposable local MariaDB schemas.
 
 Requires CREATE DATABASE access. MYSQL_HOST must be local; MYSQL_USER defaults
-to root. Credentials come from the client's option file or MYSQL_PWD.
+ to root. Credentials come from the client's option file or MYSQL_PWD.
 """
 import os
 from pathlib import Path
@@ -11,11 +11,12 @@ import subprocess
 import unittest
 import uuid
 
-MIGRATION = (Path(__file__).resolve().parents[1] /
-             'database/mysql/migration/common/V1.0.55__preserve_remittance_health_number_version.sql').read_text()
+MIGRATIONS = Path(__file__).resolve().parents[1] / 'database/mysql/migration'
 
 
-class RemittanceHealthNumberMigration(unittest.TestCase):
+class ColumnMigrationChecks:
+    """Shared preservation assertions, exercised for each concrete migration."""
+
     def setUp(self):
         host = os.environ.get('MYSQL_HOST', 'localhost')
         self.assertIn(host, ('localhost', '127.0.0.1', '::1'))
@@ -23,7 +24,8 @@ class RemittanceHealthNumberMigration(unittest.TestCase):
         self.assertIsNotNone(client, 'A MariaDB client is required')
         self.command = [client, '-N', '-B', '--default-character-set=utf8mb4',
                         '--host=' + host, '--user=' + os.environ.get('MYSQL_USER', 'root')]
-        self.database = 'carlos_ra_hin_test_' + uuid.uuid4().hex
+        self.database = 'carlos_report_test_' + uuid.uuid4().hex
+        self.migration = (MIGRATIONS / self.migration_path).read_text()
         self.sql('CREATE DATABASE `' + self.database + '`', database=False)
         self.addCleanup(lambda: self.sql('DROP DATABASE `' + self.database + '`', database=False))
 
@@ -34,72 +36,98 @@ class RemittanceHealthNumberMigration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
-    def create(self, definition="VARCHAR(12) NOT NULL DEFAULT ''"):
-        self.sql('CREATE TABLE radetail (id INT PRIMARY KEY, hin ' + definition +
-                 ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
+    def create(self, definition=None):
+        if definition is None:
+            definition = f"VARCHAR({self.old_width}) NOT NULL DEFAULT ''"
+        self.sql(f'CREATE TABLE {self.table} (id INT PRIMARY KEY, {self.column} ' + definition +
+                 self.extra_columns + ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci')
 
     def rows(self):
-        return self.sql("SELECT id,COALESCE(HEX(hin),'NULL') FROM radetail ORDER BY id")
+        return self.sql(f"SELECT id,COALESCE(HEX({self.column}),'NULL') FROM {self.table} ORDER BY id")
+
+    def metadata(self, fields):
+        return self.sql('SELECT ' + fields + ' FROM information_schema.columns '
+                        f"WHERE table_schema=DATABASE() AND table_name='{self.table}' AND column_name='{self.column}'")
 
     def attributes(self):
-        return self.sql("SELECT IS_NULLABLE,COALESCE(COLUMN_DEFAULT,'NO_DEFAULT'),"
-                        "CHARACTER_SET_NAME,COLLATION_NAME,HEX(COLUMN_COMMENT) "
-                        "FROM information_schema.columns WHERE table_schema=DATABASE() "
-                        "AND table_name='radetail' AND column_name='hin'")
+        return self.metadata("IS_NULLABLE,COALESCE(COLUMN_DEFAULT,'NO_DEFAULT'),"
+                             "CHARACTER_SET_NAME,COLLATION_NAME,HEX(COLUMN_COMMENT)")
 
-    def width(self):
-        return self.sql("SELECT CHARACTER_MAXIMUM_LENGTH FROM information_schema.columns "
-                        "WHERE table_schema=DATABASE() AND table_name='radetail' AND column_name='hin'")
-
-    def test_existing_values_and_full_version_survive_widening_and_rerun(self):
+    def test_existing_values_and_complete_value_survive_widening_and_rerun(self):
         self.create()
-        self.sql("INSERT INTO radetail VALUES (1,'1234567890  '),(2,'')")
+        self.sql(f"INSERT INTO {self.table} (id,{self.column}) VALUES (1,'1234567890  '),(2,'')")
         before, attributes = self.rows(), self.attributes()
-        self.sql(MIGRATION)
-        self.assertEqual(self.width(), '14')
+        self.sql(self.migration)
+        self.assertEqual(self.metadata('CHARACTER_MAXIMUM_LENGTH'), str(self.width))
         self.assertEqual(self.rows(), before)
         self.assertEqual(self.attributes(), attributes)
-        self.sql("INSERT INTO radetail VALUES (3,'1234567890  ZZ')")
-        self.assertEqual(self.sql('SELECT HEX(hin) FROM radetail WHERE id=3'),
-                         '1234567890  ZZ'.encode().hex().upper())
+        self.sql(f"INSERT INTO {self.table} (id,{self.column}) VALUES (3,'{self.complete_value}')")
+        self.assertEqual(self.sql(f'SELECT HEX({self.column}) FROM {self.table} WHERE id=3'),
+                         self.complete_value.encode().hex().upper())
         after = self.rows()
-        self.sql(MIGRATION)
+        self.sql(self.migration)
         self.assertEqual(self.rows(), after)
-        self.assertEqual(self.width(), '14')
+        self.assertEqual(self.metadata('CHARACTER_MAXIMUM_LENGTH'), str(self.width))
 
     def test_already_wider_adopted_column_is_not_shortened(self):
-        self.create("VARCHAR(24) NULL DEFAULT 'UNKNOWN' COMMENT 'adopted field'")
-        self.sql("INSERT INTO radetail VALUES (1,'123456789012345678'),(2,NULL)")
+        self.create(f"VARCHAR({self.width + 10}) NULL DEFAULT 'UNKNOWN' COMMENT 'adopted field'")
+        self.sql(f"INSERT INTO {self.table} (id,{self.column}) VALUES (1,'{'X' * (self.width + 1)}'),(2,NULL)")
         before, attributes = self.rows(), self.attributes()
-        self.sql(MIGRATION)
-        self.assertEqual(self.width(), '24')
+        self.sql(self.migration)
+        self.assertEqual(self.metadata('CHARACTER_MAXIMUM_LENGTH'), str(self.width + 10))
         self.assertEqual(self.rows(), before)
         self.assertEqual(self.attributes(), attributes)
 
     def test_nullable_values_default_collation_and_comment_are_retained(self):
-        self.create("VARCHAR(12) CHARACTER SET latin1 COLLATE latin1_bin NULL "
+        self.create(f"VARCHAR({self.old_width}) CHARACTER SET latin1 COLLATE latin1_bin NULL "
                     "DEFAULT 'UNKNOWN' COMMENT 'operator''s field'")
-        self.sql("INSERT INTO radetail VALUES (1,NULL),(2,'ABC123')")
+        self.sql(f"INSERT INTO {self.table} (id,{self.column}) VALUES (1,NULL),(2,'ABC123')")
         before, attributes = self.rows(), self.attributes()
-        self.sql(MIGRATION)
-        self.assertEqual(self.width(), '14')
+        self.sql(self.migration)
+        self.assertEqual(self.metadata('CHARACTER_MAXIMUM_LENGTH'), str(self.width))
         self.assertEqual(self.rows(), before)
         self.assertEqual(self.attributes(), attributes)
-        self.sql('INSERT INTO radetail (id) VALUES (3)')
-        self.assertEqual(self.sql('SELECT hin FROM radetail WHERE id=3'), 'UNKNOWN')
+        self.sql(f'INSERT INTO {self.table} (id) VALUES (3)')
+        self.assertEqual(self.sql(f'SELECT {self.column} FROM {self.table} WHERE id=3'), 'UNKNOWN')
 
     def test_not_null_column_without_default_keeps_that_contract(self):
-        self.create('VARCHAR(12) NOT NULL')
+        self.create(f'VARCHAR({self.old_width}) NOT NULL')
         attributes = self.attributes()
-        self.sql(MIGRATION)
+        self.sql(self.migration)
         self.assertEqual(self.attributes(), attributes)
-        self.assertEqual(self.width(), '14')
+        self.assertEqual(self.metadata('CHARACTER_MAXIMUM_LENGTH'), str(self.width))
 
-    def test_empty_baseline_table_accepts_full_health_number_and_version(self):
+    def test_empty_baseline_table_accepts_complete_value(self):
         self.create()
-        self.sql(MIGRATION)
-        self.sql("INSERT INTO radetail VALUES (1,'123456789012ZZ')")
-        self.assertEqual(self.sql('SELECT hin FROM radetail'), '123456789012ZZ')
+        self.sql(self.migration)
+        self.sql(f"INSERT INTO {self.table} (id,{self.column}) VALUES (1,'{self.complete_value}')")
+        self.assertEqual(self.sql(f'SELECT {self.column} FROM {self.table}'), self.complete_value)
+
+
+class RemittanceHealthNumberMigration(ColumnMigrationChecks, unittest.TestCase):
+    table, column, old_width, width = 'radetail', 'hin', 12, 14
+    extra_columns = ''
+    complete_value = '1234567890  ZZ'
+    migration_path = 'common/V1.0.55__preserve_remittance_health_number_version.sql'
+
+
+class ClaimsExplanationMigration(ColumnMigrationChecks, unittest.TestCase):
+    table, column, old_width, width = 'billing_on_eareport', 'exp', 60, 255
+    extra_columns = ', claim_error VARCHAR(20) NULL DEFAULT NULL'
+    complete_value = '; '.join(str(i) + 'A|' + 'X' * 55 for i in range(4))
+    migration_path = 'on/V1.0.56__preserve_claim_item_explanations.sql'
+
+    def test_both_sets_of_claim_errors_fit_without_losing_existing_rows(self):
+        self.create()
+        self.sql("INSERT INTO billing_on_eareport (id, claim_error) VALUES (1,'VH9 E02')")
+        self.sql(self.migration)
+        self.assertEqual(self.sql('SELECT claim_error FROM billing_on_eareport WHERE id=1'), 'VH9 E02')
+        errors = 'VH9 E02 E03 E04 E05 R01 R02 R03 R04 R05'
+        self.assertEqual(len(errors), 39)
+        self.assertEqual(len(self.complete_value), 238)
+        self.sql("INSERT INTO billing_on_eareport (id,claim_error) VALUES (2,'" + errors + "')")
+        self.sql(self.migration)
+        self.assertEqual(self.sql('SELECT claim_error FROM billing_on_eareport WHERE id=2'), errors)
 
 
 if __name__ == '__main__':
