@@ -24,7 +24,7 @@ async function workflow(session) {
       try { record = await response.json(); } catch { throw new Error('REST demographic did not return JSON'); }
       h.assert(String(record.demographicNo) === patient, 'REST returned a different patient');
       h.assert(typeof record.dateOfBirth === 'string' && record.dateOfBirth === date,
-        'REST dateOfBirth must preserve the stored birth date as yyyy-MM-dd');
+        `REST dateOfBirth must preserve the owned fixture date as yyyy-MM-dd; received ${JSON.stringify(record.dateOfBirth)}`);
       h.assert(record.dobYear === year && record.dobMonth === month && record.dobDay === day,
         'REST birth date components changed');
     });
