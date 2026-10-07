@@ -50,6 +50,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -214,7 +215,7 @@ async function libraryRow(page, name) {
       );
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 900 } });
     const landingPage = await login(context, config, recorder);
     await landingPage.close();
 

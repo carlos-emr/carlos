@@ -65,6 +65,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {createSqlRunner, readConfig} = require('./lib/playwright-harness');
 const {createConsultationSubmitFixture} = require('./lib/consultation-submit-fixture');
 const {createGracefulSignalCancellation} = require('./graceful-signal-cancellation');
@@ -495,7 +496,7 @@ async function runStampPrintPreview(context) {
     sql = createSqlRunner(readConfig().mysql);
     fixture = createConsultationSubmitFixture(sql, consultDemoNo, process.env.CONSULT_APPLICATION_TEMP_DIR);
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 

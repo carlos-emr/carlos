@@ -22,6 +22,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { cleanupTicklerFixture } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -468,7 +469,7 @@ async function deleteTicklerFromList(page, message) {
   }
 
   const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const schedulePage = await context.newPage();
     wirePage(schedulePage, 'login-schedule');

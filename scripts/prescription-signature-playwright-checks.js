@@ -53,6 +53,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
 const { createGracefulSignalCancellation } = require('./graceful-signal-cancellation');
 const { localFixtureSql, deleteOwnedPrescriptionSignature } = require('./local-fixture-cleanup');
@@ -573,7 +574,7 @@ async function runPrescriptionSignatureCheck(context) {
   try {
     browser = await chromium.launch(launchOptions);
     cancellation.throwIfCancelled();
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await login(context);
     await loginPage.close();
 

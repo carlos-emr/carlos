@@ -165,6 +165,52 @@ function isLocalTlsTarget(baseUrl) {
   return first === 172 && second >= 16 && second <= 31;
 }
 
+/**
+ * The one TLS-verification policy for every browser context in the suite
+ * (issue #3598): certificate errors are ignored only for a local target, or
+ * when the operator names ALLOW_UNVERIFIED_TLS=true.
+ *
+ * ALLOW_NON_LOCAL_BASE_URL is deliberately NOT enough. It is the routing
+ * opt-in ("yes, hit staging"); folding certificate verification into it meant
+ * one flag bought two unrelated concessions while TEST_PASSWORD was being
+ * posted. A staging box with a self-signed certificate needs both variables.
+ *
+ * `baseUrl` may be a URL, a string or omitted, in which case BASE_URL is read
+ * from `env` with the suite's loopback default, which is what every check
+ * resolves its own target from. An unparseable value fails closed.
+ */
+function shouldIgnoreHttpsErrors(baseUrl, env = process.env) {
+  let target = baseUrl === undefined || baseUrl === null
+    ? (env.BASE_URL || 'http://127.0.0.1:8080/carlos')
+    : baseUrl;
+  if (typeof target === 'string') {
+    try {
+      target = new URL(target);
+    } catch (error) {
+      return false;
+    }
+  }
+  return isLocalTlsTarget(target) || env.ALLOW_UNVERIFIED_TLS === 'true';
+}
+
+const CERTIFICATE_ERROR_RE = /ERR_CERT_|SSL_ERROR|SELF[_ ]SIGNED|certificate/i;
+
+/**
+ * Turns a certificate failure against a non-local target into an error that
+ * names the variable to set, instead of a bare browser handshake message.
+ * Anything that is not a certificate failure is returned untouched.
+ */
+function explainTlsFailure(error, baseUrl, env = process.env) {
+  if (!error || !CERTIFICATE_ERROR_RE.test(String(error.message || ''))
+      || shouldIgnoreHttpsErrors(baseUrl, env)) {
+    return error;
+  }
+  const host = baseUrl && baseUrl.hostname ? baseUrl.hostname : String(baseUrl || '');
+  return new Error(`TLS certificate verification failed for non-local target ${host}. `
+    + 'Install a trusted certificate, or set ALLOW_UNVERIFIED_TLS=true to run against a self-signed '
+    + `certificate on purpose (credentials are posted to that host). Cause: ${error.message}`);
+}
+
 function appUrl(baseUrl, appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
@@ -208,8 +254,8 @@ function readConfig(options = {}) {
       database: env.MYSQL_DATABASE || 'carlos',
     },
   };
-  // Never unconditionally: see isLocalTlsTarget.
-  config.ignoreHTTPSErrors = isLocalTlsTarget(baseUrl);
+  // Never unconditionally: see shouldIgnoreHttpsErrors.
+  config.ignoreHTTPSErrors = shouldIgnoreHttpsErrors(baseUrl, env);
   for (const name of options.require || []) {
     if (!env[name]) {
       throw new SkipCheck(`${name} is not set; this check needs it (see scripts/playwright-suite.json)`);
@@ -870,7 +916,7 @@ async function newContext(browser, config, options = {}) {
 }
 
 async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
-  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
+  return page.goto(appUrl(baseUrl, appPath), { waitUntil, timeout: 30000 }).catch((error) => { throw explainTlsFailure(error, baseUrl); }); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
@@ -1111,6 +1157,7 @@ module.exports = {
   getLaunchOptions,
   gotoApp,
   insertId,
+  explainTlsFailure,
   isLocalTlsTarget,
   launchBrowser,
   loadConsoleBaseline,
@@ -1120,6 +1167,7 @@ module.exports = {
   readConfig,
   runCheck,
   screenshot,
+  shouldIgnoreHttpsErrors,
   sqlString,
   unescapeMysqlBatchValue,
   validateBaseUrl,

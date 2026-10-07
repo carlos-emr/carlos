@@ -55,6 +55,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -603,7 +604,7 @@ async function checkBackButtonDirectEntryFallback(context) {
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
     // intercept the credentialed login this script performs.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await login(context);

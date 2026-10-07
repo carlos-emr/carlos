@@ -22,6 +22,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -275,7 +276,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context);
     const patientPage = await openPatientFromSearch(context, schedulePage);
 

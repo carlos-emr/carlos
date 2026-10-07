@@ -21,6 +21,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://localhost:8080/carlos'),
@@ -401,7 +402,7 @@ async function main() {
   const browser = await chromium.launch(launchOptions);
   // ignoreHTTPSErrors: the packaged deployment serves a self-signed certificate
   // by default, so a real install is reached over HTTPS with an untrusted CA.
-  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   context.setDefaultTimeout(config.timeout);
 
   context.on('page', page => {

@@ -49,6 +49,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 
@@ -366,7 +367,7 @@ async function findExistingLibraryEform(context, formName) {
 async function readManagerTemplateBackgrounds(context, fid) {
   const requestContext = await request.newContext({
     storageState: await context.storageState(),
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
   });
   try {
     const response = await requestContext.get(appUrl(`/eform/efmformmanageredit?fid=${encodeURIComponent(fid)}`));
@@ -621,7 +622,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
 
   try {
     browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1600 } });
     const landingPage = await login(context);
     await landingPage.close();
 

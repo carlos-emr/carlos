@@ -61,6 +61,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
@@ -214,7 +215,7 @@ function launchOptions() {
   const results = [];
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1400, height: 1100 },
       acceptDownloads: true,
     });

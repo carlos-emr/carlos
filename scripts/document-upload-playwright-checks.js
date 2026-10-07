@@ -69,6 +69,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -326,7 +327,7 @@ function documentRowCount() {
   try {
     const probePdf = writeProbePdf(workDir);
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const landing = await login(context, config, recorder);
 
 
