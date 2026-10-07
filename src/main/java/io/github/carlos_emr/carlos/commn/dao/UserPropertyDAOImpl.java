@@ -32,15 +32,20 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * @author rjonasz
@@ -123,45 +128,56 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
 
     @Override
     public List<UserProperty> findProviderProperties(String name) {
-        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
-                + " and p.providerNo is not null and p.providerNo <> '' order by p.id");
-        query.setParameter(1, name);
-        @SuppressWarnings("unchecked")
-        List<UserProperty> list = query.getResultList();
-        return list;
+        return rows(name, PROVIDER_ROWS);
     }
 
     @Override
     public List<UserProperty> findClinicProperties(String name) {
-        return clinicRows(name, false);
+        return rows(name, CLINIC_ROWS);
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public List<UserProperty> lockClinicProperties(String name) {
-        return clinicRows(name, true);
+        return lockEach(rows(name, CLINIC_ROWS));
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public List<UserProperty> lockProviderProperties(String name) {
-        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
-                + " and p.providerNo is not null and p.providerNo <> '' order by p.id");
+        return lockEach(rows(name, PROVIDER_ROWS));
+    }
+
+    private static final String PROVIDER_ROWS = " and p.providerNo is not null and p.providerNo <> ''";
+    private static final String CLINIC_ROWS = " and (p.providerNo is null or p.providerNo = '')";
+
+    private List<UserProperty> rows(String name, String whose) {
+        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1" + whose
+                + " order by p.id");
         query.setParameter(1, name);
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         @SuppressWarnings("unchecked")
         List<UserProperty> list = query.getResultList();
         return list;
     }
 
-    private List<UserProperty> clinicRows(String name, boolean lock) {
-        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
-                + " and (p.providerNo is null or p.providerNo = '') order by p.id");
-        query.setParameter(1, name);
-        if (lock) {
-            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+    /**
+     * Locks each row by its primary key, oldest first, and re-reads it. The {@code property} table
+     * has no index on {@code name}, so a locking query by name would scan, and wait on, every row
+     * of the table; a lock by key touches only these rows.
+     */
+    private List<UserProperty> lockEach(List<UserProperty> rows) {
+        List<UserProperty> locked = new ArrayList<>(rows.size());
+        for (UserProperty row : rows) {
+            try {
+                entityManager.refresh(row, LockModeType.PESSIMISTIC_WRITE);
+            } catch (EntityNotFoundException e) {
+                // Removed by another transaction since the read above: report it as the
+                // concurrent change it is (the transaction is already marked for rollback).
+                throw new OptimisticLockException("Property row removed by another transaction", e, row);
+            }
+            locked.add(row);
         }
-        @SuppressWarnings("unchecked")
-        List<UserProperty> list = query.getResultList();
-        return list;
+        return locked;
     }
 
     public UserProperty getProp(String prov, String name) {

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 
 import jakarta.persistence.PersistenceException;
 
@@ -58,8 +57,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Saves run at READ COMMITTED, as {@code PatientConsentManagerImpl}'s do: under MariaDB's
  * default REPEATABLE READ with {@code innodb_snapshot_isolation} on (the default from 11.6), a save
  * that read rows another save then changed fails with error 1020 instead of reading the committed
- * rows. A clinic save locks the clinic row and the users' footers it reads, so a second save waits
- * and then sees what the first one committed. Saves that still collide (a deadlock, or a row the
+ * rows. Once a clinic footer exists, a clinic save that changes it locks that row and the users'
+ * footers it reads, so a second save waits and then sees what the first one committed (the very
+ * first clinic save has no row to lock yet). Saves that still collide (a deadlock, or a row the
  * other save removed) fail with a Spring {@code ConcurrencyFailureException}, whether the failure
  * comes at commit or from a flush partway through, and the pages turn it into "please try
  * again".</p>
@@ -85,15 +85,6 @@ public class EmailFooterService {
      * admin. Set to false to keep users' own footers on a clinic change and only tell them.
      */
     static final boolean REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE = true;
-
-    /**
-     * Characters the pages' encoder (OWASP {@code forHtmlContent}) shows as a space. Stored as a
-     * space, so a footer saved back unedited stays unedited: C0 controls other than tab and line
-     * breaks, DEL and C1 controls other than NEL, Unicode non-characters, and lone surrogates.
-     */
-    private static final Pattern SHOWN_AS_SPACE = Pattern.compile(
-            "[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F-\\x84\\x86-\\x9F\\uFDD0-\\uFDEF\\uFFFE\\uFFFF]"
-                    + "|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]");
 
     /** Turns JPA and Hibernate lock and stale-row errors into Spring's, as a commit would. */
     private static final HibernateJpaDialect JPA_EXCEPTIONS = new HibernateJpaDialect();
@@ -166,8 +157,9 @@ public class EmailFooterService {
     /**
      * A fingerprint of a footer, for a page to send back with its form: comparing it with the
      * stored footer's tells whether the footer changed after the page was opened, without putting
-     * the text in a hidden field. Footers that differ only in line-break style or surrounding
-     * whitespace have the same fingerprint, as they save the same.
+     * the text in a hidden field. Footers that differ only in line-break style, surrounding
+     * whitespace or characters the page shows as spaces have the same fingerprint, as they save
+     * the same.
      *
      * @param footer a footer, or null for none
      * @return the fingerprint, 64 hexadecimal characters
@@ -307,6 +299,10 @@ public class EmailFooterService {
     public ClinicDefaultSaved saveClinicDefault(String footer, String shownFingerprint) {
         Objects.requireNonNull(shownFingerprint, "shownFingerprint");
         String normalised = withinLimit(footer);
+        // Unedited, the text the page showed, whatever is stored now: nothing to read or lock.
+        if (fingerprint(normalised).equals(shownFingerprint)) {
+            return new ClinicDefaultSaved(ClinicDefaultOutcome.UNCHANGED, 0);
+        }
         return translated(() -> applyClinicDefault(normalised, shownFingerprint));
     }
 
@@ -315,9 +311,8 @@ public class EmailFooterService {
         List<UserProperty> clinicRows = userPropertyDao.lockClinicProperties(CLINIC_DEFAULT);
         UserProperty clinic = clinicRows.isEmpty() ? null : clinicRows.get(0);
         String previous = clinic == null ? "" : normalise(clinic.getValue());
-        // Unedited: the text the page showed, whatever is stored now. Then the text in force,
-        // including an empty form when none is set.
-        if (fingerprint(normalised).equals(shownFingerprint) || normalised.equals(previous)) {
+        // Already the text in force, including an empty form when none is set.
+        if (normalised.equals(previous)) {
             return new ClinicDefaultSaved(ClinicDefaultOutcome.UNCHANGED, 0);
         }
         if (!fingerprint(previous).equals(shownFingerprint)) {
@@ -409,7 +404,8 @@ public class EmailFooterService {
     /**
      * @param footer a footer as typed
      * @return the footer with line breaks stored as one character each, as the send action counts,
-     *         and without surrounding whitespace
+     *         characters the page shows as spaces stored as spaces, and without surrounding
+     *         whitespace
      * @throws FooterTooLongException when it is over the limit
      */
     static String withinLimit(String footer) {
@@ -426,12 +422,35 @@ public class EmailFooterService {
      * and a browser drops a textarea's first line break. Each would otherwise make an unchanged
      * footer look changed on its next save.
      */
-    private static String normalise(String footer) {
+    static String normalise(String footer) {
         if (footer == null) {
             return "";
         }
         String lines = footer.replace("\r\n", "\n").replace('\r', '\n');
-        return SHOWN_AS_SPACE.matcher(lines).replaceAll(" ").strip();
+        StringBuilder shown = new StringBuilder(lines.length());
+        lines.codePoints().forEach(cp -> {
+            if (shownAsSpace(cp)) {
+                shown.append(' ');
+            } else {
+                shown.appendCodePoint(cp);
+            }
+        });
+        return shown.toString().strip();
+    }
+
+    /**
+     * Whether the pages' encoder (OWASP {@code forHtmlContent}) shows this code point as a space:
+     * control characters other than tab, line feed and NEL, Unicode non-characters, and lone
+     * surrogates (a pair arrives here as one code point).
+     */
+    private static boolean shownAsSpace(int cp) {
+        if (cp == '\t' || cp == '\n' || cp == 0x85) {
+            return false;
+        }
+        return Character.isISOControl(cp)
+                || (cp >= 0xFDD0 && cp <= 0xFDEF)
+                || (cp & 0xFFFE) == 0xFFFE
+                || (cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE);
     }
 
     private static String nullToEmpty(String value) {

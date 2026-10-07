@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.SQLTransactionRollbackException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,8 +36,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.hibernate.exception.ConstraintViolationException;
+import org.hibernate.exception.LockAcquisitionException;
 import org.mockito.ArgumentCaptor;
+import org.owasp.encoder.Encode;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -301,15 +310,70 @@ class EmailFooterServiceUnitTest {
         // Pasted from a word processor: a vertical tab and a C1 control, which the page shows as spaces.
         clinicDefault("Riverside\u000BClinic\u0090Book online");
 
-        EmailFooterService.ClinicDefaultSaved saved = service.saveClinicDefault("Riverside Clinic Book online",
-                EmailFooterService.fingerprint("Riverside Clinic Book online"));
+        // The page showed the stored footer and posts back what its box held: spaces.
+        EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "Riverside Clinic Book online");
 
         assertThat(saved.changed()).isFalse();
-        assertThat(EmailFooterService.fingerprint("Riverside\u000BClinic\u0090Book online"))
-                .isEqualTo(EmailFooterService.fingerprint("Riverside Clinic Book online"));
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).lockProviderProperties(anyString());
         // Tabs and line breaks are kept, as the page shows them.
         assertThat(EmailFooterService.fingerprint("a\tb\nc")).isNotEqualTo(EmailFooterService.fingerprint("a b c"));
-        verify(dao, never()).saveProp(any(UserProperty.class));
+    }
+
+    @Test
+    @DisplayName("should store characters the page shows as spaces as spaces in a user's own footer")
+    void shouldStoreControlCharactersAsSpaces_inOwnFooter() {
+        service.saveOwnFooter("101", "Dr A\u000BBook online\u0000");
+
+        verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "Dr A Book online");
+    }
+
+    @Test
+    @DisplayName("should show as a space exactly the characters the page's encoder shows as a space")
+    void shouldMatchEncoderSpaces_forEveryCodePoint() {
+        List<String> mismatches = new ArrayList<>();
+        for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
+            if (cp == '\r' || (cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE)) {
+                // A carriage return is a line break here; surrogates only come in pairs or alone (below).
+                continue;
+            }
+            String text = "a" + new String(Character.toChars(cp)) + "b";
+            boolean encoderSpace = Encode.forHtmlContent(text).equals("a b");
+            if (EmailFooterService.normalise(text).equals("a b") != encoderSpace) {
+                mismatches.add(String.format("U+%04X", cp));
+            }
+        }
+        assertThat(mismatches).isEmpty();
+        for (String lone : new String[] {"a\uD800b", "a\uDC00b", "a\uDBFF\uD83D\uDE00b"}) {
+            assertThat(EmailFooterService.normalise(lone))
+                    .isEqualTo(Encode.forHtmlContent(lone).replace("&#x1f600;", "\uD83D\uDE00"));
+        }
+    }
+
+    @Test
+    @DisplayName("should report a deadlock partway through a clinic save as a lock failure, so the page asks to retry")
+    void shouldThrowCannotAcquireLock_whenClinicSaveDeadlocks() {
+        clinicDefault("Old clinic footer");
+        // What Hibernate raises for MariaDB error 1213 during a flush.
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenThrow(new LockAcquisitionException(
+                "Deadlock found", new SQLTransactionRollbackException("Deadlock found", "40001", 1213), "select"));
+
+        assertThatThrownBy(() -> saveClinic(service, "New clinic footer"))
+                .isInstanceOf(CannotAcquireLockException.class);
+    }
+
+    @Test
+    @DisplayName("should not turn a constraint violation into a retry: it is a real error, not a collision")
+    void shouldThrowDataIntegrityViolation_whenConstraintFails() {
+        UserProperty own = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
+        ownRows("101", EmailFooterService.USER_FOOTER, own);
+        SQLException duplicate = new SQLIntegrityConstraintViolationException("Duplicate entry", "23000", 1062);
+        doThrow(new ConstraintViolationException("Duplicate entry", duplicate, "PRIMARY"))
+                .when(dao).saveProp(own);
+
+        assertThatThrownBy(() -> service.saveOwnFooter("101", "Dr A new footer"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .isNotInstanceOf(ConcurrencyFailureException.class);
     }
 
     @Test

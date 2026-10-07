@@ -249,17 +249,20 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should lock and return the same clinic and provider rows as the plain lookups")
-        void shouldLockSameRows_asPlainLookups() throws Exception {
+        @DisplayName("should return the same clinic and provider rows as the plain lookups when locking them")
+        void shouldReturnSameRows_asPlainLookups() throws Exception {
             String name = uniqueName("lockedFooter");
             UserProperty clinic = createProperty(null, name, "clinic");
             UserProperty first = createProperty(uniqueProviderNo(), name, "A");
             UserProperty second = createProperty(uniqueProviderNo(), name, "B");
+            createProperty("", name, "blank provider counts as clinic");
             userPropertyDAO.flush();
 
-            // SELECT ... FOR UPDATE inside the test's transaction.
+            // Each row locked by key (SELECT ... FOR UPDATE) inside the test's transaction.
             assertThat(userPropertyDAO.lockClinicProperties(name)).extracting(UserProperty::getId)
-                    .containsExactly(clinic.getId());
+                    .containsExactlyElementsOf(userPropertyDAO.findClinicProperties(name).stream()
+                            .map(UserProperty::getId).toList())
+                    .hasSize(2).startsWith(clinic.getId());
             assertThat(userPropertyDAO.lockProviderProperties(name)).extracting(UserProperty::getId)
                     .containsExactly(first.getId(), second.getId());
             assertThat(userPropertyDAO.lockClinicProperties(uniqueName("missing"))).isEmpty();

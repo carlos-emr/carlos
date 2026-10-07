@@ -158,10 +158,13 @@ Footers are stored in the `property` table: the clinic footer as
 `email_footer_clinic_default` with no provider, each user's as `email_footer`,
 and a pending notice as `email_footer_clinic_change`. Saves are POST only,
 refuse more than 2,000 characters, and are audited (who and when, not the
-text; a clinic change also records how many users were told). A clinic save
-locks the footers it reads, so a save at the same moment waits for it and then
-sees its result. A save that still collides (a deadlock, or a footer the other
-save removed) is rolled back, and the page asks the user to try again. Text the
+text; a clinic change also records how many users were told). Once a clinic
+footer exists, a clinic save that changes it locks that footer and the users'
+footers it reads (row by row, by key), so another save at the same moment waits.
+A second clinic save then compares against the first one's result; a user's own
+save then goes through, or, if the clinic change replaced their footer, is
+rolled back and the page asks them to try again. Any other collision (a
+deadlock) is handled the same way. Text the
 page would show as a space (control characters pasted from a word processor) is
 stored as a space.
 
