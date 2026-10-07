@@ -96,8 +96,14 @@ async function workflow(s) {
     const id = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient} AND customName=${h.sqlString(`${marker}-ACUTE`)}`);
     h.assert(/^[1-9]\d*$/.test(id), 'Owned acute medication was not found');
     // This is the visible label for the application's hidden checkbox.
-    const dialogs = await h.withExpectedDialogs(rx,
-      () => profile.locator(`label[id="drugMaintenanceSwitchLbl_${id}"]`).first().click());
+    const [response, dialogs] = await Promise.all([
+      rx.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('parameterValue=updateLongTermStatus')),
+      h.withExpectedDialogs(rx,
+        () => profile.locator(`label[id="drugMaintenanceSwitchLbl_${id}"]`).first().click()),
+    ]);
+    const change = await response.json();
+    h.assert(response.status() === 200 && (change.success === true || change.success === 'true'),
+      `Long-term change was not accepted: ${JSON.stringify(change)}`);
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Long-term change did not ask for confirmation');
     await rx.waitForLoadState('networkidle');
     await ready(['Long Term Meds','Acute','Inactive','External']);
@@ -106,8 +112,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(`${marker}-ACUTE`)} AND archived=0 AND long_term=1 AND drugid<>${id}`) === '1',
     'Long-term change did not save exactly one active replacement');
-    h.assert((await profile.locator('table[id="Drug_tableLong Term Meds"]').innerText()).includes(`${marker}-ACUTE`),
-      'Refresh did not move the changed medication into Long Term Meds');
+    const longTermText = await profile.locator('table[id="Drug_tableLong Term Meds"]').innerText();
+    h.assert(longTermText.includes(`${marker}-ACUTE`),
+      `Refresh did not move the changed medication into Long Term Meds: ${longTermText}`);
     h.assert((await combinedLink().getAttribute('class') || '').includes('selected'), 'Refresh changed the selected legend');
   });
 
