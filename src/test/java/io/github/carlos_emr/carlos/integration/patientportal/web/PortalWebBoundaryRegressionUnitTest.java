@@ -86,9 +86,9 @@ class PortalWebBoundaryRegressionUnitTest {
         }
     }
 
-    /** The three struts-demographic.xml routes, each valid up to the point it needs the portal client. */
+    /** The struts-demographic.xml portal routes, each valid up to the point it needs the portal client. */
     @ParameterizedTest
-    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel"})
+    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel", "portalBookingPrompt"})
     void shouldAnswerPortalNotConfigured_whenPortalIsSwitchedOff(String route) throws Exception {
         var security = mock(SecurityInfoManager.class);
         var resolver = mock(PortalStaffContextResolver.class);
@@ -103,6 +103,8 @@ class PortalWebBoundaryRegressionUnitTest {
             request.setParameter("inviteId", "7");
         } else if ("portalAccount".equals(route)) {
             request.setParameter("method", PortalAccount2Action.METHOD_UNLOCK);
+        } else if ("portalBookingPrompt".equals(route)) {
+            request.setParameter("method", "list");
         }
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
@@ -117,6 +119,7 @@ class PortalWebBoundaryRegressionUnitTest {
             PortalJsonAction action = switch (route) {
                 case "portalInvite" -> new PortalInvite2Action(security, null, resolver);
                 case "portalAccount" -> new PortalAccount2Action(security, null, resolver);
+                case "portalBookingPrompt" -> new PortalBookingPrompt2Action(security, null, resolver);
                 default -> new PortalPanel2Action(security, null, resolver);
             };
             action.execute();
@@ -133,7 +136,7 @@ class PortalWebBoundaryRegressionUnitTest {
      * whether the portal is on or off and cannot learn which.
      */
     @ParameterizedTest
-    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel"})
+    @ValueSource(strings = {"portalInvite", "portalAccount", "portalPanel", "portalBookingPrompt"})
     void shouldRefuseBeforeConsultingTheSwitch_whenPrivilegeIsDenied(String route) throws Exception {
         var security = mock(SecurityInfoManager.class);
         var resolver = mock(PortalStaffContextResolver.class);
@@ -147,6 +150,8 @@ class PortalWebBoundaryRegressionUnitTest {
             request.setParameter("inviteId", "7");
         } else if ("portalAccount".equals(route)) {
             request.setParameter("method", PortalAccount2Action.METHOD_UNLOCK);
+        } else if ("portalBookingPrompt".equals(route)) {
+            request.setParameter("method", "list");
         }
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("123"))).thenReturn(false);
         try (var servlet = mockStatic(ServletActionContext.class);
@@ -159,6 +164,7 @@ class PortalWebBoundaryRegressionUnitTest {
             PortalJsonAction action = switch (route) {
                 case "portalInvite" -> new PortalInvite2Action(security, null, resolver);
                 case "portalAccount" -> new PortalAccount2Action(security, null, resolver);
+                case "portalBookingPrompt" -> new PortalBookingPrompt2Action(security, null, resolver);
                 default -> new PortalPanel2Action(security, null, resolver);
             };
             action.execute();

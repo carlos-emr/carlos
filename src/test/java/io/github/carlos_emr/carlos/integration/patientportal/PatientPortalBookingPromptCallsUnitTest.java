@@ -133,8 +133,10 @@ class PatientPortalBookingPromptCallsUnitTest {
 
     @Test
     void shouldReadStatusesAndTimestamps_whenListingPrompts() {
-        PatientPortalBookingPromptDto prompt = service(new Exchange().reply(200, "[" + PROMPT + "]"))
-                .listBookingPrompts(123, STAFF).getFirst();
+        Exchange exchange = new Exchange().reply(200, "[" + PROMPT + "]");
+        PatientPortalBookingPromptDto prompt = service(exchange).listBookingPrompts(123, STAFF).getFirst();
+        assertThat(exchange.sent.getFirst().getMethod()).isEqualTo("GET");
+        assertThat(exchange.sent.getFirst().getRequestUri()).isEqualTo("/internal/carlos/patients/123/booking-prompts");
         assertThat(prompt.id()).isEqualTo(7);
         assertThat(prompt.readAt()).isNull();
         assertThat(prompt.createdAt()).isNotNull();
@@ -158,8 +160,10 @@ class PatientPortalBookingPromptCallsUnitTest {
 
     @Test
     void shouldConfirmWithdrawal_whenPromptAndPatientMatch() {
-        assertThat(service(new Exchange().reply(200, PROMPT.replace("sent", "withdrawn")))
-                .withdrawBookingPrompt(123, 7, STAFF).state()).isEqualTo("withdrawn");
+        Exchange exchange = new Exchange().reply(200, PROMPT.replace("sent", "withdrawn"));
+        assertThat(service(exchange).withdrawBookingPrompt(123, 7, STAFF).state()).isEqualTo("withdrawn");
+        assertThat(exchange.sent.getFirst().getMethod()).isEqualTo("POST");
+        assertThat(exchange.sent.getFirst().getRequestUri()).isEqualTo("/internal/carlos/booking-prompts/7/withdraw");
     }
 
     @Test

@@ -139,6 +139,56 @@ class PortalBookingPrompt2ActionUnitTest {
         verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"create", "withdraw"})
+    void shouldRefuseChange_whenBookingReadIsAllowedButWriteIsDenied(String method) throws Exception {
+        request.setParameter("method", method);
+        request.setParameter("promptId", "7");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.WRITE), eq("123"))).thenReturn(false);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "delete", "CREATE", "panel"})
+    void shouldRejectUnsupportedMethod_beforeSending(String method) throws Exception {
+        request.setParameter("method", method);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("unsupported booking prompt action");
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "bad/id", "an-operation-id-that-is-longer-than-sixty-four-characters-0000000"})
+    void shouldRejectInvalidOperationId_beforeSending(String operationId) throws Exception {
+        request.setParameter("operationId", operationId);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @Test
+    void shouldRejectMissingOperationId_beforeSending() throws Exception {
+        request.removeParameter("operationId");
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-7", "seven", "99999999999999999999"})
+    void shouldRejectUnselectedPrompt_beforeSending(String promptId) throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", promptId);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("a booking prompt must be selected");
+        verifyNoInteractions(resolver, portal);
+    }
+
     @Test
     void shouldRejectRestrictedPatient_beforeSending() throws Exception {
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(false);
@@ -286,6 +336,19 @@ class PortalBookingPrompt2ActionUnitTest {
         execute();
         assertThat(response.getStatus()).isEqualTo(404);
         verify(portal, never()).withdrawBookingPrompt(anyInt(), anyLong(), any());
+    }
+
+    @Test
+    void shouldAuditUnknownOutcome_whenWithdrawalResponseIsLost() throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", "7");
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "sent")));
+        when(portal.withdrawBookingPrompt(eq(123), eq(7L), same(staff))).thenThrow(
+                PatientPortalException.ofTransportFailure("/internal/carlos/booking-prompts/{id}/withdraw", null));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(504);
+        audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class), eq("PortalBookingPrompt2Action.withdraw.unconfirmed"),
+                eq("PatientPortal"), eq("0"), eq("123"), eq("outcome=unconfirmed")));
     }
 
     @Test
