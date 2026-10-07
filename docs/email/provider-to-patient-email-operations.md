@@ -23,9 +23,9 @@ The currently supported provider-to-patient workflow is the eForm email flow:
 6. `EmailManager` creates an `EmailLog` row, hands the message to the
    configured sender (SMTP relay or API), and updates the log to `SUCCESS` when
    the relay or API accepts it, or `FAILED` when it reports an error. `SUCCESS`
-   is shown as **Accepted by mail server**. It does not mean the patient
-   received the message; see
-   [What "Accepted by mail server" means](#what-accepted-by-mail-server-means).
+   is shown as **ACCEPTED BY MAIL SERVER**, in grey rather than green. It does
+   not mean the patient received the message; see
+   [What "ACCEPTED BY MAIL SERVER" means](#what-accepted-by-mail-server-means).
 
 CARLOS Messenger is separate from this path. It handles internal messaging and
 document transfer workflows; it is not the confirmed mechanism for sending
@@ -109,7 +109,7 @@ For production use, treat email as an external delivery dependency:
   [Bounces and non-delivery reports](#bounces-and-non-delivery-reports).
 - Send non-PHI test messages after every sender configuration change.
 - Confirm each test message arrived in the test mailbox, not only that its
-  `EmailLog` row shows **Accepted by mail server**, before sending patient
+  `EmailLog` row shows **ACCEPTED BY MAIL SERVER**, before sending patient
   communications.
 
 ## Optional PDF Signing
@@ -203,15 +203,15 @@ Repeated failures usually point to one of these causes:
 - Local development environment has no localhost SMTP capture service.
 - PDF generation or attachment rendering failure before send.
 
-### What "Accepted by mail server" means
+### What "ACCEPTED BY MAIL SERVER" means
 
-Manage Emails shows an `EmailLog` row with status `SUCCESS` as **Accepted by
-mail server**. CARLOS sets that status when the SMTP relay or email API (such
+Manage Emails shows an `EmailLog` row with status `SUCCESS` as **ACCEPTED BY
+MAIL SERVER**. CARLOS sets that status when the SMTP relay or email API (such
 as SendGrid) takes the message without an error. That hand-off is the last
 thing CARLOS sees. The relay or provider can still bounce the message, give up
 after retrying, or drop it (an API provider can drop a message to an address
 already on its bounce list), and none of that is reported back to CARLOS. The
-row keeps showing **Accepted by mail server**.
+row keeps showing **ACCEPTED BY MAIL SERVER**.
 
 Treat the status as evidence that the message left CARLOS, not that the patient
 received it. When receipt matters clinically, confirm with the patient. The
@@ -245,7 +245,7 @@ exists, bounces reach staff only as email:
   wrong, and reach the patient another way if the message mattered clinically.
 - Record the bounce in the patient's chart. Any chart note written for the
   email ("Sent on ...") stays as it was, and the row in Manage Emails still
-  reads "Accepted by mail server", so without a note the chart still suggests
+  reads "ACCEPTED BY MAIL SERVER", so without a note the chart still suggests
   the patient was informed.
 - Once the bounce is handled and recorded, delete it from the mailbox,
   following the clinic's retention policy for patient correspondence.
@@ -292,5 +292,5 @@ subjects, body text, and password clues accordingly.
 - Outbound email archive foundation:
   [PR #3138](https://github.com/carlos-emr/carlos/pull/3138).
 - Bounce processing and provider delivery webhooks are not implemented, so
-  **Accepted by mail server** is the last status CARLOS records:
+  **ACCEPTED BY MAIL SERVER** is the last status CARLOS records:
   [issue #3834](https://github.com/carlos-emr/carlos/issues/3834).

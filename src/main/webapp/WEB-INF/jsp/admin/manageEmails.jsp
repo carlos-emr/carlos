@@ -75,9 +75,13 @@
             border-left: 3px solid #008631;
         }
 
-        .email-status-card .vertical-status-divider-success,
         .email-status-card .vertical-status-divider-resolved {
             border-left: 3px solid #008631 !important;
+        }
+
+        /* SUCCESS cards match their neutral "accepted" tag: grey, not the green of RESOLVED (#3834). */
+        .email-status-card .vertical-status-divider-success {
+            border-left: 3px solid #6c757d !important;
         }
 
         .email-status-card .vertical-status-divider-failed,
@@ -116,10 +120,15 @@
             user-select: none;
         }
 
-        .email-status-card .status-tag-success,
         .email-status-card .status-tag-resolved {
             background-color: #cefad0 !important;
             color: #008631 !important;
+        }
+
+        /* SUCCESS: accepted by the mail server, not proof of delivery (#3834), so neutral, not green. */
+        .email-status-card .status-tag-accepted {
+            background-color: #e9ecef !important;
+            color: #343a40 !important;
         }
 
         .email-status-card .status-tag-failed,
@@ -138,9 +147,12 @@
             color: #0747a1 !important;
         }
 
-        .email-status-card .status-tag-resolved:hover,
-        .email-status-card .status-tag-success:hover {
+        .email-status-card .status-tag-resolved:hover {
             background-color: #abf7b1 !important;
+        }
+
+        .email-status-card .status-tag-accepted:hover {
+            background-color: #dee2e6 !important;
         }
 
         .email-status-card .status-tag-failed:hover,
