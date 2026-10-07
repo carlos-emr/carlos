@@ -4,7 +4,6 @@ package io.github.carlos_emr.carlos.admin.web;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
@@ -28,7 +27,6 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servlet;
-    private MockedStatic<LogAction> audit;
     private MockedStatic<MfaManager> mfa;
     private MockedStatic<CarlosProperties> configuration;
     private MockHttpServletRequest request;
@@ -47,7 +45,6 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
-        audit = mockStatic(LogAction.class);
         mfa = mockStatic(MfaManager.class);
         mfa.when(MfaManager::isOscarLegacyPinEnabled).thenReturn(true);
         configuration = mockStatic(CarlosProperties.class);
@@ -83,7 +80,13 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     }
 
     @AfterEach
-    void closeStatics() { configuration.close(); mfa.close(); audit.close(); servlet.close(); }
+    void closeStatics() {
+        // Setup can fail midway; still release every static mock this class owns.
+        if (configuration != null) configuration.closeOnDemand();
+        if (mfa != null) mfa.closeOnDemand();
+        if (servlet != null) servlet.closeOnDemand();
+        // CarlosUnitTestBase owns the LogAction and SpringUtils mocks.
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"reset", "password", "pin", "mfa", "mfaSecret", "provider", "expiry", "remotePin", "username"})
@@ -109,7 +112,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(draft.getUserName()).isEqualTo("mydraft"); assertThat(draft.getBExpireset()).isEqualTo(1);
         assertThat(request.getParameter(SecurityEditVersion.PARAMETER)).isEqualTo(original);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(current);
-        verify(dao, never()).saveEntity(any()); verifyNoInteractions(passwords); audit.verifyNoInteractions();
+        verify(dao, never()).saveEntity(any()); verifyNoInteractions(passwords); logActionMock.verifyNoInteractions();
         assertThat(committed).isFalse();
     }
 
@@ -121,7 +124,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         else request.setParameter(SecurityEditVersion.PARAMETER, value);
         assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("conflict");
         assertThat(response.getStatus()).isEqualTo(409);
-        verify(dao, never()).saveEntity(any()); audit.verifyNoInteractions();
+        verify(dao, never()).saveEntity(any()); logActionMock.verifyNoInteractions();
     }
 
     @Test
