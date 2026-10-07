@@ -225,8 +225,8 @@
                     </tr>
 
                     <tr>
-                        <td style="background-color: #EEEEFF"></td>
-                        <td style="background-color: #EEEEFF"><textarea name="Message" wrap="hard"
+                        <td style="background-color: #EEEEFF"><label for="attachment-message"><fmt:message key="messenger.CreateMessage.msgMessage"/></label></td>
+                        <td style="background-color: #EEEEFF"><textarea id="attachment-message" name="Message" wrap="hard"
                                                         readonly="true" rows="18" cols="60"><%=themessage%></textarea>
                         </td>
                     </tr>
