@@ -1523,6 +1523,21 @@
       "env": []
     },
     {
+      "name": "rx-profile-legend",
+      "script": "scripts/rx-profile-legend-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
+    },
+    {
       "name": "rx-stash-deletion",
       "script": "scripts/rx-stash-deletion-playwright-checks.js",
       "tiers": [
@@ -7767,21 +7782,6 @@
       ],
       "timeoutSec": 180,
       "env": []
-    },
-    {
-      "name": "rx-profile-legend",
-      "script": "scripts/rx-profile-legend-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 120,
-      "env": [],
-      "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
-      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
     }
   ]
 }
