@@ -6,7 +6,12 @@ const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
-async function preflight({sql}) {
+async function preflight({sql, env = process.env}) {
+  // This optional integration cannot be inferred from leftover BC tables.
+  // Operators opt in only when the installed application's property is enabled.
+  if ((env.PATHNET_LABS || '').trim() !== 'yes') {
+    throw new h.SkipCheck('Set PATHNET_LABS=yes only for an installation with PathNet enabled');
+  }
   for (const table of ['hl7_message', 'hl7_msh', 'hl7_pid', 'hl7_orc', 'hl7_obr', 'hl7_obx']) {
     if (sql.value(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()
       AND table_name=${h.sqlString(table)}`) !== '1') {

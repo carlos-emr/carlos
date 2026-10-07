@@ -481,6 +481,7 @@
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
     "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
+    "test:pathnet-status": "node scripts/pathnet-status.test.js",
     "test:pathnet-status-playwright": "node scripts/pathnet-status-playwright-checks.js"
   },
   "dependencies": {
