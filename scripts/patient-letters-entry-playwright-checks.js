@@ -23,12 +23,15 @@ async function workflow(s) {
       'The letters entry did not reach the existing generation form');
   }
   await s.step('Print / Labels opens Generate Letters with only the current patient selected', async () => {
+    h.assert(await s.master.locator('#editDemographic').isHidden(),
+      'The letters entry must be reachable without entering demographic edit mode');
     const menu = await openPrintMenu(s.master, 20000);
     const link = menu.locator(LETTER_ENTRY);
     h.assert(await link.count() === 1, 'Print / Labels has no Generate Letters entry');
     const links = await s.master.locator(LETTER_ENTRY).evaluateAll(nodes => nodes.map(node => node.href));
-    h.assert(links.length === 2 && links.every(href => new URL(href).searchParams.get('demo') === s.patient),
-      'The upper toolbar and Print / Labels must both link to the current patient');
+    // workflow_enhance controls the optional upper toolbar; Print / Labels is always present.
+    h.assert(links.length >= 1 && links.length <= 2 && links.every(href => new URL(href).searchParams.get('demo') === s.patient),
+      'Every rendered letters entry must link to the current patient');
     letters = await s.popup(s.master, link, 'patient letters');
     await assertOwnedSelection();
     h.assert(await letters.evaluate(() => window.opener === null), 'The new letters tab should not retain an opener');
@@ -88,16 +91,19 @@ async function workflow(s) {
       { searchTerm: marker, preferredDemographicNo: s.patient, timeout: 20000 });
     await h.assertNotErrorPage(masterPage, 'report-denied patient master record');
     h.assert(await masterPage.locator(LETTER_ENTRY).count() === 0, 'A patient reader without report permission was offered Generate Letters');
-    // Keep demographic access read-only: granting only report read must expose both entries.
+    // Keep demographic access read-only: report read must expose the usable menu entry.
     sql.execute(`INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)
       VALUES(${q(role)},'_report','r',0,${q(provider)})`);
     await masterPage.reload({ waitUntil: 'networkidle' });
     await h.assertNotErrorPage(masterPage, 'report-enabled patient reader master record');
-    h.assert(await masterPage.locator(LETTER_ENTRY).count() === 2,
-      'A patient reader with report permission was not offered both Generate Letters entries');
+    h.assert(await masterPage.locator('#editDemographic').isHidden(),
+      'The report-enabled patient reader must remain outside demographic edit mode');
     h.assert(await masterPage.locator('#editBtn').count() === 0,
       'The report-enabled patient reader unexpectedly gained demographic write access');
-    letters = await ui.clickOpensPopup(masterPage, masterPage.locator(LETTER_ENTRY).first(),
+    const menu = await openPrintMenu(masterPage, 20000);
+    h.assert(await menu.locator(LETTER_ENTRY).count() === 1,
+      'A patient reader with report permission was not offered Generate Letters in Print / Labels');
+    letters = await ui.clickOpensPopup(masterPage, menu.locator(LETTER_ENTRY),
       { context: restricted, recorder: s.recorder, label: 'report-enabled reader letters', timeout: 20000 });
     await assertOwnedSelection();
     await letters.close();
