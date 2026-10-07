@@ -270,6 +270,7 @@ class UploadLoginText2ActionUnitTest extends CarlosWebTestBase {
         Files.createDirectories(agreement.getParent());
         Files.writeString(agreement, "Original agreement", StandardCharsets.UTF_8);
         assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("Original agreement");
+        // Change the size too, so reload is deterministic on filesystems with coarse modification times.
         Files.writeString(agreement, "A replacement agreement with different content", StandardCharsets.UTF_8);
         assertThat(AcceptableUseAgreementManager.getAUAText()).isEqualTo("A replacement agreement with different content");
         Files.delete(agreement);
