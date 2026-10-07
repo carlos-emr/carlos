@@ -32,6 +32,12 @@ async function workflow(s) {
   const { sql, marker, patient } = s;
   s.cleanup(() => h.assert(sql.value(`SELECT COUNT(*) FROM preventions WHERE demographic_no=${patient}`) === '0',
     'Unexpected prevention rows retained with their owned patient for investigation'));
+  // Initialize the application's cached display catalogue before adding temporary
+  // mappings, so cleanup cannot leave synthetic entries in its in-memory list.
+  const index = await s.popup(s.master,
+    s.master.locator('a').filter({ hasText: /^\s*Preventions\s*$/ }).first(), 'preventions');
+  h.assert(await index.locator('a[onclick*="prevention=Tdap&"]').count() > 0,
+    'The installed catalogue does not offer Tdap');
   const concepts = [0, 1].map(index => `9${Date.now()}${randomInt(100, 999)}${index}`);
   const ids = concepts.map(h.sqlString).join(',');
   const label = h.sqlString(marker);
@@ -42,7 +48,7 @@ async function workflow(s) {
   s.cleanup(() => {
     h.assert(sql.value(`SELECT COUNT(*) FROM CVCImmunization WHERE snomedConceptId IN (${ids})
       AND displayName<>${label}`) === '0', 'Catalogue fixture ownership changed');
-    sql.execute(`DELETE FROM CVCMapping WHERE oscarName='Tdap-IPV' AND cvcSnomedId IN (${ids});
+    sql.execute(`DELETE FROM CVCMapping WHERE oscarName='Tdap' AND cvcSnomedId IN (${ids});
       DELETE FROM CVCImmunization WHERE snomedConceptId IN (${ids}) AND displayName=${label}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM CVCMapping WHERE cvcSnomedId IN (${ids}))
       +(SELECT COUNT(*) FROM CVCImmunization WHERE snomedConceptId IN (${ids}))`) === '0',
@@ -53,12 +59,13 @@ async function workflow(s) {
       (versionId,snomedConceptId,displayName,picklistName,generic,parentConceptId,ispa)
       VALUES (0,${h.sqlString(concept)},${label},${label},1,NULL,0);
       INSERT INTO CVCMapping (oscarName,cvcSnomedId,preferCVC)
-      VALUES ('Tdap-IPV',${h.sqlString(concept)},1)`);
+      VALUES ('Tdap',${h.sqlString(concept)},0)`);
   }
 
-  const index = await s.popup(s.master,
-    s.master.locator('a').filter({ hasText: /^\s*Preventions\s*$/ }).first(), 'preventions');
-  const pickerLink = index.locator('a[onclick*="ViewAddPreventionDataDisambiguate"][onclick*="prevention=Tdap-IPV&"]').first();
+  // Reload through the browser to expose the now-ambiguous mapping in the real UI.
+  await index.reload({ waitUntil: 'domcontentloaded' });
+  await h.assertNotErrorPage(index, 'preventions after fixture setup');
+  const pickerLink = index.locator('a[onclick*="ViewAddPreventionDataDisambiguate"][onclick*="prevention=Tdap&"]').first();
   if (await pickerLink.count() !== 1) {
     console.log('Prevention links:', await index.locator('a[onclick*="PreventionData"]').evaluateAll(links =>
       links.map(link => ({ text: link.textContent.trim(), onclick: link.getAttribute('onclick') }))));
