@@ -68,6 +68,35 @@ checked against the server rather than argued about. (It also makes synthetic
 test data easy to get wrong -- the first draft of this check built its
 mojibake with Python's ISO-8859-1 and reported three false failures.)
 
+## One live Consent per patient and type
+
+`consent_live_statements` decides, before the copy, which of a clinic's
+Consent rows arrive live: V1.0.33's `uq_consent_live_type` allows one
+per patient and consent type, and an OSCAR 19 clinic can hold several.
+It ranks with ROW_NUMBER() over a derived table whose consent type is a
+correlated id-map lookup. The sqlite replay (test_consent_live_replay)
+rewrites `<=>` to IS, skips the rebuild's CREATE ... LIKE and holds the
+dates as text, so `check_consent_live` seeds every clause of the rule
+into an OSCAR 19-shaped table, builds the target by running the
+migration file itself, and runs the importer's own statements in the
+ETL's order and session. Findings on MariaDB 11.8.8 (2026-09-29):
+
+* every clause arrives as the sqlite replay says, from a DATETIME
+  edit_date and from a TIMESTAMP one; `sql_mode=''` stores a zero date
+  in both, and it arrives as NULL and ranks as undated;
+* under the ETL's FOREIGN_KEY_CHECKS=0 + UNIQUE_CHECKS=0, an INSERT ...
+  SELECT into an EMPTY InnoDB table that repeats a unique key -- the
+  PRIMARY KEY included -- stores NOTHING and reports success: no error,
+  no warning. Either setting alone, or a non-empty table, gives ERROR
+  1062. The duplicates check then reads 0; P4's row parity is what sees
+  it. The check's key-on control records which of these a server does.
+
+`check_consent_migration_repair` seeds the same clauses into CARLOS's
+own Consent table and runs the migration over them, so its repair (not
+only its DDL) runs on rows: the deleted, optout and explicit values it
+leaves must be the import's, and Consent_migration_audit must name each
+changed row once with the values it held before.
+
 Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 2 = usage or connection error.
 """
@@ -2729,6 +2758,543 @@ def _login_names_body(client: Client, dst: str) -> List[str]:
     return failures
 
 
+#: OSCAR 19's Consent: update-2016-03-30.sql's table plus the `deleted`
+#: update-2018-05-06.sql added. Every flag is nullable and only the id
+#: is unique. `{0}` is edit_date's type: DATETIME as OSCAR 19 declares
+#: it, and TIMESTAMP for the variant that holds a zero date there too.
+CONSENT_SRC_DDL = (
+    "CREATE TABLE `Consent` (`id` int(11) NOT NULL AUTO_INCREMENT, "
+    "`demographic_no` int(10), `consent_type_id` int(10), `explicit` "
+    "tinyint(1), `optout` tinyint(1), `last_entered_by` varchar(10), "
+    "`consent_date` datetime, `optout_date` datetime, `edit_date` {0}, "
+    "`deleted` tinyint(1), PRIMARY KEY (`id`)) DEFAULT CHARSET=latin1")
+
+#: edit_date's source types, each run as its own pass. `NULL DEFAULT
+#: NULL` keeps a server with explicit_defaults_for_timestamp=OFF from
+#: making the column NOT NULL and stamping it on insert.
+CONSENT_EDIT_DATE_TYPES = ("datetime", "timestamp NULL DEFAULT NULL")
+
+#: CARLOS's Consent as V1__baseline_schema.sql creates it, verbatim. The
+#: shape V1.0.33 leaves it in (NOT NULL flags, the generated INVISIBLE
+#: `live_demographic_no`, `uq_consent_live_type`) is not restated here:
+#: the migration file itself is run over this table.
+CONSENT_DST_DDL = (
+    "CREATE TABLE `Consent` (`id` int(11) NOT NULL AUTO_INCREMENT, "
+    "`demographic_no` int(10) DEFAULT NULL, `consent_type_id` int(10) "
+    "DEFAULT NULL, `explicit` tinyint(1) DEFAULT NULL, `optout` "
+    "tinyint(1) DEFAULT NULL, `last_entered_by` varchar(10) DEFAULT "
+    "NULL, `consent_date` datetime DEFAULT NULL, `optout_date` datetime "
+    "DEFAULT NULL, `edit_date` datetime DEFAULT NULL, `deleted` "
+    "tinyint(1) DEFAULT NULL, PRIMARY KEY (`id`), KEY "
+    "`Consent_demographic_no_IDX` (`demographic_no`)) ENGINE=InnoDB "
+    "DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci")
+
+#: found by name, not number: Flyway numbers are settled at merge
+CONSENT_MIGRATION_GLOB = "V*__one_live_consent_per_type.sql"
+CONSENT_MIGRATION_DIR = (REPO_ROOT / "database" / "mysql" / "migration"
+                         / "common")
+
+#: The ETL executor's session (o19import.make_etl_query) without
+#: sql_log_bin, which needs a privilege a scratch account may lack and
+#: decides nothing about the rows.
+ETL_SESSION = ("SET SESSION FOREIGN_KEY_CHECKS=0, UNIQUE_CHECKS=0, "
+               "sql_mode='';")
+
+#: legacy consent type -> CARLOS consent type, in the table
+#: `idmap_statements` leaves behind: 1 and 2 are two clinic types that
+#: merged onto ONE CARLOS type (consentType merges on its `type` name);
+#: 9 has no entry -- a reference already dangling in the clinic's data.
+CONSENT_ID_MAP = [(1, 10), (2, 10), (3, 30)]
+
+_EARLY = "2020-01-01 00:00:00"
+_MID = "2022-03-03 00:00:00"
+_LATE = "2024-06-01 00:00:00"
+_ZERO = "0000-00-00 00:00:00"
+
+#: (clause, rows, what arrives). A row is (id, demographic_no, legacy
+#: consent_type_id, explicit, optout, edit_date, deleted); what arrives
+#: is {id: (deleted, optout, explicit)} as the target stores them. Every
+#: clause has its own patient, so none can pass on another's account.
+CONSENT_CASES = [
+    ("an opt-out beats a newer opt-in",
+     [(1, 101, 3, 0, 1, _EARLY, 0), (2, 101, 3, 0, 0, _LATE, 0)],
+     {1: (0, 1, 0), 2: (1, 0, 0)}),
+    ("explicit beats a newer implied",
+     [(3, 102, 3, 1, 0, _EARLY, 0), (4, 102, 3, 0, 0, _LATE, 0)],
+     {3: (0, 0, 1), 4: (1, 0, 0)}),
+    ("the latest edit wins",
+     [(5, 103, 3, 0, 0, _LATE, 0), (6, 103, 3, 0, 0, _EARLY, 0),
+      (7, 103, 3, 0, 0, _MID, 0)],
+     {5: (0, 0, 0), 6: (1, 0, 0), 7: (1, 0, 0)}),
+    # the undated rows hold the HIGHER ids, so the date decides
+    ("a zero or NULL date loses to a dated row",
+     [(8, 104, 3, 0, 0, _EARLY, 0), (9, 104, 3, 0, 0, _ZERO, 0),
+      (10, 104, 3, 0, 0, None, 0)],
+     {8: (0, 0, 0), 9: (1, 0, 0), 10: (1, 0, 0)}),
+    # read as a date the zero would be the DATED row and win; undated,
+    # it ties with the NULL and the higher id wins
+    ("a zero date ties with a NULL one",
+     [(11, 105, 3, 0, 0, _ZERO, 0), (12, 105, 3, 0, 0, None, 0)],
+     {11: (1, 0, 0), 12: (0, 0, 0)}),
+    ("a tie goes to the higher id",
+     [(13, 106, 3, 0, 0, _EARLY, 0), (14, 106, 3, 0, 0, _EARLY, 0),
+      (15, 106, 3, 0, 0, _EARLY, 0)],
+     {13: (1, 0, 0), 14: (1, 0, 0), 15: (0, 0, 0)}),
+    # ranked, the NULL-deleted opt-out would retire the live opt-in
+    ("a NULL deleted is stored deleted, unranked",
+     [(16, 107, 3, 0, 0, _EARLY, 0), (17, 107, 3, 0, 1, _LATE, None)],
+     {16: (0, 0, 0), 17: (1, 1, 0)}),
+    ("a legacy deleted row stays deleted, unranked",
+     [(18, 108, 3, 0, 1, _LATE, 1), (19, 108, 3, 0, 0, _EARLY, 0)],
+     {18: (1, 1, 0), 19: (0, 0, 0)}),
+    # stored as an opt-out it would win a ranking it is kept out of
+    ("a live NULL optout is retired, stored as 1",
+     [(20, 109, 3, 0, None, _LATE, 0), (21, 109, 3, 0, 0, _EARLY, 0)],
+     {20: (1, 1, 0), 21: (0, 0, 0)}),
+    ("a NULL explicit is stored as 0",
+     [(22, 110, 3, None, 0, _EARLY, 0)],
+     {22: (0, 0, 0)}),
+    ("rows with no patient are never retired",
+     [(23, None, 3, 0, 0, _EARLY, 0), (24, None, 3, 0, 0, _LATE, 0)],
+     {23: (0, 0, 0), 24: (0, 0, 0)}),
+    ("rows whose type maps to nothing, likewise",
+     [(25, 111, 9, 0, 0, _EARLY, 0), (26, 111, 9, 0, 0, _LATE, 0)],
+     {25: (0, 0, 0), 26: (0, 0, 0)}),
+    ("two legacy types on one CARLOS type rank",
+     [(27, 112, 1, 0, 0, _LATE, 0), (28, 112, 2, 0, 0, _EARLY, 0)],
+     {27: (0, 0, 0), 28: (1, 0, 0)}),
+    # the newer row is the NULL one: ranked below 0 it would lose, ranked
+    # as implied it wins on its date
+    ("a NULL explicit ranks as implied",
+     [(29, 113, 3, None, 0, _LATE, 0), (30, 113, 3, 0, 0, _EARLY, 0)],
+     {29: (0, 0, 0), 30: (1, 0, 0)}),
+]
+
+#: {id: (consent_type_id, edit_date IS NULL)} as stored, for the rows
+#: whose point is the key the helper ranked on: a zero date arrives
+#: undated, an unmapped type NULL, the two merged types as one.
+CONSENT_STORED_KEYS = {
+    9: ("30", "1"), 11: ("30", "1"), 25: ("NULL", "0"),
+    26: ("NULL", "0"), 27: ("10", "0"), 28: ("10", "0")}
+
+#: the row the P7 control retires: live, and alone on its pair, so the
+#: unique key has nothing to say about the change
+CONSENT_P7_SABOTAGE_ID = 22
+
+
+def _sql_literal(value) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, int):
+        return str(value)
+    return "'{0}'".format(value)
+
+
+def _consent_rows_sql() -> str:
+    """The seed, in CONSENT_SRC_DDL's column order."""
+    out = []
+    for _clause, rows, _arrives in CONSENT_CASES:
+        for rid, patient, ctype, explicit, optout, edited, deleted in rows:
+            out.append("({0})".format(", ".join(_sql_literal(v) for v in (
+                rid, patient, ctype, explicit, optout, "999", _EARLY, None,
+                edited, deleted))))
+    return "INSERT INTO `Consent` VALUES {0};".format(", ".join(out))
+
+
+def _unranked_duplicate_pairs() -> int:
+    """The (patient, CARLOS type) pairs holding more than one row once
+    every row arrives live -- what a copy without the rule leaves."""
+    mapped = dict(CONSENT_ID_MAP)
+    seen: Dict[tuple, int] = {}
+    for _clause, rows, _arrives in CONSENT_CASES:
+        for row in rows:
+            key = (row[1], mapped.get(row[2]))
+            if None not in key:
+                seen[key] = seen.get(key, 0) + 1
+    return sum(1 for n in seen.values() if n > 1)
+
+
+def _consent_migration() -> Path:
+    found = sorted(CONSENT_MIGRATION_DIR.glob(CONSENT_MIGRATION_GLOB))
+    if len(found) != 1:
+        print("setup failed: expected one {0} under {1}, found {2}".format(
+            CONSENT_MIGRATION_GLOB, CONSENT_MIGRATION_DIR,
+            [p.name for p in found]), file=sys.stderr)
+        raise SystemExit(2)
+    return found[0]
+
+
+def _consent_repair_seed_sql() -> str:
+    """CONSENT_CASES as rows already in a CARLOS Consent table, before the
+    migration: each legacy type under the CARLOS id it maps to, and an
+    unmapped one under NULL, as the import stores it."""
+    mapped = dict(CONSENT_ID_MAP)
+    out = []
+    for _clause, rows, _arrives in CONSENT_CASES:
+        for rid, patient, ctype, explicit, optout, edited, deleted in rows:
+            out.append("({0})".format(", ".join(_sql_literal(v) for v in (
+                rid, patient, mapped.get(ctype), explicit, optout, "999",
+                _EARLY, None, edited, deleted))))
+    return "INSERT INTO `Consent` VALUES {0};".format(", ".join(out))
+
+
+def _consent_repair_expected_audit() -> Dict[Tuple[str, str], Tuple]:
+    """{(id, reason): (prior explicit, optout, deleted)} the migration must
+    record for the seed: a null_flag entry for every row holding a NULL
+    flag, and a duplicate_retired entry for every row step 2 retires --
+    live, with a recorded decision, and not the record that decides."""
+    want: Dict[Tuple[str, str], Tuple] = {}
+    for _clause, rows, arrives in CONSENT_CASES:
+        for rid, _patient, _ctype, explicit, optout, _edited, deleted in rows:
+            prior = tuple("NULL" if v is None else str(v)
+                          for v in (explicit, optout, deleted))
+            if None in (explicit, optout, deleted):
+                want[(str(rid), "null_flag")] = prior
+            if deleted == 0 and optout is not None and arrives[rid][0] == 1:
+                want[(str(rid), "duplicate_retired")] = prior
+    return want
+
+
+def check_consent_migration_repair(client: Client, db: str) -> List[str]:
+    """The one-live-consent migration's data steps, on rows.
+
+    check_consent_live runs the migration only over an empty table, so it
+    proves the DDL but none of the repair. Here the same CONSENT_CASES are
+    seeded into CARLOS's Consent as it stands before the migration, the
+    migration file runs over them in the packaged server's session
+    (sql_mode=''), and every row must end with the deleted, optout and
+    explicit the import gives it (the two apply one rule).
+    Consent_migration_audit must hold exactly the entries the seed calls
+    for, with the values each row held before. The file then runs a
+    second time over the finished table and must change nothing. A
+    migration that errors on these rows is a failure, not a setup error.
+    """
+    failures: List[str] = []
+    print("\n  one live Consent per patient and type "
+          "(the migration's repair, on seeded rows)")
+    try:
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+                     .format(db))
+        client.setup(CONSENT_DST_DDL + ";", db)
+        # sql_mode='' so the seed can hold its zero dates, as a database
+        # restored from an old dump does
+        rc, _out, err = client.run("SET SESSION sql_mode='';"
+                                   + _consent_repair_seed_sql(), db)
+        if rc:
+            return ["the repair seed did not load: {0}".format(err[:300])]
+        zeros = client.rows(
+            "SELECT COUNT(*) FROM `Consent` WHERE CAST(`edit_date` AS CHAR) "
+            "= '{0}'".format(_ZERO), db)[0][0]
+        if zeros != "2":
+            return ["the repair seed did not hold its 2 zero dates (held {0}), "
+                    "so the undated ranking would go unchecked".format(zeros)]
+        migration = ("SET SESSION sql_mode='';\n"
+                     + _consent_migration().read_text(encoding="utf-8"))
+        rc, _out, err = client.run(migration, db)
+        if rc:
+            print("    {0:<44} NO".format("the migration runs on the seeded rows"))
+            return ["the migration failed on the seeded rows: {0}".format(
+                err[:300])]
+
+        stored = {r[0]: (r[1], r[2], r[3]) for r in client.rows(
+            "SELECT id, deleted, optout, explicit FROM `Consent`", db)}
+        wrong = []
+        for _clause, rows, arrives in CONSENT_CASES:
+            for row in rows:
+                rid = str(row[0])
+                want = tuple(str(v) for v in arrives[row[0]])
+                if stored.get(rid) != want:
+                    wrong.append("{0}: {1} (want {2})".format(
+                        rid, stored.get(rid), want))
+        print("    {0:<44} {1}".format(
+            "rows end as the import leaves them",
+            "ok" if not wrong else "NO ({0})".format("; ".join(wrong))))
+        if wrong:
+            failures.append("after the migration the seeded rows differ from "
+                            "what the import stores: {0}".format(
+                                "; ".join(wrong)))
+
+        def audit():
+            return {(r[0], r[1]): (r[2], r[3], r[4]) for r in client.rows(
+                "SELECT consent_id, reason, IFNULL(prior_explicit, 'NULL'), "
+                "IFNULL(prior_optout, 'NULL'), IFNULL(prior_deleted, 'NULL') "
+                "FROM `Consent_migration_audit` WHERE migration = "
+                "'one_live_consent_per_type'", db)}
+
+        recorded = audit()
+        expected = _consent_repair_expected_audit()
+        ok = recorded == expected
+        print("    {0:<44} {1}".format(
+            "the audit names each changed row, once",
+            "ok" if ok else "NO (missing {0}, extra {1}, differing {2})".format(
+                sorted(set(expected) - set(recorded)),
+                sorted(set(recorded) - set(expected)),
+                sorted(k for k in set(expected) & set(recorded)
+                       if expected[k] != recorded[k]))))
+        if not ok:
+            failures.append("Consent_migration_audit does not match the seed: "
+                            "recorded {0}, expected {1}".format(
+                                sorted(recorded.items()),
+                                sorted(expected.items())))
+
+        rc, _out, err = client.run(migration, db)
+        if rc:
+            print("    {0:<44} NO".format("a second run changes nothing"))
+            failures.append("a second run of the migration failed: {0}".format(
+                err[:300]))
+            return failures
+        again = {r[0]: (r[1], r[2], r[3]) for r in client.rows(
+            "SELECT id, deleted, optout, explicit FROM `Consent`", db)}
+        rerun_ok = again == stored and audit() == recorded
+        print("    {0:<44} {1}".format(
+            "a second run changes nothing", "ok" if rerun_ok else "NO"))
+        if not rerun_ok:
+            failures.append("running the migration again changed the rows or "
+                            "the audit")
+        return failures
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`;".format(db))
+
+
+def check_consent_live(client: Client, src: str, dst: str,
+                       arch: str) -> List[str]:
+    """One live Consent per patient and type, on the engine.
+
+    `consent_live_statements` builds `Consent__live` with a ROW_NUMBER()
+    over a derived table whose consent type is a correlated id-map
+    lookup, and the copy reads `deleted` from it. Until this check that
+    SQL had run only on sqlite (test_consent_live_replay), which rewrites
+    `<=>` to IS, skips the CREATE ... LIKE of the rebuild and holds the
+    dates as text -- so neither a zero DATETIME nor MariaDB's window
+    functions had ever seen it. Here every clause of the rule is seeded
+    with its own patient, the target is built by V1.0.33 itself, and the
+    importer's own statements run in the ETL's order, the copy under
+    UNIQUE_CHECKS=0. Asserted: the rows that ARRIVE, coverage 0,
+    duplicates 0 and P7 0. The whole pass runs twice, edit_date DATETIME
+    and then TIMESTAMP; the controls run on the first: P7 catches a
+    stored `deleted` changed afterwards, and the copy without the rule
+    is seen by some check the import runs -- with V1.0.33's key in place
+    (on MariaDB 11.8 the statement stores nothing and reports success,
+    which P4's row parity catches) and without it (the duplicates check
+    counts every repeated pair).
+    """
+    try:
+        failures: List[str] = []
+        for i, edit_type in enumerate(CONSENT_EDIT_DATE_TYPES):
+            failures += _consent_live_body(client, src, dst, arch,
+                                           edit_type, controls=i == 0)
+        return failures
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                   "`{1}`; DROP DATABASE IF EXISTS `{2}`;".format(
+                       src, dst, arch))
+
+
+def _consent_live_body(client: Client, src: str, dst: str, arch: str,
+                       edit_type: str, controls: bool) -> List[str]:
+    """One pass; the caller owns the teardown."""
+    failures: List[str] = []
+    kind = edit_type.split()[0]
+    print("\n  one live Consent per patient and type "
+          "(consent_live_statements, edit_date {0})".format(kind))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    for schema in (dst, arch):
+        client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                     "CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
+                     .format(schema))
+    client.setup(CONSENT_SRC_DDL.format(edit_type) + ";", src)
+    # a dump is restored under sql_mode='' (staging_init_command), which
+    # is what lets a zero date be stored at all
+    rc, _out, err = client.run("SET SESSION sql_mode='';"
+                               + _consent_rows_sql(), src)
+    zeros = "0" if rc else client.rows(
+        "SELECT COUNT(*) FROM `Consent` WHERE CAST(`edit_date` AS CHAR) "
+        "= '{0}'".format(_ZERO), src)[0][0]
+    if rc or zeros != "2":
+        if kind == "datetime":
+            print("setup failed: the DATETIME seed did not hold its zero "
+                  "dates ({0})".format(err[:300] or zeros), file=sys.stderr)
+            raise SystemExit(2)
+        print("    {0:<44} {1}".format(
+            "a zero date stored in a TIMESTAMP",
+            "NOT ON THIS SERVER, pass skipped ({0})".format(
+                (err.splitlines() or ["held {0} of 2".format(zeros)])[-1])))
+        return failures
+
+    client.setup(CONSENT_DST_DDL + ";", dst)
+    client.setup(_consent_migration().read_text(encoding="utf-8"), dst)
+    key = client.rows(
+        "SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX), "
+        "MIN(NON_UNIQUE) FROM information_schema.STATISTICS WHERE "
+        "TABLE_SCHEMA = '{0}' AND TABLE_NAME = 'Consent' AND INDEX_NAME = "
+        "'uq_consent_live_type'".format(dst), dst)[0]
+    extra = client.rows(
+        "SELECT IFNULL(MAX(EXTRA), '') FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = '{0}' AND TABLE_NAME = 'Consent' AND "
+        "COLUMN_NAME = 'live_demographic_no'".format(dst), dst)[0][0]
+    built = (key == ["live_demographic_no,consent_type_id", "0"]
+             and "INVISIBLE" in extra.upper())
+    print("    {0:<44} {1}".format(
+        "the target carries V1.0.33's key",
+        "ok" if built else "NO (key {0}, column {1!r})".format(key, extra)))
+    if not built:
+        return ["the migration did not leave uq_consent_live_type over an "
+                "invisible live_demographic_no (key {0}, column {1!r}) -- "
+                "every line below would be meaningless".format(key, extra)]
+
+    client.setup(
+        "CREATE TABLE `{0}` (old_id BIGINT NOT NULL PRIMARY KEY, new_id "
+        "BIGINT NOT NULL); INSERT INTO `{0}` VALUES {1};".format(
+            o19etl.idmap_table("consentType"),
+            ", ".join("({0}, {1})".format(o, n) for o, n in CONSENT_ID_MAP)),
+        arch)
+
+    def query(sql):
+        return client.rows(sql, dst)
+
+    src_cols = o19etl.introspect_columns(
+        lambda sql: client.rows(sql, src), src)["Consent"]
+    dcols = o19etl.introspect_columns(query, dst)["Consent"]
+    # the shipped entry, reduced to this dump the way run_etl reduces
+    # it; the parent is staged beside it, so its remap stays
+    entry, _notes = o19etl.effective_entry(
+        "Consent", o19map_schema.TABLES["Consent"], src_cols,
+        {"Consent", "consentType"})
+    if not o19etl.consent_live_ranked(entry):
+        return ["the shipped Consent entry does not read `deleted` from "
+                "the helper; run_etl would refuse it, so there is nothing "
+                "to check"]
+
+    for sql in o19etl.consent_live_statements(entry, src, arch, dcols,
+                                              src_cols):
+        client.setup(ETL_SESSION + sql + ";", dst)
+    coverage = int(query(ETL_SESSION + o19etl.consent_live_coverage_sql(
+        src, arch))[0][0])
+    copy = o19etl.copy_statement("Consent", entry, src, dst, dcols, None,
+                                 None, arch)
+    rc, _out, err = client.run(ETL_SESSION + copy + ";", dst)
+    if rc:
+        failures.append("the ranked copy was refused under UNIQUE_CHECKS=0: "
+                        "{0}".format(err[:300]))
+        print("    {0:<44} {1}".format("the ranked copy runs", "REFUSED"))
+        return failures
+
+    arrived = {int(r[0]): tuple(int(v) for v in r[1:]) for r in query(
+        "SELECT id, deleted, optout, explicit FROM `Consent`")}
+    for clause, _rows, want in CONSENT_CASES:
+        got = {i: arrived.get(i) for i in want}
+        print("    {0:<44} {1}".format(
+            clause, "ok" if got == want else "GOT {0}".format(got)))
+        if got != want:
+            failures.append("{0}: arrived as {1}, expected {2} (id: "
+                            "deleted, optout, explicit)".format(
+                                clause, got, want))
+    seeded = {i for _c, _r, want in CONSENT_CASES for i in want}
+    if set(arrived) != seeded:
+        failures.append("the copy stored ids {0}, the dump holds {1}".format(
+            sorted(arrived), sorted(seeded)))
+
+    stored = {int(r[0]): (r[1], r[2]) for r in query(
+        "SELECT id, IFNULL(consent_type_id, 'NULL'), edit_date IS NULL "
+        "FROM `Consent` WHERE id IN ({0})".format(
+            ", ".join(str(i) for i in sorted(CONSENT_STORED_KEYS))))}
+    ok = stored == CONSENT_STORED_KEYS
+    print("    {0:<44} {1}".format(
+        "zero dates undated, types stored mapped",
+        "ok" if ok else "GOT {0}".format(stored)))
+    if not ok:
+        failures.append("the stored (consent_type_id, edit_date IS NULL) "
+                        "were {0}, expected {1}".format(
+                            stored, CONSENT_STORED_KEYS))
+
+    dups = int(query(ETL_SESSION + o19etl.consent_live_duplicates_sql(
+        dst))[0][0])
+    p7 = o19etl.copy_value_mismatch_sql("Consent", entry, src, dst, dcols,
+                                        ("id",), None, arch)
+    mismatch = int(query(ETL_SESSION + p7)[0][0])
+    for label, n in (("the helper covers the dump", coverage),
+                     ("no live duplicate after the copy", dups),
+                     ("P7 agrees with the faithful copy", mismatch)):
+        print("    {0:<44} {1}".format(
+            label, "ok" if n == 0 else "{0} ROW(S)".format(n)))
+    if coverage or dups or mismatch:
+        failures.append("coverage {0}, duplicates {1}, P7 mismatch {2}; "
+                        "each must be 0 on a faithful run".format(
+                            coverage, dups, mismatch))
+    if not controls:
+        return failures
+
+    # control 1: P7 sees a stored `deleted` the helper did not decide
+    client.setup("UPDATE `Consent` SET deleted = 1 WHERE id = {0};".format(
+        CONSENT_P7_SABOTAGE_ID), dst)
+    caught = int(query(ETL_SESSION + p7)[0][0])
+    print("    {0:<44} {1}".format(
+        "control: a live row retired afterwards",
+        "caught by P7" if caught == 1 else "P7 SAW {0}".format(caught)))
+    if caught != 1:
+        failures.append("P7 counted {0} row(s) after one stored `deleted` "
+                        "was changed; it must count exactly 1".format(caught))
+
+    # control 2: the entry as generated before the ruling -- no
+    # `deleted`, no expressions -- which run_etl now refuses up front.
+    # Every row arrives live. First with V1.0.33's key in place, under
+    # the ETL's session: what the server does is reported, and some
+    # check must see it -- refused (the ETL's query() raises and the
+    # import stops), admitted (the duplicates check must count every
+    # pair), or discarded without an error, as MariaDB 11.8 does (see
+    # the module docstring), which only P4's row parity sees. Then
+    # without the key, where only the duplicates check can.
+    shipped = o19map_schema.TABLES["Consent"]
+    before = {k: v for k, v in shipped.items() if k != "value_exprs"}
+    before["cols"] = [c for c in shipped["cols"] if c != "deleted"]
+    unranked, _notes = o19etl.effective_entry(
+        "Consent", before, src_cols, {"Consent", "consentType"})
+    if o19etl.consent_live_ranked(unranked):
+        return failures + ["the control's pre-ruling entry still ranks; it "
+                           "would demonstrate nothing"]
+    raw_copy = ETL_SESSION + o19etl.copy_statement(
+        "Consent", unranked, src, dst, dcols, None, None, arch) + ";"
+    want_pairs = _unranked_duplicate_pairs()
+    staged = sum(len(rows) for _c, rows, _a in CONSENT_CASES)
+    rc, _out, err = client.run("TRUNCATE TABLE `Consent`;" + raw_copy, dst)
+    stored = int(query("SELECT COUNT(*) FROM `Consent`")[0][0])
+    if rc:
+        code = re.search(r"ERROR \d+", err)
+        outcome = "refused ({0})".format(code.group(0) if code else "?")
+        visible = True
+    elif stored == staged:
+        seen = int(query(o19etl.consent_live_duplicates_sql(dst))[0][0])
+        outcome = "admitted, {0} duplicate pair(s) counted".format(seen)
+        visible = seen == want_pairs
+    else:
+        _ok, bad = o19etl.row_parity(query, src, dst)
+        visible = any(line.startswith("Consent: ") for line in bad)
+        outcome = "stored {0} of {1} rows, no error; row parity {2}".format(
+            stored, staged, "flags it" if visible else "MISSES IT")
+    print("    {0:<44} {1}".format("control: unranked copy, key on",
+                                   outcome))
+    if not visible:
+        failures.append("with the key in place the unranked copy was {0} "
+                        "(expected {1} duplicate pair(s)); no check the "
+                        "import runs would see it".format(outcome,
+                                                          want_pairs))
+    client.setup("TRUNCATE TABLE `Consent`; ALTER TABLE `Consent` DROP "
+                 "INDEX `uq_consent_live_type`;", dst)
+    client.setup(raw_copy, dst)
+    seen = int(query(o19etl.consent_live_duplicates_sql(dst))[0][0])
+    print("    {0:<44} {1}".format(
+        "control: unranked copy, key off",
+        "{0} duplicate pair(s) counted".format(seen) if seen == want_pairs
+        else "COUNTED {0}, expected {1}".format(seen, want_pairs)))
+    if seen != want_pairs:
+        failures.append("without the key the unranked copy left {0} "
+                        "duplicate pair(s) by consent_live_duplicates_sql, "
+                        "expected {1}".format(seen, want_pairs))
+    return failures
+
+
 def _run_checks(client: Client, args, failures: Dict[str, List[str]],
                 dst: str, src: str, arch: str) -> int:
     """Every check in turn; `main` owns the shared-schema teardown."""
@@ -2790,6 +3356,13 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
     names = check_login_names(client, args.prefix + "_lnd")
     if names:
         failures["login names"] = names
+    consent = check_consent_live(client, args.prefix + "_lvs",
+                                 args.prefix + "_lvd", args.prefix + "_lva")
+    if consent:
+        failures["one live consent"] = consent
+    repair = check_consent_migration_repair(client, args.prefix + "_lvr")
+    if repair:
+        failures["one live consent repair"] = repair
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -2829,7 +3402,13 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "presents -- on the rows that needed no substitution as much "
           "as on the rows that did, and the P7 login-name advisory lists "
           "exactly the accounts CARLOS's login refuses where the pattern "
-          "--admin-user used to enforce demonstrably lists none")
+          "--admin-user used to enforce demonstrably lists none, and the "
+          "Consent import keeps live exactly the record the application "
+          "reads as deciding -- every clause of the rule, from a DATETIME "
+          "and a TIMESTAMP edit date, into V1.0.33's unique key under "
+          "UNIQUE_CHECKS=0 -- with coverage, duplicates and P7 all 0, "
+          "where the copy without the rule demonstrably leaves live "
+          "duplicates the duplicates check counts")
     return 0
 
 
