@@ -329,8 +329,9 @@ public class PreventionDisplayConfig {
      * Whether a prevention type shows for the patient, as
      * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
      * already looked up through {@code DemographicManager}, which checks the caller's privileges.
-     * In its default view the prevention page calls this once per type, passing the patient from
-     * its {@link PreventionPageData}.
+     * The prevention page (in its default view), the eChart's Preventions box and the REST
+     * preventions summary call this once per type, passing the patient from their
+     * {@link PreventionPageData}.
      *
      * @param setHash the prevention type
      * @param demograph the patient

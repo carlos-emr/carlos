@@ -33,11 +33,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * The patient lookup and prevention lists behind the prevention page's per-type loops, read
- * once for the request. The page's name/age header and decision-support input still make their
- * own lookups.
+ * The patient lookup and prevention lists behind the per-type loops of the prevention page, the
+ * eChart's Preventions box ({@code EctDisplayPrevention2Action}) and the REST preventions summary
+ * ({@code PreventionsSummary}), read once for the request. The page's name/age header and each
+ * caller's decision-support input still make their own lookups.
  *
- * <p>The page goes through every prevention type, and each type used to look the patient up
+ * <p>Each of them goes through every prevention type, and each type used to look the patient up
  * again, with its privilege checks, for the date of birth, age and sex. With the vaccine
  * catalogue loaded there are a few hundred types. This looks the patient up once, through
  * {@link DemographicManager}, which makes the same {@code _demographic} read checks, and keeps

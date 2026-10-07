@@ -30,12 +30,14 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prevention.Prevention;
 import io.github.carlos_emr.carlos.prevention.PreventionDS;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionPageData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,7 +73,6 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
             //set lefthand module heading and link
             String winName = "prevention" + bean.demographicNo;
-            int demographicNumber = Integer.valueOf(bean.demographicNo);
             String preventionPath = request.getContextPath() + "/prevention/ViewPreventionIndex?demographic_no=" + bean.demographicNo;
             Dao.setLeftHeading(getText("encounter.LeftNavBar.Prevent"));
             Dao.setLeftPopup(700, 960, winName, preventionPath);
@@ -95,6 +96,10 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             ArrayList<HashMap<String, String>> prevList = pdc.getPreventions();
             Map warningTable = p.getWarningMsgs();
 
+            // One patient lookup for the per-type loop below, instead of two per type.
+            PreventionPageData pageData = new PreventionPageData(loggedInInfo, bean.demographicNo);
+            Demographic demographic = pageData.getDemographic();
+
             Date date = null;
 
             String url = "popupPage(700, 960,'" + winName + "','" + preventionPath + "');return false;";
@@ -106,9 +111,9 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 HashMap<String, String> h = prevList.get(i);
                 String prevName = h.get("name");
-                ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNumber);
+                ArrayList<Map<String, Object>> alist = pageData.getPreventionData(prevName);
 
-                boolean show = pdc.display(loggedInInfo, h, bean.demographicNo, alist.size());
+                boolean show = pdc.display(h, demographic, alist.size());
                 if (show) {
                     String prefix;
                     String colour;
