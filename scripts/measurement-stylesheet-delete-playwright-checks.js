@@ -69,19 +69,21 @@ async function workflow(s) {
   });
 
   let postedUrl;
+  let postedForm;
   await s.step('an already-open selection removes its orphan mapping without a detached-entity error', async () => {
     const page = await open();
     sql.execute(`DELETE FROM measurementCSSLocation WHERE cssID=${css} AND location=${q(cssName)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=${css}`) === '0', 'Competing removal did not occur');
     const result = await submit(page);
     postedUrl = result.url();
+    postedForm = Object.fromEntries(new URLSearchParams(result.request().postData() || ''));
     h.assert(sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=${q(group)}`) === '0', 'The orphan mapping survived deletion');
     h.assert(JSON.stringify(snapshot()) === peerInitial, 'Deleting the orphan changed another mapping');
     await page.close();
   });
 
   await s.step('replayed deletion is harmless and GET/HEAD cannot remove a new orphan mapping', async () => {
-    const replay = await s.context.request.post(postedUrl, {form: {deleteCheckbox: css}});
+    const replay = await s.context.request.post(postedUrl, {form: postedForm});
     h.assert(replay.status() < 400, `Repeated deletion returned HTTP ${replay.status()}`);
     h.assert(JSON.stringify(snapshot()) === peerInitial, 'Repeated deletion changed another mapping');
     sql.execute(`INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(group)},${css})`);
