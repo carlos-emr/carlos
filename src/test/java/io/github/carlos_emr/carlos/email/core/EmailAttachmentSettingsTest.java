@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -294,5 +295,37 @@ class EmailAttachmentSettingsTest {
         void shouldReturnNull_whenScriptInjection() {
             assertThat(EmailAttachmentSettings.validateChartOption("<script>alert(1)</script>")).isNull();
         }
+    }
+
+    @Test
+    @DisplayName("should keep attachment id arrays detached from the caller's arrays on the way in and out")
+    void shouldKeepAttachmentArraysDetached_acrossConstructionAndAccess() {
+        String[] ids = {"30001"};
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                new MockHttpServletRequest(), "20001", "10001", ids, ids, ids, ids, ids);
+        ids[0] = "30002";
+        for (String[] copy : new String[][]{settings.attachedEForms(), settings.attachedDocuments(),
+                settings.attachedLabs(), settings.attachedHRMDocuments(), settings.attachedForms()}) {
+            assertThat(copy).containsExactly("30001");
+            copy[0] = "30003";
+        }
+        assertThat(settings.attachedEForms()).containsExactly("30001");
+        assertThat(settings.attachedDocuments()).containsExactly("30001");
+        assertThat(settings.attachedLabs()).containsExactly("30001");
+        assertThat(settings.attachedHRMDocuments()).containsExactly("30001");
+        assertThat(settings.attachedForms()).containsExactly("30001");
+    }
+
+    @Test
+    @DisplayName("should not print the patient, message or sender when logged")
+    void shouldRedactContents_whenPrinted() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("subjectEmail", "FAKE subject");
+        request.addParameter("bodyEmail", "FAKE message");
+        request.addParameter("senderEmail", "fake.sender@example.com");
+        EmailAttachmentSettings settings = EmailAttachmentSettings.of(
+                request, "20001", "10001", null, null, null, null, null);
+        assertThat(settings.toString()).isEqualTo("EmailAttachmentSettings[redacted]")
+                .doesNotContain("10001").doesNotContain("FAKE");
     }
 }
