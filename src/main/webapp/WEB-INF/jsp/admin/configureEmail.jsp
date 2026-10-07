@@ -1,6 +1,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -81,6 +82,39 @@
                     </code>
                 </dd>
             </dl>
+        </div>
+    </div>
+
+    <%-- Clinic email footer (follow-up to #3981, issue #4093): every user starts with it and can save
+         their own. Saving replaces users' own footers; ViewMyEmailFooter2Action tells each user whose
+         footer changed on their next email, so the administrator is not asked to confirm. --%>
+    <div class="card shadow-sm rounded mt-4 mb-4" id="clinicEmailFooter">
+        <div class="card-body">
+            <h3 class="card-title"><fmt:message key="admin.configureEmail.footer.heading"/></h3>
+            <p class="card-text mt-3"><fmt:message key="admin.configureEmail.footer.intro"/></p>
+            <c:if test="${param.clinicFooterSaved eq 'true' and not clinicFooterTooLong}">
+                <div class="alert alert-success" role="status" id="clinicFooterSaved">
+                    <fmt:message key="admin.configureEmail.footer.saved"/></div>
+            </c:if>
+            <c:if test="${clinicFooterTooLong}">
+                <div class="alert alert-danger" role="alert" id="clinicFooterTooLong">
+                    <fmt:message key="admin.configureEmail.footer.tooLong"/></div>
+            </c:if>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
+                <form action="${ctx}/admin/saveClinicEmailFooter" method="post">
+                    <label for="clinicFooter" class="form-label">
+                        <fmt:message key="admin.configureEmail.footer.label"/></label>
+                    <textarea class="form-control" id="clinicFooter" name="clinicFooter" rows="4" maxlength="2000"
+                              aria-describedby="clinicFooterHelp"><carlos:encode value="${clinicFooter}"/></textarea>
+                    <div id="clinicFooterHelp" class="form-text">
+                        <fmt:message key="admin.configureEmail.footer.help"/></div>
+                    <button type="submit" class="btn btn-primary mt-2">
+                        <fmt:message key="admin.configureEmail.footer.save"/></button>
+                </form>
+            </security:oscarSec>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
+                <pre class="border bg-light p-2" style="white-space: pre-wrap;"><carlos:encode value="${clinicFooter}"/></pre>
+            </security:oscarSec>
         </div>
     </div>
 </div>

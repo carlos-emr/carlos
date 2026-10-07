@@ -196,6 +196,9 @@
         <action name="admin/ViewConfigureEmail" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action">
             <result name="success">/WEB-INF/jsp/admin/configureEmail.jsp</result>
         </action>
+        <action name="admin/saveClinicEmailFooter" class="io.github.carlos_emr.carlos.email.admin.SaveClinicEmailFooter2Action">
+            <result name="input">/WEB-INF/jsp/admin/configureEmail.jsp</result>
+        </action>
         <action name="admin/ViewConfigureFax" class="io.github.carlos_emr.carlos.admin.gate.ViewConfigureFax2Action">
             <result name="success">/WEB-INF/jsp/admin/configureFax.jsp</result>
         </action>

@@ -1358,6 +1358,9 @@
                 <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
+                <a href="${pageContext.request.contextPath}/email/myEmailFooter" class="pref-link" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-envelope-open-text"></i> <fmt:message key="provider.providerpreference.link.myEmailFooter"/>
+                </a>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>

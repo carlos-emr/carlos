@@ -183,6 +183,12 @@ class MutatorActionGetRejectionContractUnitTest {
             // and persist EmailLog; cancel consumes session-scoped attachment state.
             Arguments.of("io.github.carlos_emr.carlos.email.action.EmailSend2Action",
                     "_email", "w"),
+            // Email footers (follow-up to #3981): a user's own footer and the clinic default are saved
+            // by POST only; the email packages are not in IN_SCOPE_PACKAGE_PREFIXES, so register them here.
+            Arguments.of("io.github.carlos_emr.carlos.email.action.SaveMyEmailFooter2Action",
+                    "_email", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.email.admin.SaveClinicEmailFooter2Action",
+                    "_admin", "w"),
             // --- encounter / consultation ---
             Arguments.of("io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequest2Action",
                     "_con", "w"),

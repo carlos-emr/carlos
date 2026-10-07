@@ -14,6 +14,7 @@ package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -28,11 +29,25 @@ import org.apache.struts2.ServletActionContext;
  * security-hardening migration (defense in depth; matches the 2Action
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
+ * <p>It also supplies the clinic's default email footer for the form that
+ * {@code admin/saveClinicEmailFooter} saves.</p>
+ *
  * @since 2026-04-13
  */
 public final class ViewConfigureEmail2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final EmailFooterService emailFooterService;
+
+    public ViewConfigureEmail2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class));
+    }
+
+    // Package-private so tests can supply the collaborators.
+    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService) {
+        this.securityInfoManager = securityInfoManager;
+        this.emailFooterService = emailFooterService;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -43,6 +58,7 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        request.setAttribute("clinicFooter", emailFooterService.clinicDefault());
         return SUCCESS;
     }
 }

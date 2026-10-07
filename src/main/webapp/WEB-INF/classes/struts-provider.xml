@@ -82,6 +82,12 @@
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
         </action>
+        <action name="email/myEmailFooter" class="io.github.carlos_emr.carlos.email.action.ViewMyEmailFooter2Action">
+            <result name="success">/WEB-INF/jsp/email/myEmailFooter.jsp</result>
+        </action>
+        <action name="email/saveMyEmailFooter" class="io.github.carlos_emr.carlos.email.action.SaveMyEmailFooter2Action">
+            <result name="input">/WEB-INF/jsp/email/myEmailFooter.jsp</result>
+        </action>
         <action name="setProviderStaleDate" class="io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action" method="execute">
             <result name="success">/WEB-INF/jsp/provider/setNoteStaleDate.jsp</result>
             <result name="gen">/WEB-INF/jsp/provider/setGenProperty.jsp</result>

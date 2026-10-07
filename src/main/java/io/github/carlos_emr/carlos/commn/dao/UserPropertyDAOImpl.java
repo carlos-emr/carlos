@@ -120,6 +120,16 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         return query.getResultList();
     }
 
+    @Override
+    public List<UserProperty> findProviderProperties(String name) {
+        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
+                + " and p.providerNo is not null and p.providerNo <> '' order by p.id");
+        query.setParameter(1, name);
+        @SuppressWarnings("unchecked")
+        List<UserProperty> list = query.getResultList();
+        return list;
+    }
+
     public UserProperty getProp(String prov, String name) {
         Query query = entityManager.createQuery("select p from UserProperty p where p.providerNo = ?1 and p.name = ?2");
         query.setParameter(1, prov);
