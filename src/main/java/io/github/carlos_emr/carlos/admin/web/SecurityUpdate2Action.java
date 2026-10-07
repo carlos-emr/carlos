@@ -163,7 +163,8 @@ public class SecurityUpdate2Action extends ActionSupport {
             row.setPasswordUpdateDate(new Date());
         }
         // Controls hidden by policy or disabled by MFA must not silently clear existing protection.
-        if (request.getParameter("forcePasswordReset") != null) {
+        if (!properties.getBooleanProperty("mandatory_password_reset", "false")
+                && request.getParameter("forcePasswordReset") != null) {
             row.setForcePasswordReset(checked(request, "forcePasswordReset"));
         }
         if (MfaManager.isOscarMfaEnabled()) row.setUsingMfa(checked(request, "enableMfa"));

@@ -36,6 +36,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
     private CarlosMethodSecurity access;
     private SecurityDao dao;
     private SecurityManager passwords;
+    private CarlosProperties properties;
     private Security row;
     private boolean committed;
 
@@ -50,7 +51,7 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         mfa = mockStatic(MfaManager.class);
         mfa.when(MfaManager::isOscarLegacyPinEnabled).thenReturn(true);
         configuration = mockStatic(CarlosProperties.class);
-        CarlosProperties properties = mock(CarlosProperties.class);
+        properties = mock(CarlosProperties.class);
         lenient().when(properties.getProperty(anyString(), anyString())).thenAnswer(call -> call.getArgument(1));
         configuration.when(CarlosProperties::getInstance).thenReturn(properties);
         dao = createAndRegisterMock(SecurityDao.class);
@@ -165,5 +166,16 @@ class SecurityUpdateConcurrencyUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(SecurityEditVersion.of(row)).isEqualTo(before);
         verify(dao, never()).saveEntity(any()); verifyNoInteractions(passwords);
+    }
+
+    @Test
+    void shouldIgnoreResetControl_whenMandatoryPolicyHidesIt() throws Exception {
+        row.setForcePasswordReset(true);
+        request.setParameter(SecurityEditVersion.PARAMETER, SecurityEditVersion.of(row));
+        when(properties.getBooleanProperty("mandatory_password_reset", "false")).thenReturn(true);
+        // A direct POST must not bypass the policy that hides this control in the form.
+        request.setParameter("forcePasswordReset", "0");
+        assertThat(new SecurityUpdate2Action(access).execute()).isEqualTo("success");
+        assertThat(row.isForcePasswordReset()).isTrue();
     }
 }
