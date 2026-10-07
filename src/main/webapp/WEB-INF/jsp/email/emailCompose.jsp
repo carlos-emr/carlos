@@ -22,6 +22,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailData" %>
 <%
     // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
     // manual password is collected; the send path refuses encrypted email until it is fixed.
@@ -612,7 +613,7 @@
                                 <div class="col-sm-12">
                                     <label for="footerEmail" class="visually-hidden">${emailComposeFooterLabel}</label>
                                     <textarea class="form-control" name="footerEmail" id="footerEmail" rows="3"
-                                              maxlength="2000" aria-describedby="footerEmailHelp"><carlos:encode value="${footerEmail}"/></textarea>
+                                              maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>" aria-describedby="footerEmailHelp"><carlos:encode value="${footerEmail}"/></textarea>
                                 </div>
                             </div>
                         </div>

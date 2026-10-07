@@ -391,6 +391,25 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send a copied email with the footer its log kept, below the message")
+    void shouldResendLoggedFooter_whenCopiedEmailIsSent() {
+        // First send: the browser posts line breaks as CR LF, and the log keeps the footer as it
+        // was sent (EmailManager stores getSentFooter()).
+        EmailData first = captureSentEmail("A non-clinical reminder.", "false", "false",
+                "Riverside Clinic\r\nNot monitored for urgent issues.\r\n");
+        EmailLog logged = new EmailLog();
+        logged.setFooter(first.getSentFooter());
+
+        // Copy and send again: Manage Emails fills the Footer box with the logged footer
+        // (ManageEmails2ActionUnitTest), and the form posts it back unchanged.
+        EmailData resent = captureSentEmail("A non-clinical reminder.", "false", "false", logged.getFooter());
+
+        assertThat(resent.getSentFooter()).isEqualTo(first.getSentFooter());
+        assertThat(resent.getTransmittedBody())
+                .isEqualTo("A non-clinical reminder.\n\nRiverside Clinic\r\nNot monitored for urgent issues.");
+    }
+
+    @Test
     @DisplayName("should retain the failed sender when refreshing sender accounts fails")
     void shouldRetainFailedSender_whenSenderAccountRefreshFails() {
         MockHttpServletRequest request = encryptedSendRequest();
