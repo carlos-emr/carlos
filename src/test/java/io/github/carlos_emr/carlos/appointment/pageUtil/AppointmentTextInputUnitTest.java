@@ -159,6 +159,45 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("refusalLocales")
+    void refusalMessagesUseTheBrowserLocaleWithoutWriting(String languages, String expectedLanguage, String failure) throws Exception {
+        request.addHeader("Accept-Language", languages);
+        request.setPreferredLocales(java.util.Arrays.stream(languages.split(","))
+                .map(java.util.Locale::forLanguageTag).toList());
+        request.setParameter("reason", "Unsaved localized draft");
+        String key;
+        int status;
+        if ("stale".equals(failure)) {
+            when(appointments.findForUpdate(42)).thenReturn(new Appointment());
+            key = "appointment.edit.msgStale"; status = 409;
+        } else if ("missing".equals(failure)) {
+            key = "appointment.edit.msgMissing"; status = 404;
+        } else {
+            when(appointments.findForUpdate(42)).thenThrow(new IllegalStateException("simulated read failure"));
+            key = "appointment.edit.msgUpdateUnconfirmed"; status = 500;
+        }
+        try (MockedStatic<OtherIdManager> ids = mockStatic(OtherIdManager.class)) {
+            assertThat(new AppointmentUpdateRecord2Action().execute()).isEqualTo("input");
+            assertThat(response.getStatus()).isEqualTo(status);
+            String expected = java.util.ResourceBundle.getBundle("oscarResources",
+                    java.util.Locale.forLanguageTag(expectedLanguage)).getString(key);
+            assertThat(request.getAttribute("appointmentValidationErrors")).isEqualTo(java.util.List.of(expected));
+            assertThat(request.getParameter("reason")).isEqualTo("Unsaved localized draft");
+            verifyNoInteractions(archives, events);
+            verify(appointments, never()).merge(any());
+            ids.verify(() -> OtherIdManager.saveIdAppointment(anyString(), anyString(), any()), never());
+        }
+    }
+
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> refusalLocales() {
+        return java.util.stream.Stream.of("en|en", "fr|fr", "es|es", "pl|pl", "pt-BR|pt-BR", "de-DE,fr-CA|fr", "de-DE|en")
+                .flatMap(pair -> java.util.stream.Stream.of("stale", "missing", "unconfirmed").map(failure -> {
+                    String[] parts = pair.split("\\|");
+                    return org.junit.jupiter.params.provider.Arguments.of(parts[0], parts[1], failure);
+                }));
+    }
+
+    @ParameterizedTest
     @CsvSource({"Cancel Appt,C", "No Show,N"})
     void aCurrentStatusOnlyActionPreservesTextAndPublishesAfterCommit(String button, String status) throws Exception {
         Appointment stored = new Appointment();

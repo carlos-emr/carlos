@@ -102,6 +102,8 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("appointmentLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${appointmentLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
 <fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
@@ -265,7 +267,7 @@
     boolean bMultipleSameDayGroupAppt = false;
 %>
 
-<html>
+<html lang="${carlos:forHtmlAttribute(appointmentLocale.language)}">
     <head>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
@@ -872,7 +874,8 @@
                     <c:url var="currentAppointmentUrl" value="/appointment/editappointment">
                         <c:param name="appointment_no" value="${param.appointment_no}"/>
                     </c:url>
-                    <a id="reviewCurrentAppointment" href="${carlos:forHtmlAttribute(currentAppointmentUrl)}" target="_blank" rel="noopener">Review the current appointment in a new window</a>
+                    <fmt:message key="appointment.edit.msgReviewCurrent" var="appointmentReviewLabel"/>
+                    <a id="reviewCurrentAppointment" href="${carlos:forHtmlAttribute(currentAppointmentUrl)}" target="_blank" rel="noopener">${carlos:forHtml(appointmentReviewLabel)}</a>
                 </c:if>
             </div>
         </c:if>

@@ -136,6 +136,30 @@ async function workflow(s) {
     h.assert(await staleEdit.locator('#reason').inputValue() === reason, 'The status conflict lost the entered reason');
     consumeExpectedFailure(s.recorder, editMark, { status: 409, path: /\/appointment\/UpdateRecord$/ });
     h.assert(sql.value(apptStatus(statusId)) === advanced, 'The stale editor reverted the day-sheet status');
+    const original = editResponse.request();
+    const beforeReplay = sql.rows(`SELECT reason,status FROM appointment WHERE appointment_no=${statusId}`);
+    const archiveCount = sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${statusId}`);
+    for (const [locale, language, message, review] of [
+      ['en', 'en', 'This appointment changed', 'Review the current appointment in a new window'],
+      ['fr', 'fr', 'Ce rendez-vous a changé', 'Consulter le rendez-vous actuel dans une nouvelle fenêtre'],
+      ['es', 'es', 'Esta cita ha cambiado', 'Revisar la cita actual en una ventana nueva'],
+      ['pl', 'pl', 'Ta wizyta została zmieniona', 'Sprawdź aktualny stan wizyty w nowym oknie'],
+      ['pt-BR', 'pt', 'Esta consulta foi alterada', 'Conferir a consulta atual em uma nova janela'],
+      ['de-DE,fr;q=0.9', 'fr', 'Ce rendez-vous a changé', 'Consulter le rendez-vous actuel dans une nouvelle fenêtre'],
+      ['de-DE', 'en', 'This appointment changed', 'Review the current appointment in a new window'],
+    ]) {
+      const replay = await s.context.request.post(original.url(), {
+        data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'], 'Accept-Language': locale },
+        maxRedirects: 0,
+      });
+      const body = await replay.text();
+      h.assert(replay.status() === 409 && body.includes(`<html lang="${language}">`)
+        && body.includes(message) && body.includes(review), `Appointment recovery did not render ${locale}`);
+      h.assert(body.includes(reason) && !body.includes('???appointment.edit.'), 'Localized refusal lost the draft or message key');
+      h.assert(JSON.stringify(sql.rows(`SELECT reason,status FROM appointment WHERE appointment_no=${statusId}`)) === JSON.stringify(beforeReplay)
+        && sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${statusId}`) === archiveCount,
+      'Localized stale replay changed the appointment or its archive');
+    }
     await staleEdit.close();
   });
 

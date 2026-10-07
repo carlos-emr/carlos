@@ -969,7 +969,8 @@
 
         <c:if test="${not empty param.conflictCount}">
             <div id="tickler-status-conflict" class="alert alert-warning" role="alert">
-                <fmt:message key="tickler.ticklerMain.msgStatusConflict"/>
+                <fmt:message key="tickler.ticklerMain.msgStatusConflict" var="statusConflictMessage"/>
+                ${carlos:forHtml(statusConflictMessage)}
             </div>
         </c:if>
         <form name="ticklerform" method="post" action="DbTicklerMain">

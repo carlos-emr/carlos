@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.event.EventService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -140,15 +141,15 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Unable to confirm appointment update", e);
             return retainDraft(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    "The appointment update could not be confirmed. Your entered values are retained. Review the current appointment before trying again.");
+                    "appointment.edit.msgUpdateUnconfirmed");
         }
         if (result.status() == HttpServletResponse.SC_NOT_FOUND) {
             return retainDraft(request, response, result.status(),
-                    "This appointment no longer exists. Your entered values are retained; no appointment was recreated.");
+                    "appointment.edit.msgMissing");
         }
         if (result.status() == HttpServletResponse.SC_CONFLICT) {
             return retainDraft(request, response, result.status(),
-                    "This appointment changed after the form was opened, or the original record state is missing. Your entered values are retained and nothing was saved. Review the current appointment before reapplying your changes.");
+                    "appointment.edit.msgStale");
         }
         boolean printReceipt = "1".equals(request.getParameter("printReceipt"));
         request.setAttribute("success", true);
@@ -158,9 +159,9 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    private String retainDraft(HttpServletRequest request, HttpServletResponse response, int status, String message) {
+    private String retainDraft(HttpServletRequest request, HttpServletResponse response, int status, String messageKey) {
         response.setStatus(status);
-        request.setAttribute("appointmentValidationErrors", List.of(message));
+        request.setAttribute("appointmentValidationErrors", List.of(LocaleUtils.getMessage(request, messageKey)));
         request.setAttribute("appointmentReviewRequired", status != HttpServletResponse.SC_NOT_FOUND);
         return INPUT;
     }
