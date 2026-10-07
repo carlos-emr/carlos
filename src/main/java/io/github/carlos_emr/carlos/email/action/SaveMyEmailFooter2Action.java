@@ -122,7 +122,12 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
                 }
                 audit(request, providerNo);
             }
-            case "keepCurrent" -> emailFooterService.dismissClinicChangeNotice(providerNo);
+            case "keepCurrent" -> {
+                if (!emailFooterService.dismissClinicChangeNotice(providerNo)) {
+                    response.sendRedirect(request.getContextPath() + "/email/myEmailFooter");
+                    return NONE;
+                }
+            }
             default -> {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;

@@ -103,6 +103,15 @@ public class EmailFooterService {
             boolean ownFootersReplaced) {
     }
 
+    /**
+     * The outcome of saving the clinic default.
+     *
+     * @param changed whether the default changed (saving the same text again changes nothing)
+     * @param noticed how many own-footer rows differed from the new default and got (or kept) a notice
+     */
+    public record ClinicDefaultSaved(boolean changed, int noticed) {
+    }
+
     /** @return the clinic default, empty when none is set */
     public String clinicDefault() {
         UserProperty property = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
@@ -195,10 +204,13 @@ public class EmailFooterService {
      * Dismisses the clinic-change notice and keeps the footer the user now has.
      *
      * @param providerNo the logged-in user
+     * @return false when there was no notice
      */
     @Transactional
-    public void dismissClinicChangeNotice(String providerNo) {
+    public boolean dismissClinicChangeNotice(String providerNo) {
+        boolean hadNotice = firstRow(providerNo, CLINIC_CHANGE_NOTICE) != null;
         deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+        return hadNotice;
     }
 
     /**
@@ -213,17 +225,17 @@ public class EmailFooterService {
      * "no footer", a choice of its own, so it always gets the notice.</p>
      *
      * @param footer the clinic default as typed; empty means no clinic default
-     * @return how many users get a notice
+     * @return whether the default changed, and how many own footers got a notice
      * @throws FooterTooLongException when the footer is over the limit; nothing is saved
      */
     @Transactional
-    public int saveClinicDefault(String footer) {
+    public ClinicDefaultSaved saveClinicDefault(String footer) {
         String normalised = withinLimit(footer);
         UserProperty clinic = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
         String previous = clinic == null ? "" : normalise(clinic.getValue());
         // Saving the text already in force, including an empty form when none is set, changes nothing.
         if (normalised.equals(previous)) {
-            return 0;
+            return new ClinicDefaultSaved(false, 0);
         }
         if (clinic == null) {
             clinic = new UserProperty();
@@ -236,7 +248,11 @@ public class EmailFooterService {
         for (UserProperty own : userPropertyDao.findProviderProperties(USER_FOOTER)) {
             String text = normalise(own.getValue());
             if (text.equals(normalised)) {
-                userPropertyDao.delete(own);
+                // Already the new default. An empty one ("no footer") stays the user's own
+                // choice, so a later clinic footer still reaches them with a notice.
+                if (!text.isEmpty()) {
+                    userPropertyDao.delete(own);
+                }
                 continue;
             }
             boolean followedOldDefault = !text.isEmpty() && text.equals(previous);
@@ -252,7 +268,7 @@ public class EmailFooterService {
             }
             noticed++;
         }
-        return noticed;
+        return new ClinicDefaultSaved(true, noticed);
     }
 
     /** The user's oldest row with this name; a double submit can leave more than one. */
@@ -285,7 +301,8 @@ public class EmailFooterService {
 
     /**
      * @param footer a footer as typed
-     * @return the footer with line breaks stored as one character each, as the send action counts
+     * @return the footer with line breaks stored as one character each, as the send action counts,
+     *         and without surrounding whitespace
      * @throws FooterTooLongException when it is over the limit
      */
     static String withinLimit(String footer) {
@@ -296,8 +313,13 @@ public class EmailFooterService {
         return normalised;
     }
 
+    /**
+     * Line breaks as one character each, as the send action counts them, and no surrounding
+     * whitespace: sending drops it anyway, and a browser drops a textarea's first line break, so
+     * keeping it would make an unchanged footer look changed on its next save.
+     */
     private static String normalise(String footer) {
-        return footer == null ? "" : footer.replace("\r\n", "\n").replace('\r', '\n');
+        return footer == null ? "" : footer.replace("\r\n", "\n").replace('\r', '\n').strip();
     }
 
     private static String nullToEmpty(String value) {

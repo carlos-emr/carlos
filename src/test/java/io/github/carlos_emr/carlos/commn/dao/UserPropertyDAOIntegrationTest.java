@@ -234,5 +234,17 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
             assertThat(userPropertyDAO.findClinicProperty(name).getId()).isEqualTo(clinic.getId());
             assertThat(userPropertyDAO.findClinicProperty(uniqueName("missing"))).isNull();
         }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should treat a blank provider as clinic-wide and pick the oldest clinic row")
+        void shouldPickOldestClinicRow_includingBlankProvider() throws Exception {
+            String name = uniqueName("clinicFooter");
+            UserProperty blank = createProperty("", name, "first");
+            createProperty(null, name, "second");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.findClinicProperty(name).getId()).isEqualTo(blank.getId());
+        }
     }
 }

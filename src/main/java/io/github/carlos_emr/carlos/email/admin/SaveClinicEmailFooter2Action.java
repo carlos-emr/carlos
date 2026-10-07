@@ -85,15 +85,18 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
+        EmailFooterService.ClinicDefaultSaved saved;
         try {
-            emailFooterService.saveClinicDefault(footer);
+            saved = emailFooterService.saveClinicDefault(footer);
         } catch (EmailFooterService.FooterTooLongException e) {
             request.setAttribute(FOOTER_PARAM, footer);
             request.setAttribute("clinicFooterTooLong", true);
             return INPUT;
         }
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterClinicDefault", "",
-                request.getRemoteAddr());
+        if (saved.changed()) {
+            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterClinicDefault", "",
+                    request.getRemoteAddr());
+        }
         response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterSaved=true");
         return NONE;
     }

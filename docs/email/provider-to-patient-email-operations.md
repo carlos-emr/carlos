@@ -128,8 +128,9 @@ The compose screen fills in the footer from the first of these that applies:
 4. Nothing: the footer starts empty.
 
 Changing the sending account never changes the footer. An eForm that sends
-automatically, without opening the compose screen, also carries the user's or
-clinic footer.
+automatically opens the compose screen and submits it at once, so its email also
+carries the user's or clinic footer, and a clinic-change notice shows only
+briefly on that path.
 
 ### When the clinic footer changes
 

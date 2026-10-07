@@ -5,7 +5,7 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  footerEmail, emailAttachmentList, isEmailEncrypted,
+  footerEmail, footerClinicChanged, ownFootersReplaced, emailAttachmentList, isEmailEncrypted,
   isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
   footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.

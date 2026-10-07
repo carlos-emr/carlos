@@ -135,6 +135,8 @@ class SaveClinicEmailFooter2ActionUnitTest {
     void shouldSaveAndRedirect_whenPostedByAdmin() throws Exception {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
         request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, "Riverside Clinic\r\nBook online");
+        when(emailFooterService.saveClinicDefault("Riverside Clinic\r\nBook online"))
+                .thenReturn(new EmailFooterService.ClinicDefaultSaved(true, 2));
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
@@ -142,6 +144,20 @@ class SaveClinicEmailFooter2ActionUnitTest {
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?clinicFooterSaved=true");
         logAction.verify(() -> LogAction.addLog(eq("999998"), eq("update"), eq("emailFooterClinicDefault"), eq(""),
                 anyString()));
+    }
+
+    @Test
+    @DisplayName("should not audit a save that left the clinic footer unchanged")
+    void shouldSkipAudit_whenClinicFooterUnchanged() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+        request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, "Riverside Clinic");
+        when(emailFooterService.saveClinicDefault("Riverside Clinic"))
+                .thenReturn(new EmailFooterService.ClinicDefaultSaved(false, 0));
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?clinicFooterSaved=true");
+        logAction.verifyNoInteractions();
     }
 
     @Test
