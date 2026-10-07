@@ -25,6 +25,8 @@ async function workflow(s) {
   const owned = [];
   s.cleanup(() => fs.rmSync(scratch, { recursive: true, force: true }));
   s.cleanup(() => {
+    sql.execute(`DELETE FROM eChart WHERE demographicNo=${patient}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient}`) === '0', 'Owned chart row remains');
     for (const id of owned) {
       h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id=${id} AND serviceName=${q(marker)}`) === '1',
         'Owned lab identity changed');
