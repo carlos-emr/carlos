@@ -61,7 +61,7 @@ async function workflow(s) {
   s.cleanup(() => {
     fixture.cleanup();
     if (roleOwned) {
-      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg','_demographic')`);
+      sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup=${q(role)} AND objectName IN ('_appointment','_msg','_demographic','_search')`);
       h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}`) === '0', 'Unexpected role grants retained for investigation');
       sql.execute(`DELETE FROM secRole WHERE role_name=${q(role)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM secRole WHERE role_name=${q(role)}`) === '0', 'Owned report-denied role remains');
@@ -72,16 +72,18 @@ async function workflow(s) {
   roleOwned = true;
   sql.execute(`INSERT INTO secRole(role_name,description) VALUES(${q(role)},'Owned patient reader without reports');
     INSERT INTO secObjPrivilege(roleUserGroup,objectName,privilege,priority,provider_no)
-    VALUES(${q(role)},'_appointment','r',0,${q(provider)}),(${q(role)},'_msg','r',0,${q(provider)}),(${q(role)},'_demographic','r',0,${q(provider)})`);
+    VALUES(${q(role)},'_appointment','r',0,${q(provider)}),(${q(role)},'_msg','r',0,${q(provider)}),(${q(role)},'_demographic','r',0,${q(provider)}),(${q(role)},'_search','r',0,${q(provider)})`);
   fixture.create({ roleNames: [role], expiresTomorrow: true });
   h.assert(sql.value(`SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(fixture.providerNo)} AND role_name<>${q(role)}`) === '0',
     'Audit account inherited other roles');
   h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE roleUserGroup=${q(role)}
-    AND (objectName NOT IN ('_appointment','_msg','_demographic') OR privilege<>'r')`) === '0', 'Audit role has unexpected privileges');
+    AND (objectName NOT IN ('_appointment','_msg','_demographic','_search') OR privilege<>'r')`) === '0', 'Audit role has unexpected privileges');
   const restricted = await h.newContext(s.context.browser(), s.config);
   s.cleanup(() => restricted.close());
   await s.step('a patient reader without report permission is not offered either letters entry', async () => {
     const schedule = await h.login(restricted, { ...s.config, testUser: fixture.username }, s.recorder, { label: 'report-denied patient reader' });
+    await h.assertNotErrorPage(schedule, 'report-denied patient reader schedule');
+    h.assert(await schedule.locator('#search a').count() > 0, 'The isolated patient reader lacks its Search entry');
     const { masterPage } = await openMasterRecord(restricted, schedule, s.recorder,
       { searchTerm: marker, preferredDemographicNo: s.patient, timeout: 20000 });
     await h.assertNotErrorPage(masterPage, 'report-denied patient master record');
