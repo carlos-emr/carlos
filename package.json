@@ -103,6 +103,7 @@
     "test:rx-legacy-null-fields-playwright": "node scripts/rx-legacy-null-fields-playwright-checks.js",
     "test:rx-fax-reprint-represcribe-playwright": "node scripts/rx-fax-reprint-represcribe-playwright-checks.js",
     "test:report-demographic-navigation-playwright": "node scripts/report-demographic-navigation-playwright-checks.js",
+    "test:patient-letters-entry-playwright": "node scripts/patient-letters-entry-playwright-checks.js",
     "test:patient-letters-envelopes-playwright": "node scripts/patient-letters-envelopes-playwright-checks.js",
     "test:patient-retired-spreadsheet-playwright": "node scripts/patient-retired-spreadsheet-playwright-checks.js",
     "test:flowsheet-admin-playwright": "node scripts/flowsheet-admin-playwright-checks.js",
