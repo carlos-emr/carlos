@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "test:rx-profile-legend": "node scripts/rx-profile-legend-playwright-checks.js",
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
     "build": "docusaurus build",

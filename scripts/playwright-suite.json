@@ -7767,6 +7767,21 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "rx-profile-legend",
+      "script": "scripts/rx-profile-legend-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "fixtures": "Owned synthetic patient and two medications; cleanup verifies their removal.",
+      "notes": "Delay the real LT response to verify the combined profile retains both server-filtered sections in order."
     }
   ]
 }
