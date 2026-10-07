@@ -200,7 +200,7 @@
         <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
         <td class="MainTableBottomRowRightColumn" valign="top">
             <hr>
-            <%if (AcceptableUseAgreementManager.hasAUA()) { %>
+            <%if (AcceptableUseAgreementManager.getAUAText() != null) { %>
             <div style="float:right;text-align:center;" id="auaText">
                 <div style="margin-left:auto; margin-right:auto; text-align:left; width:70%; padding:5px; border:2px groove black;"><%=AcceptableUseAgreementManager.getAUAText()%>
                 </div>
