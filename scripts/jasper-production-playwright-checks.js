@@ -26,6 +26,8 @@ async function workflow(s) {
     const response = await h.gotoApp(page, s.config.baseUrl, `/${probe.filename}`);
     h.assert(response && response.status() === 200, 'Cold JSP did not compile and render successfully');
     h.assert(await page.locator('#probe-token').innerText() === probe.stem, 'Unexpected JSP probe response');
+    h.assert(fs.existsSync(path.join(classes, `${probe.stem}_jsp.class`)),
+      'Cold JSP bytecode was not created in the configured work directory outside /tmp');
   }
   await s.step('compile a cold JSP with production Jasper settings and retain the application override', async () => {
     await visit();
