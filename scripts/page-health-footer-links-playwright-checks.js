@@ -45,8 +45,9 @@ async function openHub(session, masterPage, name, timeout) {
 async function footerLink(session, page, text, timeout, reported) {
   // callers supply only the fixed About and License labels.
   // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-  const link = page.locator('a[href]').filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
-  if (await link.count() === 0) return [`no "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
+  const link = page.locator(`a[href*="/encounter/View${text}"]`)
+    .filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) });
+  if (await link.count() !== 1) return [`expected one "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
   const problems = [];
   const before = session.recorder.pageErrors.length;
   const sourceUrl = page.url();
