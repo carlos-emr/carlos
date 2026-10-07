@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.managers.MfaManager;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.apache.struts2.ServletActionContext;
@@ -34,6 +35,41 @@ class SecurityEditTransactionIntegrationTest extends CarlosTestBase {
     @Autowired private SecurityDao rows;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager entities;
+
+    @Test
+    void shouldDeleteAfterDetachedLookup_andRefuseASecondDeletion() throws Exception {
+        int id = seed();
+        try {
+            Security detached = rows.find(id);
+            new TransactionTemplate(transactions).executeWithoutResult(status ->
+                    assertThat(entities.contains(detached)).isFalse());
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/admin/SecurityDelete");
+            request.setParameter("keyword", String.valueOf(id));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            CarlosMethodSecurity access = mock(CarlosMethodSecurity.class);
+            when(access.hasAdminWrite()).thenReturn(true);
+            LoggedInInfo login = mock(LoggedInInfo.class);
+            when(login.getLoggedInProviderNo()).thenReturn("999998");
+            try (var servlet = mockStatic(ServletActionContext.class);
+                 var sessions = mockStatic(LoggedInInfo.class);
+                 var audit = mockStatic(LogAction.class)) {
+                servlet.when(ServletActionContext::getRequest).thenReturn(request);
+                servlet.when(ServletActionContext::getResponse).thenReturn(response);
+                sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
+                SecurityDelete2Action action = new SecurityDelete2Action(rows, access);
+                assertThat(action.execute()).isEqualTo("success");
+                assertThat(request.getAttribute("msg"))
+                        .isEqualTo("Security entry deleted for user: " + detached.getUserName());
+                assertThat(rows.find(id)).isNull();
+                audit.verify(() -> LogAction.addLog(eq("999998"), anyString(), anyString(),
+                        eq(String.valueOf(id)), anyString()));
+                audit.clearInvocations();
+                assertThat(action.execute()).isEqualTo("success");
+                assertThat(request.getAttribute("msg")).isEqualTo("Security entry not found.");
+                audit.verifyNoInteractions();
+            }
+        } finally { cleanup(id); }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"save", "rollbackOnly", "afterCommit"})
