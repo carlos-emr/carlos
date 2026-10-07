@@ -183,6 +183,7 @@ class MyEmailFooter2ActionUnitTest {
     @DisplayName("should run each button on the session user's footer")
     void shouldDispatchEachFooterAction_forSessionUser() throws Exception {
         allowEmailWrite();
+        when(emailFooterService.restorePreviousFooter(PROVIDER)).thenReturn(true);
         for (String footerAction : new String[] {"useClinicDefault", "restorePrevious", "keepCurrent"}) {
             request = new MockHttpServletRequest("POST", "/email/saveMyEmailFooter");
             request.setContextPath("/carlos");
@@ -198,6 +199,30 @@ class MyEmailFooter2ActionUnitTest {
         verify(emailFooterService).useClinicDefault(PROVIDER);
         verify(emailFooterService).restorePreviousFooter(PROVIDER);
         verify(emailFooterService).dismissClinicChangeNotice(PROVIDER);
+    }
+
+    @Test
+    @DisplayName("should not claim a save when there is no previous footer to restore")
+    void shouldRedirectWithoutSaved_whenNothingToRestore() throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "restorePrevious");
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/email/myEmailFooter");
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should answer a save without the footer field with 400 and save nothing")
+    void shouldRejectSave_whenFooterFieldMissing() throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(emailFooterService);
     }
 
     @Test

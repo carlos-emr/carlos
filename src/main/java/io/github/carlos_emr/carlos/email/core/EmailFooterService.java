@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -103,7 +105,7 @@ public class EmailFooterService {
 
     /** @return the clinic default, empty when none is set */
     public String clinicDefault() {
-        UserProperty property = userPropertyDao.getProp(CLINIC_DEFAULT);
+        UserProperty property = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
         return property == null || property.getValue() == null ? "" : property.getValue();
     }
 
@@ -111,24 +113,24 @@ public class EmailFooterService {
      * The footer a user's compose screen opens with when the eForm supplies none: the user's own
      * (even when they saved it empty, meaning no footer), otherwise the clinic default.
      *
-     * @param providerNo the logged-in user
+     * @param providerNo the logged-in user, or null when there is none
      * @return the footer, or empty when the user has none and no clinic default is set
      */
     public Optional<String> composeFooter(String providerNo) {
-        UserProperty own = userPropertyDao.getProp(providerNo, USER_FOOTER);
+        UserProperty own = firstRow(providerNo, USER_FOOTER);
         if (own != null) {
-            return Optional.of(own.getValue() == null ? "" : own.getValue());
+            return Optional.of(nullToEmpty(own.getValue()));
         }
         String clinic = clinicDefault();
         return clinic.isEmpty() ? Optional.empty() : Optional.of(clinic);
     }
 
     /**
-     * @param providerNo the logged-in user
+     * @param providerNo the logged-in user, or null when there is none
      * @return the user's previous footer when a clinic change affected it, or null
      */
     public String clinicChangeNotice(String providerNo) {
-        UserProperty notice = userPropertyDao.getProp(providerNo, CLINIC_CHANGE_NOTICE);
+        UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
         return notice == null ? null : nullToEmpty(notice.getValue());
     }
 
@@ -142,7 +144,7 @@ public class EmailFooterService {
      * @return what the user's footer page shows
      */
     public UserFooterSettings settingsFor(String providerNo) {
-        UserProperty own = userPropertyDao.getProp(providerNo, USER_FOOTER);
+        UserProperty own = firstRow(providerNo, USER_FOOTER);
         return new UserFooterSettings(own == null ? null : nullToEmpty(own.getValue()), clinicDefault(),
                 clinicChangeNotice(providerNo), replaceOwnFooters);
     }
@@ -157,8 +159,8 @@ public class EmailFooterService {
     @Transactional
     public void saveOwnFooter(String providerNo, String footer) {
         String normalised = withinLimit(footer);
-        userPropertyDao.saveProp(providerNo, USER_FOOTER, normalised);
-        clearNotice(providerNo);
+        writeRow(providerNo, USER_FOOTER, normalised);
+        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
     }
 
     /**
@@ -168,8 +170,8 @@ public class EmailFooterService {
      */
     @Transactional
     public void useClinicDefault(String providerNo) {
-        userPropertyDao.delete(userPropertyDao.getProp(providerNo, USER_FOOTER));
-        clearNotice(providerNo);
+        deleteRows(providerNo, USER_FOOTER);
+        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
     }
 
     /**
@@ -180,12 +182,12 @@ public class EmailFooterService {
      */
     @Transactional
     public boolean restorePreviousFooter(String providerNo) {
-        UserProperty notice = userPropertyDao.getProp(providerNo, CLINIC_CHANGE_NOTICE);
+        UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
         if (notice == null) {
             return false;
         }
-        userPropertyDao.saveProp(providerNo, USER_FOOTER, nullToEmpty(notice.getValue()));
-        userPropertyDao.delete(notice);
+        writeRow(providerNo, USER_FOOTER, nullToEmpty(notice.getValue()));
+        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
         return true;
     }
 
@@ -196,15 +198,19 @@ public class EmailFooterService {
      */
     @Transactional
     public void dismissClinicChangeNotice(String providerNo) {
-        clearNotice(providerNo);
+        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
     }
 
     /**
      * Saves the clinic default and applies it to users' own footers.
      *
-     * <p>A user's own footer that equals the old or the new default is removed, so the user follows
-     * the default from now on. Any other own footer is replaced (or, with the rule switched off,
-     * kept), and the user gets a notice holding their previous text.</p>
+     * <p>Saving the same text again changes nothing. Otherwise, a user's own footer equal to the
+     * new default is removed, so the user follows the default from now on. With own footers
+     * replaced on a clinic change, every other own footer is removed too, and the user gets a
+     * notice holding their previous text, unless it was the old default word for word (they were
+     * following it in effect). With the rule switched off, own footers are kept and every user
+     * whose footer differs from the new default gets the notice. An own footer saved empty means
+     * "no footer", a choice of its own, so it always gets the notice.</p>
      *
      * @param footer the clinic default as typed; empty means no clinic default
      * @return how many users get a notice
@@ -213,8 +219,12 @@ public class EmailFooterService {
     @Transactional
     public int saveClinicDefault(String footer) {
         String normalised = withinLimit(footer);
-        String previous = normalise(clinicDefault());
-        UserProperty clinic = userPropertyDao.getProp(CLINIC_DEFAULT);
+        UserProperty clinic = userPropertyDao.findClinicProperty(CLINIC_DEFAULT);
+        String previous = clinic == null ? "" : normalise(clinic.getValue());
+        // Saving the text already in force, including an empty form when none is set, changes nothing.
+        if (normalised.equals(previous)) {
+            return 0;
+        }
         if (clinic == null) {
             clinic = new UserProperty();
             clinic.setName(CLINIC_DEFAULT);
@@ -223,23 +233,54 @@ public class EmailFooterService {
         userPropertyDao.saveProp(clinic);
 
         int noticed = 0;
-        List<UserProperty> ownFooters = userPropertyDao.findProviderProperties(USER_FOOTER);
-        for (UserProperty own : ownFooters) {
+        for (UserProperty own : userPropertyDao.findProviderProperties(USER_FOOTER)) {
             String text = normalise(own.getValue());
-            if (text.equals(previous) || text.equals(normalised)) {
+            if (text.equals(normalised)) {
                 userPropertyDao.delete(own);
                 continue;
             }
-            // A notice from an earlier change keeps the text the user lost first.
-            if (userPropertyDao.getProp(own.getProviderNo(), CLINIC_CHANGE_NOTICE) == null) {
-                userPropertyDao.saveProp(own.getProviderNo(), CLINIC_CHANGE_NOTICE, text);
-            }
+            boolean followedOldDefault = !text.isEmpty() && text.equals(previous);
             if (replaceOwnFooters) {
                 userPropertyDao.delete(own);
+                if (followedOldDefault) {
+                    continue;
+                }
+            }
+            // A notice from an earlier change keeps the text the user lost first.
+            if (firstRow(own.getProviderNo(), CLINIC_CHANGE_NOTICE) == null) {
+                userPropertyDao.saveProp(own.getProviderNo(), CLINIC_CHANGE_NOTICE, text);
             }
             noticed++;
         }
         return noticed;
+    }
+
+    /** The user's oldest row with this name; a double submit can leave more than one. */
+    private UserProperty firstRow(String providerNo, String name) {
+        return providerNo == null ? null : rows(providerNo, name).stream().findFirst().orElse(null);
+    }
+
+    /** Writes the value to the oldest row, creating one if needed, and removes any duplicates. */
+    private void writeRow(String providerNo, String name, String value) {
+        List<UserProperty> rows = rows(providerNo, name);
+        if (rows.isEmpty()) {
+            userPropertyDao.saveProp(providerNo, name, value);
+            return;
+        }
+        UserProperty kept = rows.get(0);
+        kept.setValue(value);
+        userPropertyDao.saveProp(kept);
+        rows.stream().skip(1).forEach(userPropertyDao::delete);
+    }
+
+    private void deleteRows(String providerNo, String name) {
+        rows(providerNo, name).forEach(userPropertyDao::delete);
+    }
+
+    private List<UserProperty> rows(String providerNo, String name) {
+        List<UserProperty> rows = new ArrayList<>(userPropertyDao.getAllProperties(name, List.of(providerNo)));
+        rows.sort(Comparator.comparing(UserProperty::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        return rows;
     }
 
     /**
@@ -257,10 +298,6 @@ public class EmailFooterService {
 
     private static String normalise(String footer) {
         return footer == null ? "" : footer.replace("\r\n", "\n").replace('\r', '\n');
-    }
-
-    private void clearNotice(String providerNo) {
-        userPropertyDao.delete(userPropertyDao.getProp(providerNo, CLINIC_CHANGE_NOTICE));
     }
 
     private static String nullToEmpty(String value) {

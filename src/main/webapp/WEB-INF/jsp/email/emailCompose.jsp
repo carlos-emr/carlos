@@ -600,19 +600,33 @@
                 <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
                      stays in clear text when encryption is on (it follows the secure-message notice and is
                      never inside the encrypted PDF), and it is never written to the chart note. The value
-                     is seeded server-side as footerEmail: the eForm's footer, else empty; a resend or
-                     failed-send retry seeds the footer it had. --%>
+                     is seeded server-side as footerEmail: the eForm's footer, else the user's own footer
+                     or the clinic default (see EmailFooterService), else empty; a resend or failed-send
+                     retry seeds the footer it had. When a clinic footer change affected the user's own
+                     footer, a notice links to their footer page until they deal with it there. --%>
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">${emailComposeFooterLabel}</h5>
                     </div>
                     <div class="card-body">
+                        <c:if test="${footerClinicChanged}">
+                            <div class="alert alert-warning" role="alert" id="footerClinicChanged">
+                                <c:choose>
+                                    <c:when test="${ownFootersReplaced}"><fmt:message key="email.compose.footer.clinicChanged"/></c:when>
+                                    <c:otherwise><fmt:message key="email.compose.footer.clinicChangedKept"/></c:otherwise>
+                                </c:choose>
+                                <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                                   class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>
+                            </div>
+                        </c:if>
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
                                     <label for="footerEmail" class="visually-hidden">${emailComposeFooterLabel}</label>
                                     <textarea class="form-control" name="footerEmail" id="footerEmail" rows="3"
                                               maxlength="2000" aria-describedby="footerEmailHelp"><carlos:encode value="${footerEmail}"/></textarea>
+                                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                                       class="small" id="myEmailFooterLink"><fmt:message key="email.compose.footer.myFooterLink"/></a>
                                 </div>
                             </div>
                         </div>

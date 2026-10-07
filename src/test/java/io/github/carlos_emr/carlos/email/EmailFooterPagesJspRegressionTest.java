@@ -93,5 +93,9 @@ class EmailFooterPagesJspRegressionTest {
 
         assertThat(jsp).contains("href=\"${pageContext.request.contextPath}/email/myEmailFooter\"")
                 .contains("provider.providerpreference.link.myEmailFooter");
+        int link = jsp.indexOf("/email/myEmailFooter");
+        int gate = jsp.lastIndexOf("objectName=\"_email\" rights=\"r\" reverse=\"<%=false%>\"", link);
+        assertThat(gate).as("the link is shown only to users who can send patient email").isPositive();
+        assertThat(jsp.indexOf("</security:oscarSec>", gate)).isGreaterThan(link);
     }
 }

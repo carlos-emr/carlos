@@ -1358,9 +1358,12 @@
                 <a href="${pageContext.request.contextPath}/provider/ViewEditSignature" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
+                <%-- Only users who can send patient email (_email) have an email footer to set. --%>
+                <security:oscarSec roleName="<%=roleName$%>" objectName="_email" rights="r" reverse="<%=false%>">
                 <a href="${pageContext.request.contextPath}/email/myEmailFooter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-envelope-open-text"></i> <fmt:message key="provider.providerpreference.link.myEmailFooter"/>
                 </a>
+                </security:oscarSec>
                 <a href="<%= request.getContextPath() %>/EditPrinter" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> <fmt:message key="provider.providerpreference.link.setDefaultPrinter"/>
                 </a>

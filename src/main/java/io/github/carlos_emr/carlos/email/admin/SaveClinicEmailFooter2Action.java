@@ -80,6 +80,11 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
         }
 
         String footer = request.getParameter(FOOTER_PARAM);
+        if (footer == null) {
+            // A post without the field is not a request to clear the footer.
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         try {
             emailFooterService.saveClinicDefault(footer);
         } catch (EmailFooterService.FooterTooLongException e) {

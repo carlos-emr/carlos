@@ -59,6 +59,14 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
      */
     List<UserProperty> findProviderProperties(String name);
 
+    /**
+     * The clinic-wide property with this name (a row with no provider), never a provider's row.
+     *
+     * @param name property name
+     * @return the oldest such row, or null
+     */
+    UserProperty findClinicProperty(String name);
+
     UserProperty getProp(String prov, String name);
 
     UserProperty getProp(String name);

@@ -66,16 +66,26 @@ class EmailFooterServiceUnitTest {
         service = new EmailFooterService(dao, true);
     }
 
+    private void ownRows(String providerNo, String name, UserProperty... rows) {
+        when(dao.getAllProperties(name, List.of(providerNo))).thenReturn(List.of(rows));
+    }
+
+    private void clinicDefault(String text) {
+        when(dao.findClinicProperty(EmailFooterService.CLINIC_DEFAULT))
+                .thenReturn(property(null, EmailFooterService.CLINIC_DEFAULT, text));
+    }
+
     @Test
     @DisplayName("should fill in the user's own footer, even an empty one, ahead of the clinic default")
     void shouldUseOwnFooter_beforeClinicDefault() {
-        when(dao.getProp("101", EmailFooterService.USER_FOOTER)).thenReturn(property("101", "email_footer", "Dr A\nBook online"));
-        when(dao.getProp("102", EmailFooterService.USER_FOOTER)).thenReturn(property("102", "email_footer", ""));
-        when(dao.getProp(EmailFooterService.CLINIC_DEFAULT)).thenReturn(property(null, "email_footer_clinic_default", "Riverside Clinic"));
+        ownRows("101", EmailFooterService.USER_FOOTER, property("101", EmailFooterService.USER_FOOTER, "Dr A\nBook online"));
+        ownRows("102", EmailFooterService.USER_FOOTER, property("102", EmailFooterService.USER_FOOTER, ""));
+        clinicDefault("Riverside Clinic");
 
         assertThat(service.composeFooter("101")).contains("Dr A\nBook online");
         assertThat(service.composeFooter("102")).contains("");
         assertThat(service.composeFooter("103")).contains("Riverside Clinic");
+        assertThat(service.composeFooter(null)).contains("Riverside Clinic");
     }
 
     @Test
@@ -86,6 +96,21 @@ class EmailFooterServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should read and keep the oldest row when a double submit left two")
+    void shouldUseOldestRowAndRemoveDuplicates_whenRowsAreDoubled() {
+        UserProperty older = property("101", EmailFooterService.USER_FOOTER, "first");
+        UserProperty newer = property("101", EmailFooterService.USER_FOOTER, "second");
+        ownRows("101", EmailFooterService.USER_FOOTER, newer, older);
+
+        assertThat(service.composeFooter("101")).contains("first");
+        service.saveOwnFooter("101", "Dr A footer");
+
+        assertThat(older.getValue()).isEqualTo("Dr A footer");
+        verify(dao).saveProp(older);
+        verify(dao).delete(newer);
+    }
+
+    @Test
     @DisplayName("should store line breaks as one character each and accept exactly the limit")
     void shouldSaveNormalisedFooter_whenWithinLimit() {
         String crlfFooter = "a\r\n".repeat(EmailData.FOOTER_MAX_LENGTH / 2);
@@ -93,8 +118,7 @@ class EmailFooterServiceUnitTest {
         service.saveOwnFooter("101", crlfFooter);
 
         ArgumentCaptor<String> saved = ArgumentCaptor.forClass(String.class);
-        verify(dao).saveProp(eq("101"),
-                eq(EmailFooterService.USER_FOOTER), saved.capture());
+        verify(dao).saveProp(eq("101"), eq(EmailFooterService.USER_FOOTER), saved.capture());
         assertThat(saved.getValue()).hasSize(EmailData.FOOTER_MAX_LENGTH).doesNotContain("\r");
     }
 
@@ -111,27 +135,46 @@ class EmailFooterServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should replace users' own footers on a clinic change and tell only those who lose text")
+    @DisplayName("should change nothing when the clinic footer is saved unchanged, or empty when none is set")
+    void shouldChangeNothing_whenClinicFooterUnchanged() {
+        clinicDefault("Riverside Clinic\nBook online");
+
+        assertThat(service.saveClinicDefault("Riverside Clinic\r\nBook online")).isZero();
+
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).findProviderProperties(anyString());
+
+        UserPropertyDAO emptyDao = mock(UserPropertyDAO.class);
+        assertThat(new EmailFooterService(emptyDao, true).saveClinicDefault("")).isZero();
+        verify(emptyDao, never()).saveProp(any(UserProperty.class));
+        verify(emptyDao, never()).findProviderProperties(anyString());
+    }
+
+    @Test
+    @DisplayName("should replace users' own footers on a clinic change and tell only those who lose a choice")
     void shouldReplaceOwnFooters_whenClinicDefaultChanges() {
-        when(dao.getProp(EmailFooterService.CLINIC_DEFAULT))
-                .thenReturn(property(null, EmailFooterService.CLINIC_DEFAULT, "Old clinic footer"));
+        clinicDefault("Old clinic footer");
         UserProperty custom = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
         UserProperty wasOldDefault = property("102", EmailFooterService.USER_FOOTER, "Old clinic footer");
         UserProperty isNewDefault = property("103", EmailFooterService.USER_FOOTER, "New clinic footer");
         UserProperty customWithNotice = property("104", EmailFooterService.USER_FOOTER, "Dr D second footer");
+        UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
         when(dao.findProviderProperties(EmailFooterService.USER_FOOTER))
-                .thenReturn(List.of(custom, wasOldDefault, isNewDefault, customWithNotice));
-        when(dao.getProp("104", EmailFooterService.CLINIC_CHANGE_NOTICE))
-                .thenReturn(property("104", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr D first footer"));
+                .thenReturn(List.of(custom, wasOldDefault, isNewDefault, customWithNotice, noFooter));
+        ownRows("104", EmailFooterService.CLINIC_CHANGE_NOTICE,
+                property("104", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr D first footer"));
 
         int noticed = service.saveClinicDefault("New clinic footer");
 
-        assertThat(noticed).isEqualTo(2);
+        assertThat(noticed).isEqualTo(3);
         verify(dao).delete(custom);
         verify(dao).delete(wasOldDefault);
         verify(dao).delete(isNewDefault);
         verify(dao).delete(customWithNotice);
+        verify(dao).delete(noFooter);
         verify(dao).saveProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A footer");
+        // "No footer" was a choice of its own, so its user is told too.
+        verify(dao).saveProp("105", EmailFooterService.CLINIC_CHANGE_NOTICE, "");
         // A notice from an earlier change keeps the text the user lost first.
         verify(dao, never()).saveProp("104", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr D second footer");
         verify(dao, never()).saveProp(eq("102"), anyString(), anyString());
@@ -146,13 +189,17 @@ class EmailFooterServiceUnitTest {
     @DisplayName("should keep users' own footers but still tell them when the replace rule is off")
     void shouldKeepOwnFooters_whenReplaceRuleIsOff() {
         EmailFooterService keeping = new EmailFooterService(dao, false);
+        clinicDefault("Old clinic footer");
         UserProperty custom = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom));
+        UserProperty wasOldDefault = property("102", EmailFooterService.USER_FOOTER, "Old clinic footer");
+        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom, wasOldDefault));
 
-        assertThat(keeping.saveClinicDefault("New clinic footer")).isEqualTo(1);
+        assertThat(keeping.saveClinicDefault("New clinic footer")).isEqualTo(2);
 
         verify(dao, never()).delete(custom);
+        verify(dao, never()).delete(wasOldDefault);
         verify(dao).saveProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A footer");
+        verify(dao).saveProp("102", EmailFooterService.CLINIC_CHANGE_NOTICE, "Old clinic footer");
         assertThat(keeping.ownFootersReplacedOnClinicChange()).isFalse();
     }
 
@@ -160,7 +207,7 @@ class EmailFooterServiceUnitTest {
     @DisplayName("should put the replaced footer back from the notice, and do nothing without one")
     void shouldRestorePreviousFooter_fromNotice() {
         UserProperty notice = property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A footer");
-        when(dao.getProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE)).thenReturn(notice);
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
 
         assertThat(service.restorePreviousFooter("101")).isTrue();
         assertThat(service.restorePreviousFooter("102")).isFalse();
@@ -175,8 +222,8 @@ class EmailFooterServiceUnitTest {
     void shouldClearNotice_whenUserActs() {
         UserProperty own = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
         UserProperty notice = property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A footer");
-        when(dao.getProp("101", EmailFooterService.USER_FOOTER)).thenReturn(own);
-        when(dao.getProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE)).thenReturn(notice);
+        ownRows("101", EmailFooterService.USER_FOOTER, own);
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
 
         service.saveOwnFooter("101", "Dr A new footer");
         service.useClinicDefault("101");
@@ -189,10 +236,8 @@ class EmailFooterServiceUnitTest {
     @Test
     @DisplayName("should describe the user's page: own footer or clinic default, and any notice")
     void shouldReportSettings_forFooterPage() {
-        when(dao.getProp(EmailFooterService.CLINIC_DEFAULT))
-                .thenReturn(property(null, EmailFooterService.CLINIC_DEFAULT, "Riverside Clinic"));
-        when(dao.getProp("101", EmailFooterService.CLINIC_CHANGE_NOTICE))
-                .thenReturn(property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, ""));
+        clinicDefault("Riverside Clinic");
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, ""));
 
         EmailFooterService.UserFooterSettings following = service.settingsFor("101");
 

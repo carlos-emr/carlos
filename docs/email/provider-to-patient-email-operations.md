@@ -116,10 +116,37 @@ or a line saying the mailbox is not checked for urgent issues.
   another way is refused. A longer footer from an eForm is cut to 2,000 when the
   eForm is saved, before the compose screen shows it.
 
-The compose screen fills in the footer the eForm sends, in a field named
-`footerEmail` (the same way an eForm can send `bodyEmail` for the message).
-Otherwise the footer starts empty. Changing the sending account never changes
-the footer.
+The compose screen fills in the footer from the first of these that applies:
+
+1. The footer the eForm sends, in a field named `footerEmail` (the same way an
+   eForm can send `bodyEmail` for the message). A blank one counts as none.
+2. The user's own footer. Every user who can send patient email (the `_email`
+   right), doctor or front desk, can save one on **Preferences > My Email
+   Footer** (`email/myEmailFooter`). Saving it empty means "no footer".
+3. The clinic footer, set on **Administration > Emails > Configure Email**
+   (`_admin` write).
+4. Nothing: the footer starts empty.
+
+Changing the sending account never changes the footer. An eForm that sends
+automatically, without opening the compose screen, also carries the user's or
+clinic footer.
+
+### When the clinic footer changes
+
+Saving a changed clinic footer replaces every user's own footer with it (saving
+the same text again changes nothing). A user
+whose own footer was different (not the old or the new clinic footer) sees a
+notice on the compose screen and on their footer page. The page shows their
+previous footer and lets them put it back or keep the clinic footer; the notice
+stays until they do one of these or save their footer. The administrator is
+not asked to confirm. `EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE`
+switches this to keeping users' own footers and only telling them.
+
+Footers are stored in the `property` table: the clinic footer as
+`email_footer_clinic_default` with no provider, each user's as `email_footer`,
+and a pending notice as `email_footer_clinic_change`. Saves are POST only,
+refuse more than 2,000 characters, and are audited (who and when, not the
+text).
 
 ## Local Development
 

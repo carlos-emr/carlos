@@ -145,6 +145,18 @@ class SaveClinicEmailFooter2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should answer a post without the footer field with 400 and change nothing")
+    void shouldRejectPost_whenFooterFieldMissing() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);
+
+        assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(emailFooterService);
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
     @DisplayName("should show a footer over the limit again for editing, with nothing saved or audited")
     void shouldReturnInput_whenFooterTooLong() throws Exception {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)).thenReturn(true);

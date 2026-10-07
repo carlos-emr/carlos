@@ -17,6 +17,7 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -90,6 +91,7 @@ class EmailSendPassphraseUnitTest extends CarlosUnitTestBase {
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
+        registerMock(EmailFooterService.class, mock(EmailFooterService.class));
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep new actions from
         // NPEing before each test assigns action.request/response explicitly.

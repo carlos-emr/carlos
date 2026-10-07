@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,6 +30,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.IssuedPreview;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.PreparedEmailComposeView;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -116,6 +118,16 @@ public class EmailCompose2Action extends ActionSupport {
             SpringUtils.getBean(EmailComposeSubmissionStateService.class);
     private PdfPreviewCapabilityService pdfPreviewCapabilityService =
             SpringUtils.getBean(PdfPreviewCapabilityService.class);
+    private final transient EmailFooterService emailFooterService;
+
+    public EmailCompose2Action() {
+        this(SpringUtils.getBean(EmailFooterService.class));
+    }
+
+    // Package-private so tests can supply the footer service.
+    EmailCompose2Action(EmailFooterService emailFooterService) {
+        this.emailFooterService = emailFooterService;
+    }
 
     public static final String EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE =
             "This email compose window has expired or is no longer valid. "
@@ -365,7 +377,8 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>emailPDFPassword, emailPDFPasswordClue, emailPDFPasswordToken</li>
      *   <li>emailAttachmentList (display copies carrying each file's current preview token)</li>
      *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
-     *   <li>footerEmail (see {@link #resolveComposeFooter})</li>
+     *   <li>footerEmail (see {@link #resolveComposeFooter}); footerClinicChanged and
+     *       ownFootersReplaced when a clinic footer change affected the user's own footer</li>
      *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
      *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
      * </ul>
@@ -425,7 +438,14 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("senderEmail", view.senderEmail());
         request.setAttribute("subjectEmail", view.subjectEmail());
         request.setAttribute("message", view.message());
-        request.setAttribute("footerEmail", resolveComposeFooter(view.footerEmail()));
+        // No session user means no footer of their own; the clinic default still applies.
+        String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        request.setAttribute("footerEmail",
+                resolveComposeFooter(view.footerEmail(), emailFooterService.composeFooter(providerNo)));
+        if (emailFooterService.clinicChangeNotice(providerNo) != null) {
+            request.setAttribute("footerClinicChanged", true);
+            request.setAttribute("ownFootersReplaced", emailFooterService.ownFootersReplacedOnClinicChange());
+        }
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
         request.setAttribute("fdid", context.fdid());
@@ -443,14 +463,20 @@ public class EmailCompose2Action extends ActionSupport {
     }
 
     /**
-     * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged,
-     * otherwise empty (a blank one counts as none). Staff can type or change it before sending.
+     * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged
+     * (a blank one counts as none), otherwise the user's footer, which is their own or the clinic
+     * default (see {@link EmailFooterService#composeFooter}), otherwise empty. Staff can type or
+     * change it before sending; changing the sending account never changes it.
      *
      * @param stagedFooter footer the eForm posted, or null
+     * @param userFooter the logged-in user's footer, empty when they have none
      * @return the footer text, never null
      */
-    static String resolveComposeFooter(String stagedFooter) {
-        return stagedFooter == null || stagedFooter.isBlank() ? "" : stagedFooter;
+    static String resolveComposeFooter(String stagedFooter, Optional<String> userFooter) {
+        if (stagedFooter != null && !stagedFooter.isBlank()) {
+            return stagedFooter;
+        }
+        return userFooter.orElse("");
     }
 
     /**

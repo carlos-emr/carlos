@@ -94,6 +94,11 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
         switch (footerAction) {
             case "save" -> {
                 String footer = request.getParameter(FOOTER_PARAM);
+                if (footer == null) {
+                    // A post without the field is not a request to save "no footer".
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
+                }
                 try {
                     emailFooterService.saveOwnFooter(providerNo, footer);
                 } catch (EmailFooterService.FooterTooLongException e) {
@@ -110,9 +115,12 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
                 audit(request, providerNo);
             }
             case "restorePrevious" -> {
-                if (emailFooterService.restorePreviousFooter(providerNo)) {
-                    audit(request, providerNo);
+                if (!emailFooterService.restorePreviousFooter(providerNo)) {
+                    // Nothing to restore (already done in another tab): show the page as it is.
+                    response.sendRedirect(request.getContextPath() + "/email/myEmailFooter");
+                    return NONE;
                 }
+                audit(request, providerNo);
             }
             case "keepCurrent" -> emailFooterService.dismissClinicChangeNotice(providerNo);
             default -> {

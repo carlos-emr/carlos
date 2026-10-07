@@ -86,8 +86,8 @@
     </div>
 
     <%-- Clinic email footer (follow-up to #3981, issue #4093): every user starts with it and can save
-         their own. Saving replaces users' own footers; ViewMyEmailFooter2Action tells each user whose
-         footer changed on their next email, so the administrator is not asked to confirm. --%>
+         their own. Saving a changed footer replaces users' own footers; the compose screen tells each
+         user whose footer changed on their next email, so the administrator is not asked to confirm. --%>
     <div class="card shadow-sm rounded mt-4 mb-4" id="clinicEmailFooter">
         <div class="card-body">
             <h3 class="card-title"><fmt:message key="admin.configureEmail.footer.heading"/></h3>

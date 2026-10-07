@@ -198,4 +198,41 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
             assertThat(result).isEmpty();
         }
     }
+
+    @Nested
+    @DisplayName("findProviderProperties(name) and findClinicProperty(name)")
+    class ProviderAndClinicRows {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should list every provider's row for a name, oldest first, without clinic-wide rows")
+        void shouldListProviderRows_withoutClinicRows() throws Exception {
+            String name = uniqueName("footer");
+            UserProperty first = createProperty(uniqueProviderNo(), name, "A");
+            UserProperty second = createProperty(uniqueProviderNo(), name, "B");
+            createProperty(null, name, "clinic");
+            createProperty("", name, "blank provider");
+            createProperty(uniqueProviderNo(), uniqueName("other"), "C");
+            userPropertyDAO.flush();
+
+            List<UserProperty> rows = userPropertyDAO.findProviderProperties(name);
+
+            assertThat(rows).extracting(UserProperty::getId).containsExactly(first.getId(), second.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find the clinic-wide row, never a provider's row with the same name")
+        void shouldFindClinicRow_ignoringProviderRows() throws Exception {
+            String name = uniqueName("clinicFooter");
+            createProperty(uniqueProviderNo(), name, "provider value");
+            UserProperty clinic = createProperty(null, name, "clinic value");
+            userPropertyDAO.flush();
+
+            assertThat(userPropertyDAO.findClinicProperty(name)).extracting(UserProperty::getValue)
+                    .isEqualTo("clinic value");
+            assertThat(userPropertyDAO.findClinicProperty(name).getId()).isEqualTo(clinic.getId());
+            assertThat(userPropertyDAO.findClinicProperty(uniqueName("missing"))).isNull();
+        }
+    }
 }

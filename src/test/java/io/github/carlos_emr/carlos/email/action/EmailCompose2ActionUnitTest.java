@@ -5,6 +5,11 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import jakarta.servlet.http.HttpServletRequest;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import java.util.Optional;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -70,6 +75,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     private static final String EXAMPLE_GENERATED_VALUE = "example-generated-value";
 
     private EmailComposeSubmissionStateService composeSubmissionStateService;
+
+    private EmailFooterService emailFooterService;
 
     private static void stubEmptyAttachmentPreparation(EmailComposeManager manager)
             throws Exception {
@@ -163,6 +170,9 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         // EmailCompose2Action resolves the preview-token service at construction time, so every
         // test needs it registered even when the test itself never exercises attachment previews.
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
+        // Likewise the footer service; by default the user has no footer and no clinic notice.
+        emailFooterService = mock(EmailFooterService.class);
+        registerMock(EmailFooterService.class, emailFooterService);
     }
 
     @AfterEach
@@ -972,11 +982,44 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should treat a missing or blank eForm footer as none")
-    void shouldResolveFooter_fromEFormOnly() {
-        assertThat(EmailCompose2Action.resolveComposeFooter(null)).isEmpty();
-        assertThat(EmailCompose2Action.resolveComposeFooter("  \n ")).isEmpty();
-        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\n")).isEqualTo("Book online\n");
+    @DisplayName("should prefer the eForm footer, then the user's footer, then nothing")
+    void shouldResolveFooter_inEFormThenUserOrder() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, Optional.empty())).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("  \n ", Optional.empty())).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\n", Optional.of("Dr A")))
+                .isEqualTo("Book online\n");
+        assertThat(EmailCompose2Action.resolveComposeFooter(" ", Optional.of("Dr A"))).isEqualTo("Dr A");
+        // A user who saved an empty footer means no footer, not the clinic default.
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, Optional.of(""))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should open with the user's own or clinic footer when the eForm has none, and flag a clinic change")
+    void shouldPrefillUserFooterAndNotice_whenEFormHasNone() throws Exception {
+        registerComposeMocks();
+        LoggedInInfo user = new LoggedInInfo();
+        Provider provider = new Provider();
+        provider.setProviderNo("101");
+        user.setLoggedInProvider(provider);
+        when(emailFooterService.composeFooter("101")).thenReturn(Optional.of("Dr A\nBook online"));
+        when(emailFooterService.clinicChangeNotice("101")).thenReturn("Dr A old footer");
+        when(emailFooterService.ownFootersReplacedOnClinicChange()).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        request.getSession(true).setAttribute("demographicId", "123");
+
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
+             MockedStatic<LoggedInInfo> loggedIn = mockStatic(LoggedInInfo.class)) {
+            loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(user);
+            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
+            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
+                    new MockHttpServletResponse(), "compose");
+
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("Dr A\nBook online");
+            assertThat(rendered.getAttribute("footerClinicChanged")).isEqualTo(true);
+            assertThat(rendered.getAttribute("ownFootersReplaced")).isEqualTo(true);
+        } finally {
+            composeSubmissionStateService.clear(request.getSession().getId());
+        }
     }
 
     private static EmailConfig senderAccount(String senderEmail) {
