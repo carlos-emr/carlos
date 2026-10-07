@@ -78,3 +78,30 @@ test('display text is searched literally without treating HTML entities as marku
   f.fill('#pharmacySearch', 'A&B <Care>'); assert.deepEqual(f.visible(), [true, false]);
   f.fill('#pharmacySearch', '&amp;'); assert.deepEqual(f.visible(), [false, false]);
 });
+
+for (const [field, column] of [['#pharmacyPhoneSearch', 'phone'], ['#pharmacyFaxSearch', 'fax']]) {
+  for (const stored of ['416-555-1234', '(416) 555 1234', '416.555.1234']) {
+    test(`${field} matches unformatted digits against ${stored}`, () => {
+      const f = fixture(); f.rows[0].values[column] = stored;
+      f.fill(field, '4165551234'); assert.deepEqual(f.visible(), [true, false]);
+    });
+  }
+  test(`${field} normalizes typed formatting and retains other active filters`, () => {
+    const f = fixture(); f.rows[0].values[column] = '4165551234';
+    f.fill(field, '(416) 555-1234'); assert.deepEqual(f.visible(), [true, false]);
+    f.fill('#pharmacyCitySearch', 'Toronto'); assert.deepEqual(f.visible(), [false, false]);
+    f.fill('#pharmacyCitySearch', ''); assert.deepEqual(f.visible(), [true, false]);
+    f.fill(field, '555-12'); assert.deepEqual(f.visible(), [true, false]);
+  });
+  test(`${field} does not turn a punctuation-only query into a match-all`, () => {
+    const f = fixture(); f.fill(field, '()-'); assert.deepEqual(f.visible(), [false, false]);
+  });
+  test(`${field} does not match a missing stored number to a numeric query`, () => {
+    const f = fixture(); f.rows[0].values[column] = '';
+    f.fill(field, '416'); assert.deepEqual(f.visible(), [false, true]);
+    f.fill(field, ''); assert.deepEqual(f.visible(), [true, true]);
+  });
+  test(`${field} treats whitespace-only input as a cleared filter`, () => {
+    const f = fixture(); f.fill(field, '   '); assert.deepEqual(f.visible(), [true, true]);
+  });
+}

@@ -193,8 +193,8 @@
                         <td><fmt:message key="encounter.ViewAttachment.msgViewAtt"/></td>
                         <td></td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%= request.getContextPath() %>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%= request.getContextPath() %>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -205,28 +205,28 @@
 
                 <table cellspacing="1" valign="top">
                     <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgFrom"/>:
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgFrom"/>:
                         </td>
-                        <td bgcolor="#CCCCFF"><%= sentBy%> <fmt:message key="encounter.ViewAttachment.msgAt"/> <%=remoteName%>
+                        <td style="background-color: #CCCCFF"><%= sentBy%> <fmt:message key="encounter.ViewAttachment.msgAt"/> <%=remoteName%>
                         </td>
                     </tr>
                     <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgSubject"/>:
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgSubject"/>:
                         </td>
-                        <td bgcolor="#BBBBFF"><%= thesubject%>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td bgcolor="#DDDDFF"><fmt:message key="encounter.ViewAttachment.msgDate"/>:
-                        </td>
-                        <td bgcolor="#B8B8FF"><%= thedate %>&nbsp;&nbsp; <%= theime %>
+                        <td style="background-color: #BBBBFF"><%= thesubject%>
                         </td>
                     </tr>
 
                     <tr>
-                        <td bgcolor="#EEEEFF"></td>
-                        <td bgcolor="#EEEEFF"><textarea name="Message" wrap="hard"
+                        <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgDate"/>:
+                        </td>
+                        <td style="background-color: #B8B8FF"><%= thedate %>&nbsp;&nbsp; <%= theime %>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="background-color: #EEEEFF"><label for="attachment-message"><fmt:message key="messenger.CreateMessage.msgMessage"/></label></td>
+                        <td style="background-color: #EEEEFF"><textarea id="attachment-message" name="Message" wrap="hard"
                                                         readonly="true" rows="18" cols="60"><%=themessage%></textarea>
                         </td>
                     </tr>

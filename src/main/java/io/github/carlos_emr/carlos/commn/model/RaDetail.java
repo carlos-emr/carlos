@@ -61,6 +61,8 @@ public class RaDetail extends AbstractModel<Integer> {
     @Column(name = "service_count")
     private String serviceCount;
 
+    // Import retains the fixed-width 12-character health number plus 2-character version.
+    @Column(length = 14)
     private String hin;
 
     @Column(name = "amountclaim")
