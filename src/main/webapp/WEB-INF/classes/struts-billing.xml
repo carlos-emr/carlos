@@ -814,10 +814,6 @@
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRA.jsp</result>
         </action>
 
-        <action name="billing/CA/ON/ImportOnRA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ImportOnRa2Action">
-            <result name="success" type="chain">billing/CA/ON/ViewOnGenRA</result>
-        </action>
-
         <action name="billing/CA/ON/ViewOnGenRAError" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnGenRaError2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRAError.jsp</result>
         </action>
