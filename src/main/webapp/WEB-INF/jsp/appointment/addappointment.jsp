@@ -1280,7 +1280,7 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="<%= bMultisites ? "siteLocation" : locationEnabled ? "programLocation" : "location" %>"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <label class="col-sm-4 col-form-label" id="appointmentLocationLabel" for="<%= bMultisites ? "siteLocation" : locationEnabled ? "programLocation" : "location" %>"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1288,7 +1288,7 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <select class="form-select form-select-sm" name="location" id="siteLocation"
+                                <select class="form-select form-select-sm" name="location" id="siteLocation" aria-labelledby="appointmentLocationLabel"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (Site s : sites) {
@@ -1301,7 +1301,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else if (locationEnabled) { %>
-                                <select name="location" id="programLocation" class="form-select form-select-sm">
+                                <select name="location" id="programLocation" aria-labelledby="appointmentLocationLabel" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1319,7 +1319,7 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="location" id="location" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
+                                <input type="text" name="location" id="location" aria-labelledby="appointmentLocationLabel" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
@@ -1344,10 +1344,10 @@ Ontario, Canada
                     <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="<%= statusEditable ? "selectStatus" : "status" %>"><fmt:message key="Appointment.formStatus"/>:</label>
+                            <label class="col-sm-4 col-form-label" id="appointmentStatusLabel" for="<%= statusEditable ? "selectStatus" : "status" %>"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
                                 <% if (statusEditable) { %>
-                                <select class="form-select form-select-sm" name="status" id="selectStatus" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <select class="form-select form-select-sm" name="status" id="selectStatus" aria-labelledby="appointmentStatusLabel" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                             style="background-color:<carlos:encode value='<%= (allStatus.get(i)).getColor() %>' context="htmlAttribute"/>"
@@ -1357,7 +1357,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="status" id="status" class="form-control form-control-sm"
+                                <input type="text" name="status" id="status" aria-labelledby="appointmentStatusLabel" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
