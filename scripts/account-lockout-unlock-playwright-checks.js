@@ -53,9 +53,10 @@ async function workflow(s) {
   // The scoped list requires actual site memberships; the generic login fixture creates none.
   // Both sites and all links below belong to this run, including the administrator's new link.
   const siteNames = ['shared', 'outside'].map(suffix => `${s.marker}-${suffix}`);
+  const ownedSiteNames = [];
   const ownedProviders = [s.provider, fixture.providerNo, ...deniedFixtures.map(item => item.providerNo)];
   s.cleanup(() => {
-    for (const name of siteNames) {
+    for (const name of ownedSiteNames) {
       const ids = sql.rows(`SELECT site_id FROM site WHERE name=${h.sqlString(name)}`).map(row => row[0]);
       h.assert(ids.length <= 1, 'Owned unlock site name is no longer unique');
       for (const id of ids) {
@@ -69,6 +70,7 @@ async function workflow(s) {
   });
   const sites = siteNames.map(name => {
     h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)}`) === '0', 'Owned site name already exists');
+    ownedSiteNames.push(name); // Record ownership intent only after proving the name was absent.
     const id = sql.value(`INSERT INTO site (name,short_name,bg_color,status) VALUES (${h.sqlString(name)},'PWUnlock','#FFFFFF',1); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'Owned unlock site was not created');
     return id;
@@ -138,6 +140,13 @@ async function workflow(s) {
         xhr.send(new URLSearchParams({ userName: key, submit: 'Unlock' }).toString());
       }), { url, key });
       console.log(`  Release POST for an owned throwaway username answered HTTP ${status}`);
+    }
+    const current = await s.context.request.get(url);
+    const body = await current.text();
+    h.assert(current.status() === 200 && /<select[^>]+name="userName"/.test(body),
+      'Could not verify the owned tracking entries after cleanup');
+    for (const item of [fixture, ...deniedFixtures]) {
+      h.assert(!body.includes(`value="${item.username}"`), 'An owned username remains in the lock list after cleanup');
     }
     // The status alone proves nothing (a CSRF or privilege refusal also completes), so prove the
     // release the way the lock is observed: the throwaway's correct password must no longer
