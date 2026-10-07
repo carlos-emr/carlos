@@ -96,7 +96,7 @@ table#scheduleTable tfoot {
     margin-bottom: 0;
 }
 
-/* The day sheet's top bar keeps all of itself in view while the schedule scrolls
+/* The day sheet's top bar keeps all of itself reachable while the schedule scrolls
    sideways. schedulePage.js.jsp adds the class and the variables; without them,
    nothing here applies and the page behaves as before. Month view, reports and
    other pages using this file do not load that script, so they are unaffected. */
@@ -116,11 +116,15 @@ table#scheduleTable tfoot {
         background-color: whitesmoke;
     }
     body.sticky-schedule-header table#scheduleTable {
-        /* The schedule spans the page's full width, which is the bar's when the
-           bar is wider than the window. Its columns, and the provider names
-           stuck above them, then scroll sideways with the bar, so no column
-           ever runs out of name row and no part of the page lacks schedule. */
-        width: 100%;
+        /* The body may be as wide as the bar: keep the schedule at the window's
+           width when it fits (it still grows when it needs to), and hold it at
+           the window's left edge. A sideways scroll then moves only the bar
+           until the schedule itself has to move, so the schedule, and the
+           provider names stuck above its columns, always fill the window. The
+           table moves as one, so each name stays over its own column. */
+        width: var(--schedule-visible-width, 100%);
+        position: sticky;
+        left: 0;
     }
     body.sticky-schedule-header #system_message,
     body.sticky-schedule-header #facility_message {
