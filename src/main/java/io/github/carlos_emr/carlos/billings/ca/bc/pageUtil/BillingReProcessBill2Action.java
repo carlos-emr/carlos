@@ -139,7 +139,8 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String opened = request.getParameter("billingmaster_no");
             return opened != null && BILL_NUMBER.matcher(opened).matches() ? SUCCESS : LIST;
         }
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST may save.
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
