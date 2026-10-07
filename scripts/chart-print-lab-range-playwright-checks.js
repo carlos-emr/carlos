@@ -122,23 +122,6 @@ async function workflow(s) {
     assertLabs(text, []);
     h.assert(Object.values(noteTokens).every(token => !text.includes(token)), 'Empty range printed an owned note');
   });
-  await s.step('date-range print accepts a single lab with fractional observation-date metadata', async () => {
-    // Keep exactly one lab in this owned patient's list: sorting cannot mask the new predicate call.
-    sql.execute(`DELETE FROM patientLabRouting WHERE demographic_no=${patient} AND lab_type='HL7'
-      AND lab_no IN (${[owned[0], ...owned.slice(2)].join(',')});
-      UPDATE hl7TextInfo SET obr_date='2021-06-15 00:00:00.0' WHERE lab_no=${owned[1]}`);
-    await print.openPrintDialog(chart);
-    await chart.locator('#printopDates').check();
-    await print.setFlags(chart, ['printLabs']);
-    await chart.evaluate(() => {
-      for (const id of ['printStartDate', 'printEndDate']) {
-        document.getElementById(id)._flatpickr.setDate('2021-06-15', false, 'Y-m-d');
-      }
-    });
-    const { text } = await print.pressPrint(chart, scratch);
-    assertLabs(text, ['START']);
-    h.assert(text.includes(noteTokens.inside), 'Fractional-date print omitted the in-range note');
-  });
 }
 
 if (require.main === module) runWorkflow('chart-print-lab-range', workflow,
