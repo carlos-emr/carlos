@@ -7767,6 +7767,34 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "lab-patient-dob",
+      "script": "scripts/lab-patient-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Search the real lab patient-matching DOB form for days 01-09 and 15 using the owned patient."
+    },
+    {
+      "name": "chart-print-lab-range",
+      "script": "scripts/chart-print-lab-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verify printed lab date boundaries and accession-version selection in downloaded chart PDFs."
     }
   ]
 }
