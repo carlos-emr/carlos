@@ -52,6 +52,7 @@ async function workflow(s) {
   await listRow(bList, tickler.message);
   const completeLabel = await aList.locator('input.btn-secondary[onclick*="Complete"]').first().getAttribute('value');
   const deleteLabel = await aList.locator('input.btn-danger[onclick*="Delete"]').first().getAttribute('value');
+  let staleRequest;
 
   await s.step('session B deletes the tickler from its list', async () => {
     await batch(bList, tickler.message, deleteLabel);
@@ -59,18 +60,27 @@ async function workflow(s) {
     h.assert(sql.value(historyQuery) === '1', 'The successful delete must record exactly one history row');
   });
   await s.step('session A completes the same tickler from its stale list', async () => {
+    const submitted = aList.waitForRequest(request => request.method() === 'POST'
+      && new URL(request.url()).pathname.endsWith('/tickler/DbTicklerMain'));
+    submitted.catch(() => {});
     await batch(aList, tickler.message, completeLabel, 1);
+    staleRequest = await submitted;
+    const fields = new URLSearchParams(staleRequest.postData());
+    h.assert(fields.get(`expectedStatus_${tickler.id}`) === 'A' && fields.get('checkbox') === tickler.id,
+      'The captured request must contain the owned stale selection');
   });
   await s.step('the tickler session B deleted stays deleted', async () => {
     h.assert(sql.value(statusQuery) === 'D', 'A stale Complete resurrected the deleted tickler');
     h.assert(sql.value(historyQuery) === '1', 'A rejected stale save changed tickler history');
   });
   await s.step('a replay of the stale request reports a conflict without another history row', async () => {
-    const response = await s.context.request.post(new URL('DbTicklerMain', aList.url()).href, {
-      form: { checkbox: tickler.id, submit_form: 'Complete', [`expectedStatus_${tickler.id}`]: 'A' },
+    // Replay the real form, including its CSRF token, so this reaches the status guard.
+    const response = await s.context.request.post(staleRequest.url(), {
+      data: staleRequest.postData(),
+      headers: { 'content-type': staleRequest.headers()['content-type'] },
       maxRedirects: 0
     });
-    h.assert(response.status() === 302, 'The replay did not return the normal list redirect');
+    h.assert(response.status() === 302, `The replay returned HTTP ${response.status()} instead of the normal list redirect`);
     const redirect = new URL(response.headers().location, aList.url());
     h.assert(redirect.searchParams.get('conflictCount') === '1' && !redirect.searchParams.has('failCount'),
       'The replay did not report a specific stale-status conflict');

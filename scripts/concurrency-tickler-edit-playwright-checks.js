@@ -76,7 +76,9 @@ async function workflow(s) {
     await current.close().catch(() => {});
   });
   await s.step('a deleted tickler refuses the edit and leaves its draft visible', async () => {
-    const edit = await openTicklerEdit(s.context, s.recorder, aList, deleted.message, 'tickler-deleted');
+    // The list reuses the named edit_tickler window. B's editor is closed; using B's
+    // context keeps A's refused draft open instead of navigating that existing window.
+    const edit = await openTicklerEdit(b.context, s.recorder, bList, deleted.message, 'tickler-deleted');
     sql.execute(`DELETE FROM tickler WHERE tickler_no=${deleted.id} AND demographic_no=${s.patient}`);
     await edit.locator('[name="newMessage"]').fill(draft);
     await refusedSave(s, edit, 404);
@@ -84,6 +86,7 @@ async function workflow(s) {
     h.assert(await edit.locator('#tickler-edit-recovery').isHidden(), 'A deleted tickler offers a misleading current-record link');
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE tickler_no=${deleted.id}`) === '0', 'The deleted tickler was recreated');
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${deleted.id}`) === '0', 'The deleted tickler gained a comment');
+    h.assert(await aEdit.locator('[name="newMessage"]').inputValue() === draft, 'The original refused draft was replaced');
   });
 }
 
