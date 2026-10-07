@@ -3,8 +3,10 @@
 (function () {
     'use strict';
     // The action refused these before anything reached the portal, or the portal refused
-    // them outright: nothing was stored, so a retry identity is not worth keeping.
+    // them outright: that attempt stored nothing. The retry identity is dropped only when no
+    // earlier attempt with it went unconfirmed (that one may have been stored).
     const DEFINITE_REFUSALS = [400, 403, 404];
+    const CSRF_WAIT_MS = 15000;
     function newOperationId() {
         if (crypto.randomUUID) { return crypto.randomUUID(); }
         // randomUUID needs a secure context (HTTPS or localhost); getRandomValues does not.
@@ -49,7 +51,8 @@
                 pending = JSON.parse(saved);
                 if (!/^[a-f0-9-]{36}$/.test(pending.operationId)
                         || !['routine', 'soon', 'as_soon_as_possible'].includes(pending.urgency)
-                        || !['follow_up', 'annual_exam', 'lab_review'].includes(pending.appointmentType)) {
+                        || !['follow_up', 'annual_exam', 'lab_review'].includes(pending.appointmentType)
+                        || pending.uncertain !== undefined && typeof pending.uncertain !== 'boolean') {
                     throw new Error('invalid pending request');
                 }
             }
@@ -77,7 +80,10 @@
             // csrf-token.jspf publishes its token fetch as window.csrfTokenReady on
             // DOMContentLoaded. It may reject, and a form on the page may already carry the token.
             try {
-                if (window.csrfTokenReady) { await window.csrfTokenReady; }
+                if (window.csrfTokenReady) {
+                    await Promise.race([window.csrfTokenReady,
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('csrf wait timed out')), CSRF_WAIT_MS))]);
+                }
             } catch (_) { /* re-checked below */ }
             const input = Array.from(document.querySelectorAll('input[name="CSRF-TOKEN"]')).find(field => field.value);
             if (!input) { throw new Error('csrf unavailable'); }
@@ -133,7 +139,7 @@
                 role('prompts').append(item);
             }
         }
-        async function refresh(successMessage) {
+        async function refresh(lead) {
             if (busy || !samePatient()) { update(); return; }
             busy = true; role('refresh').disabled = true; update();
             try {
@@ -146,17 +152,18 @@
                 eligible = body.mayCreate && body.accountActive === true;
                 mayWithdraw = body.mayWithdraw;
                 render(body.prompts);
+                const inactive = body.mayCreate && !eligible ? 'inactive' : null;
                 if (pending) {
                     // The unconfirmed request stays in view, with the reason it cannot be retried now.
-                    status('uncertain', body.mayCreate && !eligible ? 'inactive' : null);
+                    status('uncertain', inactive);
                 } else {
-                    status(successMessage ||
-                        (body.mayCreate && !eligible ? 'inactive' : storageReady ? 'ready' : 'storage'));
+                    // lead: what just happened (sent, withdrawn, not sent), then the account state.
+                    status(lead, inactive || (lead ? null : storageReady ? 'ready' : 'storage'));
                 }
             } catch (_) {
                 eligible = false; mayWithdraw = false;
                 role('prompts').replaceChildren();
-                status(successMessage || (pending ? 'uncertain' : null), 'unavailable');
+                status(lead || (pending ? 'uncertain' : null), 'unavailable');
             } finally {
                 busy = false; role('refresh').disabled = false; update();
             }
@@ -165,8 +172,10 @@
             if (busy || !eligible || !storageReady || !samePatient()) { update(); return; }
             try {
                 if (!pending) {
-                    pending = { operationId: newOperationId(), urgency: urgency.value, appointmentType: type.value };
-                    sessionStorage.setItem(key, JSON.stringify(pending));
+                    // Kept only once it is saved, so a failed save never looks like an unconfirmed send.
+                    const request = { operationId: newOperationId(), urgency: urgency.value, appointmentType: type.value };
+                    sessionStorage.setItem(key, JSON.stringify(request));
+                    pending = request;
                 }
             } catch (_) { storageReady = false; status('storage'); update(); return; }
             busy = true; update(); status('sending');
@@ -183,15 +192,21 @@
                 pending = null; confirmed = true;
                 status('sent');
             } catch (failure) {
-                if (DEFINITE_REFUSALS.includes(failure.status)) {
+                refused = DEFINITE_REFUSALS.includes(failure.status);
+                if (refused && !pending.uncertain) {
                     try { sessionStorage.removeItem(key); } catch (_) { /* nothing left to retry */ }
-                    pending = null; refused = true;
-                } else { status('uncertain'); }
+                    pending = null;
+                } else {
+                    // Kept and marked: this or an earlier attempt may have reached the portal.
+                    pending = Object.assign({}, pending, { uncertain: true });
+                    try { sessionStorage.setItem(key, JSON.stringify(pending)); } catch (_) { /* still held in this page */ }
+                    status('uncertain');
+                }
             }
             finally { busy = false; update(); }
             if (confirmed) { await refresh('sent'); }
-            // A refusal is shown through the refreshed state (for example, not on the portal).
-            if (refused) { await refresh(); }
+            // A refusal says so, then shows the refreshed state (for example, not on the portal).
+            if (refused) { await refresh(pending ? null : 'notSent'); }
         }
         async function withdraw(id) {
             if (busy || !mayWithdraw || !samePatient()) { update(); return; }

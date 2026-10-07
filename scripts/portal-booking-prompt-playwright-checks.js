@@ -14,7 +14,7 @@ const labels = Object.fromEntries(fs.readFileSync(path.join(root, 'src/main/reso
     const split = line.indexOf('='); return [line.slice(0, split), line.slice(split + 1)];
   }));
 const escape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
-function markup(appointment, readOnly = false, lateCsrf = false) {
+function markup(appointment, readOnly = false, lateCsrf = false, rejectCsrf = false) {
   let html = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/portalBookingPrompt.jsp'), 'utf8');
   html = html.slice(html.indexOf('<section'), html.indexOf('</section>') + 10);
   if (readOnly) {
@@ -29,7 +29,12 @@ function markup(appointment, readOnly = false, lateCsrf = false) {
     .replace(/<%[\s\S]*?%>/g, '');
   // lateCsrf: like csrf-token.jspf, the token arrives after DOMContentLoaded, and the panel script is
   // deferred as on the real pages, so it runs before that.
-  const csrf = lateCsrf
+  // rejectCsrf: the bootstrap's fetch fails, but another form on the page already carries the token.
+  const csrf = rejectCsrf
+    ? '<input type="hidden" name="CSRF-TOKEN" value=""><form method="post"><input type="hidden" name="CSRF-TOKEN" value="synthetic-csrf"></form>'
+      + '<script>window.csrfTokenReady = null; document.addEventListener("DOMContentLoaded", function () {'
+      + 'window.csrfTokenReady = Promise.reject(new Error("fetch failed")); window.csrfTokenReady.catch(function () {}); });</script>'
+    : lateCsrf
     ? '<input type="hidden" name="CSRF-TOKEN" value=""><script>window.csrfTokenReady = null;'
       + 'document.addEventListener("DOMContentLoaded", function () { window.csrfTokenReady = new Promise(function (resolve) {'
       + 'setTimeout(function () { document.querySelector(\'input[name="CSRF-TOKEN"]\').value = "synthetic-csrf"; resolve(); }, 300); }); });'
@@ -38,7 +43,7 @@ function markup(appointment, readOnly = false, lateCsrf = false) {
   return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
     + '<link rel="stylesheet" href="/panel.css">' + csrf
     + (appointment ? '<input id="demographic_no" value="123" readonly><input id="keyword" value="Synthetic Patient">' : '')
-    + html + (lateCsrf ? '<script defer src="/panel.js"></script>' : '<script src="/panel.js"></script>');
+    + html + (lateCsrf || rejectCsrf ? '<script defer src="/panel.js"></script>' : '<script src="/panel.js"></script>');
 }
 function prompt(id = 7, state = 'sent') {
   return { id, state, urgency: 'routine', appointmentType: 'follow_up', createdAt: '2026-10-01T12:00:00Z',
@@ -55,9 +60,9 @@ async function main() {
       res.setHeader('Content-Type', type === 'js' ? 'text/javascript' : 'text/css');
       res.end(fs.readFileSync(path.join(root, `src/main/webapp/${type}/portalBookingPrompt.${type}`))); return;
     }
-    if (req.url === '/master' || req.url === '/appointment' || req.url === '/master-late-csrf') {
+    if (['/master', '/appointment', '/master-late-csrf', '/master-reject-csrf'].includes(req.url)) {
       res.setHeader('Content-Type', 'text/html');
-      res.end(markup(req.url === '/appointment', readOnly, req.url === '/master-late-csrf')); return;
+      res.end(markup(req.url === '/appointment', readOnly, req.url === '/master-late-csrf', req.url === '/master-reject-csrf')); return;
     }
     if (req.url !== '/demographic/portalBookingPrompt') { res.writeHead(404).end(); return; }
     let raw = ''; for await (const chunk of req) { raw += chunk; }
@@ -154,16 +159,43 @@ async function main() {
     assert.equal(notifications, notified); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     console.log('PASS unconfirmed request retried once the portal is back, no second notice');
     await page.reload(); await waitReady(); refuseCreate = true; active = false; await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('not active'));
+    await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
+      return text.includes('was not sent') && text.includes('not active'); });
     assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     refuseCreate = false; active = true;
-    console.log('PASS a refused create drops its retry identity and shows the account state');
+    console.log('PASS a refused first attempt drops its retry identity and says it was not sent');
+    loseCreate = true; await page.reload(); await waitReady(); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const unconfirmed = calls.filter(call => call.method === 'create').at(-1).operationId;
+    refuseCreate = true; await send.click();
+    await page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled
+      && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, unconfirmed);
+    refuseCreate = false; const noticesBefore = notifications; await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, unconfirmed);
+    assert.equal(notifications, noticesBefore);
+    console.log('PASS a refusal after an unconfirmed attempt keeps the identity; no second notice');
     await page.goto(url + '/master-late-csrf');
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
     console.log('PASS waits for the page CSRF bootstrap on first load');
+    await page.goto(url + '/master-reject-csrf');
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
+    console.log('PASS a failed CSRF bootstrap falls back to a token already on the page');
+    const plain = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const plainPage = await plain.newPage(); plainPage.on('pageerror', error => errors.push(error.message));
+    await plainPage.addInitScript(() => { delete Crypto.prototype.randomUUID; });
+    await plainPage.goto(url + '/master');
+    await plainPage.locator('[data-role="send"]').waitFor({ state: 'visible' });
+    await plainPage.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled);
+    await plainPage.locator('[data-role="send"]').click();
+    await plainPage.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    assert.match(calls.filter(call => call.method === 'create').at(-1).operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    await plain.close();
+    console.log('PASS operation IDs without randomUUID (plain HTTP) are random version-4 UUIDs');
     readOnly = true; prompts = [prompt()]; await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Unread'));
     assert.equal(await send.count(), 0); assert.equal(await page.locator('[data-role="prompts"] button').count(), 0); readOnly = false;
@@ -185,16 +217,18 @@ async function main() {
     assert.equal(calls.filter(call => call.method === 'create').length, before);
     console.log('PASS autocomplete name preview blocks stale-patient mutation');
     await page.reload(); await waitReady();
-    await page.evaluate(() => { sessionStorage.setItem('portal.booking.pending:999998:123', 'invalid'); });
+    await page.evaluate(() => { sessionStorage.setItem('portal.booking.pending:999998:123',
+      JSON.stringify({ operationId: 'x', urgency: 'routine', appointmentType: 'follow_up' })); });
     await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('cannot retain'));
     assert.equal(await send.isDisabled(), true);
+    assert.doesNotMatch(await status.innerText(), /could not be confirmed/);
     console.log('PASS corrupt pending storage refuses fresh identity');
     assert.deepEqual(errors, []);
     if (process.env.PORTAL_BOOKING_SCREENSHOT) {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 18 browser scenarios; no page errors');
+    console.log('PASS all 21 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -180,6 +180,9 @@ The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only render
 concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
 session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
 names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+A definite refusal (HTTP 400, 403 or 404, given before anything reached the portal or by the
+portal itself) drops the ID only if no earlier attempt with it went unconfirmed, and the panel
+says the request was not sent.
 Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
 status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
 The latest-100 history and optional provider attribution limitations above still apply.
