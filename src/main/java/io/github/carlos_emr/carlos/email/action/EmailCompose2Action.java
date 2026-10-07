@@ -693,7 +693,7 @@ public class EmailCompose2Action extends ActionSupport {
             return 31 * result + Arrays.hashCode(attachedHRMDocuments);
         }
 
-        /** The attachment ids only: the subject, message, footer and addresses stay out of logs. */
+        /** The attachment ids only: the subject, message, footer and addresses are patient information. */
         @Override
         public String toString() {
             return "StagedCompose[fdid=" + fdid

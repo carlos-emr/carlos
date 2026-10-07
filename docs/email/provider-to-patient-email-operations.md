@@ -235,6 +235,52 @@ log:
   A document that is only restricted (it opens without a password but limits
   printing or editing) is signed normally.
 
+## Running More Than One Application Server
+
+The supported install is one application server
+([docs/install-deb.md](../install-deb.md)). If a deployment runs several
+CARLOS servers behind a load balancer, it **must route each login session to
+the same server for the whole session** ("sticky sessions", or session
+affinity). The email compose flow requires it:
+
+- Opening a compose window, or preparing a resend from **Manage Emails**,
+  creates a one-time token. The generated PDF passphrase, its clue and the
+  prepared attachment list are kept in that server's memory under the token.
+  They are not stored in the HTTP session or the database. An entry lasts at
+  most 30 minutes, with at most 8 per login session and 1,024 per server.
+- The attachment PDFs prepared for that window are written to that server's
+  own temporary directory.
+- An attachment preview link is valid on that server only, for two minutes.
+
+If submission of a prepared email or prepared resend reaches a different
+server, that server cannot resolve its submission token. The send is refused
+before transport with "This email compose window has expired or is no longer
+valid. Please reopen the email compose window and try again."
+
+A preview request that reaches a server without its preview capability returns
+HTTP 403. A failed preview does not establish whether a separate send was
+attempted or accepted. Opening a new resend from **Manage Emails** creates fresh
+state on the receiving server, provided the authenticated session and source
+documents are available. Submitting that prepared resend still requires the
+same server.
+
+To recover an unusable compose, return to the eForm and choose **Email** again,
+or open a new resend from **Manage Emails**. Refreshing or reopening the old
+compose URL does not recreate its prepared state. A restart or failover loses
+the previous server's prepared state; HTTP-session replication does not
+preserve it.
+
+Carrying it between servers would need a shared, short-lived store that keeps
+what the current design guarantees:
+- a token works once;
+- entries expire quickly;
+- storage is bounded;
+- no passphrase or attachment is ever in the HTTP session;
+- nothing sensitive appears in logs or error messages.
+
+CARLOS does not provide such a store, so sticky routing is the supported
+configuration ([issue #3225](https://github.com/carlos-emr/carlos/issues/3225)).
+
 ## Monitoring and Operations
 
 Monitor `EmailLog` rows for `FAILED` status. Use **Admin > Manage Emails** to

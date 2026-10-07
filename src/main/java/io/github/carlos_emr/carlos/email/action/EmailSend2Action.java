@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.email.action;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
@@ -75,6 +77,8 @@ public class EmailSend2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final String EMAIL_FOLLOW_UP_REQUIRED = "isEmailFollowUpRequired";
+    /** Which address the mail server refused ("RECIPIENT", "SENDER" or "NONE"), for the result page hint. */
+    private static final String EMAIL_REFUSAL = "emailRefusal";
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private transient EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManager.class);
@@ -238,6 +242,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         if (isEmailSuccessful && context.deleteEFormAfterEmail() && StringUtils.filled(context.fdid())) {
             try {
                 eformDataManager.removeEFormData(loggedInInfo, context.fdid());
@@ -296,6 +301,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
+        request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
     }
@@ -614,6 +620,14 @@ public class EmailSend2Action extends ActionSupport {
             throw new EmailSendValidationException(
                     "Attachment encryption requires message encryption");
         }
+        if (encrypted) {
+            try {
+                PortalEmailDeliveryService.isEnabled();
+            } catch (PatientPortalConfigurationException malformed) {
+                // Refuse here, before the compose state is consumed, so the draft survives.
+                throw new EmailSendValidationException(getText("email.compose.portal.misconfigured"));
+            }
+        }
     }
 
     /**
@@ -778,7 +792,7 @@ public class EmailSend2Action extends ActionSupport {
             EmailComposeSubmissionState composeState,
             boolean needsPdfPassword
     ) {
-        if (!needsPdfPassword) {
+        if (!needsPdfPassword || PortalEmailDeliveryService.isEnabled()) {
             return "";
         }
 
@@ -841,6 +855,9 @@ public class EmailSend2Action extends ActionSupport {
      * @return the localized secure-message notice for the encrypted email body
      */
     protected String encryptedBodyNotice() {
-        return getText("email.compose.msg.encryptedBodyNotice");
+        // With portal delivery the patient finds the password in the portal, not a separate channel.
+        return getText(PortalEmailDeliveryService.isEnabled()
+                ? "email.compose.msg.portalPasswordBodyNotice"
+                : "email.compose.msg.encryptedBodyNotice");
     }
 }
