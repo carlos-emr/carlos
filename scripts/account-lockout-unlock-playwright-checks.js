@@ -19,9 +19,13 @@
  * the client address its own failures were audited from) with a direct POST from the admin page,
  * because the Unlock page itself can answer 500 and the browser is closed before cleanups run;
  * the release is then proven by a correct-password attempt that must not meet the lockout.
- * Fixtures: the throwaway provider/security/secUserRole rows (lib/throwaway-login-fixture.js);
+ * Site coverage: two out-of-site tracked accounts remain hidden, tampered POSTs return the
+ * application permission refusal without an unlock audit, and the tracked entries survive.
+ * Fixtures: three throwaway provider/security/secUserRole rows (lib/throwaway-login-fixture.js)
+ * and two owned sites plus their memberships;
  * cleanup deletes every owned row, including its audit rows, and asserts they are gone.
  */
+const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -41,6 +45,44 @@ async function workflow(s) {
   const fixture = throwawayLoginFixture({ sql, marker: s.marker, provider: s.provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   fixture.create();
+  const deniedFixtures = [0, 1].map(() => throwawayLoginFixture({
+    sql, marker: `FAKE-PW${randomBytes(8).toString('hex')}`, provider: s.provider, testUser: config.testUser,
+  }));
+  for (const denied of deniedFixtures) {
+    s.cleanup(() => denied.cleanup());
+    denied.create();
+  }
+  // The scoped list requires actual site memberships; the generic login fixture creates none.
+  // Both sites and all links below belong to this run, including the administrator's new link.
+  const siteNames = ['shared', 'outside'].map(suffix => `${s.marker}-${suffix}`);
+  const ownedProviders = [s.provider, fixture.providerNo, ...deniedFixtures.map(item => item.providerNo)];
+  s.cleanup(() => {
+    for (const name of siteNames) {
+      const ids = sql.rows(`SELECT site_id FROM site WHERE name=${h.sqlString(name)}`).map(row => row[0]);
+      h.assert(ids.length <= 1, 'Owned unlock site name is no longer unique');
+      for (const id of ids) {
+        h.assert(/^[1-9]\d*$/.test(id), 'Invalid owned site id');
+        const providers = sql.rows(`SELECT provider_no FROM providersite WHERE site_id=${id}`).map(row => row[0]);
+        h.assert(providers.every(provider => ownedProviders.includes(provider)), 'Refusing cleanup of a site with foreign memberships');
+        sql.execute(`DELETE FROM providersite WHERE site_id=${id}; DELETE FROM site WHERE site_id=${id} AND name=${h.sqlString(name)}`);
+      }
+      h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)}`) === '0', 'Owned unlock site remains');
+    }
+  });
+  const sites = siteNames.map(name => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)}`) === '0', 'Owned site name already exists');
+    const id = sql.value(`INSERT INTO site (name,short_name,bg_color,status) VALUES (${h.sqlString(name)},'PWUnlock','#FFFFFF',1); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'Owned unlock site was not created');
+    return id;
+  });
+  function linkSite(provider, site) {
+    sql.execute(`INSERT IGNORE INTO providersite (provider_no,site_id) VALUES (${h.sqlString(provider)},${site})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM providersite WHERE provider_no=${h.sqlString(provider)} AND site_id=${site}`) === '1',
+      'The owned site membership was not established');
+  }
+  linkSite(s.provider, sites[0]);
+  linkSite(fixture.providerNo, sites[0]);
+  for (const denied of deniedFixtures) linkSite(denied.providerNo, sites[1]);
   const { username } = fixture;
   const user = h.sqlString(username);
   const failedLogins = `SELECT COUNT(*) FROM log WHERE action='failed' AND content='login' AND contentId=${user}`;
@@ -68,11 +110,16 @@ async function workflow(s) {
     return frame;
   }
   const lockList = frame => frame.locator('select[name="userName"] option').evaluateAll(options => options.map(option => option.value));
+  let submittedUnlock;
   async function unlockSelected(frame, entry) {
     await frame.locator('select[name="userName"]').selectOption(entry);
     const navigated = admin.waitForEvent('framenavigated', { predicate: candidate => candidate === frame, timeout: 20000 });
     navigated.catch(() => {});
+    const posted = admin.waitForRequest(request => request.method() === 'POST'
+      && new URL(request.url()).pathname.endsWith('/admin/UnLock'), { timeout: 20000 });
+    posted.catch(() => {});
     await frame.locator('input[name="submit"]').click();
+    submittedUnlock = (await posted).postData();
     await navigated;
     await frame.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     return (await frame.locator('.alert-success').innerText({ timeout: 10000 }).catch(() => '')).replace(/\s+/g, ' ').trim();
@@ -85,7 +132,9 @@ async function workflow(s) {
     const addresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
       .map(row => row[0]).filter(ip => ip && ip !== 'NULL');
     const url = h.appUrl(config.baseUrl, '/admin/UnLock');
-    for (const key of [username, ...addresses]) {
+    // Restore access only to this run's out-of-site fixtures before releasing their tracked attempts.
+    for (const denied of deniedFixtures) linkSite(denied.providerNo, sites[0]);
+    for (const key of [username, ...deniedFixtures.map(item => item.username), ...addresses]) {
       const status = await admin.evaluate(({ url, key }) => new Promise(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
@@ -116,7 +165,7 @@ async function workflow(s) {
   const probes = await h.newContext(s.context.browser(), config);
   probes.on('page', page => h.wireStrictPage(page, 'lockout-probe', recorder));
   const wrongPassword = `${config.testPassword}-WRONG`;
-  async function probe(password) {
+  async function probe(password, probeUsername = username) {
     for (let attempt = 0; ; attempt++) {
       const since = { responses: recorder.badResponses.length, console: recorder.consoleIssues.length };
       let limited = null;
@@ -127,7 +176,7 @@ async function workflow(s) {
       let result;
       let error;
       try {
-        result = await submitLoginForm(probes, config, { username, password, pin: config.testPin });
+        result = await submitLoginForm(probes, config, { username: probeUsername, password, pin: config.testPin });
       } catch (caught) { error = caught; } finally { probes.off('response', watch); }
       if (!limited) {
         if (error) throw error;
@@ -174,6 +223,18 @@ async function workflow(s) {
       h.assert(sql.value(successfulLogins) === '0', 'A locked login was audited as logged in');
     });
 
+    await s.step('two tracked accounts from another site stay out of the scoped unlock list', async () => {
+      for (const denied of deniedFixtures) {
+        const result = await probe(wrongPassword, denied.username);
+        await result.page.close();
+        h.assert(result.outcome === 'failed', 'The out-of-site fixture did not record its owned failed attempt');
+      }
+      frame = await openUnlock();
+      const listed = await lockList(frame);
+      h.assert(listed.includes(username), 'The shared-site locked account is missing');
+      h.assert(deniedFixtures.every(item => !listed.includes(item.username)), 'The scoped list exposed an out-of-site account');
+    });
+
     await s.step('Administration ▸ Unlock Account lists the locked login, unlocks it by name and audits the unlock', async () => {
       frame = await openUnlock();
       const listed = await lockList(frame);
@@ -199,6 +260,38 @@ async function workflow(s) {
         'Unlocking the throwaway changed other lock-list entries');
       await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='unlock' AND content='adminUnlock' AND contentId=${user}
         AND provider_no=${h.sqlString(s.provider)}`, '1', 'The unlock was not audited against the administrator');
+    });
+    await s.step('a replay is harmless and tampered out-of-site unlock POSTs are refused without an audit', async () => {
+      h.assert(submittedUnlock, 'The real unlock form POST was not captured');
+      async function replayFor(target) {
+        const form = Object.fromEntries(new URLSearchParams(submittedUnlock));
+        form.userName = target;
+        return s.context.request.post(h.appUrl(config.baseUrl, '/admin/UnLock'), {
+          form, headers: { Referer: frame.url(), Origin: new URL(config.baseUrl).origin },
+        });
+      }
+      const replay = await replayFor(username);
+      h.assert(replay.status() === 200 && (await replay.text()).includes('Account was not in the lock list'),
+        'The captured form/CSRF replay did not reach the action harmlessly');
+      await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='unlock' AND content='adminUnlock' AND contentId=${user}
+        AND provider_no=${h.sqlString(s.provider)}`, '1', 'Replay wrote another unlock audit');
+      for (const denied of deniedFixtures) {
+        const refusal = await replayFor(denied.username);
+        h.assert(refusal.status() === 403 && (await refusal.text()).includes('You tried to access a resource with insufficient privileges.'),
+          'The tampered POST did not reach the application site-permission refusal');
+        h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE action='unlock' AND content='adminUnlock'
+          AND contentId=${h.sqlString(denied.username)}`) === '0', 'A refused unlock was audited as successful');
+      }
+      // Grant the owned fixtures a shared site solely for cleanup and prove their entries survived
+      // the refusals before unlocking through the same UI. Do not clear the global login registry.
+      for (const denied of deniedFixtures) linkSite(denied.providerNo, sites[0]);
+      frame = await openUnlock();
+      const stillTracked = await lockList(frame);
+      h.assert(deniedFixtures.every(item => stillTracked.includes(item.username)), 'A refused POST removed an out-of-site entry');
+      for (const denied of deniedFixtures) {
+        h.assert(await unlockSelected(frame, denied.username) === `Account unlocked: ${denied.username}`,
+          'The owned out-of-site tracking entry was not released after granting cleanup access');
+      }
     });
   } catch (error) {
     // A failed release is reported with the original failure, not just logged, so a lock left
