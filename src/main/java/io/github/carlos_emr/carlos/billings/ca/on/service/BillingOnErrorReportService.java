@@ -113,7 +113,7 @@ public class BillingOnErrorReportService {
 
     /** Delete every imported row that belongs to the provider/process-date/billing tuple carried by the DTO. */
     public boolean deleteErrorReport(BillingErrorReportDto val) {
-        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date()), Integer.parseInt(val.getBilling_no()));
+        List<BillingONEAReport> bs = billingONEARReportDao.findByProviderOhipNoAndGroupNoAndSpecialtyAndProcessDateAndBillingNo(val.getProviderohip_no(), val.getGroup_no(), val.getSpecialty(), ConversionUtils.fromDateString(val.getProcess_date(), "yyyyMMdd"), Integer.parseInt(val.getBilling_no()));
         for (BillingONEAReport b : bs) {
             billingONEARReportDao.remove(b.getId());
         }
@@ -129,7 +129,7 @@ public class BillingOnErrorReportService {
         b.setProcessDate(ConversionUtils.fromDateString(val.getProcess_date(), "yyyyMMdd"));
         b.setHin(val.getHin());
         b.setVersion(val.getVer());
-        b.setDob(ConversionUtils.fromDateString(val.getDob()));
+        b.setDob(ConversionUtils.fromDateString(val.getDob(), "yyyyMMdd"));
         b.setBillingNo(Integer.parseInt(val.getBilling_no()));
         b.setRefNo(val.getRef_no());
         b.setFacility(val.getFacility());

@@ -252,6 +252,17 @@ async function workflow(s) {
       'The error report page does not show the report and the owned provider');
     h.assert(text.includes(rejectedClaim.id.padStart(8, '0')) && text.includes('A001A'),
       'The error report page does not show the rejected invoice and its code');
+    const persistedDetails = () => sql.rows(`SELECT process_date, dob, RTRIM(exp), hin, ver
+      FROM billing_on_eareport WHERE report_name=${h.sqlString(errorName)}`);
+    const expected = ['2004-05-20', '1980-01-02', 'A3|SYNTHETIC SERVICE CODE REJECTION', owned.hin, 'ZZ'];
+    h.assert(JSON.stringify(persistedDetails()) === JSON.stringify([expected]),
+      'The imported error report lost its dates, following explanation or health-number fields');
+    const replay = await uploadMohFile(s, admin, errorName, buildErrorReport({ owned, claim: raClaims[1] }),
+      '/oscarBilling/DocumentErrorReportUpload');
+    h.assert(replay.status === 200, `Reimporting the same claims error report answered HTTP ${replay.status}`);
+    h.assert(JSON.stringify(persistedDetails()) === JSON.stringify([expected]),
+      'Reimporting the report duplicated or altered the claim error row');
+    h.assert(statuses() === 'B|B', 'Reimporting the error report changed claim statuses');
   });
 
   await s.step('Billing Reconciliation ▸ Report shows the cheque, balance forward, transaction and message', async () => {

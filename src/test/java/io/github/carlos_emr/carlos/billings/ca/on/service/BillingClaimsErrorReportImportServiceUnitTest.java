@@ -35,10 +35,13 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -191,6 +194,43 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         assertThat(persisted.getValue().getBilling_no()).isEqualTo("123456");
         assertThat(persisted.getValue().getClaim_error()).contains("R01");
         assertThat(persisted.getValue().getExp()).startsWith("01|");
+    }
+
+    @Test
+    void shouldPersistExplanationAtSaveTime_whenExplanationFollowsTransaction() throws IOException {
+        List<String> saved = capturePersistedItems();
+        svc.importStream(writeAndOpen(headerLine("1") + "\n" + claimLine() + "\n"
+                + transactionLine() + "\n" + explanationLine() + "\n" + footerLine() + "\n"), "explain.err");
+        assertThat(saved).containsExactly("A001A|01|Explanation row text");
+    }
+
+    @Test
+    void shouldKeepExplanationsWithTheirOwnItem_whenMultipleItemsReuseTheCarrier() throws IOException {
+        List<String> saved = capturePersistedItems();
+        svc.importStream(writeAndOpen(headerLine("1") + "\n" + claimLine() + "\n"
+                + transactionLine() + "\n" + explanationLine() + "\n"
+                + transactionLine().replace("A001A", "A007A") + "\n" + footerLine() + "\n"), "items.err");
+        assertThat(saved).containsExactly("A001A|01|Explanation row text", "A007A|");
+    }
+
+    @Test
+    void shouldPersistTheLastItem_whenTheFileEndsAfterItsExplanation() throws IOException {
+        List<String> saved = capturePersistedItems();
+        svc.importStream(writeAndOpen(headerLine("1") + "\n" + claimLine() + "\n"
+                + transactionLine() + "\n" + explanationLine()), "eof.err");
+        assertThat(saved).containsExactly("A001A|01|Explanation row text");
+    }
+
+    private List<String> capturePersistedItems() {
+        List<String> saved = new ArrayList<>();
+        // Snapshot at the call: retaining the mutable DTO in an ArgumentCaptor can
+        // accidentally observe a later HX8 mutation that never reached persistence.
+        doAnswer(call -> {
+            BillingErrorReportDto row = call.getArgument(0);
+            saved.add(row.getCode() + "|" + row.getExp().stripTrailing());
+            return 1;
+        }).when(erRepObj).addErrorReportRecord(org.mockito.ArgumentMatchers.any(BillingErrorReportDto.class));
+        return saved;
     }
 
     // ---- fixtures --------------------------------------------------------

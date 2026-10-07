@@ -90,6 +90,7 @@ public class BillingClaimsErrorReportImportService {
 
         BillingErrorReportDto erObj = null;
         String claimError = "";
+        boolean pendingTransaction = false;
         try (InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {
@@ -105,6 +106,12 @@ public class BillingClaimsErrorReportImportService {
                     throw new BillingFileImportException(
                             IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed short line)",
                             new IllegalArgumentException("claims-error-report line shorter than 3 characters"));
+                }
+                // HX8 explanations belong to the preceding HXT. Persist that item only
+                // when its explanation records are complete, before reusing the DTO.
+                if (pendingTransaction && !"8".equals(headerCount)) {
+                    persistCompletedItem(erObj, filename);
+                    pendingTransaction = false;
                 }
                 if (headerCount.compareTo("1") == 0) {
                     erObj = new BillingErrorReportDto();
@@ -233,11 +240,7 @@ public class BillingClaimsErrorReportImportService {
                 }
 
                 if (headerCount.compareTo("T") == 0) {
-                    // save the record
-                    erObj.setReport_name(filename);
-                    erObj.setStatus("N");
-                    erObj.setComment("");
-                    erRepObj.addErrorReportRecord(erObj);
+                    pendingTransaction = true;
                 }
 
                 if (headerCount.compareTo("9") == 0) {
@@ -250,6 +253,7 @@ public class BillingClaimsErrorReportImportService {
                 }
 
             }
+            if (pendingTransaction) persistCompletedItem(erObj, filename);
         } catch (IOException ioe) {
             // Throw so the surrounding @Transactional rolls back every per-line
             // delete/insert performed before this point — leaving partial
@@ -264,6 +268,13 @@ public class BillingClaimsErrorReportImportService {
             throw new BillingFileImportException(
                     IMPORT_FAILURE_MSG_PREFIX + filename + " (invalid amount)", validationFailure);
         }
+    }
+
+    private void persistCompletedItem(BillingErrorReportDto record, String filename) {
+        record.setReport_name(filename);
+        record.setStatus("N");
+        record.setComment("");
+        erRepObj.addErrorReportRecord(record);
     }
 
     private static void requireHeader(BillingErrorReportDto erObj, String filename, String headerCount) {
