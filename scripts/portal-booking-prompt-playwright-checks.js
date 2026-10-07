@@ -14,7 +14,7 @@ const labels = Object.fromEntries(fs.readFileSync(path.join(root, 'src/main/reso
     const split = line.indexOf('='); return [line.slice(0, split), line.slice(split + 1)];
   }));
 const escape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
-function markup(appointment, readOnly = false) {
+function markup(appointment, readOnly = false, lateCsrf = false) {
   let html = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/portalBookingPrompt.jsp'), 'utf8');
   html = html.slice(html.indexOf('<section'), html.indexOf('</section>') + 10);
   if (readOnly) {
@@ -27,10 +27,18 @@ function markup(appointment, readOnly = false) {
     .replace(/data-patient-input="[^\n]*"/, `data-patient-input="${appointment ? '#demographic_no' : ''}"`)
     .replace(/data-endpoint="[^\n]*"/, 'data-endpoint="/demographic/portalBookingPrompt"')
     .replace(/<%[\s\S]*?%>/g, '');
+  // lateCsrf: like csrf-token.jspf, the token arrives after DOMContentLoaded, and the panel script is
+  // deferred as on the real pages, so it runs before that.
+  const csrf = lateCsrf
+    ? '<input type="hidden" name="CSRF-TOKEN" value=""><script>window.csrfTokenReady = null;'
+      + 'document.addEventListener("DOMContentLoaded", function () { window.csrfTokenReady = new Promise(function (resolve) {'
+      + 'setTimeout(function () { document.querySelector(\'input[name="CSRF-TOKEN"]\').value = "synthetic-csrf"; resolve(); }, 300); }); });'
+      + '</script>'
+    : '<input type="hidden" name="CSRF-TOKEN" value="synthetic-csrf">';
   return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-    + '<link rel="stylesheet" href="/panel.css"><input type="hidden" name="CSRF-TOKEN" value="synthetic-csrf">'
+    + '<link rel="stylesheet" href="/panel.css">' + csrf
     + (appointment ? '<input id="demographic_no" value="123" readonly><input id="keyword" value="Synthetic Patient">' : '')
-    + html + '<script src="/panel.js"></script>';
+    + html + (lateCsrf ? '<script defer src="/panel.js"></script>' : '<script src="/panel.js"></script>');
 }
 function prompt(id = 7, state = 'sent') {
   return { id, state, urgency: 'routine', appointmentType: 'follow_up', createdAt: '2026-10-01T12:00:00Z',
@@ -38,7 +46,7 @@ function prompt(id = 7, state = 'sent') {
 }
 async function main() {
   let active = true, readOnly = false, outage = false, loseCreate = false, loseWithdraw = false;
-  let malformed = false;
+  let malformed = false, refuseCreate = false;
   let prompts = [], notifications = 0, calls = [];
   const operations = new Map();
   const server = http.createServer(async (req, res) => {
@@ -47,8 +55,9 @@ async function main() {
       res.setHeader('Content-Type', type === 'js' ? 'text/javascript' : 'text/css');
       res.end(fs.readFileSync(path.join(root, `src/main/webapp/${type}/portalBookingPrompt.${type}`))); return;
     }
-    if (req.url === '/master' || req.url === '/appointment') {
-      res.setHeader('Content-Type', 'text/html'); res.end(markup(req.url === '/appointment', readOnly)); return;
+    if (req.url === '/master' || req.url === '/appointment' || req.url === '/master-late-csrf') {
+      res.setHeader('Content-Type', 'text/html');
+      res.end(markup(req.url === '/appointment', readOnly, req.url === '/master-late-csrf')); return;
     }
     if (req.url !== '/demographic/portalBookingPrompt') { res.writeHead(404).end(); return; }
     let raw = ''; for await (const chunk of req) { raw += chunk; }
@@ -62,6 +71,7 @@ async function main() {
       body = { ok: true, accountActive: active, mayCreate: !readOnly, mayWithdraw: !readOnly, prompts };
       if (malformed) { delete body.accountActive; }
     } else if (params.method === 'create') {
+      if (refuseCreate) { res.writeHead(404).end('{"ok":false,"code":"portal_account_inactive"}'); return; }
       const created = !operations.has(params.operationId);
       if (created) {
         const item = { ...prompt(), urgency: params.urgency, appointmentType: params.appointmentType };
@@ -127,6 +137,33 @@ async function main() {
     outage = false; malformed = true; await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true); malformed = false;
     console.log('PASS missing eligibility fails closed');
+    loseCreate = true; await page.reload(); await waitReady(); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    active = false; await page.reload();
+    await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
+      return text.includes('could not be confirmed') && text.includes('not active'); });
+    assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
+    console.log('PASS unconfirmed request with an inactive account shows both');
+    active = true; outage = true; await page.reload();
+    await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
+      return text.includes('could not be confirmed') && text.includes('could not be checked'); });
+    console.log('PASS unconfirmed request during an outage shows both');
+    outage = false; const notified = notifications; await page.reload(); await waitReady();
+    assert.match(await send.innerText(), /same request/); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    assert.equal(notifications, notified); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    console.log('PASS unconfirmed request retried once the portal is back, no second notice');
+    await page.reload(); await waitReady(); refuseCreate = true; active = false; await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('not active'));
+    assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
+    refuseCreate = false; active = true;
+    console.log('PASS a refused create drops its retry identity and shows the account state');
+    await page.goto(url + '/master-late-csrf');
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
+    await waitReady(); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    console.log('PASS waits for the page CSRF bootstrap on first load');
     readOnly = true; prompts = [prompt()]; await page.reload();
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Unread'));
     assert.equal(await send.count(), 0); assert.equal(await page.locator('[data-role="prompts"] button').count(), 0); readOnly = false;
@@ -157,7 +194,7 @@ async function main() {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 13 browser scenarios; no page errors');
+    console.log('PASS all 18 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
