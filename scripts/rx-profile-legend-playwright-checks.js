@@ -58,7 +58,7 @@ async function workflow(s) {
       const deadline = Date.now() + 15000;
       while (completed.length < 2 && Date.now() < deadline) await rx.waitForTimeout(50);
       h.assert(completed.length === 2 && requests.length === 2, 'Both filtered profile requests must complete');
-      await rx.waitForTimeout(200);
+      await rx.waitForLoadState('networkidle');
       const headings = await rx.locator('#drugProfile h4').allTextContents();
       h.assert(JSON.stringify(headings.map(value => value.trim())) === JSON.stringify(['Long Term Meds','Acute']),
         `Combined profile lost or reordered sections: ${JSON.stringify(headings)}`);
