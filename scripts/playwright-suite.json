@@ -7767,6 +7767,19 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "rest-birth-date",
+      "script": "scripts/rest-birth-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
     }
   ]
 }

@@ -480,7 +480,8 @@
     "test:xss-poison-admin-reports-system-playwright": "node scripts/xss-poison-admin-reports-system-playwright-checks.js",
     "test:popup-opener-document-add-playwright": "node scripts/popup-opener-document-add-playwright-checks.js",
     "test:contact-editor-playwright": "node scripts/contact-editor-playwright-checks.js",
-    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js"
+    "test:rourke-measurement-playwright": "node scripts/rourke-measurement-playwright-checks.js",
+    "test:rest-birth-date-playwright": "node scripts/rest-birth-date-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
