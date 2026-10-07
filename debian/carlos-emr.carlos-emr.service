@@ -39,6 +39,9 @@ UMask=0027
 EnvironmentFile=-/etc/carlos-emr/carlos-emr.env
 Environment=LANG=C.UTF-8
 Environment=LC_ALL=C.UTF-8
+# The outbound email archive keyring (#3448): created by the application on first
+# start in the directory made writable below, and backed up with /etc/carlos-emr.
+Environment=CARLOS_OUTBOUND_EMAIL_ARCHIVE_KEYRING_FILE=/etc/carlos-emr/archive-keyring/outbound-email-archive.keyring
 # No HOME override: the JVM reads user.home from passwd, and this unit no longer
 # launches a browser (the render Chromium runs under carlos-emr-chromedriver as
 # carlos-render with its own writable HOME). The old HOME=/var/lib/carlos-emr/browser
@@ -91,8 +94,13 @@ TimeoutStopSec=120
 # --- sandboxing -------------------------------------------------------------
 # The application handles PHI and parses untrusted input from the internet
 # (through the WAF). Everything below narrows what a successful code-execution
-# bug can reach. The four ReadWritePaths are the only writable locations:
-# Tomcat's work/temp/logs and the document store.
+# bug can reach. The ReadWritePaths are the only writable locations:
+# Tomcat's work/temp/logs, the document store, and the one directory under /etc
+# that holds the outbound email archive keyring (0700 carlos). The keyring is
+# written there, not under /var/lib, so that a copy of the document store alone
+# never carries the key that decrypts it. The nightly `files` snapshot holds
+# both directories (the restic repository is itself encrypted); README.Debian
+# asks for a separate escrowed copy of the keyring as well.
 NoNewPrivileges=yes
 CapabilityBoundingSet=
 AmbientCapabilities=
@@ -126,7 +134,7 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallErrorNumber=EPERM
-ReadWritePaths=/var/lib/carlos-emr /var/log/carlos-emr /run/carlos-emr
+ReadWritePaths=/var/lib/carlos-emr /var/log/carlos-emr /run/carlos-emr -/etc/carlos-emr/archive-keyring
 
 # A large webapp with a 200-connection Tomcat pool and a JDBC pool opens a lot
 # of descriptors; the 1024 default is not enough and the failure looks like

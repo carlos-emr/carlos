@@ -109,6 +109,8 @@ inputs, including how to skip the Maven compile with a prebuilt WAR).
   /etc/carlos-emr/tomcat/                Tomcat configuration (conffiles)
   /etc/carlos-emr/modsecurity/           WAF policy and exclusions (conffiles)
   /etc/carlos-emr/tls/                   the served certificate and key
+  /etc/carlos-emr/archive-keyring/       the keys that decrypt archived patient
+                                         email (created on first start; see 7.)
   /etc/nginx/sites-available/carlos-emr  the front door (conffile)
   /etc/mysql/mariadb.conf.d/60-carlos-emr.cnf   MariaDB settings (conffile)
 
@@ -550,7 +552,12 @@ consider the deployment finished, and copy RESTIC_PASSWORD somewhere off this
 host. Without that passphrase every backup ever written is permanently
 unreadable. The same applies to `encryption.util.secret.key` in
 carlos.properties: it decrypts stored third-party credentials, it is inside the
-backup, and it must also be escrowed separately.
+backup, and it must also be escrowed separately. The same again for
+/etc/carlos-emr/archive-keyring/outbound-email-archive.keyring, which CARLOS
+creates on first start: it decrypts the archived copy of every email sent to
+a patient, and without it that archive is permanently unreadable. It is in
+the `files` snapshot; escrow a copy off this host too, and again after every
+key rotation (docs/outbound-email-archive.md in the source tree).
 
 Set CARLOS_BACKUP_ALERT_WEBHOOK or CARLOS_BACKUP_ALERT_EMAIL. A backup failure
 nobody hears about is the same as no backup.
@@ -596,6 +603,12 @@ sequence has been exercised end to end (DROP DATABASE and back):
   #    ...then set that exact line in /etc/carlos-emr/carlos.properties
   #    (replacing the freshly-generated one) and run:
   #      sudo carlos-ctl init-config
+  #    Restore the outbound email archive keyring too, BEFORE CARLOS starts.
+  #    Without it CARLOS refuses to start once encrypted archives exist; do not
+  #    get past that with the acknowledge_loss override while a backup exists:
+  sudo install -m 0600 -o carlos -g carlos \
+      /var/backups/carlos-emr/dr-files/etc/carlos-emr/archive-keyring/outbound-email-archive.keyring \
+      /etc/carlos-emr/archive-keyring/outbound-email-archive.keyring
   # 1. The newest dump. The target is OUTSIDE work/ deliberately: work/ is
   #    wiped by every backup and drill run's cleanup, and a restore can
   #    outlive one of those even with the timers stopped (a manual run, a
