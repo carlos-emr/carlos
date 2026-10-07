@@ -30,6 +30,11 @@ the route rather than a gap in coverage: either it is dead and should be removed
 under the cleanup policy in `CLAUDE.md`, or its entry point was lost and users
 have silently had a feature taken away.
 
+Update for #3965: the unreferenced `report/GenerateSpreadsheet` action and route
+were removed. `patient-retired-spreadsheet` checks refusal of authenticated GET and
+CSRF-valid POST requests. This resolves only the spreadsheet portion of finding 1;
+the original finding below is retained as historical evidence.
+
 | # | Route | Evidence | Status |
 |---|---|---|---|
 | 1 | `report/ViewGenerateLetters`, and the letters / envelopes / spreadsheet generation behind it (`report/GenerateLetters`, `GenerateEnvelopes`, `GenerateSpreadsheet`) | `grep -rl` across `src/main/webapp` and `src/main/java` for `.jsp`/`.jspf`/`.js`/`.java`/`.xml` returns **0** references outside the JSP itself and `struts-report.xml`. `report/GenerateLetters.jsp` exists and references `ViewManageLetters`, but nothing links to the page that would start the flow. | `needs-live-check` |

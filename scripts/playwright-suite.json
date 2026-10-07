@@ -2081,6 +2081,19 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-retired-spreadsheet",
+      "script": "scripts/patient-retired-spreadsheet-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "notes": "Uses an owned patient to verify the retired spreadsheet route returns 404 for authenticated GET and CSRF-valid POST without exporting data."
+    },
+    {
       "name": "patient-letters-envelopes",
       "script": "scripts/patient-letters-envelopes-playwright-checks.js",
       "tiers": [
