@@ -13,12 +13,10 @@
  * lists the throwaway, the unlock confirms by name, removes it from the list and writes the
  * 'unlock'/'adminUnlock' audit row; the throwaway then logs in to the schedule (audited 'log in').
  * The shared test account is never submitted on the login form: all probes use a second browser
- * context and the throwaway username only. If the lockout turns out to be keyed by address
- * (login_lock unset), the entry this run created is unlocked before the check fails. Any failure
- * from the first probe through the unlock step first releases this run's lock (the username and
- * the client address its own failures were audited from) with a direct POST from the admin page,
- * because the Unlock page itself can answer 500 and the browser is closed before cleanups run;
- * the release is then proven by a correct-password attempt that must not meet the lockout.
+ * context and owned throwaway usernames only. This check requires username-based locking
+ * (login_lock=true) and the test administrator's site-access privacy permission. Any failure
+ * after probing releases only these owned usernames before the browser closes. Cleanup never
+ * unlocks a client address or clears the global login registry.
  * Site coverage: two out-of-site tracked accounts remain hidden, tampered POSTs return the
  * application permission refusal without an unlock audit, and the tracked entries survive.
  * Fixtures: three throwaway provider/security/secUserRole rows (lib/throwaway-login-fixture.js)
@@ -127,14 +125,11 @@ async function workflow(s) {
   // UnLock2Action removes the entry on a POST before it renders the page, so this works even
   // when rendering the Unlock page fails. The XHR goes through the admin page, where CSRFGuard's
   // hijacked XMLHttpRequest adds the session token. A key that is not locked is a no-op.
-  const logMark = sql.value('SELECT IFNULL(MAX(id), 0) FROM log');
   async function releaseOwnLocks() {
-    const addresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
-      .map(row => row[0]).filter(ip => ip && ip !== 'NULL');
     const url = h.appUrl(config.baseUrl, '/admin/UnLock');
     // Restore access only to this run's out-of-site fixtures before releasing their tracked attempts.
     for (const denied of deniedFixtures) linkSite(denied.providerNo, sites[0]);
-    for (const key of [username, ...deniedFixtures.map(item => item.username), ...addresses]) {
+    for (const key of [username, ...deniedFixtures.map(item => item.username)]) {
       const status = await admin.evaluate(({ url, key }) => new Promise(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', url);
@@ -142,16 +137,11 @@ async function workflow(s) {
         xhr.onloadend = () => resolve(xhr.status);
         xhr.send(new URLSearchParams({ userName: key, submit: 'Unlock' }).toString());
       }), { url, key });
-      console.log(`  Release POST for ${key === username ? 'the throwaway username' : 'this run\'s client address'} answered HTTP ${status}`);
-    }
-    // Address unlocks are audited against the address, outside the fixture's owned-log predicate.
-    if (addresses.length) {
-      sql.execute(`DELETE FROM log WHERE id > ${logMark} AND action='unlock' AND content='adminUnlock'
-        AND provider_no=${h.sqlString(s.provider)} AND contentId IN (${addresses.map(h.sqlString).join(',')})`);
+      console.log(`  Release POST for an owned throwaway username answered HTTP ${status}`);
     }
     // The status alone proves nothing (a CSRF or privilege refusal also completes), so prove the
-    // release the way the lock is observed: the throwaway's correct password from this runner must
-    // no longer meet the lockout message, whether the lock was keyed by username or by address.
+    // release the way the lock is observed: the throwaway's correct password must no longer
+    // meet the lockout message. A misconfigured address-based lock is reported, never cleared.
     const verify = await probe(config.testPassword);
     await verify.page.close();
     h.assert(verify.outcome !== 'locked', 'The lock is still in place after the release POSTs; this runner or the'
@@ -239,19 +229,8 @@ async function workflow(s) {
       frame = await openUnlock();
       const listed = await lockList(frame);
       const added = listed.filter(entry => !before.includes(entry));
-      if (!added.includes(username)) {
-        // The lock is keyed by something other than the username (login_lock is not true, so
-        // LoginCheckLogin tracked the client address). Release only the address this run's own
-        // audited failures came from (LoginCheckLoginBean logs the same ip it locks), so later
-        // checks can still log in from this runner; any other new entry is left untouched.
-        const ownAddresses = sql.rows(`SELECT DISTINCT ip FROM log WHERE action='failed' AND content='login' AND contentId=${user}`)
-          .map(row => row[0]);
-        const released = added.filter(entry => ownAddresses.includes(entry));
-        for (const entry of released) await unlockSelected(frame, entry);
-        h.assert(false, `The lockout is not keyed by username: this run added ${added.length} non-username entr(y/ies) to the lock list`
-          + ` and unlocked the ${released.length} matching its own audited client address; set login_lock=true in carlos.properties`
-          + ' for the username lockout this check covers');
-      }
+      h.assert(added.includes(username), 'The owned account is absent from the shared-site unlock list;'
+        + ' this workflow requires login_lock=true and a shared site');
       const message = await unlockSelected(frame, username);
       h.assert(message === `Account unlocked: ${username}`, 'The unlock did not confirm the throwaway by name');
       const after = await lockList(frame);
@@ -261,7 +240,7 @@ async function workflow(s) {
       await expectValue(sql, `SELECT COUNT(*) FROM log WHERE action='unlock' AND content='adminUnlock' AND contentId=${user}
         AND provider_no=${h.sqlString(s.provider)}`, '1', 'The unlock was not audited against the administrator');
     });
-    await s.step('a replay is harmless and tampered out-of-site unlock POSTs are refused without an audit', async () => {
+    await s.step('a replay is harmless and tampered out-of-site unlock POSTs are refused without an unlock audit', async () => {
       h.assert(submittedUnlock, 'The real unlock form POST was not captured');
       async function replayFor(target) {
         const form = Object.fromEntries(new URLSearchParams(submittedUnlock));
