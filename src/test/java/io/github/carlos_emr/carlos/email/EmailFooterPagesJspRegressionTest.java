@@ -108,7 +108,7 @@ class EmailFooterPagesJspRegressionTest {
 
     @Test
     @DisplayName("should word the clinic footer section by the clinic-change rule and show every save outcome")
-    void shouldWordIntroByRule_andShowSaveOutcomes() throws IOException {
+    void shouldShowIntroAndSaveOutcomes_forClinicFooterRule() throws IOException {
         String jsp = Files.readString(CONFIGURE_EMAIL_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
@@ -116,7 +116,8 @@ class EmailFooterPagesJspRegressionTest {
                 .contains("<c:otherwise><fmt:message key=\"admin.configureEmail.footer.introKeep\"/></c:otherwise>")
                 .contains("<fmt:message key=\"admin.configureEmail.footer.changedSinceShown\"/>")
                 .contains("<fmt:message key=\"email.footer.saveConflict\"/>")
-                .contains("<fmt:message key=\"admin.configureEmail.footer.tooLong\"/>");
+                .contains("<fmt:message key=\"admin.configureEmail.footer.tooLong\"/>")
+                .contains("<fmt:message key=\"admin.configureEmail.footer.unchanged\"/>");
     }
 
     @Test

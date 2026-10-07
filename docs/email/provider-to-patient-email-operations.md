@@ -150,17 +150,20 @@ Configure Email page words its explanation to match the setting.
 
 Either way, the notice stays until the user answers it or saves their footer,
 and the administrator is not asked to confirm. Saving the clinic footer without
-editing it changes nothing. If someone else changed it after the page was
-opened, nothing is saved: the page shows the current footer and keeps the
-administrator's text in the box to check and save again.
+editing it changes nothing, and the page says so. If someone else changed it
+after the page was opened, nothing is saved: the page shows the current footer
+and keeps the administrator's text in the box to check and save again.
 
 Footers are stored in the `property` table: the clinic footer as
 `email_footer_clinic_default` with no provider, each user's as `email_footer`,
 and a pending notice as `email_footer_clinic_change`. Saves are POST only,
 refuse more than 2,000 characters, and are audited (who and when, not the
-text; a clinic change also records how many users were told). Two saves at the
-same moment can collide; the second is rolled back and the page asks the user to
-try again.
+text; a clinic change also records how many users were told). A clinic save
+locks the footers it reads, so a save at the same moment waits for it and then
+sees its result. A save that still collides (a deadlock, or a footer the other
+save removed) is rolled back, and the page asks the user to try again. Text the
+page would show as a space (control characters pasted from a word processor) is
+stored as a space.
 
 ## Local Development
 

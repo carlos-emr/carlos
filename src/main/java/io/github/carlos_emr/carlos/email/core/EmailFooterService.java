@@ -26,11 +26,17 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
+
+import jakarta.persistence.PersistenceException;
 
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.orm.jpa.vendor.HibernateJpaDialect;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,8 +58,11 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Saves run at READ COMMITTED, as {@code PatientConsentManagerImpl}'s do: under MariaDB's
  * default REPEATABLE READ with {@code innodb_snapshot_isolation} on (the default from 11.6), a save
  * that read rows another save then changed fails with error 1020 instead of reading the committed
- * rows. Two saves that still collide (both removing the same row, or a deadlock) fail with a
- * {@code ConcurrencyFailureException}, which the pages turn into "please try again".</p>
+ * rows. A clinic save locks the clinic row and the users' footers it reads, so a second save waits
+ * and then sees what the first one committed. Saves that still collide (a deadlock, or a row the
+ * other save removed) fail with a Spring {@code ConcurrencyFailureException}, whether the failure
+ * comes at commit or from a flush partway through, and the pages turn it into "please try
+ * again".</p>
  *
  * @since 2026-10-07
  */
@@ -76,6 +85,18 @@ public class EmailFooterService {
      * admin. Set to false to keep users' own footers on a clinic change and only tell them.
      */
     static final boolean REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE = true;
+
+    /**
+     * Characters the pages' encoder (OWASP {@code forHtmlContent}) shows as a space. Stored as a
+     * space, so a footer saved back unedited stays unedited: C0 controls other than tab and line
+     * breaks, DEL and C1 controls other than NEL, Unicode non-characters, and lone surrogates.
+     */
+    private static final Pattern SHOWN_AS_SPACE = Pattern.compile(
+            "[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F-\\x84\\x86-\\x9F\\uFDD0-\\uFDEF\\uFFFE\\uFFFF]"
+                    + "|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]");
+
+    /** Turns JPA and Hibernate lock and stale-row errors into Spring's, as a commit would. */
+    private static final HibernateJpaDialect JPA_EXCEPTIONS = new HibernateJpaDialect();
 
     private final UserPropertyDAO userPropertyDao;
     private final boolean replaceOwnFooters;
@@ -205,8 +226,11 @@ public class EmailFooterService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void saveOwnFooter(String providerNo, String footer) {
         String normalised = withinLimit(footer);
-        writeRow(providerNo, USER_FOOTER, normalised);
-        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+        translated(() -> {
+            writeRow(providerNo, USER_FOOTER, normalised);
+            deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+            return null;
+        });
     }
 
     /**
@@ -216,8 +240,11 @@ public class EmailFooterService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void useClinicDefault(String providerNo) {
-        deleteRows(providerNo, USER_FOOTER);
-        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+        translated(() -> {
+            deleteRows(providerNo, USER_FOOTER);
+            deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+            return null;
+        });
     }
 
     /**
@@ -228,13 +255,15 @@ public class EmailFooterService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean restorePreviousFooter(String providerNo) {
-        UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
-        if (notice == null) {
-            return false;
-        }
-        writeRow(providerNo, USER_FOOTER, nullToEmpty(notice.getValue()));
-        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
-        return true;
+        return translated(() -> {
+            UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
+            if (notice == null) {
+                return false;
+            }
+            writeRow(providerNo, USER_FOOTER, nullToEmpty(notice.getValue()));
+            deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+            return true;
+        });
     }
 
     /**
@@ -245,9 +274,11 @@ public class EmailFooterService {
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean dismissClinicChangeNotice(String providerNo) {
-        boolean hadNotice = firstRow(providerNo, CLINIC_CHANGE_NOTICE) != null;
-        deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
-        return hadNotice;
+        return translated(() -> {
+            boolean hadNotice = firstRow(providerNo, CLINIC_CHANGE_NOTICE) != null;
+            deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
+            return hadNotice;
+        });
     }
 
     /**
@@ -276,7 +307,12 @@ public class EmailFooterService {
     public ClinicDefaultSaved saveClinicDefault(String footer, String shownFingerprint) {
         Objects.requireNonNull(shownFingerprint, "shownFingerprint");
         String normalised = withinLimit(footer);
-        List<UserProperty> clinicRows = userPropertyDao.findClinicProperties(CLINIC_DEFAULT);
+        return translated(() -> applyClinicDefault(normalised, shownFingerprint));
+    }
+
+    private ClinicDefaultSaved applyClinicDefault(String normalised, String shownFingerprint) {
+        // Locked, so a second save waits here and then compares against what this one commits.
+        List<UserProperty> clinicRows = userPropertyDao.lockClinicProperties(CLINIC_DEFAULT);
         UserProperty clinic = clinicRows.isEmpty() ? null : clinicRows.get(0);
         String previous = clinic == null ? "" : normalise(clinic.getValue());
         // Unedited: the text the page showed, whatever is stored now. Then the text in force,
@@ -297,7 +333,8 @@ public class EmailFooterService {
         clinicRows.stream().skip(1).forEach(userPropertyDao::delete);
 
         int noticed = 0;
-        for (UserProperty own : userPropertyDao.findProviderProperties(USER_FOOTER)) {
+        // Locked too: a user's own save waits for this one rather than losing to it unseen.
+        for (UserProperty own : userPropertyDao.lockProviderProperties(USER_FOOTER)) {
             String text = normalise(own.getValue());
             if (text.equals(normalised)) {
                 // Already the new default. An empty one ("no footer") stays the user's own
@@ -321,6 +358,20 @@ public class EmailFooterService {
             noticed++;
         }
         return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED, noticed);
+    }
+
+    /**
+     * Runs a save's work, turning a JPA or Hibernate lock or stale-row error from a flush partway
+     * through into Spring's {@code ConcurrencyFailureException} family, as a failure at commit
+     * already is. Nothing registers Spring's repository exception translation for the DAOs.
+     */
+    private static <T> T translated(Supplier<T> work) {
+        try {
+            return work.get();
+        } catch (PersistenceException e) {
+            DataAccessException translated = JPA_EXCEPTIONS.translateExceptionIfPossible(e);
+            throw translated != null ? translated : e;
+        }
     }
 
     private UserProperty firstClinicRow() {
@@ -370,12 +421,17 @@ public class EmailFooterService {
     }
 
     /**
-     * Line breaks as one character each, as the send action counts them, and no surrounding
-     * whitespace: sending drops it anyway, and a browser drops a textarea's first line break, so
-     * keeping it would make an unchanged footer look changed on its next save.
+     * Line breaks as one character each, as the send action counts them, characters the page
+     * would show as a space stored as one, and no surrounding whitespace: sending drops it anyway,
+     * and a browser drops a textarea's first line break. Each would otherwise make an unchanged
+     * footer look changed on its next save.
      */
     private static String normalise(String footer) {
-        return footer == null ? "" : footer.replace("\r\n", "\n").replace('\r', '\n').strip();
+        if (footer == null) {
+            return "";
+        }
+        String lines = footer.replace("\r\n", "\n").replace('\r', '\n');
+        return SHOWN_AS_SPACE.matcher(lines).replaceAll(" ").strip();
     }
 
     private static String nullToEmpty(String value) {

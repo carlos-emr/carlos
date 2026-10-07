@@ -106,6 +106,10 @@
                 <div class="alert alert-success" role="status" id="clinicFooterSaved">
                     <fmt:message key="admin.configureEmail.footer.saved"/></div>
             </c:if>
+            <c:if test="${param.clinicFooterUnchanged eq 'true'}">
+                <div class="alert alert-info" role="status" id="clinicFooterUnchanged">
+                    <fmt:message key="admin.configureEmail.footer.unchanged"/></div>
+            </c:if>
             <c:if test="${clinicFooterTooLong}">
                 <div class="alert alert-danger" role="alert" id="clinicFooterTooLong">
                     <fmt:message key="admin.configureEmail.footer.tooLong"/></div>

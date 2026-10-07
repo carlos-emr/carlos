@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
@@ -132,9 +133,32 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
 
     @Override
     public List<UserProperty> findClinicProperties(String name) {
+        return clinicRows(name, false);
+    }
+
+    @Override
+    public List<UserProperty> lockClinicProperties(String name) {
+        return clinicRows(name, true);
+    }
+
+    @Override
+    public List<UserProperty> lockProviderProperties(String name) {
+        Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
+                + " and p.providerNo is not null and p.providerNo <> '' order by p.id");
+        query.setParameter(1, name);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        @SuppressWarnings("unchecked")
+        List<UserProperty> list = query.getResultList();
+        return list;
+    }
+
+    private List<UserProperty> clinicRows(String name, boolean lock) {
         Query query = entityManager.createQuery("select p from UserProperty p where p.name = ?1"
                 + " and (p.providerNo is null or p.providerNo = '') order by p.id");
         query.setParameter(1, name);
+        if (lock) {
+            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        }
         @SuppressWarnings("unchecked")
         List<UserProperty> list = query.getResultList();
         return list;

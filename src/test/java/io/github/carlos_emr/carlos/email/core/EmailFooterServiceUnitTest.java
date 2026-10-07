@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.email.core;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.OptimisticLockException;
+
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,12 +33,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.ConcurrencyFailureException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -71,8 +75,13 @@ class EmailFooterServiceUnitTest {
     }
 
     private void clinicDefault(String text) {
-        when(dao.findClinicProperties(EmailFooterService.CLINIC_DEFAULT))
-                .thenReturn(List.of(property(null, EmailFooterService.CLINIC_DEFAULT, text)));
+        clinicRows(property(null, EmailFooterService.CLINIC_DEFAULT, text));
+    }
+
+    /** The clinic rows as a page reads them and as a save, which locks them, reads them. */
+    private void clinicRows(UserProperty... rows) {
+        when(dao.findClinicProperties(EmailFooterService.CLINIC_DEFAULT)).thenReturn(List.of(rows));
+        when(dao.lockClinicProperties(EmailFooterService.CLINIC_DEFAULT)).thenReturn(List.of(rows));
     }
 
     /** Saves as the Configure Email page does when it showed the footer stored now. */
@@ -151,12 +160,12 @@ class EmailFooterServiceUnitTest {
         assertThat(saveClinic(service, "\nRiverside Clinic\nBook online\n").changed()).isFalse();
 
         verify(dao, never()).saveProp(any(UserProperty.class));
-        verify(dao, never()).findProviderProperties(anyString());
+        verify(dao, never()).lockProviderProperties(anyString());
 
         UserPropertyDAO emptyDao = mock(UserPropertyDAO.class);
         assertThat(saveClinic(new EmailFooterService(emptyDao, true), "").changed()).isFalse();
         verify(emptyDao, never()).saveProp(any(UserProperty.class));
-        verify(emptyDao, never()).findProviderProperties(anyString());
+        verify(emptyDao, never()).lockProviderProperties(anyString());
     }
 
     @Test
@@ -168,7 +177,7 @@ class EmailFooterServiceUnitTest {
         UserProperty isNewDefault = property("103", EmailFooterService.USER_FOOTER, "New clinic footer");
         UserProperty customWithNotice = property("104", EmailFooterService.USER_FOOTER, "Dr D second footer");
         UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER))
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER))
                 .thenReturn(List.of(custom, wasOldDefault, isNewDefault, customWithNotice, noFooter));
         ownRows("104", EmailFooterService.CLINIC_CHANGE_NOTICE,
                 property("104", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr D first footer"));
@@ -199,7 +208,7 @@ class EmailFooterServiceUnitTest {
     @DisplayName("should tell a user who chose no footer when the first clinic footer is set")
     void shouldNoticeEmptyOwnFooter_whenNoOldDefault() {
         UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
 
         assertThat(saveClinic(service, "Riverside Clinic").noticed()).isEqualTo(1);
 
@@ -212,7 +221,7 @@ class EmailFooterServiceUnitTest {
     void shouldKeepEmptyOwnFooter_whenClinicFooterCleared() {
         clinicDefault("Riverside Clinic");
         UserProperty noFooter = property("105", EmailFooterService.USER_FOOTER, "");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(noFooter));
 
         EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "");
 
@@ -229,7 +238,7 @@ class EmailFooterServiceUnitTest {
         clinicDefault("Old clinic footer");
         UserProperty custom = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
         UserProperty wasOldDefault = property("102", EmailFooterService.USER_FOOTER, "Old clinic footer");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom, wasOldDefault));
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom, wasOldDefault));
 
         assertThat(saveClinic(keeping, "New clinic footer").noticed()).isEqualTo(2);
 
@@ -246,7 +255,7 @@ class EmailFooterServiceUnitTest {
         // Administrator A opened the page showing "Old"; administrator B then saved "New".
         clinicDefault("New clinic footer");
         UserProperty custom = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
-        when(dao.findProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom));
+        when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom));
 
         EmailFooterService.ClinicDefaultSaved saved =
                 service.saveClinicDefault("Old clinic footer\r\n", EmailFooterService.fingerprint("Old clinic footer"));
@@ -255,7 +264,7 @@ class EmailFooterServiceUnitTest {
         assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).delete(any(UserProperty.class));
-        verify(dao, never()).findProviderProperties(anyString());
+        verify(dao, never()).lockProviderProperties(anyString());
     }
 
     @Test
@@ -270,7 +279,48 @@ class EmailFooterServiceUnitTest {
         assertThat(saved.changed()).isFalse();
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).delete(any(UserProperty.class));
-        verify(dao, never()).findProviderProperties(anyString());
+        verify(dao, never()).lockProviderProperties(anyString());
+    }
+
+    @Test
+    @DisplayName("should change nothing when a stale page is edited to exactly the footer someone else saved")
+    void shouldChangeNothing_whenStalePageEditedToStoredFooter() {
+        clinicDefault("New clinic footer");
+
+        EmailFooterService.ClinicDefaultSaved saved =
+                service.saveClinicDefault("New clinic footer", EmailFooterService.fingerprint("Old clinic footer"));
+
+        assertThat(saved.outcome()).isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).lockProviderProperties(anyString());
+    }
+
+    @Test
+    @DisplayName("should treat characters the page shows as spaces as spaces, so an unedited save stays unedited")
+    void shouldTreatControlCharactersAsShown_whenSavedBackUnedited() {
+        // Pasted from a word processor: a vertical tab and a C1 control, which the page shows as spaces.
+        clinicDefault("Riverside\u000BClinic\u0090Book online");
+
+        EmailFooterService.ClinicDefaultSaved saved = service.saveClinicDefault("Riverside Clinic Book online",
+                EmailFooterService.fingerprint("Riverside Clinic Book online"));
+
+        assertThat(saved.changed()).isFalse();
+        assertThat(EmailFooterService.fingerprint("Riverside\u000BClinic\u0090Book online"))
+                .isEqualTo(EmailFooterService.fingerprint("Riverside Clinic Book online"));
+        // Tabs and line breaks are kept, as the page shows them.
+        assertThat(EmailFooterService.fingerprint("a\tb\nc")).isNotEqualTo(EmailFooterService.fingerprint("a b c"));
+        verify(dao, never()).saveProp(any(UserProperty.class));
+    }
+
+    @Test
+    @DisplayName("should report a row another save removed partway through as a concurrency failure")
+    void shouldThrowConcurrencyFailure_whenRowRemovedByAnotherSave() {
+        UserProperty own = property("101", EmailFooterService.USER_FOOTER, "Dr A footer");
+        ownRows("101", EmailFooterService.USER_FOOTER, own);
+        // What Hibernate raises when a flush partway through deletes a row that is already gone.
+        doThrow(new OptimisticLockException("Row was already deleted")).when(dao).delete(own);
+
+        assertThatThrownBy(() -> service.useClinicDefault("101")).isInstanceOf(ConcurrencyFailureException.class);
     }
 
     @Test
@@ -278,7 +328,7 @@ class EmailFooterServiceUnitTest {
     void shouldKeepOneClinicRow_whenTwoFirstSavesLeftTwo() {
         UserProperty older = property(null, EmailFooterService.CLINIC_DEFAULT, "First");
         UserProperty newer = property("", EmailFooterService.CLINIC_DEFAULT, "Second");
-        when(dao.findClinicProperties(EmailFooterService.CLINIC_DEFAULT)).thenReturn(List.of(older, newer));
+        clinicRows(older, newer);
 
         assertThat(service.clinicDefault()).isEqualTo("First");
         assertThat(saveClinic(service, "Third").changed()).isTrue();

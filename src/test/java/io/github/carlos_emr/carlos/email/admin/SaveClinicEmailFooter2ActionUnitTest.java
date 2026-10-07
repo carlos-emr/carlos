@@ -158,7 +158,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should not audit a save that left the clinic footer unchanged")
+    @DisplayName("should neither audit nor claim a save that left the clinic footer unchanged")
     void shouldSkipAudit_whenClinicFooterUnchanged() throws Exception {
         post("Riverside Clinic");
         when(emailFooterService.saveClinicDefault("Riverside Clinic", SHOWN))
@@ -166,7 +166,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
 
         assertThat(action().execute()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?clinicFooterSaved=true");
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?clinicFooterUnchanged=true");
         logAction.verifyNoInteractions();
     }
 

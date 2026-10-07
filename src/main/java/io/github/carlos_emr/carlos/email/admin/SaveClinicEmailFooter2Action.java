@@ -117,10 +117,14 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
             // The page now shows the current footer, so a second save goes through.
             return showAgain(request, footer, EmailFooterService.fingerprint(current), "clinicFooterChangedSinceShown");
         }
-        if (saved.changed()) {
-            LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterClinicDefault", "",
-                    request.getRemoteAddr(), null, "noticed=" + saved.noticed());
+        if (!saved.changed()) {
+            // Nothing to audit. Not "saved" either: from a stale page, the footer now shown is
+            // someone else's, and the administrator should see that nothing they typed was stored.
+            response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterUnchanged=true");
+            return NONE;
         }
+        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterClinicDefault", "",
+                request.getRemoteAddr(), null, "noticed=" + saved.noticed());
         response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterSaved=true");
         return NONE;
     }

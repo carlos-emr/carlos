@@ -68,6 +68,25 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
      */
     List<UserProperty> findClinicProperties(String name);
 
+    /**
+     * As {@link #findClinicProperties}, but locks the rows for the rest of the caller's transaction
+     * ({@code SELECT ... FOR UPDATE}), so a second save waits and then reads what the first one
+     * committed. Call it inside a transaction.
+     *
+     * @param name property name
+     * @return the clinic rows, oldest first
+     */
+    List<UserProperty> lockClinicProperties(String name);
+
+    /**
+     * As {@link #findProviderProperties}, but locks the rows for the rest of the caller's
+     * transaction ({@code SELECT ... FOR UPDATE}). Call it inside a transaction.
+     *
+     * @param name property name
+     * @return the providers' rows, oldest first
+     */
+    List<UserProperty> lockProviderProperties(String name);
+
     UserProperty getProp(String prov, String name);
 
     UserProperty getProp(String name);
