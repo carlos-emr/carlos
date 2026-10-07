@@ -169,11 +169,17 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restore() throws Exception {
-        servletActionContext.close();
-        swapPreventionDataField("preventionDao", savedPreventionDao);
-        swapPreventionDataField("preventionExtDao", savedPreventionExtDao);
-        swapPreventionDataField("partialDateDao", savedPartialDateDao);
-        swapTypeList(savedTypeList);
+        try {
+            if (servletActionContext != null) {
+                servletActionContext.close();
+            }
+        } finally {
+            // Put back whatever setUp swapped, even if it stopped part-way.
+            swapPreventionDataField("preventionDao", savedPreventionDao);
+            swapPreventionDataField("preventionExtDao", savedPreventionExtDao);
+            swapPreventionDataField("partialDateDao", savedPartialDateDao);
+            swapTypeList(savedTypeList);
+        }
     }
 
     @Test
@@ -186,11 +192,11 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
         // Warnings first, then the rest by date as the box sorts them: undated first, then newest.
         assertThat(items(box)).extracting(NavBarDisplayDAO.Item::getTitle, NavBarDisplayDAO.Item::getColour,
                 NavBarDisplayDAO.Item::getDate).containsExactly(
-                tuple("⚠ Td", "#FF0000", null),
-                tuple("○ PAP", "#999999", null),
-                tuple("✓ Flu", "#009900", fluDate),
-                tuple("⏳ FAKE-Generic-B", "#FF00FF", pendingDate),
-                tuple("✗ HepB", "#FF6600", refusedDate));
+                tuple("\u26A0 Td", "#FF0000", null),
+                tuple("\u25CB PAP", "#999999", null),
+                tuple("\u2713 Flu", "#009900", fluDate),
+                tuple("\u23F3 FAKE-Generic-B", "#FF00FF", pendingDate),
+                tuple("\u2717 HepB", "#FF6600", refusedDate));
         // One checked lookup for the loop, and the one the decision-support input already made.
         verify(demographicManager).getDemographic(user, PATIENT);
         verify(demographicManager).getDemographic(user, Integer.valueOf(PATIENT_ID));
@@ -199,12 +205,27 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse the box, reading no prevention types, when the user may not read the patient")
-    void shouldRefuseBox_whenUserMayNotReadPatient() {
-        when(demographicManager.getDemographic(user, PATIENT)).thenThrow(new RuntimeException(DENIED));
+    @DisplayName("should refuse the box, reading no prevention types, when the user may not read this patient")
+    void shouldRefuseBox_whenUserMayNotReadThisPatient() {
+        denyThisPatient();
+        NavBarDisplayDAO box = new NavBarDisplayDAO();
 
-        assertThatThrownBy(() -> boxAction().getInfo(sessionBean(), request, new NavBarDisplayDAO()))
-                .hasMessage(DENIED);
+        assertThatThrownBy(() -> boxAction().getInfo(sessionBean(), request, box)).hasMessage(DENIED);
+
+        assertThat(box.numItems()).isZero();
+        verify(preventionDao, never()).findByTypeAndDemoNo(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should refuse the box before reading any type when the user lacks patient read in general")
+    void shouldRefuseBoxBeforeReadingTypes_whenGeneralPatientReadIsMissing() {
+        // Only the String lookup makes the general check; the decision-support input's lookup passes.
+        when(demographicManager.getDemographic(user, PATIENT)).thenThrow(new RuntimeException(DENIED));
+        NavBarDisplayDAO box = new NavBarDisplayDAO();
+
+        assertThatThrownBy(() -> boxAction().getInfo(sessionBean(), request, box)).hasMessage(DENIED);
+
+        assertThat(box.numItems()).isZero();
         verify(preventionDao, never()).findByTypeAndDemoNo(anyString(), anyInt());
     }
 
@@ -240,13 +261,29 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse the summary, reading no prevention types, when the user may not read the patient")
-    void shouldRefuseSummary_whenUserMayNotReadPatient() {
+    @DisplayName("should refuse the summary, reading no prevention types, when the user may not read this patient")
+    void shouldRefuseSummary_whenUserMayNotReadThisPatient() {
+        denyThisPatient();
+
+        assertThatThrownBy(() -> summary().getSummary(user, PATIENT_ID, SummaryTo1.PREVENTIONS))
+                .hasMessage(DENIED);
+        verify(preventionDao, never()).findByTypeAndDemoNo(anyString(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should refuse the summary before reading any type when the user lacks patient read in general")
+    void shouldRefuseSummaryBeforeReadingTypes_whenGeneralPatientReadIsMissing() {
         when(demographicManager.getDemographic(user, PATIENT)).thenThrow(new RuntimeException(DENIED));
 
         assertThatThrownBy(() -> summary().getSummary(user, PATIENT_ID, SummaryTo1.PREVENTIONS))
                 .hasMessage(DENIED);
         verify(preventionDao, never()).findByTypeAndDemoNo(anyString(), anyInt());
+    }
+
+    /** Both lookups refuse, as DemographicManager does when the user may not read this patient. */
+    private void denyThisPatient() {
+        when(demographicManager.getDemographic(user, PATIENT)).thenThrow(new RuntimeException(DENIED));
+        when(demographicManager.getDemographic(user, Integer.valueOf(PATIENT_ID))).thenThrow(new RuntimeException(DENIED));
     }
 
     private EctDisplayPrevention2Action boxAction() {
