@@ -54,9 +54,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  * password-protected PDF attachments based on patient demographic data.
  *
  * Session Management:
- * The action retrieves email composition parameters from the HTTP session (allowing for redirect-based
- * workflows) and transfers them to request attributes for JSP rendering. Session attributes are cleaned
- * up after transfer to prevent stale data accumulation.
+ * The eForm save stages one immutable draft in the HTTP session under a one-time key and redirects
+ * here with that key (#4101). This action takes exactly that draft, once, and transfers it to request
+ * attributes for JSP rendering, so two windows that save close together each open their own email.
  *
  * Security Considerations:
  * <ul>
@@ -189,10 +189,11 @@ public class EmailCompose2Action extends ActionSupport {
      * Error Handling:
      * If PDF generation fails for any attachment (eForm, document, lab, form, HRM), the method
      * returns the "eFormError" result with a descriptive error message. This prevents incomplete
-     * emails from being composed when required attachments cannot be generated.
+     * emails from being composed when required attachments cannot be generated. Without a usable
+     * draft for the request's key, it returns "eFormError" with {@link #COMPOSE_EXPIRED_MESSAGE}.
      *
      * @return String the Struts2 result name: "compose" for successful preparation,
-     *         "eFormError" if PDF generation fails for any attachment
+     *         "eFormError" if there is no draft for the key or PDF generation fails for any attachment
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
@@ -213,9 +214,10 @@ public class EmailCompose2Action extends ActionSupport {
         if (draft == null) {
             return emailComposeError(request, COMPOSE_EXPIRED_MESSAGE);
         }
-        // Fields that versions before #4101 staged one by one; nothing writes them now.
+        // Fields that versions before #4101 staged one by one; nothing reads them now.
         cleanupEmailSessionAttributes(request);
-        // After a failure that a retry can fix, the same window gets its draft back under its own key.
+        // After a failed preparation, the same window gets its draft back under its own key, so a
+        // refresh retries.
         Runnable restoreDraft = () -> EmailComposeStaging.restore(session, draftKey, draft);
 
         EmailAttachmentSettings staged = draft.settings();
@@ -309,7 +311,7 @@ public class EmailCompose2Action extends ActionSupport {
             return null;
         }
         try {
-            return Integer.valueOf(demographicId.trim());
+            return Integer.valueOf(demographicId);
         } catch (NumberFormatException e) {
             return null;
         }

@@ -181,6 +181,35 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should ignore and clear compose fields an older version left in the session")
+    void shouldIgnoreAndClearOldSessionFields_whenDraftIsTaken() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        // Another patient's values under the names versions before #4101 used.
+        session.setAttribute("demographicId", "10009");
+        session.setAttribute("fdid", "20009");
+        session.setAttribute("bodyEmail", "FAKE message OLD");
+        session.setAttribute("isEmailAutoSend", true);
+        session.setAttribute("deleteEFormAfterEmail", true);
+
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+        for (String name : new String[]{"demographicId", "fdid", "bodyEmail", "isEmailAutoSend", "deleteEFormAfterEmail"}) {
+            assertThat(session.getAttribute(name)).as(name).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should show the expired page for a draft without a usable patient number")
+    void shouldShowExpired_whenDraftHasNoUsablePatientNumber() throws Exception {
+        for (String patient : new String[]{null, "", "FAKE", " 10001"}) {
+            String key = EmailComposeStaging.stage(session, "40001", draft(patient, "20001", false, "A"));
+            MockHttpServletRequest request = prepare(key);
+            assertThat(request.getAttribute("FAKE-result")).as(String.valueOf(patient)).isEqualTo("eFormError");
+            assertThat(request.getAttribute("errorMessage")).isEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_MESSAGE);
+        }
+        verify(emailComposeManager, never()).getRecipients(any(), anyInt());
+    }
+
+    @Test
     @DisplayName("should sanitize fid before logging invalid value")
     void shouldSanitizeFid_whenInvalidValueIsLogged() throws Exception {
         EmailAttachmentSettings settings = new EmailAttachmentSettings("20001", "123", null, null, null, null, null,

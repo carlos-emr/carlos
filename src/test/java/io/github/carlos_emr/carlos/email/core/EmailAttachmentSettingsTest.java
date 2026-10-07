@@ -299,7 +299,7 @@ class EmailAttachmentSettingsTest {
 
     @Test
     @DisplayName("should keep attachment id arrays detached from the caller's arrays on the way in and out")
-    void shouldKeepAttachmentArraysDetached_acrossConstructionAndAccess() {
+    void shouldCopyAttachmentArrays_onTheWayInAndOut() {
         String[] ids = {"30001"};
         EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                 new MockHttpServletRequest(), "20001", "10001", ids, ids, ids, ids, ids);
@@ -323,9 +323,11 @@ class EmailAttachmentSettingsTest {
         request.addParameter("subjectEmail", "FAKE subject");
         request.addParameter("bodyEmail", "FAKE message");
         request.addParameter("senderEmail", "fake.sender@example.com");
+        request.addParameter("passwordEmail", "FAKEpassword123");
+        request.addParameter("passwordClueEmail", "FAKE clue");
         EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                 request, "20001", "10001", null, null, null, null, null);
         assertThat(settings.toString()).isEqualTo("EmailAttachmentSettings[redacted]")
-                .doesNotContain("10001").doesNotContain("FAKE");
+                .doesNotContain("10001").doesNotContain("FAKE").doesNotContain("password123");
     }
 }
