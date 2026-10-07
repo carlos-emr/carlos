@@ -42,7 +42,7 @@
       "name": "retired-view-aliases",
       "script": "scripts/retired-view-aliases-playwright-checks.js",
       "tiers": [
-        "standalone"
+        "core"
       ],
       "assertsDatabase": false,
       "provinces": [
