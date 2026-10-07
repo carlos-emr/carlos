@@ -149,8 +149,10 @@ public class BillingHistoryDAO {
      */
     private BillHistory getCurrentBillItemState(String billMasterNo) {
         BillHistory history = null;
-        String bmQuery = "SELECT b.provider_no, b.billingtype,bm.billingstatus, bm.bill_amount,bm.paymentMethod FROM billing b, billingmaster bm " + " WHERE b.billing_no=bm.billing_no AND bm.billingmaster_no = ?1";
-        List billValues = SqlUtils.getQueryResultsList(bmQuery);
+        // Plain JDBC: a positional ? bound to the bill. A JPA-style ?1 with no value never matched,
+        // so every archive (and with it every BC reprocess save) failed (#4343).
+        String bmQuery = "SELECT b.provider_no, b.billingtype,bm.billingstatus, bm.bill_amount,bm.paymentMethod FROM billing b, billingmaster bm " + " WHERE b.billing_no=bm.billing_no AND bm.billingmaster_no = ?";
+        List billValues = SqlUtils.getQueryResultsList(bmQuery, billMasterNo);
         if (billValues != null) {
             history = new BillHistory();
             String[] values = (String[]) billValues.get(0);

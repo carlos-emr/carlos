@@ -80,7 +80,7 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
                 "20260612", "00100", "23.00", "250", "", "");
 
         assertThat(html)
-                .contains("openBrWindow('adjustBill.jsp?billingmaster_no=")
+                .contains("openBrWindow('reprocessBill?billingmaster_no=")
                 .doesNotContain("');alert(1)")
                 .doesNotContain("1');");
     }
@@ -92,7 +92,7 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
 
         assertThat(html)
                 .startsWith("<tr>")
-                .contains("openBrWindow('adjustBill.jsp?billingmaster_no=0000042'")
+                .contains("openBrWindow('reprocessBill?billingmaster_no=0000042'")
                 .contains(">1001</a>")
                 .contains("<td class='bodytext'>DOE,JANE</td>")
                 .contains("<td class='bodytext'>0000042</td>");
