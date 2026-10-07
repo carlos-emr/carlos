@@ -1903,7 +1903,7 @@ function popForm2(scriptId, saveAndPrint){
     var drugProfile = document.getElementById('drugProfile');
     var rxProfileLoader = RxProfileLoader.create({
         updater: CarlosAjax.updater,
-        contextPath: '${carlos:forJavaScript(ctx)}',
+        url: '${carlos:forJavaScript(ctx)}/rx/ViewListDrugs',
         demographicNo: '<%=demoNo%>',
         loading: function (loading) {
             drugProfile.hidden = loading;

@@ -20,6 +20,7 @@ var RxProfileLoader = (function () {
         var pending = [];
         var index = 0;
         var busy = false;
+        var active = null;
 
         function next() {
             if (busy || index >= pending.length) return;
@@ -32,6 +33,7 @@ var RxProfileLoader = (function () {
                 if (settled) return;
                 settled = true;
                 busy = false;
+                active = null;
                 // Updater has already inserted this response. A newer selection
                 // stays hidden and replaces it before any result is displayed.
                 if (requestGeneration !== generation) {
@@ -49,7 +51,7 @@ var RxProfileLoader = (function () {
                 else options.loading(false);
             }
             try {
-                var xhr = options.updater({success: 'drugProfile'}, options.contextPath + '/rx/ViewListDrugs'
+                var xhr = options.updater({success: 'drugProfile'}, options.url
                     + (query ? '?' + query : ''), {
                     method: 'get',
                     parameters: {demographicNo: options.demographicNo, rand: Math.random()},
@@ -60,6 +62,7 @@ var RxProfileLoader = (function () {
                 // CarlosAjax reports network errors through onComplete, but its
                 // XHR has no default timeout/abort callback. Do not strand the queue.
                 if (xhr && !settled) {
+                    active = {xhr: xhr, complete: complete};
                     xhr.timeout = 30000;
                     xhr.ontimeout = xhr.onabort = function () { complete({status: 0}); };
                 }
@@ -75,6 +78,14 @@ var RxProfileLoader = (function () {
             pending = views[view];
             index = 0;
             options.loading(true);
+            if (active && typeof active.xhr.abort === 'function') {
+                var stale = active;
+                // Detach the updater's load handler before aborting so a stale
+                // response cannot insert markup into the replacement view.
+                stale.xhr.onload = stale.xhr.onerror = stale.xhr.ontimeout = stale.xhr.onabort = null;
+                try { stale.xhr.abort(); }
+                finally { stale.complete({status: 0}); }
+            }
             next();
         }
         return {select: select, refresh: function () { select(selected); }};

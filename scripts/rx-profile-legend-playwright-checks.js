@@ -120,6 +120,8 @@ async function workflow(s) {
 
   await s.step('a newer selection replaces a delayed older view without leftover sections', async () => {
     const routing = '**/rx/ViewListDrugs?**';
+    const mark = failureMark(s.recorder);
+    let staleUrl;
     let release;
     const held = new Promise(resolve => { release = resolve; });
     let started = false;
@@ -129,6 +131,7 @@ async function workflow(s) {
       const heading = url.searchParams.get('heading');
       seen.push(heading || url.searchParams.get('status'));
       if (heading === 'Long Term Meds') {
+        staleUrl = route.request().url();
         const response = await route.fetch();
         started = true;
         await held;
@@ -139,13 +142,22 @@ async function workflow(s) {
       await combinedLink().click();
       await waitUntil(() => started, 'delayed profile request');
       await rx.locator('a[onclick="selectDrugProfile(\'inactive\', this);"]').click();
-      h.assert(await profile.isHidden(), 'An incomplete profile became visible');
-      release();
+      // The latest view must render before the obsolete response is released,
+      // well before the transport's 30-second timeout.
+      await rx.waitForFunction(() => document.getElementById('drugProfile').getAttribute('aria-busy') === 'false',
+        null, {timeout:5000});
       await rx.waitForLoadState('networkidle');
       await ready([]);
       h.assert(JSON.stringify(seen) === JSON.stringify(['Long Term Meds','inactive']), 'The superseded view still requested additions');
       const text = await profile.innerText();
       h.assert(text.includes(`${marker}-INACTIVE`) && !text.includes(`${marker}-LT`), 'The final selection contains stale medications');
+      const failures = s.recorder.requestFailures.slice(mark.failures);
+      h.assert(failures.length === 1 && failures[0].url === staleUrl
+        && /ERR_ABORTED/.test(failures[0].errorText), 'Only the superseded request should be aborted');
+      s.recorder.requestFailures.splice(mark.failures, 1);
+      release();
+      await rx.waitForLoadState('networkidle');
+      h.assert((await profile.innerText()) === text, 'The aborted response changed the completed view');
     } finally {
       release();
       await rx.unroute(routing);

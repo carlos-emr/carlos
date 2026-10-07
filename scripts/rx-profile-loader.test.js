@@ -6,15 +6,17 @@ const path = require('node:path');
 const vm = require('node:vm');
 const loader = require('../src/main/webapp/share/javascript/rx-profile-loader');
 
-function fixture() {
+function fixture({abortable = true} = {}) {
     const requests = [];
     const state = {hidden: false, contents: [], failures: 0};
-    const profile = loader.create({contextPath:'/clinic', demographicNo:'123',
+    const profile = loader.create({url:'/clinic/rx/ViewListDrugs', demographicNo:'123',
         loading(value) { state.hidden = value; },
         failed() { state.contents = ['error']; state.failures++; },
         updater(target, url, options) {
             const xhr = {};
+            if (abortable) xhr.abort = () => { xhr.aborted = true; };
             const request = {target, url, options, xhr, finish(status = 200) {
+                if (xhr.aborted) return;
                 // Use CarlosAjax's real callback contract: insert before onComplete.
                 if (status >= 200 && status < 300) {
                     const part = new URL(url, 'https://localhost').searchParams.get('heading') || url;
@@ -52,13 +54,14 @@ test('rapid selections discard queued old additions and display only the latest 
     profile.select('combined');
     profile.select('all');
     profile.select('inactive');
-    assert.equal(requests.length, 1);
-    requests[0].finish();
+    assert.equal(requests.length, 3);
+    assert.equal(requests[0].xhr.aborted, true);
+    assert.equal(requests[1].xhr.aborted, true);
+    requests[0].finish(); requests[1].finish();
     assert.equal(state.hidden, true);
-    assert.equal(requests.length, 2);
-    assert.match(requests[1].url, /status=inactive$/);
-    assert.equal(requests[1].options.insertion, undefined);
-    requests[1].finish();
+    assert.match(requests[2].url, /status=inactive$/);
+    assert.equal(requests[2].options.insertion, undefined);
+    requests[2].finish();
     assert.equal(state.hidden, false);
     assert.deepEqual(state.contents, ['/clinic/rx/ViewListDrugs?status=inactive']);
 });
@@ -68,11 +71,35 @@ test('changing selection while an addition is pending cannot append into the new
     profile.select('combined');
     requests[0].finish();
     profile.select('all');
+    assert.equal(requests[1].xhr.aborted, true);
     requests[1].finish();
     assert.equal(requests.length, 3);
     assert.equal(state.hidden, true);
     requests[2].finish();
     assert.deepEqual(state.contents, ['/clinic/rx/ViewListDrugs?show=all']);
+});
+
+test('cancelling a stale request detaches its DOM insertion handler before abort', () => {
+    const {profile, requests, state} = fixture();
+    profile.select('combined');
+    const old = requests[0];
+    old.xhr.onload = () => { throw new Error('stale markup inserted'); };
+    old.xhr.onerror = () => { throw new Error('stale error displayed'); };
+    old.xhr.abort = () => {
+        assert.equal(old.xhr.onload, null);
+        assert.equal(old.xhr.onerror, null);
+        assert.equal(old.xhr.onabort, null);
+        assert.equal(old.xhr.ontimeout, null);
+        old.xhr.aborted = true;
+    };
+    profile.select('inactive');
+    assert.equal(requests.length, 2);
+    requests[1].finish();
+    old.options.onComplete({status:0});
+    assert.equal(requests.length, 2);
+    assert.equal(state.hidden, false);
+    assert.equal(state.failures, 0);
+    assert.deepEqual(state.contents, ['/clinic/rx/ViewListDrugs?status=inactive']);
 });
 
 test('refresh retains the full selected view instead of resetting to current', () => {
@@ -101,7 +128,7 @@ for (const status of [0, 403, 500, undefined]) {
 }
 
 test('a stale failure continues the newer selection without displaying an old error', () => {
-    const {profile, requests, state} = fixture();
+    const {profile, requests, state} = fixture({abortable:false});
     profile.select('combined'); profile.select('active');
     requests[0].finish(500); requests[1].finish();
     assert.equal(state.failures, 0);
@@ -110,7 +137,7 @@ test('a stale failure continues the newer selection without displaying an old er
 
 for (const event of ['ontimeout','onabort']) {
     test(`${event} releases the queue and duplicate completion does not advance it twice`, () => {
-        const {profile, requests, state} = fixture();
+        const {profile, requests, state} = fixture({abortable:false});
         profile.select('combined'); profile.select('inactive');
         assert.equal(requests[0].xhr.timeout, 30000);
         requests[0].xhr[event]();
@@ -125,7 +152,7 @@ for (const event of ['ontimeout','onabort']) {
 test('a synchronous transport failure displays an error without leaving loading stuck', () => {
     let hidden;
     let failures = 0;
-    const profile = loader.create({contextPath:'/clinic', demographicNo:'1',
+    const profile = loader.create({url:'/clinic/rx/ViewListDrugs', demographicNo:'1',
         updater() { throw new Error('transport unavailable'); },
         failed() { failures++; }, loading(value) { hidden = value; }});
     profile.refresh(); profile.refresh();
