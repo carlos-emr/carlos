@@ -51,6 +51,9 @@ import java.nio.charset.StandardCharsets;
 public class AcceptableUseAgreementManager {
     private static Logger logger = MiscUtils.getLogger();
 
+    // Coordinate agreement text, version and validity updates on one private monitor.
+    private static final Object CACHE_LOCK = new Object();
+
     private static volatile boolean loadAttempted = false;
 
     private static String auaText;
@@ -83,55 +86,61 @@ public class AcceptableUseAgreementManager {
      * Uploading text does not change the show_aua login policy.
      * @since 2026-09-19
      */
-    public static synchronized void invalidateCache() {
-        loadAttempted = false;
-        auaText = null;
-        loadedVersion = null;
-        agreementCutoffDate = null;
-    }
-
-    private static synchronized void loadAUA() {
-        try {
-            Path path = getAgreementFile().toPath();
-            boolean exists = Files.exists(path);
-            BasicFileAttributes attributes = exists ? Files.readAttributes(path, BasicFileAttributes.class) : null;
-            AgreementVersion version = new AgreementVersion(path,
-                    exists ? attributes.lastModifiedTime() : null,
-                    exists ? attributes.size() : -1,
-                    exists ? attributes.fileKey() : null);
-            if (loadAttempted && version.equals(loadedVersion)) return;
-            // Also notice deployment/restoration changes outside the upload action.
-            // A missing file must never leave an old agreement active in memory.
-            auaText = exists ? Files.readString(path, StandardCharsets.UTF_8) : null;
-            loadedVersion = version;
-        } catch (Exception e) {
-            logger.error("Error loading acceptable-use agreement", e);
+    public static void invalidateCache() {
+        synchronized (CACHE_LOCK) {
+            loadAttempted = false;
             auaText = null;
             loadedVersion = null;
-        } finally {
-            loadAttempted = true;
+            agreementCutoffDate = null;
         }
     }
 
-    public static synchronized boolean hasAUA() {
-        String auaProp = CarlosProperties.getInstance().getProperty("show_aua");
-
-        if (auaProp == null) {
-            auaProp = "";
+    private static void loadAUA() {
+        synchronized (CACHE_LOCK) {
+            try {
+                Path path = getAgreementFile().toPath();
+                boolean exists = Files.exists(path);
+                BasicFileAttributes attributes = exists ? Files.readAttributes(path, BasicFileAttributes.class) : null;
+                AgreementVersion version = new AgreementVersion(path,
+                        exists ? attributes.lastModifiedTime() : null,
+                        exists ? attributes.size() : -1,
+                        exists ? attributes.fileKey() : null);
+                if (loadAttempted && version.equals(loadedVersion)) return;
+                // Also notice deployment/restoration changes outside the upload action.
+                // A missing file must never leave an old agreement active in memory.
+                auaText = exists ? Files.readString(path, StandardCharsets.UTF_8) : null;
+                loadedVersion = version;
+            } catch (Exception e) {
+                logger.error("Error loading acceptable-use agreement", e);
+                auaText = null;
+                loadedVersion = null;
+            } finally {
+                loadAttempted = true;
+            }
         }
+    }
 
-        if (!(auaProp.equals("always") || auaProp.equals("true"))) {
-            return false;
+    public static boolean hasAUA() {
+        synchronized (CACHE_LOCK) {
+            String auaProp = CarlosProperties.getInstance().getProperty("show_aua");
+
+            if (auaProp == null) {
+                auaProp = "";
+            }
+
+            if (!(auaProp.equals("always") || auaProp.equals("true"))) {
+                return false;
+            }
+
+            logger.debug("Acceptable-use agreement load attempted: {}", loadAttempted);
+
+            AcceptableUseAgreementManager.loadAUA();
+
+            if (auaText == null) {
+                return false;
+            }
+            return true;
         }
-
-        logger.debug("Acceptable-use agreement load attempted: {}", loadAttempted);
-
-        AcceptableUseAgreementManager.loadAUA();
-
-        if (auaText == null) {
-            return false;
-        }
-        return true;
     }
 
     public boolean auaAlwaysShow() {
@@ -148,56 +157,60 @@ public class AcceptableUseAgreementManager {
         return false;
     }
 
-    public static synchronized String getAUAText() {
-        AcceptableUseAgreementManager.loadAUA();
-        return auaText;
+    public static String getAUAText() {
+        synchronized (CACHE_LOCK) {
+            AcceptableUseAgreementManager.loadAUA();
+            return auaText;
+        }
     }
 
     public String getText() {
         return getAUAText();
     }
 
-    public static synchronized Date getAgreementCutoffDate() {
+    public static Date getAgreementCutoffDate() {
+        synchronized (CACHE_LOCK) {
 
-        if (agreementCutoffDate != null) {
+            if (agreementCutoffDate != null) {
+                return agreementCutoffDate;
+            }
+
+            Calendar cal = GregorianCalendar.getInstance();
+
+            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+            if (latestProperty == null) {  //Default to one year
+                cal.add(Calendar.YEAR, -1);
+                return cal.getTime();
+            }
+
+            if ("aua_valid_from".equals(latestProperty.getName())) {
+                //2012-09-20 01.08.30
+                SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                try {
+                    Date validFromTime = dateTimeFormatter.parse(latestProperty.getValue());
+                    cal.setTimeInMillis(validFromTime.getTime());
+                } catch (Exception e) {
+                    logger.error("Error: parsing aua_valid_from date " + latestProperty.getName(), e);
+                }
+            } else {
+                String val = latestProperty.getValue();
+                String[] splitVal = val.split(" ");
+                int duration = Integer.parseInt(splitVal[0]);
+                duration = duration * -1;
+                int period = Calendar.YEAR;
+                if ("month".equals(splitVal[1])) {
+                    period = Calendar.MONTH;
+                } else if ("weeks".equals(splitVal[1])) {
+                    period = Calendar.WEEK_OF_YEAR;
+                } else if ("days".equals(splitVal[1])) {
+                    period = Calendar.DAY_OF_YEAR;
+                }
+                cal.add(period, duration);
+
+            }
+            agreementCutoffDate = cal.getTime();
             return agreementCutoffDate;
         }
-
-        Calendar cal = GregorianCalendar.getInstance();
-
-        Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-        if (latestProperty == null) {  //Default to one year
-            cal.add(Calendar.YEAR, -1);
-            return cal.getTime();
-        }
-
-        if ("aua_valid_from".equals(latestProperty.getName())) {
-            //2012-09-20 01.08.30
-            SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            try {
-                Date validFromTime = dateTimeFormatter.parse(latestProperty.getValue());
-                cal.setTimeInMillis(validFromTime.getTime());
-            } catch (Exception e) {
-                logger.error("Error: parsing aua_valid_from date " + latestProperty.getName(), e);
-            }
-        } else {
-            String val = latestProperty.getValue();
-            String[] splitVal = val.split(" ");
-            int duration = Integer.parseInt(splitVal[0]);
-            duration = duration * -1;
-            int period = Calendar.YEAR;
-            if ("month".equals(splitVal[1])) {
-                period = Calendar.MONTH;
-            } else if ("weeks".equals(splitVal[1])) {
-                period = Calendar.WEEK_OF_YEAR;
-            } else if ("days".equals(splitVal[1])) {
-                period = Calendar.DAY_OF_YEAR;
-            }
-            cal.add(period, duration);
-
-        }
-        agreementCutoffDate = cal.getTime();
-        return agreementCutoffDate;
     }
 
     public static Property findLatestProperty() {
