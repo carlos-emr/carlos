@@ -266,6 +266,17 @@ class PortalBookingPrompt2ActionUnitTest {
         assertThat(prompts.get(0).get("id").asLong()).isEqualTo(7);
         assertThat(prompts.get(0).get("state").asText()).isEqualTo("read");
         verify(portal, never()).findAccount(anyInt(), any());
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
+    }
+
+    @Test
+    void shouldRefuseList_whenBookingReadIsDenied() throws Exception {
+        request.setParameter("method", "list");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver, portal);
     }
 
     @Test
@@ -314,6 +325,7 @@ class PortalBookingPrompt2ActionUnitTest {
         when(portal.withdrawBookingPrompt(eq(123), eq(7L), same(staff))).thenReturn(prompt(123, "withdrawn"));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
         audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class), eq("PortalBookingPrompt2Action.withdraw"),
                 eq("PatientPortal"), eq("7"), eq("123"), eq("")));
     }

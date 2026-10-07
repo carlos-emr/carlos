@@ -98,21 +98,24 @@ class PatientPortalBookingPromptCallsUnitTest {
         assertThat(exchange.sent).hasSize(2);
         assertThat(exchange.sent.get(0).getMethod()).isEqualTo("POST");
         assertThat(exchange.sent.get(0).getRequestUri()).isEqualTo("/internal/carlos/patients/123/booking-prompts");
-        assertThat(body(exchange.sent.get(0))).isEqualTo(body(exchange.sent.get(1)))
-                .contains("\"operation_id\":\"operation-1\"");
+        assertThat(body(exchange.sent.get(0))).isEqualTo(body(exchange.sent.get(1)));
+        assertThat(new ObjectMapper().readTree(body(exchange.sent.get(0)))).isEqualTo(new ObjectMapper().readTree(
+                "{\"operation_id\":\"operation-1\",\"urgency\":\"soon\",\"appointment_type\":\"follow_up\",\"suggested_by\":null}"));
         String signed = exchange.sent.get(0).getFirstHeader(PortalStaffAssertionSigner.HEADER).getValue();
         var claims = new ObjectMapper().readTree(Base64.getUrlDecoder().decode(signed.split("\\.")[0]));
         assertThat(claims.get("permissions").toString()).isEqualTo("[\"portal.booking_prompt.manage\"]");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"patient", "vocabulary", "status", "flag", "new_state"})
+    @ValueSource(strings = {"patient", "vocabulary", "urgency", "suggested_by", "status", "flag", "new_state"})
     void shouldRejectUnconfirmedCreation_whenReplyDoesNotMatch(String mismatch) {
         String reply = created(true);
         int status = 201;
         switch (mismatch) {
             case "patient" -> reply = reply.replace("123", "456");
             case "vocabulary" -> reply = reply.replace("follow_up", "annual_exam");
+            case "urgency" -> reply = reply.replace("\"urgency\":\"soon\"", "\"urgency\":\"routine\"");
+            case "suggested_by" -> reply = reply.replace("\"suggested_by\":null", "\"suggested_by\":\"Dr Example\"");
             case "status" -> status = 200;
             case "flag" -> reply = reply.replace("true", "\"true\"");
             case "new_state" -> reply = reply.replace("sent", "read");
