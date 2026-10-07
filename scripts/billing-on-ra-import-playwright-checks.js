@@ -302,7 +302,7 @@ async function workflow(s) {
         .locator('td').allInnerTexts()).map(cell => cell.trim());
       h.assert(cells[0] === claim.id && cells[6] === claim.code && Number(cells[7]) === Number(claim.fee)
         && Number(cells[8]) === Number(claim.paid) && cells[12] === claim.error,
-      'A summary row does not show the claim, code, invoiced and paid amounts and error');
+      `Summary fields differ for owned claim ${claim.id}: expected ${JSON.stringify([claim.id, claim.code, claim.fee, claim.paid, claim.error])}; observed ${JSON.stringify([cells[0], cells[6], cells[7], cells[8], cells[12]])}`);
     }
     h.assert((await summary.locator('#amountPay').innerText()).trim() === remittance.cheque, 'The summary paid total is wrong');
     h.assert(sql.value(`SELECT content FROM raheader WHERE raheader_no=${raNo}`).includes(`<xml_total>${remittance.cheque}</xml_total>`),
