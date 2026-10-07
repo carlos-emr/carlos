@@ -110,6 +110,18 @@ async function workflow(s) {
     h.assert(text.includes(noteTokens.inside) && !text.includes(noteTokens.outside),
       'Date-range print failed to hydrate the in-range note or included an out-of-range note');
   });
+  await s.step('a date range with no matching notes or labs still produces a complete PDF', async () => {
+    await print.openPrintDialog(chart);
+    await chart.locator('#printopDates').check();
+    await chart.evaluate(() => {
+      for (const id of ['printStartDate', 'printEndDate']) {
+        document.getElementById(id)._flatpickr.setDate('2022-06-15', false, 'Y-m-d');
+      }
+    });
+    const { text } = await print.pressPrint(chart, scratch);
+    assertLabs(text, []);
+    h.assert(Object.values(noteTokens).every(token => !text.includes(token)), 'Empty range printed an owned note');
+  });
 }
 
 if (require.main === module) runWorkflow('chart-print-lab-range', workflow,
