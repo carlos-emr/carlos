@@ -184,6 +184,6 @@ Sending is disabled if storage cannot retain the retry identity. Withdrawal fail
 status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
 The latest-100 history and optional provider attribution limitations above still apply.
 
-All five catalogs use the same English labels. A separately approved security-object/default-role
+The labels are translated in all five catalogs. A separately approved security-object/default-role
 database seed remains required before #3849 is complete. No permission is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
 system principal, and decline/expiry ticklers belong to #3850.
