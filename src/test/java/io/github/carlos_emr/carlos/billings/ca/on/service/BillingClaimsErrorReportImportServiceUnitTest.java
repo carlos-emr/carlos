@@ -240,7 +240,7 @@ class BillingClaimsErrorReportImportServiceUnitTest {
         StringBuilder report = new StringBuilder(headerLine("1") + "\n" + claimLine() + "\n" + transactionLine());
         List<String> explanations = new ArrayList<>();
         for (int i = 1; i <= 4; i++) {
-            String message = ("Message " + i + " ").repeat(6) + "!";
+            String message = "Message " + i + " " + repeat('X', 44) + "!";
             assertThat(message).hasSize(55);
             report.append("\nHE80").append(i).append(message);
             explanations.add("0" + i + "|" + message);
