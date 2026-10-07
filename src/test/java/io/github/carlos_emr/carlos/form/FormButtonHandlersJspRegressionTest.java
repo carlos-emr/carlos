@@ -101,10 +101,10 @@ class FormButtonHandlersJspRegressionTest {
     private static final String HANDLER_PROBE = """
             const fs = require('fs');
             const vm = require('vm');
-            const context = vm.createContext({});
+            const context = vm.createContext({}, { microtaskMode: 'afterEvaluate' });
             const script = new vm.Script(fs.readFileSync(process.argv[2], 'utf8'));
             try {
-                script.runInContext(context);
+                script.runInContext(context, { timeout: 5000 });
             } catch (pageDependentStatement) {
                 // only the declarations matter here
             }
@@ -265,16 +265,20 @@ class FormButtonHandlersJspRegressionTest {
         return repeats;
     }
 
-    private static void assertNodeSucceeds(List<String> command, String description)
+    private void assertNodeSucceeds(List<String> command, String description)
             throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        // Output goes to a file so the timed wait below is the only place this can block.
+        Path output = Files.createTempFile(scratchDir, "node-", ".log");
+        Process process = new ProcessBuilder(command).redirectErrorStream(true)
+                .redirectOutput(output.toFile()).start();
         boolean finished = process.waitFor(30, TimeUnit.SECONDS);
         if (!finished) {
-            process.destroyForcibly();
+            process.destroyForcibly().waitFor(5, TimeUnit.SECONDS);
         }
         assertThat(finished).as("%s finished", description).isTrue();
-        assertThat(process.exitValue()).as("%s%n%s", description, output).isZero();
+        assertThat(process.exitValue())
+                .as("%s%n%s", description, Files.readString(output, StandardCharsets.UTF_8))
+                .isZero();
     }
 
     private static boolean nodeIsAvailable() {
