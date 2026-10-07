@@ -7,14 +7,16 @@
  * User path: login > Schedule > Search > FAKE- > patient row > Master Record >
  *   (1) Manage Contacts > footer "About" and "License";
  *   (2) Preventions > the first prevention type (the add-prevention form) > footer
- *       "About" and "License".
+ *       "About" and "License";
+ *   (3) Preferences > Edit Text Signature > both footer links with an unsaved draft.
  *
  * Roughly forty pages end in
  *   <a href="javascript:popupStart(300,400,'.../encounter/ViewAbout')">About</a> | ...License
  * but popupStart is defined only by encounter/js/encounter.js, oscarMDSIndex.js and a
  * few pages' own scripts. On the rest the click throws "ReferenceError: popupStart is
  * not defined" and nothing opens. Asserts: each click opens a popup that is not an error
- * page, with no uncaught error recorded. FAILS today at step 1 (Manage Contacts).
+ * page, with no uncaught error recorded. The destination must be correct and have no
+ * opener access, and the originating page and unsaved signature must stay intact.
  *
  * READ-ONLY on an existing demo patient, no fixtures, nothing submitted.
  *
@@ -26,6 +28,7 @@ const ui = require('./lib/playwright-ui');
 const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { beginEntry, createLedger, entryFailures, startSession } = require('./lib/page-health-engine');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 async function openHub(session, masterPage, name, timeout) {
   // callers supply only the fixed Manage Contacts and Preventions labels.
@@ -42,17 +45,25 @@ async function openHub(session, masterPage, name, timeout) {
 async function footerLink(session, page, text, timeout, reported) {
   // callers supply only the fixed About and License labels.
   // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-  const link = page.locator('a[href^="javascript:"]').filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
+  const link = page.locator('a[href]').filter({ hasText: new RegExp(`^\\s*${text}\\s*$`) }).first();
   if (await link.count() === 0) return [`no "${text}" footer link on ${page.url().split('?')[0].split('/').pop()}`];
   const problems = [];
   const before = session.recorder.pageErrors.length;
+  const sourceUrl = page.url();
   try {
     const popup = await ui.clickOpensPopup(page, link, {
       context: session.context, label: `footer ${text}`, recorder: session.recorder, timeout,
     });
-    await popup.close().catch(() => {});
+    try {
+      const destination = new URL(popup.url());
+      const expected = new URL(h.appUrl(session.config.baseUrl, `/encounter/View${text}`));
+      h.assert(destination.origin === expected.origin && destination.pathname === expected.pathname,
+        `The ${text} footer opened the wrong destination`);
+      h.assert(await popup.evaluate(() => window.opener === null), 'The footer destination has access to the editor window');
+      h.assert(!page.isClosed() && page.url() === sourceUrl, 'Opening a footer replaced or closed the editor');
+    } finally { await popup.close().catch(() => {}); }
   } catch (error) {
-    problems.push(`"${text}" footer link on ${page.url().split('?')[0].split('/').pop()} opened no popup`);
+    problems.push(`"${text}" footer link on ${sourceUrl.split('?')[0].split('/').pop()}: ${error.message}`);
   }
   for (const entry of session.recorder.pageErrors.slice(before)) {
     problems.push(`"${text}" footer link threw: ${entry.text.split('\n')[0]}`);
@@ -92,6 +103,25 @@ async function main() {
     await form.close().catch(() => {});
     await preventions.close().catch(() => {});
     console.log(`  step page-health-footer-links: add-prevention form footer links clicked, ${problems.length} problem(s) recorded`);
+
+    const preferences = await ui.clickOpensPopup(session.schedulePage,
+      session.schedulePage.getByTitle(/Edit your personal setting/i).first(), {
+        context: session.context, recorder: session.recorder, label: 'preferences', timeout,
+      });
+    const signatureLink = preferences.locator('a[href$="/provider/ViewEditSignature"]');
+    await revealAuditLink(preferences, signatureLink, timeout);
+    const signature = await ui.clickOpensPopup(preferences, signatureLink, {
+      context: session.context, recorder: session.recorder, label: 'text-signature', timeout,
+    });
+    const draft = 'Unsaved footer-link regression draft';
+    await signature.locator('#signature').fill(draft);
+    for (const text of ['About', 'License']) {
+      problems.push(...await footerLink(session, signature, text, timeout, reported));
+      h.assert(await signature.locator('#signature').inputValue() === draft, 'A footer link discarded the unsaved signature');
+    }
+    await signature.close();
+    await preferences.close();
+    console.log(`  step page-health-footer-links: text-signature footer links preserve the unsaved draft, ${problems.length} problem(s) recorded`);
 
     problems.push(...entryFailures({ ...session, ledger }, entry, 'browser', reported), ...ledger.lines());
     h.assert(problems.length === 0,
