@@ -59,12 +59,13 @@ class JspLineBreakRegressionTest {
     private static final String[] LOCALES = {"en", "es", "fr", "pl", "pt_BR"};
     /** The cut: text, then a run of padding spaces at the end of the line, then the rest at column 0. */
     private static final Pattern CUT = Pattern.compile("\\S {8,}\\r?\\n(?=\\S)");
-    private static final Pattern MESSAGE_KEY = Pattern.compile("<fmt:message key=[\"']([^\"'$]+)[\"']");
+    private static final Pattern MESSAGE_KEY = Pattern.compile("<fmt:message key=[\"']([^\"'$<]+)[\"']");
     /**
-     * Scriptlets and JSP comments, EL expressions, then custom tags, masked in that order so a
+     * JSP comments, scriptlets, EL expressions, then custom tags, masked in that order so a
      * {@code >} or {@code "} inside one cannot end the attribute it sits in.
      */
     private static final Pattern[] JSP_CONSTRUCTS = {
+            Pattern.compile("<%--[\\s\\S]*?--%>"),
             Pattern.compile("<%[\\s\\S]*?%>"),
             Pattern.compile("\\$\\{[^}]*}"),
             Pattern.compile("</?[A-Za-z][\\w-]*:[\\w-]+[^>]*>")};
@@ -72,8 +73,9 @@ class JspLineBreakRegressionTest {
     private static final Pattern SCRIPT_ATTRIBUTE =
             Pattern.compile("(?i)\\s(?:href\\s*=\\s*\"\\s*javascript:|on[a-z]+\\s*=\\s*\")([^\"]*)\"");
     /**
-     * A word cut in two inside script: padding after a word, then the rest of it at column 0. A plain
-     * line break is not enough, since browsers drop those from {@code javascript:} links.
+     * A word cut in two inside script: padding after a word, then the rest of it at column 0. Browsers
+     * drop a bare line break from a {@code javascript:} link but keep the padding, so the padding is
+     * what breaks the link; in an {@code on*} handler either half alone is already wrong.
      */
     private static final Pattern SCRIPT_WORD_CUT = Pattern.compile("\\w[ \\t]+\\r?\\n\\w");
     /**
