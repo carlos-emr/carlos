@@ -35,6 +35,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingPromptRequest;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -136,6 +137,56 @@ class PortalBookingPrompt2ActionUnitTest {
         verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"create", "withdraw"})
+    void shouldRefuseChange_whenBookingReadIsAllowedButWriteIsDenied(String method) throws Exception {
+        request.setParameter("method", method);
+        request.setParameter("promptId", "7");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.WRITE), eq("123"))).thenReturn(false);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "delete", "CREATE", "approve"})
+    void shouldRejectUnsupportedMethod_beforeSending(String method) throws Exception {
+        request.setParameter("method", method);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("unsupported booking prompt action");
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "bad/id", "an-operation-id-that-is-longer-than-sixty-four-characters-0000000"})
+    void shouldRejectInvalidOperationId_beforeSending(String operationId) throws Exception {
+        request.setParameter("operationId", operationId);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @Test
+    void shouldRejectMissingOperationId_beforeSending() throws Exception {
+        request.removeParameter("operationId");
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(resolver, portal);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "0", "-7", "seven", "99999999999999999999"})
+    void shouldRejectUnselectedPrompt_beforeSending(String promptId) throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", promptId);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("a booking prompt must be selected");
+        verifyNoInteractions(resolver, portal);
+    }
+
     @Test
     void shouldRejectRestrictedPatient_beforeSending() throws Exception {
         when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(false);
@@ -206,8 +257,22 @@ class PortalBookingPrompt2ActionUnitTest {
         when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "read")));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(response.getContentAsString()).contains("read");
+        var prompts = new ObjectMapper().readTree(response.getContentAsString()).get("prompts");
+        assertThat(prompts).hasSize(1);
+        assertThat(prompts.get(0).get("id").asLong()).isEqualTo(7);
+        assertThat(prompts.get(0).get("state").asText()).isEqualTo("read");
         verify(portal, never()).isBookingEligible(anyInt(), any());
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
+    }
+
+    @Test
+    void shouldRefuseList_whenBookingReadIsDenied() throws Exception {
+        request.setParameter("method", "list");
+        when(security.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(false);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(resolver, portal);
     }
 
     @ParameterizedTest
@@ -295,6 +360,34 @@ class PortalBookingPrompt2ActionUnitTest {
     }
 
     @Test
+    void shouldRefuseUnlistedPrompt_beforeWithdrawal() throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", "7");
+        Instant timestamp = Instant.parse("2026-10-01T12:00:00Z");
+        var otherPrompt = new PatientPortalBookingPromptDto(8, 123, "soon", "follow_up", null, "sent",
+                "Synthetic Provider", timestamp, timestamp.plusSeconds(86400), null, null, null, null);
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(otherPrompt));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentAsString()).contains("booking_prompt_not_verified");
+        verify(portal, never()).withdrawBookingPrompt(anyInt(), anyLong(), any());
+        audit.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAuditUnknownOutcome_whenWithdrawalResponseIsLost() throws Exception {
+        request.setParameter("method", "withdraw");
+        request.setParameter("promptId", "7");
+        when(portal.listBookingPrompts(eq(123), same(staff))).thenReturn(List.of(prompt(123, "sent")));
+        when(portal.withdrawBookingPrompt(eq(123), eq(7L), same(staff))).thenThrow(
+                PatientPortalException.ofTransportFailure("/internal/carlos/booking-prompts/{id}/withdraw", null));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(504);
+        audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class), eq("PortalBookingPrompt2Action.withdraw.unconfirmed"),
+                eq("PatientPortal"), eq("0"), eq("123"), eq("outcome=unconfirmed")));
+    }
+
+    @Test
     void shouldWithdrawVerifiedPrompt_withPatientScopedIdentity() throws Exception {
         request.setParameter("method", "withdraw");
         request.setParameter("promptId", "7");
@@ -302,6 +395,7 @@ class PortalBookingPrompt2ActionUnitTest {
         when(portal.withdrawBookingPrompt(eq(123), eq(7L), same(staff))).thenReturn(prompt(123, "withdrawn"));
         execute();
         assertThat(response.getStatus()).isEqualTo(200);
+        verify(resolver).resolveForPatient(any(), eq(Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT)), eq(123));
         audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class), eq("PortalBookingPrompt2Action.withdraw"),
                 eq("PatientPortal"), eq("7"), eq("123"), eq("")));
     }

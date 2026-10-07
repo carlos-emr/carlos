@@ -74,6 +74,7 @@
         <span data-message="sending"><fmt:message key="portal.booking.sending"/></span>
         <span data-message="sent"><fmt:message key="portal.booking.sent"/></span>
         <span data-message="uncertain"><fmt:message key="portal.booking.uncertain"/></span>
+        <span data-message="notSent"><fmt:message key="portal.booking.notSent"/></span>
         <span data-message="storage"><fmt:message key="portal.booking.storage"/></span>
         <span data-message="empty"><fmt:message key="portal.booking.empty"/></span>
         <span data-message="created"><fmt:message key="portal.booking.created"/></span>

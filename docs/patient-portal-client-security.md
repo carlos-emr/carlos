@@ -7,10 +7,39 @@ run in CARLOS before signing.
 
 ## Authenticating the portal server
 
+The portal is optional and off by default. It is used only when
+`patient_portal.enabled=true`; a clinic that does not use it sets nothing, and
+setting it back to `false` switches the portal off without removing its
+credentials. With the portal off, no portal call is made. A portal JSON action
+that would call the portal (the panel read, invitation revoke, account unlock
+and access) answers 503 `portal_not_configured`, saying the portal is not
+switched on. Requests refused for their method, patient, action name,
+invitation id or privileges are refused as before (an account access request's
+`enabled` and `reason` are checked only once the portal is on), and invitation
+create and resend answer 503 `portal_invitation_unavailable` whether the portal
+is on or off. The email
+recovery page reports the portal as switched off or not set up correctly when a
+recovery is attempted. The rest of CARLOS is unaffected, with two exceptions.
+While `patient_portal.email.enabled=true`, every encrypted email is refused;
+setting it to `false` puts encrypted email back on staff-entered passwords. And
+whatever that setting, an email whose portal password still needs recovery
+cannot be recovered until the portal is switched on again. Case does not matter for
+`patient_portal.enabled` and a blank value counts as off, whereas
+`patient_portal.email.enabled` must be exactly `true` or `false` in lower case;
+for the switch, any value other than `true` or `false`, including one
+followed by a `#` comment on the same line, is a configuration error; only the
+portal's JSON actions name `patient_portal.enabled` in the log. A change takes
+effect when CARLOS restarts.
+
+Upgrading: an install that set up the portal before this switch existed, such as
+a staging server, has no `patient_portal.enabled` line. After the upgrade its
+portal is off, as described above, until `patient_portal.enabled=true` is added
+and CARLOS restarts. If any email is still waiting for its portal password to be
+recovered, add the line before upgrading.
+
 `patient_portal.certificate.pins` is required whenever the integration is
-configured. Missing, empty, or malformed pins prevent client initialization;
-there is no fallback to CA-only trust. Leaving the whole integration unconfigured
-still leaves the rest of CARLOS available. Existing deployments must provision
+enabled. Missing, empty, or malformed pins prevent client initialization;
+there is no fallback to CA-only trust. Existing deployments must provision
 verified pins before deploying this change and restarting CARLOS.
 
 CARLOS requires TLS 1.2/1.3, normal certificate validation, a matching hostname,
@@ -117,12 +146,13 @@ Settings and transport construction tests reject absent pins before any connecti
 
 `PatientPortalService` can create, list, and withdraw the portal's fixed-vocabulary booking prompts.
 `portal.booking_prompt.manage` maps to `_portal.booking_prompt`. The JSON action is
-`POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`.
+`POST demographic/portalBookingPrompt`, with `method=create|list|withdraw` and `demographicNo`
+(withdraw also takes `promptId`).
 Every request checks patient-record access and the patient's booking privilege; list requires read,
 and create/withdraw require write. Create checks the narrow `booking-eligibility` endpoint before
 requesting a prompt, using only `portal.booking_prompt.manage`. The response contains clinic,
 patient, and an eligibility boolean; general account details and `_portal.account` are not needed.
-The normal Struts CSRF protection applies.
+The CSRFGuard filter protects every POST, including list.
 
 Create accepts `operationId`, `urgency`, and `appointmentType`. Keep the same operation ID after
 an uncertain response. The portal returns HTTP 201 with `created=true` initially and also HTTP 201
@@ -154,11 +184,15 @@ The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only render
 concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
 session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
 names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+A definite refusal (HTTP 400, 403 or 404, given before anything reached the portal or by the
+portal itself, or no CSRF token after a 15-second wait) drops the ID only if it was created for
+that attempt, and the panel says the request was not sent. An ID that was tried before, or was
+read back from storage after a reload, is kept, since that earlier attempt may have been stored.
+Session storage is per tab, though a window opened from the tab starts with a copy of it.
 Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
 status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
 The latest-100 history and optional provider attribution limitations above still apply.
 
-All five catalogs use the same English labels. A separately approved security-object/default-role
+The labels are translated in all five catalogs. A separately approved security-object/default-role
 database seed remains required before #3849 is complete. No permission is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
-system principal, and decline/expiry ticklers belong to #3850. The draft is stacked on #3478 and
-requires that client before mainline integration.
+system principal, and decline/expiry ticklers belong to #3850.

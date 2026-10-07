@@ -51,8 +51,8 @@ public record PatientPortalBookingPromptRequest(
         int type = Character.getType(codePoint);
         return Character.isISOControl(codePoint)
                 || type == Character.LINE_SEPARATOR || type == Character.PARAGRAPH_SEPARATOR
-                || type == Character.FORMAT
-                && codePoint != 0x200C && codePoint != 0x200D && codePoint != 0x00AD;
+                || (type == Character.FORMAT
+                        && codePoint != 0x200C && codePoint != 0x200D && codePoint != 0x00AD);
     }
 
     /** Provider names and correlation identifiers must not enter incidental logs. */

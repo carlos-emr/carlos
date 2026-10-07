@@ -41,7 +41,7 @@ import org.apache.struts2.ServletActionContext;
 /**
  * Staff booking-prompt JSON contract. Lists need patient-specific read; changes need write.
  * Creating checks a narrow eligibility endpoint using booking permission alone.
- * The default CSRF-protected Struts stack protects every POST, including the read operation.
+ * The CSRFGuard filter protects every POST, including the read operation.
  */
 public class PortalBookingPrompt2Action extends PortalJsonAction {
     private static final long serialVersionUID = 1L;

@@ -2,6 +2,21 @@
 /* Copyright (c) 2026 CARLOS Contributors. */
 (function () {
     'use strict';
+    // The action refused these before anything reached the portal, or the portal refused
+    // them outright: that attempt stored nothing. The retry identity is dropped only when it
+    // was made for that very attempt; one that was tried before, or was found in storage
+    // (the page may have died mid-send), may already be stored, so it is kept.
+    const DEFINITE_REFUSALS = [400, 403, 404];
+    const CSRF_WAIT_MS = 15000;
+    function newOperationId() {
+        if (crypto.randomUUID) { return crypto.randomUUID(); }
+        // randomUUID needs a secure context (HTTPS or localhost); getRandomValues does not.
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+        return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
+    }
     function mount(root) {
         if (root.dataset.mounted) { return; }
         root.dataset.mounted = 'true';
@@ -10,7 +25,9 @@
             const node = root.querySelector('[data-message="' + key + '"]');
             return node ? node.textContent : '';
         };
-        const status = key => { role('status').textContent = message(key); };
+        const status = (...keys) => {
+            role('status').textContent = keys.filter(Boolean).map(message).join(' ');
+        };
         const create = role('create');
         const send = role('send');
         const urgency = role('urgency');
@@ -43,7 +60,7 @@
             sessionStorage.setItem(key + ':probe', '1');
             sessionStorage.removeItem(key + ':probe');
             storageReady = true;
-        } catch (_) { status('storage'); }
+        } catch (_) { pending = null; status('storage'); }
         function update() {
             const matches = samePatient();
             role('prompts').hidden = !matches;
@@ -59,21 +76,42 @@
             send.disabled = busy || !eligible || !storageReady;
             send.textContent = message(pending ? 'retry' : 'send');
         }
+        async function csrfToken() {
+            // csrf-token.jspf publishes its token fetch as window.csrfTokenReady on
+            // DOMContentLoaded. It may reject, and a form on the page may already carry the token.
+            let timer;
+            try {
+                if (window.csrfTokenReady) {
+                    await Promise.race([window.csrfTokenReady, new Promise((_, reject) => {
+                        timer = setTimeout(() => reject(new Error('csrf wait timed out')), CSRF_WAIT_MS);
+                    })]);
+                }
+            } catch (_) { /* re-checked below */ } finally { clearTimeout(timer); }
+            const input = Array.from(document.querySelectorAll('input[name="CSRF-TOKEN"]')).find(field => field.value);
+            if (!input) {
+                const failure = new Error('csrf unavailable');
+                failure.notSent = true;
+                throw failure;
+            }
+            return input.value;
+        }
         async function post(values) {
-            if (window.csrfTokenReady) { await window.csrfTokenReady; }
-            const token = document.querySelector('input[name="CSRF-TOKEN"]');
-            if (!token || !token.value) { throw new Error('csrf unavailable'); }
+            const token = await csrfToken();
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 20000);
             try {
                 const response = await fetch(root.dataset.endpoint, {
                     method: 'POST', credentials: 'same-origin', cache: 'no-store',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value },
+                        'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token },
                     body: new URLSearchParams(Object.assign({ demographicNo: root.dataset.patient }, values)),
                     signal: controller.signal
                 });
-                if (!response.ok) { throw new Error('request failed'); }
+                if (!response.ok) {
+                    const failure = new Error('request failed');
+                    failure.status = response.status;
+                    throw failure;
+                }
                 const body = await response.json();
                 if (body.ok !== true) { throw new Error('unconfirmed response'); }
                 return body;
@@ -107,7 +145,7 @@
                 role('prompts').append(item);
             }
         }
-        async function refresh(successMessage) {
+        async function refresh(lead) {
             if (busy || !samePatient()) { update(); return; }
             busy = true; role('refresh').disabled = true; update();
             try {
@@ -120,28 +158,36 @@
                 eligible = body.mayCreate && body.accountActive === true;
                 mayWithdraw = body.mayWithdraw;
                 render(body.prompts);
-                status(pending ? 'uncertain' : successMessage ||
-                    (body.mayCreate && !eligible ? 'inactive' : storageReady ? 'ready' : 'storage'));
+                const inactive = body.mayCreate && !eligible ? 'inactive' : null;
+                if (pending) {
+                    // The unconfirmed request stays in view, with the reason it cannot be retried now.
+                    status(lead, 'uncertain', inactive);
+                } else {
+                    // lead: what just happened (sent, withdrawn, not sent), then the account state.
+                    status(lead, inactive || (lead ? null : storageReady ? 'ready' : 'storage'));
+                }
             } catch (_) {
                 eligible = false; mayWithdraw = false;
                 role('prompts').replaceChildren();
-                if (successMessage) {
-                    role('status').textContent = message(successMessage) + ' ' + message('unavailable');
-                } else { status(pending ? 'uncertain' : 'unavailable'); }
+                status(lead || (pending ? 'uncertain' : null), 'unavailable');
             } finally {
                 busy = false; role('refresh').disabled = false; update();
             }
         }
         async function submit() {
             if (busy || !eligible || !storageReady || !samePatient()) { update(); return; }
+            const fresh = !pending;
             try {
                 if (!pending) {
-                    pending = { operationId: crypto.randomUUID(), urgency: urgency.value, appointmentType: type.value };
-                    sessionStorage.setItem(key, JSON.stringify(pending));
+                    // Kept only once it is saved, so a failed save never looks like an unconfirmed send.
+                    const request = { operationId: newOperationId(), urgency: urgency.value, appointmentType: type.value };
+                    sessionStorage.setItem(key, JSON.stringify(request));
+                    pending = request;
                 }
             } catch (_) { storageReady = false; status('storage'); update(); return; }
             busy = true; update(); status('sending');
             let confirmed = false;
+            let refused = false;
             try {
                 const body = await post(Object.assign({ method: 'create' }, pending));
                 if (!validPrompt(body.prompt) || typeof body.created !== 'boolean'
@@ -152,9 +198,20 @@
                 sessionStorage.removeItem(key);
                 pending = null; confirmed = true;
                 status('sent');
-            } catch (_) { status('uncertain'); }
+            } catch (failure) {
+                refused = failure.notSent === true || DEFINITE_REFUSALS.includes(failure.status);
+                if (refused && fresh) {
+                    try { sessionStorage.removeItem(key); } catch (_) { /* nothing left to retry */ }
+                    pending = null;
+                } else {
+                    // Kept: this or an earlier attempt with it may have reached the portal.
+                    status('uncertain');
+                }
+            }
             finally { busy = false; update(); }
             if (confirmed) { await refresh('sent'); }
+            // A refusal says so, then shows the refreshed state (for example, not on the portal).
+            if (refused) { await refresh(pending ? null : 'notSent'); }
         }
         async function withdraw(id) {
             if (busy || !mayWithdraw || !samePatient()) { update(); return; }
@@ -186,6 +243,11 @@
         update(); refresh();
     }
     function init() { document.querySelectorAll('[data-portal-booking]').forEach(mount); }
-    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
-    else { init(); }
+    // Mount after DOMContentLoaded, when csrf-token.jspf has published window.csrfTokenReady: as
+    // a deferred script this runs before it. "load" covers a script added after DOMContentLoaded.
+    if (document.readyState === 'complete') { init(); }
+    else {
+        document.addEventListener('DOMContentLoaded', init);
+        window.addEventListener('load', init);
+    }
 }());
