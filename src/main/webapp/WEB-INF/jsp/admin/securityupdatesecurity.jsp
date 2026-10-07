@@ -268,9 +268,9 @@
                 </td></tr>
                 <% } %>
                 <tr>
-                    <td width="50%" align="right"><fmt:message key="admin.securityrecord.formUserName"/>:
+                    <td width="50%" align="right"><label for="securityUserName"><fmt:message key="admin.securityrecord.formUserName"/>:</label>
                     </td>
-                    <td><input type="text" name="user_name" maxlength="30"
+                    <td><input type="text" id="securityUserName" name="user_name" maxlength="30"
                                value="<carlos:encode value='<%= security.getUserName() %>' context="htmlAttribute"/>"></td>
                 </tr>
                 <tr>
@@ -297,10 +297,10 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formExpiryDate"/>:
+                    <td align="right" nowrap><label for="securityExpireSet"><fmt:message key="admin.securityrecord.formExpiryDate"/>:</label>
                     </td>
-                    <td><input type="checkbox" name="b_ExpireSet" value="1"
-                            <%= security.getBExpireset()==0?"":"checked" %>> <fmt:message key="admin.securityrecord.formDate"/>: <input
+                    <td><input type="checkbox" id="securityExpireSet" name="b_ExpireSet" value="1"
+                            <%= security.getBExpireset()==0?"":"checked" %>> <label for="date_ExpireDate"><fmt:message key="admin.securityrecord.formDate"/>:</label> <input
                             type="text" name="date_ExpireDate" id="date_ExpireDate"
                             value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("date_ExpireDate"), "") : java.util.Objects.toString(security.getDateExpiredate(), "") %>' context="htmlAttribute"/>"
                             size="10" readonly/> <img src="<%= request.getContextPath() %>/images/cal.gif"
@@ -329,17 +329,17 @@
                 </tr>
                 <!-- new sec -->
                 <tr>
-                    <td align="right" nowrap><fmt:message key="admin.securityrecord.formPIN"/>:
+                    <td align="right" nowrap><label for="securityPin"><fmt:message key="admin.securityrecord.formPIN"/>:</label>
                     </td>
-                    <td><input type="password" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
+                    <td><input type="password" id="securityPin" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
                             size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
                         <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</font>
                     </td>
                 </tr>
                 <tr>
-                    <td align="right"><fmt:message key="admin.securityrecord.formConfirm"/>:
+                    <td align="right"><label for="securityPinConfirmation"><fmt:message key="admin.securityrecord.formConfirm"/>:</label>
                     </td>
-                    <td><input type="password" name="conPin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
+                    <td><input type="password" id="securityPinConfirmation" name="conPin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("conPin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6" /></td>
                 </tr>
 
 		<% } %>
@@ -348,10 +348,10 @@
                     if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
                 %>
                 <tr>
-                    <td align="right"><fmt:message key="admin.provider.forcePasswordReset"/>:
+                    <td align="right"><label for="forcePasswordReset"><fmt:message key="admin.provider.forcePasswordReset"/>:</label>
                     </td>
                     <td>
-                        <select name="forcePasswordReset">
+                        <select id="forcePasswordReset" name="forcePasswordReset">
                             <option value="1" <% if (security != null && security.isForcePasswordReset() != null && security.isForcePasswordReset()) { %>
                                     SELECTED <%}%>>true
                             </option>
