@@ -68,10 +68,12 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)}`) === '0', 'Owned unlock site remains');
     }
   });
-  const sites = siteNames.map(name => {
-    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)}`) === '0', 'Owned site name already exists');
+  const sites = siteNames.map((name, index) => {
+    const shortName = `U${s.marker.slice(-8)}${index}`;
+    h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE name=${h.sqlString(name)} OR short_name=${h.sqlString(shortName)}`) === '0',
+      'Owned site name or short name already exists');
     ownedSiteNames.push(name); // Record ownership intent only after proving the name was absent.
-    const id = sql.value(`INSERT INTO site (name,short_name,bg_color,status) VALUES (${h.sqlString(name)},'PWUnlock','#FFFFFF',1); SELECT LAST_INSERT_ID()`);
+    const id = sql.value(`INSERT INTO site (name,short_name,bg_color,status) VALUES (${h.sqlString(name)},${h.sqlString(shortName)},'#FFFFFF',1); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'Owned unlock site was not created');
     return id;
   });
