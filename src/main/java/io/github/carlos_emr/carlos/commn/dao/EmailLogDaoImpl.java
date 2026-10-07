@@ -5,10 +5,13 @@ import org.apache.commons.codec.binary.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.persistence.Query;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 
@@ -210,5 +213,20 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
             entityManager.refresh(current);
         }
         return updatedRows;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int replaceBody(Integer id, String replacement) {
+        // Only the body column: an entity write would also write back the status and timestamp it had
+        // read, undoing a status change another request made in between.
+        return entityManager.createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id")
+                .setParameter("body", encodeBody(Objects.requireNonNull(replacement, "replacement")))
+                .setParameter("id", id)
+                .executeUpdate();
+    }
+    /** The stored form of a body, as {@link EmailLog#setBody(String)} writes it. */
+    private static byte[] encodeBody(String body) {
+        return Base64.encodeBase64(body.getBytes(StandardCharsets.UTF_8));
     }
 }
