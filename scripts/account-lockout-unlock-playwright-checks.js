@@ -209,6 +209,12 @@ async function workflow(s) {
           `Wrong-password attempt ${attempt} did not show the failed-login alert (landed on ${result.landing})`);
         failures++;
         h.assert(sql.value(failedLogins) === String(failures), `Failed login ${attempt} was not audited`);
+        if (failures === 1) {
+          frame = await openUnlock();
+          h.assert((await lockList(frame)).includes(username),
+            'The first failure was not tracked by username in the shared-site list;'
+            + ' enable login_lock=true before running this workflow');
+        }
       }
       h.assert(locked, `No lockout after ${MAX_PROBES} wrong passwords: login_max_failed_times is not enforced for this client`
         + ' (the address may match login_local_ip, or lockout is disabled)');
