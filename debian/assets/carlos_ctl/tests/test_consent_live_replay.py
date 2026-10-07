@@ -36,7 +36,7 @@ SRC, DST, ARCH = "src", "dst", "arch"
 
 OVERRIDES = Path(__file__).resolve().parents[4] / "scripts" / "migration" / \
     "o19" / "overrides_schema.py"
-#: where V1.0.33 lives; its number changes at merge, its name does not
+#: where V1.0.57 lives; its number changes at merge, its name does not
 MIGRATIONS = Path(__file__).resolve().parents[4] / "database" / "mysql" / \
     "migration" / "common"
 
@@ -85,7 +85,7 @@ def col(dtype, nullable=True, primitive=False):
             "primitive": primitive}
 
 
-#: the target after V1.0.33: the three flags NOT NULL, and mapped to
+#: the target after V1.0.57: the three flags NOT NULL, and mapped to
 #: Java primitives (o19map_schema.PRIMITIVE_COLUMNS)
 DST_COLS = {
     "id": col("int", nullable=False),
@@ -693,7 +693,7 @@ class TestAManifestWithoutTheRule(unittest.TestCase):
 @unittest.skipUnless(MIGRATIONS.is_dir(), "migrations not in this checkout")
 class TestTheImportRanksAsTheMigrationDoes(unittest.TestCase):
 
-    """o19etl.CONSENT_LIVE_ORDER and V1.0.33's ORDER BY are one rule
+    """o19etl.CONSENT_LIVE_ORDER and V1.0.57's ORDER BY are one rule
     written twice: a database that is migrated and one that is imported
     must keep the same record live. The migration spells out what the
     import has already done where it selects the columns (a zero

@@ -1321,7 +1321,7 @@ def consent_live_ranked(entry: dict) -> bool:
 
 
 #: Why the import stored something other than what the clinic's row
-#: held -- the words V1.0.33 writes to `Consent_migration_audit`, so one
+#: held -- the words V1.0.57 writes to `Consent_migration_audit`, so one
 #: vocabulary describes a row whichever of the two changed it. A row
 #: that is both carries both, comma-separated in this order.
 CONSENT_NULL_FLAG = "null_flag"
