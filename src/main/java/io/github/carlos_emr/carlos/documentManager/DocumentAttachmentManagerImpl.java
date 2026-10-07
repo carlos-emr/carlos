@@ -88,6 +88,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
     private static final String UNREADABLE_HRM_REPORT = "missing or unreadable HRM report file";
+    private static final String UNAVAILABLE_ATTACHMENT_TARGET = "unavailable consult attachment target";
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
     private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
                     "io.github.carlos_emr.carlos.documentManager")
@@ -375,7 +376,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             return submittedAttachments;
         }
         List<ConsultDocs> unavailableAttachments = documentType == DocumentType.HRM
-                ? findUnavailableConsultAttachments(requestId)
+                ? findUnavailableConsultAttachments(requestId).stream().map(UnavailableAttachment::attachment).toList()
                 : consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
         if (unavailableAttachments == null || unavailableAttachments.isEmpty()) {
             return submittedAttachments;
@@ -1155,10 +1156,18 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             logger.warn("Skipped unavailable consult attachment lookup for invalid requestId={}", LogSafe.sanitize(requestId));
             return;
         }
-        for (ConsultDocs consultDoc : findUnavailableConsultAttachments(consultRequestId)) {
+        for (UnavailableAttachment unavailable : findUnavailableConsultAttachments(consultRequestId)) {
+            ConsultDocs consultDoc = unavailable.attachment();
             recordSkippedAttachment(attachmentWarnings, documentTypeFromConsultDoc(consultDoc),
-                    consultDoc.getDocumentNo(), "unavailable consult attachment target");
+                    consultDoc.getDocumentNo(), unavailable.reason());
         }
+    }
+
+    /**
+     * An attachment a consultation can no longer include, and why, for the server log: a fixed
+     * text, or for an HRM report the parser's exception class. Never a path or exception message.
+     */
+    private record UnavailableAttachment(ConsultDocs attachment, String reason) {
     }
 
     /**
@@ -1167,8 +1176,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * attached when the reopened form omits it, so the later print or fax still warns.
      * Permission and billing-region filtering remain outside this availability check.
      */
-    private List<ConsultDocs> findUnavailableConsultAttachments(Integer requestId) {
-        List<ConsultDocs> unavailable = new ArrayList<>();
+    private List<UnavailableAttachment> findUnavailableConsultAttachments(Integer requestId) {
+        List<UnavailableAttachment> unavailable = new ArrayList<>();
         Set<Integer> handledHrmIds = new HashSet<>();
         List<ConsultDocs> missingTargets = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
         if (missingTargets != null) {
@@ -1176,7 +1185,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 if (attachment != null) {
                     if (!ConsultDocs.DOCTYPE_HRM.equals(attachment.getDocType())
                             || handledHrmIds.add(attachment.getDocumentNo())) {
-                        unavailable.add(attachment);
+                        unavailable.add(new UnavailableAttachment(attachment, UNAVAILABLE_ATTACHMENT_TARGET));
                     }
                 }
             }
@@ -1184,9 +1193,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         List<ConsultDocs> attachedHrms = consultDocsDao.findByRequestIdDocType(requestId, ConsultDocs.DOCTYPE_HRM);
         if (attachedHrms != null) {
             for (ConsultDocs attachment : attachedHrms) {
-                if (attachment != null && handledHrmIds.add(attachment.getDocumentNo())
-                        && hrmReportReadFailure(attachment.getDocumentNo()) != null) {
-                    unavailable.add(attachment);
+                if (attachment != null && handledHrmIds.add(attachment.getDocumentNo())) {
+                    String readFailure = hrmReportReadFailure(attachment.getDocumentNo());
+                    if (readFailure != null) {
+                        unavailable.add(new UnavailableAttachment(attachment, readFailure));
+                    }
                 }
             }
         }
@@ -1201,7 +1212,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             // LoggedInInfo, so the fax cover page can ask without one.
             return HRMReportParser.parseReport(null, hrmId) == null ? UNREADABLE_HRM_REPORT : null;
         } catch (RuntimeException e) {
-            // The exception class only, as for render failures: the message can carry a file path.
+            // Logged as the skip reason: the exception class only, as for render failures, because
+            // the message can carry a file path.
             return e.getClass().getSimpleName();
         }
     }

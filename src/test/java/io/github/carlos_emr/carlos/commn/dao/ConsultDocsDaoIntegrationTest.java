@@ -349,6 +349,22 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
         }
 
+        @Test
+        @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient and another")
+        void shouldNotReportHrmAttachment_whenReportIsMatchedToBothPatients() {
+            int demographicNo = 83301;
+            int otherDemographicNo = 83302;
+            createDemographic(demographicNo);
+            createDemographic(otherDemographicNo);
+            ConsultationRequest consult = createConsultationRequest(demographicNo);
+            HRMDocument sharedReport = createHrmDocument();
+            matchHrmDocumentToDemographic(sharedReport.getId(), otherDemographicNo);
+            matchHrmDocumentToDemographic(sharedReport.getId(), demographicNo);
+            createConsultDoc(consult.getId(), sharedReport.getId(), ConsultDocs.DOCTYPE_HRM, null);
+
+            assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
+        }
+
         private CleanupFixture createCleanupFixture() {
             int demographicNo = 81001;
             int otherDemographicNo = 81002;

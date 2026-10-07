@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.LabManager;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -407,6 +408,41 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
         try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
             assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+        }
+    }
+
+    @Test
+    @DisplayName("logs why an attached HRM report was left out when its file is missing")
+    void shouldLogReadFailureReason_whenHrmReportFileIsMissing() {
+        attachHrmReport(12, "missing-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("type=H id=12")
+                    .endsWith("missing or unreadable HRM report file"));
+        }
+    }
+
+    @Test
+    @DisplayName("logs only the exception class when reading an attached HRM report fails unexpectedly")
+    void shouldLogExceptionClassOnly_whenHrmParserThrows() {
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(consultDoc(12, "H")));
+
+        try (MockedStatic<HRMReportParser> hrmReportParserMock = mockStatic(HRMReportParser.class);
+                LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            // The message stands for one that quotes a file path; it must not reach the log.
+            hrmReportParserMock.when(() -> HRMReportParser.parseReport(isNull(), eq(Integer.valueOf(12))))
+                    .thenThrow(new IllegalStateException("cannot read /documents/FAKE-hrm-path.xml"));
+
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(HRM_12_WARNING);
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("type=H id=12")
+                    .endsWith("IllegalStateException"));
+            assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-hrm-path"));
         }
     }
 
