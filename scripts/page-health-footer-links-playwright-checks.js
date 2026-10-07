@@ -30,6 +30,7 @@ const { beginEntry, createLedger, entryFailures, startSession } = require('./lib
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 
+/** Open a named Master Record hub and require a healthy destination before testing its footer. */
 async function openHub(session, masterPage, name, timeout) {
   // callers supply only the fixed Manage Contacts and Preventions labels.
   // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
@@ -73,6 +74,7 @@ async function footerLink(session, page, text, timeout, reported) {
   return problems;
 }
 
+/** Verify footer destinations, opener isolation and unsaved-draft retention through three real UI paths. */
 async function main() {
   const config = h.readConfig();
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
