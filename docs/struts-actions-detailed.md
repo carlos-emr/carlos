@@ -907,7 +907,6 @@ General reporting functionality.
 | report/DxresearchReport | io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action | Generates diagnostic research reports |
 | report/GenerateEnvelopes | io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action | Generates mailing envelopes |
 | report/GenerateLetters | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action | Generates patient letters |
-| report/GenerateSpreadsheet | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action | Generates patient spreadsheets |
 | report/ManageLetters | io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action | Manages patient letters |
 | report/printLabDaySheetAction | io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action | Prints lab day sheets |
 | report/RemoveClinicalReport | io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action | Removes clinical reports from history |

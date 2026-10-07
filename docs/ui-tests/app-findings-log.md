@@ -38,6 +38,11 @@ have silently had a feature taken away.
 | 4 | `encounter/immunization/config/*` (the immunization **set** configuration pages, e.g. `ViewImmunizationSetDisplay`) | **0** references. `CreateImmunizationSetInit.jsp` posts to `CreateInitImmunization`, but nothing links to `CreateImmunizationSetInit.jsp` itself, so the whole set-configuration area has no way in. | `needs-live-check` |
 | 5 | `provider/ViewProviderEncounterHistory` | Referenced only as a `dboperation` dispatch-table entry in `providercontrol.jsp` (`{"encounterhistory", "/provider/ViewProviderEncounterHistory"}`), and `dboperation=encounterhistory` is referenced only by `providerencounterhistory.jsp` itself. Nothing sets it, so the dispatch entry is never taken. | `needs-live-check` |
 
+Update for #3965: the unreferenced `report/GenerateSpreadsheet` action and route
+were removed. `patient-retired-spreadsheet` checks refusal of authenticated GET and
+CSRF-valid POST requests. This resolves only the spreadsheet portion of finding 1;
+the original finding above is retained as historical evidence.
+
 All five are filed as #3665.
 
 **Why `needs-live-check` rather than `open`:** all five were verified by source
