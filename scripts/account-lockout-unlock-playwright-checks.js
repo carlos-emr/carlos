@@ -88,9 +88,9 @@ async function workflow(s) {
   const { username } = fixture;
   const user = h.sqlString(username);
   const failedLogins = `SELECT COUNT(*) FROM log WHERE action='failed' AND content='login' AND contentId=${user}`;
-  // Authentication uses an empty contentId; choosing a facility writes a separate login audit.
+  // OscarLog normalizes the authentication's empty contentId to NULL; facility selection is separate.
   const successfulLogins = `SELECT COUNT(*) FROM log WHERE provider_no=${h.sqlString(fixture.providerNo)}
-    AND action='log in' AND content='login' AND contentId=''`;
+    AND action='log in' AND content='login' AND contentId IS NULL`;
 
   // Administration ▸ User Management ▸ Unlock Account, opened before any probe so the lock list
   // can be compared with what this run adds to it.
