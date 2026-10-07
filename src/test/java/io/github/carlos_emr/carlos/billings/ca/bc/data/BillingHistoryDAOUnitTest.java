@@ -131,7 +131,9 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
         sqlUtilsMock.when(() -> SqlUtils.getQueryResultsList(anyString(), ArgumentMatchers.<Object>any()))
                 .thenReturn(null);
 
-        assertThatThrownBy(() -> new BillingHistoryDAO().createBillingHistoryArchive("41"))
+        BillingHistoryDAO dao = new BillingHistoryDAO();
+
+        assertThatThrownBy(() -> dao.createBillingHistoryArchive("41"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Archive Not Created");
         verify(mockBillingHistoryDao, never()).persist(ArgumentMatchers.any());

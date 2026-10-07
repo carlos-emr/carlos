@@ -54,12 +54,13 @@ class HtmlTeleplanHelperUnitTest {
                 "",
                 "");
 
-        assertThat(html).contains("openBrWindow('reprocessBill?billingmaster_no=1%262%3D3%234");
-        assertThat(html).contains(SafeEncode.forHtmlContent("<b>Patient</b>"));
-        assertThat(html).contains(SafeEncode.forHtmlContent("123&456"));
-        assertThat(html).doesNotContain("reprocessBill?billingmaster_no=1&2=3#4");
-        assertThat(html).doesNotContain("<b>Patient</b>");
-        assertThat(html).doesNotContain(">123&456<");
+        assertThat(html)
+                .contains("openBrWindow('reprocessBill?billingmaster_no=1%262%3D3%234")
+                .contains(SafeEncode.forHtmlContent("<b>Patient</b>"))
+                .contains(SafeEncode.forHtmlContent("123&456"))
+                .doesNotContain("reprocessBill?billingmaster_no=1&2=3#4")
+                .doesNotContain("<b>Patient</b>")
+                .doesNotContain(">123&456<");
     }
 
     @Test

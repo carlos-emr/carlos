@@ -66,6 +66,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -257,6 +259,20 @@ class BillingReProcessBill2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer a save for a bill that does not exist with 404, writing nothing")
+    void shouldRejectSave_whenBillDoesNotExist() throws Exception {
+        request.setMethod("POST");
+        request.addParameter("billingmasterNo", "41");
+        BillingReProcessBill2Action action = new BillingReProcessBill2Action();
+        action.setBillingmasterNo("41");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        verify(mockBillingmasterDao, never()).update(any(Billingmaster.class));
+        verifyNoInteractions(mockBillingDao, mockBillingHistoryDao);
+    }
+
+    @Test
     @DisplayName("should treat a submit with no button as no button, not as a missing value")
     void shouldDefaultSubmitToEmpty_whenNoButtonWasPosted() {
         BillingReProcessBill2Action action = new BillingReProcessBill2Action();
@@ -298,8 +314,7 @@ class BillingReProcessBill2ActionUnitTest extends CarlosUnitTestBase {
             values.add(value.group(1));
         }
 
-        assertThat(values).hasSize(6).allSatisfy(v -> assertThat(recognised).contains(v));
-        assertThat(values).containsAll(recognised);
+        assertThat(values).hasSize(6).allSatisfy(v -> assertThat(recognised).contains(v)).containsAll(recognised);
     }
 
     private static Path projectPath(String relative) {

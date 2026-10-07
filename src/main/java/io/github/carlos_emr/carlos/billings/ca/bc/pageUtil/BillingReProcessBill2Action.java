@@ -94,6 +94,9 @@ public class BillingReProcessBill2Action extends ActionSupport {
     /** Result for Bill Status (the invoice list) when no single bill is being opened or saved. */
     static final String LIST = "list";
 
+    /** Bill Status mass edit: one value per checked bill. */
+    private static final String BILL_CHECK_PARAM = "billCheck";
+
     // The adjust bill page's buttons post these fixed values; only their text is translated.
     static final String SUBMIT_REPROCESS = "Reprocess Bill";
     static final String SUBMIT_RESUBMIT = "Resubmit Bill";
@@ -129,7 +132,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        boolean massEdit = request.getParameter("billCheck") != null;
+        boolean massEdit = request.getParameter(BILL_CHECK_PARAM) != null;
         // The adjust bill page posts its bill as billingmasterNo; links that only open it send billingmaster_no.
         boolean singleSave = request.getParameter("billingmasterNo") != null;
         if (!massEdit && !singleSave) {
@@ -148,7 +151,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
         List<BillingReProcessBill2Form> billingReProcessBillFormList = new ArrayList<>();
         if (massEdit) {
-            String[] billList = request.getParameterValues("billCheck");
+            String[] billList = request.getParameterValues(BILL_CHECK_PARAM);
             for (String billId : billList) {
                 String billingMasterNo = billId.split("_")[1];
                 BillingReProcessBill2Form billingReProcessBillForm = createBillingReProcessBill2Form(billingMasterNo, billingmasterDAO, request);
@@ -163,10 +166,14 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String billingmasterNo = frm.getBillingmasterNo();
             logger.debug("RETRIEVING Using {}", LogSafe.sanitize(billingmasterNo));
             StoredBill stored = storedBill(billingmasterNo);
+            if (stored == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
             Billingmaster billingmaster = stored.billingmaster();
             Billing bill = stored.bill();
             String demographicNo = stored.demographicNo();
-            String billNumber = stored.billNumber();
+            String invoiceNo = stored.billNumber();
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
@@ -264,7 +271,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
                     billingStatus = "O";
                 }
 
-                secondSQL = "update billing set status = '" + billingStatus + "' where billing_no ='" + billNumber + "'";
+                secondSQL = "update billing set status = '" + billingStatus + "' where billing_no ='" + invoiceNo + "'";
             } else if (submit.equals(SUBMIT_SETTLE)) {
                 billingStatus = "S";
             } else if (submit.equals(SUBMIT_REVERT_TO_PWE)) {
@@ -436,7 +443,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
                 //Why does this get called??  update billing type based on the billing status.  I guess this is effective when you switch this to bill on
-                msp.updateBillingStatus(billNumber, billingStatus, billingmasterNo);
+                msp.updateBillingStatus(invoiceNo, billingStatus, billingmasterNo);
             }
             BillingHistoryDAO dao = new BillingHistoryDAO();
             //If the adjustment amount field isn't empty, create an archive of the adjustment
@@ -454,7 +461,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             if (secondSQL != null) {
                 // If its an No Sub ICBC billing, it needs to be set to set back to status "O"
                 billingStatus = billingStatus.equals("I") ? "O" : billingStatus;
-                Billing b = billingDao.find(Integer.parseInt(billNumber));
+                Billing b = billingDao.find(Integer.parseInt(invoiceNo));
                 if (b != null) {
                     b.setStatus(billingStatus);
                     billingDao.merge(b);
@@ -490,10 +497,15 @@ public class BillingReProcessBill2Action extends ActionSupport {
      * Loads the bill to save by its billingmaster number alone. The patient and the invoice are
      * always the stored bill's own, as in the mass edit, never the copies the adjust bill page
      * carries in hidden fields.
+     *
+     * @return the bill, or {@code null} when no BC bill has that number
      */
-    StoredBill storedBill(String billingmasterNo) {
-        Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
-        Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
+    StoredBill storedBill(String number) {
+        Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(number);
+        Billing bill = billingmaster == null ? null : billingmasterDAO.getBilling(billingmaster.getBillingNo());
+        if (bill == null) {
+            return null;
+        }
         return new StoredBill(billingmaster, bill, String.valueOf(bill.getDemographicNo()),
                 String.valueOf(billingmaster.getBillingNo()));
     }
@@ -501,10 +513,9 @@ public class BillingReProcessBill2Action extends ActionSupport {
     /** Whether every bill named for saving is a number, so a bad post is a 400, not a 500. */
     private boolean saveTargetsAreWellFormed(boolean massEdit) {
         if (!massEdit) {
-            String billingmasterNo = request.getParameter("billingmasterNo");
-            return BILL_NUMBER.matcher(billingmasterNo).matches();
+            return BILL_NUMBER.matcher(request.getParameter("billingmasterNo")).matches();
         }
-        for (String billCheck : request.getParameterValues("billCheck")) {
+        for (String billCheck : request.getParameterValues(BILL_CHECK_PARAM)) {
             if (billCheck == null || !BILL_CHECK.matcher(billCheck).matches()) {
                 return false;
             }
@@ -878,10 +889,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
     @StrutsParameter
     public void setProvider_no(String provider_no) {
         this.provider_no = provider_no;
-    }
-
-    public String getProviderNo() {
-        return provider_no;
     }
 
     /** The adjust bill page's billing physician select is named {@code providerNo}. */
