@@ -189,6 +189,10 @@ public class GenerateRaSummaryViewModelAssembler {
                                                      Totals totals) {
         String account = String.valueOf(rad.getBillingNo());
         String demoHin = nullToEmpty(rad.getHin());
+        // The stored HR4 field includes a two-character version after its
+        // twelve-character number; legacy imports may contain only the number.
+        if (demoHin.length() > 12) demoHin = demoHin.substring(0, 12);
+        demoHin = demoHin.trim();
         String demoName = "";
         String demoDocName = "";
         String location = "";

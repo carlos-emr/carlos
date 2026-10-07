@@ -88,18 +88,27 @@ function buildRemittance({ owned, marker, claims }) {
   return { text: `${lines.join('\r\n')}\r\n`, cheque: cheque.toFixed(2) };
 }
 
+const ERROR_EXPLANATIONS = [
+  'SYNTHETIC SERVICE CODE REJECTION',
+  'SECOND EXPLANATION MUST SURVIVE',
+  'THIRD EXPLANATION MUST SURVIVE',
+  'FOURTH EXPLANATION MUST SURVIVE',
+];
+
 /** A Claims Error Report (E…) rejecting one owned claim item. */
 function buildErrorReport({ owned, claim }) {
   const lines = [
     record(`HX1V03G${' '.repeat(10)}000000${owned.groupNo}${owned.ohipNo}00000${PROCESS_DATE}`),
-    record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9${' '.repeat(12)}`),
+    record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9E02E03E04E05`),
+    record(`HXR${field('PWREG001', 12)}${field('FAKEPW', 9)}${field('WORK', 5)}FON${' '.repeat(32)}R01R02R03R04R05`),
     record(`HXT${claim.code}  ${cents(claim.fee, 6)}01${SERVICE_DATE}250 ${' '.repeat(34)}A3F${' '.repeat(12)}`),
-    record(`HX8A3${field('SYNTHETIC SERVICE CODE REJECTION', 55)}`),
-    record(`HX9${'0000001'.repeat(4)}`),
+    ...ERROR_EXPLANATIONS.map(message => record(`HX8A3${field(message, 55)}`)),
+    record(`HX9${'0000001'.repeat(3)}0000004`),
   ];
   // Header indexes are fixed by the parser; prove the builder honours them.
   h.assert(lines[1].slice(23, 31) === claim.id.padStart(8, '0') && lines[1].slice(64, 67) === 'VH9'
-    && lines[2].slice(64, 67) === 'A3F', 'The synthetic error report does not match the parser layout');
+    && lines[2].slice(64, 67) === 'R01' && lines[3].slice(64, 67) === 'A3F',
+  'The synthetic error report does not match the parser layout');
   return `${lines.join('\r\n')}\r\n`;
 }
 
@@ -196,6 +205,9 @@ async function workflow(s) {
     const details = sql.rows(`SELECT billing_no, providerohip_no, service_code, service_count, amountclaim, amountpay,
       service_date, error_code, billtype FROM radetail WHERE raheader_no=${raNo} ORDER BY billing_no`);
     h.assert(details.length === 2, 'The import did not write one radetail per RA item');
+    h.assert(sql.rows(`SELECT hin FROM radetail WHERE raheader_no=${raNo}`)
+      .every(([hin]) => hin === `${field(owned.hin, 12)}ZZ`),
+    'The remittance import truncated the health number or version');
     for (const claim of raClaims) {
       const row = details.find(r => r[0] === claim.id);
       h.assert(row && row.slice(1).join('|') === [owned.ohipNo, claim.code, '01', claim.fee, claim.paid, SERVICE_DATE,
@@ -242,7 +254,7 @@ async function workflow(s) {
     h.assert(rows.length === 1, 'The error report did not write exactly one billing_on_eareport row');
     const [billingNo, ohipNo, groupNo, code, unit, rowFee, codeError, claimError, rowStatus] = rows[0];
     h.assert(billingNo === rejectedClaim.id && ohipNo === owned.ohipNo && groupNo === owned.groupNo && code === 'A001A'
-      && unit === '01' && Number(rowFee) === Number(fee.A001A) && codeError.startsWith('A3F') && claimError.startsWith('VH9')
+      && unit === '01' && Number(rowFee) === Number(fee.A001A) && codeError.startsWith('A3F') && claimError === 'VH9 E02 E03 E04 E05 R01 R02 R03 R04 R05'
       && rowStatus === 'N', 'The billing_on_eareport row does not equal the uploaded report');
     h.assert(fs.existsSync(path.join(documentDir, errorName)), 'The error report was not stored in DOCUMENT_DIR');
     h.assert(statuses() === 'B|B', 'Importing the error report changed the claim statuses');
@@ -252,6 +264,23 @@ async function workflow(s) {
       'The error report page does not show the report and the owned provider');
     h.assert(text.includes(rejectedClaim.id.padStart(8, '0')) && text.includes('A001A'),
       'The error report page does not show the rejected invoice and its code');
+    h.assert(text.includes(owned.hin) && text.includes('FAKEPW')
+      && await page.getByText('A001A', { exact: true }).count() === 1,
+    'The registration row replaced the claim identity or duplicated the transaction in the report');
+    for (const explanation of ERROR_EXPLANATIONS) {
+      h.assert(text.includes(explanation), 'The report page omitted an explanation record');
+    }
+    const persistedDetails = () => sql.rows(`SELECT process_date, dob, RTRIM(exp), hin, ver
+      FROM billing_on_eareport WHERE report_name=${h.sqlString(errorName)}`);
+    const expected = ['2004-05-20', '1980-01-02', ERROR_EXPLANATIONS.map(message => `A3|${message}`).join('; '), owned.hin, 'ZZ'];
+    h.assert(JSON.stringify(persistedDetails()) === JSON.stringify([expected]),
+      'The imported error report lost its dates, following explanation or health-number fields');
+    const replay = await uploadMohFile(s, admin, errorName, buildErrorReport({ owned, claim: raClaims[1] }),
+      '/oscarBilling/DocumentErrorReportUpload');
+    h.assert(replay.status === 200, `Reimporting the same claims error report answered HTTP ${replay.status}`);
+    h.assert(JSON.stringify(persistedDetails()) === JSON.stringify([expected]),
+      'Reimporting the report duplicated or altered the claim error row');
+    h.assert(statuses() === 'B|B', 'Reimporting the error report changed claim statuses');
   });
 
   await s.step('Billing Reconciliation ▸ Report shows the cheque, balance forward, transaction and message', async () => {
@@ -281,9 +310,13 @@ async function workflow(s) {
     for (const claim of raClaims) {
       const cells = (await summary.locator('#ra_table tbody tr').filter({ hasText: claim.code }).first()
         .locator('td').allInnerTexts()).map(cell => cell.trim());
+      // The existing summary renders a blank MOH error code as its "**" marker.
+      const displayedError = claim.error || '**';
       h.assert(cells[0] === claim.id && cells[6] === claim.code && Number(cells[7]) === Number(claim.fee)
-        && Number(cells[8]) === Number(claim.paid) && cells[12] === claim.error,
-      'A summary row does not show the claim, code, invoiced and paid amounts and error');
+        && Number(cells[8]) === Number(claim.paid) && cells[12] === displayedError,
+      `Summary fields differ for owned claim ${claim.id}: expected ${JSON.stringify([claim.id, claim.code, claim.fee, claim.paid, displayedError])}; observed ${JSON.stringify([cells[0], cells[6], cells[7], cells[8], cells[12]])}`);
+      h.assert(cells[2] === `${marker},Workflow` && cells[4] === owned.hin,
+        'The stored remittance version prevented the summary from matching the owned patient');
     }
     h.assert((await summary.locator('#amountPay').innerText()).trim() === remittance.cheque, 'The summary paid total is wrong');
     h.assert(sql.value(`SELECT content FROM raheader WHERE raheader_no=${raNo}`).includes(`<xml_total>${remittance.cheque}</xml_total>`),
@@ -293,22 +326,27 @@ async function workflow(s) {
 
   await s.step('Settle reconciles the RA: the paid claim settles, the rejected claim stays billed', async () => {
     frame = await openAdminFrame(admin, '/billing/CA/ON/ViewGenRA', 'table');
+    await frame.waitForLoadState('load');
     const row = raRow(frame, marker);
     let response;
     const dialogs = await h.withExpectedDialogs(frame.page(), async () => {
       [response] = await settleOperations([
         admin.waitForResponse(r => r.request().method() === 'POST'
           && new URL(r.url()).pathname.endsWith('/billing/CA/ON/ViewOnGenRAsettle'), { timeout: 30000 }),
+        // The response page replaces itself with the RA list. Wait for that
+        // new document before inspecting it; opening another iframe here can
+        // abort the list's script and stylesheet requests mid-load.
+        admin.waitForEvent('framenavigated', {timeout: 30000, predicate: f => f === frame
+          && new URL(f.url()).pathname.endsWith('/billing/CA/ON/ViewGenRA')})
+          .then(f => f.waitForLoadState('load')),
         row.locator('a', { hasText: 'Settle' }).click(),
       ]);
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text === RECONCILE_CONFIRM,
       'Settle must ask the reconcile confirmation exactly once');
     h.assert(response.status() === 200, `Settle answered HTTP ${response.status()}`);
-    await frame.waitForLoadState('load').catch(() => {});
     h.assert(statuses() === 'S|B', 'Settle did not settle exactly the paid claim');
     h.assert(sql.value(`SELECT status FROM raheader WHERE raheader_no=${raNo}`) === 'S', 'Settle did not mark the RA settled');
-    frame = await openAdminFrame(admin, '/billing/CA/ON/ViewGenRA', 'table');
     const settled = raRow(frame, marker);
     h.assert(await settled.locator('a', { hasText: 'Settle' }).count() === 0
       && await settled.locator('a', { hasText: 'S35' }).count() === 1, 'The settled RA still offers Settle');
