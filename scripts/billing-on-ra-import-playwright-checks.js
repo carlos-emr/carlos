@@ -93,13 +93,15 @@ function buildErrorReport({ owned, claim }) {
   const lines = [
     record(`HX1V03G${' '.repeat(10)}000000${owned.groupNo}${owned.ohipNo}00000${PROCESS_DATE}`),
     record(`HXH${owned.hin}ZZ19800102${claim.id.padStart(8, '0')}HCPP${' '.repeat(29)}VH9${' '.repeat(12)}`),
+    record(`HXR${field('PWREG001', 12)}${field('FAKEPW', 9)}${field('WORK', 5)}FON${' '.repeat(32)}R01${' '.repeat(12)}`),
     record(`HXT${claim.code}  ${cents(claim.fee, 6)}01${SERVICE_DATE}250 ${' '.repeat(34)}A3F${' '.repeat(12)}`),
     record(`HX8A3${field('SYNTHETIC SERVICE CODE REJECTION', 55)}`),
     record(`HX9${'0000001'.repeat(4)}`),
   ];
   // Header indexes are fixed by the parser; prove the builder honours them.
   h.assert(lines[1].slice(23, 31) === claim.id.padStart(8, '0') && lines[1].slice(64, 67) === 'VH9'
-    && lines[2].slice(64, 67) === 'A3F', 'The synthetic error report does not match the parser layout');
+    && lines[2].slice(64, 67) === 'R01' && lines[3].slice(64, 67) === 'A3F',
+  'The synthetic error report does not match the parser layout');
   return `${lines.join('\r\n')}\r\n`;
 }
 
@@ -255,6 +257,9 @@ async function workflow(s) {
       'The error report page does not show the report and the owned provider');
     h.assert(text.includes(rejectedClaim.id.padStart(8, '0')) && text.includes('A001A'),
       'The error report page does not show the rejected invoice and its code');
+    h.assert(text.includes(owned.hin) && text.includes('FAKEPW')
+      && await page.getByText('A001A', { exact: true }).count() === 1,
+    'The registration row replaced the claim identity or duplicated the transaction in the report');
     const persistedDetails = () => sql.rows(`SELECT process_date, dob, RTRIM(exp), hin, ver
       FROM billing_on_eareport WHERE report_name=${h.sqlString(errorName)}`);
     const expected = ['2004-05-20', '1980-01-02', 'A3|SYNTHETIC SERVICE CODE REJECTION', owned.hin, 'ZZ'];
