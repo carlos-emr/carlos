@@ -465,6 +465,8 @@
     "test:page-health-echart-navbar-playwright": "node scripts/page-health-echart-navbar-playwright-checks.js",
     "test:page-health-patient-hubs-playwright": "node scripts/page-health-patient-hubs-playwright-checks.js",
     "test:page-health-footer-links-playwright": "node scripts/page-health-footer-links-playwright-checks.js",
+    "test:popup-link": "node --test scripts/popup-link.test.js",
+    "test:prevention-footer-popups-playwright": "node scripts/prevention-footer-popups-playwright-checks.js",
     "test:page-health-help-link-offhost-playwright": "node scripts/page-health-help-link-offhost-playwright-checks.js",
     "test:concurrency-demographic-edit-playwright": "node scripts/concurrency-demographic-edit-playwright-checks.js",
     "test:concurrency-demographic-ext-insert-playwright": "node scripts/concurrency-demographic-ext-insert-playwright-checks.js",
