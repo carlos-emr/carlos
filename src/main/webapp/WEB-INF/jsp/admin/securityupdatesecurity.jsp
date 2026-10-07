@@ -331,9 +331,8 @@
                 <tr>
                     <td align="right" nowrap><label for="securityPin"><fmt:message key="admin.securityrecord.formPIN"/>:</label>
                     </td>
-                    <td><input type="password" id="securityPin" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <font
-                            size="-2">(<fmt:message key="admin.securityrecord.msgAtLeast"/>
-                        <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</font>
+                    <td><input type="password" id="securityPin" name="pin" value="<carlos:encode value='<%= isDraft ? java.util.Objects.toString(request.getParameter("pin"), "") : "****" %>' context="htmlAttribute"/>" <%=security.isUsingMfa() ? "disabled" : ""%> size="6" maxlength="6"> <small>(<fmt:message key="admin.securityrecord.msgAtLeast"/>
+                        <%=op.getProperty("password_pin_min_length")%> <fmt:message key="admin.securityrecord.msgDigits"/>)</small>
                     </td>
                 </tr>
                 <tr>
