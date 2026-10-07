@@ -83,6 +83,8 @@ a long permit wait is not sent a second time.
 Without `SMS_TEST_DB_URL` the test is skipped. Supplying it makes connection or isolation failures
 fail the test. H2 tests cover ordinary DAO behavior but cannot establish MariaDB lock behavior.
 
+Queue and stale-recovery claims lock with `FOR UPDATE SKIP LOCKED`. A claim skips any row another transaction has locked (another claim, a direct send, a delivery callback), so it can come back empty while rows are still due; a later claim or run picks them up. Waiting instead could deadlock two concurrent workers on MariaDB (#3913). This needs MariaDB 10.6 or later; CARLOS requires 11.4.
+
 ## Configuration and validation
 
 - `sms.provider.default=STUB`: optional default for synthetic tests. An explicit unknown value blocks outbound SMS instead of silently simulating success. Known but unimplemented adapters are reported at startup.
