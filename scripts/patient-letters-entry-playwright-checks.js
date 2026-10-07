@@ -97,6 +97,10 @@ async function workflow(s) {
       'A patient reader with report permission was not offered both Generate Letters entries');
     h.assert(await masterPage.locator('#editBtn').count() === 0,
       'The report-enabled patient reader unexpectedly gained demographic write access');
+    letters = await ui.clickOpensPopup(masterPage, masterPage.locator(LETTER_ENTRY).first(),
+      { context: restricted, recorder: s.recorder, label: 'report-enabled reader letters', timeout: 20000 });
+    await assertOwnedSelection();
+    await letters.close();
   });
 }
 
