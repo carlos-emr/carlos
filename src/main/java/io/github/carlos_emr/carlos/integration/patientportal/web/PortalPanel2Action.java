@@ -69,7 +69,7 @@ import org.apache.struts2.ServletActionContext;
  * section is also dropped when the portal read failed, in which case {@code invitesError} and
  * {@code invitesErrorKind} (or the account equivalents) are present alongside, plus
  * {@code invitesErrorReason} (or {@code accountErrorReason}) set to {@code portal_unavailable} when the
- * portal could not be reached at all. Treating a missing key as "no data" — the natural
+ * portal could not be reached, or answered with a server error (5xx). Treating a missing key as "no data" — the natural
  * {@code payload.invites || []} idiom — would report an outage as an empty list, which is why
  * {@code ok} is the guard against that: it is {@code false} whenever a section the caller asked for
  * could not be read. It used to be hardcoded {@code true}, so the one

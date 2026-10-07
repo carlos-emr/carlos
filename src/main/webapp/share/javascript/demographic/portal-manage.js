@@ -80,6 +80,19 @@
             return text(recordsShown ? 'error.portalUnavailableRecordsBelow' : 'error.portalUnavailable');
         }
 
+        /**
+         * Whether the panel carries the named section, or its error. A section left out is one this user
+         * may not read: its card is hidden rather than claiming there is nothing in it.
+         */
+        function sectionShown(payload, name) {
+            return payload[name] !== undefined || Boolean(payload[name + 'Error']);
+        }
+
+        /** Whether CARLOS's own invitation records are listed below the portal's cards. */
+        function recordsShown(payload) {
+            return Array.isArray(payload.deliveries) && payload.deliveries.length > 0;
+        }
+
         /** A refusal the page knows by its code is shown translated; any other keeps the server's wording. */
         function refusal(body) {
             if (body && body.reason && message('refusal.' + body.reason)) {
@@ -138,7 +151,8 @@
         }
 
         return {message: message, text: text, describe: describe, refusal: refusal, sectionError: sectionError,
-            isGoodNews: isGoodNews, offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
+            sectionShown: sectionShown, recordsShown: recordsShown, isGoodNews: isGoodNews,
+            offersWithdrawal: offersWithdrawal, waitingFor: waitingFor, inviteStep: inviteStep};
     }
 
     if (typeof module !== 'undefined' && module.exports) {
@@ -179,6 +193,8 @@
     var describe = logic.describe;
     var refusal = logic.refusal;
     var sectionError = logic.sectionError;
+    var sectionShown = logic.sectionShown;
+    var recordsShown = logic.recordsShown;
 
     function element(tag, className, content) {
         var node = document.createElement(tag);
@@ -334,12 +350,12 @@
     function renderAccount(payload) {
         var box = document.getElementById('portal-account');
         box.replaceChildren();
-        if (!showSection(box, payload.account !== undefined || payload.accountError)) {
+        if (!showSection(box, sectionShown(payload, 'account'))) {
             return;
         }
         if (payload.accountError) {
             box.appendChild(element('p', 'portal-error',
-                sectionError(payload.accountErrorReason, Array.isArray(payload.deliveries))));
+                sectionError(payload.accountErrorReason, recordsShown(payload))));
             return;
         }
         var account = payload.account;
@@ -416,13 +432,13 @@
     function renderInvites(payload) {
         var box = document.getElementById('portal-invites');
         box.replaceChildren();
-        if (!showSection(box, payload.invites !== undefined || payload.invitesError)) {
+        if (!showSection(box, sectionShown(payload, 'invites'))) {
             lastInvites = [];
             return;
         }
         if (payload.invitesError) {
             box.appendChild(element('p', 'portal-error',
-                sectionError(payload.invitesErrorReason, Array.isArray(payload.deliveries))));
+                sectionError(payload.invitesErrorReason, recordsShown(payload))));
             return;
         }
         lastInvites = payload.invites || [];
@@ -471,7 +487,7 @@
     function renderDeliveries(payload) {
         var box = document.getElementById('portal-deliveries');
         box.replaceChildren();
-        if (!showSection(box, payload.deliveries !== undefined || payload.deliveriesError)) {
+        if (!showSection(box, sectionShown(payload, 'deliveries'))) {
             return;
         }
         if (payload.deliveriesError) {

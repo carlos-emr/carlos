@@ -66,6 +66,22 @@ test('says the portal cannot be reached only when the server says so, and points
   assert.equal(page.sectionError('transport_failure', false), 'Fehler.');
 });
 
+test('shows a card only for a section the panel carries, or its error', () => {
+  const page = logic({});
+  assert.equal(page.sectionShown({}, 'invites'), false);
+  assert.equal(page.sectionShown({account: null}, 'account'), true);
+  assert.equal(page.sectionShown({deliveries: []}, 'deliveries'), true);
+  assert.equal(page.sectionShown({invitesError: 'unavailable'}, 'invites'), true);
+});
+
+test('points to CARLOS records below only when there are some', () => {
+  const page = logic({});
+  assert.equal(page.recordsShown({deliveries: [{state: 'sent'}]}), true);
+  assert.equal(page.recordsShown({deliveries: []}), false);
+  assert.equal(page.recordsShown({deliveriesError: 'unavailable'}), false);
+  assert.equal(page.recordsShown({}), false);
+});
+
 test('never builds a selector from a portal value: an odd status is looked up, not interpreted', () => {
   const page = logic({});
   assert.equal(page.text('invites.status."] , *'), 'invites.status."] , *');
