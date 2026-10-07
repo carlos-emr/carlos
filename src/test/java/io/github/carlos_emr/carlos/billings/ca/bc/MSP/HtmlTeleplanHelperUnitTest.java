@@ -23,6 +23,13 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,10 +54,10 @@ class HtmlTeleplanHelperUnitTest {
                 "",
                 "");
 
-        assertThat(html).contains("adjustBill.jsp?billingmaster_no=1%262%3D3%234");
+        assertThat(html).contains("openBrWindow('reprocessBill?billingmaster_no=1%262%3D3%234");
         assertThat(html).contains(SafeEncode.forHtmlContent("<b>Patient</b>"));
         assertThat(html).contains(SafeEncode.forHtmlContent("123&456"));
-        assertThat(html).doesNotContain("adjustBill.jsp?billingmaster_no=1&2=3#4");
+        assertThat(html).doesNotContain("reprocessBill?billingmaster_no=1&2=3#4");
         assertThat(html).doesNotContain("<b>Patient</b>");
         assertThat(html).doesNotContain(">123&456<");
     }
@@ -103,7 +110,7 @@ class HtmlTeleplanHelperUnitTest {
         String wcb = HtmlTeleplanHelper.wcbCorrectionErrorRow("7", ": bad <b>");
 
         assertThat(adjust)
-                .contains("adjustBill.jsp?billingmaster_no=")
+                .contains("reprocessBill?billingmaster_no=")
                 .contains(SafeEncode.forHtmlContent(": bad <b>"))
                 .doesNotContain("\"onmouseover")
                 .doesNotContain("<b>");
@@ -137,5 +144,45 @@ class HtmlTeleplanHelperUnitTest {
                 .doesNotContain("<s>")
                 .doesNotContain("<a>");
         assertThat(html.split("<td", -1)).hasSize(12);
+    }
+
+    /**
+     * The adjust bill page lives under WEB-INF since #1632, so a generated {@code adjustBill.jsp}
+     * link 404s. Teleplan reports, WCB checks and billing checks must link to the action route,
+     * which opens the page for a GET with {@code billingmaster_no} (#4343).
+     */
+    @Test
+    @DisplayName("should link generated billing reports to the reprocessBill route, never to adjustBill.jsp")
+    void shouldLinkToReprocessBillRoute_inEveryGeneratedReportLink() throws IOException {
+        Path sources = projectPath("src/main/java/io/github/carlos_emr/carlos/billings");
+        List<String> stale;
+        try (Stream<Path> files = Files.walk(sources)) {
+            stale = files.filter(file -> file.toString().endsWith(".java"))
+                    // a built link ("adjustBill.jsp?...") or a page constant ("adjustBill.jsp")
+                    .filter(file -> read(file).contains("adjustBill.jsp?") || read(file).contains("\"adjustBill.jsp"))
+                    .map(file -> sources.relativize(file).toString())
+                    .toList();
+        }
+
+        assertThat(stale).as("Java sources that still link to adjustBill.jsp").isEmpty();
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException(file.toString(), e);
+        }
+    }
+
+    private static Path projectPath(String relative) {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).toAbsolutePath();
+        for (int up = 0; current != null && up < 6; up++, current = current.getParent()) {
+            Path candidate = current.resolve(relative);
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Unable to locate " + relative);
     }
 }

@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -69,7 +70,42 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * BC invoice list, single-bill adjust page and their saves ({@code billing/CA/BC/reprocessBill}).
+ *
+ * <p>One route serves every caller, and the request decides what happens:</p>
+ * <ul>
+ *   <li>{@code billCheck} (the Bill Status mass edit, POST) reprocesses each checked bill from its
+ *       stored values and returns Bill Status ({@code save});</li>
+ *   <li>{@code billingmasterNo} (the adjust bill page's own form, POST) saves that bill from the
+ *       submitted fields and shows the adjust bill page again ({@code success});</li>
+ *   <li>anything else only opens a page: a numeric {@code billingmaster_no} (the Edit links on Bill
+ *       Status, the Teleplan remittance reports, the bill receipt and the Teleplan simulation report)
+ *       opens the adjust bill page for that bill ({@code success}); no bill (the menu and
+ *       invoice-list links, the Bill Status search) opens Bill Status ({@code list}). Both JSPs load
+ *       their own data.</li>
+ * </ul>
+ *
+ * <p>A save runs only on POST: any other method that carries either save parameter gets 405, so a
+ * crafted link cannot reprocess a bill around CSRF. That is why {@code HttpMethodGuardFilter} no
+ * longer blocks this route outright: GET is the way to open both pages.</p>
+ */
 public class BillingReProcessBill2Action extends ActionSupport {
+    /** Result for Bill Status (the invoice list) when no single bill is being opened or saved. */
+    static final String LIST = "list";
+
+    // The adjust bill page's buttons post these fixed values; only their text is translated.
+    static final String SUBMIT_REPROCESS = "Reprocess Bill";
+    static final String SUBMIT_RESUBMIT = "Resubmit Bill";
+    static final String SUBMIT_REPROCESS_AND_RESUBMIT = "Reprocess and Resubmit Bill";
+    static final String SUBMIT_SETTLE = "Settle Bill";
+    static final String SUBMIT_REVERT_TO_PWE = "Revert to PWE";
+
+    /** A billingmaster number the JSPs can parse as an int. */
+    private static final Pattern BILL_NUMBER = Pattern.compile("\\d{1,9}");
+    /** A Bill Status checkbox value: {@code <invoice>_<billingmaster number>}. */
+    private static final Pattern BILL_CHECK = Pattern.compile("\\d{1,9}_\\d{1,9}");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -94,6 +130,21 @@ public class BillingReProcessBill2Action extends ActionSupport {
         }
 
         boolean massEdit = request.getParameter("billCheck") != null;
+        // The adjust bill page posts its bill as billingmasterNo; links that only open it send billingmaster_no.
+        boolean singleSave = request.getParameter("billingmasterNo") != null;
+        if (!massEdit && !singleSave) {
+            String opened = request.getParameter("billingmaster_no");
+            return opened != null && BILL_NUMBER.matcher(opened).matches() ? SUCCESS : LIST;
+        }
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        if (!saveTargetsAreWellFormed(massEdit)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         List<BillingReProcessBill2Form> billingReProcessBillFormList = new ArrayList<>();
         if (massEdit) {
@@ -104,20 +155,20 @@ public class BillingReProcessBill2Action extends ActionSupport {
                 billingReProcessBillFormList.add(billingReProcessBillForm);
             }
         } else {
-
-            billingReProcessBillFormList.add(this.form);
+            billingReProcessBillFormList.add(submittedForm());
         }
 
         for (BillingReProcessBill2Form frm : billingReProcessBillFormList) {
             String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
             String billingmasterNo = frm.getBillingmasterNo();
-            String demographicNo = frm.getDemoNo();
+            logger.debug("RETRIEVING Using {}", LogSafe.sanitize(billingmasterNo));
+            StoredBill stored = storedBill(billingmasterNo);
+            Billingmaster billingmaster = stored.billingmaster();
+            Billing bill = stored.bill();
+            String demographicNo = stored.demographicNo();
+            String billNumber = stored.billNumber();
             DemographicData demoD = new DemographicData();
             Demographic demo = demoD.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
-
-            logger.debug("RETRIEVING Using {}", LogSafe.sanitize(billingmasterNo));
-            Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
-            Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
 
 
             String billingType = bill.getBillingtype();
@@ -208,15 +259,15 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             // If its a ICBC Bill and the status does not need to change, mark the billingStatus as ICBC NO SUB
             billingStatus = StringUtils.isNullOrEmpty(billingStatus) && billingType.equals(MSPReconcile.BILLTYPE_ICBC) ? "I" : billingStatus;
-            if ((submit.equals("Resubmit Bill") || submit.equals("Reprocess and Resubmit Bill")) || billingStatus.equals("O")) {
+            if ((submit.equals(SUBMIT_RESUBMIT) || submit.equals(SUBMIT_REPROCESS_AND_RESUBMIT)) || billingStatus.equals("O")) {
                 if (!"W".equals(billingStatus) && !"I".equals(billingStatus)) {
                     billingStatus = "O";
                 }
 
-                secondSQL = "update billing set status = '" + billingStatus + "' where billing_no ='" + frm.getBillNumber() + "'";
-            } else if (submit.equals("Settle Bill")) {
+                secondSQL = "update billing set status = '" + billingStatus + "' where billing_no ='" + billNumber + "'";
+            } else if (submit.equals(SUBMIT_SETTLE)) {
                 billingStatus = "S";
-            } else if (submit.equals("Revert to PWE")) {
+            } else if (submit.equals(SUBMIT_REVERT_TO_PWE)) {
                 // Set to PWE
                 billingStatus = "E";
             }
@@ -385,7 +436,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             if (!StringUtils.isNullOrEmpty(billingStatus)) {  //What if billing status is null?? the status just doesn't get updated but everything else does??'
                 //Why does this get called??  update billing type based on the billing status.  I guess this is effective when you switch this to bill on
-                msp.updateBillingStatus(frm.getBillNumber(), billingStatus, billingmasterNo);
+                msp.updateBillingStatus(billNumber, billingStatus, billingmasterNo);
             }
             BillingHistoryDAO dao = new BillingHistoryDAO();
             //If the adjustment amount field isn't empty, create an archive of the adjustment
@@ -403,7 +454,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             if (secondSQL != null) {
                 // If its an No Sub ICBC billing, it needs to be set to set back to status "O"
                 billingStatus = billingStatus.equals("I") ? "O" : billingStatus;
-                Billing b = billingDao.find(Integer.parseInt(frm.getBillNumber()));
+                Billing b = billingDao.find(Integer.parseInt(billNumber));
                 if (b != null) {
                     b.setStatus(billingStatus);
                     billingDao.merge(b);
@@ -425,11 +476,95 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
 
             request.setAttribute("billingmaster_no", billingmasterNo);
-            if (submit.equals("Reprocess and Resubmit Bill")) {
+            if (submit.equals(SUBMIT_REPROCESS_AND_RESUBMIT)) {
                 request.setAttribute("close", "true");
             }
         }
         return massEdit ? "save" : "success";
+    }
+
+    /** The bill being saved, with the patient and invoice number it is stored under. */
+    record StoredBill(Billingmaster billingmaster, Billing bill, String demographicNo, String billNumber) { }
+
+    /**
+     * Loads the bill to save by its billingmaster number alone. The patient and the invoice are
+     * always the stored bill's own, as in the mass edit, never the copies the adjust bill page
+     * carries in hidden fields.
+     */
+    StoredBill storedBill(String billingmasterNo) {
+        Billingmaster billingmaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingmasterNo);
+        Billing bill = billingmasterDAO.getBilling(billingmaster.getBillingNo());
+        return new StoredBill(billingmaster, bill, String.valueOf(bill.getDemographicNo()),
+                String.valueOf(billingmaster.getBillingNo()));
+    }
+
+    /** Whether every bill named for saving is a number, so a bad post is a 400, not a 500. */
+    private boolean saveTargetsAreWellFormed(boolean massEdit) {
+        if (!massEdit) {
+            String billingmasterNo = request.getParameter("billingmasterNo");
+            return BILL_NUMBER.matcher(billingmasterNo).matches();
+        }
+        for (String billCheck : request.getParameterValues("billCheck")) {
+            if (billCheck == null || !BILL_CHECK.matcher(billCheck).matches()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The adjust bill page's fields, as Struts bound them to this action's own setters. That page
+     * posts plain names ({@code billingmasterNo}, {@code providerNo}, {@code messageNotes}, ...);
+     * nothing posts {@code form.*}. The page's hidden {@code demoNo} and {@code billNumber} are
+     * left out on purpose: the save takes both from the stored bill ({@link #storedBill}).
+     */
+    BillingReProcessBill2Form submittedForm() {
+        BillingReProcessBill2Form submitted = new BillingReProcessBill2Form();
+        submitted.setBillingmasterNo(billingmasterNo);
+        submitted.setInsurerCode(insurerCode);
+        submitted.setProviderNo(provider_no);
+        submitted.setDependentNo(dependentNo);
+        submitted.setAfterHours(afterHours);
+        submitted.setStatus(status);
+        // A script-driven submit sends no button; the save compares it with the SUBMIT_* values.
+        submitted.setSubmit(submit == null ? "" : submit);
+        submitted.setLocationVisit(locationVisit);
+        submitted.setAnatomicalArea(anatomicalArea);
+        submitted.setNewProgram(newProgram);
+        submitted.setService_code(service_code);
+        submitted.setBilling_unit(billing_unit);
+        submitted.setBilling_amount(billing_amount);
+        submitted.setBillingUnit(billingUnit);
+        submitted.setBillingAmount(billingAmount);
+        submitted.setDx1(dx1);
+        submitted.setDx2(dx2);
+        submitted.setDx3(dx3);
+        submitted.setPaymentMode(paymentMode);
+        submitted.setSubmissionCode(submissionCode);
+        submitted.setServiceDate(serviceDate);
+        submitted.setServiceToDay(serviceToDay);
+        submitted.setServiceLocation(serviceLocation);
+        submitted.setReferalPracCD1(referalPracCD1);
+        submitted.setReferalPrac1(referalPrac1);
+        submitted.setReferalPracCD2(referalPracCD2);
+        submitted.setReferalPrac2(referalPrac2);
+        submitted.setTimeCallRec(timeCallRec);
+        submitted.setStartTime(startTime);
+        submitted.setFinishTime(finishTime);
+        submitted.setCorrespondenceCode(correspondenceCode);
+        submitted.setMvaClaim(mvaClaim);
+        submitted.setShortComment(shortComment);
+        submitted.setIcbcClaim(icbcClaim);
+        submitted.setFacilityNum(facilityNum);
+        submitted.setFacilitySubNum(facilitySubNum);
+        submitted.setNotes(notes);
+        submitted.setDependent(dependent);
+        submitted.setMessageNotes(messageNotes);
+        submitted.setDebitRequestSeqNum(debitRequestSeqNum);
+        submitted.setDebitRequestDate(debitRequestDate);
+        submitted.setAdjAmount(adjAmount);
+        submitted.setAdjType(adjType);
+        return submitted;
     }
 
 
@@ -743,6 +878,16 @@ public class BillingReProcessBill2Action extends ActionSupport {
     @StrutsParameter
     public void setProvider_no(String provider_no) {
         this.provider_no = provider_no;
+    }
+
+    public String getProviderNo() {
+        return provider_no;
+    }
+
+    /** The adjust bill page's billing physician select is named {@code providerNo}. */
+    @StrutsParameter
+    public void setProviderNo(String providerNo) {
+        this.provider_no = providerNo;
     }
 
     public String getDemoNo() {
@@ -1121,17 +1266,5 @@ public class BillingReProcessBill2Action extends ActionSupport {
     @StrutsParameter
     public void setAdjType(String adjType) {
         this.adjType = adjType;
-    }
-
-    private BillingReProcessBill2Form form;
-
-    @StrutsParameter(depth = 1)
-    public BillingReProcessBill2Form getForm() {
-        return form;
-    }
-
-    @StrutsParameter
-    public void setForm(BillingReProcessBill2Form form) {
-        this.form = form;
     }
 }
