@@ -1,4 +1,11 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
+<%--
+  Purpose: Shared localized About and License footer links.
+  Features: Real URLs, isolated popups with working Close controls, native
+    modified-click fallback, and a resource bundle scoped to this fragment.
+  Parameters: No request parameters or attributes; uses the request context path.
+  @since 2026-10-07
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <script src="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath())%>/share/javascript/popupLink.js"></script>
 <fmt:setBundle basename="oscarResources" var="aboutLicenseBundle"/>
