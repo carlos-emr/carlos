@@ -44,7 +44,6 @@ const UNMODELLED = new Set([
   'WEB-INF/jsp/documentManager/editDocument.jsp',
   'WEB-INF/jsp/documentManager/incomingDocs.jsp',
   'WEB-INF/jsp/encounter/includes/encounter-head.jspf',
-  'WEB-INF/jsp/form/formConsultant.jsp',
   'WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp',
   'WEB-INF/jsp/oscarMDS/Index.jsp',
   'WEB-INF/jsp/schedule/scheduletemplateapplying.jsp',
