@@ -100,6 +100,20 @@ class RxAllergyCsrfJspRegressionTest {
                 + "sendSearchRequest(\"${ pageContext.servletContext.contextPath }/rx/addReaction2\",");
     }
 
+    @Test
+    @DisplayName("add-allergy dialogue should keep entries and retry safely after a failed save (#3488)")
+    void shouldKeepEntriesAndSendSaveToken_whenSaveFails() throws IOException {
+        Element form = addAllergyForm();
+
+        assertThat(form.select("input[name=saveToken]")).as("one-save token").hasSize(1);
+        assertThat(form.selectFirst("#allergySaveError")).as("in-dialogue failure banner").isNotNull();
+        String jsp = readAddReactionJsp();
+        assertThat(jsp).contains("addEventListener(\"submit\"").contains("event.preventDefault()");
+        // The dialogue must never be navigated away from on failure: only the redirect to the
+        // allergy list counts as success.
+        assertThat(jsp).contains("response.redirected && /\\/rx\\/showAllergy/");
+    }
+
     private static Element addAllergyForm() throws IOException {
         Document document = Jsoup.parse(readAddReactionJsp());
         Element form = document.selectFirst("form#RxAddAllergyForm");

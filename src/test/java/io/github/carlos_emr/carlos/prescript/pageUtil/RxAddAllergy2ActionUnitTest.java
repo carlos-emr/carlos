@@ -46,7 +46,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -313,6 +315,62 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).addAllergy(any(), any());
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should save once when the same saveToken is retried after a successful save")
+    void shouldSaveOnce_whenSaveTokenRetriedAfterSuccess() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        // The first response was lost, so the clinician presses Add Allergy again.
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should save on retry when the first attempt with the saveToken failed")
+    void shouldSaveOnRetry_whenFirstAttemptFailed() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        doThrow(new IllegalStateException("db down")).doNothing().when(mockRxPatient).addAllergy(any(), any());
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(IllegalStateException.class);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockRxPatient, times(2)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should not burn the saveToken when validation rejects the request")
+    void shouldKeepSaveTokenUsable_whenValidationRejects() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("allergyToArchive", "42");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(403);
+
+        mockRequest.removeParameter("allergyToArchive");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should reject a malformed saveToken before adding an allergy")
+    void shouldRejectAdd_whenSaveTokenIsMalformed() throws Exception {
+        mockRequest.setParameter("saveToken", "<script>");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should still save when no saveToken is supplied")
+    void shouldSave_whenNoSaveTokenSupplied() throws Exception {
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(2)).addAllergy(any(), any());
     }
 
     /**

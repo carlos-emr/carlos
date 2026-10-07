@@ -132,6 +132,37 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String nonDrug = request.getParameter("nonDrug");
 
+        // Retry safety (#3488): the dialogue keeps its entries after a failed save and resubmits
+        // the same saveToken, so a retry whose first attempt actually persisted must not add a
+        // second allergy. Claimed only after every validation above so a rejected request
+        // never burns the token.
+        String saveToken = request.getParameter("saveToken");
+        if (!AllergySaveTokens.isAcceptable(saveToken)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        jakarta.servlet.http.HttpSession session = request.getSession();
+        AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken);
+        if (claim == AllergySaveTokens.Claim.ALREADY_SAVED) {
+            demographicNo = patient.getDemographicNo();
+            return SUCCESS;
+        }
+        if (claim == AllergySaveTokens.Claim.IN_PROGRESS) {
+            response.sendError(HttpServletResponse.SC_CONFLICT);
+            return NONE;
+        }
+        try {
+            return saveAllergy(patient, id, name, type, description, startDate, ageOfOnset,
+                    severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
+        } finally {
+            AllergySaveTokens.release(session, saveToken);
+        }
+    }
+
+    private String saveAllergy(RxPatientData.Patient patient, String id, String name, String type,
+                               String description, String startDate, String ageOfOnset,
+                               String severityOfReaction, String onSetOfReaction, String lifeStage,
+                               Integer archiveId, String nonDrug, String saveToken) {
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
 			// this can be overwritten with the conditions further down this code block
@@ -187,6 +218,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         // Add the new allergy (whether new or modified)
         patient.addAllergy(RxUtil.Today(), allergy);
+        AllergySaveTokens.markSaved(request.getSession(), saveToken);
 
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());

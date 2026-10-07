@@ -2,7 +2,8 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="jakarta.servlet.http.HttpServletResponse" %><%--
+<%@ page import="jakarta.servlet.http.HttpServletResponse" %>
+<%@ page import="java.util.UUID" %><%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
@@ -150,6 +151,13 @@
                         <td id="addAllergyDialogue"><form action="<%=request.getContextPath()%>/rx/addAllergy2" method="post"
                                                                name="RxAddAllergyForm" id="RxAddAllergyForm" focus="reactionDescription">
                             <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+                            <%-- One token per rendered dialogue, resent unchanged on every retry. The server
+                                 saves at most one allergy per token, so retrying after a failed (or
+                                 unacknowledged) save cannot duplicate the record (#3488). --%>
+                            <input type="hidden" name="saveToken" id="saveToken"
+                                   value="<carlos:encode value='<%= UUID.randomUUID().toString() %>' context="htmlAttribute"/>"/>
+                            <div id="allergySaveError" role="alert" tabindex="-1" hidden
+                                 style="border:2px solid #b00020;background:#fdecea;color:#7a0016;padding:6px 8px;margin-bottom:6px;max-width:520px;"></div>
                             <input type="hidden" name="formDemographicNo"
                                    value="<carlos:encode value='<%= String.valueOf(patient.getDemographicNo()) %>' context="htmlAttribute"/>"/>
                             <%-- The write target: RxAddAllergy2Action resolves the bean from this and
@@ -197,6 +205,67 @@
                                     return true;
                                 }
 
+
+                                // A failed save keeps the dialogue and every entry in place (#3488); the
+                                // clinician retries from here instead of re-typing from memory. Falls back
+                                // to the native form POST if fetch is unavailable.
+                                (function () {
+                                    var form = document.getElementById("RxAddAllergyForm");
+                                    if (!form || !window.fetch || !window.URLSearchParams) {
+                                        return;
+                                    }
+                                    var saving = false;
+
+                                    function showFailure(detail) {
+                                        var box = document.getElementById("allergySaveError");
+                                        box.textContent = "NOT SAVED \u2014 this allergy has not been saved (" + detail
+                                            + "). Your entries are kept below; press Add Allergy to try again. "
+                                            + "It will be saved only once.";
+                                        box.hidden = false;
+                                        box.focus();
+                                    }
+
+                                    form.addEventListener("submit", function (event) {
+                                        event.preventDefault();
+                                        if (saving) {
+                                            return;
+                                        }
+                                        saving = true;
+                                        var button = form.querySelector('input[type="submit"]');
+                                        if (button) {
+                                            button.disabled = true;
+                                        }
+                                        document.getElementById("allergySaveError").hidden = true;
+                                        var body = new URLSearchParams(new FormData(form));
+                                        var csrf = form.querySelector('input[name="CSRF-TOKEN"]');
+                                        var headers = {"X-Requested-With": "XMLHttpRequest"};
+                                        if (csrf && csrf.value) {
+                                            headers["CSRF-TOKEN"] = csrf.value;
+                                        }
+                                        fetch(form.action, {
+                                            method: "POST",
+                                            credentials: "same-origin",
+                                            headers: headers,
+                                            body: body
+                                        }).then(function (response) {
+                                            // Success is the redirect back to the allergy list. Anything else
+                                            // (4xx/5xx, a login page after a timeout) means nothing was saved.
+                                            if (response.ok && response.redirected && /\/rx\/showAllergy/.test(response.url)) {
+                                                window.location.assign(response.url);
+                                                return;
+                                            }
+                                            showFailure(response.redirected ? "your session may have expired"
+                                                : "server returned " + response.status);
+                                        }).catch(function () {
+                                            showFailure("the server could not be reached");
+                                        }).finally(function () {
+                                            saving = false;
+                                            if (button) {
+                                                button.disabled = false;
+                                            }
+                                        });
+                                    });
+                                })();
 
                                 function confirmRemoveNKDA() {
                                     <% if (nkdaId!=null && !nkdaId.isEmpty()) { %>
