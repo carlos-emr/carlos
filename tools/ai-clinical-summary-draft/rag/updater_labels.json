@@ -1,0 +1,59 @@
+{
+  "about": "Hand labels for the chart-updater + RAG trial, written on 2026-10-07 BEFORE any model call and committed before the runs. One late ward-round note per FAKE NHS synthetic patient is the incoming document; the patient's EARLIER notes (lower note numbers) are the existing chart. Each fact lists exact cue phrases from the incoming note (a kept proposal covers the fact when its evidence contains any cue), the acceptable destinations, and its status against the earlier notes: new, already_recorded or conflict. 'accept' lists every chart-status hint counted as correct. 'optional' facts (routine daily observations/examination, minor status lines) are not counted as missed when absent. 'chart' names where the earlier notes record it.",
+  "destinations_note": "A proposal's destination is its 'destination', or 'Tickler' for kind tickler.",
+  "documents": [
+    {
+      "patient": "NHSSYN001", "note": 17, "date": "2026-01-12",
+      "facts": [
+        {"id": "pc-headache", "cues": ["Severe headache after exertion"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001, n005-n015 presenting complaint"},
+        {"id": "rcvs-confirmed", "cues": ["Confirmed diagnosis via MRI/MRA on 08/01/26"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n009 MRI/MRA confirmed diagnosis of RCVS; n016"},
+        {"id": "mra-resolution", "cues": ["Repeat MRA on 11/01/26 showed resolution of vasoconstriction", "Documented resolution of VC"], "dest": ["Concerns", "MedHistory"], "status": "already_recorded", "accept": ["already_recorded", "conflict"], "chart": "n016 repeat MRA 11/01/26: significant improvement (now called resolution)"},
+        {"id": "crp-12", "cues": ["CRP mildly elevated at 12 mg/L"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n009 CRP 12 mg/L"},
+        {"id": "bp-stable", "cues": ["Stable blood prwssure throughout admission"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "chart": "not stated before (triage BP was raised)"},
+        {"id": "no-headaches", "cues": ["no further headaches"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "chart": "earlier notes record 2/10 headache"},
+        {"id": "hyponatraemia", "cues": ["Mild hyponatremia (Na 132 mmol/L)"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n011, n013 Na 132 mmol/L"},
+        {"id": "obs-today", "cues": ["HR: 84", "BP: 130/80"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "exam-today", "cues": ["Cranial nerves I-XII intact", "Gait: Normal without assistance"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-today", "cues": ["Discharge today as fit tfor home"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "nimodipine-qds-taper", "cues": ["Nimodipine 30 mg PO QDS"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict"], "chart": "n009, n013 nimodipine 30 mg every 4 hours (now QDS, with a 2-week taper)"},
+        {"id": "neuro-followup", "cues": ["Referral for neurology OP follow-up in 4 weeks"], "dest": ["Tickler"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n016 outpatient neurology follow-up 4 weeks post-discharge"},
+        {"id": "trigger-advice", "cues": ["Advise patient to avoid known triggers"], "dest": ["Reminders", "RiskFactors", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n010 avoid triggers; n014 discharge booklet"}
+      ]
+    },
+    {
+      "patient": "NHSSYN002", "note": 17, "date": "2026-01-08",
+      "facts": [
+        {"id": "pc-oa", "cues": ["End stage OA of left knee", "End stage osteoarthritis of left knee"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001, n005 end-stage OA left knee"},
+        {"id": "post-tkr", "cues": ["Post-operative period following total knee replacement"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n009, n016 post-op TKR"},
+        {"id": "postop-anaemia", "cues": ["Mild post-operative anemia with Hb 108 g/L", "Hb 108 g/L (mild post-operative anaemia)"], "dest": ["Concerns", "MedHistory"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n016 mild post-op anaemia, Hb 108 g/L"},
+        {"id": "pain-controlled", "cues": ["satisfactory pain control with current analgesia"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n012 pain well controlled with oral analgesia"},
+        {"id": "mobilising-frame", "cues": ["Mobilising wel with ZF", "Mobilising effectively with Zimmer frame"], "dest": ["Concerns", "SocHistory", "RiskFactors"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n016 mobilising with walking frame"},
+        {"id": "no-infection", "cues": ["no evidence of infection or further blood loss"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n012 no signs of infection"},
+        {"id": "obs-today", "cues": ["HR: 72", "BP: 118/76"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "wound-clean", "cues": ["surgical wound inspected: clean, dry"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n012, n016 wound clean and dry"},
+        {"id": "no-dvt", "cues": ["No calf tenderness or signs of DVT"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n012 no calf tenderness or signs of DVT"},
+        {"id": "paracetamol-prn", "cues": ["Switch regular paracetamol to PRN"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict", "new"], "chart": "n014 paracetamol 1 g QDS regular (now PRN)"},
+        {"id": "co-amoxiclav", "cues": ["co-amoxiclav 500/125 mg TDS for 7 days"], "dest": ["Medications"], "status": "new", "accept": ["new"], "chart": "not before (only intra-operative cefuroxime)"},
+        {"id": "ferrous-bd", "cues": ["errous sulfate 200 mg BD"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded", "conflict"], "chart": "n016 ferrous sulfate 200 mg BD (pre-op n001/n002: once daily)"},
+        {"id": "physio-crutches", "cues": ["transitioning to crutches"], "dest": ["Concerns", "Reminders"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n013, n016 progress to crutches"},
+        {"id": "review-tomorrow", "cues": ["Review tomorrow for potential discharge"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "no-new-imaging", "cues": ["No new imaging or ECGs performed"], "dest": ["Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line"}
+      ]
+    },
+    {
+      "patient": "NHSSYN003", "note": 15, "date": "2026-01-08",
+      "facts": [
+        {"id": "spm", "cues": ["Spontaneous Pneumomediastinum"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001, n005-n013 spontaneous pneumomediastinum"},
+        {"id": "cxr-stable", "cues": ["CXR: No complications, stable pneumomediastinum", "CXR: No complications"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "chart": "earlier CXRs: slight reduction (n011, n013)"},
+        {"id": "no-pain-sob", "cues": ["No pain, no OB"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n013 pain-free (no SOB not stated)"},
+        {"id": "obs-today", "cues": ["HR: 82", "BP: 128/78"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "no-crepitus", "cues": ["No subcutaneous crepitus"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n013 no subcut crepitus palpable"},
+        {"id": "exam-chest", "cues": ["Chest clear, no accessory muscle use"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-planning", "cues": ["ischarge planning initiated"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "no-new-meds", "cues": ["No new meds or changes made"], "dest": ["Medications", "Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line (n011 no med changes)"},
+        {"id": "resp-followup", "cues": ["Arrange routine OP follow-up in Resp clinic"], "dest": ["Tickler"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "recurrence-advice", "cues": ["Patient advised on monitoring for recurrence of symptoms"], "dest": ["Reminders", "RiskFactors", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n014 education on signs of recurrence"}
+      ]
+    }
+  ]
+}
