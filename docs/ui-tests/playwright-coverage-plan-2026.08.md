@@ -713,7 +713,7 @@ shared helper.
   service-only), tracked for removal or documentation under the cleanup policy. Found while
   verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` and the
   letters / envelopes / spreadsheet generation behind it (nothing links the page);
-  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
+  the retired `provider/ViewProviderEncounterHistory` and `providercontrol` history/vary modes;
   the immunization *set* configuration pages (`encounter/immunization/config/*`);
   `admin/ViewDbConnection`; `billing/CA/ON/ImportOnRA` (service-only, the Billing
   Reconciliation page reads the MOH directory instead); and several `View*` fragments only
