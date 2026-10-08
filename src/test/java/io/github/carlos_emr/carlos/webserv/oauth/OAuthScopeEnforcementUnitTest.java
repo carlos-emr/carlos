@@ -30,6 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("OAuthScopeEnforcement mode switches")
 @Tag("unit")
 @Tag("security")
-class OAuthScopeEnforcementUnitTest {
+class OAuthScopeEnforcementUnitTest extends CarlosUnitTestBase {
 
     private String previousValue;
     private String previousLegacyAccess;
