@@ -75,6 +75,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const { settleOperations } = require('./graceful-signal-cancellation');
+const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
 const {
   EXIT_SKIP, NO_PLAYWRIGHT_SIGNAL_HANDLING, SkipCheck, createSqlRunner, installCleanupSignalHandlers,
 } = require('./lib/playwright-harness');
@@ -207,7 +208,8 @@ function wirePage(page, label) {
     }
   });
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+    // Class and throwing frame only: a page error's message can quote patient content.
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     findings.push({ label, type: 'dialog', text: dialog.message() });
@@ -469,7 +471,12 @@ function prepareFixture() {
 
 (async () => {
   const cleanupFixture = prepareFixture();
-  const launchOptions = { args: ['--no-sandbox', '--disable-dev-shm-usage'], ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
+  // Playwright's own SIGINT/SIGTERM handling closes Chromium; it is switched off only
+  // when the fixture's handler is installed to run cleanup first.
+  const launchOptions = {
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...(cleanupFixture ? NO_PLAYWRIGHT_SIGNAL_HANDLING : {}),
+  };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
@@ -531,7 +538,16 @@ function prepareFixture() {
     console.log('PASS CARLOS EMR patient list by appointment time exports patientlist.txt with correct provider filtering');
   } finally {
     if (browser) await browser.close().catch(() => {});
-    if (cleanupFixture) cleanupFixture();
+    if (cleanupFixture) {
+      try {
+        cleanupFixture();
+      } catch (cleanupError) {
+        // Reported on its own line and forced to FAIL, without replacing whatever
+        // the check itself concluded (a PASS line above is then not the verdict).
+        console.error(`FAIL fixture cleanup: ${cleanupError.message}`);
+        process.exitCode = 1;
+      }
+    }
   }
 })().catch((error) => {
   if (error instanceof SkipCheck) {

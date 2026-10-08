@@ -34,8 +34,8 @@
  *      clinic_letter.rtl, which EFormAssetDeployer seeds into the eForm images directory on every
  *      install, so this step needs no fixture (#4412). RTL_TEMPLATE_NAME names a different one,
  *      e.g. a clinic-uploaded template (deb-install-validation.md fixture c); if that template is
- *      not installed the check still runs every other step and then reports SKIP (exit 2) naming
- *      the missing fixture, rather than failing on a template dropdown it was never given.
+ *      not installed the step falls back to the seeded one, and a run that otherwise passes reports
+ *      SKIP (exit 2) naming the missing fixture, rather than failing on a template it was never given.
  *
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
  * the documented stamps.js 404 on stock installs.
@@ -344,24 +344,24 @@ async function savedFdid(page) {
 
     // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
     page = await openNewLetter(context, recorder, fid, 'rtl-template');
-    const option = page.locator(`#template option[value="${config.templateName}"]`);
-    const offered = (await option.count()) === 1;
-    if (!offered && config.templateIsFixture) {
+    let templateName = config.templateName;
+    if (config.templateIsFixture && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
       // The operator named a template this install does not have: a missing fixture, not a defect.
-      // Waiting on selectOption() here was the 30 s TimeoutError #4412 reported.
-      missingTemplate = config.templateName;
-      console.log(`[skip] RTL_TEMPLATE_NAME=${config.templateName} is not in the template dropdown; `
-        + 'stage it in the eForm images directory (deb-install-validation.md fixture c) or unset '
-        + `RTL_TEMPLATE_NAME to use the seeded ${SEEDED_TEMPLATE_NAME}`);
-      await page.close();
-    } else if (!offered) {
-      // The seeded default is missing: EFormAssetDeployer did not run or the directory was emptied.
-      step(`template dropdown offers ${config.templateName}`, false, 'seeded by EFormAssetDeployer on every install');
-      await page.close();
-    } else {
-      step(`template dropdown offers ${config.templateName}`, true, '');
-      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(config.templateName)}`) || r.url().includes(`imagefile=${config.templateName}`), { timeout: 30000 });
-      await page.locator('#template').selectOption(config.templateName);
+      // Waiting on selectOption() for it was the 30 s TimeoutError #4412 reported. The step still
+      // runs, against the seeded template, so the sandbox regression it guards stays covered.
+      missingTemplate = templateName;
+      templateName = SEEDED_TEMPLATE_NAME;
+      console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
+        + 'stage it in the eForm images directory (deb-install-validation.md fixture c). '
+        + `Testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
+    }
+    const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
+    // The seeded template missing is a defect: EFormAssetDeployer did not run, or the
+    // template catalog (efmformrtl_templates) stopped listing the directory.
+    step(`template dropdown offers ${templateName}`, offered, templateName === SEEDED_TEMPLATE_NAME ? 'seeded by EFormAssetDeployer on every install' : '');
+    if (offered) {
+      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(templateName)}`) || r.url().includes(`imagefile=${templateName}`), { timeout: 30000 });
+      await page.locator('#template').selectOption(templateName);
       const tr = await templateResponse;
       const csp = tr.headers()['content-security-policy'] || '';
       step('clinic template is served without the sandbox CSP', tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
@@ -373,8 +373,8 @@ async function savedFdid(page) {
         } catch (e) { return { ok: false, error: String(e) }; }
       });
       step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
-      await page.close();
     }
+    await page.close();
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);
@@ -395,7 +395,7 @@ async function savedFdid(page) {
     // Exit 2 is the suite's SKIP (#3313): every step that could run passed, but the one the
     // operator asked for had no fixture to run against, so this is not a clean PASS either.
     console.log(`SKIP eform-rtl-print-pdf -- RTL_TEMPLATE_NAME=${missingTemplate} is not installed `
-      + '(deb-install-validation.md fixture c); every other step passed');
+      + `(deb-install-validation.md fixture c); every other step passed, the template step against ${SEEDED_TEMPLATE_NAME}`);
     process.exit(2);
   }
   process.exit(failed.length ? 1 : 0);

@@ -327,6 +327,16 @@ function sqlInt(value) {
 
 // --- fixture discovery -----------------------------------------------------
 
+/** True only when nothing exists at `file`; any other stat failure is not "absent". */
+function credentialsAbsent(file) {
+  try {
+    fs.statSync(file);
+    return false;
+  } catch (error) {
+    return error.code === 'ENOENT' || error.code === 'ENOTDIR';
+  }
+}
+
 function readAdminCredentials() {
   assert(fs.existsSync(credentialsPath),
     `No break-glass credentials at ${credentialsPath}: this script only runs against a database `
@@ -663,10 +673,10 @@ async function loginThroughForcedReset(context, user, password, pin, label,
   // There is nothing migrated to smoke, so report SKIP (exit 2, #3313) and
   // name the missing fixture instead of failing the suite (#4412). Checked
   // before anything is written -- no MySQL defaults file, no browser, no
-  // restore points. A credentials file that exists but is unreadable or
-  // incomplete still fails in readAdminCredentials(): that is a broken
-  // import, not an absent one.
-  if (!fs.existsSync(credentialsPath)) {
+  // restore points. Only ENOENT counts as absent: a file this run cannot
+  // reach (EACCES on a 0700 state directory) or one that is incomplete still
+  // fails in readAdminCredentials(), because an import did happen.
+  if (credentialsAbsent(credentialsPath)) {
     console.log(`SKIP o19-migrated-smoke -- no break-glass credentials at ${credentialsPath}: `
       + 'this check needs a database produced by carlos-ctl import-o19 (see '
       + 'docs/ui-tests/deb-install-validation.md, "Checks that need their own fixture"). '

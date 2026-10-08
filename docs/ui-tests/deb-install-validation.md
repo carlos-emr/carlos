@@ -514,7 +514,8 @@ lxc exec carlos-test -- bash -c \
 #    application seeds into the eForm image directory on every install, so it needs
 #    no fixture. Stage a clinic-UPLOADED template only to cover that case too, and
 #    then export RTL_TEMPLATE_NAME=MissedAppointment.rtl (section 6). With the
-#    variable set and the file absent the check SKIPs (exit 2) naming this fixture.
+#    variable set and the file absent the check tests the seeded template instead
+#    and ends SKIP (exit 2) naming this fixture.
 #    The repo ships one.
 lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
   carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
@@ -583,9 +584,9 @@ checks that failed on a fresh install instead; they now behave as follows.
 
 | Check | What it needs | On a fresh install with the section 6 environment |
 |---|---|---|
-| `eform-rtl-print-pdf` | Nothing: its template step uses `clinic_letter.rtl`, which the application seeds on every install. `RTL_TEMPLATE_NAME` names a clinic-uploaded template instead (fixture c). | Runs. With `RTL_TEMPLATE_NAME` set and that file not staged, every other step still runs, then SKIP naming fixture c. |
+| `eform-rtl-print-pdf` | Nothing: its template step uses `clinic_letter.rtl`, which the application seeds on every install. `RTL_TEMPLATE_NAME` names a clinic-uploaded template instead (fixture c). | Runs. With `RTL_TEMPLATE_NAME` set and that file not staged, the template step falls back to `clinic_letter.rtl` and an otherwise passing run ends SKIP naming fixture c. |
 | `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
-| `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`, no query string or message), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
+| `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
 | `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
 
 Restart once after loading so nothing serves from a pre-load cache:

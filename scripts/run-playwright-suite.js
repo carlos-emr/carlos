@@ -279,7 +279,7 @@ function runOne(check, options, run = spawnSync) {
     // manifest's fixture note so the table says what to stage, not just that
     // something was missing (#4412).
     const detail = check.fixtures
-      ? `a fixture or credential this check needs is not configured: ${check.fixtures}`
+      ? `a fixture or credential this check needs is not configured (its output says which). Fixtures: ${check.fixtures}`
       : 'a fixture or credential this check needs is not configured';
     return { name: check.name, outcome: 'SKIP', detail, durationMs };
   }

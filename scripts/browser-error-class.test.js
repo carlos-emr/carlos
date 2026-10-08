@@ -64,29 +64,56 @@ test('fax workflow failure phases use fixed labels without browser or database c
   }
 });
 
-test('errorSourceLocation names the throwing script without its query string or session id', () => {
+test('errorSourceLocation names the throwing page script without query string, session id or record ids', () => {
   const { errorSourceLocation } = require('./browser-error-class');
-  const pageError = new TypeError('FAKE-Patient secret');
-  pageError.stack = [
-    "TypeError: Cannot read properties of null (reading 'value') for FAKE-Patient",
+  // The shape Playwright hands a pageerror listener: message is the first line only.
+  const pageError = { name: 'TypeError', message: "Cannot read properties of null (reading 'value')", stack: [
+    "TypeError: Cannot read properties of null (reading 'value')",
     '    at setComment (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp;jsessionid=ABC123?scriptId=45&demographicNo=1:812:31)',
     '    at onload (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:1:1)',
-  ].join('\n');
+  ].join('\n') };
   const location = errorSourceLocation(pageError);
   assert.equal(location, ' at setComment (/carlos/oscarRx/ViewScript2.jsp:812:31)');
-  assert.doesNotMatch(location, /demographicNo|scriptId|jsessionid|ABC123|FAKE|Cannot read/);
+  assert.doesNotMatch(location, /demographicNo|scriptId|jsessionid|ABC123/);
+  const restPath = { stack: 'Error: x\n    at render (https://127.0.0.1/carlos/ws/rs/demographics/12345/notes/0f8fad5b-d9cb-469f-a165-70867728950e:3:4)' };
+  assert.equal(errorSourceLocation(restPath), ' at render (/carlos/ws/rs/demographics/:id/notes/:id:3:4)');
 });
 
-test('errorSourceLocation skips Node internals and node_modules to reach the check\'s own frame', () => {
+test('errorSourceLocation ignores frame-shaped text a page error message carried into its stack', () => {
   const { errorSourceLocation } = require('./browser-error-class');
+  // Playwright keeps only the first message line in .message and repeats the rest in .stack,
+  // so a multi-line message can put a "frame" ahead of the real ones.
+  const injected = { name: 'Error', message: 'FAKE-Smith line1', stack: [
+    'Error: FAKE-Smith line1',
+    '    at Smith (Jane-1970.js:1:1)',
+    '    at new FAKE (http://127.0.0.1/carlos/x.jsp?name=FAKE/Smith:1:2)',
+    '    at boom (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:2:36)',
+  ].join('\n') };
+  // The non-URL "frame" names no real file and is dropped; "new FAKE" is not an identifier, and
+  // the query string is gone, so only the path of the first real page frame survives.
+  assert.equal(errorSourceLocation(injected), ' at (/carlos/x.jsp:1:2)');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at Smith (Jane-1970.js:1:1)' }), '');
+});
+
+test('errorSourceLocation reaches the check\'s own frame past Node internals, node_modules and helpers', () => {
+  const { errorSourceLocation } = require('./browser-error-class');
+  const path = require('node:path');
+  // A Playwright error's stack does not begin with its name.
   const timeout = { name: 'TimeoutError', stack: [
-    'TimeoutError: locator.click: Timeout 30000ms exceeded.',
+    'locator.click: Timeout 30000ms exceeded.',
+    'Call log:',
+    "  - waiting for locator('#fax')",
+    '',
+    `    at run (${path.join(__dirname, 'lib', 'playwright-harness.js')}:309:23)`,
     '    at ProtocolError (/repo/node_modules/playwright-core/lib/client/connection.js:1:2)',
     '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)',
-    '    at async runChecks (/home/user/carlos/scripts/rx-fax-record-binding-playwright-checks.js:800:5)',
+    `    at async runChecks (${path.join(__dirname, 'rx-fax-record-binding-playwright-checks.js')}:800:5)`,
   ].join('\n') };
   assert.equal(errorSourceLocation(timeout), ' at runChecks (rx-fax-record-binding-playwright-checks.js:800:5)');
   assert.equal(browserErrorClass(timeout), 'TimeoutError');
+  // With no check frame, the first real helper frame is still better than nothing.
+  const helperOnly = { stack: `Error: x\n    at run (${path.join(__dirname, 'lib', 'playwright-harness.js')}:309:23)` };
+  assert.equal(errorSourceLocation(helperOnly), ' at run (playwright-harness.js:309:23)');
 });
 
 test('errorSourceLocation returns nothing rather than an unsafe or missing location', () => {
@@ -94,8 +121,10 @@ test('errorSourceLocation returns nothing rather than an unsafe or missing locat
   assert.equal(errorSourceLocation(null), '');
   assert.equal(errorSourceLocation({ stack: 42 }), '');
   assert.equal(errorSourceLocation({ stack: 'Error: x\n    at eval (eval at <anonymous> (FAKE Patient.js:1:1))' }), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (blob:http://127.0.0.1/0f8fad5b:1:1)' }), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (/etc/passwd:1:1)' }), '', 'files outside scripts/ are not locations');
   // An anonymous frame keeps its location but no function name.
   assert.equal(errorSourceLocation({ stack: 'Error\n    at http://127.0.0.1:8080/carlos/js/app.js?v=1:3:4' }), ' at (/carlos/js/app.js:3:4)');
   // A function name outside the identifier alphabet is dropped, the location kept.
-  assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (/x/scripts/check.js:9:9)' }), ' at (check.js:9:9)');
+  assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (http://127.0.0.1/carlos/js/a.js:9:9)' }), ' at (/carlos/js/a.js:9:9)');
 });
