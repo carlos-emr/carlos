@@ -44,7 +44,11 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.apache.cxf.jaxrs.utils.JAXRSUtils;
+import org.apache.cxf.message.Message;
+import org.apache.cxf.transport.http.AbstractHTTPDestination;
 
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import io.github.carlos_emr.carlos.login.OAuthData; // model used by 3rdpartyLogin.jsp
@@ -56,6 +60,9 @@ public class AuthorizeResource {
     @Context private HttpServletResponse response;
 
     @Inject  private OscarOAuthDataProvider provider;
+
+    /** The CXF message being served. A field so a unit test can supply one outside a CXF chain. */
+    private Supplier<Message> currentMessage = JAXRSUtils::getCurrentMessage;
 
     private String getLoggedInProviderNo() {
         HttpSession session = request.getSession(false);
@@ -99,7 +106,26 @@ public class AuthorizeResource {
         // the tail-interactive migration; RequestDispatcher can still reach
         // it via internal dispatch (see follow-up validation ticket #1731).
         RequestDispatcher rd = request.getRequestDispatcher("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
-        rd.forward(request, response); // response committed by forward
+        rd.forward(request, response);
+        markResponseWritten();
+    }
+
+    /**
+     * Tells CXF that the forwarded consent page is the response.
+     *
+     * <p>The forward does not commit the page. Response wrappers in the filter chain
+     * (PrivacyStatementAppendingFilter, LogoutBroadcastFilter, ResponseSanitizationFilter) hold the
+     * output until the chain unwinds. CXF then finished this void method as 204 with
+     * Content-Length 0, which discarded the page, and the browser showed nothing (issue #3446).
+     * With {@link AbstractHTTPDestination#REQUEST_REDIRECTED} on the exchange,
+     * {@code AbstractHTTPDestination.flushHeaders} leaves the status, headers and body alone. CXF
+     * uses the same flag when a servlet redirect has already produced the response.
+     */
+    private void markResponseWritten() {
+        Message message = currentMessage.get();
+        if (message != null && message.getExchange() != null) {
+            message.getExchange().put(AbstractHTTPDestination.REQUEST_REDIRECTED, Boolean.TRUE);
+        }
     }
 
     /** POST /ws/oauth/authorize — approve and redirect (or OOB) */

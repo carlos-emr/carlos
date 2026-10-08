@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.actions.DelEForm2Action;
+import io.github.carlos_emr.carlos.eform.actions.RestoreEForm2Action;
 import io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action;
 import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -780,6 +781,9 @@ class MutatorActionGetRejectionContractUnitTest {
             throws Exception {
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
+        }
+        if (actionClass.equals(RestoreEForm2Action.class)) {
+            return new RestoreEForm2Action(mock(SecurityInfoManager.class));
         }
         if (actionClass.equals(ERefer2Action.class)) {
             return new ERefer2Action(mock(SecurityInfoManager.class),

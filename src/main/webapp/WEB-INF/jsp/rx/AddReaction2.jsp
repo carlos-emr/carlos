@@ -58,6 +58,10 @@
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%-- Standalone page only: when this form is injected into the allergy page, that page loads
+             the same script, since nothing from this head survives the injection (#3355, #3488). --%>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -323,6 +327,14 @@
 
 
                                 <% } %>
+
+                                <tr>
+                                    <td>
+                                        <%-- A save the server does not confirm is reported here and the
+                                             entered values stay in this form for a retry (#3488). --%>
+                                        <div class="allergySaveStatus" role="alert" aria-live="assertive" style="display:none"></div>
+                                    </td>
+                                </tr>
 
                                 <tr>
                                     <td>
