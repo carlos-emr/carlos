@@ -92,20 +92,36 @@
                     </c:choose>
                 </td>
             </tr>
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.createInvoiceUrl)}" data-nav-popup="page"
-                       data-popup-height="700" data-popup-width="1000"
-                       title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
-            </tr>
+            <%-- Ontario's billing form needs read; BC's billing form also needs write (billingBC.jsp). --%>
+            <c:choose>
+                <c:when test="${nav.ontarioBilling}">
+                    <tr>
+                        <td><a href="${carlos:forHtmlAttribute(nav.createInvoiceUrl)}" data-nav-popup="page"
+                               data-popup-height="700" data-popup-width="1000"
+                               title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
+                    </tr>
+                </c:when>
+                <c:otherwise>
+                    <security:oscarSec roleName="${nav.roleName}" objectName="_billing" rights="w">
+                        <tr>
+                            <td><a href="${carlos:forHtmlAttribute(nav.createInvoiceUrl)}" data-nav-popup="page"
+                                   data-popup-height="700" data-popup-width="1000"
+                                   title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
+                        </tr>
+                    </security:oscarSec>
+                </c:otherwise>
+            </c:choose>
         </security:oscarSec>
         <tr class="Header">
             <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalModules"/></td>
         </tr>
         <security:oscarSec roleName="${nav.roleName}" objectName="_eChart" rights="r">
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.consultationsUrl)}" data-nav-popup="page"
-                       data-popup-height="700" data-popup-width="960"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
-            </tr>
+            <security:oscarSec roleName="${nav.roleName}" objectName="_con" rights="r">
+                <tr>
+                    <td><a href="${carlos:forHtmlAttribute(nav.consultationsUrl)}" data-nav-popup="page"
+                           data-popup-height="700" data-popup-width="960"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+                </tr>
+            </security:oscarSec>
         </security:oscarSec>
         <security:oscarSec roleName="${nav.roleName}" objectName="_rx" rights="r">
             <tr>
@@ -165,7 +181,8 @@
             <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalResources"/></td>
         </tr>
         <special:SpecialPlugin moduleName="inboxmnger">
-            <security:oscarSec roleName="${nav.roleName}" objectName="_hrm" rights="r">
+            <%-- As on the eChart, whose own Inbox Manager link needs document read. --%>
+            <security:oscarSec roleName="${nav.roleName}" objectName="_edoc" rights="r">
                 <tr>
                     <td><a href="${carlos:forHtmlAttribute(nav.inboxManagerUrl)}" data-nav-popup="window">Inbox Manager</a></td>
                 </tr>

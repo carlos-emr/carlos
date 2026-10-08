@@ -80,15 +80,17 @@ class PatientNavSharingRegressionTest {
         String nav = read("patient-nav.jsp");
         assertThat(guardsOf(nav, "nav.billingHistoryUrl")).containsExactly("_billing r");
         assertThat(guardsOf(nav, "nav.invoiceListUrl")).containsExactly("_billing r", "_billing w");
-        assertThat(guardsOf(nav, "nav.createInvoiceUrl")).containsExactly("_billing r");
-        assertThat(guardsOf(nav, "nav.consultationsUrl")).containsExactly("_eChart r");
+        // Ontario's billing form needs read; BC's (the second link) also needs write.
+        assertThat(guardsOf(nav, "nav.createInvoiceUrl", 1)).containsExactly("_billing r");
+        assertThat(guardsOf(nav, "nav.createInvoiceUrl", 2)).containsExactly("_billing r", "_billing w");
+        assertThat(guardsOf(nav, "nav.consultationsUrl")).containsExactly("_eChart r", "_con r");
         assertThat(guardsOf(nav, "nav.prescriptionsUrl")).containsExactly("_rx r");
         assertThat(guardsOf(nav, "nav.echartUrl")).containsExactly("_eChart r");
         assertThat(guardsOf(nav, "nav.preventionsUrl")).containsExactly("_eChart r", "_prevention r");
         assertThat(guardsOf(nav, "nav.ticklerUrl")).containsExactly("_tickler r");
         assertThat(guardsOf(nav, "nav.portalUrl")).containsExactly("_portal.invite,_portal.account r");
         assertThat(guardsOf(nav, "nav.getArFormUrl('AR1')")).containsExactly("_form r");
-        assertThat(guardsOf(nav, "nav.inboxManagerUrl")).containsExactly("_hrm r");
+        assertThat(guardsOf(nav, "nav.inboxManagerUrl")).containsExactly("_edoc r");
         assertThat(guardsOf(nav, "nav.documentsUrl")).containsExactly("_edoc r");
         assertThat(guardsOf(nav, "nav.documentBrowserUrl")).containsExactly("_edoc r");
         assertThat(guardsOf(nav, "nav.eformsUrl")).containsExactly("_eform r");
@@ -108,8 +110,16 @@ class PatientNavSharingRegressionTest {
 
     /** The privilege checks (object and right) around the first use of {@code marker}, outermost first. */
     private static List<String> guardsOf(String nav, String marker) {
-        int at = nav.indexOf(marker);
-        assertThat(at).as("link %s", marker).isNotNegative();
+        return guardsOf(nav, marker, 1);
+    }
+
+    /** The privilege checks around the {@code occurrence}-th use of {@code marker} (1-based). */
+    private static List<String> guardsOf(String nav, String marker, int occurrence) {
+        int at = -1;
+        for (int found = 0; found < occurrence; found++) {
+            at = nav.indexOf(marker, at + 1);
+            assertThat(at).as("use %d of %s", found + 1, marker).isNotNegative();
+        }
         Deque<String> open = new ArrayDeque<>();
         Matcher tag = SECURITY_TAG.matcher(nav);
         while (tag.find() && tag.start() < at) {

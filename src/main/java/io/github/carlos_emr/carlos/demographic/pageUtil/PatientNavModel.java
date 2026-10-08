@@ -48,11 +48,12 @@ import io.github.carlos_emr.carlos.waitinglist.WaitingList;
  * The patient's navigation down the left of the master record, for any page that shows it
  * ({@code /WEB-INF/jsp/demographic/patient-nav.jsp}). It holds the links' targets and the
  * conditions that are not privileges (billing region, waiting list, portal switch, clinic and
- * user settings); the fragment keeps the record's {@code security:oscarSec} checks for the
- * privileges, so a link shows on every page under the same rules.
+ * user settings); the fragment holds the privilege checks, the record's own {@code security:oscarSec}
+ * checks plus each target page's, so a link shows on every page under the same rules and only to a
+ * user who may open it.
  *
  * <p>The targets are the ones the record has always used. Values are URL-encoded here; the
- * fragment encodes the whole target again for its HTML or JavaScript context.
+ * fragment encodes the whole target again for its HTML attribute.
  *
  * <p>Build one per request, after the page has checked that the user may read the patient.
  *
