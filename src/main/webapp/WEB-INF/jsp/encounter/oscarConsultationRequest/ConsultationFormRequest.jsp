@@ -231,9 +231,11 @@
             }
         }
 
-        if (!isProviderActive && consultUtil.providerNo != null) {
+        // A saved consult with no provider has providerNo "", not null. getProvider builds a Provider with
+        // no number for "" or for a provider who no longer exists, and the provider list below needs a number.
+        if (!isProviderActive && !StringUtils.isNullOrEmpty(consultUtil.providerNo)) {
             Provider inactiveProvider = rx.getProvider(consultUtil.providerNo);
-            if (inactiveProvider != null) {
+            if (inactiveProvider != null && inactiveProvider.getProviderNo() != null) {
                 prList.add(inactiveProvider);
             }
         }
