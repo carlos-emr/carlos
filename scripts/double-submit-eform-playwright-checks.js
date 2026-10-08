@@ -79,6 +79,13 @@ async function workflow(s) {
         const dialogs = await h.withExpectedDialogs(form, activate);
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
+      // The saved result page closes itself only after its 5 s success alert, so the replay reload (2.5 s after the
+      // click) should land on the still-open result page. rapid() swallows a "Target page closed" error, so prove the
+      // reload really ran: the window is still open, or the reload re-sent the POST.
+      if (mode.key === 'replay') {
+        h.assert(!form.isClosed() || posts.seen.length >= 2,
+          'The eForm window closed before the replay reload ran, so the POST replay was never exercised');
+      }
       const count = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
         AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 3500 });
       if (disarm) await disarm();
