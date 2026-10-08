@@ -75,6 +75,8 @@
         <action name="email/emailComposeAction" class="io.github.carlos_emr.carlos.email.action.EmailCompose2Action">
             <result name="compose">/WEB-INF/jsp/email/emailCompose.jsp</result>
             <result name="eFormError">/eform/efmshowform_data?error=true</result>
+            <!-- An expired, reused or unknown draft key: no eForm to show the error on, so its own page. -->
+            <result name="draftExpired">/WEB-INF/jsp/email/emailComposeDraftExpired.jsp</result>
         </action>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
