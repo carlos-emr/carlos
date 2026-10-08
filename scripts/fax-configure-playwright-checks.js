@@ -70,7 +70,16 @@
  * created, and asserts polling is as it was (off) afterwards. That holds in SRFAX_LIVE
  * mode too: nothing the run saves is kept, so to configure an account use the UI. The
  * scheduler the save started keeps running until the application restarts; with no active
- * account it only logs a warning each minute. A save needs the snapshot, so it requires
+ * account it only logs a warning each minute.
+ *
+ * THE RESIDUAL RACE. While the saved account exists the scheduler can read it: its first cycle
+ * comes 3 s after the save that starts it, then one a minute. A read of the unreachable fake
+ * account logs FaxImporter.java:406 at ERROR. So the save step reads the reloaded page and
+ * restores the row immediately (about a second after the save), before any assertion, screenshot
+ * or browser teardown, and prints how long the account was live. That makes a 406 ERROR rare,
+ * not impossible: one line within seconds of this check is that race, a line every minute means
+ * the restore did not take (scripts/run-playwright-suite.js --residue-audit shows it). The
+ * server-log baseline therefore does NOT explain FaxImporter.java:406. A save needs the snapshot, so it requires
  * MYSQL_PASSWORD; without it the save step is SKIP, not PASS. Run it exclusively
  * (EXCLUSIVE=1): it changes a table every fax check shares.
  *
@@ -446,6 +455,7 @@ async function main() {
     // The skip path never enters step(), so it can never be recorded as a PASS.
     await (saveIsSafe ? step : async () => {})(saveStep, async () => {
       await armSaveButton(frame);
+      const clicked = Date.now();
       await frame.locator('#submit').click();
 
       const alert = frame.locator('#msg');
@@ -454,25 +464,49 @@ async function main() {
       const alertClass = (await alert.getAttribute('class')) || '';
       assert(/alert-success/.test(alertClass), `Save did not succeed: "${alertText}"`);
       assert(!alertText.includes(config.srfax.pass), 'Save response echoed the password');
-      await shot(page, existing, 'fax-config-saved');
 
+      // THE POLLING WINDOW. From the moment the save commits, the row is enabled with polling on,
+      // and the fax scheduler (started by that very save, first cycle 3 s later, then every minute)
+      // polls the unreachable fake account and logs FaxImporter.java:406 at ERROR if it reads the
+      // row. So the row is read back and put back as soon as the reload has been captured, before
+      // any assertion, screenshot or browser teardown. The assertions run on what was captured, so
+      // they check exactly what they did before.
       // Reload the direct route (the same gated action the nav iframe used) and
       // confirm the persisted values come back, password masked.
       const direct = await context.newPage();
       wirePage(direct, 'configure-fax-direct', recorder);
-      await gotoApp(direct, config.baseUrl, '/admin/ViewConfigureFax');
-      await direct.locator('#configFrm').waitFor({ state: 'visible', timeout: 30000 });
+      let persisted;
+      let html;
+      try {
+        await gotoApp(direct, config.baseUrl, '/admin/ViewConfigureFax');
+        await direct.locator('#configFrm').waitFor({ state: 'visible', timeout: 30000 });
+        persisted = await direct.evaluate(() => ({
+          faxUser: document.getElementById('faxUser').value,
+          faxNumber: document.getElementById('faxNumber').value,
+          senderEmail: document.getElementById('senderEmail').value,
+          accountName: document.getElementById('accountName').value,
+          faxPasswd: document.getElementById('faxPasswd').value,
+          on: document.getElementById('on').checked,
+          download: document.getElementById('downloadCheckbox').checked,
+        }));
+        html = await direct.content();
+      } finally {
+        // Never throws: a restore that fails here is retried and recorded by the final block.
+        try { faxGuard.finish(); } catch { /* recorded below */ }
+        console.log(`INFO the saved fax account was live for at most ${Date.now() - clicked} ms `
+          + '(the scheduler reads it 3000 ms after the save at the earliest)');
+      }
+
+      await shot(page, existing, 'fax-config-saved');
       await assertNotErrorPage(direct, 'Configure Fax direct route');
 
-      assert((await direct.locator('#faxUser').inputValue()) === config.srfax.accessId, 'Account number did not persist');
-      assert((await direct.locator('#faxNumber').inputValue()) === digitsOnly(config.srfax.faxNumber).replace(/^1(\d{10})$/, '$1'), 'Fax number did not persist as 10 digits');
-      assert((await direct.locator('#senderEmail').inputValue()) === config.srfax.email, 'Sender email did not persist');
-      assert((await direct.locator('#accountName').inputValue()) === 'Playwright SRFax check', 'Account name did not persist');
-      assert((await direct.locator('#faxPasswd').inputValue()) === PASSWORD_MASK, 'Password field is not masked after save');
-      assert(await direct.locator('#on').isChecked(), 'Gateway did not persist as enabled');
-      assert(await direct.locator('#downloadCheckbox').isChecked(), 'Poll for incoming faxes did not persist');
-
-      const html = await direct.content();
+      assert(persisted.faxUser === config.srfax.accessId, 'Account number did not persist');
+      assert(persisted.faxNumber === digitsOnly(config.srfax.faxNumber).replace(/^1(\d{10})$/, '$1'), 'Fax number did not persist as 10 digits');
+      assert(persisted.senderEmail === config.srfax.email, 'Sender email did not persist');
+      assert(persisted.accountName === 'Playwright SRFax check', 'Account name did not persist');
+      assert(persisted.faxPasswd === PASSWORD_MASK, 'Password field is not masked after save');
+      assert(persisted.on, 'Gateway did not persist as enabled');
+      assert(persisted.download, 'Poll for incoming faxes did not persist');
       assert(!html.includes(config.srfax.pass), 'Rendered page contains the SRFax password');
       await shot(direct, existing, 'fax-config-reloaded');
       await direct.close();
@@ -493,7 +527,7 @@ async function main() {
       // A failure is recorded as its own step and never thrown from here, so it cannot hide the
       // error that ended the flow; a restore that did not take fails the run.
       faxGuard.disarmSignals();
-      const restoreStep = 'fax_config is restored to its snapshot and polling is off';
+      const restoreStep = 'fax_config is restored to its snapshot and its polling state is unchanged';
       try {
         faxGuard.finish();
         record(restoreStep, true);

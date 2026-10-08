@@ -8,7 +8,7 @@
  * Finding 180 came from that check: it saved a fake SRFax account with the gateway enabled and
  * inbound polling on, and never put the row back, so FaxImporter logged an ERROR every minute for
  * as long as the install stayed up. The Configure Fax save is a clinic-wide write, so the check
- * snapshots the table first, restores it however it ends, and proves polling is off afterwards.
+ * snapshots the table first, restores it however it ends, and proves polling is unchanged (off on the shipped row) afterwards.
  * The database is a stub here; the live proof is the runner's --residue-audit and the journal.
  */
 
@@ -149,7 +149,7 @@ test('shouldDecodeRows_forTheGuardButNeverForReports', () => {
 
 /*
  * THE GUARD. begin() snapshots and refuses a table already polling this check's fake account;
- * finish() restores, then asserts polling is off; a signal runs the same restore before the
+ * finish() restores, then asserts polling is unchanged; a signal runs the same restore before the
  * process exits.
  */
 const FAKE = { faxUser: '000000', accountName: 'Playwright SRFax check' };
@@ -164,7 +164,7 @@ function guardWith(sql, { exit } = {}) {
   return { guard, proc, exits, released };
 }
 
-test('shouldRestoreAndAssertPollingOff_whenTheFlowEnds', () => {
+test('shouldRestoreAndAssertPollingUnchanged_whenTheFlowEnds', () => {
   const sql = fakeSql();
   const { guard } = guardWith(sql);
   guard.begin();
@@ -278,4 +278,37 @@ test('shouldSnapshotBeforeTheBrowserStarts_andRestoreInFinally', () => {
 test('shouldSkipTheSave_whenTheRowCannotBeRestored', () => {
   // saveIsSafe must require the guard: without MYSQL_PASSWORD there is no snapshot to restore from.
   assert.match(SCRIPT, /const saveIsSafe = faxGuard !== null\s*&&/);
+});
+
+test('shouldRestoreTheRowBeforeTheSaveAssertions_soTheSchedulerBarelyCanReadIt', () => {
+  // The saved account is enabled with polling on until the restore, and the scheduler the save
+  // started reads it 3 s later at the earliest. The restore therefore sits right after the reload
+  // is captured, ahead of every assertion, screenshot and the browser teardown.
+  const step = SCRIPT.slice(SCRIPT.indexOf('await (saveIsSafe ? step'), SCRIPT.indexOf("await step('no page errors"));
+  const restore = step.indexOf('faxGuard.finish()');
+  assert.ok(restore > 0, 'the save step restores the row itself');
+  for (const later of ['Account number did not persist', "shot(direct, existing, 'fax-config-reloaded')", "shot(page, existing, 'fax-config-saved')", 'direct.close()']) {
+    assert.ok(step.indexOf(later) > restore, `${later} must come after the restore`);
+  }
+  assert.ok(step.indexOf('direct.content()') < restore, 'the reload is captured before the restore');
+});
+
+test('shouldNameThePollingStepUnchanged_notOff', () => {
+  // The guard asserts the polling count equals the pre-run count (off on the shipped row, but
+  // unchanged when a real account was already polling), so the label must not say "off".
+  assert.match(SCRIPT, /polling state is unchanged/);
+  assert.doesNotMatch(SCRIPT, /restoreStep = [^;]*polling is off/);
+});
+
+test('shouldNotBaselineTheFaxImporterError_nowThatTheCheckRestoresTheRow', () => {
+  // scripts/lib/server-log-baseline.tsv used to explain FaxImporter.java:406 as "the fake SRFax
+  // account fax-configure saves". The check restores the row, so that reason is false, and an entry
+  // with no count bound would report a failed restore (a per-minute ERROR) as KNOWN. Report, don't
+  // encode: the ERROR is an unexplained signature (finding 180 stays open).
+  const baseline = fs.readFileSync(path.join(__dirname, 'lib', 'server-log-baseline.tsv'), 'utf8');
+  const entries = baseline.split('\n').filter((line) => line.trim() && !line.startsWith('#'));
+  const signature = 'ERROR core.FaxImporter (FaxImporter.java:406)';
+  assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(signature)),
+    'the baseline explains the FaxImporter ERROR again');
+  assert.doesNotMatch(baseline, /fax-configure-playwright-checks\.js saves/);
 });

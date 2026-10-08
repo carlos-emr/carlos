@@ -1318,11 +1318,18 @@ each entry citing the check, the issue or the findings-log row behind it:
 - errors the suite provokes on purpose (the 500s of `error-sanitization`, the
   malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
   replays);
-- the validation environment (no internet, the fake SRFax account
-  `fax-configure` leaves polling, a page closed mid-download, a fixture patient
-  deleted while the chart is still loading, a service restart);
+- the validation environment (no internet, a page closed mid-download, a fixture
+  patient deleted while the chart is still loading, a service restart);
 - recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
   error stands out from the ones already recorded.
+
+`FaxImporter.java:406` ("Fax provider error for account ...") is deliberately NOT in the
+baseline. `fax-configure` saves a fake SRFax account that the fax scheduler would poll
+every minute, so the check restores the `fax_config` row about a second after the save
+(`scripts/lib/fax-config-state.js`). One such line within seconds of that check is the
+narrow race with the scheduler's first cycle (3 s after the save that starts it); a line
+every minute means the restore did not take, and `--residue-audit` names the table. The
+underlying missing backoff is app-findings-log.md finding 180.
 
 An entry that names neither a stack frame nor an exception is pinned to its exact
 source line, because one class can log many different failures by name alone.
