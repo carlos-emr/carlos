@@ -71,7 +71,7 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          *
          * @since 2026-08-20
          */
-        PENDING,
+        PENDING("admin.manageEmails.pending"),
         /**
          * The configured transport accepted the send without a synchronous error.
          *
@@ -79,13 +79,27 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          * nothing writes that back. User-facing views therefore label this status "Accepted by
          * mail server" rather than presenting it as a completed send (issue #3834).</p>
          */
-        SUCCESS,
+        SUCCESS("admin.manageEmails.acceptedByMailServer"),
         /** Email failed to send due to an error */
-        FAILED,
+        FAILED("admin.manageEmails.failed"),
         /** A failed or unconfirmed email was manually reviewed and resolved */
-        RESOLVED,
+        RESOLVED("admin.manageEmails.resolved"),
         /** Email was blocked before transmission by a compliance control */
-        BLOCKED
+        BLOCKED("admin.manageEmails.blocked");
+
+        private final String messageKey;
+
+        EmailStatus(String messageKey) {
+            this.messageKey = messageKey;
+        }
+
+        /**
+         * @return the resource-bundle key for the status tag shown to staff; the stored value and
+         *         the Manage Emails filter value stay the enum name
+         */
+        public String getMessageKey() {
+            return messageKey;
+        }
     }
 
     /**
