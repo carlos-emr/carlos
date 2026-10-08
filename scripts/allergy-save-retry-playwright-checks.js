@@ -17,11 +17,11 @@
  * clinician typed, and retrying must persist exactly one record.
  *
  *   A. The save request is aborted (network failure) before reaching the server:
- *      the dialogue stays on the page, shows the "NOT SAVED" banner, keeps the
+ *      the dialogue stays on the page, shows its save-status alert, keeps the
  *      comment / start date / age of onset, and nothing is in the database. The
  *      retry then saves exactly one row.
  *   B. The save reaches the server and persists, but its response is replaced by
- *      a 502 (a lost response): the banner shows, the values are kept, and the
+ *      a 502 (a lost response): the alert shows, the values are kept, and the
  *      retry sends the same saveToken so the server does not add a second row.
  *
  * Rows carrying the run marker are deleted in a finally.
@@ -168,9 +168,12 @@ async function fillDialogue(page, form, reaction) {
 }
 
 async function assertValuesKept(page, form, reaction, label) {
-  const banner = page.locator('#allergySaveError');
-  await banner.waitFor({ state: 'visible', timeout: 15000 });
-  assert((await banner.innerText()).includes('NOT SAVED'), `${label}: banner does not say the allergy was not saved`);
+  // rx-allergy-dialog.js (#4405) reports an unconfirmed save in the form's .allergySaveStatus
+  // region and keeps every entry for the retry.
+  const status = form.locator('.allergySaveStatus');
+  await status.waitFor({ state: 'visible', timeout: 15000 });
+  assert(/could not be confirmed|NOT saved/i.test(await status.innerText()),
+    `${label}: the status region does not say the allergy was not saved/confirmed`);
   assert(/\/rx\/showAllergy/.test(page.url()) && await form.isVisible(), `${label}: dialogue was navigated away from`);
   assert((await form.locator('#reactionDescription').inputValue()) === reaction, `${label}: comment was discarded`);
   assert((await form.locator('#startDate').inputValue()) === '2024-01-15', `${label}: start date was discarded`);

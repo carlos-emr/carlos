@@ -151,6 +151,13 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+function waitForListReload(page) {
+  return page.waitForEvent('framenavigated', {
+    predicate: (frame) => frame === page.mainFrame() && /\/rx\/showAllergy/.test(frame.url()),
+    timeout: 30000,
+  });
+}
+
 async function fillStartDate(page, form, value) {
   const date = form.locator('#startDate');
   await date.fill(value);
@@ -203,14 +210,15 @@ async function fillStartDate(page, form, value) {
     if (await form.locator('select[name="nonDrug"]').count()) {
       await form.locator('select[name="nonDrug"]').selectOption('off');
     }
+    // The save posts in the page and only then reloads the allergy list (rx-allergy-dialog.js,
+    // #3488), and the page is already at /rx/showAllergy: wait for that reload, not for the URL.
     const [saveResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/rx/addAllergy2'), { timeout: 30000 }),
+      waitForListReload(page),
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
     assert(saveResponse.status() < 400, `addAllergy2 returned HTTP ${saveResponse.status()}`);
-    // The dialogue saves in place and navigates after the acknowledgement, so the URL already matches:
-    // wait for the dialogue itself to go away.
-    await form.waitFor({ state: 'detached', timeout: 30000 });
+    await page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(page, 'allergy page after add');
     assert((await page.locator('body').innerText()).includes('PENICILLINS'), 'allergy list did not show PENICILLINS after adding it');
@@ -270,10 +278,11 @@ async function fillStartDate(page, form, value) {
     await fillStartDate(page, amendForm, '2024-01-15');
     const [amendResponse] = await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/rx/addAllergy2'), { timeout: 30000 }),
+      waitForListReload(page),
       amendForm.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
     assert(amendResponse.status() < 400, `addAllergy2 (amend) returned HTTP ${amendResponse.status()}`);
-    await amendForm.waitFor({ state: 'detached', timeout: 30000 });
+    await page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(page, 'allergy page after amend');
 

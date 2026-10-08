@@ -385,22 +385,6 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should acknowledge an AJAX save with JSON instead of redirecting")
-    void shouldReturnJsonAcknowledgement_whenSaveIsAjax() throws Exception {
-        mockRequest.addHeader("X-Requested-With", "XMLHttpRequest");
-        mockRequest.setContextPath("/carlos");
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(mockResponse.getStatus()).isEqualTo(200);
-        assertThat(mockResponse.getContentType()).startsWith("application/json");
-        assertThat(mockResponse.getContentAsString())
-                .isEqualTo("{\"saved\":true}");
-        verify(mockRxPatient).addAllergy(any(), any());
-    }
-
-    @Test
     @DisplayName("should reject a malformed saveToken before adding an allergy")
     void shouldRejectAdd_whenSaveTokenIsMalformed() throws Exception {
         mockRequest.setParameter("saveToken", "<script>");

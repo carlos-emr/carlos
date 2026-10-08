@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -242,29 +241,10 @@ public final class RxAddAllergy2Action extends ActionSupport {
         return succeed(patient.getDemographicNo());
     }
 
-    /**
-     * Ends a successful save. A browser form post gets the usual redirect to the allergy list; the
-     * dialogue's own XHR/fetch save (#3488) gets a constant JSON acknowledgement instead, so it
-     * navigates once without first downloading and discarding the whole allergy page.
-     */
+    /** Ends a successful save: the redirect back to this patient's allergy list. */
     private String succeed(int patientDemographicNo) {
         demographicNo = patientDemographicNo;
-        if (!RequestNegotiation.isAjax(request)) {
-            return SUCCESS;
-        }
-        try {
-            response.setStatus(HttpServletResponse.SC_OK);
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            // A constant body: nothing from the request is echoed. The dialogue knows its own
-            // allergy-list URL and navigates there itself.
-            response.getWriter().write("{\"saved\":true}");
-        } catch (IOException e) {
-            // The allergy is already saved; the client treats an unreadable reply as "not saved"
-            // and its retry is answered idempotently by the save token.
-            MiscUtils.getLogger().warn("Could not write the allergy save acknowledgement", e);
-        }
-        return NONE;
+        return SUCCESS;
     }
 
     /** Archives the allergy whose ownership was checked before its replacement was added. */

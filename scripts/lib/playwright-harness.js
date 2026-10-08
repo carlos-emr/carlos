@@ -1031,6 +1031,62 @@ async function screenshot(page, screenshotDir, name) {
 }
 
 /**
+ * Playwright launch options that stop Playwright installing its own SIGINT and
+ * SIGTERM handlers. Spread them into chromium.launch() beside
+ * installCleanupSignalHandlers(): Playwright's handler calls process.exit() as
+ * soon as it has closed the browser, which can land before the fixture cleanup
+ * has run, so the two must not both be registered.
+ */
+const NO_PLAYWRIGHT_SIGNAL_HANDLING = Object.freeze({ handleSIGINT: false, handleSIGTERM: false });
+
+/**
+ * Run `cleanup` when the process is interrupted, then exit 130 (SIGINT) or 143
+ * (SIGTERM) (issue #3600).
+ *
+ * A `finally` does not run when the process is killed, so a Ctrl-C or a CI
+ * timeout after fixture creation would otherwise leave synthetic patients,
+ * appointments and prescriptions behind, and any cleartext-password file the
+ * check wrote. `cleanup` may be sync or async and must be idempotent and touch
+ * only rows this run created -- the same function the check's `finally` calls.
+ *
+ * The in-flight promise is memoised so a second signal cannot start a second
+ * concurrent cleanup. A cleanup failure is reported, never swallowed, and still
+ * exits with the signal code. A signal arriving while the check's own `finally`
+ * is mid-cleanup runs `cleanup` again, which is why it must be idempotent.
+ *
+ * Returns { dispose() } which removes the listeners; call it once the check has
+ * finished and its own cleanup has run.
+ */
+function installCleanupSignalHandlers(cleanup, options = {}) {
+  assert(typeof cleanup === 'function', 'installCleanupSignalHandlers needs a cleanup function');
+  const signalProcess = options.signalProcess || process;
+  const exit = options.exit || ((code) => process.exit(code));
+  const logError = options.logError || ((message) => console.error(message));
+  let inFlight;
+  const handlers = new Map();
+  for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    const handler = () => {
+      if (!inFlight) {
+        logError(`${signal} received; running fixture cleanup before exiting.`);
+        inFlight = Promise.resolve()
+          .then(cleanup)
+          .catch((error) => logError(`Cleanup after ${signal} failed: ${(error && error.message) || error}`));
+      }
+      return inFlight.finally(() => exit(exitCode));
+    };
+    handlers.set(signal, handler);
+    // process.on, not once: a second signal while cleanup runs must be absorbed
+    // here rather than fall through to Node's default terminate-immediately.
+    signalProcess.on(signal, handler);
+  }
+  return {
+    dispose() {
+      for (const [signal, handler] of handlers) signalProcess.removeListener(signal, handler);
+    },
+  };
+}
+
+/**
  * The one entry point a check's main() should use.
  *
  * Standardises what 75 scripts each did differently: the SIGINT/SIGTERM handler
@@ -1110,6 +1166,8 @@ module.exports = {
   getLatestRequest,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   insertId,
   isLocalTlsTarget,
   launchBrowser,
