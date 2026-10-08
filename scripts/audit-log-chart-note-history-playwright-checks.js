@@ -67,7 +67,9 @@ async function workflow(s) {
       const url = h.appUrl(config.baseUrl, `/CaseManagementEntry?method=history&from=casemgmt&noteId=${noteId}&demographicNo=${patient}&providerNo=${provider}`);
       const response = await page.goto(url);
       h.assert(response.status() === 200, `method=history answered HTTP ${response.status()}`);
-      h.assert((await page.locator('body').innerText()).includes(text), 'The history view does not show the note');
+      // historyview.jsp renders the archived text inside a textarea, which innerText() does not return.
+      const shown = await page.locator('textarea[name="caseNote_history"]').inputValue();
+      h.assert(shown.includes(text), 'The history view does not show the note');
     } finally {
       await page.close();
     }
