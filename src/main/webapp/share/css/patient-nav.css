@@ -75,9 +75,13 @@
 /* BC billing: the eligibility answer, under its link, white on the navigation's darker blue (the record
    makes all text in its left column white). */
 .patient-nav .patient-nav__eligibility {
-    width: 350px;
+    box-sizing: border-box;
+    /* As wide as the left column (a fixed width widened the column's cell under the page's main panel,
+       which hid the end of the answer); long words wrap. */
     max-width: 100%;
     padding: 4px 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
     background-color: #2b689c;
     background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
     color: #fff;
