@@ -43,10 +43,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.groups.Tuple.tuple;
@@ -144,23 +143,27 @@ class SmsHistoryViewModelAssemblerUnitTest {
     }
 
     @Test
-    @DisplayName("assemble shows times in server-local time, and the delivered time ahead of the sent time")
+    @DisplayName("assemble shows times in the server's time zone, and the delivered time ahead of the sent time")
     void shouldFormatTimesInServerZone_andPreferDeliveredTime() {
-        Instant created = Instant.parse("2026-09-01T14:30:00Z");
-        Instant sentAt = Instant.parse("2026-09-01T14:31:00Z");
-        Instant deliveredAt = Instant.parse("2026-09-01T14:45:00Z");
         SmsTransaction delivered = outbound(11L);
-        ReflectionTestUtils.setField(delivered, "createdAt", Date.from(created));
-        ReflectionTestUtils.setField(delivered, "sentAt", Date.from(sentAt));
-        ReflectionTestUtils.setField(delivered, "deliveredAt", Date.from(deliveredAt));
+        ReflectionTestUtils.setField(delivered, "createdAt", Date.from(Instant.parse("2026-09-01T14:30:00Z")));
+        ReflectionTestUtils.setField(delivered, "sentAt", Date.from(Instant.parse("2026-09-01T14:31:00Z")));
+        ReflectionTestUtils.setField(delivered, "deliveredAt", Date.from(Instant.parse("2026-09-01T14:45:00Z")));
         when(smsTransactionDao.countByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(1L);
         when(smsTransactionDao.findByDemographicNo(DEMOGRAPHIC_NO, 0, 25)).thenReturn(List.of(delivered));
+        TimeZone original = TimeZone.getDefault();
+        try {
+            // A zone other than UTC, so formatting in UTC (CI's usual zone) would fail here.
+            TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
 
-        SmsHistoryViewModel.Row row = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
+            SmsHistoryViewModel.Row row = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
 
-        assertThat(row)
-                .extracting(SmsHistoryViewModel.Row::createdAt, SmsHistoryViewModel.Row::completedAt)
-                .containsExactly(serverLocal(created), serverLocal(deliveredAt));
+            assertThat(row)
+                    .extracting(SmsHistoryViewModel.Row::createdAt, SmsHistoryViewModel.Row::completedAt)
+                    .containsExactly("2026-09-01 10:30", "2026-09-01 10:45");
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     @Test
@@ -218,13 +221,6 @@ class SmsHistoryViewModelAssemblerUnitTest {
 
     private SmsHistoryViewModelAssembler assembler() {
         return new SmsHistoryViewModelAssembler(smsTransactionDao, demographicManager, securityInfoManager);
-    }
-
-    /** Builds the expected text field by field, so the check does not reuse the formatter under test. */
-    private static String serverLocal(Instant instant) {
-        ZonedDateTime local = instant.atZone(ZoneId.systemDefault());
-        return String.format("%04d-%02d-%02d %02d:%02d", local.getYear(), local.getMonthValue(),
-                local.getDayOfMonth(), local.getHour(), local.getMinute());
     }
 
     private static SmsTransaction outbound(long id) {
