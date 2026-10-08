@@ -313,6 +313,7 @@
     "test:provider-signature-contact-playwright": "node scripts/provider-signature-contact-playwright-checks.js",
     "test:billing-on-payment-status-playwright": "node scripts/billing-on-payment-status-playwright-checks.js",
     "test:billing-on-premium-payment-date-playwright": "node scripts/billing-on-premium-payment-date-playwright-checks.js",
+    "test:billing-on-ra-payment-date-playwright": "node scripts/billing-on-ra-payment-date-playwright-checks.js",
     "test:billing-on-ra-import-playwright": "node scripts/billing-on-ra-import-playwright-checks.js",
     "test:billing-on-batch-clipboard-playwright": "node scripts/billing-on-batch-clipboard-playwright-checks.js",
     "test:billing-on-admin-config-playwright": "node scripts/billing-on-admin-config-playwright-checks.js",

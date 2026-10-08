@@ -4798,6 +4798,20 @@
       "notes": "Verifies inclusive RA premium payment dates for all/selected providers, same-day ranges, inactive/adjacent exclusions, premium/final totals and unchanged database rows; owned fixtures cleaned."
     },
     {
+      "name": "billing-on-ra-payment-date",
+      "script": "scripts/billing-on-ra-payment-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Verifies Payment Received lists RAs paid on the last day of the End Date's month (#4430) for all/selected providers, including leap-year February 29, excludes adjacent-month and unselected-provider RAs, checks RA paid/final totals and unchanged database rows; owned fixtures cleaned."
+    },
+    {
       "name": "billing-on-ra-import",
       "script": "scripts/billing-on-ra-import-playwright-checks.js",
       "tiers": [
