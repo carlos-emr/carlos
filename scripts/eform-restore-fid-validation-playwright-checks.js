@@ -79,19 +79,16 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
     });
     assert(token, 'The deleted-eForms page exposed no CSRF token, so the POST probes cannot be authenticated.');
 
-    const restoreStatus = (fid) => page.evaluate(async ({ url, fid: value, csrf }) => {
-      const body = new URLSearchParams();
-      if (value !== null) body.set('fid', value);
-      body.set('CSRF-TOKEN', csrf);
-      const response = await fetch(url, {
-        method: 'POST',
-        body,
-        redirect: 'manual',
-        credentials: 'same-origin',
-      });
-      // A manual redirect surfaces as an opaque-redirect response with status 0.
-      return response.type === 'opaqueredirect' ? 302 : response.status;
-    }, { url: `${config.baseUrl.href.replace(/\/+$/, "")}/eform/restoreEForm`, fid, csrf: token });
+    // page.request shares the session cookies. The CSRF token travels in the form body, which
+    // is how CSRFGuard validates a classic form POST, so a 400 below is the action's own
+    // validation and not a CSRF rejection.
+    const restoreUrl = `${config.baseUrl.href.replace(/\/+$/, '')}/eform/restoreEForm`;
+    const restoreStatus = async (fid) => {
+      const form = { 'CSRF-TOKEN': token };
+      if (fid !== null) form.fid = fid;
+      const response = await page.request.post(restoreUrl, { form, failOnStatusCode: false, maxRedirects: 0 });
+      return response.status();
+    };
 
     for (const bad of [...MALFORMED_FIDS.map((f) => decodeURIComponent(f)), null]) {
       const status = await restoreStatus(bad);
