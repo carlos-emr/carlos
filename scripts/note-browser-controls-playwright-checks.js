@@ -132,21 +132,24 @@ async function workflow(s) {
     h.assert(JSON.stringify(order) === JSON.stringify(ORDERS.Content), `The default content-date order lists ${order} instead of ${ORDERS.Content}`);
   });
 
+  // Every caller changes at least one of the expected parameters, so the URL wait cannot be
+  // satisfied by the document already showing; it resolves only once the reloaded document has
+  // committed and loaded, and the controls read below belong to it.
   async function reloadVia(action, expect) {
+    const reloaded = url => url.pathname.endsWith(GATE)
+      && Object.entries(expect).every(([name, value]) => url.searchParams.get(name) === value);
+    h.assert(!reloaded(new URL(notes.url())), 'reloadVia needs an action that changes the note browser URL');
     const [response] = await Promise.all([
-      notes.waitForResponse(r => new URL(r.url()).pathname.endsWith(GATE) && r.request().isNavigationRequest(), { timeout: TIMEOUT }),
+      notes.waitForResponse(r => reloaded(new URL(r.url())) && r.request().isNavigationRequest(), { timeout: TIMEOUT }),
+      notes.waitForURL(reloaded, { waitUntil: 'load', timeout: TIMEOUT }),
       action(),
     ]);
     h.assert(response.request().method() === 'GET', `The note browser reloaded with ${response.request().method()}`);
     h.assert(response.status() === 200, `The note browser reload answered HTTP ${response.status()}`);
-    await notes.waitForLoadState('load', { timeout: TIMEOUT });
     await notes.locator('#doclist').waitFor({ state: 'attached', timeout: TIMEOUT });
     const url = new URL(notes.url());
-    h.assert(url.pathname.endsWith(GATE) && url.searchParams.get('demographic_no') === patient, 'The reload left the owned patient\'s note browser');
+    h.assert(url.searchParams.get('demographic_no') === patient, 'The reload left the owned patient\'s note browser');
     h.assert(!url.searchParams.has('CSRF-TOKEN'), 'The reload copied the CSRF token into the URL');
-    for (const [name, value] of Object.entries(expect)) {
-      h.assert(url.searchParams.get(name) === value, `The reload sent ${name}=${url.searchParams.get(name)} instead of ${value}`);
-    }
   }
 
   for (const sortorder of ['Update', 'Observation', 'Content']) {
