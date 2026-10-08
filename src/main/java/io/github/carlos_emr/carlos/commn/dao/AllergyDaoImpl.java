@@ -195,8 +195,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
      */
     @Override
     public int archiveIfActive(Integer allergyId, Integer demographicNo) {
-        Query query = entityManager.createQuery("update " + modelClass.getSimpleName()
-                + " x set x.archived = true, x.lastUpdateDate = ?1"
+        Query query = entityManager.createQuery("update Allergy x set x.archived = true, x.lastUpdateDate = ?1"
                 + " where x.id = ?2 and x.demographicNo = ?3 and x.archived = false");
         query.setParameter(1, new Date());
         query.setParameter(2, allergyId);
