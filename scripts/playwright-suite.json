@@ -5847,8 +5847,26 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product.",
-      "notes": "Expected to FAIL at its only step: RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava, so the card shows CHILDREN\\'S and AC\\311TAMINOPH\\310NE."
+      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product."
+    },
+    {
+      "name": "rx-drug-name-quotes",
+      "script": "scripts/rx-drug-name-quotes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; one marker-named custom drug with quotes and an accent and, when DrugRef offers it, one catalogue product with an apostrophe are saved through Save And Print, reprinted and read back from the E-Chart Medications panel; cleanup removes the patient's drugs, prescription and prescription signature rows and asserts them gone.",
+      "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {
       "name": "boundary-date-billing-claims",
