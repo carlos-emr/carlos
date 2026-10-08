@@ -154,6 +154,25 @@ test('shouldTellTheApplicationFromTheFrontDoor_whenJudgingABlockedRequest', () =
   assert.equal(D.judgeBlocked(waf, { label: 'x' }), 'waf');
 });
 
+test('shouldRequireTheNamedStatus_whenAProbeOwesTheApplicationsFourHundred', () => {
+  const app403 = D.describeResponse({ status: 403, headers: { ...APP, 'Content-Type': 'text/html' }, body: '<html>refused</html>' });
+  assert.equal(D.judgeBlocked(app403, { label: 'x' }), 'app-403');
+  assert.throws(() => D.judgeBlocked(app403, { label: 'x', statuses: [400] }), /neither the application's 400/);
+  const app400 = D.describeResponse({ status: 400, headers: APP, body: '<html>bad</html>' });
+  assert.equal(D.judgeBlocked(app400, { label: 'x', statuses: [400] }), 'app-400');
+});
+
+test('shouldNameMarkerFilesInTheShapeTheApplicationWrites_andKeepThemUniquePerRun', () => {
+  const a = D.realShapeNames(MARKER);
+  assert.match(a.obec, /^OBECE\d{13}\.TXT$/);
+  assert.match(a.ohip, /^H[A-L]\d{6}\.\d{3}$/);
+  assert.ok(a.obec.startsWith('OBECE9'), 'the obec timestamp is outside any real report\'s range');
+  assert.equal(a.ohip.endsWith('.999'), true);
+  assert.deepEqual(D.realShapeNames(MARKER), a);
+  assert.notDeepEqual(D.realShapeNames('FAKE-PWfedcba9876543210'), a);
+  assert.throws(() => D.realShapeNames('FAKE-PW1'), /run marker/);
+});
+
 test('shouldNotCountABareStatusAsARefusal_whenTheApplicationDidNotAnswer', () => {
   const bare403 = D.describeResponse({ status: 403, headers: { 'Content-Type': 'text/html' }, body: '<html>Forbidden</html>' });
   assert.throws(() => D.judgeBlocked(bare403, { label: 'x' }), /from outside the application/);

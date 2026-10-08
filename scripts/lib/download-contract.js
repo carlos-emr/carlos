@@ -233,15 +233,36 @@ function assertNothingServed(res, { label, forbidden = [] }) {
 /**
  * A request that must NOT yield a file (a traversal, an unknown key): returns 'waf' when the front door's
  * block page answered (the application never saw the request: reported, never counted as its refusal) or
- * `app-<status>` when the application itself refused (400, 403 or 405 carrying its response header).
- * Anything else -- bytes, a 404, a 5xx, a bare status of unknown origin -- throws.
+ * `app-<status>` when the application itself answered with one of `statuses` carrying its response header.
+ * `statuses` defaults to its refusals (400, 403, 405); a caller that knows the one status the application
+ * owes the request (400 for a name or key it rejects) passes just that, so a different refusal is not read
+ * as the right one. Anything else -- bytes, a 404, a 5xx, a bare status of unknown origin -- throws.
  */
-function judgeBlocked(res, { label, forbidden = [] }) {
+function judgeBlocked(res, { label, forbidden = [], statuses = [400, 403, 405] }) {
   assertNothingServed(res, { label, forbidden });
   if (res.waf) return 'waf';
-  if ([400, 403, 405].includes(res.status) && res.fromApp) return `app-${res.status}`;
+  if (statuses.includes(res.status) && res.fromApp) return `app-${res.status}`;
   throw new Error(`${label}: HTTP ${res.status}${res.fromApp ? '' : ` from outside the application (no ${h.APPLICATION_HEADER} header)`} `
-    + 'is neither the application\'s 400/403/405 nor the front door\'s block page');
+    + `is neither the application's ${statuses.join('/')} nor the front door's block page`);
+}
+
+/**
+ * Marker file names in the shape the application itself writes, so a fix that limits a download key to the
+ * files the application generates for it still serves the control and refuses everything else:
+ *   obec  `OBECE` + 13 digits + `.TXT`   (ObecData.writeFile: "OBECE" + System.currentTimeMillis() + ".TXT")
+ *   ohip  `H` + month letter + 6 digits + `.` + 3 digits   (OhipReportGenerationService.buildFilenames: "H"
+ *         + monthCode + provider or group number + "." + the zero-padded batch count)
+ * The digits come from the run marker, so the names are unique to the run; the obec timestamp starts with 9
+ * (year 2255), which no real report has, and the ohip batch is `.999`. `wx` still refuses a collision.
+ */
+function realShapeNames(marker) {
+  h.assert(MARKER_PATTERN.test(String(marker)), 'realShapeNames needs the run marker (FAKE-PW<16 hex>)');
+  const n = BigInt(`0x${marker.slice('FAKE-PW'.length)}`);
+  const digits = (width, modulus) => String(n % modulus).padStart(width, '0');
+  return {
+    obec: `OBECE9${digits(12, 10n ** 12n)}.TXT`,
+    ohip: `HL${digits(6, 10n ** 6n)}.999`,
+  };
 }
 
 /** The script element the seeded log carries: the viewer must show it as text, never as markup. */
@@ -273,6 +294,7 @@ module.exports = {
   logViewerProblems,
   markerFiles,
   propertyValue,
+  realShapeNames,
   startsLikeHtml,
   usableDirectory,
 };

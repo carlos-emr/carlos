@@ -20,8 +20,8 @@
  * sets it to an EDT folder. A role is therefore served by OscarDownload exactly when its role may open the page.
  *
  * Asserted:
- *   - the roles (doctor, nurse, receptionist, and the admin role alone) hold the objects this check assumes
- *     and sign in through the login form;
+ *   - the roles (doctor, nurse, receptionist, and two roles the check builds: `_report` r alone and
+ *     `_admin.reporting` r alone) hold the objects this check assumes and sign in through the login form;
  *   - the administrator is listed and served the EXACT bytes of the seeded marker file (bytes that are not
  *     valid UTF-8) with `Content-Disposition: attachment;filename=...`, nosniff and a matching Content-Length,
  *     for BackupDownload (through the MOH files folder), the OBEC key and the OHIP claim-disk key; the backup
@@ -39,19 +39,34 @@
  *     front door lets through (a nested marker file reached by `/`, `%2f` and `%5c`, a drive prefix, an absolute
  *     prefix, a hidden or script file name, an unknown homepath key) must reach the application and be refused
  *     there with a nested marker file in place to prove nothing is read below the served directory;
+ *   - the log viewer's gate is the intended OR: a login holding `_admin.reporting` r alone is served the viewer
+ *     (HTTP 200, #logForm) and neither backup route admits it, while a login holding neither `_admin` nor
+ *     `_admin.reporting` is refused. The gate action (ViewOscarLogging2Action) ignores SERVERLOGGING; only the
+ *     Administration menu entry (admin.jsp:505) checks it, so the property does not hide the page;
  *   - every download body is the file and never an HTML page, and no error is sent as an attachment;
- *   - OscarDownload's OBEC key refuses a stored-document file to a login that holds no _edoc (finding 202).
+ *   - OscarDownload's OBEC key refuses a stored-document file to a login that holds `_report` r and nothing
+ *     else, in particular no `_edoc` (finding 202). That login can open oscarReport/obec and nothing more; it
+ *     cannot grant itself rights, which is why it, and not the seeded admin role (`_admin` x, which can grant
+ *     itself `_edoc` through admin/ProviderPrivilege), pins the finding.
  *
  * CONFIGURATION. The application reads its properties once, at start, so this check cannot change them (and
  * must not restart the service). It seeds into the directories the installed configuration already uses:
  * DOCUMENT_DIR, OHIP_DISK_DIR and ONEDT_INBOX (suite-env.sh) and, from CARLOS_PROPERTIES_FILE (default
- * /etc/carlos-emr/carlos.properties), backup_path and LOGGING_PATH. A row whose directory the installation
- * does not give the service is recorded as SKIP with the reason and its refusals still run: the packaged
- * install ships backup_path=/home/mysql/ (hidden from the service by ProtectHome=yes) and no LOGGING_PATH.
+ * /etc/carlos-emr/carlos.properties), backup_path, LOGGING_PATH and billregion. A row whose directory the
+ * installation does not give the service is recorded as SKIP with the reason and its refusals still run: the
+ * packaged install ships backup_path=/home/mysql/ (hidden from the service by ProtectHome=yes) and no
+ * LOGGING_PATH. A properties file this run cannot read is reported as unreadable (not as "not set"), and the
+ * billing region is then unknown, so the Ontario rows skip rather than assume Ontario.
  *
- * Fixtures: four throwaway logins (own provider rows, lib/authz-read-fixture.js) and FAKE marker files in
- * those directories. Both are removed and asserted gone. A crash between the seed and the cleanup leaves
- * marker files behind, which is why the manifest asks for an exclusive run.
+ * The OBEC and OHIP marker files are named in the shape the application writes (OBECE + 13 digits + .TXT;
+ * H + month letter + 6 digits + .999), so the "served exactly" controls stay valid when finding 202 is fixed by
+ * limiting the OBEC key to the files the application generates. The stored-document marker (`<marker>-doc.pdf`)
+ * is deliberately not in that shape: it is what the fixed servlet must refuse. If the fix is of another kind
+ * (a per-file token, a privilege check), those controls have to change with it.
+ *
+ * Fixtures: five throwaway logins (own provider rows, lib/authz-read-fixture.js; two of them hold a custom
+ * role the check creates) and FAKE marker files in those directories. Both are removed and asserted gone. A crash
+ * between the seed and the cleanup leaves marker files behind, which is why the manifest asks for an exclusive run.
  */
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
@@ -75,12 +90,15 @@ const STEP = {
   refuseBackup: 'BackupDownload refuses doctor, nurse and receptionist and serves nothing',
   refuseBackupPage: 'admin/ViewAdminBackupDownload refuses doctor, nurse and receptionist and lists nothing',
   refuseLog: 'admin/ViewOscarLogging refuses doctor, nurse and receptionist and shows nothing',
+  leastPrivilege: 'two least-privilege logins, holding exactly _report r and exactly _admin.reporting r, sign in',
+  logGate: 'admin/ViewOscarLogging admits a login holding only _admin.reporting (the intended OR gate) and refuses one holding neither _admin nor _admin.reporting',
+  reportingOnlyBackup: 'a login holding only _admin.reporting is refused by BackupDownload and the backup page',
   oscarArming: 'OscarDownload serves a login only after it opened the page that arms the key: refused before, served after a page its role may open, refused after one it may not',
   anonymous: 'a request without a session gets the application\'s 401 from both servlets and nothing is served from either page',
   traversal: 'a traversal filename or homepath gets the application\'s 400 (or the front door\'s block, reported as application not reached) and no file bytes',
   neverHtml: 'every download body is the file and never an HTML page, and no error is sent as an attachment',
   frontDoor: 'the run went through the front door when one is expected',
-  documentControls: 'OscarDownload (OBEC key): the admin role holds _report and no _edoc, is served OBEC output, and the document manager refuses it a stored document while a doctor is served that file',
+  documentControls: 'OscarDownload (OBEC key): a login holding only _report r opens the OBEC page, is served OBEC output, and the document manager refuses it a stored document',
   documentScope: 'OscarDownload (OBEC key) refuses a stored-document file to a login that holds no _edoc',
 };
 
@@ -89,7 +107,6 @@ const ROLE_EXPECTATIONS = {
   doctor: { holds: ['_report', '_billing', '_edoc'], lacks: ['_admin', '_admin.backup', '_admin.reporting'] },
   nurse: { holds: [], lacks: ['_admin', '_admin.backup', '_admin.reporting', '_report', '_billing', '_edoc'] },
   receptionist: { holds: ['_billing'], lacks: ['_admin', '_admin.backup', '_admin.reporting', '_report', '_edoc'] },
-  admin: { holds: ['_admin', '_report'], lacks: ['_edoc', '_billing'] },
 };
 const ROLES = ['doctor', 'nurse', 'receptionist'];
 
@@ -120,10 +137,22 @@ async function workflow(s) {
   s.cleanup(() => files.remove());
 
   const propertiesText = (() => { try { return fs.readFileSync(PROPERTIES_FILE, 'utf8'); } catch (error) { return null; } })();
-  const property = key => (propertiesText === null ? undefined : D.propertyValue(propertiesText, key));
+  const unreadable = propertiesText === null;
+  const unreadableReason = `the properties file ${PROPERTIES_FILE} is unreadable`;
+  const property = key => (unreadable ? undefined : D.propertyValue(propertiesText, key));
   const env = process.env;
   const billRegion = property('billregion');
-  const ontario = billRegion === undefined || billRegion.toUpperCase() === 'ON';
+  // The application's own test is exactly "ON" (CarlosProperties.isOntarioBillingRegion). An unreadable file leaves the region unknown, never Ontario.
+  const ontario = !unreadable && billRegion === 'ON';
+  const notOntario = () => (unreadable ? `${unreadableReason}, so the billing region is unknown`
+    : `billregion=${billRegion === undefined ? '(not set)' : billRegion}: the OHIP report and MOH files pages are the Ontario ones`);
+  /** A directory from the environment, else from the installed properties; a reason when neither gives a usable one. */
+  const directory = (envValue, key, what) => {
+    if (envValue) return D.usableDirectory(envValue, what);
+    if (unreadable) return { ok: false, reason: `${what} is not given by the environment and ${unreadableReason}` };
+    return D.usableDirectory(property(key), what);
+  };
+  const names = D.realShapeNames(marker);
 
   const contexts = { admin: s.context };
   const logins = {};
@@ -187,40 +216,38 @@ async function workflow(s) {
       logins[role] = await signIn(s, fixture.addLogin(role));
       contexts[role] = logins[role].context;
     }
-    logins.adminRole = await signIn(s, fixture.addLogin('admin'));
-    contexts.adminRole = logins.adminRole.context;
     contexts.anon = await h.newContext(s.context.browser(), config);
   });
 
   await s.step(STEP.seed, async () => {
-    const documents = D.usableDirectory(env.DOCUMENT_DIR || property('DOCUMENT_DIR'), 'DOCUMENT_DIR');
+    const documents = directory(env.DOCUMENT_DIR, 'DOCUMENT_DIR', 'DOCUMENT_DIR');
     if (!documents.ok) throw new h.SkipCheck(`${documents.reason}; the OBEC row and the document-scope row need it`);
-    seeds.obec = files.seed(documents.dir, `OBECE-${marker}.TXT`, 'obec');
-    seeds.obec.nested = files.seedNested(documents.dir, `${marker}-sub`, `${marker}-nested.txt`, 'obec nested');
+    seeds.obec = files.seed(documents.dir, names.obec, 'obec');
+    seeds.obec.nested = files.seedNested(documents.dir, `${marker}-sub-obec`, `${marker}-nested.txt`, 'obec nested');
     seeds.doc = files.seed(documents.dir, `${marker}-doc.pdf`, 'stored document');
 
-    const ohip = D.usableDirectory(env.OHIP_DISK_DIR || property('HOME_DIR'), 'OHIP_DISK_DIR / HOME_DIR');
-    if (!ontario) skip('OscarDownload OHIP claim disk', `billregion=${billRegion}: the OHIP report page is the Ontario one`);
+    const ohip = directory(env.OHIP_DISK_DIR, 'HOME_DIR', 'OHIP_DISK_DIR / HOME_DIR');
+    if (!ontario) skip('OscarDownload OHIP claim disk', notOntario());
     else if (!ohip.ok) skip('OscarDownload OHIP claim disk', ohip.reason);
     else {
-      seeds.ohip = files.seed(ohip.dir, `${marker}-ohip.txt`, 'ohip');
-      seeds.ohip.nested = files.seedNested(ohip.dir, `${marker}-sub`, `${marker}-nested.txt`, 'ohip nested');
+      seeds.ohip = files.seed(ohip.dir, names.ohip, 'ohip');
+      seeds.ohip.nested = files.seedNested(ohip.dir, `${marker}-sub-ohip`, `${marker}-nested.txt`, 'ohip nested');
     }
 
-    const inbox = D.usableDirectory(env.ONEDT_INBOX || property('ONEDT_INBOX'), 'ONEDT_INBOX');
-    if (!ontario) skip('BackupDownload via the MOH files folder', `billregion=${billRegion}: the MOH files page is the Ontario one`);
+    const inbox = directory(env.ONEDT_INBOX, 'ONEDT_INBOX', 'ONEDT_INBOX');
+    if (!ontario) skip('BackupDownload via the MOH files folder', notOntario());
     else if (!inbox.ok) skip('BackupDownload via the MOH files folder', inbox.reason);
     else {
       seeds.moh = files.seed(inbox.dir, `${marker}-moh.txt`, 'moh');
-      seeds.moh.nested = files.seedNested(inbox.dir, `${marker}-sub`, `${marker}-nested.txt`, 'moh nested');
+      seeds.moh.nested = files.seedNested(inbox.dir, `${marker}-sub-moh`, `${marker}-nested.txt`, 'moh nested');
     }
 
-    const backup = D.usableDirectory(property('backup_path'), 'backup_path');
+    const backup = unreadable ? { ok: false, reason: unreadableReason } : D.usableDirectory(property('backup_path'), 'backup_path');
     if (!backup.ok) skip('admin/ViewAdminBackupDownload listing and bytes', backup.reason);
     else seeds.backup = files.seed(backup.dir, `${marker}-backup.txt`, 'backup');
 
-    const logging = D.usableDirectory(property('LOGGING_PATH'), 'LOGGING_PATH');
-    if (!logging.ok) skip('admin/ViewOscarLogging content', `${logging.reason}; the application reads its properties at start, so setting it here would need a restart`);
+    const logging = unreadable ? { ok: false, reason: unreadableReason } : D.usableDirectory(property('LOGGING_PATH'), 'LOGGING_PATH');
+    if (!logging.ok) skip('admin/ViewOscarLogging content', /is not set$/.test(logging.reason) ? `${logging.reason}; the application reads its properties at start, so setting it here would need a restart` : logging.reason);
     else {
       const body = Buffer.from(`${D.LOG_SCRIPT}${marker} log\n`, 'utf8');
       seeds.logGeneral = files.seed(logging.dir, `report${LOG_DATE.replace(/-/g, '')}.html`, 'log', body);
@@ -265,7 +292,7 @@ async function workflow(s) {
     if (!seeds.logGeneral) {
       // The viewer itself says whether it has a directory: when the installed properties set none, it must say so.
       const configured = (property('LOGGING_PATH') || '').trim() !== '';
-      h.assert(configured || propertiesText === null || /Logging path is not configured/.test(form.text),
+      h.assert(configured || unreadable || /Logging path is not configured/.test(form.text),
         'The log viewer reports a logging path although the installed properties set none');
       return;
     }
@@ -324,7 +351,7 @@ async function workflow(s) {
       for (const role of ROLES) {
         const { res: page, opened } = await open(role, key);
         h.assert(opened === spec.mayOpen[role],
-          `${role} ${opened ? 'opened' : `could not open (HTTP ${page.status})`} the ${spec.label} page; its role ${spec.mayOpen[role] ? 'holds' : 'lacks'} the page's object`);
+          `${role} ${opened ? 'opened' : `could not open (HTTP ${page.status}${page.headers.location ? ` to ${h.pathOnly(page.headers.location)}` : ''})`} the ${spec.label} page; its role ${spec.mayOpen[role] ? 'holds' : 'lacks'} the page's object`);
         if (opened) {
           D.assertServedExactly(await get(role, R.oscar(key, seed.name), `OscarDownload ${key}`),
             { bytes: seed.bytes, name: seed.name, label: `${role}: OscarDownload ${key}` });
@@ -348,7 +375,9 @@ async function workflow(s) {
     }
     for (const route of [R.backupPage, R.log(LOG_DATE, 'general')]) {
       const res = await get('anon', route, 'page without a session');
-      h.assert(res.status >= 300 && res.status < 500, `A page without a session answered HTTP ${res.status}`);
+      // The unauthenticated-page contract (UnauthenticatedRejectionResolver): the application redirects a browser page to /logoutPage.
+      h.assert(res.fromApp && !res.waf && res.status >= 300 && res.status < 400 && /\/logoutPage$/.test(res.headers.location || ''),
+        `A page without a session answered HTTP ${res.status}${res.fromApp ? '' : ' from outside the application'}, not the application's redirect to /logoutPage`);
       h.assert(!/id="logForm"|class="table table-striped/.test(res.text), 'A page without a session rendered its content');
       D.assertNothingServed(res, { label: 'page without a session', forbidden: allPayloads() });
     }
@@ -368,18 +397,22 @@ async function workflow(s) {
         bare: `servlet/OscarDownload?homepath=${key}`,
       });
     }
-    const outcomes = { 'app-400': 0, 'app-403': 0, 'app-405': 0, waf: 0 };
+    const outcomes = { 'app-400': 0, waf: 0 };
     const notReached = [];
+    // The application owes a rejected name or key its 400 and nothing else: a 403/405 from it would be a different gate answering.
     const probe = async (target, route, label, { mustReach }) => {
       const res = await get('admin', route, label);
-      const outcome = D.judgeBlocked(res, { label: `${target.name} ${label}`, forbidden: allPayloads() });
+      const outcome = D.judgeBlocked(res, { label: `${target.name} ${label}`, forbidden: allPayloads(), statuses: [400] });
       outcomes[outcome] += 1;
+      target.sent += mustReach ? 1 : 0;
       if (outcome === 'waf') {
         notReached.push(`${target.name} ${label}`);
         h.assert(!mustReach, `${target.name}: ${label} was blocked by the front door; it was meant to reach the application`);
-      }
+      } else if (mustReach) target.reached += 1;
     };
     for (const target of targets) {
+      target.sent = 0;
+      target.reached = 0;
       await target.arm();
       // The control: the same armed session is served the real file, so a refusal below is about the request.
       D.assertServedExactly(await get('admin', target.url(target.seed.name), 'traversal control'),
@@ -396,10 +429,11 @@ async function workflow(s) {
         for (const key of KEY_PLAIN) await probe(target, R.oscar(key, target.seed.name), `homepath=${key || '(empty)'}`, { mustReach: true });
         await probe(target, `servlet/OscarDownload?filename=${target.seed.name}`, 'no homepath', { mustReach: true });
       }
+      // Every probe meant to reach the application drew the application's 400, none of them the front door's page.
+      h.assert(target.sent > 0 && target.reached === target.sent,
+        `${target.name}: ${target.reached} of ${target.sent} probes meant to reach the application drew its 400`);
     }
-    h.assert(targets.length === 0 || outcomes['app-400'] > 0, 'No traversal probe reached the application and drew its 400');
-    console.log(`  NOTE ${NAME}: traversal probes -- application 400: ${outcomes['app-400']}, application 403/405: ${outcomes['app-403'] + outcomes['app-405']}, `
-      + `front door blocked: ${outcomes.waf}`);
+    console.log(`  NOTE ${NAME}: traversal probes -- application 400: ${outcomes['app-400']}, front door blocked: ${outcomes.waf}`);
     if (notReached.length) {
       console.log(`  NOTE ${NAME}: application not reached for ${notReached.length} literal traversal shape(s) -- the front door's rules blocked them first, `
         + 'so the application\'s own answer to them was not observed (no direct Tomcat port exists in this install to repeat them without the front door)');
@@ -427,28 +461,54 @@ async function workflow(s) {
       'EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the front door');
   });
 
+  // Created only now, after every step that uses the doctor or the test login on a multi-object page. A role row
+  // for _report or _admin.reporting changes the order in which the database returns the rows
+  // OscarRoleObjectPrivilege.getPrivilegeProp sorts only by an all-zero priority, and that method keeps the LAST row
+  // per role across the listed objects, so with two such rows present the doctor (_report x, _admin.reporting o) is
+  // refused the OBEC page it holds the right to (finding 205). Rows are removed again by fixture.cleanup().
+  await s.step(STEP.leastPrivilege, async () => {
+    // addRole asserts each role holds exactly the one right asked for.
+    logins.reportOnly = await signIn(s, fixture.addLogin(fixture.addRole({ _report: 'r' })));
+    contexts.reportOnly = logins.reportOnly.context;
+    logins.reportingOnly = await signIn(s, fixture.addLogin(fixture.addRole({ '_admin.reporting': 'r' })));
+    contexts.reportingOnly = logins.reportingOnly.context;
+  });
+
+  await s.step(STEP.logGate, async () => {
+    // The gate is _admin OR _admin.reporting (ViewOscarLogging2Action; admin.jsp lists Server Log under both): intended, so it is asserted, not logged.
+    const admitted = await get('reportingOnly', R.log(LOG_DATE, 'general'), 'log viewer');
+    h.assert(admitted.status === 200 && admitted.fromApp && /id="logForm"/.test(admitted.text),
+      `A login holding only _admin.reporting r got HTTP ${admitted.status}, not the log viewer`);
+    // A login that holds neither object (only _report r) is refused.
+    const refused = await expectRefused('reportOnly', R.log(LOG_DATE, 'general'), 'log viewer');
+    h.assert(!/id="logForm"/.test(refused.text), 'The refusal page shows the log viewer');
+  });
+
+  await s.step(STEP.reportingOnlyBackup, async () => {
+    // _admin.reporting opens the viewer only; the backup routes need _admin or _admin.backup.
+    const name = seeds.moh ? seeds.moh.name : `${marker}-moh.txt`;
+    await expectRefused('reportingOnly', R.backup(name), 'BackupDownload');
+    const page = await expectRefused('reportingOnly', R.backupPage, 'backup page');
+    h.assert(!/class="table table-striped/.test(page.text), 'The refusal page lists backup files');
+  });
+
   await s.step(STEP.documentControls, async () => {
-    const admin = fixture.rolePrivileges('admin');
-    h.assert(admin.some(entry => entry.startsWith('_report:')) && !admin.some(entry => entry.startsWith('_edoc:')),
-      'The admin role no longer holds _report without _edoc');
-    const { res: page, opened } = await open('adminRole', 'obecdownload');
-    h.assert(opened, `The OBEC page did not open for the admin role (HTTP ${page.status})`);
-    D.assertServedExactly(await get('adminRole', R.oscar('obecdownload', seeds.obec.name), 'OscarDownload obecdownload'),
-      { bytes: seeds.obec.bytes, name: seeds.obec.name, label: 'admin role: OBEC output' });
-    // The stored-document marker is readable at that key by a login entitled to documents (a doctor holds _edoc).
-    const doctor = await open('doctor', 'obecdownload');
-    h.assert(doctor.opened, 'The OBEC page did not open for the doctor');
-    D.assertServedExactly(await get('doctor', R.oscar('obecdownload', seeds.doc.name), 'OscarDownload obecdownload'),
-      { bytes: seeds.doc.bytes, name: seeds.doc.name, label: 'doctor: stored document' });
-    // And the document manager refuses the admin role: it holds no _edoc (ManageDocument.display checks _edoc r first).
-    await expectRefused('adminRole', 'documentManager/ManageDocument?method=display&doc_no=1', 'document manager display');
+    // The login holds `_report` r and nothing else (addRole asserted it), so it cannot grant itself anything.
+    h.assert(fixture.rolePrivileges(logins.reportOnly.login.role).join() === '_report:r', 'The _report-only role holds more than _report r');
+    const { res: page, opened } = await open('reportOnly', 'obecdownload');
+    h.assert(opened, `The OBEC page did not open for the _report-only login (HTTP ${page.status})`);
+    // OBEC output, in the shape the application writes, is served: the OBEC session is armed and DOCUMENT_DIR is readable.
+    D.assertServedExactly(await get('reportOnly', R.oscar('obecdownload', seeds.obec.name), 'OscarDownload obecdownload'),
+      { bytes: seeds.obec.bytes, name: seeds.obec.name, label: '_report-only login: OBEC output' });
+    // And the document manager refuses the login: it holds no _edoc (ManageDocument.display checks _edoc r first).
+    await expectRefused('reportOnly', 'documentManager/ManageDocument?method=display&doc_no=1', 'document manager display');
   });
 
   // The ONLY assertion the finding breaks: this step carries no control or precondition (they are above).
   await s.step(STEP.documentScope, async () => {
-    const res = await get('adminRole', R.oscar('obecdownload', seeds.doc.name), 'OscarDownload obecdownload, stored document');
+    const res = await get('reportOnly', R.oscar('obecdownload', seeds.doc.name), 'OscarDownload obecdownload, stored document');
     const served = res.status === 200 && res.body.equals(seeds.doc.bytes);
-    h.assert(!served, `OscarDownload served a ${seeds.doc.bytes.length}-byte stored-document file from DOCUMENT_DIR to a login that holds _report but no _edoc`);
+    h.assert(!served, `OscarDownload served a ${seeds.doc.bytes.length}-byte stored-document file from DOCUMENT_DIR to a login that holds _report r and no _edoc`);
     h.assert(res.fromApp && res.status >= 400 && res.status < 500,
       `OscarDownload answered HTTP ${res.status} to a stored-document request from a login without _edoc, not the application's 4xx refusal`);
     D.assertNothingServed(res, { label: 'stored-document request', forbidden: [seeds.doc.bytes] });
