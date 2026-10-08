@@ -2021,6 +2021,21 @@
       ]
     },
     {
+      "name": "eform-restore-fid-validation",
+      "script": "scripts/eform-restore-fid-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "pr-hardening",
       "script": "scripts/pr-hardening-playwright-checks.js",
       "tiers": [
