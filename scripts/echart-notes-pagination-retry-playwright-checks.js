@@ -236,11 +236,11 @@ async function workflow(s) {
       return route.continue();
     });
     await chart.locator('#notesLoadFailed a', {hasText: /retry/i}).click();
-    await chart.waitForFunction(m => {
+    await chart.waitForFunction(({m, want}) => {
       // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
       // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
-      return (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= 2 * PAGE;
-    }, marker, {timeout: 15000}).catch(() => { throw new Error('Retry did not load the second page of notes within 15 s'); });
+      return (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= want;
+    }, {m: marker, want: 2 * PAGE}, {timeout: 15000}).catch(() => { throw new Error('Retry did not load the second page of notes within 15 s'); });
     h.assert(seen.length >= 1 && seen[0].offset === PAGE && seen[0].numToReturn === PAGE,
       `Retry should ask for offset ${PAGE}; the pane requested ${JSON.stringify(seen)}`);
     let state = await paneState(chart);
