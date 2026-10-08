@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
-  NOT_PROTECTED, REFUSED_STATUSES, contextPathOf, isLoginSurface, notProtectedReason,
-  printableRoute, resolveRoute, verdictFor,
+  NOT_PROTECTED, PINNED_ROUTES, REFUSED_STATUSES, contextPathOf, isLoginSurface, notProtectedReason,
+  printableRoute, resolveRoute, verdictFor, withPinnedRoutes,
 } = require('./anonymous-access-refused-playwright-checks');
 
 const SOURCE = fs.readFileSync(
@@ -207,7 +207,8 @@ test('the check only reads', () => {
  * links and a green result meant almost nothing had been tried.
  */
 test('ANON_ROUTE_LIMIT=0 probes every route rather than none', () => {
-  assert.match(SOURCE, /const selected = limit > 0 \? routes\.slice\(0, limit\) : routes;/);
+  assert.match(SOURCE, /const catalogued = limit > 0 \? routes\.slice\(0, limit\) : routes;/);
+  assert.match(SOURCE, /const selected = withPinnedRoutes\(catalogued, config\.baseUrl\);/);
   assert.match(SOURCE, /ANON_ROUTE_LIMIT=60\s+how many catalogued routes to probe; 0 probes them all/);
   assert.match(SOURCE, /Number\.isFinite\(limit\) && limit >= 0/,
     'a nonsense limit must fail the run, not silently become zero');
@@ -319,4 +320,35 @@ test('the default run probes the whole catalogue, not a prefix of it', () => {
   assert.match(source, /limit > 0 \? routes\.slice\(0, limit\) : routes/);
   // And an explicitly capped run must still say so.
   assert.match(source, /PARTIAL/);
+});
+
+test('the three routes issue #3682 saw answer 200 anonymously are probed on every run', () => {
+  const probed = withPinnedRoutes([], BASE).map((route) => route.url);
+  assert.deepEqual(probed, [
+    `${BASE}/messenger/DisplayMessages`,
+    `${BASE}/encounter/IncomingConsultation`,
+    `${BASE}/documentManager/ViewDocumentReport`,
+  ]);
+  assert.ok(withPinnedRoutes([], `${BASE}/`).every((route) => route.pinned && route.url.startsWith(`${BASE}/`)));
+});
+
+test('a pinned route the catalogue already reached is not probed twice', () => {
+  const catalogued = [{ url: `${BASE}/messenger/DisplayMessages?boxType=0`, text: 'Messenger' }];
+  const routes = withPinnedRoutes(catalogued, BASE);
+  assert.equal(routes.length, PINNED_ROUTES.length);
+  assert.equal(routes.filter((route) => route.url.includes('DisplayMessages')).length, 1);
+  assert.equal(routes[0], catalogued[0]);
+});
+
+test('every pinned route is a real struts mapping, so a 404 means the pin went stale', () => {
+  const classes = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'classes');
+  const struts = fs.readdirSync(classes).filter((name) => /^struts.*\.xml$/.test(name))
+    .map((name) => fs.readFileSync(path.join(classes, name), 'utf8')).join('\n');
+  for (const route of PINNED_ROUTES) {
+    assert.ok(struts.includes(`<action name="${route}"`), `${route} has no struts action mapping`);
+  }
+});
+
+test('a pinned route answering 404 fails the run instead of counting as proved-nothing', () => {
+  assert.match(SOURCE, /verdict === 'NOT_FOUND' && route\.pinned\) \{\s*failures\.push/);
 });

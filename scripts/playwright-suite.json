@@ -5034,7 +5034,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
-      "notes": "Expected to FAIL at the last step until demographic/Contact method=saveContact rejects GET/HEAD writes. Editor script behavior is also independently covered by contact-editor."
+      "notes": "demographic/Contact method=saveContact rejects GET/HEAD with 405 since issue #3682; the last step fails if a replayed GET writes again. Editor script behavior is also independently covered by contact-editor."
     },
     {
       "name": "get-reject-measurement-groups",

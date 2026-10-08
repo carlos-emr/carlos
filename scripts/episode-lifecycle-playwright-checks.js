@@ -2,8 +2,41 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Coverage plan §2.5: an episode survives create/edit/complete/reopen/delete.
 // All writes follow the chart's controls; SQL only seeds, asserts and cleans up.
-const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
+const { SkipCheck, assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+
+// EctDisplayEpisode2Action renders the chart's Episode module only when one of
+// the login's roles (or its provider number) holds a right on this object. The
+// seeded `doctor` role holds `o` on it, so on a fresh install the module is
+// hidden and the first click below would time out on a menu that is not there:
+// a fixture gap reported as an application failure (issue #3682).
+const EPISODE_OBJECT = '_newCasemgmt.episode';
+
+/**
+ * True when any of these privilege strings satisfies the module's read check.
+ *
+ * Mirrors OscarRoleObjectPrivilege.checkPrivilege for its default right "r":
+ * a stored value is a `|`-separated list, and x, r, u or w each grant read
+ * (PRIVILEGE_HIERARCHY "ruw", with x as all). Anything else, `o` included,
+ * grants nothing.
+ */
+function episodeModuleGranted(privileges) {
+  return privileges.some((value) => String(value || '').split('|')
+    .some((right) => ['x', 'r', 'u', 'w'].includes(right.trim().toLowerCase())));
+}
+
+function requireEpisodeModule({ sql, provider }) {
+  const privileges = sql.rows(`SELECT p.privilege FROM secObjPrivilege p
+    WHERE p.objectName=${sqlString(EPISODE_OBJECT)}
+      AND (p.roleUserGroup=${sqlString(provider)}
+        OR p.roleUserGroup IN (SELECT role_name FROM secUserRole WHERE provider_no=${sqlString(provider)}))`)
+    .map(([privilege]) => privilege);
+  if (!episodeModuleGranted(privileges)) {
+    throw new SkipCheck(`the test login holds no right on ${EPISODE_OBJECT}, so the chart hides its Episode `
+      + 'module. Grant one of its roles r or x on that object for this run (and restore it afterwards); see '
+      + 'docs/ui-tests/deb-install-validation.md section 4');
+  }
+}
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
@@ -20,7 +53,10 @@ async function workflow(s) {
     await editor.locator('input[type="submit"]').click();
     await closed;
   }
-  async function edit() { editor = await s.popup(chart, row(), 'episode-editor'); }
+  // The chart's Episodes list truncates the title and floats the start date over
+  // the right of the title link, so the link's centre is under the date. Click
+  // the start of the title, which is the part a clinician can see and click.
+  async function edit() { editor = await s.popup(chart, row(), 'episode-editor', { position: { x: 4, y: 4 } }); }
   await s.step('empty description is refused without writing', async () => {
     editor = await s.popup(chart, chart.locator('#menuTitleepisode a').first(), 'episode-editor');
     const dialogs = await withExpectedDialogs(editor, () => editor.locator('input[type="submit"]').click());
@@ -60,7 +96,9 @@ async function workflow(s) {
     await row().waitFor({ state: 'detached' });
   });
   await s.step('completed episode can be reopened and deleted with history retained', async () => {
-    const list = await s.popup(chart, chart.locator('h3[onclick*="/Episode?method=list"]').first(), 'episode-list');
+    // The module heading's handler sits on the link inside its <h3> (it moved off
+    // the <h3> itself in 1c3d1433), so select the link a clinician clicks.
+    const list = await s.popup(chart, chart.locator('#episode .nav-menu-title h3 > a[onclick*="/Episode?method=list"]').first(), 'episode-list');
     const link = list.getByRole('link', { name: `${marker}-EDIT`, exact: true });
     await link.click();
     editor = list;
@@ -75,5 +113,5 @@ async function workflow(s) {
     await row().waitFor({ state: 'detached' });
   });
 }
-if (require.main === module) runWorkflow('episode-lifecycle', workflow);
-module.exports = { workflow };
+if (require.main === module) runWorkflow('episode-lifecycle', workflow, { preflight: requireEpisodeModule });
+module.exports = { EPISODE_OBJECT, episodeModuleGranted, requireEpisodeModule, workflow };

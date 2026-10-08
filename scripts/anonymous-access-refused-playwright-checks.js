@@ -176,6 +176,33 @@ function resolveRoute(item, baseUrl) {
   return url.toString();
 }
 
+/**
+ * Routes probed on every run, whether or not the catalogue reached them.
+ *
+ * Issue #3682 reported these three answering a session-less request with HTTP
+ * 200 and an empty body. They are reached from the messenger, the chart's
+ * consultation module and the document manager, none of which the catalogue
+ * opens, so without a pin a regression on them would pass unseen. Each is a
+ * real struts mapping: a pinned route that answers 404 has been renamed or
+ * removed, and the pin must be updated rather than silently proving nothing.
+ */
+const PINNED_ROUTES = [
+  'messenger/DisplayMessages',
+  'encounter/IncomingConsultation',
+  'documentManager/ViewDocumentReport',
+];
+
+/** The catalogued routes plus every pinned route the catalogue did not reach. */
+function withPinnedRoutes(routes, baseUrl) {
+  const base = `${String(baseUrl).replace(/\/+$/, '')}/`;
+  const seen = new Set(routes.map((route) => new URL(route.url).pathname));
+  const pinned = PINNED_ROUTES
+    .map((path) => new URL(path, base).toString())
+    .filter((url) => !seen.has(new URL(url).pathname))
+    .map((url) => ({ url, text: 'pinned (#3682)', pinned: true }));
+  return [...routes, ...pinned];
+}
+
 /** Catalogue what a clinician can reach, from the surfaces they work from. */
 async function catalogueReachable(context, schedulePage, recorder, options) {
   const { searchTerm, preferredDemographicNo, timeout, baseUrl } = options;
@@ -350,7 +377,9 @@ async function main() {
     const notFound = [];
     const failures = [];
     try {
-      const selected = limit > 0 ? routes.slice(0, limit) : routes;
+      // The cap applies to the catalogue only; the pinned routes always run.
+      const catalogued = limit > 0 ? routes.slice(0, limit) : routes;
+      const selected = withPinnedRoutes(catalogued, config.baseUrl);
       for (const route of selected) {
         let response;
         try {
@@ -368,7 +397,10 @@ async function main() {
         const body = status === 200 ? await response.text().catch(() => '') : '';
         const verdict = verdictFor(route, status, response.headers().location, body, surname,
           contextPathOf(config.baseUrl));
-        if (verdict === 'NOT_FOUND') {
+        if (verdict === 'NOT_FOUND' && route.pinned) {
+          failures.push(`${printableRoute(route.url)} is pinned for issue #3682 but answered 404; it was renamed or `
+            + 'removed, so update PINNED_ROUTES rather than let the pin prove nothing');
+        } else if (verdict === 'NOT_FOUND') {
           notFound.push(printableRoute(route.url));
         } else if (verdict) {
           failures.push(verdict);
@@ -403,7 +435,7 @@ async function main() {
     // Say plainly when the run was partial. Reporting "60 refused" while 140 were
     // catalogued reads as full coverage of the surface, and it is not.
     const capped = limit > 0 && routes.length > limit;
-    console.log(`  ${probed.length} catalogued route(s) refused a session-less request`
+    console.log(`  ${probed.length} route(s), including the ${PINNED_ROUTES.length} pinned ones, refused a session-less request`
       + `${notFound.length ? `, ${notFound.length} answered 404 and proved nothing` : ''}`
       + `${capped ? ` -- PARTIAL: ${routes.length} routes were catalogued and ANON_ROUTE_LIMIT=${limit} probed only the first ${limit}. Set ANON_ROUTE_LIMIT=0 to probe them all.` : ''}`);
     return {
@@ -419,6 +451,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  LOGIN_SURFACE_ACTIONS, NOT_PROTECTED, REFUSED_STATUSES, contextPathOf, isLoginSurface, main,
-  notProtectedReason, printableRoute, resolveRoute, verdictFor,
+  LOGIN_SURFACE_ACTIONS, NOT_PROTECTED, PINNED_ROUTES, REFUSED_STATUSES, contextPathOf, isLoginSurface, main,
+  notProtectedReason, printableRoute, resolveRoute, verdictFor, withPinnedRoutes,
 };
