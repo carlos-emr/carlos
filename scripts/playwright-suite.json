@@ -5624,7 +5624,7 @@
       "timeoutSec": 720,
       "env": [],
       "fixtures": "Owns the synthetic patient; deletes its allergies, preventions (+ext), measurements (+deleted) and any chart notes/locks the popups left and asserts none remain.",
-      "notes": "Allergy, prevention and measurement adds each store exactly one record on dblclick, two back-to-back clicks, double Enter and a slow-response re-click. Prevention Save is guarded by a per-rendering submission token (issue #4410, PreventionSubmissionGuard); before it, a slow re-click stored two preventions."
+      "notes": "Allergy, prevention and measurement adds each store exactly one record on dblclick, two back-to-back clicks, double Enter and a slow-response re-click. Prevention Save is guarded by a per-rendering submission token (issue #4410, PreventionSubmissionGuard; before it a slow re-click stored two preventions) and the measurement group Submit ignores a second activation while its fetch() save is out (before it a dblclick intermittently stored two readings, #4225)."
     },
     {
       "name": "prevention-submit-once",

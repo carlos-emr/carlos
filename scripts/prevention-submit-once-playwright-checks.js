@@ -51,7 +51,8 @@ async function formBody(editor) {
     const form = document.querySelector(`form input[name="${name}"]`).form;
     const save = form.querySelector('input[type="submit"][name="action"]');
     const data = new FormData(form, save);
-    return { action: form.action, body: new URLSearchParams(data).toString() };
+    // form.action would be the Save button: it is an input named "action", which shadows the property.
+    return { action: new URL(form.getAttribute('action'), document.baseURI).href, body: new URLSearchParams(data).toString() };
   }, TOKEN);
 }
 

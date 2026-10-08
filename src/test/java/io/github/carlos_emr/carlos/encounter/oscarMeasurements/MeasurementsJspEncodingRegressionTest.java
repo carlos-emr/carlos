@@ -67,6 +67,26 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
             "encounter.oscarMeasurements.Measurements.msgParentChanged";
 
     @Test
+    @DisplayName("should ignore a second Submit while a save is out and re-enable it for a retry (issue #4410)")
+    void shouldGuardSubmit_whileMeasurementSaveIsInFlight() throws Exception {
+        String jsp = readJsp();
+        int check = jsp.indexOf("function check() {");
+        int fetch = jsp.indexOf("fetch(", check);
+        int errors = jsp.indexOf("if (data.errors && data.errors.length > 0) {", fetch);
+        int failure = jsp.indexOf(".catch(error => {", fetch);
+
+        assertThat(check).isPositive();
+        // The guard is the first thing check() does, and the save is marked out before it is sent.
+        assertThat(jsp.substring(check, check + 120)).contains("if (measurementSaveInFlight) {");
+        assertThat(jsp.lastIndexOf("setMeasurementSaving(true);", fetch)).isGreaterThan(check);
+        // Validation errors and failures hand the button back; only a stored save closes the window.
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", errors)).isBetween(errors, errors + 120);
+        assertThat(jsp.indexOf("setMeasurementSaving(false);", failure)).isBetween(failure, failure + 120);
+        assertThat(jsp).contains("id=\"measurementSubmit\"")
+                .contains("var submit = document.getElementById('measurementSubmit');");
+    }
+
+    @Test
     @DisplayName("should canonicalize the demographic identifier before rendering patient data")
     void shouldCanonicalizeDemographicIdentifier_beforeRenderingPatientData() throws Exception {
         String jsp = readJsp();
