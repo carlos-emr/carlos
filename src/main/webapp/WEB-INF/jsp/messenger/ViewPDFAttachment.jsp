@@ -174,7 +174,7 @@
                             %>
                             <% for ( int i = 0 ; i < attVector.size(); i++) { %>
                     <tr>
-                        <td><%= SafeEncode.forHtml((String) attVector.get(i)) %>
+                        <td><%= SafeEncode.forHtml(org.apache.commons.text.StringEscapeUtils.unescapeXml((String) attVector.get(i))) %>
                         </td>
                         <td>
                           <button type="submit"

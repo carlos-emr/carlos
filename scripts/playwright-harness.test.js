@@ -713,3 +713,69 @@ test('a failed request knows whether the document that issued it went away', asy
   assert.equal(recorder.requestFailures[2].navigatedAway(), false);
   assert.deepEqual(Object.keys(recorder.requestFailures[0]), ['label', 'url', 'resourceType', 'errorText']);
 });
+
+function fakeSignalProcess() {
+  const listeners = {};
+  return {
+    listeners,
+    on(signal, handler) { (listeners[signal] = listeners[signal] || []).push(handler); },
+    removeListener(signal, handler) { listeners[signal] = (listeners[signal] || []).filter((h) => h !== handler); },
+    emit(signal) { return Promise.all((listeners[signal] || []).map((handler) => handler())); },
+  };
+}
+
+test('installCleanupSignalHandlers cleans up then exits 130 on SIGINT and 143 on SIGTERM (issue #3600)', async () => {
+  for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
+    const proc = fakeSignalProcess();
+    const events = [];
+    harness.installCleanupSignalHandlers(async () => { events.push('cleanup'); }, {
+      signalProcess: proc, exit: (c) => events.push(`exit ${c}`), logError: () => {},
+    });
+    await proc.emit(signal);
+    assert.deepEqual(events, ['cleanup', `exit ${code}`], `${signal} must clean up before exiting`);
+  }
+});
+
+test('installCleanupSignalHandlers runs cleanup once even when a second signal arrives mid-cleanup', async () => {
+  const proc = fakeSignalProcess();
+  let runs = 0;
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const exits = [];
+  harness.installCleanupSignalHandlers(async () => { runs += 1; await gate; }, {
+    signalProcess: proc, exit: (c) => exits.push(c), logError: () => {},
+  });
+  const first = proc.emit('SIGINT');
+  const second = proc.emit('SIGTERM');
+  assert.equal(exits.length, 0, 'exit must wait for the in-flight cleanup');
+  release();
+  await Promise.all([first, second]);
+  assert.equal(runs, 1);
+  assert.ok(exits.length >= 1);
+});
+
+test('installCleanupSignalHandlers reports a failing or synchronously throwing cleanup and still exits', async () => {
+  for (const cleanup of [() => { throw new Error('sync boom'); }, async () => { throw new Error('async boom'); }]) {
+    const proc = fakeSignalProcess();
+    const errors = [];
+    const exits = [];
+    harness.installCleanupSignalHandlers(cleanup, {
+      signalProcess: proc, exit: (c) => exits.push(c), logError: (m) => errors.push(m),
+    });
+    await proc.emit('SIGINT');
+    assert.deepEqual(exits, [130]);
+    assert.ok(errors.some((m) => /Cleanup after SIGINT failed: (sync|async) boom/.test(m)), errors.join('|'));
+  }
+});
+
+test('installCleanupSignalHandlers.dispose removes both listeners and a non-function cleanup is refused', () => {
+  const proc = fakeSignalProcess();
+  const handle = harness.installCleanupSignalHandlers(() => {}, { signalProcess: proc, exit: () => {} });
+  assert.equal(proc.listeners.SIGINT.length, 1);
+  assert.equal(proc.listeners.SIGTERM.length, 1);
+  handle.dispose();
+  assert.equal(proc.listeners.SIGINT.length, 0);
+  assert.equal(proc.listeners.SIGTERM.length, 0);
+  assert.throws(() => harness.installCleanupSignalHandlers(null), /needs a cleanup function/);
+  assert.deepEqual(harness.NO_PLAYWRIGHT_SIGNAL_HANDLING, { handleSIGINT: false, handleSIGTERM: false });
+});

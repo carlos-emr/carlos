@@ -323,7 +323,7 @@
 			}
 			
 			%>
-            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%></a></td>
+            <td ><a id="prescrip_<%=prescriptIdInt%>" <%=styleColor%> href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=<carlos:encode value='<%= String.valueOf(prescriptDrug.getDemographicId()) %>' context="uriComponent"/>&amp;regionalIdentifier=<carlos:encode value='<%= prescriptDrug.getRegionalIdentifier() %>' context="uriComponent"/>&amp;cn=<carlos:encode value='<%= prescriptDrug.getCustomName() %>' context="uriComponent"/>&amp;bn=<carlos:encode value='<%= bn %>' context="uriComponent"/>&amp;atc=<carlos:encode value='<%= prescriptDrug.getAtc() %>' context="uriComponent"/>"   <%=tComment%>   ><carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ") %>'/></a></td>
 			<%            			
 	           	if(securityManager.hasWriteAccess("_rx",roleName$,true)) {            		
            	%>

@@ -712,9 +712,12 @@
 
                             for (i = 0; i < bean.getStashSize(); i++) {
                                 rx = bean.getStashItem(i);
-                                String fullOutLine = rx.getFullOutLine().replaceAll(";", "<br />");
+                                // The outline is the stored drug name and instructions, kept raw; it is encoded here,
+                                // once, line by line (#3952).
+                                String rawOutLine = rx.getFullOutLine();
+                                String fullOutLine = RxPrescriptionData.fullOutLineToHtml(rawOutLine);
 
-                                if (fullOutLine == null || fullOutLine.length() <= 6) {
+                                if (rawOutLine == null || rawOutLine.length() <= 6) {
                                     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
                                     fullOutLine = "<span style=\"color:red;font-size:16;font-weight:bold\">An error occurred, please write a new prescription.</span><br />" + fullOutLine;
                                 }

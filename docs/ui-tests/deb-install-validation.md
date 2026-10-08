@@ -60,6 +60,24 @@ pages (the admin preview shows the catalog description as the subject) and
 with only the new-form page reverted (a new form is pre-filled with that
 description).
 
+`allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
+added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
+`release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1 from its tag)
+and installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Result: **PASS** 11/11 steps through
+`:443`, three runs in a row. One step uses a fr-CA browser. A probe with es-ES, pl-PL, pt-BR and
+en-CA browsers showed each one rendering the dialogue alerts from its own `oscarResources` bundle. `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+`allergy-rx-alert`, `csrf-runtime-forms` and `csrf-xhr-token` also passed. In
+`double-submit-chart-adds` all five Add Allergy modes passed; its prevention slow-resubmit
+mode recorded two preventions, which this change does not touch. Against the unfixed release
+head, the new check passed the #3355 reproduction itself (steps 1-3) and then **FAILED**:
+the CSRF-refused dialogue request was never announced. On that head a refused save also
+replaced the patient's allergy page with `CARLOS Error: 403` and lost the typed reaction,
+and `double-submit-chart-adds` recorded the allergy twice on a slow-response re-click.
+The save is now an in-page `fetch()`, and the page is already at `/rx/showAllergy` when it
+saves. So a check that saves an allergy has to wait for the list to reload, not for that
+URL; `allergy-add-penicillin` shows how.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -671,17 +689,27 @@ export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 #      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
 #   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
 #      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
-# It also stages a destination fax number on the patient's active pharmacies and restores their
-# original value on cleanup: the demo dataset ships pharmacies with a blank fax, and the servlet
-# refuses such a prescription with "Valid fax number not found", so without it the check would be
-# measuring the missing pharmacy number rather than the signature gate.
+# It also points EVERY pharmacy the Rx page lists for the patient (each one behind an active
+# link, including one marked deleted) at a per-run unroutable 555 number (NPA 555 is never
+# assigned in the NANP) and restores each original exactly on cleanup -- including a pharmacy
+# that already has a fax: the demo patient's pharmacies carry a real-looking Toronto number
+# (4164000305), and the Fax click queues a real job to whatever number the pharmacy holds.
+# The three Rx fax checks (this one, reprint/re-prescribe and record-binding) share one database
+# advisory lock for that fixture, so run them one after another: a second one started while
+# another holds the lock stops before writing anything. Each journals the original numbers to
+# ~/.cache/carlos-playwright/rx-fax-pharmacy/ (RX_FAX_JOURNAL_DIR overrides it) before the
+# first write; if a run is killed outright (SIGKILL, `timeout -s KILL`, a container restart) the
+# next Rx fax check restores them from that journal before it stages its own. A plain `timeout`
+# sends SIGTERM, which the three checks handle by cleaning up first. See the Rx fax pharmacy
+# fixture note under "Notes on the contract" below for a leftover with no journal.
 export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
 # prerequisites as the fax check above, and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO.
 # It creates one prescription through the UI and removes it (with its drugs row and stored
 # signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
-# record is touched, and it writes no files. Like the fax check it stages, and then restores, a fax
-# number on the patient's active pharmacies, and it stages (and removes) its own active fax gateway
+# record is touched, and the only file it writes is the pharmacy fixture's crash journal. Like the
+# fax check it points every pharmacy the Rx page lists for the patient at its own 555 number (an
+# existing fax included) and restores them, under the same lock and journal, and it stages (and removes) its own active fax gateway
 # account (fax_config) on a per-run 416 number: ViewScript2 folds `hasFaxNumber` into the Fax button
 # and only offers a destination through an active sender account, so without both the pad
 # assertions would not isolate the stamp. Its only operator prerequisites are therefore the two
@@ -902,6 +930,63 @@ Notes on the contract:
   patient with no drug profile fails the check at staging rather than
   silently measuring the empty state. It stages in memory only: nothing is
   saved, so it seeds and cleans up nothing.
+- **The three Rx fax checks share one pharmacy fax fixture**
+  (`scripts/rx-fax-pharmacy-fax-fixture.js`, issue #3607):
+  `rx-fax-signature-stamp`, `rx-fax-reprint-represcribe` and
+  `rx-fax-record-binding`. For the run, every pharmacy the Rx page lists for
+  `RX_FAX_DEMOGRAPHIC_NO` -- each one behind an active `demographicPharmacy`
+  link, including one marked deleted, which the page still offers -- holds a
+  per-run `555xxxxxxx` number, a pharmacy that already has a fax included. Each
+  original is restored exactly (NULL and `''` kept distinct, `addDate` left
+  untouched) and only while the column still holds that run's number, so an
+  edit made during the run is never overwritten. A failure is printed as a fixed
+  code after the error class:
+
+  | Code | Meaning |
+  |------|---------|
+  | `RX_FAX_FIXTURE_LOCKED` | Another Rx fax check holds the fixture lock on this database (or the `mysql` client could not connect). Run the checks one after another. |
+  | `RX_FAX_FIXTURE_VALUE` | A pharmacy fax holds something other than digits, letters, spaces and `.()+-` (at most 32). The check refuses to rewrite a value it could not restore; nothing was changed. |
+  | `RX_FAX_FIXTURE_CHANGED` | A pharmacy fax changed between the snapshot and the rewrite; the edit was kept and the run stopped. |
+  | `RX_FAX_FIXTURE_SEEDED`, `_NOT_LOCKED` | A programming error in a check: it staged the fixture twice without restoring, or before taking the lock. Nothing further was written. |
+  | `RX_FAX_FIXTURE_JOURNAL` | A crash journal is malformed. Nothing is replayed from it; inspect it, repair the pharmacies it names if needed, then remove it by hand. |
+  | `RX_FAX_FIXTURE_JOURNAL_DIR` | The journal directory is group- or world-writable or owned by another user. Fix its ownership and mode (`chmod 700`) rather than deleting it or switching `RX_FAX_JOURNAL_DIR`: journals already in it would no longer be replayed. |
+  | `RX_FAX_FIXTURE_DATABASE` | The server's identity (`@@hostname`, `@@port`, `DATABASE()`) could not be read, so the journal key is unknown. Check the `MYSQL_*` settings. |
+  | `RX_FAX_FIXTURE_RECOVERY`, `_RESTORE` | A restore statement failed. The journal is kept and the next Rx fax check retries it. |
+
+  A run killed outright (SIGKILL, `timeout -s KILL`, a container restart)
+  skips its cleanup, but the originals were journalled under
+  `~/.cache/carlos-playwright/rx-fax-pharmacy/` before the first write and the
+  next Rx fax check on the same database restores them before staging its own
+  (it reports a `pharmacy-fax-recovery` entry). Journals are keyed by the
+  server's `@@hostname`, `@@port` and `DATABASE()`, so a database container
+  recreated with a new hostname no longer finds its old journal: restore from it
+  by hand with the SQL below. A journal that restores nothing on replay -- its
+  rows were already repaired, or it belongs to another database with the same
+  key -- is kept rather than deleted (`pharmacy-fax-recovery` reports it as
+  `kept`); remove it once you have checked it. A leftover with **no** journal --
+  a run from before the journal existed, or a journal directory that was wiped
+  -- cannot be restored automatically because the original is not in the
+  database any more. Find it with
+
+  ```sql
+  SELECT p.recordID, p.name, p.fax FROM pharmacyInfo p
+    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordID
+   WHERE dp.demographic_no = 1 AND dp.status = '1' AND p.fax REGEXP '^555[0-9]{7}$';
+  ```
+
+  and put back the dataset's value. On the packaged demo dataset patient 1's
+  active pharmacies are 3 and 6 (`4164000305`) and 10 (`7896541230`):
+
+  ```sql
+  UPDATE pharmacyInfo SET fax = '4164000305', addDate = addDate WHERE recordID IN (3, 6) AND fax REGEXP '^555[0-9]{7}$';
+  UPDATE pharmacyInfo SET fax = '7896541230', addDate = addDate WHERE recordID = 10 AND fax REGEXP '^555[0-9]{7}$';
+  ```
+
+  (`addDate = addDate` keeps the column's `ON UPDATE current_timestamp()` from
+  restamping the pharmacy.)
+
+  A stranded `555` number is harmless (no fax can reach it) and a later run
+  simply restores it unchanged; the repair is for the dataset's fidelity.
 - **Consultation signature submission owns its test requests.** Its missing-stamp
   create scenario supplies the unsigned request for update and preview. Cleanup
   removes uniquely marked requests, dependent rows and their linked signatures;
@@ -1856,6 +1941,58 @@ package health passed, and the VM stopped. Compilation ran with the VM stopped;
 all local build and installed-test tasks ran serially.
 
 
+### OAuth REST surfaces validation (2026-10-08)
+
+Validation of issue #3446: the CXF JAX-RS servers at `/ws/oauth` (OAuth 1.0a handshake) and
+`/ws/services` (the OAuth data API) answered 404 on every packaged install. The defects behind it
+are findings 131 to 135 in [app-findings-log.md](app-findings-log.md).
+
+**Environment deviations from the runbook above.** There was no LXD. The target was a
+`--privileged` Ubuntu 26.04 **container** running systemd, with host networking, on a cgroup v1
+host. Its entrypoint replaced `/sys/fs/cgroup` with a `cgroup2` mount and exec'd `/sbin/init`.
+The image masked `systemd-networkd`, `systemd-resolved`, `systemd-timesyncd`, udev and the
+gettys so that systemd could not touch the host network, and removed `/usr/sbin/policy-rc.d`.
+Packages were built with `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` build container,
+with DrugRef from `debian/drugref.pin`, the pinned Chromium and carlos-ctl 1.1.1 from its
+release. The preseed was the one in section 3, except `bind-ip 127.0.0.1` and
+`reset-seed-admin false`. The first-login reset still ran once, to `Carlos2026!Verify`. On both
+installs the postinst's first nginx reload failed: the stock site's `[::]:80` fails on a host
+without IPv6. `carlos-ctl finish-install` then completed and `carlos-ctl check` passed in full.
+
+Two lessons from the rebuilds:
+
+- A rebuild with `-nc` reuses `debian/debhelper-build-stamp`, so `dh` skips `dh_auto_build` and
+  packages the previous WAR. Delete `debian/.debhelper`, `debian/debhelper-build-stamp`,
+  `debian/files` and the staging directories (keep `debian/build/m2` if you like), then confirm
+  the change in the packaged classes before installing.
+- The unfixed install still held the `ModuleNames=REST` experiment until the JVM restarted.
+  Restart after any `carlos.properties` change before probing.
+
+**Reproduction** on `carlos-emr 2026.09.0~snapshot26`, unfixed `release/2026.08` at
+`17c363e3`, through `https://localhost/carlos`:
+
+| Probe | Unfixed | `ModuleNames=REST` added | Fixed (no `ModuleNames` change) |
+|---|---|---|---|
+| `POST /ws/oauth/initiate` (no OAuth parameters) | 404 `No service was found.` | 400 `invalid_oauth_parameters` | 400 `invalid_oauth_parameters` |
+| `GET /ws/oauth/authorize` (no token) | 404 | 400 | 400 |
+| `GET /ws/services/oauth/info` (anonymous) | 404 | 401 | 401 |
+| `GET /ws/rs/status/checkIfAuthed` (anonymous) | 401 | 401 | 401 |
+| `GET /ws/LoginService?wsdl` | 200 | 200 | 200 |
+| `/ws/rs/demographics/1` `patientStatusDate` (session) | `1690243200000` | `"2023-07-25"` | `1690243200000` |
+
+**Results** (`EXPECT_FRONT_DOOR=true`, `https://127.0.0.1/carlos`):
+
+| Check | Upgrade (`snapshot26` → fix, in place) | Fresh install (`2026.09.0~snapshot26+issue3446.4`) |
+|---|---|---|
+| `oauth-rest-surfaces` (new) | PASS | PASS. FAILS on the same container downgraded to the unfixed `snapshot26` (CXF 404 on `/ws/oauth/initiate`) |
+| `application-health`, `browser-surface`, `schedule-links`, `echart`, `error-sanitization`, `mutator-get-rejection-live`, `drug-search`, `document-upload`, `tickler-crud`, `appointment-lifecycle`, `eform-render`, `eform-admin-crud`, `prevention-lifecycle`, `anonymous-access-refused`, `login` | PASS | PASS |
+| `demographic-edit-update` | FAIL: the default `FAKE-` search did not return patient 2 (precondition) | PASS with `DEMOGRAPHIC_EDIT_SEARCH` set to patient 2's surname |
+| `admin-jobs` | FAIL, **pre-existing** | FAIL, **pre-existing**: the DataTables `jobTypeTable` "Cannot reinitialise" alert the check's own header reports for the Job Type editor. It fails identically on the same container downgraded to the unfixed `snapshot26` |
+
+The upgrade column ran on the `+issue3446.3` package. `AuthorizeResource` and
+`AbstractServiceImpl` were then hot-replaced from the branch (findings 133 and 134 were found on
+that install), which is the code the fresh-install `.4` package carries.
+
 ### PR #4055 annotation capacity and session validation
 
 Annotation validation exercises a newly filed multipage document so cached page images cannot
@@ -2027,3 +2164,101 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
 ### Note-role repair isolation
 
 `admin-role-management` requires `EXCLUSIVE=1` on a disposable deployment with no other checks running. Launch it with `EXCLUSIVE=1 npm run test:admin-role-management-playwright` or `EXCLUSIVE=1 node scripts/run-playwright-suite.js --only admin-role-management`. The workflow refuses to seed or submit the global repair if any pre-existing note has `reporter_caisi_role='0'`; it verifies that empty, nonnumeric and other existing roles remain unchanged. Set the same variable when including this check in `--tier core`.
+
+### eChart notes pagination retry (2026-10-08, issue #3609)
+
+`echart-notes-pagination-retry-playwright-checks.js` was added for issue #3609 (one
+pagination fetch that rendered nothing ended loading older notes for the rest of the
+chart session) and run against a `2026.09.0~snapshot26` package built from the
+`release/2026.08` fix branch. The build ran in an `ubuntu:26.04` container the way
+`deb-packages.yml` does it: `CARLOS_WAR` set to the WAR `mvn package` produced from the
+branch (JDK 25), DrugRef built from `debian/drugref.pin`, Chromium from the
+`debian/chromium.pin` revision (prefetched and passed as `CHROMIUM_DIST`), and
+`carlos-ctl_1.1.1_all.deb` from the release `debian/carlos-ctl.pin` names.
+`dpkg-buildpackage -us -uc -b` produced `carlos-emr_…_amd64` and
+`carlos-emr-drugref_…_all`; lintian reported only the pre-existing
+`possible-bashism-in-maintainer-script` warning.
+
+The three packages were installed with the section 3 preseed
+(`install-demo-data=true`) into a fresh privileged `ubuntu:26.04` container with
+systemd as PID 1 on a cgroup-v1 Docker host (the entrypoint remounts `/sys/fs/cgroup`
+as cgroup2, as the section 2 note describes). `carlos-ctl check` reported every line
+`OK` (43 Flyway migrations, WAF blocking, live DrugRef lookup, render browser active).
+With the section 6 environment contract (`EXPECT_FRONT_DOOR=true`, the first-login
+reset consumed once through `drugref-update-playwright-checks.js`), all through `:443`:
+
+| Check | Result |
+|---|---|
+| `echart-notes-pagination-retry` | **PASS** 6/6: a 401 on the second page shows the "Older notes could not be loaded" indicator with Retry, inserts nothing, rolls the offset back and leaves the poll armed; the next scroll to the top retries the same batch and paging reaches all 45 notes; a persistent 500 is retried exactly three times and then the poll stops with nothing inserted; Retry re-arms the poll and paging completes; a failed Load All Notes can be clicked again. |
+| `gap-clinical-chart-notes-pagination` | **PASS** 5/5 (paging, Load All, Collapse/Expand, `maxNcId` after the final empty batch). |
+| `echart` | **PASS** (notes rendered, pagination stopped at the end of the chart, Social History, draft autosave, Unresolved Issues). |
+
+With the pre-fix `newCaseManagementView.js.jsp` and `ChartNotes.jsp` from
+`release/2026.08` swapped into the installed webapp (`carlos-ctl restart` so Jasper
+recompiles them; a swap alone keeps serving the cached compilation), the new check
+**FAILS** at its second step: "The "notes could not be loaded" indicator did not appear
+after the failed pagination fetch". Restoring the fixed files and restarting returns it
+to 6/6.
+
+A second defect surfaced while reading the same code and was reproduced on this
+install before it was fixed on the same branch: the pagination state lives in the page
+script, and every fragment reload (a note save; the filter and Full/Quick chart paths
+share it) re-rendered `ChartNotes.jsp` without starting it over. Driven live: page to
+40 notes (`notesOffset` 20), reload the fragment, page again, and the pane ends with
+25 notes, NOTE45 to NOTE41 and NOTE20 to NOTE01: the second batch is never shown again.
+With `notesLoadFirstPage()` hot-swapped into the installed webapp (JS and fragment,
+then `carlos-ctl restart`), the check's added seventh step, which pages to 40, saves a
+note through `#saveImg` and pages again, finds all 45 once each: **PASS** 7/7.
+
+A 200 response that is not the fragment (`expired.jsp`, `domain-error.jsp`) used to be
+inserted above the notes by the updater and stay there. The loader now records the
+pane's first child before the insert and, when no fragment script ran, removes what was
+inserted ahead of it. The check gained a step that answers one page fetch with a 200
+"Your session has expired" page: the text does not remain in the pane, the fetch counts
+as a failure with the indicator up, and paging continues to all 45 (**PASS**).
+
+The pinned carlos-ctl 1.1.1 suite ran against the branch under Python 3.14
+(`CARLOS_SRC`): 249 tests OK; `debian/assets/tests` (45) and the o19 manifest tests
+also passed. The full `mvn test` on the branch in the same `ubuntu:26.04` JDK 25
+container: 19157 tests, with 38 failures confined to the label/receipt/letter PDF and
+image classes, all `UnsatisfiedLinkError: libharfbuzz.so.0` from the headless JDK;
+those nine classes pass (92 tests) once `libharfbuzz0b`, `libfreetype6`, `fontconfig`
+and `fonts-dejavu-core` are installed in the build container.
+
+### Rx fax pharmacy fixture validation (2026-10-08, issue #3607)
+
+`release/2026.08` at `17c363e3` was packaged in an `ubuntu:26.04` container
+(`dpkg-buildpackage -us -uc -b`, DrugRef from `debian/drugref.pin`, Chromium from
+`debian/chromium.pin`, `carlos-ctl_1.1.1_all.deb` from `debian/carlos-ctl.pin`) and
+installed with the section 3 preseed, demo data included, in a privileged
+`ubuntu:26.04` container with systemd as PID 1. The container had no IPv6, so the
+first nginx start failed on the stock `listen [::]:80` site exactly as section 2
+describes; once the package had replaced it, `carlos-ctl finish-install` completed
+and `carlos-ctl check` reported "All checks passed". The checks ran from the repo
+mount with the section 6 environment.
+
+On that install demo patient 1's active pharmacies are 3 and 6 (`4164000305`) and
+10 (`7896541230`); none is blank. A watcher polled their fax column every 0.5 s
+during each run:
+
+| Run | Result |
+|---|---|
+| `rx-fax-reprint-represcribe`, unmodified `release/2026.08` | PASS, but `pharmacy-fax` reported `active: 3, seeded: []`: the real-looking numbers stayed in place for the whole run while ViewScript2 rendered them as the fax destination. |
+| The three Rx fax checks with the shared fixture | PASS each; `active: 3, seeded: 3`; all three pharmacies held the run's `555…` number and were restored to the values above, `addDate` was unchanged across the three runs, and the journal directory was left empty. |
+| `rx-fax-signature-stamp` killed with SIGKILL once staged | All three pharmacies stranded on its `555…` number (the state #3607 reported); a 0600 journal held the originals; the advisory lock was already free. The next `rx-fax-reprint-represcribe` reported `pharmacy-fax-recovery: journals 1, restored 3`, snapshotted the true originals and passed; the final values matched the table above. |
+| `rx-fax-reprint-represcribe` started while `rx-fax-record-binding` held the fixture | Stopped with `pharmacy-fixture: Error (RX_FAX_FIXTURE_LOCKED)` before writing any row; the first run passed. |
+| `rx-fax-record-binding` killed with SIGKILL once staged, then `rx-fax-signature-stamp` | Same recovery from the other direction: `journals 1, restored 3, kept 0`, then PASS. |
+| `scripts/rx-fax-pharmacy-fax-fixture-integration-check.js` | 5/5 PASS against MariaDB 11.8 (own marked pharmacies: NULL, `''`, a trailing-space and a punctuated value, a deleted-but-linked pharmacy that must be covered and an inactive link that must not; `addDate` asserted unchanged after seeding, restoring and recovery). With the `addDate = addDate` clause removed it fails on "seeding must not restamp addDate". |
+
+`rx-fax-record-binding` failed on the unmodified branch with one
+`[login] pageerror: Error`: its own "inaccessible" fax-confirmation stub threw for
+every `getElementById` id, and the dispatched load event also runs `setComment()`.
+With the stub limited to the fax-result reads it passes, and the "inaccessible"
+case still reports `passed: true`.
+
+Wider runs on the same install: the `smoke` tier 12/12 (`login` rerun on its own
+once `TEST_PASSWORD_HASH` from section 6 was exported), and the Rx and pharmacy checks plus the four
+checks whose paired waits were settled 21/22. The exception,
+`rx-interactions-renal-luc` ("No major interaction marker is shown ... for
+ciprofloxacin + theophylline"), fails identically with the unmodified
+`release/2026.08` script and is unrelated to this change.
