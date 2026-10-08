@@ -666,7 +666,11 @@ public class OhipClaimFileService {
         if (name == null) return "";
         String decomposed = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "");
-        return upperAscii(decomposed).replaceAll("[^A-Z0-9]", "");
+        // upperAscii is null-safe for its other callers; the decomposed name is never
+        // null here, but keep the guard explicit so the contract is visible to readers
+        // and static analysis alike.
+        String upper = upperAscii(decomposed);
+        return upper == null ? "" : upper.replaceAll("[^A-Z0-9]", "");
     }
 
     /** The file is written as US-ASCII: any other character would silently become '?'. */

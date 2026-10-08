@@ -585,5 +585,8 @@ class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importRAFile(file.toString()))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
                 .hasMessageContaining("too short");
+        // The header row is persisted before the corrupt line is reached (rollback is
+        // the transaction's job, not exercised here); no detail row may be written.
+        verify(raDetailDao, never()).persist(any(RaDetail.class));
     }
 }
