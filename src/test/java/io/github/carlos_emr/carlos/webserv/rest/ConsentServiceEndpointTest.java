@@ -21,6 +21,9 @@
 package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -41,11 +44,16 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.OscarLogManager;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
 
 /**
  * CXF local-transport endpoint tests for {@link ConsentService} using CXF local transport.
+ *
+ * <p>The fixture grants exactly what each endpoint checks ({@code _demographic} read for the
+ * catalogue reads, {@code _admin} write for adding a type); the deny tests reset the grants and
+ * expect a 403 before the consent manager is touched (#2798).</p>
  *
  * @since 2026-03-31
  * @see CarlosRestTestBase
@@ -71,9 +79,14 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private PatientConsentManager mockPatientConsentManager;
 
+    private SecurityInfoManager security;
+
     @Override
     protected Object getServiceBean() {
+        security = authorizeEndpoint("r", "_demographic");
+        grantEndpointPrivileges(security, "w", "_admin");
         ConsentService service = new ConsentService();
+        injectDependency(service, "securityInfoManager", security);
         injectDependency(service, "providerDao", mockProviderDao);
         injectDependency(service, "providerManager", mockProviderManager);
         injectDependency(service, "oscarLogManager", mockOscarLogManager);
@@ -119,6 +132,18 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/content").isArray()).isTrue();
             assertThat(wireJson.at("/content")).hasSize(0);
         }
+
+        @Test
+        @DisplayName("should return 403 without reading the catalogue when demographic read is denied")
+        void shouldReturn403_whenDemographicReadDenied() {
+            reset(security);
+            grantEndpointPrivileges(security, "w", "_admin");
+
+            Response response = request().path("/consentService/consentTypes").get();
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verifyNoInteractions(mockPatientConsentManager);
+        }
     }
 
     @Nested
@@ -151,6 +176,17 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(404);
         }
+
+        @Test
+        @DisplayName("should return 403, not 404, for any id when demographic read is denied")
+        void shouldReturn403_whenDemographicReadDenied() {
+            reset(security);
+
+            Response response = request().path("/consentService/consentType/999").get();
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verifyNoInteractions(mockPatientConsentManager);
+        }
     }
 
     @Nested
@@ -173,6 +209,40 @@ class ConsentServiceEndpointTest extends CarlosRestTestBase {
             var wireJson = responseJson(response);
             assertThat(wireJson.at("/body").textValue()).isEqualTo("Consent type added successfully.");
             assertThat(wireJson.at("/status").textValue()).isEqualTo("SUCCESS");
+        }
+
+        @Test
+        @DisplayName("should return 403 without saving when only demographic read is granted")
+        void shouldReturn403_whenAdminWriteNotGranted() {
+            reset(security);
+            grantEndpointPrivileges(security, "r", "_demographic", "_admin");
+            ConsentTypeTo1 input = new ConsentTypeTo1();
+            input.setName("New Consent");
+            input.setType("1");
+            input.setActive(true);
+
+            Response response = request().path("/consentService/consentType")
+                .post(Entity.json(input));
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verifyNoInteractions(mockPatientConsentManager);
+        }
+
+        @Test
+        @DisplayName("should return 403, not a server error, when the user lacks admin write privilege")
+        void shouldReturn403_whenAdminWriteDenied() {
+            ConsentTypeTo1 input = new ConsentTypeTo1();
+            input.setName("New Consent");
+            input.setDescription("Test description");
+            input.setType("1");
+            input.setActive(true);
+            when(mockPatientConsentManager.addConsentType(any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_admin)"));
+
+            Response response = request().path("/consentService/consentType")
+                .post(Entity.json(input));
+
+            assertThat(response.getStatus()).isEqualTo(403);
         }
     }
 }
