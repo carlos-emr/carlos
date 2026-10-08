@@ -5994,7 +5994,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart; notes and eChart rows removed and asserted gone. Pagination failures are injected with Playwright routes (a 401, then 500s).",
-      "notes": "Issue #3609: a pagination fetch that rendered nothing is retried on the next scroll-to-top, capped at three in a row, shown with a Retry link, never inserted into the pane; a failed Load All can be clicked again."
+      "notes": "Issue #3609: a pagination fetch that rendered nothing is retried on the next scroll-to-top, capped at three in a row, shown with a Retry link, never inserted into the pane; a failed Load All can be clicked again; a note save re-renders the fragment with paging started over so no batch is skipped."
     },
     {
       "name": "gap-clinical-calculators-conversions",

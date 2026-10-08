@@ -561,6 +561,25 @@
     }
 
     /**
+     * Loads the newest page of a freshly rendered notes fragment and arms the poll. Every
+     * render of ChartNotes.jsp comes through here: the chart opening, the Full/Quick chart
+     * toggle, a filter apply or reset, and a note save.
+     *
+     * The pagination state lives in this script, not in the fragment, so a re-render must
+     * start it over. Left where paging had reached, notesOffset made the next scroll to the
+     * top ask for the batch after that point, and the batches in between (already shown
+     * once, then replaced by the reload) were never shown again.
+     */
+    function notesLoadFirstPage() {
+        notesOffset = 0;
+        notesFailedLoads = 0;
+        notesRetrieveOk = false;
+        notesShowLoadFailure(false);
+        notesLoader(0, notesIncrement, demographicNo);
+        startNotesScrollCheck();
+    }
+
+    /**
      * Shows or hides the "notes could not be loaded" indicator next to the loading throbber.
      * Null-safe: the span lives in ChartNotes.jsp and a chart layout without it just has no
      * indicator, the fetch bookkeeping is unaffected.

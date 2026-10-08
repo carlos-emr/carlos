@@ -213,10 +213,10 @@
     notesIncrement = parseInt("<%=CarlosProperties.getInstance().getProperty("num_loaded_notes", "20") %>");
 
     jQuery(document).ready(function () {
-        notesLoader(0, notesIncrement, demographicNo);
-        // Stops any poll an earlier render of this fragment armed before arming its own; see
-        // startNotesScrollCheck() in newCaseManagementView.js.jsp.
-        startNotesScrollCheck();
+        // Resets the pagination state an earlier render of this fragment left behind, loads
+        // the newest page and arms the scroll poll; see notesLoadFirstPage() in
+        // newCaseManagementView.js.jsp.
+        notesLoadFirstPage();
     });
 
     <% if( request.getAttribute("NoteLockError") != null ) { %>

@@ -23,7 +23,10 @@
  *      page is never inserted at the top of the chart, and the indicator stays up;
  *   4. the indicator's Retry link, once the server answers again, loads the batch, re-arms the poll,
  *      and paging continues to all 45;
- *   5. a failed Load All Notes can simply be clicked again.
+ *   5. a failed Load All Notes can simply be clicked again;
+ *   6. a note save (the one fragment reload an operator reaches; filter and Full/Quick chart reloads
+ *      share the path) starts paging over from the first page, so after paging to 40 notes and
+ *      saving, scrolling to the top still reaches all 45 once each.
  *
  * Fixtures: the owned FAKE-PW patient with 45 SQL-seeded notes (token FAKE-PW<hex> NOTEnn); every note,
  * eChart and note-support row of the patient is deleted in cleanup and asserted gone.
@@ -299,6 +302,47 @@ async function workflow(s) {
     h.assert(!state.indicator, 'The indicator is still showing after the second Load All succeeded');
     consumeProvokedErrors(500, 1);
     await chart.unroute(NOTES_ROUTE);
+  });
+
+  await s.step('a note save re-renders the fragment and paging starts over, so no batch is skipped', async () => {
+    await chart.close();
+    chart = await s.chart();
+    await firstPage(chart);
+    // Page in the second batch, then leave the top so the poll idles there.
+    await chart.waitForFunction(({m, want}) => {
+      document.getElementById('encMainDivWrapper').scrollTop = 0;
+      // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+      return (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= want;
+    }, {m: marker, want: 2 * PAGE}, {timeout: 20000, polling: 500})
+      .catch(() => { throw new Error('Scrolling to the top did not page in the second batch within 20 s'); });
+    await chart.evaluate(() => { const w = document.getElementById('encMainDivWrapper'); w.scrollTop = w.scrollHeight; });
+    let state = await paneState(chart);
+    h.assert(state.offset === PAGE, `After the second batch notesOffset should be ${PAGE}, it is ${state.offset}`);
+    // The pagination state lives in the page script; the fragment the save renders into #notCPP
+    // must start it over or the next scroll to the top asks for the third batch and the second,
+    // just replaced, is never shown again.
+    await chart.locator('textarea[name="caseNote_note"]').fill(`${marker} reload probe`);
+    await Promise.all([
+      chart.waitForResponse(r => /\/CaseManagementEntry$/.test(r.url()) && r.request().method() === 'POST', {timeout: 20000}),
+      chart.locator('#saveImg').click(),
+    ]);
+    await chart.waitForFunction(({m, want}) => {
+      // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
+      // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+      return window.notesOffset === 0 && (document.getElementById('encMainDiv').innerText.match(new RegExp(`${m} NOTE\\d\\d`, 'g')) || []).length >= want;
+    }, {m: marker, want: PAGE - 1}, {timeout: 20000})
+      .catch(() => { throw new Error('The saved note did not re-render the fragment with paging reset to the first page'); });
+    await allLoaded(chart);
+    await chart.waitForFunction(() => {
+      document.getElementById('encMainDivWrapper').scrollTop = 0;
+      return window.notesLastBatchSize === 0;
+    }, null, {timeout: 15000, polling: 500}).catch(() => {});
+    const notes = await shown(chart);
+    h.assert(JSON.stringify(notes) === JSON.stringify(descending(TOTAL, 1)),
+      `After a save and re-paging the pane should list NOTE45 down to NOTE01 once each, it lists ${notes.length} notes: ${JSON.stringify(notes)}`);
+    state = await paneState(chart);
+    h.assert(!state.pollArmed, 'The poll kept running after the server reported the chart fully loaded');
   });
 }
 

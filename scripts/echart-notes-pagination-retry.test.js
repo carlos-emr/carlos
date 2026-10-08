@@ -136,9 +136,9 @@ function setup() {
 /** A chart that rendered its first page and armed the poll, as ChartNotes.jsp does on load. */
 function chartWithFirstPage() {
   const s = setup();
-  s.context.notesLoader(0, 20, 1);
+  s.context.notesLoadFirstPage();
+  assert.equal(s.requests[0].offset, 0);
   s.succeed(s.requests[0], 20);
-  s.context.startNotesScrollCheck();
   assert.equal(s.context.notesOffset, 0);
   assert.equal(s.context.notesRetrieveOk, true);
   assert.ok(s.pollArmed());
@@ -270,8 +270,7 @@ test('Retry while a fetch is still in flight does nothing', () => {
 
 test('Retry after a failed initial load asks for the first page again', () => {
   const s = setup();
-  s.context.notesLoader(0, 20, 1);
-  s.context.startNotesScrollCheck();
+  s.context.notesLoadFirstPage();
   s.fail(s.requests[0]);
   assert.equal(s.indicator.visible, true);
 
@@ -330,6 +329,37 @@ test('the body of a failed response is never inserted into the notes pane', () =
   assert.equal(target.success, s.context.$('encMainDiv'), 'a rendered batch goes into #encMainDiv');
   assert.equal(target.failure, undefined,
     'an error page, a CSRF rejection text or a login page must not land at the top of the chart');
+});
+
+test('a fragment re-render after paging starts over from the first page, not from where paging had reached', () => {
+  // A filter apply/reset, a note save or the Full/Quick chart toggle re-renders ChartNotes.jsp
+  // into #notCPP and runs its ready handler again; the pagination state is in the page script.
+  const s = chartWithFirstPage();
+  s.pollTick();
+  s.succeed(s.requests[1], 20);
+  assert.equal(s.context.notesOffset, 20);
+
+  s.context.notesLoadFirstPage();
+  assert.equal(s.requests[2].offset, 0, 'the re-render asks for the newest page');
+  s.succeed(s.requests[2], 20);
+  s.pollTick();
+  assert.equal(s.requests[3].offset, 20, 'paging resumes with the second page, not the third');
+  assert.ok(s.pollArmed());
+});
+
+test('a fragment re-render clears a failure streak and the indicator', () => {
+  const s = chartWithFirstPage();
+  for (let i = 1; i <= MAX_FAILED_LOADS; i += 1) {
+    s.pollTick();
+    s.fail(s.requests[i]);
+  }
+  assert.ok(!s.pollArmed());
+
+  s.context.notesLoadFirstPage();
+  assert.equal(s.context.notesFailedLoads, 0);
+  assert.equal(s.indicator.visible, false);
+  assert.ok(s.pollArmed(), 'the fresh fragment arms its own poll');
+  assert.equal(s.requests[s.requests.length - 1].offset, 0);
 });
 
 test('stopping and starting the poll is idempotent and never leaks a timer', () => {

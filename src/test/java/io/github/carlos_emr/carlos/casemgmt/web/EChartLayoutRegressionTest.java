@@ -56,12 +56,15 @@ class EChartLayoutRegressionTest {
 
         assertThat(jsp).doesNotContain("layoutIncludesDependencies");
         assertThat(jsp).contains("newCaseManagementView.js.jsp");
-        // Each render arms its own scroll poll through startNotesScrollCheck(), which the
-        // indicator's Retry link shares (#3609); it must stop the previous poll before arming
-        // its own, or a filter/save reload leaves a timer polling for the life of the chart.
-        assertThat(jsp).contains("startNotesScrollCheck();");
+        // Each render goes through notesLoadFirstPage() (#3609): the pagination state lives in
+        // the page script, so a filter/save reload must start the offset over or the batches
+        // between the first page and where paging had reached are never shown again; and the
+        // poll it arms must stop the previous one first, or a reload leaves a timer polling
+        // for the life of the chart.
+        assertThat(jsp).contains("notesLoadFirstPage();");
         assertThat(jsp).doesNotContain("setInterval(");
         String js = Files.readString(NOTES_PAGINATION_JS, StandardCharsets.UTF_8);
+        assertThat(js).contains("function notesLoadFirstPage() {\n        notesOffset = 0;");
         assertThat(js).contains("function startNotesScrollCheck() {\n        stopNotesScrollCheck();");
     }
 

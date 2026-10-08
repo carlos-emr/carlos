@@ -2063,6 +2063,16 @@ recompiles them; a swap alone keeps serving the cached compilation), the new che
 after the failed pagination fetch". Restoring the fixed files and restarting returns it
 to 6/6.
 
+A second defect surfaced while reading the same code and was reproduced on this
+install before it was fixed on the same branch: the pagination state lives in the page
+script, and every fragment reload (a note save; the filter and Full/Quick chart paths
+share it) re-rendered `ChartNotes.jsp` without starting it over. Driven live: page to
+40 notes (`notesOffset` 20), reload the fragment, page again, and the pane ends with
+25 notes, NOTE45 to NOTE41 and NOTE20 to NOTE01: the second batch is never shown again.
+With `notesLoadFirstPage()` hot-swapped into the installed webapp (JS and fragment,
+then `carlos-ctl restart`), the check's added seventh step, which pages to 40, saves a
+note through `#saveImg` and pages again, finds all 45 once each: **PASS** 7/7.
+
 The pinned carlos-ctl 1.1.1 suite ran against the branch under Python 3.14
 (`CARLOS_SRC`): 249 tests OK; `debian/assets/tests` (45) and the o19 manifest tests
 also passed. The full `mvn test` on the branch in the same `ubuntu:26.04` JDK 25
