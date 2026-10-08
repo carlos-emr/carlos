@@ -100,6 +100,8 @@ number is set when it merges: it must be above the highest version on both devel
 grants it to admin, receptionist and the doctor and nursing roles, keeping any row a clinic already
 set.
 
+`V1.0.61__portal_booking_offer.sql` adds `portal_booking_offer` (#3850): which provider and time each opaque slot id offered through the portal stands for, and what became of it.
+
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the

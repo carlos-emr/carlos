@@ -21,15 +21,29 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal;
 
+import java.util.List;
 import java.util.Set;
 
 /** The fixed-vocabulary request from #3849; callers keep operationId unchanged across retries. */
 public record PatientPortalBookingPromptRequest(
-        String operationId, String urgency, String appointmentType, String suggestedBy) {
+        String operationId, String urgency, String appointmentType, String suggestedBy,
+        List<PatientPortalOfferedSlot> offeredSlots) {
     static final Set<String> URGENCIES = Set.of("routine", "soon", "as_soon_as_possible");
     static final Set<String> APPOINTMENT_TYPES = Set.of("follow_up", "annual_exam", "lab_review");
 
+    /** A prompt that asks the patient to contact the clinic, with no offered times. */
+    public PatientPortalBookingPromptRequest(
+            String operationId, String urgency, String appointmentType, String suggestedBy) {
+        this(operationId, urgency, appointmentType, suggestedBy, List.of());
+    }
+
     public PatientPortalBookingPromptRequest {
+        offeredSlots = offeredSlots == null ? List.of() : List.copyOf(offeredSlots);
+        if (offeredSlots.size() > PatientPortalOfferedSlot.MAX_PER_PROMPT
+                || offeredSlots.stream().map(PatientPortalOfferedSlot::slotId).distinct().count()
+                        != offeredSlots.size()) {
+            throw new PortalRequestPreparationException("offered times are invalid");
+        }
         if (operationId == null || !operationId.matches("[A-Za-z0-9._:-]{1,64}")) {
             throw new PortalRequestPreparationException("booking operation id is invalid");
         }
