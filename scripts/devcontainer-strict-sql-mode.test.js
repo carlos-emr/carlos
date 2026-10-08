@@ -46,7 +46,10 @@ const DEVCONTAINER_DB_FILES = [
 function sqlModeSettings(text) {
   return text
     .split('\n')
-    .map(line => line.replace(/^\s*(#|--).*$/, '').replace(/\s+#\s.*$/, ''))
+    // `#` starts a my.cnf/YAML/shell comment. `--` starts a SQL comment only when whitespace (or the end of the line)
+    // follows it: a bare `--sql-mode=` at the start of a folded Compose `command:` line is a server flag, and must
+    // survive this strip or the scan would call a config that blanks sql_mode clean.
+    .map(line => line.replace(/^\s*(#|--(?=\s|$)).*$/, '').replace(/\s+#\s.*$/, ''))
     .filter(line => /(^|[\s"'`-])(--)?sql[-_]mode\b/i.test(line) && !/^\s*$/.test(line));
 }
 
@@ -56,6 +59,20 @@ test('the helper finds every spelling that sets sql_mode', () => {
   assert.equal(sqlModeSettings('sql_mode = STRICT_ALL_TABLES').length, 1);
   assert.equal(sqlModeSettings('  command: ["--sql-mode="]').length, 1);
   assert.equal(sqlModeSettings('mariadb -e "SET GLOBAL sql_mode=\'\';"').length, 1);
+});
+
+test('the helper keeps a bare --sql-mode flag that starts a folded Compose command line', () => {
+  const compose = [
+    'services:',
+    '  db:',
+    '    command: >',
+    '      --character-set-server=utf8mb4',
+    '      --sql-mode=',
+  ].join('\n');
+  assert.equal(sqlModeSettings(compose).length, 1);
+  // ...while a real SQL comment that merely mentions the setting is still stripped.
+  assert.equal(sqlModeSettings('-- SET sql_mode = ""').length, 0);
+  assert.equal(sqlModeSettings('--').length, 0);
 });
 
 test('the helper ignores comments that merely mention sql_mode', () => {

@@ -47,7 +47,15 @@ async function workflow(s) {
     ORDER BY demographic_no LIMIT ${SAMPLE_SIZE}`);
   h.assert(sample.length === SAMPLE_SIZE, `expected ${SAMPLE_SIZE} sample demo patients, found ${sample.length}`);
 
+  // The schedule's Search control opens a popup, except where the caisi module is loaded: there it navigates the
+  // schedule tab itself (see openMasterRecord). Such a tab can no longer start another search, and it must not be
+  // closed, so the first sample is then the only one this run can open.
+  let searchNavigatedScheduleTab = false;
   for (const [index, row] of sample.entries()) {
+    if (searchNavigatedScheduleTab) {
+      console.log('  NOTE demo-data-integrity: Search navigates the schedule tab here, so only one demo patient was opened');
+      break;
+    }
     const [demographicNo, lastName, firstName, middleNames, sex, yearOfBirth, monthOfBirth, dateOfBirth] = row;
     await s.step(`demo patient ${index + 1} opens in the Master Record with the stored name, sex and birth date`, async () => {
       const { masterPage, searchPage } = await openMasterRecord(s.context, s.schedule, s.recorder, {
@@ -67,7 +75,8 @@ async function workflow(s) {
         // Both popups. The schedule's Search link opens a NAMED window, so a search page left open makes the next
         // patient's click navigate that window instead of opening a new one, and openMasterRecord waits in vain.
         await masterPage.close().catch(() => {});
-        await searchPage.close().catch(() => {});
+        if (searchPage === s.schedule) searchNavigatedScheduleTab = true;
+        else await searchPage.close().catch(() => {});
       }
     });
   }

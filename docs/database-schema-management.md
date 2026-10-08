@@ -99,11 +99,12 @@ differed from the Flyway baseline loaded "successfully" with patient names coerc
   column-less `INSERT ... VALUES` is correct only while the snapshot's column order equals the baseline's.
 - **Checking a regenerated snapshot.**
   - `node --test scripts/demo-seed-layouts.test.js` pins the column layouts and the intended values.
-  - `scripts/check-demo-data-strict-load.sh --self-test` (also `npm run test:demo-data-strict-load`)
-    builds the real devcontainer database image and asserts that `populate_db.sh` completes under strict
-    mode, the demo patients and the `carlosdoc` login are intact, and `gender`/`pref_name` are aligned. The
-    `--self-test` negative control shows the same one-row fault aborting a strict load but loading silently
-    under an empty `sql_mode`. It needs only Docker.
+  - `scripts/check-demo-data-strict-load.sh --self-test` builds the real devcontainer database image and
+    asserts that `populate_db.sh` completes under strict mode, the demo patients and the `carlosdoc` login are
+    intact, and `gender`/`pref_name` are aligned. The `--self-test` negative control shows the same one-row
+    fault aborting a strict load but loading silently under an empty `sql_mode`. It needs only Docker.
+    `npm run test:demo-data-strict-load` runs the default checks only; pass the flag through npm as
+    `npm run test:demo-data-strict-load -- --self-test`.
   - `node --test scripts/devcontainer-strict-sql-mode.test.js` fails if anything in the devcontainer
     puts `sql_mode` back. CI runs it with the other script tests.
 - **The Debian demo path is different.** `carlos-ctl demo-data` loads the additive artifact, built with

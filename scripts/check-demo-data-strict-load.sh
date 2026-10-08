@@ -44,7 +44,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEV_SQL="${REPO_ROOT}/.devcontainer/db/scripts/development.sql"
 IMAGE="${CARLOS_DEMO_CHECK_IMAGE:-carlos-demo-strict-check}"
-DB_PASSWORD="password"
+# A throwaway root password, random per run: nothing is published on a host port, and the value never leaves this
+# script (it reaches the containers through the environment only).
+DB_PASSWORD="$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 24 || true)"
+[ "${#DB_PASSWORD}" = 24 ] || { echo "ERROR: could not generate a random database password" >&2; exit 2; }
 INIT_TIMEOUT="${INIT_TIMEOUT:-300}"
 MIN_PATIENTS="${MIN_PATIENTS:-2900}"
 
@@ -83,6 +86,13 @@ pass=0
 fail=0
 ok()  { echo "PASS $1"; pass=$((pass + 1)); }
 bad() { echo "FAIL $1"; fail=$((fail + 1)); }
+# expect <pass message> <fail message> <test command...>: one PASS or FAIL line, as a real if/else (A && B || C would run
+# C whenever B itself failed).
+expect() {
+  local pass_message="$1" fail_message="$2"
+  shift 2
+  if "$@"; then ok "$pass_message"; else bad "$fail_message"; fi
+}
 section() { echo; echo "== $1"; }
 
 # start_container NAME [SNAPSHOT_OVERRIDE] [mariadbd args...]
@@ -155,14 +165,14 @@ else
 fi
 
 n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.security WHERE user_name='carlosdoc'")"
-[ "$n" = 1 ] && ok "carlosdoc login row present" || bad "carlosdoc login rows: ${n} (expected 1)"
+expect "carlosdoc login row present" "carlosdoc login rows: ${n} (expected 1)" test "$n" = 1
 
 # A coerced name leaves a numeric-only preferred name behind, and a shifted gender column stops
 # matching sex. Neither can be produced by the intended data.
 n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.demographic WHERE pref_name REGEXP '^[0-9]+\$'")"
-[ "$n" = 0 ] && ok "no demographic.pref_name was coerced to a number" || bad "${n} demographic rows have a numeric-only pref_name"
+expect "no demographic.pref_name was coerced to a number" "${n} demographic rows have a numeric-only pref_name" test "$n" = 0
 n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.demographic WHERE gender <> '' AND gender <> sex")"
-[ "$n" = 0 ] && ok "demographic.gender agrees with sex wherever it is set" || bad "${n} demographic rows have gender <> sex"
+expect "demographic.gender agrees with sex wherever it is set" "${n} demographic rows have gender <> sex" test "$n" = 0
 
 # ---------------------------------------------------------------------------------------------
 section "Debian additive demo artifact (INSERT IGNORE) into a Flyway-only schema"
@@ -173,12 +183,14 @@ docker cp "${WORK}/demo-on.sql" "${MAIN}:/tmp/demo-on.sql"
 before="$(sql "$MAIN" 'SELECT COUNT(*) FROM carlos_test.demographic')"
 [ "$before" = 0 ] || bad "carlos_test is not demo-free (${before} demographic rows), so the additive check is not meaningful"
 # --force keeps going past an error so every one is counted; --show-warnings prints warnings after each
-# statement. The client's exit status is deliberately ignored: errors are counted from the output.
+# statement. max_error_count is raised because the server keeps only that many warnings per statement: a statement
+# with enough duplicate-key (1062) warnings could otherwise push a coercion warning out of view. The client's exit
+# status is deliberately ignored: errors are counted from the output.
 docker exec -e "MYSQL_PWD=${DB_PASSWORD}" "$MAIN" sh -c \
-  'mariadb -uroot --force --show-warnings carlos_test < /tmp/demo-on.sql' \
+  'mariadb -uroot --force --show-warnings --init-command="SET SESSION max_error_count=65535" carlos_test < /tmp/demo-on.sql' \
   >"${WORK}/additive.out" 2>"${WORK}/additive.err" || true
 errors="$(grep -c '^ERROR' "${WORK}/additive.err" || true)"
-[ "$errors" = 0 ] && ok "the additive artifact loaded with no errors" || bad "the additive artifact raised ${errors} errors"
+expect "the additive artifact loaded with no errors" "the additive artifact raised ${errors} errors" test "$errors" = 0
 coercions="$(cat "${WORK}/additive.out" "${WORK}/additive.err" \
   | sed -n 's/^Warning (Code \([0-9]*\)).*/\1/p' | grep -v -x 1062 | sort | uniq -c | tr '\n' ' ' || true)"
 if [ -z "${coercions// /}" ]; then
@@ -187,7 +199,7 @@ else
   bad "INSERT IGNORE coerced values; warning counts by code: ${coercions}"
 fi
 added="$(sql "$MAIN" 'SELECT COUNT(*) FROM carlos_test.demographic')"
-[ "$added" -ge "$MIN_PATIENTS" ] && ok "additive load added ${added} demo patients" || bad "additive load added only ${added} patients"
+expect "additive load added ${added} demo patients" "additive load added only ${added} patients" test "$added" -ge "$MIN_PATIENTS"
 
 # ---------------------------------------------------------------------------------------------
 if [ "$SELF_TEST" = 1 ]; then
@@ -213,8 +225,8 @@ if [ "$SELF_TEST" = 1 ]; then
   wait_for_init "$PERMISSIVE_FAULT" || rc=$?
   if [ "$rc" = 0 ]; then
     g="$(sql "$PERMISSIVE_FAULT" 'SELECT genderId FROM carlos.demographic WHERE demographic_no = 999991')"
-    [ "$g" = 0 ] && ok "control: an empty sql_mode loads the same fault silently, as genderId = 0 (issue #3151)" \
-                 || bad "control: unexpected genderId '${g}' under an empty sql_mode"
+    expect "control: an empty sql_mode loads the same fault silently, as genderId = 0 (issue #3151)" \
+           "control: unexpected genderId '${g}' under an empty sql_mode" test "$g" = 0
   else
     bad "control: the empty-sql_mode container did not initialise (wait_for_init=${rc})"
   fi
