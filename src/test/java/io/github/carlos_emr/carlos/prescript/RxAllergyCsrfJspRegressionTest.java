@@ -100,6 +100,47 @@ class RxAllergyCsrfJspRegressionTest {
                 + "sendSearchRequest(\"${ pageContext.servletContext.contextPath }/rx/addReaction2\",");
     }
 
+    @Test
+    @DisplayName("allergy form should carry an alert region for a save the server did not confirm")
+    void shouldRenderSaveStatusAlert_whenAddReactionFormIsRendered() throws IOException {
+        Element form = addAllergyForm();
+        Elements regions = form.select(".allergySaveStatus");
+
+        assertThat(regions).singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        String formHtml = form.outerHtml();
+        assertThat(formHtml.indexOf("allergySaveStatus"))
+                .as("the save status must sit above the Add Allergy button it reports on")
+                .isLessThan(formHtml.indexOf("value=\"Add Allergy\""));
+    }
+
+    @Test
+    @DisplayName("both allergy pages should load the dialogue failure handler")
+    void shouldLoadDialogueFailureHandler_whenAllergyPagesAreRendered() throws IOException {
+        String dialogScript = "/share/javascript/rx-allergy-dialog.js";
+        Document showAllergies = Jsoup.parse(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        Document addReaction = Jsoup.parse(readAddReactionJsp());
+
+        // The injected dialogue keeps nothing from AddReaction2.jsp's head, so the host page has to
+        // load the handler itself; the standalone AddReaction2.jsp page loads its own copy.
+        assertThat(showAllergies.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(addReaction.select("script[src$=\"" + dialogScript + "\"]")).hasSize(1);
+        assertThat(showAllergies.select("#allergyRequestStatus"))
+                .singleElement()
+                .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+    }
+
+    @Test
+    @DisplayName("allergy page AJAX requests should report failures instead of spinning silently")
+    void shouldReportFailedDialogueRequests_whenAllergyPageAjaxFails() throws IOException {
+        String jsp = normalizeWhitespace(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
+        int ajax = indexOfRequired(jsp, "$.ajax({ url: path,");
+        int errorHandler = indexOfRequired(jsp, "error: function (xhr) { reportAllergyRequestFailure(path,");
+
+        assertThat(errorHandler).as("the dialogue request needs an error handler").isGreaterThan(ajax);
+        assertThat(jsp).contains("if (found.length === 0) { reportAllergyRequestFailure(path, 200); return false; }");
+    }
+
     private static Element addAllergyForm() throws IOException {
         Document document = Jsoup.parse(readAddReactionJsp());
         Element form = document.selectFirst("form#RxAddAllergyForm");
