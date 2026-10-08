@@ -40,8 +40,25 @@ separate chart composer is implemented, reviewed, and documented.
   saves the eForm and moves email options, attachment selections, and patient
   context into session state for the compose redirect.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java`
-  requires `_email`, loads consent and recipients, loads active sender accounts,
-  prepares attachments, and renders the compose screen.
+  requires `_email` and read access to the patient (`_demographic`, including
+  per-patient restrictions), and works in two steps. The first request takes
+  the staged session state once, prepares the attachments and the one-time send
+  token, and redirects to `email/emailComposeAction?composeView=<id>`. That view
+  URL loads consent, recipients and active sender accounts and renders the
+  compose screen. Refreshing it shows the same compose screen, password and
+  attachments without preparing anything again; an attachment preview link is
+  renewed once less than a minute of its two minutes remains.
+  The window shows "This email compose window has expired" instead when:
+  - a send was submitted from it, even one that failed, or it was cancelled;
+  - 30 minutes have passed since it was prepared;
+  - it was the oldest of more than eight unsent compose states in the
+    session, which also counts Manage Emails resends and send retries;
+  - the URL is opened in another session, including after logging in again;
+  - Tomcat restarted, or the request reached another server, because the
+    prepared state is held in that server's memory.
+
+  If preparing the attachments or storing the state fails, the provider is
+  returned to the eForm with a generic error instead.
 - `src/main/java/io/github/carlos_emr/carlos/email/action/EmailSend2Action.java`
   requires `_email`, collects compose fields, and calls `EmailManager`.
 - `src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java`
@@ -66,6 +83,9 @@ Before a clinic sends real patient communications, confirm all of these gates:
 - Production sender configuration uses real delivery infrastructure, such as an
   SMTP relay or an API sender such as SendGrid.
 - Production sender domains have SPF, DKIM, and DMARC configured and monitored.
+- The document store and the database live on encrypted volumes, and the outbound
+  email archive keyring is backed up with the server configuration. See
+  [Outbound Email Archive at Rest](#outbound-email-archive-at-rest).
 
 The current Configure Email admin page documents the `emailConfig` fields and
 sample SMTP/API payloads, but sender records are still managed as deployment
@@ -243,6 +263,52 @@ log:
   A document that is only restricted (it opens without a password but limits
   printing or editing) is signed normally.
 
+## Running More Than One Application Server
+
+The supported install is one application server
+([docs/install-deb.md](../install-deb.md)). If a deployment runs several
+CARLOS servers behind a load balancer, it **must route each login session to
+the same server for the whole session** ("sticky sessions", or session
+affinity). The email compose flow requires it:
+
+- Opening a compose window, or preparing a resend from **Manage Emails**,
+  creates a one-time token. The generated PDF passphrase, its clue and the
+  prepared attachment list are kept in that server's memory under the token.
+  They are not stored in the HTTP session or the database. An entry lasts at
+  most 30 minutes, with at most 8 per login session and 1,024 per server.
+- The attachment PDFs prepared for that window are written to that server's
+  own temporary directory.
+- An attachment preview link is valid on that server only, for two minutes.
+
+If submission of a prepared email or prepared resend reaches a different
+server, that server cannot resolve its submission token. The send is refused
+before transport with "This email compose window has expired or is no longer
+valid. Please reopen the email compose window and try again."
+
+A preview request that reaches a server without its preview capability returns
+HTTP 403. A failed preview does not establish whether a separate send was
+attempted or accepted. Opening a new resend from **Manage Emails** creates fresh
+state on the receiving server, provided the authenticated session and source
+documents are available. Submitting that prepared resend still requires the
+same server.
+
+To recover an unusable compose, return to the eForm and choose **Email** again,
+or open a new resend from **Manage Emails**. Refreshing or reopening the old
+compose URL does not recreate its prepared state. A restart or failover loses
+the previous server's prepared state; HTTP-session replication does not
+preserve it.
+
+Carrying it between servers would need a shared, short-lived store that keeps
+what the current design guarantees:
+- a token works once;
+- entries expire quickly;
+- storage is bounded;
+- no passphrase or attachment is ever in the HTTP session;
+- nothing sensitive appears in logs or error messages.
+
+CARLOS does not provide such a store, so sticky routing is the supported
+configuration ([issue #3225](https://github.com/carlos-emr/carlos/issues/3225)).
+
 ## Monitoring and Operations
 
 Monitor `EmailLog` rows for `FAILED` status. Use **Admin > Manage Emails** to
@@ -270,6 +336,52 @@ Repeated failures usually point to one of these causes:
 - Attachment size limits or provider content rejection.
 - Local development environment has no localhost SMTP capture service.
 - PDF generation or attachment rendering failure before send.
+
+## Outbound Email Archive at Rest
+
+Every email sent to a patient is kept permanently as an exact copy in the outbound
+email archive, attachments included. CARLOS encrypts each copy before writing it to
+the document store (#3448), with keys from its own archive keyring file, separate from
+`encryption.util.secret.key`. Full details, including the stored format, rotation and
+failure codes, are in
+[Encryption at rest](../outbound-email-archive.md#encryption-at-rest-3448).
+
+**Deployment prerequisite: encrypted volumes.** CARLOS's encryption does not replace
+disk encryption. Put the document store (`DOCUMENT_DIR`), the database data
+directory, the archive keyring and the backup repository on encrypted volumes
+(LUKS/dm-crypt or the cloud provider's volume encryption) before the archive holds
+real patient email, and keep their owner-only permissions. Disk encryption covers a
+stolen disk or snapshot; the archive keyring also covers a copy of the document
+store restored somewhere else without the server configuration.
+
+**The keyring.** CARLOS creates it on first start, owner-only, at the path in
+`CARLOS_OUTBOUND_EMAIL_ARCHIVE_KEYRING_FILE`, else `email.archive.keyring.file`, else
+`<context>-outbound-email-archive.keyring` (usually `carlos-outbound-email-archive.keyring`)
+in the CARLOS user's home directory. A Debian install keeps it in
+`/etc/carlos-emr/archive-keyring/`, which the nightly `carlos-emr-backup` already
+includes. Anywhere else, add it to the configuration backup yourself.
+
+- **Back it up with the server configuration**, keep a copy off the server, and back
+  it up again after every key rotation. Without it the archive cannot be read.
+- **Restore it before starting CARLOS.** If it is missing while encrypted archives
+  exist, or CARLOS cannot rule that out, CARLOS refuses to start and logs one ERROR
+  that names the fix: restore the keyring file from backup.
+  `email.archive.keyring.acknowledge_loss=true` gets past that only when the keyring
+  is lost for good, and leaves those archived emails unreadable. CARLOS also refuses to start
+  when the keyring holds the right key numbers but cannot decrypt the newest archived
+  emails: it is a different keyring, and the right one must be restored.
+- **Several servers:** create the keyring on one server and copy it to the others
+  before they first start; two servers starting without one would each make their own.
+- **Rotate** with `email.archive.keyring.rotate_to=<next key number>` and a restart.
+  Old keys are kept, so older archived emails stay readable. Rotation does not
+  re-encrypt what is already archived.
+
+**Capacity.** The archive only grows: each send keeps the full message and its
+attachments (up to 50 MiB), and encrypted copies do not compress or de-duplicate
+in backups. Estimate emails per day x average size x 365 per year plus backup copies,
+and alert on the document-store volume and backup repository before they fill. The
+[capacity note](../outbound-email-archive.md#capacity-and-growth-operational-note)
+has the measuring query.
 
 ## Safety Notes
 
@@ -317,3 +429,6 @@ subjects, body text, and password clues accordingly.
   [PR #3097](https://github.com/carlos-emr/carlos/pull/3097).
 - Outbound email archive foundation:
   [PR #3138](https://github.com/carlos-emr/carlos/pull/3138).
+- Outbound email archive encryption at rest:
+  [issue #3448](https://github.com/carlos-emr/carlos/issues/3448). Archives written
+  before it stay plaintext until a re-encryption job exists.
