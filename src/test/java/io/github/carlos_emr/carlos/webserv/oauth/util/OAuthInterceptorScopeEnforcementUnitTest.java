@@ -144,6 +144,19 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
+    @DisplayName("should honour a multi-scope grant stored still percent-encoded")
+    void shouldAdmitRequest_whenStoredScopesArePercentEncoded() {
+        // Tokens issued before /initiate decoded scopes hold "a.read%20b.read" as one string.
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read%20schedule.read"));
+        MockHttpServletRequest request = scheduleReadServletRequest();
+
+        interceptor.handleMessage(messageWith(request));
+
+        assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
+    }
+
+    @Test
     @DisplayName("should enforce scopes with HTTP 403 when the flag is absent")
     void shouldRaiseFault_withHttp403WhenFlagAbsent() {
         // #4419: enforcement is on by default; an absent property must not reopen full access.

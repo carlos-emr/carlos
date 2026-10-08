@@ -336,8 +336,16 @@ public class ResponseSanitizationFilter implements Filter {
                 // The browser closed the page or cancelled a download (#4438). Nothing failed on the
                 // server and the connection cannot take a sanitized page, so log once at DEBUG (this is
                 // the outermost filter; DbConnectionFilter stays silent) and let the container close it.
-                LOGGER.debug("Client aborted the response [uri={}]",
-                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()));
+                // Before the response is committed this can also be a read-side abort, such as a
+                // slow request body timing out; keep that visible at WARN. No sanitized page is
+                // attempted either way: the connection cannot reliably take one, and the container's
+                // error dispatch still passes through this filter.
+                String abortedUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
+                if (httpResponse.isCommitted()) {
+                    LOGGER.debug("Client aborted the response [uri={}]", abortedUri);
+                } else {
+                    LOGGER.warn("Client aborted before the response was committed [uri={}]", abortedUri);
+                }
                 throw e;
             }
             // An exception escaped the entire filter chain.
@@ -377,12 +385,9 @@ public class ResponseSanitizationFilter implements Filter {
                 int status = wrapper.getStatus();
                 if (status >= 400) {
                     String correlationId = generateCorrelationId();
-                    LOGGER.error("Late output-stream error response bypassed capture; "
-                                    + "replacing buffered body [status={} uri={} correlationId={} committed={}]",
-                            status,
-                            LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                            correlationId,
-                            httpResponse.isCommitted());
+                    logSanitizedBody("Late output-stream error response bypassed capture; replacing buffered body",
+                            status, (HttpServletRequest) request, correlationId,
+                            "committed=" + httpResponse.isCommitted());
                     if (!httpResponse.isCommitted()) {
                         sendSanitizedError(httpResponse, status, correlationId);
                     }
@@ -444,11 +449,12 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
-     * Records that an error body was replaced. A 5xx is a server failure and stays at ERROR. A 4xx is the
-     * client's error answered as designed, for example the expected 401 for an anonymous or bad-token call
-     * to {@code /ws/services} (#4438); it is logged at INFO so a normal day's journal does not fill with
-     * ERRORs that need no action. The correlation id is logged either way, so the generic page's reference
-     * can still be traced.
+     * Records that an error body was replaced. A 5xx is a server failure and stays at ERROR. A 4xx is a
+     * request refused as designed, so it is not an ERROR (#4438); the expected anonymous {@code /ws/services}
+     * 401s used to land here on every call. They no longer do, because the OAuth refusals are plain text
+     * now, so a 4xx that still reaches this point carried stack-trace markers: a real leak worth a WARN, but
+     * not one that should page anyone. The correlation id is logged either way, so the generic page's
+     * reference can still be traced.
      */
     private static void logSanitizedBody(String what, int status, HttpServletRequest request,
                                          String correlationId, String reason) {
@@ -457,7 +463,7 @@ public class ResponseSanitizationFilter implements Filter {
         if (status >= 500) {
             LOGGER.error(format, status, uri, correlationId, reason);
         } else {
-            LOGGER.info(format, status, uri, correlationId, reason);
+            LOGGER.warn(format, status, uri, correlationId, reason);
         }
     }
 

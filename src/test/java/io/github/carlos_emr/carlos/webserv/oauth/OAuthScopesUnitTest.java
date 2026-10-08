@@ -109,7 +109,6 @@ class OAuthScopesUnitTest {
         void shouldStripExtensionMapping_fromLastSegment() {
             assertThat(OAuthScopes.requiredScope("POST", "/services/tickler.json")).isEqualTo("tickler.write");
             assertThat(OAuthScopes.requiredScope("GET", "/services/demographics.xml")).isEqualTo("demographic.read");
-            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json")).isEqualTo("tickler.read");
             assertThat(OAuthScopes.requiredScope("GET", "/services/demographics/1.json")).isEqualTo("demographic.read");
         }
 
@@ -131,10 +130,32 @@ class OAuthScopesUnitTest {
         }
 
         @Test
-        @DisplayName("should require no scope when nothing follows the services segment")
-        void shouldRequireNoScope_whenNothingAfterServices() {
+        @DisplayName("should fail closed when nothing follows the services prefix")
+        void shouldRequireUnmappedEndpoint_whenNothingAfterServices() {
+            // e.g. /ws/services?_wadl: no root, so no scope decision (#4419 review).
             assertThat(OAuthScopes.requiredScope("GET", "/services/"))
-                    .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
+                    .isEqualTo(OAuthScopes.UNMAPPED_ENDPOINT);
+            assertThat(OAuthScopes.requiredScope("GET", "/services"))
+                    .isEqualTo(OAuthScopes.UNMAPPED_ENDPOINT);
+        }
+
+        @Test
+        @DisplayName("should not strip an extension in another case, as CXF does not")
+        void shouldKeepSuffix_whenExtensionCaseDiffers() {
+            // CXF's endsWith(".json") is case-sensitive, so tickler/search.JSON is not routed to search.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.JSON"))
+                    .isEqualTo("tickler.write");
+        }
+
+        @Test
+        @DisplayName("should classify a POST as a read only when both path forms are read operations")
+        void shouldRequireWrite_whenOnlyStrippedFormIsRead() {
+            // tickler/search.json: stripped reads as tickler/search, unstripped does not; CXF may route either
+            // (a matrix parameter it can see stops its strip), so the stricter answer wins.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json"))
+                    .isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search"))
+                    .isEqualTo("tickler.read");
         }
     }
 

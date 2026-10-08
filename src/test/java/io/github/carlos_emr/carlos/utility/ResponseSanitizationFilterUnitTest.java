@@ -504,8 +504,8 @@ class ResponseSanitizationFilterUnitTest {
                 + "authentication_required</ns1:faultstring></ns1:XMLFault>";
 
         @Test
-        @DisplayName("should log a sanitized 4xx web-service body at INFO, not ERROR")
-        void shouldLogAtInfo_whenSanitizing4xxOutputStreamBody() throws Exception {
+        @DisplayName("should log a sanitized 4xx web-service body at WARN, not ERROR")
+        void shouldLogAtWarn_whenSanitizing4xxOutputStreamBody() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/ws/services/oauth/info");
             MockHttpServletResponse response = new MockHttpServletResponse();
             FilterChain chain = (req, res) -> {
@@ -521,7 +521,7 @@ class ResponseSanitizationFilterUnitTest {
                 assertThat(response.getContentAsString()).doesNotContain("OAuth1Exception");
                 assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
                 assertThat(capture.events()).anySatisfy(event -> {
-                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getMessage().getFormattedMessage())
                             .contains("Sanitizing output-stream error response body")
                             .contains("status=401");
@@ -530,8 +530,8 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should log a sanitized 4xx writer body at INFO, not ERROR")
-        void shouldLogAtInfo_whenSanitizing4xxWriterBody() throws Exception {
+        @DisplayName("should log a sanitized 4xx writer body at WARN, not ERROR")
+        void shouldLogAtWarn_whenSanitizing4xxWriterBody() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page");
             MockHttpServletResponse response = new MockHttpServletResponse();
             FilterChain chain = (req, res) -> {
@@ -547,7 +547,7 @@ class ResponseSanitizationFilterUnitTest {
                 assertThat(response.getStatus()).isEqualTo(400);
                 assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
                 assertThat(capture.events()).anySatisfy(event -> {
-                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getMessage().getFormattedMessage()).contains("Sanitizing error response body");
                 });
             }
@@ -576,10 +576,37 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should log an abort before commit at WARN and rethrow it without a sanitized page")
+        void shouldLogAtWarnAndRethrow_whenClientAbortsBeforeCommit() throws Exception {
+            // e.g. a slow upload body timing out: Tomcat reports the read failure as a ClientAbortException.
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/upload");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            org.apache.catalina.connector.ClientAbortException abort =
+                    new org.apache.catalina.connector.ClientAbortException("read timed out");
+            FilterChain chain = (req, res) -> {
+                throw abort;
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                        () -> filter.doFilter(request, response, chain));
+
+                assertThat(thrown).isSameAs(abort);
+                assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+                assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+                assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
+                        .singleElement()
+                        .satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                                .contains("before the response was committed"));
+            }
+        }
+
+        @Test
         @DisplayName("should log a client abort once at DEBUG and rethrow it without a sanitized page")
         void shouldLogAtDebugAndRethrow_whenClientAborts() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/js/app.js");
             MockHttpServletResponse response = new MockHttpServletResponse();
+            response.setCommitted(true);
             org.apache.catalina.connector.ClientAbortException abort =
                     new org.apache.catalina.connector.ClientAbortException("Broken pipe");
             FilterChain chain = (req, res) -> {

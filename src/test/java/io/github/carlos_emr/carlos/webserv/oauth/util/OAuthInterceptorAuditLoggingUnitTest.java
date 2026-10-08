@@ -297,4 +297,30 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
         logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(limit + 2));
         assertThat(captor.getValue().getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
     }
+
+    @Test
+    @DisplayName("always audits a refusal after the signature is verified, whatever the budget")
+    void shouldAuditEverySignedRefusal_beyondFailureBudget() {
+        // #4429 review: an anonymous flood must not be able to hide a validly signed token being refused.
+        stubOAuthParameters(CONSUMER_KEY, ACCESS_TOKEN);
+        when(oauthDataProvider.getClient(CONSUMER_KEY))
+                .thenReturn(new Client(CONSUMER_KEY, "secret", "test-app", "http://localhost"));
+        when(verifier.verifySignature(eq(request), any(AppOAuth1Config.class))).thenReturn(ACCESS_TOKEN);
+        ServiceAccessToken sat = new ServiceAccessToken();
+        sat.setProviderNo(PROVIDER_NO);
+        when(oauthDataProvider.findUnexpiredAccessToken(ACCESS_TOKEN)).thenReturn(sat);
+        when(providerDao.getProvider(PROVIDER_NO)).thenReturn(null);  // unknown_provider, after the signature
+        int calls = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT + 5;
+
+        for (int i = 0; i < calls; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(calls));
+        assertThat(captor.getAllValues()).allSatisfy(row -> {
+            assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+            assertThat(row.getContent()).isEqualTo(CONSUMER_KEY);
+        });
+    }
 }

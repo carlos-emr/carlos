@@ -114,4 +114,36 @@ class OAuthInterceptorFailureAuditBudgetUnitTest {
         now.addAndGet(-1_000L);
         assertThat(budget.admit("198.51.100.1")).isEqualTo(Decision.AUDIT);
     }
+
+    @Test
+    @DisplayName("should hand out exactly one suppression notice per window under concurrency")
+    void shouldIssueOneNotice_whenAdmittedConcurrently() throws Exception {
+        int threads = 8;
+        int perThread = 50;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<List<Decision>>> futures = new ArrayList<>();
+        try {
+            for (int t = 0; t < threads; t++) {
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    List<Decision> mine = new ArrayList<>();
+                    for (int i = 0; i < perThread; i++) {
+                        mine.add(budget.admit("198.51.100.9"));
+                    }
+                    return mine;
+                }));
+            }
+            start.countDown();
+            List<Decision> all = new ArrayList<>();
+            for (java.util.concurrent.Future<List<Decision>> f : futures) {
+                all.addAll(f.get());
+            }
+
+            assertThat(all).filteredOn(d -> d == Decision.AUDIT).hasSize(FailureAuditBudget.PER_ADDRESS_LIMIT);
+            assertThat(all).filteredOn(d -> d == Decision.SUPPRESS_ADDRESS_FROM_NOW).hasSize(1);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
 }

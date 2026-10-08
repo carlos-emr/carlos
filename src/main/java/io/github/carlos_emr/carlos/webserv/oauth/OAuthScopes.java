@@ -216,10 +216,19 @@ public final class OAuthScopes {
      * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
      */
     public static String requiredScope(String httpMethod, String servicePath) {
-        List<String> segments = serviceSegments(servicePath);
-        if (segments.isEmpty()) {
-            return NO_SCOPE_REQUIRED;
+        List<String> original = serviceSegments(servicePath);
+        if (original == null) {
+            return NO_SCOPE_REQUIRED;  // not a /services path at all
         }
+        if (original.isEmpty()) {
+            return UNMAPPED_ENDPOINT;  // /services itself (e.g. ?_wadl): no root, no scope decision
+        }
+        // The segments CXF routes on (extension mapping removed) decide the domain. Read-vs-write must
+        // hold for BOTH forms: CXF strips the suffix only in cases this resolver cannot fully see (a
+        // matrix parameter, which getPathInfo() has already removed, stops CXF's strip), so a POST counts
+        // as a read only when the path is a read operation whether or not the suffix was stripped.
+        List<String> segments = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
         String root = segments.get(0);
         if (SCOPE_EXEMPT_ROOTS.contains(root)) {
             return NO_SCOPE_REQUIRED;
@@ -229,7 +238,8 @@ public final class OAuthScopes {
             return UNMAPPED_ENDPOINT;
         }
         boolean read = isSafeMethod(httpMethod)
-            || (isPostMethod(httpMethod) && isNonSafeRead(root, segments));
+            || (isPostMethod(httpMethod) && isNonSafeRead(root, segments)
+                && isNonSafeRead(unstripped.get(0), unstripped));
         return domain + "." + (read ? READ : WRITE);
     }
 
@@ -334,9 +344,9 @@ public final class OAuthScopes {
     }
 
     /**
-     * The non-empty path segments after the {@code /services/} marker, lower-cased (the first is the domain
-     * root, the rest identify the operation); empty if the path has no {@code /services/} segment or nothing
-     * usable follows it.
+     * The non-empty path segments after the {@code /services} prefix, in their original case (the first is
+     * the domain root, the rest identify the operation): {@code null} if the path is not under
+     * {@code /services}, empty if nothing follows it.
      *
      * <p>The caller passes the request's <em>servlet path info</em>
      * ({@link jakarta.servlet.http.HttpServletRequest#getPathInfo()}), which the servlet container has already
@@ -353,22 +363,29 @@ public final class OAuthScopes {
      */
     private static List<String> serviceSegments(String servicePath) {
         if (servicePath == null) {
-            return List.of();
+            return null;
         }
-        String marker = "/services/";
+        String marker = "/services";
         int idx = servicePath.indexOf(marker);
-        if (idx < 0) {
-            return List.of();
+        int end = idx + marker.length();
+        if (idx < 0 || (end < servicePath.length() && servicePath.charAt(end) != '/')) {
+            return null;
         }
-        String rest = servicePath.substring(idx + marker.length());
         List<String> segments = new ArrayList<>();
-        for (String seg : rest.split("/")) {
+        for (String seg : servicePath.substring(end).split("/")) {
             if (!seg.isEmpty()) {
-                segments.add(asciiLowerCase(seg));
+                segments.add(seg);
             }
         }
-        stripExtensionMapping(segments);
         return segments;
+    }
+
+    private static List<String> lowerCase(List<String> segments) {
+        List<String> lowered = new ArrayList<>(segments.size());
+        for (String seg : segments) {
+            lowered.add(asciiLowerCase(seg));
+        }
+        return lowered;
     }
 
     /**
@@ -376,21 +393,24 @@ public final class OAuthScopes {
      * applicationContextREST.xml. CXF's {@code RequestPreprocessor} removes a trailing {@code .json} or
      * {@code .xml} from the path before routing, so {@code /services/tickler.json} reaches the
      * {@code /tickler} resource. {@code getPathInfo()} still carries the suffix, and without this the root
-     * would read as {@code tickler.json}, a root in neither map (#4419). Only the last segment is affected,
-     * as in CXF; a segment that is nothing but the suffix is left alone.
+     * would read as {@code tickler.json}, a root in neither map (#4419). As in CXF, only the end of the path
+     * is affected and the match is case-sensitive ({@code .JSON} is not stripped, and CXF does not route it
+     * either); a segment that is nothing but the suffix is left alone.
+     *
+     * @param segments the original-case segments after {@code /services}
+     * @return a new list with the extension removed from the last segment, if it carried one
      */
-    private static void stripExtensionMapping(List<String> segments) {
-        if (segments.isEmpty()) {
-            return;
-        }
-        int last = segments.size() - 1;
-        String seg = segments.get(last);
+    private static List<String> stripExtensionMapping(List<String> segments) {
+        List<String> stripped = new ArrayList<>(segments);
+        int last = stripped.size() - 1;
+        String seg = stripped.get(last);
         for (String suffix : EXTENSION_MAPPING_SUFFIXES) {
             if (seg.length() > suffix.length() && seg.endsWith(suffix)) {
-                segments.set(last, seg.substring(0, seg.length() - suffix.length()));
-                return;
+                stripped.set(last, seg.substring(0, seg.length() - suffix.length()));
+                break;
             }
         }
+        return stripped;
     }
 
     private static String normalize(String scope) {

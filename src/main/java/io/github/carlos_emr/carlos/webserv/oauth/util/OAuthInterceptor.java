@@ -142,13 +142,16 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // cannot be authenticated, so it fails closed the same way.
         if (req == null || !OAuthRequestParser.isOAuth1Request(req)) {
             String remoteAddr = (req != null) ? req.getRemoteAddr() : null;
-            auditAuthFailure(remoteAddr, null);
+            auditAuthFailure(remoteAddr, null, false);
             throw toFault(new OAuth1Exception(401, "authentication_required"));
         }
 
         // Hoisted so the audit on both success and the auth-failure paths can record them.
         String ip = req.getRemoteAddr();
         String consumerKey = null;
+        // Set once the request is proven to come from a registered client holding the access token's
+        // secret. Refusals after that point (unknown_provider, insufficient_scope) are never budgeted.
+        boolean signed = false;
 
         try {
             // 2) Pull oauth params
@@ -185,6 +188,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             if (!token.equals(tokenFromSig)) {
                 throw new OAuth1Exception(401, "invalid_signature");
             }
+            signed = true;
 
             // 5) Resolve provider AND scopes from a single access-token load (the token's provider and its
             //    granted scopes both come off the same ServiceAccessToken, so we avoid a second lookup that
@@ -214,12 +218,12 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         } catch (OAuth1Exception e) {
             // Explicit auth outcome (e.g. 400 missing param, 401 invalid consumer/token):
             // carries its own intended status code. Record the rejection in the audit trail.
-            auditAuthFailure(ip, consumerKey);
+            auditAuthFailure(ip, consumerKey, signed);
             throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
             // These are client-side authentication failures -> 401.
-            auditAuthFailure(ip, consumerKey);
+            auditAuthFailure(ip, consumerKey, false);
             throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
             // Anything else is an unexpected server-side failure (e.g. a data-access error),
@@ -260,12 +264,17 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_FAILURE entry. No providerNo
      * is recorded because the request never resolved to an authenticated provider.
      */
-    private void auditAuthFailure(String ip, String consumerKey) {
+    private void auditAuthFailure(String ip, String consumerKey, boolean signed) {
         // #4429: an anonymous client can call /ws/services as fast as it likes, and each rejection used
         // to be one synchronous log-table insert. The budget bounds the rows; when it closes for an
         // address (or for everyone), one OAUTH_LOGIN_FAILURES_SUPPRESSED row says so, so the audit trail
-        // still shows the flood without recording each request of it.
-        FailureAuditBudget.Decision decision = failureAuditBudget.admit(ip);
+        // still shows the flood without recording each request of it. Only unauthenticated refusals are
+        // budgeted: a correctly signed call refused for its scope or provider comes from a registered
+        // client holding a live token, and must always reach the audit trail. Otherwise an anonymous
+        // flood could use up the budget and hide a compromised token probing beyond its grant.
+        FailureAuditBudget.Decision decision = signed
+                ? FailureAuditBudget.Decision.AUDIT
+                : failureAuditBudget.admit(ip);
         if (decision == FailureAuditBudget.Decision.SUPPRESS) {
             return;
         }
@@ -408,13 +417,39 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         if (raw == null || raw.isBlank()) {
             return Collections.emptyList();
         }
+        // Before #4419's decoding fix, /initiate stored a multi-scope request still percent-encoded
+        // ("demographic.read%20provider.read" as ONE scope). Decode here too so those tokens keep the
+        // grants their provider approved. Safe: the result is still matched exactly against the vocabulary.
+        raw = percentDecode(raw);
         List<String> scopes = new ArrayList<>();
-        for (String scope : raw.split(" ")) {
+        for (String scope : raw.trim().split("\\s+")) {
             if (!scope.isEmpty()) {
                 scopes.add(scope);
             }
         }
         return scopes;
+    }
+
+    /** RFC 3986 percent-decoding of ASCII escapes; anything malformed is kept as-is. */
+    private static String percentDecode(String s) {
+        if (s.indexOf('%') < 0) {
+            return s;
+        }
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '%' && i + 2 < s.length()) {
+                int hi = Character.digit(s.charAt(i + 1), 16);
+                int lo = Character.digit(s.charAt(i + 2), 16);
+                if (hi >= 0 && lo >= 0) {
+                    out.append((char) ((hi << 4) + lo));
+                    i += 2;
+                    continue;
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 
     /**
