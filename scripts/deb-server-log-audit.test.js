@@ -151,8 +151,8 @@ test('should match every shipped baseline entry against a signature a packaged i
     const regex = new RegExp(entry.split('\t')[0]);
     assert.ok(signatures.some((signature) => regex.test(signature)), `baseline entry matches no recorded signature: ${entry.split('\t')[0]}`);
   }
-  // Still unexplained on that run: defects nobody has recorded or verified yet.
-  // The baseline must not grow to swallow them (report, don't encode).
+  // Still unexplained on that run, recorded or not (the flowsheet one is finding
+  // 176): the baseline must not grow to swallow them (report, don't encode).
   for (const open of [
     'ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException',
     'ERROR oscarMeasurements.HealthTrackerPage_jspf (HealthTrackerPage_jspf.java:652) @MeasurementFlowSheet.getMessages :: java.lang.IllegalStateException',
