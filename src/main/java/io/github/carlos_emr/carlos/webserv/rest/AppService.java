@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.List;
 
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -39,13 +40,26 @@ import jakarta.ws.rs.core.MediaType;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.AppManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppDefinitionTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 
+/**
+ * REST access to the clinic's registered third-party app definitions.
+ *
+ * <p><b>Authorization (#2798).</b> Authentication alone does not admit a caller: listing app
+ * definitions requires {@code _appDefinition} read, the same security object
+ * {@code AppManager.getAppDefinition} enforces for reading a single definition. Denied callers get
+ * HTTP 403 before the app registry is queried.</p>
+ */
 @Path("/app")
 @Consumes(MediaType.APPLICATION_JSON)
 public class AppService extends AbstractServiceImpl {
+
+    /** Security object guarding the app-definition registry, shared with {@code AppManager}. */
+    static final String SECURITY_OBJECT = "_appDefinition";
+
     protected Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -55,11 +69,21 @@ public class AppService extends AbstractServiceImpl {
     private SecurityInfoManager securityInfoManager;
 
 
+    /**
+     * Lists every registered app definition, flagged with whether the caller has authenticated to it.
+     *
+     * @return the app definitions visible to an authorized caller
+     * @throws ForbiddenException if the caller lacks {@code _appDefinition} read
+     */
     @GET
     @Path("/getApps/")
     @Produces("application/json")
     public List<AppDefinitionTo1> getApps() {
-        return appManager.getAppDefinitions(getLoggedInInfo());
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
+            throw new ForbiddenException("missing required sec object (" + SECURITY_OBJECT + ")");
+        }
+        return appManager.getAppDefinitions(loggedInInfo);
     }
 
 }
