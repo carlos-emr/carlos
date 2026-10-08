@@ -67,9 +67,11 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.sax.SAXSource;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.core.io.ClassPathResource;
 
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
 
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
@@ -83,6 +85,45 @@ public class HRMReportParser {
     private static final Set<String> HRM_SCHEMA_IMPORTS = Set.of("ontariomd_hrm_dt.xsd");
 
     private HRMReportParser() {
+    }
+
+    /**
+     * What this class's log lines name a report by: the first 12 hex digits of the SHA-256 of its
+     * stored file location ({@code HRMDocument.reportFile}), so the log carries no path. To find the
+     * report behind a reference:
+     * {@code SELECT id, reportFile FROM HRMDocument WHERE LEFT(SHA2(reportFile, 256), 12) = '<hex>'},
+     * or for a known path {@code printf '%s' "$path" | sha256sum | cut -c1-12}.
+     */
+    static String logReference(String reportFileLocation) {
+        return reportFileLocation == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(reportFileLocation).substring(0, 12);
+    }
+
+    /**
+     * A failed parse in one line: the exception types down the cause chain and, for an XML error,
+     * its line and column. Never an exception message: a missing file's message is its path, and a
+     * schema error repeats the report's text. The full trace (types and code locations only) is at debug.
+     */
+    private static String failureSummary(Throwable failure) {
+        StringBuilder summary = new StringBuilder();
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 4; depth++, current = current.getCause()) {
+            if (depth > 0) {
+                summary.append(" <- ");
+            }
+            summary.append(current.getClass().getSimpleName());
+            if (current instanceof SAXParseException parseError) {
+                summary.append(" at line ").append(parseError.getLineNumber())
+                        .append(", column ").append(parseError.getColumnNumber());
+            }
+        }
+        return summary.toString();
+    }
+
+    private static void logParseFailure(String what, String hrmReportFileLocation, Throwable failure) {
+        logger.error("HRM report {} {} ({})", logReference(hrmReportFileLocation), what, failureSummary(failure));
+        if (logger.isDebugEnabled()) {
+            logger.debug("HRM report {} failure trace:{}", logReference(hrmReportFileLocation), LogSafe.exceptionTrace(failure));
+        }
     }
 
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, Integer hrmDocumentId) {
@@ -130,8 +171,10 @@ public class HRMReportParser {
 
     /**
      * The parse behind {@link #parseReport(LoggedInInfo, String, List)} and
-     * {@link #isReportReadable(Integer)}; {@code quiet} skips every log line, so the availability
-     * check writes no location or parser detail.
+     * {@link #isReportReadable(Integer)}; {@code quiet} skips every log line in this method, so the
+     * availability check writes no location or parser detail. When not quiet, a report is named by
+     * {@link #logReference(String)} and a failure by {@link #failureSummary(Throwable)}, so the log
+     * stays short and carries neither the location nor the parser's messages.
      */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
     // FindSecBugs XXE_SCHEMA_FACTORY: XmlUtils.createSecureSchemaFactory enables secure processing and blanks ACCESS_EXTERNAL_DTD and ACCESS_EXTERNAL_SCHEMA (the exclusion in spotbugs-exclude.xml names parseReport, where this code used to be)
@@ -140,7 +183,7 @@ public class HRMReportParser {
         OmdCds root = null;
 
         if (!quiet) {
-            logger.info("Parsing the Report in the location:" + hrmReportFileLocation);
+            logger.info("Parsing HRM report {}", logReference(hrmReportFileLocation));
         }
 
         String fileData = null;
@@ -169,8 +212,7 @@ public class HRMReportParser {
                 }
 
                 if (!tmpXMLholder.exists() && !quiet) {
-                    logger.warn("unable to find the HRM report. checked "
-                        + hrmReportFileLocation + ", and in the document_dir");
+                    logger.warn("HRM report {} not found, as stored or under DOCUMENT_DIR", logReference(hrmReportFileLocation));
                 }
 
                 // read file into UTF-8 String using NIO
@@ -208,25 +250,22 @@ public class HRMReportParser {
                 tmpXMLholder = null;
             } catch (FileNotFoundException e) {
                 if (!quiet) {
-                    logger.error("File Not Found " + e);
+                    logParseFailure("could not be opened", hrmReportFileLocation, e);
                 }
                 if (errors != null) errors.add(e);
             } catch (SAXException | ParserConfigurationException e) {
                 if (!quiet) {
-                    logger.error("SAX ERROR PARSING XML " + e);
+                    logParseFailure("failed XML parsing or schema validation", hrmReportFileLocation, e);
                 }
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {
                 if (!quiet) {
-                    String msg = (e.getLinkedException() != null)
-                        ? e.getLinkedException().getMessage()
-                        : e.getMessage();
-                    logger.error("HRM JAXB parse error: " + msg, e);
+                    logParseFailure("could not be unmarshalled", hrmReportFileLocation, e);
                 }
                 if (errors != null) errors.add(e);
             } catch (IOException e) {
                 if (!quiet) {
-                    logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                    logParseFailure("or its schema could not be read", hrmReportFileLocation, e);
                 }
                 if (errors != null) errors.add(e);
             } catch (SecurityException e) {
@@ -235,7 +274,7 @@ public class HRMReportParser {
                 // of letting the throw abort the whole HRM list render / batch import; list-render callers
                 // skip null reports, and the throw no longer aborts the batch loop.
                 if (!quiet) {
-                    logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
+                    logger.error("Rejected HRM report path; skipping document {}", logReference(hrmReportFileLocation));
                 }
                 if (errors != null) errors.add(e);
             }
@@ -258,7 +297,7 @@ public class HRMReportParser {
         }
 
 
-        logger.info("Routing Report To Demographic, for file:" + report.getFileLocation());
+        logger.info("Routing HRM report {} to a demographic", logReference(report.getFileLocation()));
 
         // Search the demographics on the system for a likely match and route it to them automatically
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
@@ -312,7 +351,7 @@ public class HRMReportParser {
             logger.info("doSimilarReportCheck cannot continue, report parameter is null");
             return;
         }
-        logger.info("Identifying if this is a report that we received before, but was sent to the wrong demographic, for file:" + report.getFileLocation());
+        logger.info("Checking whether HRM report {} was received before for another demographic", logReference(report.getFileLocation()));
 
         HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
 
@@ -414,7 +453,7 @@ public class HRMReportParser {
             return;
         }
 
-        logger.info("Routing Report To SubClass, for file:" + report.getFileLocation());
+        logger.info("Routing HRM report {} to its subclass", logReference(report.getFileLocation()));
 
         HRMDocumentSubClassDao hrmDocumentSubClassDao = (HRMDocumentSubClassDao) SpringUtils.getBean(HRMDocumentSubClassDao.class);
 
@@ -503,7 +542,7 @@ public class HRMReportParser {
             return false;
         }
 
-        logger.info("Routing Report to Provider, for file:" + report.getFileLocation());
+        logger.info("Routing HRM report {} to providers", logReference(report.getFileLocation()));
 
         HRMDocumentToProviderDao hrmDocumentToProviderDao = SpringUtils.getBean(HRMDocumentToProviderDao.class);
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
