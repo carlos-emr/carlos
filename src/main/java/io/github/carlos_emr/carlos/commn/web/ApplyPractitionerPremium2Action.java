@@ -61,6 +61,11 @@ public class ApplyPractitionerPremium2Action extends ActionSupport {
     }
 
     public String applyPremium() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String raHeaderNoStr = request.getParameter("rano");
         Integer raHeaderNo = Integer.parseInt(raHeaderNoStr);
 

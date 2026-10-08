@@ -17,6 +17,7 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createUnbookedThrowaway, registerAppointmentCleanup } = require('./lib/gap-provider-fixture');
 
@@ -66,6 +67,18 @@ async function workflow(s) {
     const slots = schedule.locator(`a.adhour[onclick*="provider_no=${fixture.providerNo}&"]`);
     const popup = await ui.clickOpensPopup(schedule, slots.nth(slotIndex), { context, recorder, label: 'add-appointment', timeout: 20000 });
     slotIndex += 6;
+    h.assert(await field(popup, 'resources').evaluate(element => element.labels.length > 0 && element.tabIndex === 0),
+      'Resources must have an associated label and natural keyboard order');
+    for (const name of ['reason', 'reasonCode', 'location', 'user_id', 'notes', 'status']) {
+      h.assert(await field(popup, name).evaluate(element => element.labels.length > 0),
+        `The booking ${name} field has no associated label`);
+    }
+    if (await field(popup, 'appt_mc_number').count()) {
+      h.assert(await field(popup, 'appt_mc_number').evaluate(element => element.labels.length > 0),
+        'The booking MC number has no associated label');
+    }
+    h.assert(await popup.locator('[tabindex]').evaluateAll(elements => elements.every(element => element.tabIndex <= 0)),
+      'Positive tabindex bypasses the booking form document order');
     await popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
     return popup;
   }
@@ -84,6 +97,14 @@ async function workflow(s) {
     await link.waitFor({ state: 'attached', timeout: 20000 });
     const edit = await ui.clickOpensPopup(schedule, link, { context, recorder, label: 'edit-appointment', timeout: 20000 });
     await edit.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    for (const name of ['keyword', 'resources', 'reason', 'reasonCode', 'location', 'user_id', 'notes']) {
+      h.assert(await edit.locator(`form [name="${name}"]`).evaluate(element => element.labels.length > 0),
+        `The edit ${name} field has no associated label`);
+    }
+    h.assert(await edit.locator('input[name="resources"]').evaluate(element => element.tabIndex === 0),
+      'Edited resources must follow natural keyboard order');
+    h.assert(await edit.locator('[tabindex]').evaluateAll(elements => elements.every(element => element.tabIndex <= 0)),
+      'Positive tabindex bypasses the edit form document order');
     return edit;
   }
   async function reloadDaySheet() {
@@ -97,6 +118,15 @@ async function workflow(s) {
   await s.step('booking with a full-length reason, notes and resources of special characters stores them byte for byte', async () => {
     const popup = await openBooking();
     await pickPatient(popup);
+    await field(popup, 'resources').focus();
+    let reachedAdd = false;
+    for (let i = 0; i < 30; i++) {
+      await popup.keyboard.press('Tab');
+      if (await popup.evaluate(() => document.activeElement.id === 'addButton')) { reachedAdd = true; break; }
+      h.assert(!await field(popup, 'resources').evaluate(element => element === document.activeElement),
+        'Keyboard focus cycled back to Resources before reaching Add');
+    }
+    h.assert(reachedAdd, 'Keyboard navigation did not reach Add after Resources');
     await field(popup, 'reason').fill(reason);
     await field(popup, 'notes').fill(notes);
     await field(popup, 'resources').fill(resources);
@@ -168,9 +198,122 @@ async function workflow(s) {
         const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${second}`);
         if (stored.hex !== b.hex(typed)) problems.push(`${column}: ${b.cpLength(typed)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
       }
+    } else {
+      h.assert(b.lengthRefusal(await popup.locator('body').innerText()), 'The booking was refused without explaining its text limit');
     }
     await popup.close().catch(() => {});
     h.assert(problems.length === 0, problems.join(' || '));
+  });
+
+  await s.step('add and edit accept full code-point limits with supplementary characters', async () => {
+    await reloadDaySheet();
+    const popup = await openBooking();
+    const limits = { keyword: 50, reason: reasonColumn, notes: notesColumn, resources: 255 };
+    const addValues = {};
+    for (const [name, maximum] of Object.entries(limits)) {
+      const box = field(popup, name);
+      const value = '😀'.repeat(maximum);
+      h.assert(await box.getAttribute('data-code-point-maxlength') === String(maximum)
+        && await box.getAttribute('maxlength') === null, `The add ${name} field does not use a code-point limit`);
+      await box.fill(value + '😀');
+      h.assert(await box.inputValue() === value, `The add ${name} field truncated a valid code point or accepted excess text`);
+      addValues[name === 'keyword' ? 'name' : name] = value;
+    }
+    const beforeIds = new Set(sql.rows(`SELECT appointment_no FROM appointment WHERE provider_no=${owner}`).map(row => row[0]));
+    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
+    const unicodeId = await pollFor(sql, `SELECT MAX(appointment_no) FROM appointment WHERE provider_no=${owner}`,
+      value => /^\d+$/.test(value) && !beforeIds.has(value), 'The full code-point booking was not saved');
+    for (const [column, value] of Object.entries(addValues)) {
+      b.assertStored(sql, 'appointment', column, `${byApptNo()}${unicodeId}`, value, `Unicode booked ${column}`);
+    }
+    await popup.close().catch(() => {});
+    await reloadDaySheet();
+    const edit = await openEdit(unicodeId);
+    const editValues = {};
+    for (const [name, maximum] of Object.entries(limits)) {
+      const box = edit.locator(`form [name="${name}"]`).first();
+      h.assert(await box.inputValue() === addValues[name === 'keyword' ? 'name' : name],
+        `The edit ${name} field lost the full code-point value`);
+      h.assert(await box.getAttribute('data-code-point-maxlength') === String(maximum)
+        && await box.getAttribute('maxlength') === null, `The edit ${name} field does not use a code-point limit`);
+      const value = '🩺'.repeat(maximum);
+      await box.fill(value + '🩺');
+      h.assert(await box.inputValue() === value, `The edit ${name} field has the wrong character limit`);
+      editValues[name === 'keyword' ? 'name' : name] = value;
+    }
+    await edit.locator('#updateButton').click();
+    await edit.waitForEvent('close', { timeout: 15000 }).catch(() => {});
+    await pollFor(sql, `SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${unicodeId}`,
+      value => Number(value) >= 1, 'The Unicode edit did not save');
+    for (const [column, value] of Object.entries(editValues)) {
+      b.assertStored(sql, 'appointment', column, `${byApptNo()}${unicodeId}`, value, `Unicode edited ${column}`);
+    }
+  });
+
+  await s.step('bypassed client limits refuse booking without inserting or discarding entered text', async () => {
+    await reloadDaySheet();
+    const before = sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`);
+    const popup = await openBooking();
+    const name = 'N'.repeat(51);
+    const resources = 'R'.repeat(256);
+    await popup.locator('#keyword').evaluate(element => {
+      element.removeAttribute('maxlength'); element.removeAttribute('data-code-point-maxlength');
+    });
+    await field(popup, 'resources').evaluate(element => {
+      element.removeAttribute('maxlength'); element.removeAttribute('data-code-point-maxlength');
+    });
+    await popup.locator('#keyword').fill(name);
+    await field(popup, 'resources').fill(resources);
+    const mark = failureMark(recorder);
+    const [post] = await Promise.all([
+      popup.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/appointment/AddRecord')),
+      popup.locator('#addButton').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong booking answered HTTP ${post.status()} instead of 400`);
+    await popup.waitForLoadState('load');
+    consumeExpectedFailure(recorder, mark, { status: 400, path: /\/appointment\/AddRecord$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`) === before,
+      'The refused booking inserted an appointment');
+    h.assert(b.lengthRefusal(await popup.locator('body').innerText()), 'The booking refusal did not explain its text limit');
+    h.assert(await popup.locator('#keyword').inputValue() === name
+      && await field(popup, 'resources').inputValue() === resources, 'The refused booking discarded entered text');
+    await popup.close();
+  });
+
+  await s.step('bypassed edit limits refuse all changes before archiving and preserve the draft', async () => {
+    const snapshot = () => JSON.stringify(sql.rows(`SELECT * FROM appointment WHERE ${byApptNo()}${apptNo}`));
+    const archives = () => sql.value(`SELECT COUNT(*) FROM appointmentArchive WHERE appointment_no=${apptNo}`);
+    const before = snapshot();
+    const beforeArchives = archives();
+    const edit = await openEdit(apptNo);
+    const providerLabel = await edit.locator('#mrp').inputValue();
+    h.assert(providerLabel.trim().length > 0, 'The fixture has no provider label to preserve');
+    const values = { reason: 'R'.repeat(81), notes: 'N'.repeat(256), resources: 'S'.repeat(256) };
+    for (const [name, value] of Object.entries(values)) {
+      const box = edit.locator(`form [name="${name}"]`).first();
+      await box.evaluate(element => {
+        element.removeAttribute('maxlength'); element.removeAttribute('data-code-point-maxlength');
+      });
+      await box.fill(value);
+    }
+    const mark = failureMark(recorder);
+    const [post] = await Promise.all([
+      edit.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/appointment/UpdateRecord')),
+      edit.locator('#updateButton').click(),
+    ]);
+    h.assert(post.status() === 400, `Overlong edit answered HTTP ${post.status()} instead of 400`);
+    await edit.waitForLoadState('load');
+    consumeExpectedFailure(recorder, mark, { status: 400, path: /\/appointment\/UpdateRecord$/ });
+    h.assert(snapshot() === before && archives() === beforeArchives, 'The refused edit changed or archived the appointment');
+    h.assert(b.lengthRefusal(await edit.locator('body').innerText()), 'The edit refusal did not explain its text limit');
+    h.assert(await edit.locator('#mrp').inputValue() === providerLabel, 'The refused edit lost the patient provider label');
+    for (const [name, value] of Object.entries(values)) {
+      h.assert(await edit.locator(`form [name="${name}"]`).first().inputValue() === value,
+        `The refused edit discarded ${name}`);
+    }
+    await edit.close();
   });
 }
 

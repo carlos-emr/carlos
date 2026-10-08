@@ -34,6 +34,9 @@
     @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<% if (Boolean.TRUE.equals(request.getAttribute("ticklerMessageTooLong"))) { %>
+<span id="tickler-message-too-long" style="display:none;"></span>
+<% } %>
 <%
     Boolean rowsAffected = (Boolean) request.getAttribute("rowsAffected");
     Boolean ticklerLinkFailed = (Boolean) request.getAttribute("ticklerLinkFailed");

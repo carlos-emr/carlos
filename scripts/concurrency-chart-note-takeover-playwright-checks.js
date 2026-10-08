@@ -22,7 +22,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const TAKEOVER = /^You have started to edit this note in another window at [^\n]+\.\nDo you wish to continue\?$/;
@@ -81,12 +81,15 @@ async function workflow(s) {
     const editor = editorOf(aChart);
     await editor.click();
     await editor.fill(textA);
-    // Whatever the page does about it (an alert, or none) is asserted by the next step; accept it here.
+    const mark = failureMark(s.recorder);
     alerts = await h.withExpectedDialogs(aChart, async () => {
       const [response] = await Promise.all([aChart.waitForResponse(isEntry('save'), { timeout: 30000 }), aChart.locator('#saveImg').first().click()]);
-      h.assert(response.status() < 500, `The stale window's save answered HTTP ${response.status()}`);
+      h.assert(response.status() === 409, `The stale window's save answered HTTP ${response.status()}`);
       await aChart.waitForTimeout(1500); // the page applies the response (and any alert) after it arrives
     });
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
+    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && /note lock.*lost/i.test(alerts[0].text),
+      'The stale save must warn exactly once that the note lock was lost');
     h.assert(sql.value(notesWith(textA)) === '0', 'The stale window\'s text was written to the chart');
     h.assert(sql.value(notesWith(textB)) === '1', 'Session B\'s note is no longer the stored note');
   });

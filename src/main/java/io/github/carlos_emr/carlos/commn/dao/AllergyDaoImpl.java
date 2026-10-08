@@ -35,6 +35,9 @@ import io.github.carlos_emr.carlos.allergy.dto.AllergyListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 
@@ -42,6 +45,17 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
 
     public AllergyDaoImpl() {
         super(Allergy.class);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Allergy findForUpdate(Integer id) {
+        Allergy allergy = entityManager.find(Allergy.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (allergy != null) {
+            // A prior ownership read may already have cached this entity in the request's context.
+            entityManager.refresh(allergy, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return allergy;
     }
 
     @Override

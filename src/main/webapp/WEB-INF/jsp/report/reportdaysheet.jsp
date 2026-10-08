@@ -64,7 +64,13 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <%
     String curProvider_no = (String) session.getAttribute("user");
-    String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
+    String orderby = request.getParameter("orderby");
+    // Only the report's sortable columns can become SQL identifiers.
+    if (!List.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(orderby == null ? "" : orderby)) {
+        orderby = "start_time";
+    }
+    boolean nonRosteredOnly = "true".equals(request.getParameter("rosteredStatus"));
+    String rosterFilter = nonRosteredOnly ? " and (d.roster_status is null or d.roster_status <> 'RO')" : "";
 
     java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance();
 
@@ -78,10 +84,10 @@
 
     String[][] dbQueries;
     dbQueries = new String[][]{
-            {"search_daysheetall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=p.provider_no and BINARY a.status not like 'C%' order by p.last_name, p.first_name, a.appointment_date, " + orderby},
-            {"search_daysheetsingleall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p )left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=? and BINARY a.status not like 'C%' and a.provider_no=p.provider_no order by a.appointment_date," + orderby},
-            {"search_daysheetnew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=p.provider_no and a.status like binary 't' order by p.last_name, p.first_name, a.appointment_date," + orderby},
-            {"search_daysheetsinglenew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=? and a.status like binary 't' and a.provider_no=p.provider_no order by a.appointment_date," + orderby}
+            {"search_daysheetall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=p.provider_no and BINARY a.status not like 'C%'" + rosterFilter + " order by p.last_name, p.first_name, a.appointment_date, " + orderby},
+            {"search_daysheetsingleall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p )left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=? and BINARY a.status not like 'C%' and a.provider_no=p.provider_no" + rosterFilter + " order by a.appointment_date," + orderby},
+            {"search_daysheetnew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=p.provider_no and a.status like binary 't'" + rosterFilter + " order by p.last_name, p.first_name, a.appointment_date," + orderby},
+            {"search_daysheetsinglenew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=? and a.status like binary 't' and a.provider_no=p.provider_no" + rosterFilter + " order by a.appointment_date," + orderby}
     };
 
     daySheetBean.doConfigure(dbQueries);
@@ -261,6 +267,11 @@
                 String encodedEdate = SafeEncode.forUriComponent(edate);
                 String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + SafeEncode.forUriComponent(request.getParameter("dsmode")) : "";
                 String sortBaseUrl = request.getContextPath() + "/report/ViewReportdaysheet?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
+                for (String filter : List.of("sTime", "eTime", "rosteredStatus")) {
+                    if (request.getParameter(filter) != null) {
+                        sortBaseUrl += "&" + filter + "=" + SafeEncode.forUriComponent(request.getParameter(filter));
+                    }
+                }
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
         <carlos:encode value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>
@@ -268,15 +279,15 @@
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
         <tr>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
-            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
-            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgPhone"/></a></th>
-            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgGender"/></a></th>
-            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgHealthCard"/></a></th>
-            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgVersion"/></a></th>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
+            <th style="width:6%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=start_time" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=name" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:10%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=phone" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgPhone"/></a></th>
+            <th style="width:3%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=sex" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgGender"/></a></th>
+            <th style="width:9%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=hin" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgHealthCard"/></a></th>
+            <th style="width:5%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=ver" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgVersion"/></a></th>
+            <th style="width:6%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=chart_no" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
-            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%= encodedDsmode %>"><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
+            <th style="width:6%"><a href="<carlos:encode value='<%= sortBaseUrl + "&orderby=roster_status" + encodedDsmode %>' context="htmlAttribute"/>"><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
             <th style="width:10%"><fmt:message key="report.reportdaysheet.msgDob"/></th>
             <% }%>

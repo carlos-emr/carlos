@@ -6,9 +6,8 @@
  * subject + body > Send Message > the message in the inbox.
  * Asserts: a tickler text with an apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+"
  * and ";" is stored byte for byte and listed unchanged; a message subject that fills the 128-character column
- * and a body with the same characters are stored whole and shown unchanged by the message view. Last (the
- * defects): a subject past the column and a tickler text past the 65,535-byte TEXT column are refused or
- * visibly limited, never silently cut.
+ * and a body with the same characters are stored whole and shown unchanged by the message view. A subject
+ * past the column and a tickler text past the 65,535-byte TEXT column are refused with the draft intact.
  * Fixtures: the owned FAKE- patient (lib/workflow-session.js); ticklers and messages carry the run marker and
  * are deleted by cleanup, which asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 1 (tickler text, message subject/body).
@@ -17,6 +16,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow } = require('./lib/workflow-session');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 
 function fillCodePoints(length, parts, pad = 'x') {
@@ -78,8 +78,8 @@ async function workflow(s) {
     h.assert(messageIds().length === 0, 'Owned messages were not removed');
   });
 
-  // allowRefusal: a long text may be refused (the page alerts "could not be saved"); report that instead of waiting for a
-  // success marker that will never come. Returns {list, refusal} with refusal the alert text or null.
+  // allowRefusal exercises an oversized message: require a 400, a length warning, and an editable draft.
+  // Returns {list, refusal} with refusal the alert text or null for successful saves.
   async function addTickler(text, { allowRefusal = false } = {}) {
     const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
     const add = await s.popup(list, list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
@@ -92,14 +92,21 @@ async function workflow(s) {
     }, null, { timeout: 30000 });
     let refusal = null;
     if (allowRefusal) {
-      await h.withExpectedDialogs(add, async () => {
-        await add.locator('input.btn-primary[name="Button"]').first().click();
-        const outcome = await Promise.race([
-          saved().then(() => null, () => null),
-          add.waitForEvent('dialog', { timeout: 30000 }).then(dialog => dialog.message(), () => null),
+      const mark = failureMark(s.recorder);
+      const dialogs = await h.withExpectedDialogs(add, async () => {
+        const [post] = await Promise.all([
+          add.waitForResponse(response => response.request().method() === 'POST'
+            && h.pathOnly(response.url()).endsWith('/tickler/DbTicklerAdd')),
+          add.waitForEvent('dialog', { timeout: 30000 }),
+          add.locator('input.btn-primary[name="Button"]').first().click(),
         ]);
-        refusal = outcome;
+        h.assert(post.status() === 400, `Oversized tickler answered HTTP ${post.status()} instead of 400`);
       }, { accept: true });
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/tickler\/DbTicklerAdd$/ });
+      h.assert(dialogs.length === 1 && b.lengthRefusal(dialogs[0].text), 'Oversized tickler did not show one length warning');
+      refusal = dialogs[0].text;
+      h.assert(await add.locator('textarea[name="ticklerMessage"]').inputValue() === text, 'Refusing the tickler discarded its draft');
+      h.assert(await add.locator('input.btn-primary[name="Button"]').first().isEnabled(), 'Refusing the tickler left Save disabled');
     } else {
       await add.locator('input.btn-primary[name="Button"]').first().click();
       await saved();
@@ -149,7 +156,6 @@ async function workflow(s) {
     await page.waitForLoadState('domcontentloaded', { timeout: 20000 });
     return page;
   }
-  let viewBodyProblem = null;
   async function send(inbox, subjectText, bodyText) {
     await inbox.locator('#subject').fill(subjectText);
     const editor = inbox.locator('.toastui-editor-ww-container .ProseMirror').first();
@@ -160,6 +166,27 @@ async function workflow(s) {
     await inbox.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   }
 
+  await s.step('message serialization preserves entities, formatting, code and links across editor mode changes', async () => {
+    const inbox = await compose();
+    const result = await inbox.evaluate(() => {
+      const source = '<p>literal &amp;amp; &amp;copy; &amp;#169; &amp; &lt;tag&gt; 😀</p><p><strong>bold &amp;amp;</strong> <em>italic &amp;copy;</em> <a href="https://example.invalid/?a=1&amp;b=2">link &amp;amp;</a></p><p><code>code &amp;amp;</code></p><pre><code>block &amp;amp; &amp;copy;</code></pre>';
+      const shape = html => { const d = new DOMParser().parseFromString(html,'text/html'); return {text:d.body.textContent, bold:d.querySelector('strong')?.textContent, italic:d.querySelector('em')?.textContent,link:d.querySelector('a')?.getAttribute('href'),codes:[...d.querySelectorAll('code')].map(c=>c.textContent)}; };
+      editor.setHTML(source);
+      const before=editor.getHTML(), markdown=editor.getMarkdown(), repeated=editor.getMarkdown(), unchanged=editor.getHTML();
+      editor.setMarkdown(markdown);
+      const after=editor.getHTML();
+      editor.changeMode('markdown');editor.changeMode('wysiwyg');
+      const roundTrip=editor.getHTML();
+      return {before:shape(before),after:shape(after),roundTrip:shape(roundTrip),markdown,repeated,unchanged:before===unchanged};
+    });
+    h.assert(result.unchanged && result.markdown === result.repeated, 'Serialization mutated the live editor or escaped it repeatedly');
+    h.assert(JSON.stringify(result.before) === JSON.stringify(result.after)
+      && JSON.stringify(result.before) === JSON.stringify(result.roundTrip), 'Editor round trip changed literal text, formatting, code or link targets');
+    h.assert(result.markdown.includes('literal &amp;amp; &amp;copy; &amp;#169; &amp;')
+      && result.markdown.includes('`code &amp;`'), 'Normal text entities and code were not serialized separately');
+    await leave(inbox);
+  });
+
   await s.step('a message subject of exactly the column length and a body of special characters are stored and shown unchanged', async () => {
     const inbox = await compose();
     await send(inbox, subject, body);
@@ -169,8 +196,8 @@ async function workflow(s) {
     const stored = b.readStored(sql, 'messagetbl', 'themessage', `messageid=${id}`);
     const storedBody = Buffer.from(stored.hex, 'hex').toString('utf8');
     // Every token, in the order typed: a subset would let quotes, backslash, "+" or ";" be corrupted unnoticed.
-    // The body is stored as the editor's markdown, which writes one backslash as two: expect that, and nothing else, to differ.
-    const markdownParts = parts.map(part => part.replace(/\\/g, '\\\\'));
+    // Markdown escapes a literal backslash and encodes ampersands in normal text.
+    const markdownParts = parts.map(part => part.replace(/\\/g, '\\\\').replace(/&/g, '&amp;'));
     h.assert(inOrder(storedBody.split(`${marker} body`).slice(1).join(''), markdownParts), `The stored message body lost, altered or re-ordered a typed token (stored body: ${storedBody.slice(0, 200)})`);
     // The inbox row, then the message view the recipient reads.
     await leave(inbox);
@@ -180,35 +207,66 @@ async function workflow(s) {
     h.assert((await link.innerText()).replace(/\s+/g, ' ').trim() === subject, 'The inbox does not list the subject exactly as stored');
     await ui.clickAndAwaitReload(box, link, { required: false });
     const view = (await box.locator('body').innerText()).replace(/\s+/g, ' ');
-    // The subject above also carries every token, so judge the body region only. The literal entity text is judged last (the
-    // defects step): the rendered body drops it, and every other token must already be shown as typed.
+    // The subject also contains these tokens; assert the body region separately.
     const bodyAt = view.indexOf(`${marker} body`);
     const shownBody = bodyAt < 0 ? '' : view.slice(bodyAt);
-    h.assert(bodyAt >= 0 && inOrder(shownBody, parts.filter(part => part !== T.entity)), 'The message view does not show the body tokens as typed');
-    if (!shownBody.includes(body.replace(/\s+/g, ' '))) {
-      viewBodyProblem = `body: the message view shows the typed text "${T.entity}" differently (typed: ${body}; shown: ${shownBody.slice(0, body.length + 20)}); the stored markdown body is rendered, so a literal entity is decoded`;
-    }
+    h.assert(bodyAt >= 0 && shownBody.includes(body.replace(/\s+/g, ' ')),
+      'The recipient view altered the typed message body, including literal entity text');
     await leave(box);
   });
 
-  await s.step('a subject past the column and a tickler text past the TEXT column are refused or stored whole', async () => {
-    const problems = viewBodyProblem ? [viewBodyProblem] : [];
+  await s.step('an oversized subject preserves the draft and recipients, and a corrected retry sends once', async () => {
     const column = b.columnLength(sql, 'messagetbl', 'thesubject');
     const longSubject = `${marker} ${b.exactly(column + 1 - b.cpLength(marker) - 1, 'S')}`;
     const inbox = await compose();
-    const seen = await h.withExpectedDialogs(inbox, () => send(inbox, longSubject, 'long subject body'), { accept: true });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const rows = sql.rows(`SELECT HEX(thesubject), CHAR_LENGTH(thesubject) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)} AND CHAR_LENGTH(thesubject) < ${column + 1} AND thesubject LIKE ${h.sqlString(`${marker} S%`)}`);
-    if (rows.length && rows[0][0] !== b.hex(longSubject)) {
-      problems.push(`subject: ${b.cpLength(longSubject)} characters were typed into a Subject box with no maxlength and the message was sent, but ${rows[0][1]} were stored (messagetbl.thesubject is ${column}); silent truncation`);
-    } else if (!rows.length) {
-      // Not stored is only acceptable when the user is told: an alert, or a refusal on the page.
-      const pageText = (await inbox.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
-      // An alert must name the length too, and an error page is a crash, not a refusal.
-      const told = seen.some(dialog => b.lengthRefusal(dialog.text)) || b.lengthRefusal(pageText);
-      if (!told) problems.push('subject: a subject past the column was not sent and the user was not told its length was the problem');
+    const before = sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`);
+    const mark = failureMark(s.recorder);
+    const [post] = await Promise.all([
+      inbox.waitForResponse(response => response.request().method() === 'POST'
+        && h.pathOnly(response.url()).endsWith('/messenger/CreateMessage')),
+      send(inbox, longSubject, 'long subject body &amp; 😀'),
+    ]);
+    h.assert(post.status() === 400, `Oversized subject answered HTTP ${post.status()} instead of 400`);
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/messenger\/CreateMessage$/ });
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === before,
+      'An oversized subject still sent a message');
+    h.assert(b.lengthRefusal(await inbox.locator('body').innerText()), 'The refusal did not explain the subject length');
+    h.assert(await inbox.locator('#subject').inputValue() === longSubject, 'The refusal discarded the subject draft');
+    h.assert((await inbox.locator('.toastui-editor-ww-container .ProseMirror').first().innerText()).trim() === 'long subject body &amp; 😀',
+      'The refusal discarded or changed the message draft');
+    h.assert(await inbox.locator(`input[name="provider"][id^="0-"][value^="${provider}-"]`).first().isChecked(),
+      'The refusal discarded the selected recipient');
+    for (const method of ['GET', 'HEAD']) {
+      const refused = await inbox.context().request.fetch(h.appUrl(s.config.baseUrl, '/messenger/CreateMessage'), {
+        method, params: { subject: `${marker} GET must not send`, message: 'must not send', provider: `${provider}-0` },
+      });
+      h.assert(refused.status() === 405 && refused.headers().allow === 'POST', `${method} did not refuse message creation`);
     }
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === before,
+      'A read-method replay sent a message');
+    const corrected = `${marker} corrected subject`;
+    await inbox.locator('#subject').fill(corrected);
+    await inbox.locator('button[type="submit"]', { hasText: /Send Message/i }).click();
+    await pollFor(sql, `SELECT COUNT(*) FROM messagetbl WHERE thesubject=${h.sqlString(corrected)}`, value => value === '1',
+      'The corrected draft was not sent exactly once');
+    h.assert(sql.value(`SELECT COUNT(*) FROM messagetbl WHERE thesubject LIKE ${h.sqlString(`${marker}%`)}`) === String(Number(before) + 1),
+      'Correcting the draft created extra messages');
     await leave(inbox);
+  });
+
+  await s.step('a tickler exactly filling the UTF-8 TEXT column is stored without losing supplementary characters', async () => {
+    const prefix = `${marker} capacity `;
+    const remaining = 65535 - Buffer.byteLength(prefix);
+    const message = prefix + '😀'.repeat(Math.floor(remaining / 4)) + 'x'.repeat(remaining % 4);
+    h.assert(Buffer.byteLength(message) === 65535, 'Test bug: wrong UTF-8 capacity fixture');
+    const { list } = await addTickler(message);
+    b.assertStored(sql, 'tickler', 'message', `${ownedTicklers} AND message LIKE ${h.sqlString(prefix + '%')}`,
+      message, 'Tickler at UTF-8 byte capacity');
+    await list.close();
+  });
+
+  await s.step('oversized tickler text is refused without truncation or losing the draft', async () => {
+    const problems = [];
     const textBytes = 65535;
     const longTickler = `${marker} ${'long tickler text '.repeat(Math.ceil(textBytes / 18) + 40)}`;
     h.assert(Buffer.byteLength(longTickler) > textBytes, 'Test bug: the long tickler text is not past the column');

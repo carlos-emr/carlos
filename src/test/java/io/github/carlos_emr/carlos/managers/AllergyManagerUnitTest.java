@@ -89,8 +89,7 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
      * Initializes the test environment before each test method.
      *
      * <p>Registers mock DAOs with SpringUtils, creates a fresh {@link AllergyManagerImpl}
-     * instance, and injects mock dependencies (AllergyDao, PatientConsentManager) via
-     * reflection to isolate the manager from Spring context.</p>
+     * instance, and supplies mock dependencies through the constructor to isolate the manager from Spring context.</p>
      */
     @BeforeEach
     void setUp() {
@@ -98,11 +97,8 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         registerMock(AllergyDao.class, mockAllergyDao);
         registerMock(PatientConsentManager.class, mockPatientConsentManager);
 
-        // Create manager instance and inject dependencies via reflection
-        allergyManager = new AllergyManagerImpl();
-        injectDependency(allergyManager, "allergyDao", mockAllergyDao);
-        injectDependency(allergyManager, "patientConsentManager", mockPatientConsentManager);
-        injectDependency(allergyManager, "securityInfoManager", mockSecurityInfoManager);
+        allergyManager = new AllergyManagerImpl(mockAllergyDao, mockPatientConsentManager,
+                mockSecurityInfoManager, mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class));
 
         // Default: caller is authorized for _allergy read on the requested demographic. Denial is
         // exercised explicitly in the authorization test below.

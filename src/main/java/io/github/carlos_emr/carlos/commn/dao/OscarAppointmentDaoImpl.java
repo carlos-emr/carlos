@@ -96,7 +96,12 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 Appointment.class);
         query.setParameter(1, appointmentNo);
         List<Appointment> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) return null;
+        Appointment appointment = rows.get(0);
+        // A native result can reuse an already-managed instance. Compare against the locked
+        // database state even if this persistence context loaded the appointment earlier.
+        entityManager.refresh(appointment, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return appointment;
     }
 
     @Override

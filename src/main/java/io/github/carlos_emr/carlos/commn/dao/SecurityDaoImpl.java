@@ -45,6 +45,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Security findForUpdate(Integer id) {
+        Security security = entityManager.find(Security.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (security != null) {
+            entityManager.refresh(security, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return security;
+    }
+
+    @Override
     public List<Security> findAllOrderBy(String propertyName) {
         String hql;
         if ("userName".equals(propertyName)) {

@@ -237,6 +237,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2Action",
                     "_con", "w"),
             // --- messenger ---
+            Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action",
+                    "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgTransferPostItems2Action",
                     "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachPDF2Action",
@@ -352,6 +354,15 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        // Inbox views remain readable; adding a queue requires an administrative POST.
+        // Covered by DmsInboxManage2ActionUnitTest (direct calls and execute dispatch).
+        "io.github.carlos_emr.carlos.documentManager.actions.DmsInboxManage2Action",
+        // Report queries remain readable; saving favourites/patient sets requires POST.
+        // Covered by ReadMethodWriteGuardUnitTest, including both persistence branches.
+        "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
+        // PHCP role settings remain readable; role changes require an administrative POST.
+        // Covered by ViewBilledVisitProvider2ActionUnitTest and the installed daysheet workflow.
+        "io.github.carlos_emr.carlos.report.gate.ViewBilledVisitProvider2Action",
         // Incoming PDF navigation permits GET; pdfAction mutations require POST and write access.
         // Focused method/privilege tests: ViewIncomingDocuments2ActionUnitTest.
         "io.github.carlos_emr.carlos.documentManager.gate.ViewIncomingDocuments2Action",

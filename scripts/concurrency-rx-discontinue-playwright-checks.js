@@ -82,22 +82,26 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note n JOIN casemgmt_note_link l ON l.note_id=n.note_id AND l.table_name=2
       AND l.table_id=${drug} WHERE n.demographic_no=${patient}`, '1', 'Session A\'s discontinue did not file exactly one chart note');
   });
+  const firstArchivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
     const mark = failureMark(s.recorder);
-    second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
-    h.assert(second.status() < 500, `The stale discontinue answered HTTP ${second.status()}`);
+    const alerts = await h.withExpectedDialogs(bRx, async () => {
+      second = await discontinue(bRx, drug, 'allergy', `${marker} B`);
+      await bRx.waitForTimeout(500);
+    });
+    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && /could not be completed/i.test(alerts[0].text),
+      'The stale discontinue must tell the user that the request was refused');
+    h.assert(second.status() === 409, `The stale discontinue answered HTTP ${second.status()} instead of 409`);
     // A 4xx is a valid refusal; consume exactly that one response so the strict page check after the step does not report it
     // (the next step judges the stored state).
-    if (second.status() >= 400) {
-      await bRx.waitForTimeout(500);
-      consumeExpectedFailure(s.recorder, mark, { status: second.status(), path: /\/rx\/deleteRx$/ });
-    }
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/rx\/deleteRx$/ });
   });
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);
     const notes = notesFor();
-    h.assert(state === '1|doseChange' && notes === '1',
+    const archivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
+    h.assert(state === '1|doseChange' && notes === '1' && archivedDate === firstArchivedDate,
       `After two sessions discontinued the same drug it is archived as '${state.split('|')[1]}' with ${notes} chart note(s) (expected the first reason, one note). `
       + 'RxDeleteRx2Action.Discontinue only checks the drug belongs to the patient, so the stale second discontinue overwrites archived_reason and archived_date '
       + 'and files a second, contradictory discontinue note.');

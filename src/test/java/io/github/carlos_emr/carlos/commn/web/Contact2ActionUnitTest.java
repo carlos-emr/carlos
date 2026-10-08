@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
+import io.github.carlos_emr.carlos.commn.model.Contact;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PharmacyManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -58,6 +59,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doAnswer;
 
 /**
  * Security regression coverage for {@link Contact2Action}.
@@ -179,7 +181,48 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
             mockResponse.setStatus(200);
             assertThat(action.saveManage()).isEqualTo(ActionSupport.NONE);
             assertThat(mockResponse.getStatus()).isEqualTo(405);
-            verifyNoInteractions(mockDemographicContactDao, mockSecurityInfoManager);
+            mockResponse.setStatus(200);
+            assertThat(action.saveContact()).isEqualTo(ActionSupport.NONE);
+            assertThat(mockResponse.getStatus()).isEqualTo(405);
+            verifyNoInteractions(mockContactDao, mockDemographicContactDao, mockSecurityInfoManager);
+        });
+    }
+
+    @Test
+    void shouldCreateDirectoryContact_whenAuthorizedPostIsSubmitted() {
+        registerContactActionBeans();
+        doAnswer(call -> {
+            ((Contact) call.getArgument(0)).setId(42);
+            return null;
+        }).when(mockContactDao).persist(any(Contact.class));
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            Contact contact = new Contact();
+            contact.setFirstName("Owned");
+            action.setContact(contact);
+            assertThat(action.saveContact()).isEqualTo("cForm");
+            verify(mockContactDao).persist(contact);
+            assertThat(contact.getId()).isEqualTo(42);
+        });
+    }
+
+    @Test
+    void shouldUpdateDirectoryContact_whenAuthorizedPostIsSubmitted() {
+        registerContactActionBeans();
+        addRequestParameter("contact.id", "42");
+        Contact stored = new Contact();
+        stored.setId(42);
+        when(mockContactDao.find(42)).thenReturn(stored);
+        withContactDao(() -> {
+            Contact2Action action = new Contact2Action();
+            Contact submitted = new Contact();
+            submitted.setFirstName("Updated");
+            action.setContact(submitted);
+            assertThat(action.saveContact()).isEqualTo("cForm");
+            assertThat(stored.getFirstName()).isEqualTo("Updated");
+            assertThat(stored.getId()).isEqualTo(42);
+            verify(mockContactDao).merge(stored);
+            verify(mockContactDao, never()).persist(any(Contact.class));
         });
     }
 
@@ -549,13 +592,16 @@ class Contact2ActionUnitTest extends CarlosWebTestBase {
         // The legacy action caches this bean statically. Isolate each scenario
         // without leaving a different DAO behind for other tests.
         DemographicContactDao previous = Contact2Action.demographicContactDao;
+        ContactDao previousDirectoryDao = Contact2Action.contactDao;
         DemographicDao previousDemographicDao = Contact2Action.demographicDao;
         Contact2Action.demographicDao = mockDemographicDao;
         Contact2Action.demographicContactDao = mockDemographicContactDao;
+        Contact2Action.contactDao = mockContactDao;
         try {
             scenario.run();
         } finally {
             Contact2Action.demographicContactDao = previous;
+            Contact2Action.contactDao = previousDirectoryDao;
             Contact2Action.demographicDao = previousDemographicDao;
         }
     }

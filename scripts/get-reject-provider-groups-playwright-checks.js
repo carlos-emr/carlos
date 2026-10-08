@@ -19,7 +19,7 @@
  *   1. the captured Delete replayed as GET/HEAD for another member (providercontrol);
  *   2. the same Delete sent straight to provider/ViewProviderNewGroup;
  *   3. the captured Save replayed as GET/HEAD for a new member (providercontrol ▸
- *      SaveMyGroup; include() cannot carry a 405, so only "no write" is asserted);
+ *      SaveMyGroup; the outer controller must propagate the included gate's 405);
  *   4. that Save replayed through displaymode=vary into providersavemygroup.jsp.
  *
  * Fixtures: one group named from the run marker (10-char limit) seeded by SQL with the
@@ -110,11 +110,11 @@ async function workflow(s) {
         { [`data${i}`]: i, [`provider_no${i}`]: p, [`last_name${i}`]: last, [`first_name${i}`]: first, ...extra });
     };
     await ledger.probe(s, { label: 'provider/providercontrol displaymode=savemygroup (include of SaveMyGroup)',
-      path: saved.path, params: forMember(d5), snapshot: () => sql.value(member(d5)), requireStatus: false });
+      path: saved.path, params: forMember(d5), snapshot: () => sql.value(member(d5)) });
     await ledger.probe(s, { label: 'provider/providercontrol displaymode=vary -> providersavemygroup.jsp',
       path: saved.path,
       params: forMember(d6, { displaymode: 'vary', displaymodevariable: '/WEB-INF/jsp/provider/providersavemygroup.jsp' }),
-      snapshot: () => sql.value(member(d6)), requireStatus: false });
+      snapshot: () => sql.value(member(d6)) });
   });
 
   await s.step('every provider-group mutation refused GET/HEAD and left the owned group unchanged', async () => {

@@ -58,6 +58,12 @@ public class HtmlEdit2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         try {
             String fid = this.getFid();
             String formName = this.getFormName();

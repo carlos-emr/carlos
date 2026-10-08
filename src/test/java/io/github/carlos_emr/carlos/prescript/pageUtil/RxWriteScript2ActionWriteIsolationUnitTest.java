@@ -1177,4 +1177,33 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"CHILDREN'S BENADRYL", "ACÉTAMINOPHÈNE", "literal &amp; \\ path", "\"<b>name</b>"})
+    void shouldStageLiteralCatalogueName_whenProductIsSelected(String text) throws Exception {
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("randomId", "12345");
+        request.setParameter("drugId", "17");
+        request.setParameter("text", text);
+        RxSessionBean staging = spy(bean);
+        doReturn(0).when(staging).addStashItem(eq(mockLoggedInInfo), any());
+        RxSessionBeanResolver.register(request.getSession(), staging);
+        var monograph = new io.github.carlos_emr.carlos.prescript.data.RxDrugData().new DrugMonograph();
+        monograph.name = text;
+        RxPrescriptionData.Prescription card = mock(RxPrescriptionData.Prescription.class);
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class,
+                     (mock, context) -> when(mock.newPrescription("999998", DEMOGRAPHIC_NO)).thenReturn(card));
+             var drugs = org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxDrugData.class,
+                     (mock, context) -> when(mock.getDrug2("17")).thenReturn(monograph));
+             var rxUtil = mockStatic(io.github.carlos_emr.carlos.prescript.util.RxUtil.class)) {
+            rxUtil.when(() -> io.github.carlos_emr.carlos.prescript.util.RxUtil.isRxUniqueInStash(staging, card)).thenReturn(true);
+            assertThat(action.createNewRx()).isEqualTo("newRx");
+            assertThat(request.getAttribute("rxStageError")).isNull();
+            assertThat(request.getAttribute("listRxDrugs")).isEqualTo(java.util.List.of(card));
+            verify(card).setDrugPrescribed(text);
+            verify(card).setBrandName(text);
+            verify(staging).addStashItem(mockLoggedInInfo, card);
+            verify(drugs.constructed().getFirst()).getDrug2("17");
+        }
+    }
+
 }

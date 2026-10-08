@@ -81,8 +81,6 @@ public class DemographicUpdate2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
     /**
      * Validates session and privileges, then applies all update logic extracted
      * from the former {@code demographicupdatearecord.jsp} scriptlets.
@@ -106,6 +104,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             logger.warn("DemographicUpdate2Action: missing session");
             throw new SecurityException("missing required session");
         }
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             logger.warn("DemographicUpdate2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
@@ -133,6 +132,14 @@ public class DemographicUpdate2Action extends ActionSupport {
             logger.warn("DemographicUpdate2Action: invalid demographic_no={}", demoNo);
             addActionError("Invalid patient record identifier");
             return ERROR;
+        }
+
+        List<String> identityFieldErrors = Demographic.validateIdentityFieldLengths(
+                request.getParameter("nameUsed"), request.getParameter("pronouns"), request.getParameter("gender"));
+        if (!identityFieldErrors.isEmpty()) {
+            request.setAttribute("fieldLengthValidationErrors", identityFieldErrors);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return "validationError";
         }
 
         Demographic demographic = demographicDao.getDemographic(demoNo);

@@ -28,6 +28,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -69,10 +71,6 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         setSessionAttribute(key, mockLoggedInInfo);
 
         action = new DemographicUpdate2Action();
-
-        java.lang.reflect.Field secField = DemographicUpdate2Action.class.getDeclaredField("securityInfoManager");
-        secField.setAccessible(true);
-        secField.set(action, mockSecurityInfoManager);
     }
 
     @AfterEach
@@ -188,4 +186,26 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
                 .contains("Last name exceeds maximum length of 30 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
+    @ParameterizedTest
+    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "Valid");
+        addRequestParameter("first_name", "Valid");
+        addRequestParameter(field, "X".repeat(length));
+        replaceSpringUtilsBean(DemographicDao.class, mockDemographicDao);
+        addRequestParameter("demographic_no", "123");
+        Demographic original = new Demographic(123);
+        original.setLastName("Preserved");
+        original.setPrefName("Existing");
+        when(mockDemographicDao.getDemographic("123")).thenReturn(original);
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
+        assertThat(original.getLastName()).isEqualTo("Preserved");
+        assertThat(original.getPrefName()).isEqualTo("Existing");
+        verify(mockDemographicDao, never()).getDemographic("123");
+    }
+
 }

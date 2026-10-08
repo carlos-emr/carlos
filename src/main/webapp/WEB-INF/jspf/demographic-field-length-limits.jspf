@@ -23,7 +23,7 @@
 
     Purpose:
     Provides one reusable JavaScript block for demographic add/edit pages so
-    client-side maxlength attributes stay aligned across both views.
+    client-side field limits stay aligned across both views.
 
     Features:
     - Uses server-derived Demographic max-length constants
@@ -33,12 +33,26 @@
     @since 2026-04-21
 --%>
 <script type="text/javascript">
+    function limitDemographicCodePoints(event) {
+        var field = event.target;
+        var limit = Number(field.dataset.codePointMaxlength);
+        if (!limit || event.isComposing) return;
+        var characters = Array.from(field.value);
+        if (characters.length <= limit) return;
+        var start = field.selectionStart;
+        var end = field.selectionEnd;
+        field.value = characters.slice(0, limit).join('');
+        field.setSelectionRange(Math.min(start, field.value.length), Math.min(end, field.value.length));
+    }
+
     function applyDemographicFieldLengthLimits() {
         var fieldLengthLimits = {
             last_name: <%= Demographic.LAST_NAME_MAX_LENGTH %>,
             first_name: <%= Demographic.FIRST_NAME_MAX_LENGTH %>,
             middleNames: <%= Demographic.MIDDLE_NAMES_MAX_LENGTH %>,
-            nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
+            nameUsed: <%= Demographic.PREF_NAME_MAX_LENGTH %>,
+            pronouns: <%= Demographic.PRONOUN_MAX_LENGTH %>,
+            gender: <%= Demographic.GENDER_MAX_LENGTH %>,
             address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
             city: <%= Demographic.CITY_MAX_LENGTH %>,
             year_of_birth: <%= Demographic.YEAR_OF_BIRTH_MAX_LENGTH %>,
@@ -64,7 +78,15 @@
 
             var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
             for (var i = 0; i < fields.length; i++) {
-                fields[i].setAttribute('maxlength', fieldLengthLimits[fieldName]);
+                if (['nameUsed', 'pronouns', 'gender'].includes(fieldName)) {
+                    // Native maxlength counts UTF-16 units; the server/database count code points.
+                    fields[i].removeAttribute('maxlength');
+                    fields[i].dataset.codePointMaxlength = fieldLengthLimits[fieldName];
+                    fields[i].addEventListener('input', limitDemographicCodePoints);
+                    fields[i].addEventListener('compositionend', limitDemographicCodePoints);
+                } else {
+                    fields[i].setAttribute('maxlength', fieldLengthLimits[fieldName]);
+                }
             }
         }
     }

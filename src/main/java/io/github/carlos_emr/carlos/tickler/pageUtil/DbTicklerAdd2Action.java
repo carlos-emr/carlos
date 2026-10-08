@@ -134,6 +134,11 @@ public final class DbTicklerAdd2Action extends ActionSupport {
         String docCreator = Objects.toString(loggedInInfo.getLoggedInProviderNo(), "");
         String docDate = request.getParameter("xml_appointment_date");
         String ticklerMessage = Objects.toString(request.getParameter("ticklerMessage"), "");
+        if (!Tickler.isMessageWithinStorageLimit(ticklerMessage)) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            request.setAttribute("ticklerMessageTooLong", Boolean.TRUE);
+            return SUCCESS;
+        }
         String priority = request.getParameter("priority");
         String taskAssignedTo = Objects.toString(request.getParameter("task_assigned_to"), "");
         String docType = request.getParameter("docType");

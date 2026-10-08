@@ -131,9 +131,20 @@ public interface TicklerManager {
 
     public Tickler getTickler(LoggedInInfo loggedInInfo, Integer id);
 
+    /** Reads the current tickler under a write lock inside the caller's edit transaction. */
+    Tickler getTicklerForUpdate(LoggedInInfo loggedInInfo, Integer id);
+
+
     public void addComment(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String message);
 
     public void reassign(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, String task_assigned_to);
+
+    /**
+     * Atomically changes the status only if it still matches the status rendered in the list.
+     * Returns false for missing rows or stale/missing expected status, with no history write.
+     */
+    boolean updateStatusIfCurrent(LoggedInInfo loggedInInfo, Integer ticklerId, String provider,
+                                 Tickler.STATUS expectedStatus, Tickler.STATUS status);
 
     public void updateStatus(LoggedInInfo loggedInInfo, Integer tickler_id, String provider, Tickler.STATUS status);
 

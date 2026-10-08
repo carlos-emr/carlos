@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -185,14 +186,22 @@ public final class RxAddAllergy2Action extends ActionSupport {
         demographicNo = patient.getDemographicNo();
         allergy.setArchived(false);
 
-        // Add the new allergy (whether new or modified)
-        patient.addAllergy(RxUtil.Today(), allergy);
+        // An amendment must archive the active original and create its replacement atomically.
+        // A stale second editor must not create another active version.
+        if (archiveId == null) {
+            patient.addAllergy(RxUtil.Today(), allergy);
+        } else if (!SpringUtils.getBean(AllergyManager.class).amendAllergy(
+                LoggedInInfo.getLoggedInInfoFromSession(request), archiveId, allergy)) {
+            response.sendError(HttpServletResponse.SC_CONFLICT,
+                    "This allergy has already changed. Reload the allergy list before amending it.");
+            return NONE;
+        }
 
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
 
-        // Archive only the allergy whose ownership was checked before adding its replacement.
-        if (archiveId != null && patient.deleteAllergy(archiveId)) {
+        // The transactional amendment has already archived the validated original.
+        if (archiveId != null) {
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), ip, "" + patient.getDemographicNo(), null);
         }
 

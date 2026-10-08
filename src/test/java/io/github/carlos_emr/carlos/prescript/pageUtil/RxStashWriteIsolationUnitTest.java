@@ -95,6 +95,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
     @Mock
     private DrugDao mockDrugDao;
 
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private RxSessionBean bean;
@@ -105,6 +108,9 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
         mocks = MockitoAnnotations.openMocks(this);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(DrugDao.class, mockDrugDao);
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, transactionManager);
+        org.mockito.Mockito.lenient().when(transactionManager.getTransaction(any()))
+                .thenAnswer(invocation -> new org.springframework.transaction.support.SimpleTransactionStatus());
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_rx"), anyString(), isNull())).thenReturn(true);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
@@ -488,10 +494,32 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             logActionMock.verifyNoInteractions();
         }
 
+        @Test
+        @DisplayName("should refuse a lost discontinuation race before filing another note")
+        void shouldRefuseDiscontinue_whenAnotherWriterAlreadyArchivedTheDrug() throws Exception {
+            namePatient();
+            request.setParameter("drugId", "77");
+            request.setParameter("reason", "allergy");
+            var stale = new io.github.carlos_emr.carlos.commn.model.Drug();
+            stale.setId(77);
+            stale.setDemographicId(DEMOGRAPHIC_NO);
+            when(mockDrugDao.find(77)).thenReturn(stale);
+            when(mockDrugDao.discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("allergy"))).thenReturn(false);
+            try (var contexts = mockStatic(org.springframework.web.context.support.WebApplicationContextUtils.class);
+                 var documents = mockStatic(io.github.carlos_emr.carlos.documentManager.EDocUtil.class)) {
+                assertThat(new RxDeleteRx2Action().Discontinue()).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(409);
+                contexts.verifyNoInteractions();
+                documents.verifyNoInteractions();
+            }
+            verify(mockDrugDao, never()).merge(any());
+            logActionMock.verifyNoInteractions();
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"note", "link", "missing-id"})
-        @DisplayName("should disclose an incomplete discontinuation after the drug was archived")
-        void shouldReportIncompleteDiscontinuation_whenNotePersistenceFails(String failure) throws Exception {
+        @DisplayName("should roll back discontinuation when its note or link fails")
+        void shouldRollBackDiscontinuation_whenNotePersistenceFails(String failure) throws Exception {
             namePatient();
             request.setParameter("drugId", "77");
             request.setParameter("reason", "adverse reaction");
@@ -500,6 +528,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             drug.setId(77);
             drug.setDemographicId(DEMOGRAPHIC_NO);
             when(mockDrugDao.find(77)).thenReturn(drug);
+            when(mockDrugDao.discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("adverse reaction"))).thenReturn(true);
             var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
             var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
             when(role.getId()).thenReturn(1);
@@ -530,10 +559,13 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
 
                 verify(manager).saveNoteSimpleReturnID(any());
             }
-            verify(mockDrugDao).merge(drug);
-            assertThat(drug.isArchived()).isTrue();
+            verify(mockDrugDao).discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("adverse reaction"));
+            verify(mockDrugDao, never()).merge(any());
+            verify(transactionManager).rollback(any());
+            verify(transactionManager, never()).commit(any());
+            logActionMock.verifyNoInteractions();
             assertThat(response.getStatus()).isEqualTo(500);
-            assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_DISCONTINUE").doesNotContain("\"id\"");
+            assertThat(response.getContentAsString()).contains("RX_DISCONTINUE_FAILED").doesNotContain("\"id\"");
         }
 
         @Test
@@ -552,6 +584,7 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
             drug.setId(77);
             drug.setDemographicId(DEMOGRAPHIC_NO);
             when(mockDrugDao.find(77)).thenReturn(drug);
+            when(mockDrugDao.discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("adverse reaction"))).thenReturn(true);
             var roleDao = mock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
             var role = mock(io.github.carlos_emr.carlos.commn.model.SecRole.class);
             when(role.getId()).thenReturn(1);
@@ -578,8 +611,8 @@ class RxStashWriteIsolationUnitTest extends CarlosUnitTestBase {
                 documents.verify(() -> io.github.carlos_emr.carlos.documentManager.EDocUtil.addCaseMgmtNoteLink(link.capture()));
             }
             assertThat(response.getStatus()).isEqualTo(200);
-            assertThat(drug.isArchived()).isTrue();
-            verify(mockDrugDao).merge(drug);
+            verify(mockDrugDao).discontinueIfActive(eq(77), eq(DEMOGRAPHIC_NO), any(java.util.Date.class), eq("adverse reaction"));
+            verify(mockDrugDao, never()).merge(any());
             assertThat(note.getValue().getDemographic_no()).isEqualTo(String.valueOf(DEMOGRAPHIC_NO));
             assertThat(link.getValue().getTableId()).isEqualTo(77L);
             assertThat(link.getValue().getNoteId()).isEqualTo(123L);

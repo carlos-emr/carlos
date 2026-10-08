@@ -395,13 +395,32 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             Security entity = mock(Security.class);
             when(entity.getUserName()).thenReturn("testuser");
             when(mockSecurityDao.find(42)).thenReturn(entity);
+            when(mockSecurityDao.remove(42)).thenReturn(true);
 
             String result = action.execute();
 
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-            verify(mockSecurityDao).remove(entity);
+            verify(mockSecurityDao).remove(42);
             assertThat((String) mockRequest.getAttribute("msg"))
                 .contains("Security entry deleted for user: testuser");
+        }
+
+        @Test
+        @DisplayName("should not report or audit deletion when another request already removed the row")
+        void shouldNotReportSuccess_whenRowDisappearsBeforeRemoval() throws Exception {
+            SecurityDelete2Action action = createActionWithPrivilege();
+            mockRequest.setParameter("keyword", "42");
+            Security entity = mock(Security.class);
+            when(entity.getUserName()).thenReturn("testuser");
+            when(mockSecurityDao.find(42)).thenReturn(entity);
+            when(mockSecurityDao.remove(42)).thenReturn(false);
+
+            action.execute();
+
+            assertThat(mockRequest.getAttribute("msg")).isEqualTo("Security entry not found.");
+            verify(mockSecurityDao).remove(42);
+            verify(mockSecurityDao, never()).remove(entity);
+            logActionMock.verifyNoInteractions();
         }
 
         @Test
@@ -451,7 +470,8 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             Security entity = mock(Security.class);
             when(entity.getUserName()).thenReturn("testuser");
             when(mockSecurityDao.find(42)).thenReturn(entity);
-            doThrow(new RuntimeException("DB error")).when(mockSecurityDao).remove(entity);
+            when(mockSecurityDao.remove(42)).thenReturn(true);
+            doThrow(new RuntimeException("DB error")).when(mockSecurityDao).remove(42);
 
             action.execute();
 
@@ -468,13 +488,14 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             Security entity = mock(Security.class);
             when(entity.getUserName()).thenReturn("testuser");
             when(mockSecurityDao.find(42)).thenReturn(entity);
+            when(mockSecurityDao.remove(42)).thenReturn(true);
 
             logActionMock.when(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenThrow(new RuntimeException("audit failed"));
 
             action.execute();
 
-            verify(mockSecurityDao).remove(entity);
+            verify(mockSecurityDao).remove(42);
             assertThat((String) mockRequest.getAttribute("msg"))
                 .isEqualTo("Security entry was deleted, but audit logging failed. Escalate for review.");
         }
@@ -488,6 +509,7 @@ class SecurityDelete2ActionTest extends CarlosUnitTestBase {
             Security entity = mock(Security.class);
             when(entity.getUserName()).thenReturn("O'Brien & <Co>");
             when(mockSecurityDao.find(42)).thenReturn(entity);
+            when(mockSecurityDao.remove(42)).thenReturn(true);
 
             action.execute();
 

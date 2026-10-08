@@ -148,6 +148,12 @@ async function workflow(s) {
     h.assert(new URL(frame.url()).searchParams.get('keyword') === securityNo, 'The edit page opened a record other than the owned login');
     // The update form is also table-nested, so its inputs are located from the frame.
     const form = frame;
+    for (const name of ['user_name', 'password', 'conPassword', 'b_ExpireSet', 'date_ExpireDate',
+      'pin', 'conPin', 'forcePasswordReset', 'b_LocalLockSet', 'b_RemoteLockSet']) {
+      const control = frame.locator(`[name="${name}"]`);
+      if (await control.count()) h.assert(await control.evaluate(element => element.labels.length > 0),
+        `Security control ${name} has no associated label`);
+    }
     h.assert(await form.locator('input[name="user_name"]').inputValue() === userName, 'The edit page shows the wrong user name');
     h.assert(await form.locator('input[name="provider_no"]').inputValue() === providerNo, 'The edit page shows the wrong provider number');
     h.assert(await form.locator('input[name="security_no"]').inputValue() === securityNo, 'The edit page carries the wrong security_no');

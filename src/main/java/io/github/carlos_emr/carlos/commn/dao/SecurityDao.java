@@ -36,6 +36,9 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Security;
 
 public interface SecurityDao extends AbstractDao<Security> {
+    /** Lock and refresh the current record within the caller's write transaction. */
+    Security findForUpdate(Integer id);
+
     List<Security> findAllOrderBy(String columnName);
 
     List<Security> findByProviderNo(String providerNo);

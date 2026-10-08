@@ -43,7 +43,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderWriteGuard" %>
 <%
+    if ("Delete".equals(request.getParameter("submit_form"))
+            && !ProviderWriteGuard.requireAdminPost(request, response)) {
+        return;
+    }
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.htm");
         return;

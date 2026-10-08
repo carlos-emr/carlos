@@ -149,6 +149,55 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({"GET,false", "HEAD,false", "GET,true", "HEAD,true"})
+    void shouldRefuseQueueCreationBeforeDaoAccess_whenRequestUsesReadMethod(String method, boolean dispatch) {
+        request.setMethod(method);
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Owned queue");
+        var action = new DmsInboxManage2Action();
+        assertThat(dispatch ? action.execute() : action.addNewQueue()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(queueDao, secObjectNameDao, securityInfoManager);
+    }
+
+    @Test
+    void shouldCreateQueueAndSecurityObject_whenAdministrativePostIsSubmitted() throws Exception {
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(securityInfoManager.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        when(queueDao.addNewQueue("Owned queue")).thenReturn(true);
+        when(queueDao.getLastId()).thenReturn("7");
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", " Owned queue ");
+        assertThat(new DmsInboxManage2Action().execute()).isNull();
+        verify(queueDao).addNewQueue("Owned queue");
+        verify(secObjectNameDao).saveOrUpdate(argThat(row -> "_queue.7".equals(row.getObjectname())
+                && "Owned queue".equals(row.getDescription())));
+        assertThat(response.getContentAsString()).contains("\"addNewQueue\":true");
+    }
+
+    @Test
+    void shouldRefuseQueueCreation_whenPostLacksAdministrativeWritePrivilege() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), mock(LoggedInInfo.class));
+        request.setMethod("POST");
+        request.setParameter("newQueueName", "Owned queue");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DmsInboxManage2Action().addNewQueue())
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(queueDao, secObjectNameDao);
+    }
+
+    @Test
+    void shouldRefuseQueueCreation_whenPostHasNoSession() {
+        request.setMethod("POST");
+        request.setParameter("newQueueName", "Owned queue");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new DmsInboxManage2Action().addNewQueue())
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(queueDao, secObjectNameDao, securityInfoManager);
+    }
+
     @Test
     @DisplayName("should return NONE when index session is unauthenticated")
     void shouldReturnNone_whenIndexSessionUnauthenticated() {

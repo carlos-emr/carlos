@@ -17,6 +17,8 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -81,6 +83,8 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest mockRequest;
     private MockHttpServletResponse mockResponse;
     private RxAddAllergy2Action action;
+    private AllergyManager allergyManager;
+    private AllergyManager amendments;
 
     @BeforeEach
     void setUp() {
@@ -96,6 +100,10 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         mockRequest.setMethod("POST");
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
+        allergyManager = mock(AllergyManager.class);
+        registerMock(AllergyManager.class, allergyManager);
+        amendments = mock(AllergyManager.class);
+        registerMock(AllergyManager.class, amendments);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_allergy"), eq("w"), isNull()))
                 .thenReturn(true);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.
@@ -275,12 +283,14 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(true);
+        when(amendments.amendAllergy(eq(mockLoggedInInfo), eq(42), any(Allergy.class))).thenReturn(true);
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        verify(mockRxPatient).deleteAllergy(42);
+        verify(amendments).amendAllergy(eq(mockLoggedInInfo), eq(42), any(Allergy.class));
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
                 eq("42"), any(String.class), eq("123"), isNull()));
@@ -291,9 +301,13 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     void shouldNotAuditArchive_whenArchiveFailsAfterValidation() throws Exception {
         mockRequest.setParameter("allergyToArchive", "42");
         when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
-        when(mockRxPatient.deleteAllergy(42)).thenReturn(false);
+        when(amendments.amendAllergy(eq(mockLoggedInInfo), eq(42), any(Allergy.class))).thenReturn(false);
 
-        action.execute();
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
 
         logActionMock.verify(() -> LogAction.addLog(
                 any(String.class), eq(LogConst.ARCHIVE), any(String.class),
