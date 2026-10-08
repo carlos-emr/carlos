@@ -1131,6 +1131,15 @@ function isSecurityErrorBody(body) {
   return /Security Exception/i.test(body || '') && /insufficient privileges/i.test(body || '');
 }
 
+/**
+ * CARLOS's generic error page (errorpage.jsp, titled "Error Page"), which a sendError(405) renders.
+ * Only a fallback proof of origin for a 405: the header is the primary proof, and the title is
+ * localised, so a deployment in another locale relies on the header.
+ */
+function isApplicationErrorPage(body) {
+  return /<title>\s*Error Page\s*<\/title>/i.test(body || '');
+}
+
 /** Normalise a Playwright APIResponse/Response, or a pre-read { status, body, headers }. */
 async function readRefusalEvidence(response) {
   assert(response && typeof response === 'object', 'assertRefused needs the response of the request under test');
@@ -1159,8 +1168,19 @@ function judgeRefusal({ status, headers, body }) {
         + 'so it says nothing about the route under test',
     };
   }
-  if (status === 405) return { refused: true, evidence: 'HTTP 405' };
   const fromApplication = Object.prototype.hasOwnProperty.call(headers, APPLICATION_HEADER);
+  if (status === 405) {
+    // A 405 is no more self-evidently the application's than a 403: the nginx front door and the
+    // container's default servlet answer 405 too (a POST to a static resource, a disallowed
+    // verb), and neither says anything about the route under test.
+    if (fromApplication) return { refused: true, evidence: `HTTP 405 carrying ${APPLICATION_HEADER}` };
+    if (isApplicationErrorPage(body)) return { refused: true, evidence: 'HTTP 405 application error page' };
+    return {
+      refused: false,
+      problem: `HTTP 405 whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header `
+        + 'and not the application\'s error page)',
+    };
+  }
   if (status === 403) {
     if (fromApplication) return { refused: true, evidence: `HTTP 403 carrying ${APPLICATION_HEADER}` };
     if (isSecurityErrorBody(body)) return { refused: true, evidence: 'HTTP 403 securityError page' };
@@ -1193,9 +1213,11 @@ function judgeRefusal({ status, headers, body }) {
  *
  * THE SHARED REFUSAL ASSERTION for every GET-reject, CSRF and authorization probe. It passes only
  * when BOTH hold:
- *   1. the answer is the application's own refusal: 405, a 403 that CARLOS wrote (its
- *      X-Permitted-Cross-Domain-Policies header, which the WAF's nginx page lacks, or its
- *      securityError page), or a redirect to securityError. A bare non-200 is NOT enough: a 404 is
+ *   1. the answer is the application's own refusal: a 405 or a 403 that CARLOS wrote (its
+ *      X-Permitted-Cross-Domain-Policies header, which ResponseDefaultsFilter adds to every
+ *      response and the front door's nginx pages lack; or, for a 403, its securityError page, and
+ *      for a 405, its error page), or a redirect to securityError. A bare status is NOT enough, 405
+ *      included (the front door and the default servlet answer 405 too): a 404 is
  *      a mistyped route, a 5xx is a crash, and a ModSecurity 403 is the front door reacting to the
  *      check's own fixture text, so a check that accepted any of them would pass without ever
  *      reaching the code under test;

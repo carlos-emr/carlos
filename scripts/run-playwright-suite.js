@@ -444,13 +444,13 @@ function exitCodeFor(results) {
 /**
  * Problems with a manifest entry's expectedFailure, as strings (none means valid).
  *
- * `statuses` maps findings-log row number -> status; `source` is the text of the check's script
- * (and the modules it requires, where the step labels may live). The finding must be a row that
+ * `statuses` maps findings-log row number -> status; `scriptSource` is the text of the check's
+ * script alone and `source` that text plus the modules it requires (where step labels may live). The finding must be a row that
  * is not `fixed` -- a fixed defect must not keep excusing a failure -- and the step must be a
  * label the script really passes to step(), or failedStep could never equal it and the check
  * would read failed-elsewhere forever.
  */
-function validateExpectedFailure(check, { statuses, source }) {
+function validateExpectedFailure(check, { statuses, source, scriptSource }) {
   const expected = check.expectedFailure;
   if (expected === null || typeof expected !== 'object' || Array.isArray(expected)) {
     return ['expectedFailure must be an object { finding, step }'];
@@ -469,8 +469,12 @@ function validateExpectedFailure(check, { statuses, source }) {
   }
   // failedStep reaches the runner only through runCheck()'s RESULT_JSON record, and only for a
   // step that tags its error: runWorkflow's s.step() does, a script's own step helper must call
-  // markFailedStep().
-  if (!/\brunWorkflow\(/.test(source) && !(/\brunCheck\(/.test(source) && /\bmarkFailedStep\(/.test(source))) {
+  // markFailedStep(). This reads the script's OWN text, never `source`: `source` includes the
+  // modules the script requires, and lib/playwright-harness.js defines markFailedStep() and
+  // runCheck() itself, so searching it would make every script look conforming. A caller that
+  // passes no scriptSource therefore fails the guard instead of silently passing it.
+  const own = typeof scriptSource === 'string' ? scriptSource : '';
+  if (!/\brunWorkflow\(/.test(own) && !(/\brunCheck\(/.test(own) && /\bmarkFailedStep\(/.test(own))) {
     problems.push(`${check.script} reports through neither runWorkflow() nor a runCheck() whose steps call markFailedStep(), `
       + 'so the runner can never see its failing step');
   }

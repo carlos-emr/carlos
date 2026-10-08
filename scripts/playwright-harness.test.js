@@ -831,10 +831,31 @@ function sessionCounting(...counts) {
 test('shouldPassAssertRefused_when405AndRowCountUnchanged', async () => {
   const { s, queries } = sessionCounting(3);
   const verdict = await harness.assertRefused(s, {
-    response: apiResponse({ status: 405 }), table: 'tickler', where: 'demographic_no=77', before: '3',
+    response: apiResponse({ status: 405, headers: APP_HEADERS }), table: 'tickler', where: 'demographic_no=77', before: '3',
   });
   assert.equal(verdict.status, 405);
   assert.deepEqual(queries, ['SELECT COUNT(*) FROM tickler WHERE demographic_no=77']);
+});
+
+test('shouldPassAssertRefused_when405CarriesTheApplicationErrorPage', async () => {
+  // The app's own error page (errorpage.jsp, <title>Error Page</title>) answers a refused method
+  // even where a proxy has stripped the header.
+  const { s } = sessionCounting(3);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 405, body: '<!DOCTYPE html><html><head><meta charset="UTF-8">\n<title>\n  Error Page\n</title></head></html>' }),
+    table: 'tickler', where: 'id=1', before: 3,
+  });
+});
+
+test('shouldFailAssertRefused_when405CannotBeAttributedToTheApplication', async () => {
+  // A front-door (nginx) or default-servlet 405, for example a POST to a static resource, says
+  // nothing about the route under test: it carries neither the application header nor its page.
+  for (const body of ['', '<html><head><title>405 Not Allowed</title></head><body><center>nginx</center></body></html>']) {
+    const { s } = sessionCounting(3);
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status: 405, body }), table: 'tickler', where: 'id=1', before: '3',
+    }), /HTTP 405 whose origin cannot be shown to be the application/, `body: ${body || '(empty)'}`);
+  }
 });
 
 test('shouldPassAssertRefused_whenApplication403CarriesItsHeader', async () => {
@@ -895,7 +916,7 @@ test('shouldFailAssertRefused_whenRowCountChanged', async () => {
   // The route answered with a refusal AND wrote: the row count is the stronger evidence.
   const { s } = sessionCounting(4);
   await assert.rejects(harness.assertRefused(s, {
-    response: apiResponse({ status: 405 }), table: 'tickler', where: 'demographic_no=77', before: '3',
+    response: apiResponse({ status: 405, headers: APP_HEADERS }), table: 'tickler', where: 'demographic_no=77', before: '3',
   }), /changed tickler: COUNT\(\*\) was 3 before the request and 4 after/);
 });
 

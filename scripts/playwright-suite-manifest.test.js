@@ -514,18 +514,30 @@ function findingStatuses() {
   return statuses;
 }
 
-/** The script and the modules it requires from this repository: step labels may live in a shared engine. */
-function stepSources(script) {
+/**
+ * What validateExpectedFailure reads for one script: `scriptSource`, the script's OWN text (the
+ * reporting guard looks only there), and `source`, that text plus the repository modules it
+ * requires, because step labels may live in a shared engine (xss-poison-admin-walk).
+ *
+ * The two shared modules every check requires, lib/playwright-harness.js and lib/workflow-session.js,
+ * are left out of `source` unless asked for: they define markFailedStep() and runCheck()
+ * themselves, so they would make every script look like it tags its steps.
+ */
+const SHARED_HARNESS_MODULES = new Set(['playwright-harness.js', 'workflow-session.js']);
+function stepSources(script, { includeHarness = false } = {}) {
   const file = path.join(__dirname, '..', script);
-  const source = fs.readFileSync(file, 'utf8');
-  const parts = [source];
-  for (const match of source.matchAll(/require\('(\.[^']+)'\)/g)) {
+  const scriptSource = fs.readFileSync(file, 'utf8');
+  const parts = [scriptSource];
+  for (const match of scriptSource.matchAll(/require\('(\.[^']+)'\)/g)) {
     for (const candidate of [match[1], `${match[1]}.js`]) {
       const resolved = path.resolve(path.dirname(file), candidate);
-      if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) parts.push(fs.readFileSync(resolved, 'utf8'));
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) continue;
+      if (!includeHarness && path.basename(path.dirname(resolved)) === 'lib'
+        && SHARED_HARNESS_MODULES.has(path.basename(resolved))) continue;
+      parts.push(fs.readFileSync(resolved, 'utf8'));
     }
   }
-  return parts.join('\n');
+  return { source: parts.join('\n'), scriptSource };
 }
 
 test('every expectedFailure cites an open finding and a step label its script contains', () => {
@@ -533,15 +545,18 @@ test('every expectedFailure cites an open finding and a step label its script co
   const withExpectation = checks.filter((check) => check.expectedFailure !== undefined);
   assert.ok(withExpectation.length > 0, 'the prose "Fails on ..." notes that name a finding and a step are converted');
   for (const check of withExpectation) {
-    const problems = validateExpectedFailure(check, { statuses, source: stepSources(check.script) });
+    const problems = validateExpectedFailure(check, { statuses, ...stepSources(check.script) });
     assert.deepEqual(problems, [], `${check.name}: ${problems.join('; ')}`);
   }
 });
 
+// The synthetic scripts below are one text: it is both what the script says and what it requires.
+const validate = (check, { statuses, source }) => validateExpectedFailure(check, { statuses, source, scriptSource: source });
+
 test('shouldRejectExpectedFailure_whenFindingIsFixedOrMissing', () => {
   const statuses = new Map([[140, 'issue-filed'], [141, 'fixed'], [142, 'open'], [143, 'needs-live-check']]);
   const source = REPORTING + 'await s.step(\'send from X\\\'s window\', async () => {});';
-  const ok = (finding) => validateExpectedFailure(expectingCheck({ expectedFailure: { finding, step: 'send from X\'s window' } }), { statuses, source });
+  const ok = (finding) => validate(expectingCheck({ expectedFailure: { finding, step: 'send from X\'s window' } }), { statuses, source });
   assert.deepEqual(ok(140), []);
   assert.deepEqual(ok(142), []);
   assert.deepEqual(ok(143), []);
@@ -552,7 +567,7 @@ test('shouldRejectExpectedFailure_whenFindingIsFixedOrMissing', () => {
 test('shouldRejectExpectedFailure_whenShapeIsWrong', () => {
   const statuses = new Map([[140, 'issue-filed']]);
   const source = REPORTING + 'await s.step(\'a step\', async () => {});';
-  const problems = (expectedFailure) => validateExpectedFailure(expectingCheck({ expectedFailure }), { statuses, source }).join(';');
+  const problems = (expectedFailure) => validate(expectingCheck({ expectedFailure }), { statuses, source }).join(';');
   assert.match(problems(140), /must be an object/);
   assert.match(problems(null), /must be an object/);
   assert.match(problems({ finding: '140', step: 'a step' }), /finding must be a positive integer/);
@@ -566,12 +581,12 @@ test('shouldRejectExpectedFailure_whenTheScriptHasNoSuchStepLabel', () => {
   // failedStep can only ever be a label the script passes to step(); anything else would read as failed-elsewhere forever.
   const statuses = new Map([[140, 'issue-filed']]);
   const check = expectingCheck({ expectedFailure: { finding: 140, step: 'a step that does not exist' } });
-  const problems = validateExpectedFailure(check, { statuses, source: REPORTING + 'await s.step(\'another step\', async () => {});' });
+  const problems = validate(check, { statuses, source: REPORTING + 'await s.step(\'another step\', async () => {});' });
   assert.match(problems.join(';'), /no step labelled "a step that does not exist"/);
   // An escaped quote in the script's string literal is still the same label.
   const escaped = expectingCheck({ expectedFailure: { finding: 140, step: 'Send in X\'s window' } });
-  assert.deepEqual(validateExpectedFailure(escaped, { statuses, source: REPORTING + 'await s.step(\'Send in X\\\'s window\', f);' }), []);
-  assert.deepEqual(validateExpectedFailure(escaped, { statuses, source: REPORTING + 'await s.step("Send in X\'s window", f);' }), []);
+  assert.deepEqual(validate(escaped, { statuses, source: REPORTING + 'await s.step(\'Send in X\\\'s window\', f);' }), []);
+  assert.deepEqual(validate(escaped, { statuses, source: REPORTING + 'await s.step("Send in X\'s window", f);' }), []);
 });
 
 test('shouldRejectExpectedFailure_whenTheScriptDoesNotReportThroughRunCheck', () => {
@@ -579,11 +594,56 @@ test('shouldRejectExpectedFailure_whenTheScriptDoesNotReportThroughRunCheck', ()
   // main() and its own PASS/FAIL printing can never satisfy an expectedFailure.
   const statuses = new Map([[140, 'issue-filed']]);
   const source = 'const step = (name, ok) => console.log(ok ? "PASS" : "FAIL", name); step(\'send from X\\\'s window\', true);';
-  const problems = validateExpectedFailure(expectingCheck(), { statuses, source });
+  const problems = validate(expectingCheck(), { statuses, source });
   assert.match(problems.join(';'), /neither runWorkflow\(\) nor a runCheck\(\) whose steps call markFailedStep\(\)/);
   // runCheck() alone is not enough: its own step helper must tag the failing step.
   const bare = source + ' runCheck({ name: \'x\', run });';
-  assert.match(validateExpectedFailure(expectingCheck(), { statuses, source: bare }).join(';'), /neither runWorkflow/);
+  assert.match(validate(expectingCheck(), { statuses, source: bare }).join(';'), /neither runWorkflow/);
   const tagged = `${bare} h.markFailedStep(error, 'send from X\\'s window');`;
-  assert.deepEqual(validateExpectedFailure(expectingCheck(), { statuses, source: tagged }), []);
+  assert.deepEqual(validate(expectingCheck(), { statuses, source: tagged }), []);
+});
+
+test('shouldRejectExpectedFailure_whenARealRunCheckDirectScriptNeverTagsItsSteps', () => {
+  // These scripts call runCheck() directly with a step helper of their own that does not tag the
+  // error. The shared harness text they require DOES contain markFailedStep( and runCheck(, so
+  // reading the combined text made the guard vacuous: an expectedFailure on one of them passed
+  // the manifest test and then read failed-elsewhere on every run.
+  const statuses = new Map([[140, 'issue-filed']]);
+  for (const script of ['scripts/report-print-playwright-checks.js', 'scripts/admin-index-links-playwright-checks.js',
+    'scripts/clinical-calculators-playwright-checks.js']) {
+    const { scriptSource } = stepSources(script);
+    assert.match(scriptSource, /\brunCheck\(/, `${script} is expected to be a runCheck-direct script`);
+    assert.doesNotMatch(scriptSource, /\bmarkFailedStep\(|\brunWorkflow\(/, `${script} now tags its own steps; pick another script`);
+    const label = /step\(\s*'([^']+)'/.exec(scriptSource);
+    const check = { name: path.basename(script), script, expectedFailure: { finding: 140, step: label ? label[1] : 'a step' } };
+    // The old combined text, harness included, is what used to satisfy the guard.
+    const combined = stepSources(script, { includeHarness: true });
+    assert.match(combined.source, /function markFailedStep\(/, 'the combined text must contain the harness for this regression test to mean anything');
+    for (const sources of [stepSources(script), combined]) {
+      const problems = validateExpectedFailure(check, { statuses, ...sources });
+      assert.match(problems.join(';'), /neither runWorkflow\(\) nor a runCheck\(\) whose steps call markFailedStep\(\)/, script);
+    }
+  }
+});
+
+test('shouldAcceptExpectedFailure_whenARealWorkflowScriptTagsItsStepsThroughSessionStep', () => {
+  const statuses = new Map([[140, 'issue-filed']]);
+  const script = 'scripts/eform-email-two-windows-playwright-checks.js';
+  const check = { name: 'eform-email-two-windows', script, expectedFailure: { finding: 140, step: 'Send in X\'s window delivers to X only, with X\'s own eForm' } };
+  assert.deepEqual(validateExpectedFailure(check, { statuses, ...stepSources(script) }), []);
+  assert.deepEqual(validateExpectedFailure(check, { statuses, ...stepSources(script, { includeHarness: true }) }), []);
+});
+
+test('shouldTakeTheReportingGuardFromTheScriptsOwnText_notFromWhatItRequires', () => {
+  const statuses = new Map([[140, 'issue-filed']]);
+  const check = expectingCheck();
+  const label = 'await s.step(\'send from X\\\'s window\', f);';
+  // Only a required module mentions runWorkflow and markFailedStep: the script itself does neither.
+  const problems = validateExpectedFailure(check, {
+    statuses, source: `${label}\nfunction markFailedStep() {} runWorkflow( runCheck(`, scriptSource: label,
+  });
+  assert.match(problems.join(';'), /neither runWorkflow/);
+  assert.deepEqual(validateExpectedFailure(check, { statuses, source: label, scriptSource: `${label} runWorkflow('x', f);` }), []);
+  // A caller that forgets scriptSource fails safe rather than reading the combined text.
+  assert.match(validateExpectedFailure(check, { statuses, source: `${label} runWorkflow(` }).join(';'), /neither runWorkflow/);
 });
