@@ -58,12 +58,16 @@ final class AllergySaveTokens {
     }
 
     static final String SESSION_ATTRIBUTE = "rx.allergySaveTokens";
-    private static final int MAX_TOKENS = 200;
+    private static final int MAX_TOKENS = 1000;
     private static final Pattern FORMAT = Pattern.compile("[A-Za-z0-9-]{16,64}");
 
     private enum Stage { PENDING_ADD, ADDED, PENDING_ARCHIVE, SAVED }
 
-    private static final class TokenState {
+    // Serializable so Tomcat session persistence (restart, clustering) keeps the ledger instead of
+    // dropping the attribute: losing it would let a post-restart retry add the allergy again.
+    private static final class TokenState implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+
         final String fingerprint;
         Stage stage;
 
