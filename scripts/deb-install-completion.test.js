@@ -170,7 +170,19 @@ print("ok")
   // all provision with the same verbs, and each would generate its own
   // administrator credential. THE SAME lock file in all three.
   assert.match(provision, /fcntl\.LOCK_EX \| fcntl\.LOCK_NB/);
-  assert.match(provision, /LOCK = os\.path\.join\(STATE, "\.finish-install\.lock"\)/);
+  // provision.LOCK is the shared database-ownership lock, which the OSCAR 19
+  // importer holds for its whole run too (#3678): ONE file, the same path the
+  // postinsts open.
+  assert.match(provision, /^LOCK = util\.DB_OWNERSHIP_LOCK$/m);
+  assert.match(readCtl('util.py'),
+    /^DB_OWNERSHIP_LOCK = os\.path\.join\(STATE, "\.finish-install\.lock"\)$/m);
+  const importer = readCtl('o19import.py');
+  const verb = importer.slice(importer.indexOf('def _cmd_import_o19('));
+  assert.ok(verb.indexOf('take_db_ownership_lock(') > 0,
+    'import-o19 must take the database-ownership lock');
+  // ...before it publishes the ledger the o19 guard reads (_make_ctx writes it).
+  assert.ok(verb.indexOf('take_db_ownership_lock(') < verb.indexOf('_make_ctx(args'));
+  assert.ok(verb.indexOf('take_db_ownership_lock(') < verb.indexOf('_make_ctx_for_cleanup(args'));
   assert.match(postinst, /PROVISION_LOCK="\$\{STATE\}\/\.finish-install\.lock"/);
   assert.match(postinst, /flock -w 300 9/);
   // Taken before the oscar -> carlos rename, which MOVES the clinical tables —
@@ -484,4 +496,114 @@ db_get() { RET=selfsigned; }`;
       'carlos-emr/province=bc', 'carlos-emr/java-heap=2g',
     ]);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+// The lock decides; the guard explains (#3678). An OSCAR 19 import holds the
+// database-ownership lock for hours, so a configure that finds it held while
+// the guard reports an import defers at once, with status 2 and the import's
+// own instructions — not after a five-minute wait, and not as an anonymous
+// "another provisioning run". Run with flock(1) exactly as the scripts do,
+// against a lock held by a real second process.
+const hasFlock = spawnSync('sh', ['-c', 'command -v flock'], { encoding: 'utf8' }).status === 0;
+
+function holdLock(lock) {
+  // A child holding the lock the way import-o19 (or another configure) does.
+  const holder = require('node:child_process').spawn('sh', ['-c',
+    'exec 9>"$1"; flock 9; echo held; exec sleep 60', 'sh', lock],
+  { stdio: ['ignore', 'pipe', 'inherit'] });
+  return holder;
+}
+
+function waitHeld(lock) {
+  for (let i = 0; i < 200; i += 1) {
+    const probe = spawnSync('sh', ['-c', 'exec 9>"$1"; flock -n 9', 'sh', lock]);
+    if (probe.status !== 0) return;
+    spawnSync('sleep', ['0.05']);
+  }
+  throw new Error('the holder never took the lock');
+}
+
+function postinstAcquire(script, fnGuard, { state, importRunning, waitSeconds }) {
+  const acquire = script.match(/acquire_provision_lock\(\) \{[\s\S]*?\n\}/)[0]
+    .replace('flock -w 300 9', `flock -w ${waitSeconds} 9`);
+  const body = `STATE="${state}"\nPROVISION_LOCK="\${STATE}/.finish-install.lock"\n`
+    + `${fnGuard(importRunning)}\n${acquire}\n`
+    + 'rc=0; acquire_provision_lock || rc=$?; echo "rc=$rc"';
+  return spawnSync('sh', ['-c', body], { encoding: 'utf8', timeout: 30000 });
+}
+
+test('a configure defers to an OSCAR 19 import holding the lock, at once and by name', { skip: !hasFlock && 'flock(1) not installed' }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-dblock-'));
+  const lock = path.join(root, '.finish-install.lock');
+  // carlos-emr.postinst: the predicate is o19_import_in_progress(); stub it.
+  const emrGuard = (running) => `o19_import_in_progress() { return ${running ? 0 : 1}; }`;
+  const holder = holdLock(lock);
+  try {
+    waitHeld(lock);
+    const started = Date.now();
+    let result = postinstAcquire(postinst, emrGuard,
+      { state: root, importRunning: true, waitSeconds: 20 });
+    assert.match(result.stdout, /^rc=2$/m, result.stderr);
+    assert.ok(Date.now() - started < 10000, 'it waited for an import that holds the lock for hours');
+    assert.match(result.stderr, /OSCAR 19 import is in progress and owns the database/);
+    assert.match(result.stderr, /carlos-ctl import-o19 \.\.\. --resume/);
+    assert.match(result.stderr, /dpkg-reconfigure carlos-emr/);
+
+    // No import: the ordinary wait-then-defer, naming every possible holder.
+    result = postinstAcquire(postinst, emrGuard,
+      { state: root, importRunning: false, waitSeconds: 1 });
+    assert.match(result.stdout, /^rc=1$/m, result.stderr);
+    assert.match(result.stderr, /carlos-ctl import-o19\) held the/);
+
+    // carlos-emr-drugref.postinst asks the shipped guard directly.
+    const drugref = read('debian', 'carlos-emr-drugref.postinst');
+    const guard = path.join(root, 'guard');
+    const drugrefGuard = (running) => {
+      fs.writeFileSync(guard, `#!/bin/sh\nexit ${running ? 1 : 0}\n`, { mode: 0o755 });
+      return `O19_GUARD="${guard}"\n${drugref.match(/o19_import_holds_database\(\) \{[\s\S]*?\n\}/)[0]}`;
+    };
+    result = postinstAcquire(drugref, drugrefGuard,
+      { state: root, importRunning: true, waitSeconds: 20 });
+    assert.match(result.stdout, /^rc=2$/m, result.stderr);
+    result = postinstAcquire(drugref, drugrefGuard,
+      { state: root, importRunning: false, waitSeconds: 1 });
+    assert.match(result.stdout, /^rc=1$/m, result.stderr);
+  } finally {
+    holder.kill();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a free lock is taken at once and the guard is not consulted for it', { skip: !hasFlock && 'flock(1) not installed' }, () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-dblock-'));
+  try {
+    // A guard that would report an import: with the lock free the configure
+    // still takes it, and the import gate further down decides, as before.
+    const result = postinstAcquire(postinst,
+      () => 'o19_import_in_progress() { echo consulted >&2; return 0; }',
+      { state: root, importRunning: true, waitSeconds: 1 });
+    assert.match(result.stdout, /^rc=0$/m, result.stderr);
+    assert.doesNotMatch(result.stderr, /consulted/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('an import holding the lock defers like the import gate: no marker, no migration, no start', () => {
+  // Status 2 sets O19_IMPORT_HOLDS_LOCK, and the lock-not-held branch then
+  // clears MIGRATION_OK (no Flyway, no start) WITHOUT recording an unfinished
+  // install: what is owed is the import's, and a marker would have the boot
+  // provisioner run bootstrap-admin and the rest against the imported schema.
+  assert.match(postinst,
+    /acquire_provision_lock \|\| provision_lock_rc=\$\?\n\s+if \[ "\$\{provision_lock_rc\}" != 0 \]; then\n\s+PROVISION_LOCK_HELD=0\n\s+fi\n\s+if \[ "\$\{provision_lock_rc\}" = 2 \]; then\n\s+O19_IMPORT_HOLDS_LOCK=1/);
+  const branch = postinst.match(/if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then\n\s+MIGRATION_OK=0\n[\s\S]*?\n\s+elif o19_import_in_progress; then/)[0];
+  assert.match(branch, /if \[ "\$\{O19_IMPORT_HOLDS_LOCK\}" = 0 \]; then\n\s+mark_incomplete "another provisioning run held the provisioning lock"/);
+  // Initialised before use: dpkg passes the caller's environment through.
+  assert.ok(postinst.indexOf('O19_IMPORT_HOLDS_LOCK=0') < postinst.indexOf('acquire_provision_lock ||'));
+  assert.ok(postinst.indexOf('provision_lock_rc=0') < postinst.indexOf('acquire_provision_lock ||'));
+  // The DrugRef configure refuses with the import's instructions.
+  const drugref = read('debian', 'carlos-emr-drugref.postinst');
+  assert.match(drugref, /if \[ "\$\{provision_lock_rc\}" = 2 \]; then[\s\S]*?OSCAR 19 import is in progress[\s\S]*?exit 1/);
+  assert.ok(drugref.indexOf('acquire_provision_lock || provision_lock_rc=$?') <
+    drugref.indexOf('carlos-ctl db-users'));
 });
