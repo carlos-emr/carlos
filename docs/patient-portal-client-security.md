@@ -118,12 +118,11 @@ portal is asked for anything, and the page shows only the controls the user's ri
 
 `V1.0.58` (merged as `V1.0.43`) grants `doctor` full `_portal.invite`, because `doctor` is the only
 non-admin role the baseline grants `_email`. Read-only `_portal.account`, which the invitation panel
-uses to show whether
-the patient already has an account, comes from `V1.0.41`; `V1.0.58` does not grant it again, so a
-clinic that removed it keeps that choice. Unlocking a portal account stays with `admin`, where
-`V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting them `_portal.invite`
-in Administration > Security lets them see and revoke invitations, but not send one or resolve an
-unfinished delivery.
+uses to show whether the patient already has an account, comes from `V1.0.41`; `V1.0.58` does not
+grant it again, so a clinic that removed it keeps that choice. Unlocking a portal account stays with
+`admin`, where `V1.0.41` put it. Front-desk roles hold `_demographic` but not `_email`: granting
+them `_portal.invite` in Administration > Security lets them see and revoke invitations, but not
+send one or resolve an unfinished delivery.
 
 Two settings are required, and invitations are refused until both are set:
 

@@ -132,7 +132,7 @@ Set these in the deployment's override properties, not in the committed `carlos.
       `release/2026.08` holds below that number, and CARLOS runs Flyway without `outOfOrder`, so it
       cannot be upgraded once those migrations reach `develop`: rebuild it instead. Rebuild it too
       if it ran the invitation delivery migration under its old number, `V1.0.43` (renumbered to
-      `V1.0.58` on 8 Oct 2026): Flyway validation then reports an applied `V1.0.43` that no longer
+      `V1.0.58` by #4440): Flyway validation then reports an applied `V1.0.43` that no longer
       exists. A copy run before 5 Oct 2026 also differs (an `INT` `email_log_id` and an extra doctor
       grant).
 
