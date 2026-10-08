@@ -81,11 +81,14 @@ public class ViewBillingOhipSimulation2Action extends ActionSupport {
                 .assemble(request, loggedInInfo, teamBillingOnly,
                         siteAccessPrivacy, teamAccessPrivacy);
         request.setAttribute("simulationModel", model);
-        // Audit the dry run as OSCAR 19's billingOHIPsimulation.jsp did.
-        LogAction.addLog(loggedInInfo, LogConst.SIMULATE, LogConst.CON_OHIP, null, null,
-                "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
-                        + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
-                        + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date")));
+        // Audit the dry run as OSCAR 19's billingOHIPsimulation.jsp did: only when a
+        // report was requested, not when the form is merely displayed.
+        if ("Create Report".equals(request.getParameter("submit"))) {
+            LogAction.addLog(loggedInInfo, LogConst.SIMULATE, LogConst.CON_OHIP, null, null,
+                    "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                            + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                            + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date")));
+        }
 
         return SUCCESS;
     }

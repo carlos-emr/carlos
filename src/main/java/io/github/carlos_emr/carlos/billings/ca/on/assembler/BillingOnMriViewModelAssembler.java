@@ -184,7 +184,8 @@ public class BillingOnMriViewModelAssembler {
                 .serviceDateStart(nullToEmpty(request.getParameter("xml_vdate")))
                 .serviceDateEnd(nullToEmptyDefault(request.getParameter("xml_appointment_date"),
                         UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd")))
-                .useProviderMOHChecked("true".equals(request.getParameter("useProviderMOH")));
+                .useProviderMOHChecked("true".equals(request.getParameter("useProviderMOH"))
+                        || "on".equals(request.getParameter("useProviderMOH")));
 
         b.providerOptions(loadProviderOptions(userProviderNo, isTeamBillingOnly, isSiteAccessPrivacy, isTeamAccessPrivacy));
         b.billCenterOptions(loadBillCenterOptions());

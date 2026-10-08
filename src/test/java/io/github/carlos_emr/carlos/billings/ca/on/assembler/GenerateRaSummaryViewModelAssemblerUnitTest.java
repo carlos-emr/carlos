@@ -183,4 +183,36 @@ class GenerateRaSummaryViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(model.getRows().get(0).demoHin()).isEqualTo("1234567890");
         assertThat(model.getRows().get(0).demoName()).isEqualTo("FAKE-PATIENT, TEST");
     }
+
+    @Test
+    void shouldSumRecoveries_whenPaidAmountIsNegative() {
+        // An HR5 recovery carries a negative paid amount (Amount Paid Sign); the page
+        // used to throw and skip persisting the totals.
+        RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        RaHeader header = new RaHeader();
+        header.setStatus("A");
+        when(raHeaderDao.find((Object) 7)).thenReturn(header);
+        when(raDetailDao.search_raprovider(7)).thenReturn(Collections.emptyList());
+        when(raDetailDao.search_raob(7)).thenReturn(Collections.emptyList());
+        when(raDetailDao.search_racolposcopy(7)).thenReturn(Collections.emptyList());
+        when(providerDao.getActiveProviders()).thenReturn(Collections.emptyList());
+        RaDetail recovery = new RaDetail();
+        recovery.setBillingNo(100);
+        recovery.setAmountClaim("12.34");
+        recovery.setAmountPay("-0.50");
+        recovery.setServiceDate("20260428");
+        recovery.setServiceCode("A001");
+        when(raDetailDao.search_rasummary_dt(7, "%")).thenReturn(List.of(recovery));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "7");
+
+        io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel model =
+                new GenerateRaSummaryViewModelAssembler(raHeaderDao, raDetailDao, providerDao, billingDao)
+                        .assemble(request, null);
+
+        assertThat(new java.math.BigDecimal(model.getPaidTotal())).isEqualByComparingTo("-0.50");
+    }
 }

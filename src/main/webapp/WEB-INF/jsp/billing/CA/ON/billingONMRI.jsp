@@ -166,9 +166,10 @@
 </c:if>
 <c:if test="${not empty ohipGenerationError}">
     <div class="alert alert-danger" role="alert" id="ohip-generation-validation">
-        <strong>OHIP file not generated.</strong>
+        <strong>OHIP file generation stopped.</strong>
         <p><carlos:encode value="${ohipGenerationError}" context="html"/></p>
-        <p class="mb-0">No files were generated and no billing records were changed.</p>
+        <p class="mb-0">Nothing was written for the provider or disk named above. Any disks
+            completed earlier in the same run are listed below and remain valid.</p>
     </div>
 </c:if>
 

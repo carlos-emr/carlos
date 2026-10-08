@@ -584,4 +584,32 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
         List<RaDetail> result = dao.findByRaHeaderNoAndProviderOhipNo(100, "10");
         assertThat(result).isEmpty();
     }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should settle claims whose explanatory code is on the irrelevant list")
+    void shouldTreatIrrelevantExplanatoryCodes_asSettled() throws Exception {
+        // "IN ?4" bound to one String compared the code with the literal list text and
+        // never matched, so EV/55/57/HM/30/B2/I6/V8 claims were never settled.
+        int raHeaderNo = 333;
+        String providerOhipNo = "101";
+        String[][] rows = {{"41", "EV"}, {"42", ""}, {"43", "AC"}, {"44", "30"}};
+        for (String[] row : rows) {
+            RaDetail detail = new RaDetail();
+            EntityDataGenerator.generateTestDataForModelClass(detail);
+            detail.setRaHeaderNo(raHeaderNo);
+            detail.setBillingNo(Integer.parseInt(row[0]));
+            detail.setProviderOhipNo(providerOhipNo);
+            detail.setServiceCode("A001A");
+            detail.setErrorCode(row[1]);
+            dao.persist(detail);
+        }
+        hibernateTemplate.flush();
+
+        List<Integer> settled = dao.search_ranoerror35(raHeaderNo, "x1", "x2", providerOhipNo);
+        List<RaDetail> errors = dao.search_raerror35(raHeaderNo, "x1", "x2", providerOhipNo);
+
+        assertThat(settled).containsExactlyInAnyOrder(41, 42, 44);
+        assertThat(errors).extracting(RaDetail::getBillingNo).containsExactly(43);
+    }
 }

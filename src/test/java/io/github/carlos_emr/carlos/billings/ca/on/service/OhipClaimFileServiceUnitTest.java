@@ -693,4 +693,44 @@ class OhipClaimFileServiceUnitTest {
 
         assertThat(service.outputFileExists()).isTrue();
     }
+
+    @Test
+    void shouldTransliterateAccentedLetters_forHealthCardName() {
+        // The spec forbids special characters; deleting the letter (the old \\W strip)
+        // changed "Côté" into "CT". Transliterate, then drop what is still not A-Z/0-9.
+        assertThat(OhipClaimFileService.mohName("Côté")).isEqualTo("COTE");
+        assertThat(OhipClaimFileService.mohName(" Hélène-Marie ")).isEqualTo("HELENEMARIE");
+        assertThat(OhipClaimFileService.mohName("O'Brien")).isEqualTo("OBRIEN");
+        assertThat(OhipClaimFileService.mohName(null)).isEmpty();
+    }
+
+    @Test
+    void shouldUpperCaseAsciiLettersOnly_forAlphabeticFields() {
+        assertThat(OhipClaimFileService.upperAscii("a001a")).isEqualTo("A001A");
+        assertThat(OhipClaimFileService.upperAscii("mn")).isEqualTo("MN");
+        assertThat(OhipClaimFileService.upperAscii("é")).isEqualTo("é");
+        assertThat(OhipClaimFileService.upperAscii(null)).isNull();
+    }
+
+    @Test
+    void shouldReportOversizedValueAsFatal_insteadOfThrowing() {
+        // A 7-character referral number used to throw StringIndexOutOfBounds and
+        // surface as a "file write" failure; it is a data error on the claim.
+        service.setErrorFatalMsg("");
+        String padded = service.rightJustify(" ", 6, "1234567");
+
+        assertThat(padded).hasSize(6);
+        assertThat(service.getErrorFatalMsg()).contains("1234567").contains("6-character field");
+    }
+
+    @Test
+    void shouldTreatMissingOutputFileAsEmptyDedupSet_whenRegenerating() throws IOException {
+        // A disk whose file was never written (failed generation) or was removed:
+        // nothing to dedup against, so regeneration can write it instead of failing.
+        service.setOhipFilename("never-written.txt");
+
+        service.readInBillingNo();
+
+        assertThat(service.getErrorFatalMsg()).isEmpty();
+    }
 }

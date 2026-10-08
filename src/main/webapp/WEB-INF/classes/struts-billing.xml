@@ -840,6 +840,7 @@
         </action>
 
         <action name="billing/CA/ON/ViewOnregenreport" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnReportRegeneration2Action">
+            <result name="input" type="chain">billing/CA/ON/ViewBillingONMRI</result>
             <!-- MOH disk regeneration now runs inside BillingOnDiskService.regenerateDisk
                  in the action; chains to ViewBillingONMRI. onregenreport.jsp is now
                  an empty stub. -->

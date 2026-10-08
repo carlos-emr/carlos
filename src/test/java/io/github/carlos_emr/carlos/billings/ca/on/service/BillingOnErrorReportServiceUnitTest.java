@@ -64,4 +64,16 @@ class BillingOnErrorReportServiceUnitTest {
 
         assertThat(dto.getFeeMoney()).isNull();
     }
+
+    @Test
+    void shouldLeaveFeeUnset_whenStoredValueIsUnreadable() {
+        // One garbage legacy row used to send the whole rejected-claims page to the
+        // validation error page; it renders as N/A for that row instead.
+        BillingErrorReportDto dto = new BillingErrorReportDto();
+        dto.setBilling_no("77");
+
+        BillingOnErrorReportService.applyStoredFee(dto, "abc");
+
+        assertThat(dto.getFeeMoney()).isNull();
+    }
 }

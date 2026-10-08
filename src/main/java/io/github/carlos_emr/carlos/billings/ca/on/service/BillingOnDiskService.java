@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
@@ -136,7 +137,11 @@ public class BillingOnDiskService {
                     dateRange, mohOffice, useProviderMOH, currentUser, groupReport, provider);
         } else {
             BillingProviderDto soloProvider = prep.getProviderObj(provider);
-            if (soloProvider != null && isSoloGroupNo(soloProvider.getBillingGroupNo())) {
+            if (soloProvider == null) {
+                // Used to be a silent no-op that still logged a successful generation.
+                throw new BillingValidationException("Selected provider is not billable (inactive or without an OHIP number).");
+            }
+            if (isSoloGroupNo(soloProvider.getBillingGroupNo())) {
                 writeSingleSoloDisk(prep, soloProvider, loggedInInfo, request,
                         dateRange, mohOffice, useProviderMOH, currentUser);
             }
@@ -164,6 +169,7 @@ public class BillingOnDiskService {
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
         List<BillingProviderDto> lProvider = prep.getProvider(diskId);
+        reportOmittedMembers(diskId, lProvider, request);
 
         if (lProvider != null && lProvider.size() == 1
                 && isSoloGroupNo(lProvider.get(0).getBillingGroupNo())) {
@@ -178,7 +184,7 @@ public class BillingOnDiskService {
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
             objFile.stageRegeneratedBatchHeader(prepared.replacement(), () -> prep.finalizeBatchHeader(prepared));
             regenerateSoloDiskFilesAndFinalize(objFile, loggedInInfo, headerId,
-                    resolvedMoh, Integer.parseInt(diskId));
+                    resolvedMoh, Integer.parseInt(diskId), dataProvider.getProviderNo(), request);
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
                     diskId, currentUser);
@@ -195,13 +201,38 @@ public class BillingOnDiskService {
                 "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
     }
 
-    private static DateRange parseDateRange(String dateBegin, String dateEnd, String curDate) {
+    static DateRange parseDateRange(String dateBegin, String dateEnd, String curDate) {
         if (dateEnd == null || dateEnd.isEmpty()) dateEnd = curDate;
+        java.util.Date end = strictDate(dateEnd, "end");
         if (dateBegin == null || dateBegin.isEmpty()) {
-            return new DateRange(null, ConversionUtils.fromDateString(dateEnd));
+            return new DateRange(null, end);
         }
-        return new DateRange(ConversionUtils.fromDateString(dateBegin),
-                ConversionUtils.fromDateString(dateEnd));
+        java.util.Date begin = strictDate(dateBegin, "start");
+        if (begin.after(end)) {
+            throw new BillingValidationException("The start date is after the end date.");
+        }
+        return new DateRange(begin, end);
+    }
+
+    /**
+     * Strict {@code yyyy-MM-dd} (or {@code yyyy-MM-dd HH:mm:ss}): a lenient parse
+     * turned 2026-02-31 into 3 March and an unparseable end date into no upper
+     * bound at all, which billed every outstanding claim.
+     */
+    private static java.util.Date strictDate(String value, String field) {
+        String text = value == null ? "" : value.trim();
+        String pattern = text.matches("\\d{4}-\\d{2}-\\d{2}") ? "yyyy-MM-dd"
+                : text.matches("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}") ? "yyyy-MM-dd HH:mm:ss" : null;
+        if (pattern == null) {
+            throw new BillingValidationException("The " + field + " date must be a valid yyyy-MM-dd date.");
+        }
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(pattern);
+        format.setLenient(false);
+        try {
+            return format.parse(text);
+        } catch (java.text.ParseException invalid) {
+            throw new BillingValidationException("The " + field + " date must be a valid yyyy-MM-dd date.");
+        }
     }
 
     private void writeSoloDisks(BillingDiskCreationService prep, List<BillingProviderDto> soloProviders,
@@ -220,6 +251,7 @@ public class BillingOnDiskService {
                     prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
             writeNewDiskFilesAndFinalize(objFile, diskId);
         }
     }
@@ -321,6 +353,7 @@ public class BillingOnDiskService {
                     currentUser, "" + (i + 1));
             objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                     mohOffice, false, "on".equals(useProviderMOH));
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
             // Membership in the group disk is decided by claim items, not by the
             // dollar total: $0 tracking codes and items that net to $0 are still
             // claims OHIP must receive, and skipping them left those claims
@@ -347,6 +380,7 @@ public class BillingOnDiskService {
                 prep.getHtmlfilename(diskId, dataProvider.getProviderNo()));
         objFile.createBillingFileStr(loggedInInfo, "" + headerId, BILLING_STATUS_NEW, false,
                 mohOffice, false, "on".equals(useProviderMOH));
+        requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
         writeNewDiskFilesAndFinalize(objFile, diskId);
     }
 
@@ -371,6 +405,7 @@ public class BillingOnDiskService {
             objFile.readInBillingNo();
             objFile.createBillingFileStr(loggedInInfo, prepared.replacement().getId(), BILLING_STATUS_REGEN, false,
                     mohOffice, false, false);
+            requireValidClaimFile(objFile, dataProvider.getProviderNo(), request);
             if (!hasClaimRecords(objFile)) continue;
             value.append(objFile.getValue()).append('\n');
             writers.add(objFile);
@@ -384,6 +419,53 @@ public class BillingOnDiskService {
             // claimless disk whose empty file was never written gets it now so the listed
             // download exists (OSCAR 19 contract for a claimless group disk).
             firstWriter.writeFile("");
+        }
+    }
+
+    /**
+     * The writer only records layout problems in two message strings that the
+     * simulation page used to be the sole reader of; generation published the
+     * file anyway and marked the claims billed. A batch-breaking problem now
+     * stops this provider before anything is written; claim-level problems the
+     * ministry would reject individually are reported as warnings and written.
+     */
+    static void requireValidClaimFile(OhipClaimFileService writer, String providerNo, HttpServletRequest request) {
+        String fatal = plainText(writer.getErrorFatalMsg());
+        if (!fatal.isEmpty()) {
+            throw new ClaimFileValidationException(providerNo, fatal);
+        }
+        String claimLevel = plainText(writer.getErrorMsg());
+        if (!claimLevel.isEmpty()) {
+            addGenerationWarning(request, "Provider " + providerNo + ": " + claimLevel
+                    + " The file was written; the ministry is likely to reject these claims.");
+        }
+    }
+
+    /** The writer's messages are HTML fragments separated by {@code <br>}. */
+    static String plainText(String html) {
+        if (html == null) return "";
+        return html.replaceAll("(?i)<br\\s*/?>", " ").replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * A member who is no longer billable (inactive or without an OHIP number) is
+     * left out of a regenerated group file while their claims stay marked billed
+     * on this disk; say so instead of regenerating silently, and refuse when no
+     * member is left.
+     */
+    private void reportOmittedMembers(String diskId, List<BillingProviderDto> billable, HttpServletRequest request) {
+        List<String> all = prep.getDiskProviderNos(diskId);
+        if (all.isEmpty()) return;
+        Set<String> kept = new HashSet<>();
+        if (billable != null) for (BillingProviderDto p : billable) kept.add(p.getProviderNo());
+        List<String> omitted = all.stream().filter(no -> !kept.contains(no)).distinct().toList();
+        if (kept.isEmpty()) {
+            throw new BillingValidationException("No billable provider remains on disk " + diskId
+                    + " (provider(s) " + String.join(", ", omitted) + " inactive or without an OHIP number); nothing was regenerated.");
+        }
+        if (!omitted.isEmpty()) {
+            addGenerationWarning(request, "Disk " + diskId + ": provider(s) " + String.join(", ", omitted)
+                    + " are no longer billable and were left out of the regenerated file; their claims remain marked billed on this disk.");
         }
     }
 
@@ -415,11 +497,14 @@ public class BillingOnDiskService {
                                                      LoggedInInfo loggedInInfo,
                                                      String headerId,
                                                      String mohOffice,
-                                                     int diskId) {
+                                                     int diskId,
+                                                     String providerNo,
+                                                     HttpServletRequest request) {
         writer.readInBillingNo();
         // Rendering is read-only; preserve the existing files until a complete replacement exists.
         writer.createBillingFileStr(loggedInInfo, headerId, BILLING_STATUS_REGEN, false,
                 mohOffice, false, false);
+        requireValidClaimFile(writer, providerNo, request);
         var outcome = new BillingOnDiskTransactionService.Outcome();
         boolean renamed = false;
         try {

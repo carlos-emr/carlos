@@ -534,4 +534,35 @@ class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldImportDetails_whenFileEndsWithBlankLineAndSubmittedAmountIsCents() throws Exception {
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 5);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+        char[] line = fixedLine();
+        line[0] = 'H';
+        line[2] = '5';
+        put(line, 3, "CLAIM000001");
+        put(line, 15, "20260401");
+        put(line, 23, "01");
+        put(line, 25, "A001A");
+        put(line, 31, "000050");
+        put(line, 37, "000050");
+        String fiftyCents = new String(line);
+
+        Path file = tempDir.resolve("blank-tail.ra");
+        Files.write(file, List.of(h1("20260401", "000000050", "+"), h4("00000001"), fiftyCents, ""));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaDetail> captor = ArgumentCaptor.forClass(RaDetail.class);
+        verify(raDetailDao).persist(captor.capture());
+        assertThat(captor.getValue().getAmountClaim()).isEqualTo("0.50");
+    }
 }

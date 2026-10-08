@@ -87,9 +87,17 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
             return INPUT;
         } catch (BillingValidationException rejected) {
-            // Other pre-write validation (for example a selected group provider that is
-            // not billable) is reported on the MRI page the same way, not as an error page.
+            // Other validation (a selected provider that is not billable, a bad date
+            // range, a claim file that cannot be built) is reported on the MRI page,
+            // not as an error page. Disks completed earlier in an All Providers run
+            // stay committed, so the run is audited as stopped rather than omitted.
             request.setAttribute("ohipGenerationError", rejected.getMessage());
+            LogAction.addLog(loggedInInfo, LogConst.GENERATE, LogConst.CON_OHIP, null, null,
+                    "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                            + "; billCenter=" + LogSafe.sanitize(request.getParameter("billcenter"))
+                            + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                            + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date"))
+                            + "; outcome=stopped: " + LogSafe.sanitize(rejected.getClass().getSimpleName()));
             return INPUT;
         }
         // Audit the generation as OSCAR 19's ongenreport.jsp did: the selected

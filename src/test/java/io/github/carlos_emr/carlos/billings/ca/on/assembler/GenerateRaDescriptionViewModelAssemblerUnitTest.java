@@ -120,7 +120,7 @@ class GenerateRaDescriptionViewModelAssemblerUnitTest extends CarlosUnitTestBase
         assertThat(model.getBalanceForwardRow().deductions()).isEqualTo("0000034.56");
 
         assertThat(model.getTransactionRows()).singleElement().satisfies(row -> {
-            assertThat(row.transaction()).isEqualTo("Accounting adjustment");
+            assertThat(row.transaction()).isEqualTo("Estimated Payment for Unprocessed Claims");
             assertThat(row.transactionDate()).isEqualTo("20260428");
             assertThat(row.chequeIssued()).isEqualTo("Computer Cheque issued");
             // H07 transaction amount is 6-whole + 2-cent (e.g., "00012345" -> "000123.45").

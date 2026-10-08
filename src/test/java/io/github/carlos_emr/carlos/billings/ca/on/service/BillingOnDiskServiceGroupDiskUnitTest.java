@@ -500,4 +500,108 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         provider.setBillingGroupNo(GROUP_NO);
         return provider;
     }
+
+    @Test
+    void shouldStopProvider_whenClaimFileHasBatchBreakingError() {
+        // The writer's fatal messages were only ever read by the simulation page;
+        // generation published the file and marked the claims billed anyway.
+        OhipClaimFileService writer = mock(OhipClaimFileService.class);
+        when(writer.getErrorFatalMsg()).thenReturn("Header1: Date of birth missing or invalid! - 77<br>");
+        MockHttpServletRequest request = allProvidersRequest();
+
+        assertThatThrownBy(() -> BillingOnDiskService.requireValidClaimFile(writer, "101", request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException.class)
+                .hasMessageContaining("Provider 101")
+                .hasMessageContaining("Date of birth missing or invalid! - 77")
+                .hasMessageContaining("Nothing was written");
+    }
+
+    @Test
+    void shouldWarnAndContinue_whenClaimFileHasClaimLevelErrors() {
+        OhipClaimFileService writer = mock(OhipClaimFileService.class);
+        when(writer.getErrorMsg()).thenReturn("77 - Header1: HIN is invalid!<br>");
+        MockHttpServletRequest request = allProvidersRequest();
+
+        BillingOnDiskService.requireValidClaimFile(writer, "101", request);
+
+        @SuppressWarnings("unchecked")
+        List<String> warnings = (List<String>) request.getAttribute(BillingOnDiskService.GENERATION_WARNINGS_ATTRIBUTE);
+        assertThat(warnings).singleElement().asString()
+                .contains("Provider 101").contains("77 - Header1: HIN is invalid!").doesNotContain("<br>");
+    }
+
+    @Test
+    void shouldNotWriteGroupFile_whenMemberClaimFileCannotBeBuilt() {
+        OhipClaimFileService broken = memberWriter("broken", BigDecimal.TEN, 2);
+        when(broken.getErrorFatalMsg()).thenReturn("Item: non-ASCII character! - 5<br>");
+        OhipClaimFileService output = mock(OhipClaimFileService.class);
+        givenGroupMembers(provider("101"));
+        when(claimFileFactory.getObject()).thenReturn(broken, output);
+
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException.class);
+
+        verify(output, never()).writeFile(anyString());
+        verify(broken, never()).writeHtml(anyString());
+        verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
+    @Test
+    void shouldRejectInvalidOrReversedDates_insteadOfBillingEverything() {
+        // Lenient parsing turned 2026-02-31 into 3 March and an unparseable end
+        // date into no upper bound (every outstanding claim billed).
+        assertThatThrownBy(() -> BillingOnDiskService.parseDateRange("2026-02-31", "2026-04-30", "2026-04-30 10:00:00"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("start date");
+        assertThatThrownBy(() -> BillingOnDiskService.parseDateRange("2026-04-01", "not-a-date", "2026-04-30 10:00:00"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("end date");
+        assertThatThrownBy(() -> BillingOnDiskService.parseDateRange("2026-05-01", "2026-04-30", "2026-04-30 10:00:00"))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("after the end date");
+        assertThat(BillingOnDiskService.parseDateRange("", "", "2026-04-30 10:11:12").getTo()).isNotNull();
+        assertThat(BillingOnDiskService.parseDateRange("2026-04-01", "2026-04-30", "x").getFrom()).isNotNull();
+    }
+
+    @Test
+    void shouldReportSelectedProvider_whenNotBillable() {
+        // Used to be a silent no-op that still audited a successful generation.
+        when(providerDao.getProvider("999")).thenReturn(null);
+        when(diskCreationService.getProviderObj("999")).thenReturn(null);
+        MockHttpServletRequest request = allProvidersRequest();
+        request.setParameter("providers", "999");
+
+        assertThatThrownBy(() -> service.generateNewDisk(request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("not billable");
+    }
+
+    @Test
+    void shouldWarnAboutOmittedMembers_whenRegeneratingGroupDisk() {
+        OhipClaimFileService zero = memberWriter("zero-body", BigDecimal.ZERO, 2);
+        when(diskCreationService.getDiskProviderNos("20")).thenReturn(List.of("101", "102"));
+        when(diskCreationService.getProvider("20")).thenReturn(List.of(provider("101")));
+        when(claimFileFactory.getObject()).thenReturn(zero);
+        MockHttpServletRequest request = allProvidersRequest();
+        request.setParameter("diskId", "20");
+
+        service.regenerateDisk(request);
+
+        @SuppressWarnings("unchecked")
+        List<String> warnings = (List<String>) request.getAttribute(BillingOnDiskService.GENERATION_WARNINGS_ATTRIBUTE);
+        assertThat(warnings).singleElement().asString().contains("102").contains("left out");
+    }
+
+    @Test
+    void shouldRefuseRegeneration_whenNoBillableMemberRemains() {
+        when(diskCreationService.getDiskProviderNos("20")).thenReturn(List.of("101"));
+        when(diskCreationService.getProvider("20")).thenReturn(List.of());
+        MockHttpServletRequest request = allProvidersRequest();
+        request.setParameter("diskId", "20");
+
+        assertThatThrownBy(() -> service.regenerateDisk(request))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("101");
+        verify(claimFileFactory, never()).getObject();
+    }
 }

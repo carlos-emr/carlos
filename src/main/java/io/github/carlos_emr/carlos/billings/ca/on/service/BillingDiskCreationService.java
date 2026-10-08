@@ -130,6 +130,11 @@ public class BillingDiskCreationService {
         return lookupService.getProvider(diskId);
     }
 
+    /** All provider numbers on the disk's filename rows, billable or not (see {@link BillingOnLookupService#getDiskProviderNos}). */
+    public List<String> getDiskProviderNos(String diskId) {
+        return lookupService.getDiskProviderNos(diskId);
+    }
+
     public BillingProviderDto getProviderObj(String providerNo) {
         return lookupService.getProviderObj(providerNo);
     }

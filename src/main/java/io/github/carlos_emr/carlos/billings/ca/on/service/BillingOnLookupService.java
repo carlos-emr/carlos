@@ -368,6 +368,19 @@ public class BillingOnLookupService {
 
      */
 
+    /**
+     * Every provider number recorded on a disk's filename rows, billable or not.
+     * {@link #getProvider(String)} keeps only billable providers; the difference
+     * is what a regeneration would silently omit.
+     */
+    public List<String> getDiskProviderNos(String diskId) {
+        List<String> providerNos = new ArrayList<>();
+        for (BillingONFilename f : billingONFilenameDao.findByDiskId(Integer.parseInt(diskId))) {
+            providerNos.add(f.getProviderNo());
+        }
+        return providerNos;
+    }
+
     public List<BillingProviderDto> getProvider(String diskId) {
         List<BillingProviderDto> retval = new ArrayList<BillingProviderDto>();
         String providerNo = null;
