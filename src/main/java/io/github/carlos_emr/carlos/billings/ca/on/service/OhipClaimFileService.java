@@ -1361,6 +1361,8 @@ public class OhipClaimFileService {
      * the hidden rollback copy behind. Best effort: the regeneration is already committed,
      * so a rename failure is logged and the rollback copy is left for reconciliation.
      */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void retainFileBackup() {
         if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
         File homeDirFile = new File(CarlosProperties.getInstance().getProperty("HOME_DIR"));
