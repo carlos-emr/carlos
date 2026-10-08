@@ -73,7 +73,8 @@ class EmailFooterEditorJspRegressionTest {
                 .contains("opener.disabled = true;")
                 // A footer link in a preview never navigates away from an unsent email.
                 .contains("event.target.closest('.footer-editor-mail a')")
-                .contains("parseFromString(html || '', 'text/html').body.textContent")
+                .contains("String(html || '').replace(/<[^>]*>/g, ' ')")
+                .doesNotContain("parseFromString")
                 // Pasted text keeps no formatting.
                 .contains("getData('text/plain')")
                 .contains("document.execCommand('insertText', false, text)");

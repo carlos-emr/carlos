@@ -7,15 +7,16 @@
   the plain-text version; the 2,000-character limit, counted on the plain-text version as the server
   counts it. The preview is cleaned in the browser by DOMPurify; the server cleans again
   (EmailFooterHtml), and that cleaning is the one that counts.
-  Usage: include once per page, after Bootstrap's script, inside a page that defines ${ctx} and
-  sets the oscarResources bundle. Set footerEditorScopeKey and footerEditorApplyKey (bundle keys for
-  the scope badge and the apply button) first. A button with
+  Usage: include once per page, after Bootstrap's script, inside a page that defines ${ctx} (the
+  fragment declares its taglibs and the oscarResources bundle itself). Set footerEditorScopeKey and
+  footerEditorApplyKey (bundle keys for the scope badge and the apply button) first. A button with
   data-footer-editor-target="<hidden input id>" and data-footer-editor-preview="<preview element id>"
   opens it; applying writes the cleaned HTML into that input and redraws that preview.
   @since 2026-10-08
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <style>
     #footerEditorText { min-height: 9rem; }
     #footerEditorText:focus { outline: none; box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .25); }

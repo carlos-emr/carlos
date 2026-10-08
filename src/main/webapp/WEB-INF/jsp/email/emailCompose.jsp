@@ -981,7 +981,10 @@
 
     document.addEventListener("keydown", function (event) {
         const targetTag = event.target.tagName.toLowerCase();
-        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button") {
+        // Enter must not submit the form from a single-line field. Multi-line places keep it: the
+        // message textarea and the Edit footer window's editor (contenteditable, issue #3981).
+        if (event.key === "Enter" && targetTag !== "textarea" && targetTag !== "button"
+                && !event.target.isContentEditable) {
             event.preventDefault();
         }
     });

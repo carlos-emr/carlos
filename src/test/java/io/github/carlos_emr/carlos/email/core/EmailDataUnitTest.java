@@ -183,6 +183,18 @@ class EmailDataUnitTest {
     }
 
     @Test
+    @DisplayName("should compare inline pictures by content and never print their bytes")
+    void shouldCompareInlineImageByContent_andHideBytes() {
+        EmailInlineImage one = new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 2});
+        EmailInlineImage same = new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 2});
+
+        assertThat(one).isEqualTo(same).hasSameHashCodeAs(same)
+                .isNotEqualTo(new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 3}));
+        assertThat(one.toString()).contains("bytes=2").doesNotContain("[B@");
+        assertThat(one.fileName()).isEqualTo("clinic-logo-ab.png");
+    }
+
+    @Test
     @DisplayName("should build the formatted version from the escaped message, the logo and the cleaned footer")
     void shouldBuildHtmlVersion_whenFooterAndLogoSet() {
         EmailData emailData = new EmailData();
