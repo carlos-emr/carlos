@@ -128,9 +128,10 @@ public final class PortalManage2Action extends ActionSupport {
     }
 
     /**
-     * Gives the page the master record's navigation, after the patient access check above (the same
-     * one the record makes). The links are a convenience, so a failed lookup leaves the page with its
-     * own short list instead of failing it.
+     * Gives the page the master record's navigation, only after the patient access and portal read
+     * checks above have passed. Each link keeps the record's privilege check and its target page's
+     * own, so the navigation shows nothing this user could not open from the record. The links are a
+     * convenience, so a failed lookup leaves the page with its own short list instead of failing it.
      */
     private void addPatientNavigation(HttpServletRequest request, int demographicNo) {
         try {

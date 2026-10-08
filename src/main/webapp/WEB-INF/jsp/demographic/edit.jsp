@@ -7,14 +7,15 @@
       - edit-view.jsp: Read-only demographic display
       - edit-form-personal.jsp: Edit form personal info, address, HIN
       - edit-form-clinical.jsp: Roster, consent, programs, notes
-    A 4th include (zdemographicfulltitlesearch.jsp) is self-contained.
+    A 4th include (zdemographicfulltitlesearch.jsp) is self-contained. The left navigation is
+    patient-nav.jsp (also <jsp:include>), shared with the patient portal page and driven by the
+    PatientNavModel the action sets.
 
     @since 2026-04-04
 --%>
 <%@ page import="java.util.*" %>
 <%@ page import="java.net.*" %>
 <%@ page import="java.text.DecimalFormat" %>
-<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
@@ -108,16 +109,9 @@
     String informedConsent = (String) request.getAttribute("informedConsent");
     boolean privateConsentEnabled = Boolean.TRUE.equals(request.getAttribute("privateConsentEnabled"));
     ProvinceNames pNames = (ProvinceNames) request.getAttribute("pNames");
-    String dateString = (String) request.getAttribute("dateString");
-    String noteReason = (String) request.getAttribute("noteReason");
     String currentProgram = (String) request.getAttribute("currentProgram");
     boolean isMobileOptimized = Boolean.TRUE.equals(request.getAttribute("isMobileOptimized"));
-    String prov = (String) request.getAttribute("prov");
     String curProvider_no = (String) request.getAttribute("curProvider_no");
-    String userfirstname = (String) request.getAttribute("userfirstname");
-    String userlastname = (String) request.getAttribute("userlastname");
-    String apptProvider = (String) request.getAttribute("apptProvider");
-    String appointment = (String) request.getAttribute("appointment");
     CarlosProperties oscarProps = (CarlosProperties) request.getAttribute("oscarProps");
 
     // DAOs/Managers from request attributes
@@ -659,14 +653,6 @@
             }
 
             <security:oscarSec roleName="<%= roleName$ %>" objectName="_eChart" rights="r" reverse="<%= false %>" >
-            var numMenus = 1;
-            var encURL = "${carlos:forJavaScript(ctx)}/encounter/IncomingEncounter?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScript"/>&appointmentNo=&demographicNo=<%=demographic_no%>&curProviderNo=&reason=<%=URLEncoder.encode(noteReason, StandardCharsets.UTF_8)%>&encType=<%=URLEncoder.encode("telephone encounter with client", StandardCharsets.UTF_8)%>&userName=<%=URLEncoder.encode( userfirstname+" "+userlastname, StandardCharsets.UTF_8) %>&curDate=<%=dateString%>&appointmentDate=&startTime=&status=";
-
-            function showMenu(menuNumber, eventObj) {
-                var menuId = 'menu' + menuNumber;
-                return showPopup(menuId, eventObj);
-            }
-
             <%if (oscarProps.getProperty("workflow_enhance")!=null && oscarProps.getProperty("workflow_enhance").equals("true")) {%>
 
             function showAppt(targetAppt, eventObj) {

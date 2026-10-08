@@ -27,7 +27,9 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.MissingResourceException;
+import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.function.BooleanSupplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -54,7 +56,7 @@ import io.github.carlos_emr.carlos.waitinglist.WaitingList;
  *
  * <p>Build one per request, after the page has checked that the user may read the patient.
  *
- * @since 2026-10-07
+ * @since 2026-10-08
  */
 public final class PatientNavModel {
 
@@ -73,7 +75,7 @@ public final class PatientNavModel {
                   String roleName, String billingRegion, String defaultBillingView, String today,
                   String telephoneNoteReason, String apptProvider, String appointment,
                   boolean waitingListShown, boolean portalSwitchedOn, boolean arFormsShown,
-                  boolean documentBrowserShown, Page page) {
+                  boolean documentBrowserShown, boolean openInTab, Page page) {
     }
 
     private final Inputs in;
@@ -91,18 +93,21 @@ public final class PatientNavModel {
      * @return the navigation for this request
      */
     public static PatientNavModel forRequest(HttpServletRequest request, Demographic demographic, Page page) {
+        return build(request, demographic, page, CarlosProperties.getInstance(),
+                SpringUtils.getBean(UserPropertyDAO.class), () -> WaitingList.getInstance().getFound(),
+                PatientPortalSettings.isConfigured());
+    }
+
+    /**
+     * Builds the navigation from its sources, the same rules the record has always applied: the
+     * eChart link carries no note reason while {@code disableTelProgressNoteTitleInEncouterNotes=yes};
+     * the waiting list shows unless {@code DEMOGRAPHIC_WAITING_LIST=true} and only when a list exists;
+     * the user's own settings decide the document browser link and whether popups open in tabs.
+     */
+    static PatientNavModel build(HttpServletRequest request, Demographic demographic, Page page, Properties properties,
+            UserPropertyDAO userProperties, BooleanSupplier waitingListFound, boolean portalSwitchedOn) {
         HttpSession session = request.getSession();
-        CarlosProperties properties = CarlosProperties.getInstance();
         String currentProviderNo = (String) session.getAttribute("user");
-        UserPropertyDAO userProperties = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty documentBrowser = userProperties.getProp(currentProviderNo, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);
-        String noteReason;
-        try {
-            noteReason = ResourceBundle.getBundle("oscarResources", request.getLocale())
-                    .getString("encounter.noteReason.TelProgress");
-        } catch (MissingResourceException e) {
-            noteReason = "";
-        }
         return new PatientNavModel(new Inputs(
                 request.getContextPath(),
                 demographic.getDemographicNo(),
@@ -116,15 +121,33 @@ public final class PatientNavModel {
                 StringUtils.trimToEmpty(properties.getProperty("billregion", "")).toUpperCase(Locale.ROOT),
                 properties.getProperty("default_view"),
                 new SimpleDateFormat("yyyy-MM-dd").format(new Date()),
-                noteReason,
+                "yes".equals(properties.getProperty("disableTelProgressNoteTitleInEncouterNotes"))
+                        ? "" : telephoneNoteReason(request),
                 request.getParameter("apptProvider"),
                 request.getParameter("appointment"),
-                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST"))
-                        && WaitingList.getInstance().getFound(),
-                PatientPortalSettings.isConfigured(),
+                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST")) && waitingListFound.getAsBoolean(),
+                portalSwitchedOn,
                 properties.getProperty("clinic_no", "").startsWith("1022"),
-                documentBrowser != null && "yes".equals(documentBrowser.getValue()),
+                "yes".equals(propertyValue(userProperties, currentProviderNo, UserProperty.EDOC_BROWSER_IN_MASTER_FILE)),
+                "yes".equalsIgnoreCase(propertyValue(userProperties, currentProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB)),
                 page));
+    }
+
+    private static String telephoneNoteReason(HttpServletRequest request) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("encounter.noteReason.TelProgress");
+        } catch (MissingResourceException e) {
+            return "";
+        }
+    }
+
+    private static String propertyValue(UserPropertyDAO userProperties, String providerNo, String name) {
+        if (providerNo == null) {
+            return null;
+        }
+        UserProperty property = userProperties.getProp(providerNo, name);
+        return property == null ? null : property.getValue();
     }
 
     private static String enc(String value) {
@@ -160,6 +183,11 @@ public final class PatientNavModel {
 
     public boolean isDocumentBrowserShown() {
         return in.documentBrowserShown();
+    }
+
+    /** The user's preference to open the record's popups in tabs instead. */
+    public boolean isOpenInTab() {
+        return in.openInTab();
     }
 
     public boolean isOnPortalPage() {

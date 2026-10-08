@@ -27,6 +27,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -34,7 +40,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * The master record and the patient portal page show one navigation (patient-nav.jsp), which keeps
- * the record's privilege checks: a link the user cannot open is not shown on either page.
+ * the record's privilege checks and adds each target page's own: a link the user cannot open is not
+ * shown on either page.
+ *
+ * @since 2026-10-08
  */
 @Tag("unit")
 @Tag("fast")
@@ -43,6 +52,8 @@ class PatientNavSharingRegressionTest {
 
     private static final Path JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic");
     private static final String INCLUDE = "<jsp:include page=\"/WEB-INF/jsp/demographic/patient-nav.jsp\"/>";
+    private static final Pattern SECURITY_TAG = Pattern.compile(
+            "<security:oscarSec\\b[^>]*objectName=\"([^\"]+)\"[^>]*rights=\"([^\"]+)\"[^>]*>|</security:oscarSec>");
 
     private static String read(String name) throws IOException {
         return Files.readString(JSP.resolve(name), StandardCharsets.UTF_8);
@@ -64,15 +75,26 @@ class PatientNavSharingRegressionTest {
     }
 
     @Test
-    @DisplayName("should keep the record's privilege checks around the guarded links")
-    void shouldKeepPrivilegeChecks_aroundGuardedLinks() throws IOException {
+    @DisplayName("should show each link only under the record's check and its target page's own")
+    void shouldGuardEachLink_withRecordAndTargetChecks() throws IOException {
         String nav = read("patient-nav.jsp");
-        assertThat(between(nav, "objectName=\"_billing\" rights=\"r\">", "</security:oscarSec>"))
-                .contains("billingHistoryUrl", "invoiceListUrl", "createInvoiceUrl");
-        assertThat(between(nav, "objectName=\"_eChart\" rights=\"r\"", "</security:oscarSec>"))
-                .contains("echartUrl", "preventionsUrl");
-        assertThat(between(nav, "objectName=\"_portal.invite,_portal.account\" rights=\"r\">", "</security:oscarSec>"))
-                .contains("portalUrl");
+        assertThat(guardsOf(nav, "nav.billingHistoryUrl")).containsExactly("_billing r");
+        assertThat(guardsOf(nav, "nav.invoiceListUrl")).containsExactly("_billing r", "_billing w");
+        assertThat(guardsOf(nav, "nav.createInvoiceUrl")).containsExactly("_billing r");
+        assertThat(guardsOf(nav, "nav.consultationsUrl")).containsExactly("_eChart r");
+        assertThat(guardsOf(nav, "nav.prescriptionsUrl")).containsExactly("_rx r");
+        assertThat(guardsOf(nav, "nav.echartUrl")).containsExactly("_eChart r");
+        assertThat(guardsOf(nav, "nav.preventionsUrl")).containsExactly("_eChart r", "_prevention r");
+        assertThat(guardsOf(nav, "nav.ticklerUrl")).containsExactly("_tickler r");
+        assertThat(guardsOf(nav, "nav.portalUrl")).containsExactly("_portal.invite,_portal.account r");
+        assertThat(guardsOf(nav, "nav.getArFormUrl('AR1')")).containsExactly("_form r");
+        assertThat(guardsOf(nav, "nav.inboxManagerUrl")).containsExactly("_hrm r");
+        assertThat(guardsOf(nav, "nav.documentsUrl")).containsExactly("_edoc r");
+        assertThat(guardsOf(nav, "nav.documentBrowserUrl")).containsExactly("_edoc r");
+        assertThat(guardsOf(nav, "nav.eformsUrl")).containsExactly("_eform r");
+        // The record's own pages: the user is already on the patient's record or portal page.
+        assertThat(guardsOf(nav, "nav.appointmentHistoryUrl")).isEmpty();
+        assertThat(guardsOf(nav, "nav.waitingListUrl")).isEmpty();
         assertThat(nav).contains("roleName=\"${nav.roleName}\"").doesNotContain("<%=");
     }
 
@@ -84,10 +106,19 @@ class PatientNavSharingRegressionTest {
                 .isEqualTo(nav.split("href=\"\\$\\{carlos:forHtmlAttribute\\(").length - 1);
     }
 
-    private static String between(String text, String start, String end) {
-        int from = text.indexOf(start);
-        assertThat(from).as("block starting %s", start).isNotNegative();
-        int to = text.indexOf(end, from);
-        return text.substring(from, to);
+    /** The privilege checks (object and right) around the first use of {@code marker}, outermost first. */
+    private static List<String> guardsOf(String nav, String marker) {
+        int at = nav.indexOf(marker);
+        assertThat(at).as("link %s", marker).isNotNegative();
+        Deque<String> open = new ArrayDeque<>();
+        Matcher tag = SECURITY_TAG.matcher(nav);
+        while (tag.find() && tag.start() < at) {
+            if (tag.group(1) != null) {
+                open.addLast(tag.group(1) + " " + tag.group(2));
+            } else {
+                open.removeLast();
+            }
+        }
+        return new ArrayList<>(open);
     }
 }

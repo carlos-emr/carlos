@@ -22,10 +22,26 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+
+import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 /**
  * The master record's navigation targets, which the record and the patient portal page share.
@@ -40,7 +56,7 @@ class PatientNavModelUnitTest {
             PatientNavModel.Page page) {
         return new PatientNavModel.Inputs("/ctx", 123, lastName, firstName, "999998", "100001",
                 "FAKE Jo", "FAKE-Provider", "doctor,100001", billingRegion, "MFP", "2026-10-07",
-                "Tel-Progress Note", "100002", "55", true, true, false, false, page);
+                "Tel-Progress Note", "100002", "55", true, true, false, false, false, page);
     }
 
     private static PatientNavModel model() {
@@ -104,25 +120,122 @@ class PatientNavModelUnitTest {
     void shouldLeaveMissingValuesEmpty_inTargets() {
         PatientNavModel nav = new PatientNavModel(new PatientNavModel.Inputs("", 7, null, null, null, "100001",
                 null, null, "doctor,100001", "ON", null, "2026-10-07", "", null, null,
-                false, false, false, false, PatientNavModel.Page.RECORD));
+                false, false, false, false, false, PatientNavModel.Page.RECORD));
         assertThat(nav.getEformsUrl()).isEqualTo("/eform/efmpatientformlist?demographic_no=7&apptProvider=&appointment=");
         assertThat(nav.getCreateInvoiceUrl()).contains("billForm=&").contains("demographic_name=%2C&").contains("providerview=&");
         assertThat(nav.getEchartUrl()).contains("&userName=+&");
     }
 
     @Test
-    @DisplayName("should expose the conditions the fragment checks, and which page it is on")
-    void shouldExposeConditions_andThePage() {
-        PatientNavModel record = model();
-        PatientNavModel portal = new PatientNavModel(inputs("ON", "FAKE-Jones", "FAKE-Jacky", PatientNavModel.Page.PORTAL));
-        assertThat(record.getRoleName()).isEqualTo("doctor,100001");
-        assertThat(record.isOntarioBilling()).isTrue();
-        assertThat(record.isWaitingListShown()).isTrue();
-        assertThat(record.isPortalSwitchedOn()).isTrue();
-        assertThat(record.isArFormsShown()).isFalse();
-        assertThat(record.isDocumentBrowserShown()).isFalse();
-        assertThat(record.isOnPortalPage()).isFalse();
-        assertThat(portal.isOnPortalPage()).isTrue();
-        assertThat(record.getDemographicNo()).isEqualTo(123);
+    @DisplayName("should leave the note reason out of the eChart link when the clinic switched it off")
+    void shouldLeaveOutNoteReason_whenClinicDisablesIt() {
+        Properties clinic = new Properties();
+        clinic.setProperty("disableTelProgressNoteTitleInEncouterNotes", "yes");
+
+        assertThat(build(clinic, mock(UserPropertyDAO.class), () -> true).getEchartUrl()).contains("&reason=&");
+    }
+
+    @Test
+    @DisplayName("should put the telephone note reason in the eChart link by default")
+    void shouldAddNoteReason_byDefault() {
+        String reason = ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString("encounter.noteReason.TelProgress");
+
+        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> true).getEchartUrl())
+                .contains("&reason=" + URLEncoder.encode(reason, StandardCharsets.UTF_8) + "&");
+    }
+
+    @Test
+    @DisplayName("should show the waiting list only while the setting allows it and a list exists")
+    void shouldShowWaitingList_onlyWhenAllowedAndAListExists() {
+        AtomicInteger lookups = new AtomicInteger();
+        Properties hidden = new Properties();
+        hidden.setProperty("DEMOGRAPHIC_WAITING_LIST", "true");
+
+        assertThat(build(hidden, mock(UserPropertyDAO.class), () -> lookups.incrementAndGet() > 0).isWaitingListShown()).isFalse();
+        assertThat(lookups).as("no list lookup while the setting hides it").hasValue(0);
+        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> true).isWaitingListShown()).isTrue();
+        assertThat(build(new Properties(), mock(UserPropertyDAO.class), () -> false).isWaitingListShown()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should follow the user's own settings for the document browser and for tabs")
+    void shouldFollowUserSettings_forDocumentBrowserAndTabs() {
+        UserPropertyDAO settings = mock(UserPropertyDAO.class);
+        when(settings.getProp("100001", UserProperty.EDOC_BROWSER_IN_MASTER_FILE)).thenReturn(property("yes"));
+        when(settings.getProp("100001", UserProperty.ENCOUNTER_OPEN_IN_TAB)).thenReturn(property("YES"));
+
+        PatientNavModel nav = build(new Properties(), settings, () -> true);
+        assertThat(nav.isDocumentBrowserShown()).isTrue();
+        assertThat(nav.isOpenInTab()).isTrue();
+
+        UserPropertyDAO unset = mock(UserPropertyDAO.class);
+        PatientNavModel plain = build(new Properties(), unset, () -> true);
+        assertThat(plain.isDocumentBrowserShown()).isFalse();
+        assertThat(plain.isOpenInTab()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should read no user settings without a signed-in user")
+    void shouldReadNoUserSettings_withoutASignedInUser() {
+        UserPropertyDAO settings = mock(UserPropertyDAO.class);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/DemographicEdit");
+
+        PatientNavModel nav = PatientNavModel.build(request, patient(), PatientNavModel.Page.RECORD, new Properties(),
+                settings, () -> true, false);
+
+        assertThat(nav.isDocumentBrowserShown()).isFalse();
+        verifyNoInteractions(settings);
+    }
+
+    @Test
+    @DisplayName("should take the role, billing region, clinic forms and page from the request and settings")
+    void shouldTakeRoleRegionAndForms_fromRequestAndSettings() {
+        Properties clinic = new Properties();
+        clinic.setProperty("billregion", " bc ");
+        clinic.setProperty("clinic_no", "102245");
+        UserPropertyDAO settings = mock(UserPropertyDAO.class);
+        when(settings.getProp(anyString(), anyString())).thenReturn(null);
+
+        PatientNavModel nav = PatientNavModel.build(signedIn(), patient(), PatientNavModel.Page.PORTAL, clinic, settings,
+                () -> true, true);
+
+        assertThat(nav.getRoleName()).isEqualTo("doctor,100001");
+        assertThat(nav.isOntarioBilling()).isFalse();
+        assertThat(nav.getCreateInvoiceUrl()).startsWith("/ctx/billing?billRegion=BC&");
+        assertThat(nav.isArFormsShown()).isTrue();
+        assertThat(nav.isPortalSwitchedOn()).isTrue();
+        assertThat(nav.isOnPortalPage()).isTrue();
+        assertThat(nav.getDemographicNo()).isEqualTo(123);
+        assertThat(build(new Properties(), settings, () -> true).isArFormsShown()).isFalse();
+    }
+
+    private static PatientNavModel build(Properties clinic, UserPropertyDAO settings, BooleanSupplier listFound) {
+        return PatientNavModel.build(signedIn(), patient(), PatientNavModel.Page.RECORD, clinic, settings, listFound, false);
+    }
+
+    private static MockHttpServletRequest signedIn() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/demographic/DemographicEdit");
+        request.setContextPath("/ctx");
+        request.addPreferredLocale(Locale.ENGLISH);
+        request.getSession().setAttribute("user", "100001");
+        request.getSession().setAttribute("userrole", "doctor");
+        request.getSession().setAttribute("userfirstname", "FAKE Jo");
+        request.getSession().setAttribute("userlastname", "FAKE-Provider");
+        return request;
+    }
+
+    private static Demographic patient() {
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(123);
+        patient.setLastName("FAKE-Jones");
+        patient.setFirstName("FAKE-Jacky");
+        patient.setProviderNo("999998");
+        return patient;
+    }
+
+    private static UserProperty property(String value) {
+        UserProperty property = new UserProperty();
+        property.setValue(value);
+        return property;
     }
 }

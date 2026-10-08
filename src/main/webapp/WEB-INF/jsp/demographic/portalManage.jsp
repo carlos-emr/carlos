@@ -83,7 +83,7 @@
             <%-- The master record's own navigation (PatientNavModel), with the same privilege checks;
                  the short list below only if the patient could not be looked up for it. --%>
             <c:choose>
-                <c:when test="${not empty patientNav}">
+                <c:when test="${not empty requestScope.patientNav}">
                     <jsp:include page="/WEB-INF/jsp/demographic/patient-nav.jsp"/>
                 </c:when>
                 <c:otherwise>

@@ -1,9 +1,30 @@
-/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
 // The patient's navigation script opens the record's usual popup windows, with the names and
 // features popupPage, popupEChart and popupOscarRx have always used.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {features, popupFor} = require('../src/main/webapp/share/javascript/demographic/patient-nav');
+const {features, popupFor, checkEligibility} = require('../src/main/webapp/share/javascript/demographic/patient-nav');
 
 test('popup features match the record helpers', () => {
   assert.equal(features('page', 700, 960),
@@ -30,4 +51,24 @@ test('the open-encounter-in-tab preference opens a tab instead', () => {
 test('an unknown kind is left to the browser', () => {
   assert.equal(popupFor('__proto__', 1, 1, '/x', false), null);
   assert.equal(popupFor('other', 1, 1, '/x', false), null);
+});
+
+test('the eligibility check posts checkElig for the patient and reports the answer', () => {
+  const calls = [];
+  const ajax = {request: (url, options) => { calls.push({url, options}); options.onSuccess({responseText: '<b>ok</b>'}); }};
+  const seen = [];
+  checkEligibility(ajax, '/ctx/billing/CA/BC/ManageTeleplan', '123',
+    {answered: (html) => seen.push(['answered', html]), failed: () => seen.push(['failed'])});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/ctx/billing/CA/BC/ManageTeleplan');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.deepEqual(calls[0].options.parameters, {demographic: '123', method: 'checkElig'});
+  assert.deepEqual(seen, [['answered', '<b>ok</b>']]);
+});
+
+test('a refused or failed eligibility check is reported as failed', () => {
+  const ajax = {request: (url, options) => options.onFailure({status: 405, responseText: '<html>error page</html>'})};
+  const seen = [];
+  checkEligibility(ajax, '/x', '1', {answered: () => seen.push('answered'), failed: () => seen.push('failed')});
+  assert.deepEqual(seen, ['failed']);
 });

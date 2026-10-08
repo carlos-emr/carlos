@@ -28,11 +28,12 @@
 
     Reads the request attribute "patientNav" (PatientNavModel), which the including page's action
     sets after checking that the user may read the patient. The privilege checks are the record's
-    own security:oscarSec checks; the model only supplies the links' targets and the conditions
-    that are not privileges. Popup links carry real targets: patient-nav.js opens them in the
-    record's usual popup windows.
+    own security:oscarSec checks, plus the check each target page makes, so a link shows only to a
+    user who may open it; the model only supplies the links' targets and the conditions that are not
+    privileges. Popup links carry real targets: patient-nav.js opens them in the record's usual popup
+    windows (or tabs, if the user prefers).
 
-    @since 2026-10-07
+    @since 2026-10-08
 --%>
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -44,8 +45,8 @@
 <c:set var="nav" value="${requestScope.patientNav}"/>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(ctx)}/share/css/patient-nav.css">
-<script defer src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/patient-nav.js"></script>
-<div class="patient-nav">
+<script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/patient-nav.js"></script>
+<div class="patient-nav" data-open-in-tab="${nav.openInTab}">
     <table border=0 cellspacing=0 width="100%" id="appt_table">
         <c:if test="${nav.onPortalPage}">
             <tr>
@@ -75,14 +76,17 @@
                                data-popup-height="500" data-popup-width="800"><fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
                         </c:when>
                         <c:otherwise>
-                            <a href="${carlos:forHtmlAttribute(nav.invoiceListUrl)}" data-nav-popup="page"
-                               data-popup-height="800" data-popup-width="1000"><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
+                            <security:oscarSec roleName="${nav.roleName}" objectName="_billing" rights="w">
+                                <a href="${carlos:forHtmlAttribute(nav.invoiceListUrl)}" data-nav-popup="page"
+                                   data-popup-height="800" data-popup-width="1000"><fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
+                            </security:oscarSec>
                             <a href="#" data-nav-eligibility="${carlos:forHtmlAttribute(nav.eligibilityUrl)}"
                                data-demographic-no="${carlos:forHtmlAttribute(nav.demographicNo)}"
                                aria-controls="patient-nav-eligibility" aria-expanded="false"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
                             <div id="patient-nav-eligibility" class="patient-nav__eligibility" role="status" hidden>
                                 <span data-role="eligibility-loading"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
                                 <span data-role="eligibility-result"></span>
+                                <span data-role="eligibility-error" hidden><fmt:message key="demographic.demographiceditdemographic.msgEligibilityFailed"/></span>
                             </div>
                         </c:otherwise>
                     </c:choose>
@@ -97,29 +101,37 @@
         <tr class="Header">
             <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalModules"/></td>
         </tr>
-        <tr>
-            <td><a href="${carlos:forHtmlAttribute(nav.consultationsUrl)}" data-nav-popup="page"
-                   data-popup-height="700" data-popup-width="960"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
-        </tr>
-        <tr>
-            <td><a href="${carlos:forHtmlAttribute(nav.prescriptionsUrl)}" data-nav-popup="rx"
-                   data-popup-height="700" data-popup-width="1027"><fmt:message key="global.prescriptions"/></a></td>
-        </tr>
+        <security:oscarSec roleName="${nav.roleName}" objectName="_eChart" rights="r">
+            <tr>
+                <td><a href="${carlos:forHtmlAttribute(nav.consultationsUrl)}" data-nav-popup="page"
+                       data-popup-height="700" data-popup-width="960"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
+            </tr>
+        </security:oscarSec>
+        <security:oscarSec roleName="${nav.roleName}" objectName="_rx" rights="r">
+            <tr>
+                <td><a href="${carlos:forHtmlAttribute(nav.prescriptionsUrl)}" data-nav-popup="rx"
+                       data-popup-height="700" data-popup-width="1027"><fmt:message key="global.prescriptions"/></a></td>
+            </tr>
+        </security:oscarSec>
         <security:oscarSec roleName="${nav.roleName}" objectName="_eChart" rights="r" reverse="false">
             <tr>
                 <td><a href="${carlos:forHtmlAttribute(nav.echartUrl)}" data-nav-popup="echart"
                        data-popup-height="710" data-popup-width="1024"
                        title="<fmt:message key="demographic.demographiceditdemographic.btnEChart"/>"><fmt:message key="demographic.demographiceditdemographic.btnEChart"/></a></td>
             </tr>
+            <security:oscarSec roleName="${nav.roleName}" objectName="_prevention" rights="r">
+                <tr>
+                    <td><a href="${carlos:forHtmlAttribute(nav.preventionsUrl)}" data-nav-popup="page"
+                           data-popup-height="700" data-popup-width="960"><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
+                </tr>
+            </security:oscarSec>
+        </security:oscarSec>
+        <security:oscarSec roleName="${nav.roleName}" objectName="_tickler" rights="r">
             <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.preventionsUrl)}" data-nav-popup="page"
-                       data-popup-height="700" data-popup-width="960"><fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
+                <td><a href="${carlos:forHtmlAttribute(nav.ticklerUrl)}" data-nav-popup="page"
+                       data-popup-height="700" data-popup-width="1000"><fmt:message key="global.tickler"/></a></td>
             </tr>
         </security:oscarSec>
-        <tr>
-            <td><a href="${carlos:forHtmlAttribute(nav.ticklerUrl)}" data-nav-popup="page"
-                   data-popup-height="700" data-popup-width="1000"><fmt:message key="global.tickler"/></a></td>
-        </tr>
         <%-- Patient portal (issue #3854): a link only while the portal is switched on and the user can read
              invitations or accounts; the page's gate and JSON routes re-check both. On the portal page
              itself (which its own action already allowed) it marks the current page, switched on or not. --%>
@@ -138,37 +150,45 @@
             </c:when>
         </c:choose>
         <c:if test="${nav.arFormsShown}">
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.getArFormUrl('AR1'))}" data-nav-popup="page"
-                       data-popup-height="700" data-popup-width="1000">AR1</a></td>
-            </tr>
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.getArFormUrl('AR2'))}" data-nav-popup="page"
-                       data-popup-height="700" data-popup-width="1000">AR2</a></td>
-            </tr>
+            <security:oscarSec roleName="${nav.roleName}" objectName="_form" rights="r">
+                <tr>
+                    <td><a href="${carlos:forHtmlAttribute(nav.getArFormUrl('AR1'))}" data-nav-popup="page"
+                           data-popup-height="700" data-popup-width="1000">AR1</a></td>
+                </tr>
+                <tr>
+                    <td><a href="${carlos:forHtmlAttribute(nav.getArFormUrl('AR2'))}" data-nav-popup="page"
+                           data-popup-height="700" data-popup-width="1000">AR2</a></td>
+                </tr>
+            </security:oscarSec>
         </c:if>
         <tr class="Header">
             <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalResources"/></td>
         </tr>
         <special:SpecialPlugin moduleName="inboxmnger">
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.inboxManagerUrl)}" data-nav-popup="window">Inbox Manager</a></td>
-            </tr>
+            <security:oscarSec roleName="${nav.roleName}" objectName="_hrm" rights="r">
+                <tr>
+                    <td><a href="${carlos:forHtmlAttribute(nav.inboxManagerUrl)}" data-nav-popup="window">Inbox Manager</a></td>
+                </tr>
+            </security:oscarSec>
         </special:SpecialPlugin>
         <special:SpecialPlugin moduleName="inboxmnger" reverse="true">
-            <tr>
-                <td><a href="${carlos:forHtmlAttribute(nav.documentsUrl)}" data-nav-popup="page"
-                       data-popup-height="710" data-popup-width="970"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
-            </tr>
-            <c:if test="${nav.documentBrowserShown}">
+            <security:oscarSec roleName="${nav.roleName}" objectName="_edoc" rights="r">
                 <tr>
-                    <td><a href="${carlos:forHtmlAttribute(nav.documentBrowserUrl)}" data-nav-popup="page"
-                           data-popup-height="710" data-popup-width="970"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                    <td><a href="${carlos:forHtmlAttribute(nav.documentsUrl)}" data-nav-popup="page"
+                           data-popup-height="710" data-popup-width="970"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
                 </tr>
-            </c:if>
+                <c:if test="${nav.documentBrowserShown}">
+                    <tr>
+                        <td><a href="${carlos:forHtmlAttribute(nav.documentBrowserUrl)}" data-nav-popup="page"
+                               data-popup-height="710" data-popup-width="970"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
+                    </tr>
+                </c:if>
+            </security:oscarSec>
         </special:SpecialPlugin>
-        <tr>
-            <td><a href="${carlos:forHtmlAttribute(nav.eformsUrl)}"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
-        </tr>
+        <security:oscarSec roleName="${nav.roleName}" objectName="_eform" rights="r">
+            <tr>
+                <td><a href="${carlos:forHtmlAttribute(nav.eformsUrl)}"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
+            </tr>
+        </security:oscarSec>
     </table>
 </div>
