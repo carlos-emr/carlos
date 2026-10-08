@@ -63,14 +63,18 @@ public class ProgramService extends AbstractServiceImpl {
     /** Security object guarding program-management data, matching the PMmodule actions. */
     private static final String SECURITY_OBJECT = "_pmm_management";
 
-    @Autowired
-    ProgramManager2 programManager;
+    private final ProgramManager2 programManager;
+
+    private final AdmissionManager admissionManager;
+
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
-    AdmissionManager admissionManager;
-
-    @Autowired
-    private SecurityInfoManager securityInfoManager;
+    public ProgramService(ProgramManager2 programManager, AdmissionManager admissionManager, SecurityInfoManager securityInfoManager) {
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.securityInfoManager = securityInfoManager;
+    }
 
 
     @GET
@@ -87,7 +91,6 @@ public class ProgramService extends AbstractServiceImpl {
         if (day == null) {
             day = DateFormatUtils.format(Calendar.getInstance(), DateUtils.ISO8601_DATE_PATTERN);
         }
-
 
         Date d = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN).parse(day);
 
@@ -111,7 +114,6 @@ public class ProgramService extends AbstractServiceImpl {
         if (programNo == null) {
             throw new Exception("Can't get a program for this providers to use as default");
         }
-
 
         List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(getLoggedInInfo(), admissionManager.findAdmissionsByProgramAndDate(getLoggedInInfo(), Integer.parseInt(programNo), d, startIndex, numToReturn));
 
