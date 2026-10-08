@@ -380,6 +380,29 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 > `dpkg-reconfigure carlos-emr-drugref`). On a host without IPv6, nginx's stock
 > `default` site (`listen [::]:80`) fails `nginx -t` until the package replaces
 > it; the CARLOS site itself emits `[::]` listeners only when IPv6 exists.
+>
+> **`scripts/deb-docker-validation.sh` does all of the Docker variant.** It
+> builds the systemd image, boots it (binding the host's unified cgroup2
+> hierarchy on a hybrid cgroup host), installs the three `.deb` files with the
+> section 3 preseed, refuses to continue unless `carlos-ctl check` reports
+> "All checks passed" and no `.install-incomplete` marker remains, stages the
+> section 4 fixtures, performs the section 6 first-login reset and writes
+> `/root/suite-env.sh`. Then it runs the suite and the server-log audit inside
+> the container, where the MariaDB socket is:
+>
+> ```bash
+> export CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs CARLOS_PROVINCE=on
+> # Optional, behind an egress proxy that only tunnels HTTPS:
+> #   BUILD_PROXY=http://127.0.0.1:3128 BUILD_CA_BUNDLE=/path/ca.pem APT_FORCE_HTTPS=true
+> scripts/deb-docker-validation.sh up
+> scripts/deb-docker-validation.sh suite --tier smoke      # any run-playwright-suite.js arguments
+> scripts/deb-docker-validation.sh audit                   # scripts/deb-server-log-audit.sh
+> scripts/deb-docker-validation.sh down
+> ```
+>
+> It uses host networking (the front door must be on `:443`), so validate one
+> province at a time. Logs, the install transcript and JUnit reports land in
+> `LOG_DIR` (default `./deb-docker-validation-logs`).
 
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
@@ -1256,6 +1279,41 @@ Notes on the contract:
   filter — set `response.sanitization.enabled=false` in
   `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
+
+### Server-log audit
+
+A check can pass while the server threw behind it: an AJAX fragment that failed
+inside a catch, a 500 on a request no assertion read, an include of a JSP that
+no longer exists. Run the audit after the suite, as root on the VM:
+
+```bash
+scripts/deb-server-log-audit.sh --since "$SUITE_START"   # or CARLOS_LOG_AUDIT_SINCE
+```
+
+It reduces every ERROR, FATAL and SEVERE event in the `carlos-emr` journal and
+Tomcat's catalina log to a signature (logger, source location, first CARLOS
+stack frame, exception classes, and the request path where one is logged) and
+fails on any signature `scripts/lib/server-log-baseline.tsv` does not explain.
+Message text is never printed unless `--show-messages` is given, because log
+messages can carry patient data. The baseline explains three kinds of event,
+each entry citing the check, the issue or the findings-log row behind it:
+
+- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
+  malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
+  replays);
+- the validation environment (no internet, the fake SRFax account
+  `fax-configure` leaves polling, a page closed mid-download, a fixture patient
+  deleted while the chart is still loading, a service restart);
+- recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
+  error stands out from the ones already recorded.
+
+CSRFGuard logs no request path and sees every CARLOS user as anonymous, so the
+audit cannot tell a deliberate CSRF probe from a page that lost its token; that
+shows up as the check that drives the page failing. Every baseline entry must
+match a signature in `scripts/fixtures/server-log-signatures-2026.08.txt` (the
+2026.08.0~alpha19 run), and the test also pins that the defects still
+unexplained on that run stay unexplained. Never add a baseline entry to make an
+audit pass: an unexplained ERROR is a finding first.
 
 ## 7. Exercise the upgrade path
 
@@ -2262,3 +2320,59 @@ checks whose paired waits were settled 21/22. The exception,
 `rx-interactions-renal-luc` ("No major interaction marker is shown ... for
 ciprofloxacin + theophylline"), fails identically with the unmodified
 `release/2026.08` script and is unrelated to this change.
+
+### Promotion validation 2026.08.0-alpha19 (2026-10-08)
+
+Validation of `release/2026.08` before its promotion to `main`: a local merge of
+`release/2026.08` (9784de2710) into `main` (bef663c9a4), built and packaged as
+`carlos-emr` and `carlos-emr-drugref` 2026.08.0~alpha19 with `carlos-ctl` 1.1.2, then
+installed into an Ubuntu 26.04 systemd container for Ontario and for British Columbia,
+both with the demo dataset. The defects it found are findings 136 to 147 in
+[app-findings-log.md](app-findings-log.md).
+
+**Environment.** The Ontario container was assembled by hand as in the OAuth record above
+(privileged, host networking, cgroup2 bind on a hybrid host, `policy-rc.d` removed). The
+British Columbia container was brought up by `scripts/deb-docker-validation.sh up`, which
+now does those steps, stages the section 4 fixtures, performs the first-login reset and
+writes `/root/suite-env.sh`. Three environment gaps cost reruns on Ontario and are now
+written by the script:
+
+- `login_lock=true`. With the default address-keyed lockout every check shares
+  127.0.0.1, so `account-lockout-unlock` locked out every later check.
+- The store exports (`DOCUMENT_DIR`, `INCOMINGDOCUMENT_DIR`, `OHIP_DISK_DIR`,
+  `LETTER_DOCUMENT_DIR` and the rest), without which about 30 checks stop on a
+  precondition.
+- `STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true` (the package ships
+  `ALLOW_UPDATE_DOCUMENT_CONTENT=true`) and `CARLOS_DISPOSABLE_VM=true`.
+
+`SCREENSHOT_DIR` unset failed about 37 checks inside their failure handlers; the harness
+now takes no screenshot when it is unset.
+
+**Ontario, full suite** (489 checks, `EXPECT_FRONT_DOOR=true`): 370 PASS, 94 FAIL, 25 SKIP.
+
+| Failures | Cause |
+|---|---|
+| 65 | Documented in their manifest notes as failing on 2026.08 (`get-reject-*`, `double-submit-*`, `boundary-*`, `authz-read-*`, `audit-log-*`, `concurrency-*`, `xss-poison-*` and others) |
+| 10 | The environment gaps above. Eight passed when rerun with the variable set (`account-lockout-unlock`, `billing-on-group-disk-zero-total`, `consultation-list-filters`, `demographic-edit-update`, `document-pagination`, `incoming-pdf-extraction`, `patient-letters-envelopes`, `session-heartbeat-timeout`); `admin-role-management` needs `EXCLUSIVE=1`; `stored-document-mutations` passed its steps on rerun but its cleanup refused a fixture with an acquired note reference |
+| 6 | Existing findings or failures known before this run: 54 (`report-daysheet-labs`), 103 (`clinical-forms-save-reopen`), `gap-provider-schedule-reason-privacy`, `contact-lifecycle`, `admin-jobs`, and `eform-groups`, which now fails on the 302 that #4130's POST/redirect/GET returns rather than on the 405/403 its note describes |
+| 5 | Seed and demo-data differences from the devcontainer database: `episode-lifecycle` and `record-access` (`_newCasemgmt.episode` is `o` for doctor in the Flyway seed, `x` in `development.sql`), `form-print-pdf` (Lab Req 2007 is not in the Forms menu), `popup-opener-master-record` (the fixture patient has no postal code, so Update Record is refused), `tickler-note-dialog` (finding 143) |
+| 3 | Fixtures this environment lacks: `eform-corpus-soak`, `o19-migrated-smoke`, `encounter-legacy-note-soft-wrap` (CAISI) |
+| 3 | Browser and front door: `double-submit-eform` (Chromium 154 blocks a `beforeunload` prompt without a user gesture), `export-content-eform-export-zip` (Chromium names the download "download" although `Content-Disposition` is valid), `gap-provider-messenger-write-to-encounter` (the WAF answers 403 for `msgId=2147483648`) |
+| 1 | Stale against the delta, fixed here: `gap-clinical-calculators-coronary` (#4398 refuses ages outside 30 to 75 instead of clamping); it passes |
+| 1 | Not analysed: `boundary-demographic-search` (the sort form's keyword field timed out) |
+
+The new `eform-email-two-windows` check fails at its third step (finding 140), as it
+should until the defect is fixed.
+
+**British Columbia** (`up`, then `suite`): `carlos-ctl check` clean. Smoke 9 of 12: `browser-surface`,
+`document-upload` and `echart` time out because the eligibility menu covers the master
+record's navigation links at their centre (finding 146). `billing-bc-associations` and
+`billing-bc-simulation-encoding` PASS. `billing-bc-reprocess-bill` (new) passes Invoice List,
+then fails on the adjust page's TypeError (finding 147); run past it, the GET refusal and
+Settle steps pass and the note step fails on finding 145.
+
+**Server-log audit.** Over the Ontario suite window, 596 ERROR or SEVERE events reduced to 66
+signatures. After triage the baseline explains 55 of them (deliberate probes, the
+environment, and findings 137 to 144); 11 stay unexplained, among them the stale-form
+`uk_demo_ext` violation, the flowsheet `getMessages` state error and the `addEForm` NPE.
+The British Columbia window passed with 6 known signatures.
