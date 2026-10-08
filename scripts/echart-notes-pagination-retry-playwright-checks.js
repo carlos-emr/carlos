@@ -174,7 +174,7 @@ async function workflow(s) {
     const state = await paneState(chart);
     const indicatorText = await chart.locator('#notesLoadFailed').innerText();
     h.assert(/older notes could not be loaded/i.test(indicatorText), `The indicator reads "${indicatorText}", not the expected message`);
-    h.assert(await chart.locator('#notesLoadFailed a', {hasText: /retry/i}).count() === 1, 'The indicator offers no Retry link');
+    h.assert(await chart.locator('#notesLoadFailed button', {hasText: /retry/i}).count() === 1, 'The indicator offers no Retry button');
     h.assert(!state.paneText.includes('unauthenticated') && !state.paneText.includes('Session expired'),
       'The 401 body was inserted into the notes pane');
     h.assert(JSON.stringify(await shown(chart)) === JSON.stringify(descending(PAGE, 1)), 'The first page of notes was disturbed by the failed fetch');
@@ -269,7 +269,7 @@ async function workflow(s) {
       if (page) seen.push(page);
       return route.continue();
     });
-    await chart.locator('#notesLoadFailed a', {hasText: /retry/i}).click();
+    await chart.locator('#notesLoadFailed button', {hasText: /retry/i}).click();
     await chart.waitForFunction(({m, want}) => {
       // m is the workflow's fixed-prefix hexadecimal fixture marker, not application input.
       // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp

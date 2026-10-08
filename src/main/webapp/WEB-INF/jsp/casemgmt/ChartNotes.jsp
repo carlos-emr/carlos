@@ -558,7 +558,7 @@
          asks for the batch again and re-arms the scroll poll. Hidden until then. --%>
     <span id="notesLoadFailed" role="alert" style="display: none;">
         <fmt:message key="encounter.Index.msgNotesLoadFailed"/>
-        <a href="javascript:void(0)" onclick="notesRetryLoad(); return false;"><fmt:message key="encounter.Index.btnRetryLoadNotes"/></a>
+        <button type="button" onclick="notesRetryLoad();"><fmt:message key="encounter.Index.btnRetryLoadNotes"/></button>
     </span>
 
 

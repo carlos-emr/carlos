@@ -64,8 +64,9 @@ class EChartLayoutRegressionTest {
         assertThat(jsp).contains("notesLoadFirstPage();");
         assertThat(jsp).doesNotContain("setInterval(");
         String js = Files.readString(NOTES_PAGINATION_JS, StandardCharsets.UTF_8);
-        assertThat(js).containsPattern("function notesLoadFirstPage\\(\\)\\s*\\{\\s*notesOffset = 0;");
-        assertThat(js).containsPattern("function startNotesScrollCheck\\(\\)\\s*\\{\\s*stopNotesScrollCheck\\(\\);");
+        assertThat(js)
+                .containsPattern("function notesLoadFirstPage\\(\\)\\s*\\{\\s*notesOffset = 0;")
+                .containsPattern("function startNotesScrollCheck\\(\\)\\s*\\{\\s*stopNotesScrollCheck\\(\\);");
     }
 
     @Test
