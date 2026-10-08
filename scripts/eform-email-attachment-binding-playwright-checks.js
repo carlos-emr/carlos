@@ -225,6 +225,7 @@ async function workflow(s) {
 
   // Send, expecting the refusal alert; the composer then closes itself.
   async function sendRefused(composer, label) {
+    const composerLabel = `${label}-eform`;  // the page label compose() gave this window
     const closed = composer.waitForEvent('close', { timeout: TIMEOUT });
     const dialogs = await h.withExpectedDialogs(composer, async () => {
       await composer.locator('#btnSend').click();
@@ -232,6 +233,16 @@ async function workflow(s) {
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert' && dialogs[0].text.includes(REFUSED),
       `The ${label} send was not refused with the attachment refusal message`);
+    // The refusal page closes its window as soon as the alert is acknowledged, so the browser
+    // abandons whatever subresources were still loading. Drop only those failures the harness
+    // proves were abandoned by that close (the rule xss-poison-helpers applies); anything else
+    // still fails the step.
+    const failures = recorder.requestFailures;
+    for (let i = failures.length - 1; i >= 0; i -= 1) {
+      const entry = failures[i];
+      if (entry.label === composerLabel && /ERR_ABORTED/.test(entry.errorText || '')
+        && typeof entry.navigatedAway === 'function' && entry.navigatedAway()) failures.splice(i, 1);
+    }
   }
 
   await s.step('a composer whose patient number is changed before Send is refused and sends nothing', async () => {
