@@ -166,6 +166,27 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(all).isNotEmpty();
             assertThat(all).extracting(PharmacyInfo::getName).contains("New Pharmacy");
         }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should leave a stored legacy uid untouched when a pharmacy is edited")
+        void shouldKeepLegacyUid_whenPharmacyIsUpdated() {
+            PharmacyInfo info = createPharmacy("Uid Keeper", "Ottawa", '1');
+            entityManager.flush();
+            entityManager.createNativeQuery("UPDATE pharmacyInfo SET uid = 5 WHERE recordID = :id")
+                    .setParameter("id", info.getId()).executeUpdate();
+            entityManager.clear();
+
+            // updatePharmacy merges a detached PharmacyInfo built without a uid, so it carries the default 0.
+            pharmacyInfoDao.updatePharmacy(info.getId(), "Uid Keeper Renamed", "1 Main St", "Ottawa", "ON",
+                    "K1A0B1", "613-555-0100", "613-555-0101", "613-555-0102", "keeper@pharmacy.ca", "SLI", "edited");
+            entityManager.flush();
+            entityManager.clear();
+
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isEqualTo(5);
+        }
     }
 
     @Nested
