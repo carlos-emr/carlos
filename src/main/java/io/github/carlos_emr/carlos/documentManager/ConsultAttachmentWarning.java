@@ -51,7 +51,10 @@ public final class ConsultAttachmentWarning implements Serializable {
 
     /** Why the attachment was left out. */
     public enum Reason {
-        /** Its target is gone, deleted, or not this patient's; the consult is sent without it. */
+        /**
+         * Its target is gone, deleted, a patient-independent eForm, or another patient's; the
+         * consult is sent without it.
+         */
         UNAVAILABLE("encounter.oscarConsultationRequest.attachmentWarning.unavailable"),
         /** Its target exists but could not be read or rendered; print and fax refuse the consult. */
         NOT_RENDERED("encounter.oscarConsultationRequest.attachmentWarning.notRendered");
@@ -81,7 +84,8 @@ public final class ConsultAttachmentWarning implements Serializable {
     }
 
     /**
-     * An attachment whose target no longer exists or belongs to another patient.
+     * An attachment whose target no longer exists, was deleted, is a patient-independent eForm, or
+     * belongs to another patient.
      *
      * @param type the attachment type, or {@code null} if it is not known
      * @param id the attachment id; anything but letters, digits, '-' and '_' shows as "?"

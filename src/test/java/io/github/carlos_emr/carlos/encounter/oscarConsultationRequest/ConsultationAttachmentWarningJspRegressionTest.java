@@ -82,13 +82,18 @@ class ConsultationAttachmentWarningJspRegressionTest {
                 .contains("name=\"confirmedUnavailableAttachments\"")
                 .contains("<carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/>")
                 .contains("id=\"confirmSendWithoutUnavailable\"")
-                .contains("name=\"confirmSendWithoutUnavailable\" value=\"true\" required data-rule-required=\"false\">")
+                .contains("name=\"confirmSendWithoutUnavailable\" value=\"true\" required>")
                 .contains("<fmt:message key=\"consultation.fax.confirmSendWithoutUnavailable\"/>");
         // The form is novalidate, so the submit handler checks the box itself, before the send.
         int submit = jsp.indexOf("function submitForm(event)");
         int check = jsp.indexOf("if (confirmLeftOut && !confirmLeftOut.checked) {", submit);
         int send = jsp.indexOf("return ShowSpin(true);", submit);
         assertThat(check).isGreaterThan(submit).isLessThan(send);
+        // jQuery Validate reads the HTML required too; its own rule for the box is switched off so
+        // it adds no untranslated "This field is required." label next to the browser's prompt.
+        int rules = jsp.indexOf("$('#coverPageForm').validate({");
+        assertThat(jsp.substring(rules, jsp.indexOf("messages:", rules)).replaceAll("\\s+", " "))
+                .contains("confirmSendWithoutUnavailable: { required: false }");
     }
 
     @Test

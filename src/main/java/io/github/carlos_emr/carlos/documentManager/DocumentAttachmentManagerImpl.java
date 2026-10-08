@@ -633,8 +633,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
             // Warnings so far are for attachments the lists above already leave out: a target that
-            // no longer exists or belongs to another patient. Any warning added below is an
-            // attachment that failed to render.
+            // no longer exists, was deleted, is a patient-independent eForm, or is another patient's.
+            // Any warning added below is an attachment that failed to render.
             int unavailableWarnings = attachmentWarnings.size();
             boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
@@ -1190,9 +1190,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             }
             // A stored PDF document is passed on as it is. Try it now the way the merge will, so a
             // damaged or password-protected one is named here instead of failing the whole merge.
-            if (documentType == DocumentType.DOC && !mergesAsPdf(path)) {
+            String mergeFailure = documentType == DocumentType.DOC ? pdfMergeFailure(path) : null;
+            if (mergeFailure != null) {
                 recordSkippedAttachment(attachmentWarnings,
-                        ConsultAttachmentWarning.notRendered(documentType, documentId), UNOPENABLE_DOCUMENT_PDF);
+                        ConsultAttachmentWarning.notRendered(documentType, documentId),
+                        UNOPENABLE_DOCUMENT_PDF + " (" + mergeFailure + ")");
                 // An image document's PDF was made for this render; it holds patient data.
                 cleanupRenderedTempInputs(new ArrayList<>(List.of(path.toString())), null);
                 return;
@@ -1208,19 +1210,23 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     /**
-     * Whether {@code ConcatPDF} will be able to merge the file: it opens it with no password,
-     * removes any owner-only security, and saves it again. This does the same, into a discarded
-     * stream, so it costs one extra parse and save of each stored PDF document.
+     * Tries the file the way {@code ConcatPDF} will merge it: opens it with no password, removes
+     * any owner-only security, and saves it again, here into a discarded stream. That costs one
+     * extra parse and save of each stored PDF document.
+     *
+     * @return {@code null} when it merges; otherwise the failure's exception class, which tells a
+     *         password-protected file (InvalidPasswordException) from a damaged one (for example
+     *         IOException)
      */
-    private boolean mergesAsPdf(Path path) {
+    private String pdfMergeFailure(Path path) {
         try (PDDocument document = Loader.loadPDF(path.toFile())) {
             if (document.isEncrypted()) {
                 document.setAllSecurityToBeRemoved(true);
             }
             document.save(OutputStream.nullOutputStream());
-            return true;
+            return null;
         } catch (IOException | RuntimeException e) {
-            return false;
+            return e.getClass().getSimpleName();
         }
     }
 

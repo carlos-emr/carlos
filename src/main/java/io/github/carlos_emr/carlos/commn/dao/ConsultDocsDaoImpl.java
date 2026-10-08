@@ -49,10 +49,10 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
             "(cd.docType = :eformType AND ("
                     + "NOT EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo) "
                     // Deleting an eForm only clears its status (EFormData.current), as deleting a
-                    // document sets status 'D'; both are left out and named.
-                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo AND e.current = false) "
-                    // Patient-independent eForms never go into a consult packet; name them too.
-                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo AND e.patientIndependent = true) "
+                    // document sets status 'D'; both are left out and named. Patient-independent
+                    // eForms never go into a consult packet, so they are named too.
+                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo "
+                    + "AND (e.current = false OR e.patientIndependent = true)) "
                     + "OR EXISTS (SELECT e.id FROM EFormData e, ConsultationRequest cr "
                     + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
                     + "AND (e.demographicId IS NULL OR e.demographicId <> cr.demographicId))"

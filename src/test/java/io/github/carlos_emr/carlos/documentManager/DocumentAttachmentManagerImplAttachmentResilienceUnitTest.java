@@ -384,8 +384,30 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
             assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
                     .containsExactly("D:41 NOT_RENDERED");
+            // A stored document, outside CARLOS's temp subtree, is never deleted.
+            assertThat(damaged).exists();
         } finally {
             Files.deleteIfExists(damaged);
+        }
+    }
+
+    @Test
+    @DisplayName("deletes a PDF made for this render when it is left out, as it holds patient data")
+    void shouldDeleteLeftOutTemporaryPdf_whenPreviewSkipsIt() throws Exception {
+        // An image document's PDF is made in CARLOS's own temp subtree for each render.
+        Path applicationTemp = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"),
+                io.github.carlos_emr.carlos.utility.PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        Path madeForRender = Files.createTempFile(applicationTemp, "consult-image-document-", ".pdf");
+        Files.writeString(madeForRender, "not a PDF at all");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(44, madeForRender)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:44 NOT_RENDERED");
+            assertThat(madeForRender).doesNotExist();
+        } finally {
+            Files.deleteIfExists(madeForRender);
         }
     }
 

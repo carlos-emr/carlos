@@ -420,10 +420,10 @@
                         <input type="hidden" name="confirmedUnavailableAttachments" value="<c:forEach items='${ attachmentWarnings }' var='confirmedWarning' varStatus='confirmedStatus'><carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/><c:if test='${ not confirmedStatus.last }'>,</c:if></c:forEach>"/>
                         <div class="form-check mt-2">
                             <%-- required for checkValidity() in submitForm, which shows the browser's own
-                                 prompt; data-rule-required="false" keeps jQuery Validate from adding its
-                                 untranslated "This field is required." label as well. --%>
+                                 prompt. The validate() rules below turn jQuery Validate's required check off
+                                 for this box, so it adds no untranslated "This field is required." label. --%>
                             <input class="form-check-input" type="checkbox" id="confirmSendWithoutUnavailable"
-                                   name="confirmSendWithoutUnavailable" value="true" required data-rule-required="false">
+                                   name="confirmSendWithoutUnavailable" value="true" required>
                             <label class="form-check-label" for="confirmSendWithoutUnavailable">
                                 <fmt:message key="consultation.fax.confirmSendWithoutUnavailable"/>
                             </label>
@@ -766,6 +766,10 @@
          */
         $('#coverPageForm').validate({
             rules: {
+                // submitForm checks this box itself and shows the browser's own prompt.
+                confirmSendWithoutUnavailable: {
+                    required: false
+                },
                 recipientFaxNumber: {
                     required: true,
                     minlength: 7

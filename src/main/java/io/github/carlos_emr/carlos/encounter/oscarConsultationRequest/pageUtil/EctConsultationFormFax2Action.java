@@ -273,12 +273,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         List<ConsultAttachmentWarning> unavailable =
                 documentAttachmentManager.getUnavailableConsultAttachmentWarnings(reqIdValue);
         if (!leftOutAttachmentsConfirmed(unavailable)) {
-            logger.warn("Consultation fax not sent: {} unavailable attachment(s) were not confirmed for requestId={}",
-                    unavailable.size(), reqIdValue);
-            request.setAttribute("errorMessage", MessageFormat.format(
-                    ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.unavailableNotConfirmed"),
-                    ConsultAttachmentWarning.formatNames(unavailable, request.getLocale())));
-            return "error";
+            return refuseUnconfirmedFax(unavailable, reqIdValue, "were not confirmed on the cover page");
         }
 
         // Validate the complete batch before creating a PHI-bearing temporary document.
@@ -304,12 +299,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
                 .toList();
         if (!leftOutAttachmentsConfirmed(leftOutAtRender)) {
             cleanupRenderedSource(faxPdf);
-            logger.warn("Consultation fax not sent: an attachment became unavailable while the fax was prepared, requestId={}",
-                    reqIdValue);
-            request.setAttribute("errorMessage", MessageFormat.format(
-                    ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.unavailableNotConfirmed"),
-                    ConsultAttachmentWarning.formatNames(leftOutAtRender, request.getLocale())));
-            return "error";
+            return refuseUnconfirmedFax(leftOutAtRender, reqIdValue, "became unavailable while the fax was prepared");
         }
         Path renderedSource = faxPdf;
         Set<Path> attemptFiles = new HashSet<>();
@@ -408,6 +398,16 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         request.setAttribute("faxSuccessful", true);
         return SUCCESS;
+    }
+
+    /** Sends nothing, and tells staff which unavailable attachments they have not confirmed. */
+    private String refuseUnconfirmedFax(List<ConsultAttachmentWarning> unavailable, int requestId, String why) {
+        logger.warn("Consultation fax not sent: {} unavailable attachment(s) {}, requestId={}",
+                unavailable.size(), why, requestId);
+        request.setAttribute("errorMessage", MessageFormat.format(
+                ConsultAttachmentWarning.bundleText(request.getLocale(), "consultation.fax.unavailableNotConfirmed"),
+                ConsultAttachmentWarning.formatNames(unavailable, request.getLocale())));
+        return "error";
     }
 
     /**

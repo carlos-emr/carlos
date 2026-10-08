@@ -360,7 +360,10 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRefuseFax_whenAttachmentBecomesUnavailableDuringRender() throws Exception {
         grantFaxPrivileges();
         // Nothing was unavailable at the check, so nothing was confirmed; the render then finds one.
-        Path rendered = temporaryDirectory.resolve("consult-fax-race.pdf");
+        // The render's PDF is in CARLOS's own temp subtree, as a real render's is.
+        Path applicationTemp = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"),
+                io.github.carlos_emr.carlos.utility.PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        Path rendered = Files.createTempFile(applicationTemp, "consult-fax-race-", ".pdf");
         Files.writeString(rendered, "%PDF-1.4");
         when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
             request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
@@ -368,12 +371,18 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
             return rendered;
         });
 
-        assertThat(action.execute()).isEqualTo("error");
+        try {
+            assertThat(action.execute()).isEqualTo("error");
 
-        assertThat(request.getAttribute("errorMessage")).asString()
-                .startsWith("This fax was not sent.").contains("Document 80");
-        verify(nioFileManager, never()).promoteApplicationTempFile(any());
-        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+            assertThat(request.getAttribute("errorMessage")).asString()
+                    .startsWith("This fax was not sent.").contains("Document 80");
+            // The patient-data PDF made for the refused fax is removed at once.
+            assertThat(rendered).doesNotExist();
+            verify(nioFileManager, never()).promoteApplicationTempFile(any());
+            verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+        } finally {
+            Files.deleteIfExists(rendered);
+        }
     }
 
     @Test
