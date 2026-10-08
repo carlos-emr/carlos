@@ -727,5 +727,9 @@
             <result name="eams">/eaaps/displayEctEaaps</result>
         </action>
 
+        <action name="encounter/chartspace" class="viewChartSpace2Action">
+            <result name="success">/WEB-INF/jsp/chartspace/chartSpace.jsp</result>
+        </action>
+
     </package>
 </struts>
