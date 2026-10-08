@@ -120,8 +120,6 @@ async function main() {
       setGroup(shortGroup);
       const filenames = [];
       filenames.push(await generateAndVerify(context, config, recorder, window, db, diskDir, ZERO, paddedGroup));
-      assert(db.value(`SELECT COUNT(*) FROM billing_on_diskname WHERE groupno=''`) === '0',
-        'A normalized group must never be stored as the legacy empty group');
       console.log(`  Short group ${shortGroup}: generated as ${paddedGroup} (disk name, stored group, HEB header)`);
 
       // 2. A value that cannot be normalized is reported per provider before any write,

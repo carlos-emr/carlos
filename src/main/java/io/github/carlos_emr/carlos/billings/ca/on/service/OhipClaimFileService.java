@@ -1355,6 +1355,28 @@ public class OhipClaimFileService {
         }
     }
 
+    /**
+     * Keeps the prior submission after a committed regeneration under the name OSCAR 19
+     * gave it, {@code <ohipfilename>.<epochMillis>} beside the new file, instead of leaving
+     * the hidden rollback copy behind. Best effort: the regeneration is already committed,
+     * so a rename failure is logged and the rollback copy is left for reconciliation.
+     */
+    public void retainFileBackup() {
+        if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
+        File homeDirFile = new File(CarlosProperties.getInstance().getProperty("HOME_DIR"));
+        File retained = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis(), homeDirFile);
+        try {
+            java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            lastRenamedOriginalFile = null;
+            lastRenamedBackupFile = null;
+        } catch (IOException failure) {
+            _logger.warn("Could not retain the prior OHIP output as {} ({})",
+                    LogSafe.sanitize(retained.getName()), failure.getClass().getSimpleName());
+        }
+    }
+
     /** Restores the original claim file, surfacing any failure that requires operator reconciliation. */
     public void restoreRenamedFile() {
         if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;

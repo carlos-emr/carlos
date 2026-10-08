@@ -158,13 +158,16 @@ public class BillingOnMriViewModelAssembler {
 
         // Provider-set used for multisite filtering of the MRI rows.
         // Mirrors the legacy `providerMap.get(pro_no) == null` skip.
+        // Team before site: OSCAR 19 evaluated the site list first and then let the
+        // team list replace it, so a user holding both saw the team's providers. The
+        // simulation page applies the same precedence.
         Set<String> visibleProviderSet = new HashSet<>();
-        if (isSiteAccessPrivacy) {
-            for (ProviderData pd : providerDataDao.findByProviderSite(userProviderNo)) {
+        if (isTeamAccessPrivacy) {
+            for (ProviderData pd : providerDataDao.findByProviderTeam(userProviderNo)) {
                 visibleProviderSet.add(pd.getId());
             }
-        } else if (isTeamAccessPrivacy) {
-            for (ProviderData pd : providerDataDao.findByProviderTeam(userProviderNo)) {
+        } else if (isSiteAccessPrivacy) {
+            for (ProviderData pd : providerDataDao.findByProviderSite(userProviderNo)) {
                 visibleProviderSet.add(pd.getId());
             }
         }

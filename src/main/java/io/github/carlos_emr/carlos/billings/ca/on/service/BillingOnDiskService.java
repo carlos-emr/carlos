@@ -256,11 +256,15 @@ public class BillingOnDiskService {
             GroupDiskGeneration generation = writeGroupMembers(prep, selectedMembers, groupNo, diskId,
                     loggedInInfo, request, dateRange, mohOffice, useProviderMOH, currentUser,
                     oriBillCenter);
+            OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
+            finalize.setContextPath(request.getContextPath());
+            finalize.setOhipFilename(prep.getOhipfilename(diskId));
             if (generation != null) {
-                OhipClaimFileService finalize = ohipClaimFileFactory.getObject();
-                finalize.setContextPath(request.getContextPath());
-                finalize.setOhipFilename(prep.getOhipfilename(diskId));
                 writeNewGroupDiskFileAndFinalize(generation, finalize, diskId);
+            } else {
+                // OSCAR 19 contract: the disk row and its headers already exist, so the
+                // listed download must exist too; an empty claim file is what it wrote.
+                finalize.writeFile("");
             }
         }
     }
@@ -395,6 +399,7 @@ public class BillingOnDiskService {
             writer.writeHtml(writer.getHtmlCode());
             transactionService.finalizeGeneratedDisk(writer, diskId, outcome);
             writer.discardHtmlBackup();
+            writer.retainFileBackup();
         } catch (RuntimeException failure) {
             if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
             if (renamed) restoreRegeneratedFiles(List.of(writer), writer, failure);
@@ -432,6 +437,7 @@ public class BillingOnDiskService {
             ohipWriter.writeFile(claimBody);
             transactionService.finalizeGeneratedDisks(writers, diskId, outcome);
             for (OhipClaimFileService writer : writers) writer.discardHtmlBackup();
+            ohipWriter.retainFileBackup();
         } catch (RuntimeException failure) {
             if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
             if (renamed) restoreRegeneratedFiles(writers, ohipWriter, failure);

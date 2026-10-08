@@ -630,4 +630,31 @@ class OhipClaimFileServiceUnitTest {
         field.setAccessible(true);
         field.set(entity, id);
     }
+
+    @Test
+    void shouldRetainPriorOutputUnderLegacyTimestampName_afterCommittedRegeneration() throws IOException {
+        // OSCAR 19 renamed the previous OHIP file to <name>.<epochMillis>; operators
+        // find the prior submission there, and no hidden rollback copy is left behind.
+        Path original = tempDir.resolve("claim.retain.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.retain.txt");
+        service.backupFileForRollback();
+        service.writeFile("replacement");
+
+        service.retainFileBackup();
+
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        try (var files = Files.list(tempDir)) {
+            var names = files.map(path -> path.getFileName().toString()).sorted().toList();
+            assertThat(names).hasSize(2);
+            assertThat(names).anySatisfy(name -> assertThat(name).matches("claim\\.retain\\.txt\\.\\d{13}"));
+            assertThat(names).noneMatch(name -> name.startsWith(".ohip-preview-"));
+        }
+        try (var files = Files.list(tempDir)) {
+            Path retained = files.filter(path -> path.getFileName().toString().endsWith(".txt") == false).findFirst().orElseThrow();
+            assertThat(retained).hasContent("prior claim output");
+        }
+        // A second call is a no-op: the backup has already been handed over.
+        service.retainFileBackup();
+    }
 }

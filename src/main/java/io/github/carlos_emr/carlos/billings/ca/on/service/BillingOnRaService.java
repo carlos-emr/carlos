@@ -295,7 +295,11 @@ public class BillingOnRaService {
                     } else {
                         amountsubmit = amountsubmit.substring(0, amountsubmit.length() - 2) + "." + amountsubmit.substring(amountsubmit.length() - 2);
                     }
-                    newhin = hin + ver;
+                    // OSCAR 19 contract: the H5 HIN field alone (left-justified, space-padded
+                    // to 12). radetail.hin is varchar(12); appending the version code made
+                    // the value 14 characters, which strict SQL mode rejects (rolling back
+                    // the whole RA import) and lenient mode silently truncates.
+                    newhin = hin;
 
                     // if it needs to write a radt record for the rahd record
                     if (recFlag > 0) {

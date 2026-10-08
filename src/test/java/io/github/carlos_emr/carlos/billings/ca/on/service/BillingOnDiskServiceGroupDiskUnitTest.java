@@ -172,16 +172,22 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotWriteGroupFile_whenNoProviderHasClaimItems() {
+    void shouldWriteEmptyGroupFileWithoutFinalizing_whenNoProviderHasClaimItems() {
+        // OSCAR 19 contract: the disk row and headers already exist, so the listed
+        // download exists too (an empty claim file); no member is finalized.
         OhipClaimFileService first = memberWriter("empty-1", BigDecimal.ZERO, 0);
         OhipClaimFileService second = memberWriter("empty-2", BigDecimal.ZERO, 0);
+        OhipClaimFileService output = mock(OhipClaimFileService.class);
         givenGroupMembers(provider("101"), provider("102"));
-        when(claimFileFactory.getObject()).thenReturn(first, second);
+        when(claimFileFactory.getObject()).thenReturn(first, second, output);
 
         service.generateNewDisk(allProvidersRequest());
 
         verify(first, never()).writeFile(anyString());
         verify(second, never()).writeFile(anyString());
+        verify(first, never()).writeHtml(anyString());
+        verify(output).setOhipFilename("group.txt");
+        verify(output).writeFile("");
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
     }
 

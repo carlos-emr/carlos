@@ -78,7 +78,9 @@ public class BillingClaimBatchAcknowledgementReportParser {
                     String claimNumber = nextline.substring(62, 67);
                     String recordNumber = nextline.substring(67, 73);
                     String batchProcessDate = nextline.substring(73, 81);
-                    String explain = nextline.substring(81, 121);
+                    // OSCAR 19 read 30 characters here (81-111); MOH lines may carry 40.
+                    // Accept the shorter line OSCAR accepted and keep whatever is present.
+                    String explain = nextline.substring(81, Math.min(nextline.length(), 121));
 
                     BillingClaimBatchAcknowledgementReportRecordDto CBABean = new BillingClaimBatchAcknowledgementReportRecordDto(batchNumber,
                             operatorNumber,

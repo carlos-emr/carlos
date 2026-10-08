@@ -134,4 +134,20 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
     private static void replace(StringBuilder target, int start, String value) {
         target.replace(start, start + value.length(), value);
     }
+
+    @Test
+    void shouldAcceptThirtyCharacterExplanation_whenLineEndsWhereOscar19Read() throws Exception {
+        // OSCAR 19 read the explanation as substring(81, 111); a line of exactly that
+        // length must parse, not fail the whole file as malformed.
+        File f = Files.createTempFile(tempDir, "ack111", ".txt").toFile();
+        Files.writeString(f.toPath(), headerLine().substring(0, 111));
+
+        BillingClaimBatchAcknowledgementReportParser parser =
+                new BillingClaimBatchAcknowledgementReportParser(new FileInputStream(f));
+
+        assertThat(parser.verdict).isTrue();
+        BillingClaimBatchAcknowledgementReportRecordDto record =
+                (BillingClaimBatchAcknowledgementReportRecordDto) parser.getBatchAcknowledgementRecords().get(0);
+        assertThat(record.getExplain()).isEqualTo("processed ok" + " ".repeat(18));
+    }
 }

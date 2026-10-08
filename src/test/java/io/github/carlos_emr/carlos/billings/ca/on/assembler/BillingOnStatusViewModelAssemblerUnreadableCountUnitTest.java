@@ -201,4 +201,12 @@ class BillingOnStatusViewModelAssemblerUnreadableCountUnitTest {
         assertThat(vm.getRejectedBillRows().get(0).formattedFee()).isEqualTo("N/A");
         assertThat(vm.getRejectedBillRows().get(0).feeUnreadable()).isTrue();
     }
+
+    @Test
+    void shouldRenderOscar19StoredCentsAndCarlosDollars_asTheSameMoney() {
+        assertThat(BillingOnStatusViewModelAssembler.errorReportFee("003370")).isEqualByComparingTo("33.70");
+        assertThat(BillingOnStatusViewModelAssembler.errorReportFee("000000")).isEqualByComparingTo("0.00");
+        assertThat(BillingOnStatusViewModelAssembler.errorReportFee("33.70")).isEqualByComparingTo("33.70");
+        assertThat(BillingOnStatusViewModelAssembler.errorReportFee(" 1234 ")).isEqualByComparingTo("12.34");
+    }
 }

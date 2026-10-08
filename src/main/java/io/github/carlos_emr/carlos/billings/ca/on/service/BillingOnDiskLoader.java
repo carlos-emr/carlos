@@ -162,11 +162,19 @@ public class BillingOnDiskLoader {
 
      */
 
+    private java.util.Date parseBound(String value) throws java.text.ParseException {
+        return value != null && value.trim().length() > "yyyy-MM-dd".length()
+                ? tsFormatter.parse(value.trim())
+                : dateformatter.parse(value);
+    }
+
     public List getMRIList(String sDate, String eDate, String status) {
         List retval = new ArrayList();
         try {
+            // OSCAR 19 parsed the end bound as a timestamp (yyyy-MM-dd HH:mm:ss); a plain
+            // date parse keeps the day at 00:00:00 and hides the last day of the range.
             List<BillingONDiskName> results = diskNameDao.findByCreateDateRangeAndStatus(
-                    dateformatter.parse(sDate), dateformatter.parse(eDate), status);
+                    parseBound(sDate), parseBound(eDate), status);
 
             for (BillingONDiskName b : results) {
                 BillingDiskNameDto obj = new BillingDiskNameDto();

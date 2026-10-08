@@ -499,4 +499,24 @@ class BillingOnRaServiceUnitTest {
             line[start + i] = value.charAt(i);
         }
     }
+
+    @Test
+    void shouldStoreTwelveCharacterHin_withoutVersionCode_whenImportingH5Records() throws Exception {
+        // OSCAR 19 contract (JdbcBillingRAImpl): radetail.hin is the H4 HIN field alone,
+        // never HIN + version code, which overflows the varchar(12) column.
+        org.mockito.Mockito.doAnswer(invocation -> {
+            ReflectionTestUtils.setField(invocation.getArgument(0, RaHeader.class), "id", 7);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        Path file = tempDir.resolve("hin.ra");
+        Files.write(file, List.of(h1("20260401", "000001000", "0"), h4("00000001"), h5()));
+
+        service.importRAFile(file.toString());
+
+        ArgumentCaptor<RaDetail> captor = ArgumentCaptor.forClass(RaDetail.class);
+        verify(raDetailDao).persist(captor.capture());
+        assertThat(captor.getValue().getHin()).isEqualTo("123456789012");
+    }
 }

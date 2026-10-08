@@ -381,7 +381,7 @@ public class BillingOnStatusViewModelAssembler {
                 String formattedFee;
                 boolean feeUnreadable = false;
                 try {
-                    formattedFee = BillingAmounts.format(BillingAmounts.amount(bObj.getFee()));
+                    formattedFee = BillingAmounts.format(errorReportFee(bObj.getFee()));
                 } catch (RuntimeException nfe) {
                     feeUnreadable = true;
                     MiscUtils.getLogger().warn("Rejected-bill fee is not numeric for billingNo={} fee={}",
@@ -692,5 +692,19 @@ public class BillingOnStatusViewModelAssembler {
         }
         if (s.length() == 1) return "0.0" + s;
         return "0." + s;
+    }
+
+    /**
+     * OSCAR 19 stored the claims error report's fee field verbatim: the six-digit
+     * implied-cents value of the T record (for example {@code 003370} for $33.70),
+     * and rows imported from an OSCAR 19 database still carry that form. CARLOS
+     * persists the amount in dollars. Both must render as the same money.
+     */
+    static java.math.BigDecimal errorReportFee(String stored) {
+        String value = stored == null ? "" : stored.trim();
+        if (value.matches("[0-9]{1,6}")) {
+            return java.math.BigDecimal.valueOf(Long.parseLong(value), 2);
+        }
+        return BillingAmounts.amount(value);
     }
 }
