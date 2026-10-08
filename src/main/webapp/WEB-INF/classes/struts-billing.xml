@@ -81,6 +81,7 @@
         <action name="billing/CA/BC/reprocessBill" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/adjustBill.jsp</result>
             <result name="save">/WEB-INF/jsp/billing/CA/BC/billStatus.jsp</result>
+            <result name="list">/WEB-INF/jsp/billing/CA/BC/billStatus.jsp</result>
         </action>
 
         <action name="billing/CA/BC/billingEditCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingEditCode2Action">
@@ -812,10 +813,6 @@
 
         <action name="billing/CA/ON/ViewOnGenRA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnGenRa2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/ON/onGenRA.jsp</result>
-        </action>
-
-        <action name="billing/CA/ON/ImportOnRA" class="io.github.carlos_emr.carlos.billings.ca.on.web.ImportOnRa2Action">
-            <result name="success" type="chain">billing/CA/ON/ViewOnGenRA</result>
         </action>
 
         <action name="billing/CA/ON/ViewOnGenRAError" class="io.github.carlos_emr.carlos.billings.ca.on.web.ViewOnGenRaError2Action">

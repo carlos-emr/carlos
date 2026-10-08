@@ -81,7 +81,7 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
         document: { getElementById: () => ({}) },
         FormData: class {}, URLSearchParams: class { toString() { return 'drugName_42=draft'; } },
         CarlosAjax: { request(url, options) { calls.push({url, options}); } },
-        callReplacementWebService() {}, clearStashDisplay() { cleared++; },
+        refreshDrugProfile() {}, clearStashDisplay() { cleared++; },
         reportRefusedSave() {},
     };
     const code = slice('function updateSaveAllDrugsContinue(', '/**')

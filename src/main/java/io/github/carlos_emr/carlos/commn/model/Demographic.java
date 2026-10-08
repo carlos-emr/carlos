@@ -1581,7 +1581,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         if (dateOfBirth != null && monthOfBirth != null && yearOfBirth != null) {
             cal = new GregorianCalendar();
-            cal.setTimeInMillis(0);
+            // Clear the epoch's local time-of-day before setting this date-only value.
+            cal.clear();
             cal.set(Integer.parseInt(yearOfBirth), Integer.parseInt(monthOfBirth) - 1, Integer.parseInt(dateOfBirth));
 
             // force materialisation of data

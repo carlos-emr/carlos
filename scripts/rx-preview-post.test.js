@@ -9,7 +9,7 @@ const vm = require('node:vm');
 
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp'), 'utf8');
 const start = jsp.indexOf('function popForm2(');
-const end = jsp.indexOf('function callAdditionWebService(', start);
+const end = jsp.indexOf("var drugProfile = document.getElementById('drugProfile');", start);
 assert.ok(start >= 0 && end > start);
 const source = jsp.slice(start, end).replace(/\$\{[^}]*\}/g, 'Edit Rx');
 
