@@ -244,7 +244,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
     /**
      * Ends a successful save. A browser form post gets the usual redirect to the allergy list; the
-     * dialogue's own XHR/fetch save (#3488) gets a small JSON body naming that page instead, so it
+     * dialogue's own XHR/fetch save (#3488) gets a constant JSON acknowledgement instead, so it
      * navigates once without first downloading and discarding the whole allergy page.
      */
     private String succeed(int patientDemographicNo) {
@@ -256,9 +256,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
-            response.getWriter().write("{\"saved\":true,\"redirect\":\""
-                    + request.getContextPath().replace("\\", "\\\\").replace("\"", "\\\"")
-                    + "/rx/showAllergy?demographicNo=" + patientDemographicNo + "\"}");
+            // A constant body: nothing from the request is echoed. The dialogue knows its own
+            // allergy-list URL and navigates there itself.
+            response.getWriter().write("{\"saved\":true}");
         } catch (IOException e) {
             // The allergy is already saved; the client treats an unreadable reply as "not saved"
             // and its retry is answered idempotently by the save token.

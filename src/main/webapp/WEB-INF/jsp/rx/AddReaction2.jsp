@@ -216,6 +216,8 @@
                                     }
                                     var saving = false;
                                     var navigating = false;
+                                    // The patient is an int, so appending it needs no encoding.
+                                    var allergyListUrl = "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/rx/showAllergy?demographicNo=<%= patient.getDemographicNo() %>";
 
                                     function showFailure(detail, message) {
                                         var box = document.getElementById("allergySaveError");
@@ -255,11 +257,9 @@
                                             var type = response.headers.get("Content-Type") || "";
                                             if (response.ok && type.indexOf("application/json") === 0) {
                                                 return response.json().then(function (result) {
-                                                    var target = result && result.redirect;
-                                                    if (result && result.saved === true && typeof target === "string"
-                                                        && target.indexOf("<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/rx/showAllergy") === 0) {
+                                                    if (result && result.saved === true) {
                                                         navigating = true;
-                                                        window.location.assign(target);
+                                                        window.location.assign(allergyListUrl);
                                                     } else {
                                                         showFailure("unexpected server reply");
                                                     }

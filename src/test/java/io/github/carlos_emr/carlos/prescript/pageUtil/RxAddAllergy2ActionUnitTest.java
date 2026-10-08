@@ -396,7 +396,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(mockResponse.getStatus()).isEqualTo(200);
         assertThat(mockResponse.getContentType()).startsWith("application/json");
         assertThat(mockResponse.getContentAsString())
-                .isEqualTo("{\"saved\":true,\"redirect\":\"/carlos/rx/showAllergy?demographicNo=123\"}");
+                .isEqualTo("{\"saved\":true}");
         verify(mockRxPatient).addAllergy(any(), any());
     }
 
