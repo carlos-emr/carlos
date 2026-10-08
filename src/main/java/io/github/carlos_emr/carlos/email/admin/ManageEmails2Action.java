@@ -244,8 +244,10 @@ public class ManageEmails2Action extends ActionSupport {
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
+        boolean attachmentsRefreshed = false;
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
+            attachmentsRefreshed = true;
         } catch (PDFGenerationException e) {
             request.setAttribute("emailErrorMessage", "This previously sent email cannot be re-opened for editing/resending. Please generate a new email instead. \\n\\n" + e.getMessage());
             request.setAttribute("isEmailError", true);
@@ -278,12 +280,15 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
         // Stage the resend's attachments under this window's own key, bound to the logged email's
         // patient, exactly as a compose does (#4425). A session-wide list would let a compose or
-        // resend in another window replace what this window sends.
-        EmailAttachmentStaging.Staged stagedAttachments =
-                EmailAttachmentStaging.stage(request.getSession(), demographicNo, emailAttachmentList);
+        // resend in another window replace what this window sends. A failed refresh stages nothing:
+        // its page only reports the error and closes, and without a key any send is refused.
         request.getSession().removeAttribute("emailAttachmentList");
-        request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
-        request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
+        if (attachmentsRefreshed) {
+            EmailAttachmentStaging.Staged stagedAttachments =
+                    EmailAttachmentStaging.stage(request.getSession(), demographicNo, emailAttachmentList);
+            request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
+            request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
+        }
 
         return "compose";
     }
