@@ -65,11 +65,11 @@ async function rest(context, config, method, route, body) {
 }
 
 /** One signed OAuth 1.0a GET on /ws/services from a cookie-less request context. */
-async function signedRest(request, config, credentials, route) {
+async function signedRest(request, config, signing, route) {
   const url = h.appUrl(config.baseUrl, `/ws/services/${route}`);
   return readResult(await request.fetch(url, {
     method: 'GET', maxRedirects: 0, timeout: 60000, failOnStatusCode: false,
-    headers: { Accept: 'application/json', Authorization: oauthHeader({ method: 'GET', url, ...credentials }) },
+    headers: { Accept: 'application/json', Authorization: oauthHeader({ method: 'GET', url, ...signing }) },
   }));
 }
 
@@ -100,12 +100,10 @@ async function workflow(s) {
       'The owned consent type was not removed');
   });
   // Registered after the login fixture, so it runs first: the tokens name the receptionist.
-  const oauthClient = {
-    consumerKey: crypto.randomBytes(12).toString('hex'),
-    consumerSecret: crypto.randomBytes(12).toString('hex'),
-  };
+  const consumerKey = crypto.randomBytes(12).toString('hex');
+  const consumerSecret = crypto.randomBytes(12).toString('hex');
   s.cleanup(() => {
-    const key = h.sqlString(oauthClient.consumerKey);
+    const key = h.sqlString(consumerKey);
     const owned = `(SELECT id FROM ServiceClient WHERE clientKey=${key})`;
     sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId IN ${owned};
       DELETE FROM ServiceRequestToken WHERE clientId IN ${owned};
@@ -234,8 +232,8 @@ async function workflow(s) {
   await s.step('on /ws/services the receptionist\'s signed OAuth token is refused (403) the same endpoints', async () => {
     // uri='oob': the verifier is shown on the consent page instead of redirected.
     h.insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
-        VALUES(${h.sqlString(`${marker}-oauth`)},${h.sqlString(oauthClient.consumerKey)},
-        ${h.sqlString(oauthClient.consumerSecret)},'oob',3600)`, 'ServiceClient');
+        VALUES(${h.sqlString(`${marker}-oauth`)},${h.sqlString(consumerKey)},
+        ${h.sqlString(consumerSecret)},'oob',3600)`, 'ServiceClient');
     const anonymous = await h.newContext(s.context.browser(), config);
     try {
       const api = anonymous.request;
@@ -243,7 +241,7 @@ async function workflow(s) {
       const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate?scope=${pct('provider.read')}`);
       let response = await api.post(initiateUrl, {
         failOnStatusCode: false,
-        headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, ...oauthClient, extra: { oauth_callback: 'oob' } }) },
+        headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' } }) },
       });
       h.assert(response.status() === 200, `Signed POST /ws/oauth/initiate answered HTTP ${response.status()}`);
       const requestToken = await form(response);
@@ -273,22 +271,22 @@ async function workflow(s) {
         failOnStatusCode: false,
         headers: {
           Authorization: oauthHeader({
-            method: 'POST', url: tokenUrl, ...oauthClient, token: requestToken.oauth_token,
+            method: 'POST', url: tokenUrl, consumerKey, consumerSecret, token: requestToken.oauth_token,
             tokenSecret: requestToken.oauth_token_secret, extra: { oauth_verifier: verifier },
           }),
         },
       });
       h.assert(response.status() === 200, `Signed POST /ws/oauth/token answered HTTP ${response.status()}`);
       const accessToken = await form(response);
-      const credentials = { ...oauthClient, token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret };
+      const signing = { consumerKey, consumerSecret, token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret };
 
       // Control: the token authenticates, as the receptionist.
-      const info = await signedRest(api, config, credentials, 'oauth/info');
+      const info = await signedRest(api, config, signing, 'oauth/info');
       h.assert(info.status === 200 && String(info.json?.login) === String(logins.receptionist.providerNo),
         `${describe('receptionist (OAuth)', 'GET', 'oauth/info', info)}; expected its own provider number`);
       const wrong = [];
       for (const route of ['app/getApps/', `recordUX/${patient}/getAllergies`, ...THROWING_GUARDS]) {
-        const result = await signedRest(api, config, credentials, route);
+        const result = await signedRest(api, config, signing, route);
         if (!(result.status === 403 && result.fromApp)) wrong.push(describe('receptionist (OAuth)', 'GET', route, result));
       }
       h.assert(!wrong.length, `Expected an application 403 on /ws/services: ${wrong.join('; ')}`);
