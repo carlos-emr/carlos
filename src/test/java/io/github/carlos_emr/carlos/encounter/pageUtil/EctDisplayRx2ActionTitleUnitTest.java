@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("encounter")
 @Tag("security")
-class EctDisplayRx2ActionTitleUnitTest {
+class EctDisplayRx2ActionTitleUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should keep the colour span and show a quoted drug name as stored")

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.data;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("prescript")
 @Tag("security")
-class RxPrescriptionDataFullOutLineHtmlUnitTest {
+class RxPrescriptionDataFullOutLineHtmlUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should break the outline into lines at each semicolon")

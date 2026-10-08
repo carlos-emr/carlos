@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.prescript;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("prescript")
 @Tag("security")
-class RxDrugNameEncodingJspRegressionUnitTest {
+class RxDrugNameEncodingJspRegressionUnitTest extends CarlosUnitTestBase {
 
     private static final Path PRESCRIBE_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/prescribe.jsp");
     private static final Path PREVIEW_JSP = Path.of("src/main/webapp/WEB-INF/jsp/rx/Preview2.jsp");

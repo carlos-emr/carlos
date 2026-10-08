@@ -139,6 +139,8 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
 
         // Staging a card starts the interaction and allergy preloads on worker threads; stub their
         // sources so no worker reaches the DrugRef service (construction mocks are thread-local).
+        // AllergyDao is registered first because RxPatientData.Patient's <clinit> resolves it via
+        // SpringUtils: a failed first initialization poisons the class for the rest of the fork.
         registerMock(AllergyDao.class, mock(AllergyDao.class));
         RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
         when(patient.getActiveAllergies()).thenReturn(new Allergy[0]);

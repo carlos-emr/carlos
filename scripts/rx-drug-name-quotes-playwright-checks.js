@@ -45,18 +45,24 @@ async function viewScriptFrame(page, timeout = 60000) {
   throw new Error('The print window (rx/viewScript) did not open');
 }
 
-/** The printable preview nested in the print window, once it has rendered its prescription rows. */
-async function previewText(script, timeout = 30000) {
+/**
+ * The printable preview nested in the print window, once it shows every expected name. The frame
+ * can render its header before its prescription rows, so poll for the names; on timeout return the
+ * last text seen so the caller's assertion names what was missing.
+ */
+async function previewText(script, expected, timeout = 30000) {
   const deadline = Date.now() + timeout;
+  let last = null;
   while (Date.now() < deadline) {
     const preview = script.childFrames().find(f => /\/rx\/ViewPreview2\?/.test(f.url()));
     if (preview) {
-      const text = await preview.locator('body').innerText().catch(() => '');
-      if (text.trim()) return text.replace(/\s+/g, ' ');
+      last = (await preview.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
+      if (expected.every(name => last.includes(name))) return last;
     }
     await script.waitForTimeout(250);
   }
-  throw new Error('The print window has no rendered preview frame (rx/ViewPreview2)');
+  if (last === null) throw new Error('The print window has no rendered preview frame (rx/ViewPreview2)');
+  return last;
 }
 
 /** What the card's "F" (Add to Favorites) link offers as the favourite's name; the prompt is cancelled. */
@@ -181,7 +187,7 @@ async function workflow(s) {
     const stored = sql.rows(`SELECT COALESCE(customName,''), COALESCE(BN,''), special FROM drugs WHERE demographic_no=${patient}`);
     h.assert(stored.every(row => row.every(value => !mangled(value))), `A saved drug row holds an escaped name: ${JSON.stringify(stored)}`);
     await script.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
-    const shown = await previewText(script);
+    const shown = await previewText(script, cards.map(card => squash(card.name)));
     for (const card of cards) {
       h.assert(shown.includes(squash(card.name)), `The print preview does not show "${card.name}"`);
     }
@@ -205,7 +211,7 @@ async function workflow(s) {
     h.assert(new URL(reprint.url()).searchParams.get('scriptId') === scriptNo, 'The reprint opened another script');
     await reprint.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    const shown = await previewText(reprint);
+    const shown = await previewText(reprint, cards.map(card => squash(card.name)));
     for (const card of cards) {
       h.assert(shown.includes(squash(card.name)), `The reprinted preview does not show "${card.name}"`);
     }
