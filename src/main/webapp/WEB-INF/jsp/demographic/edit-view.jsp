@@ -1297,6 +1297,11 @@
                                                                 <carlos:encode value='<%= notes %>' context="html"/>&nbsp;
                                                             </div>
 
+                                                            <%-- Portal booking requests (#3849): their own box, after Notes. --%>
+                                                            <jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+                                                                <jsp:param name="portalBookingPatient" value="<%= demographic_no %>"/>
+                                                            </jsp:include>
+
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
                                                             <oscar:oscarPropertiesCheck
                                                                     property="DEMOGRAPHIC_PROGRAM_ADMISSIONS"

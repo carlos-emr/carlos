@@ -391,14 +391,36 @@ is optional; the action omits it until the staff UI has a server-verified provid
 accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
 turn that change into a retryable failure.
 
+The UI draft adds a shared box, styled like the record's Notes and placed after it on the master
+record, and at the bottom of the persisted appointment's form. It shows the newest request and how
+many are open; its "Ask / manage" button opens a dialog with the controls and the history.
+Changing the appointment's patient ID or editing/previewing its patient name blocks portal
+controls until save/reopen; every mutation rechecks the current inputs, including programmatic
+changes that emit no input event.
+The fragment checks patient access and booking read before rendering; create controls require
+booking write and account read. The `panel` POST reports account eligibility, prompt history, and
+current create/withdraw capabilities. It reads account status only when permitted and treats an
+explicit absent account separately from an outage. It never reads unrelated invitations.
+
+The browser waits for CSRF bootstrap, uses fixed pick-lists and text-only rendering, and disables
+concurrent changes. An uncertain create retains its operation ID and fixed choices in tab-scoped
+session storage, keyed by actor and patient, across refresh/navigation. No provider names, patient
+names, or portal credentials are stored. Until confirmed, retries retain those choices and ID.
+A definite refusal (HTTP 400, 403 or 404, given before anything reached the portal or by the
+portal itself, or no CSRF token after a 15-second wait) drops the ID only if it was created for
+that attempt, and the panel says the request was not sent. An ID that was tried before, or was
+read back from storage after a reload, is kept, since that earlier attempt may have been stored.
+Session storage is per tab, though a window opened from the tab starts with a copy of it.
+Sending is disabled if storage cannot retain the retry identity. Withdrawal failures require a
+status refresh; no prompt is presented as withdrawn without the confirmed ID/state response.
+The latest-100 history and optional provider attribution limitations above still apply.
+
+The labels are translated in all five catalogs. Offered-slot selection, atomic appointment creation,
+the polling system principal, and decline/expiry ticklers belong to #3850.
+
 `V1.0.60` seeds `_portal.booking_prompt` and grants it (full) to `admin`, `receptionist`, `doctor`,
 `locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
 `_portal.booking_prompt` row keeps the clinic's own setting. Until the booking eligibility change
 (#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
 create one, because that role has no `_portal.account` read. Every request also needs `_demographic`
 read, which the baseline does not give `admin`, so a user whose only role is `admin` is refused.
-
-This draft provides the Java API, permission mapping, action contract and default roles. The staff
-controls on the appointment and master-record screens and their English catalog keys remain required
-before #3849 is complete. Offered-slot selection, atomic appointment creation, the polling system
-principal, and decline/expiry ticklers belong to #3850.

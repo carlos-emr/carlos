@@ -2295,6 +2295,19 @@
       ],
       "timeoutSec": 240,
       "env": []
+    },
+    {
+      "name": "portal-booking-prompt",
+      "script": "scripts/portal-booking-prompt-playwright-checks.js",
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": ["PORTAL_BOOKING_SCREENSHOT", "CHROME_PATH"]
     }
   ]
 }
