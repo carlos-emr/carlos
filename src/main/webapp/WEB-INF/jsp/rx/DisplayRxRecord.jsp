@@ -205,13 +205,13 @@
                 </tr>
                 <tr>
                     <td class="label">Drug Name:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getDrugName()) %>
+                    <td><%= SafeEncode.forHtmlContent(StringUtils.trimToEmpty(drug.getDrugName())) %>
                     </td>
                 </tr>
                 <% if (drug.getBrandName() != null && !drug.getBrandName().equalsIgnoreCase("null")) { %>
                 <tr>
                     <td class="label">Brand Name:</td>
-                    <td><%= drug.getBrandName()%>
+                    <td><%= SafeEncode.forHtmlContent(drug.getBrandName())%>
                     </td>
                 </tr>
                 <%}%>
@@ -505,8 +505,8 @@
             Unused Items
 
             ID: <%= drug.getId()%><br>
-            Audit: <%= drug.getAuditString()%><br>
-            Full: <%= drug.getFullOutLine()%><br>
+            Audit: <%= SafeEncode.forHtmlContent(drug.getAuditString())%><br>
+            Full: <%= SafeEncode.forHtmlContent(drug.getFullOutLine())%><br>
             Position: <%= drug.getPosition()%><br>
             Start Date Unknown: <%= drug.getStartDateUnknown()%><br>
             Script No: <%= drug.getScriptNo()%><br>

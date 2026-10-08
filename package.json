@@ -373,6 +373,7 @@
     "test:boundary-rbt-group-label-playwright": "node scripts/boundary-rbt-group-label-playwright-checks.js",
     "test:boundary-document-text-playwright": "node scripts/boundary-document-text-playwright-checks.js",
     "test:boundary-rx-drug-name-playwright": "node scripts/boundary-rx-drug-name-playwright-checks.js",
+    "test:rx-drug-name-quotes-playwright": "node scripts/rx-drug-name-quotes-playwright-checks.js",
     "test:boundary-date-billing-claims-playwright": "node scripts/boundary-date-billing-claims-playwright-checks.js",
     "test:boundary-date-audit-log-playwright": "node scripts/boundary-date-audit-log-playwright-checks.js",
     "test:boundary-date-tickler-playwright": "node scripts/boundary-date-tickler-playwright-checks.js",
