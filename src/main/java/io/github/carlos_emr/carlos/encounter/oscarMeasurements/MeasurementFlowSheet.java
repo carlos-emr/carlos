@@ -201,6 +201,19 @@ public class MeasurementFlowSheet {
     KieBase ruleBase = null;
 
     /**
+     * The compiled {@link #dsRulesFileName} DRL, or {@code null} if none was declared or it did not
+     * load. It is also {@link #ruleBase} unless item recommendations replaced it during parsing.
+     */
+    private KieBase flowsheetRuleBase = null;
+
+    /**
+     * Item recommendations added by customizations to a flowsheet whose only rules are its
+     * {@code ds_rules} file. Run after {@link #ruleBase} instead of replacing it; see
+     * {@link #loadCustomizedRuleBase(boolean)}.
+     */
+    private KieBase customizationRuleBase = null;
+
+    /**
      * Flag indicating whether the flowsheet-level rule base has been successfully compiled.
      * Must be {@code true} before {@link #getMessages(MeasurementInfo)} can be called.
      */
@@ -714,7 +727,12 @@ public class MeasurementFlowSheet {
      * warnings or recommendations to the {@link MeasurementInfo} object.</p>
      *
      * <p>After successful compilation, the {@link #rulesLoaded} flag is set to {@code true}.
-     * If no recommendations exist across any items, the rule base remains {@code null}.</p>
+     * If no recommendations exist across any items, the rule base is left unchanged.</p>
+     *
+     * <p>Compiled recommendations <em>replace</em> any rule base already loaded from the
+     * flowsheet's {@code ds_rules} file: a definition that ships both runs only its item
+     * recommendations. Customized copies use {@link #loadCustomizedRuleBase(boolean)} instead,
+     * which keeps a file-only flowsheet's rules running.</p>
      *
      * @see Recommendation#getRuleBaseElement()
      * @see RuleBaseCreator#getRuleBase(String, List)
@@ -789,10 +807,12 @@ public class MeasurementFlowSheet {
      * this flowsheet re-declares it. A blank name, as in {@code painAssistant.xml}'s
      * {@code ds_rules=""}, declares no rules file and is ignored.</p>
      *
-     * <p>Compiled rules are cached in {@link RuleBaseFactory} by a hash of the DRL text.
-     * Every customized flowsheet is re-parsed from XML on each request, so without the cache each
-     * page view would recompile the file; keying on content rather than on the name means a DRL
-     * edited under {@code MEASUREMENT_DS_DIRECTORY} still takes effect on the next reload.</p>
+     * <p>Compiled rules are cached in {@link RuleBaseFactory} by a hash of the DRL text, so the
+     * flowsheets that share a file (diab.drl backs several) and scoped definitions parsed per
+     * request compile it once. Keying on content rather than on the name means a DRL edited under
+     * {@code MEASUREMENT_DS_DIRECTORY} takes effect when the flowsheets are next reloaded.
+     * Customized copies do not call this; they take the base's compiled rules through
+     * {@link #useFlowsheetRulesOf(MeasurementFlowSheet)}.</p>
      *
      * @param string String the DRL filename (e.g., {@code "diab.drl"}, {@code "hypertension.drl"})
      * @see DroolsHelper#readDrl(URL)
@@ -830,7 +850,8 @@ public class MeasurementFlowSheet {
                 log.debug("loading from URL {}", url.getFile());
                 drl = DroolsHelper.readDrl(url);
             }
-            ruleBase = compileFlowsheetRules(drl);
+            flowsheetRuleBase = compileFlowsheetRules(drl);
+            ruleBase = flowsheetRuleBase;
         } catch (Exception e) {
             log.error("Failed to load flowsheet rule base from DRL file: {}", string, e);
         }
@@ -853,6 +874,61 @@ public class MeasurementFlowSheet {
         KieBase compiled = DroolsHelper.createKieBaseFromDrl(drl);
         RuleBaseFactory.putRuleBase(cacheKey, compiled);
         return compiled;
+    }
+
+    /**
+     * Gives a customized copy its source flowsheet's {@code ds_rules} file and compiled rules.
+     *
+     * <p>The result is what parsing the copy with its {@code ds_rules} attribute would produce,
+     * without reading or compiling the file again: the file's rules apply unless this copy's own
+     * item recommendations compiled. Sharing the source's {@link KieBase} keeps a copy on exactly
+     * the rules its base runs, even after the file is edited on disk and before the next reload,
+     * and keeps a file that fails to compile from being retried on every customized page view.</p>
+     *
+     * @param source MeasurementFlowSheet the base flowsheet this copy was made from
+     * @see MeasurementTemplateFlowSheetConfig#makeNewFlowsheet(MeasurementFlowSheet)
+     */
+    void useFlowsheetRulesOf(MeasurementFlowSheet source) {
+        dsRulesFileName = source.dsRulesFileName;
+        flowsheetRuleBase = source.flowsheetRuleBase;
+        if (!rulesLoaded && flowsheetRuleBase != null) {
+            ruleBase = flowsheetRuleBase;
+            rulesLoaded = true;
+        }
+    }
+
+    /**
+     * Reports whether this flowsheet's only rules are its {@code ds_rules} file, that is, no item
+     * recommendation replaced the file's rules when it was parsed.
+     *
+     * @return boolean {@code true} when {@link #getMessages(MeasurementInfo)} runs only the file
+     */
+    boolean runsOnlyFlowsheetRules() {
+        return flowsheetRuleBase != null && ruleBase == flowsheetRuleBase;
+    }
+
+    /**
+     * Recompiles the rules of a customized copy once its items have changed.
+     *
+     * <p>Parsing lets item recommendations replace the {@code ds_rules} file: a definition that
+     * ships both runs only its recommendations. Applied to a customized copy, that rule would let a
+     * single warning a clinician adds through Update Flowsheet silently remove every
+     * flowsheet-level warning the file produces (#4433). So when the base flowsheet ran only its
+     * file, the customization's recommendations run alongside the file instead. A base whose own
+     * items carry recommendations keeps the parse-time behaviour.</p>
+     *
+     * @param keepFlowsheetRules boolean the value of {@link #runsOnlyFlowsheetRules()} before the
+     *        customizations were applied
+     * @see MeasurementTemplateFlowSheetConfig#getFlowSheet(String, java.util.List)
+     */
+    void loadCustomizedRuleBase(boolean keepFlowsheetRules) {
+        customizationRuleBase = null;
+        loadRuleBase();
+        if (keepFlowsheetRules && flowsheetRuleBase != null && ruleBase != flowsheetRuleBase) {
+            customizationRuleBase = ruleBase;
+            ruleBase = flowsheetRuleBase;
+            rulesLoaded = true;
+        }
     }
 
     /**
@@ -1019,8 +1095,18 @@ public class MeasurementFlowSheet {
             throw new IllegalStateException(describeMissingRules());
         }
 
+        fireRules(ruleBase, mi);
+        // A customized copy's own recommendations run after the flowsheet's rules file, so for a
+        // measurement both warn about, the customization's message is the one kept per item.
+        if (customizationRuleBase != null) {
+            fireRules(customizationRuleBase, mi);
+        }
+        return mi;
+    }
+
+    private void fireRules(KieBase rules, MeasurementInfo mi) throws Exception {
         // Create a new stateful session for this evaluation
-        KieSession kieSession = ruleBase.newKieSession();
+        KieSession kieSession = rules.newKieSession();
         try {
             // Insert the patient's measurement data as the Drools fact
             kieSession.insert(mi);
@@ -1032,7 +1118,6 @@ public class MeasurementFlowSheet {
             // Always dispose the session to release resources
             kieSession.dispose();
         }
-        return mi;
     }
 
     /**
@@ -1046,13 +1131,17 @@ public class MeasurementFlowSheet {
      */
     private String describeMissingRules() {
         String prefix = "Flowsheet '" + name + "' has no decision support rules loaded: ";
+        List<String> missing = new ArrayList<>();
         if (dsRulesFileName != null) {
-            return prefix + "its rules file '" + dsRulesFileName + "' was not loaded; see the earlier rule-loading error";
+            missing.add("its rules file '" + dsRulesFileName + "' was not loaded");
         }
         if (hasItemRecommendations()) {
-            return prefix + "its item recommendations did not compile; see the earlier rule-loading error";
+            missing.add("its item recommendations did not compile");
         }
-        return prefix + "it declares no decision support rules (no ds_rules file and no item recommendations)";
+        if (missing.isEmpty()) {
+            return prefix + "it declares no decision support rules (no ds_rules file and no item recommendations)";
+        }
+        return prefix + String.join(" and ", missing) + "; see the earlier rule-loading error";
     }
 
     private boolean hasItemRecommendations() {

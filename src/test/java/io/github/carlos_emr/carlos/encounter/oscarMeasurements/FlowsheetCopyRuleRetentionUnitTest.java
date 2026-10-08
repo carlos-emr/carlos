@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ImportMeasurementTypes;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -49,6 +50,7 @@ import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -137,11 +139,85 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                 List.of(change(FlowSheetCustomization.DELETE, "BP")));
 
         assertThat(customized).isNotSameAs(base);
-        assertThat(customized.getVisibleMeasurementList()).containsExactly("A1C");
+        assertThat(customized.getVisibleMeasurementList()).containsExactly("A1C", "WAIS");
         MeasurementInfo messages = customized.getMessages(new MeasurementInfo("1"));
         assertThat(messages.hasWarning("A1C"))
                 .as("diab.drl warns about an A1C that was never recorded")
                 .isTrue();
+    }
+
+    @Test
+    @DisplayName("should run the flowsheet rules alongside a recommendation a customization adds")
+    void shouldRunFlowsheetRulesAlongsideCustomization_whenCustomizationAddsRecommendation() throws Exception {
+        MeasurementFlowSheet base = parse(diabetesDefinition());
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+
+        MeasurementFlowSheet customized = spied.getFlowSheet("issue4433", List.of(
+                change(FlowSheetCustomization.UPDATE, "WAIS", customWarning("WAIS", "issue4433 custom waist warning"))));
+
+        MeasurementInfo messages = customized.getMessages(new MeasurementInfo("1"));
+        assertThat(messages.getWarnings())
+                .as("the customization's own rule fires")
+                .contains("issue4433 custom waist warning");
+        assertThat(messages.hasWarning("A1C"))
+                .as("diab.drl still fires: adding one rule must not silently remove the flowsheet's rules")
+                .isTrue();
+        assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings())
+                .as("the shared base definition is not changed by the customization")
+                .doesNotContain("issue4433 custom waist warning");
+    }
+
+    @Test
+    @DisplayName("should keep a flowsheet's own item recommendations as its rules, as the base definition does")
+    void shouldKeepItemRecommendationsOnly_whenBaseFlowsheetCarriesThem() throws Exception {
+        // Parity with createflowsheet: item recommendations replace the ds_rules file, so a
+        // customized copy of such a flowsheet must not start firing diab.drl either.
+        MeasurementFlowSheet base = parse("<flowsheet name='issue4433' ds_rules='diab.drl'>"
+                + "<item measurement_type='A1C' display_name='A1C'><rules>"
+                + "<recommendation strength='warning' message='issue4433 item A1C rule'>"
+                + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item>"
+                + "<item measurement_type='BP' display_name='BP'/><item measurement_type='WAIS' display_name='Waist'/>"
+                + "</flowsheet>");
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+
+        MeasurementFlowSheet customized = spied.getFlowSheet("issue4433", List.of(
+                change(FlowSheetCustomization.UPDATE, "WAIS", customWarning("WAIS", "issue4433 custom waist warning"))));
+
+        @SuppressWarnings("unchecked")
+        List<String> warnings = customized.getMessages(new MeasurementInfo("1")).getWarnings();
+        assertThat(warnings).contains("issue4433 item A1C rule", "issue4433 custom waist warning");
+        assertThat(warnings).as("diab.drl is not this flowsheet's rule set").doesNotContain("no BP has been recorded");
+        assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings())
+                .containsExactly("issue4433 item A1C rule");
+    }
+
+    @Test
+    @DisplayName("should reuse the base flowsheet's compiled rules instead of reloading the rules file")
+    void shouldNotReloadRulesFile_whenCopyingForCustomization() throws Exception {
+        MeasurementFlowSheet base = parse(diabetesDefinition());
+
+        try (MockedStatic<DroolsHelper> drools = mockStatic(DroolsHelper.class, Mockito.CALLS_REAL_METHODS)) {
+            MeasurementFlowSheet copy = configuration.makeNewFlowsheet(base);
+
+            assertThat(copy.ruleBase).isSameAs(base.ruleBase);
+            drools.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    @DisplayName("should keep the missing rules file on a copy of a flowsheet whose file did not load")
+    void shouldKeepMissingRulesFile_whenCopyingFlowsheetWhoseFileDidNotLoad() throws Exception {
+        MeasurementFlowSheet base = parse("<flowsheet name='issue4433' ds_rules='issue4433-absent.drl'>"
+                + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
+
+        MeasurementFlowSheet copy = configuration.makeNewFlowsheet(base);
+
+        assertThat(copy.getDsRulesFileName()).isEqualTo("issue4433-absent.drl");
+        assertThatThrownBy(() -> copy.getMessages(new MeasurementInfo("1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("issue4433-absent.drl");
     }
 
     @Test
@@ -218,6 +294,42 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should name both missing sources when the rules file and the item recommendations fail")
+    void shouldNameBothCauses_whenRulesFileAndItemRecommendationsFailToLoad() {
+        try (MockedConstruction<RuleBaseCreator> compiler = mockConstruction(RuleBaseCreator.class,
+                (creator, context) -> when(creator.getRuleBase(anyString(), anyList()))
+                        .thenThrow(new IllegalStateException("simulated item rule compilation failure")))) {
+            MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433' ds_rules='issue4433-absent.drl'>"
+                    + "<item measurement_type='A1C' display_name='A1C'><rules>"
+                    + "<recommendation strength='warning' message='issue4433 item A1C rule'>"
+                    + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item></flowsheet>");
+
+            assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("issue4433-absent.drl")
+                    .hasMessageContaining("its item recommendations did not compile");
+        }
+    }
+
+    @Test
+    @DisplayName("should say that item recommendations did not compile when they are the only rules")
+    void shouldNameItemRecommendations_whenTheyFailToCompile() {
+        try (MockedConstruction<RuleBaseCreator> compiler = mockConstruction(RuleBaseCreator.class,
+                (creator, context) -> when(creator.getRuleBase(anyString(), anyList()))
+                        .thenThrow(new IllegalStateException("simulated item rule compilation failure")))) {
+            MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"
+                    + "<item measurement_type='A1C' display_name='A1C'><rules>"
+                    + "<recommendation strength='warning' message='issue4433 item A1C rule'>"
+                    + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item></flowsheet>");
+
+            assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("its item recommendations did not compile")
+                    .hasMessageNotContaining("rules file");
+        }
+    }
+
+    @Test
     @DisplayName("should say that a flowsheet declares no rules when it has none")
     void shouldSayNoRulesDeclared_whenFlowsheetHasNone() {
         MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"
@@ -274,20 +386,33 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
         return flowsheet;
     }
 
-    /** A DRL-backed flowsheet: two items, no item recommendations, rules from diab.drl. */
+    /** A DRL-backed flowsheet: three items, no item recommendations, rules from diab.drl (which ignores WAIS). */
     private static String diabetesDefinition() {
         return "<flowsheet name='issue4433' display_name='Diabetes' ds_rules='diab.drl'"
                 + " warning_colour='#E00000' recommendation_colour='yellow'>"
                 + "<item measurement_type='A1C' display_name='A1C'/>"
                 + "<item measurement_type='BP' display_name='BP'/>"
+                + "<item measurement_type='WAIS' display_name='Waist'/>"
                 + "</flowsheet>";
     }
 
     private static FlowSheetCustomization change(String action, String measurement) {
+        return change(action, measurement, null);
+    }
+
+    private static FlowSheetCustomization change(String action, String measurement, String payload) {
         FlowSheetCustomization customization = new FlowSheetCustomization();
         customization.setAction(action);
         customization.setMeasurement(measurement);
+        customization.setPayload(payload);
         return customization;
+    }
+
+    /** An Update Flowsheet payload: the item with one "never recorded" warning rule, as the editor saves it. */
+    private static String customWarning(String measurement, String message) {
+        return "<item measurement_type=\"" + measurement + "\" display_name=\"" + measurement + "\"><rules>"
+                + "<recommendation strength=\"warning\" message=\"" + message + "\">"
+                + "<condition type=\"monthrange\" param=\"\" value=\"-1\" /></recommendation></rules></item>";
     }
 
     /** DRL whose package name is unique, so no earlier test can have cached its compiled form. */

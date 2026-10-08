@@ -1285,6 +1285,8 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             try {
                 // Create a deep copy of the base flowsheet via XML round-trip
                 MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(baseFlowsheet);
+                // Read before the customizations add item recommendations (#4433).
+                boolean keepFlowsheetRules = personalizedFlowsheet.runsOnlyFlowsheetRules();
 
                 // Apply each customization action in order
                 for (FlowSheetCustomization cust : list) {
@@ -1326,7 +1328,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                     }
                 }
                 // Recompile the Drools rule base after all customizations are applied
-                personalizedFlowsheet.loadRuleBase();
+                personalizedFlowsheet.loadCustomizedRuleBase(keepFlowsheetRules);
                 return personalizedFlowsheet;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1481,6 +1483,10 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * independent copy that can be safely modified (e.g., for per-patient customizations)
      * without affecting the cached base flowsheet.</p>
      *
+     * <p>The copy shares the base's compiled flowsheet-level ({@code ds_rules}) rules through
+     * {@link MeasurementFlowSheet#useFlowsheetRulesOf(MeasurementFlowSheet)} rather than loading
+     * the DRL file again; compiled rule bases are immutable, so sharing them is safe.</p>
+     *
      * @param mFlowsheet MeasurementFlowSheet the source flowsheet to copy
      * @return MeasurementFlowSheet a new independent copy of the flowsheet
      * @throws Exception if XML serialization or parsing fails
@@ -1488,6 +1494,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
     public MeasurementFlowSheet makeNewFlowsheet(MeasurementFlowSheet mFlowsheet) throws Exception {
         XMLOutputter outp = new XMLOutputter();
         Element va = getExportFlowsheet(mFlowsheet);
+        // The copy takes the base's compiled ds_rules below instead of loading the file again, so
+        // it runs exactly the rules its base runs and a page view never reads or compiles DRL.
+        va.removeAttribute("ds_rules");
 
         // Serialize to XML bytes and re-parse to create an independent copy
         ByteArrayOutputStream byteArrayout = new ByteArrayOutputStream();
@@ -1497,6 +1506,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
         MeasurementFlowSheet d = createflowsheet(mType, is);
+        d.useFlowsheetRulesOf(mFlowsheet);
 
         return d;
 
