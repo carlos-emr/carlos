@@ -198,6 +198,33 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
+    @DisplayName("should admit an extension-mapped read POST with the read scope")
+    void shouldAdmitRequest_forExtensionMappedReadPost() {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        MockHttpServletRequest request = servletRequest("POST", "/services/tickler/search.json");
+
+        interceptor.handleMessage(messageWith(request));
+
+        assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
+    }
+
+    @Test
+    @DisplayName("should require the write scope for an extension-mapped POST carrying a matrix parameter")
+    void shouldRaiseFault_withHttp403ForExtensionMappedPostWithMatrixParameter() {
+        // CXF does not strip the extension here, so the routed operation is ambiguous; the stricter answer wins.
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        MockHttpServletRequest request = servletRequest("POST", "/services/tickler/search.json");
+        request.setRequestURI("/carlos/ws/services/tickler;x=1/search.json");
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
     @DisplayName("should admit the scope-exempt oauth info endpoint with any valid token")
     void shouldAdmitRequest_forScopeExemptOauthInfo() {
         enableEnforcement();

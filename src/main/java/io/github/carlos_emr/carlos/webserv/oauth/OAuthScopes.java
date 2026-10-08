@@ -216,6 +216,23 @@ public final class OAuthScopes {
      * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
      */
     public static String requiredScope(String httpMethod, String servicePath) {
+        // Without the raw URI, assume a matrix parameter may be present: the stricter answer.
+        return requiredScope(httpMethod, servicePath, true);
+    }
+
+    /**
+     * {@link #requiredScope(String, String)} for a caller that knows whether the raw request path carried a
+     * matrix parameter ({@code ;}). CXF's extension mapping strips {@code .json}/{@code .xml} only when the
+     * path has none, so without one the stripped path is exactly the routed operation and decides read vs
+     * write ({@code POST tickler/search.json} is the {@code search} read). With one, CXF may route either
+     * form, and a {@code POST} is a read only when both the stripped and unstripped paths are reads.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
+     */
+    public static String requiredScope(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
         List<String> original = serviceSegments(servicePath);
         if (original == null) {
             return NO_SCOPE_REQUIRED;  // not a /services path at all
@@ -223,10 +240,9 @@ public final class OAuthScopes {
         if (original.isEmpty()) {
             return UNMAPPED_ENDPOINT;  // /services itself (e.g. ?_wadl): no root, no scope decision
         }
-        // The segments CXF routes on (extension mapping removed) decide the domain. Read-vs-write must
-        // hold for BOTH forms: CXF strips the suffix only in cases this resolver cannot fully see (a
-        // matrix parameter, which getPathInfo() has already removed, stops CXF's strip), so a POST counts
-        // as a read only when the path is a read operation whether or not the suffix was stripped.
+        // The segments CXF routes on (extension mapping removed) decide the domain. A matrix parameter,
+        // which getPathInfo() has already removed, stops CXF's strip, so in that case a POST counts as a
+        // read only when the path is a read operation whether or not the suffix was stripped.
         List<String> segments = lowerCase(stripExtensionMapping(original));
         List<String> unstripped = lowerCase(original);
         String root = segments.get(0);
@@ -239,7 +255,7 @@ public final class OAuthScopes {
         }
         boolean read = isSafeMethod(httpMethod)
             || (isPostMethod(httpMethod) && isNonSafeRead(root, segments)
-                && isNonSafeRead(unstripped.get(0), unstripped));
+                && (!pathHasMatrixParameters || isNonSafeRead(unstripped.get(0), unstripped)));
         return domain + "." + (read ? READ : WRITE);
     }
 

@@ -148,11 +148,25 @@ class OAuthScopesUnitTest {
         }
 
         @Test
+        @DisplayName("should classify an extension-mapped read POST as a read when no matrix parameter is present")
+        void shouldRequireRead_forExtensionMappedReadWithoutMatrixParameters() {
+            // CXF strips .json here and routes to the search read operation.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json", false))
+                    .isEqualTo("tickler.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.JSON", false))
+                    .isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler.json", false))
+                    .isEqualTo("tickler.write");
+        }
+
+        @Test
         @DisplayName("should classify a POST as a read only when both path forms are read operations")
         void shouldRequireWrite_whenOnlyStrippedFormIsRead() {
-            // tickler/search.json: stripped reads as tickler/search, unstripped does not; CXF may route either
-            // (a matrix parameter it can see stops its strip), so the stricter answer wins.
+            // With a matrix parameter (the 2-argument form assumes one may be present) CXF may route either
+            // tickler/search.json or tickler/search, so the stricter answer wins.
             assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json"))
+                    .isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json", true))
                     .isEqualTo("tickler.write");
             assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search"))
                     .isEqualTo("tickler.read");

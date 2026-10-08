@@ -398,7 +398,11 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // Resolve the scope from getPathInfo(): the container-decoded, canonicalized path (dot-segments
         // collapsed, matrix params stripped) that JAX-RS/CXF actually routes on. Using the raw request URI
         // here would force us to re-implement that normalization and risk diverging from the real routing.
-        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo());
+        // The raw URI is consulted only for ';': CXF does not strip a .json/.xml extension mapping from a
+        // path with matrix parameters, and getPathInfo() no longer shows them (see OAuthScopes).
+        String rawUri = req.getRequestURI();
+        boolean matrixParameters = rawUri == null || rawUri.indexOf(';') >= 0;
+        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo(), matrixParameters);
         if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: an explicitly exempt endpoint
             return;
         }
