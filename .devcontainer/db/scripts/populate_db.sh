@@ -102,6 +102,22 @@ for REF_MIGRATION in \
     "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
   $SQL carlos < "${REF_MIGRATION}"
 done
+# development.sql also truncate-reloads the security tables (secObjectName,
+# secObjPrivilege, secRole, secUserRole, secPrivilege), wiping every security
+# object a migration added after the snapshot was taken (issue #4369: a missing
+# grant surfaces as a 403 for carlosdoc). Re-apply, in version order, every
+# forward migration that touches those tables. Discovery is by content rather
+# than a hand-kept list so a future migration that adds a security object is
+# covered automatically; this relies on the repo rule that forward migrations
+# are idempotent. (The deb demo load needs no equivalent:
+# demo-additive-exclude.txt drops the security tables, so Flyway rows stand.)
+echo 'Re-applying security-object migrations undone by the demo snapshot...'
+for SEC_MIGRATION in ${FORWARD}; do
+  if grep -qE 'secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole' "${SEC_MIGRATION}"; then
+    echo "  re-applying $(basename "${SEC_MIGRATION}")"
+    $SQL carlos < "${SEC_MIGRATION}"
+  fi
+done
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
