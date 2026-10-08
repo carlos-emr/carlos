@@ -60,6 +60,12 @@
             padding: 0px;
         }
 
+        /* Keep a gap after each card label: translated labels such as "Consentement" are longer. */
+        .email-status-card .email-info-table th {
+            padding-right: 0.75rem;
+            white-space: nowrap;
+        }
+
         .email-info-table th {
             width: 100px;
             font-weight: bold;
