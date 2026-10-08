@@ -3478,6 +3478,23 @@
       "fixtures": "Stores two owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) plus one owned document type, and turns on the test provider's edoc_browser_in_document_report preference (restored exactly); do not run it concurrently with another check that reads that preference."
     },
     {
+      "name": "note-browser-controls",
+      "script": "scripts/note-browser-controls-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Stores three owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) with fixed content, update and observation dates on the run's FAKE- patient, and saves one owned note; all removed and verified gone."
+    },
+    {
       "name": "admin-messages",
       "script": "scripts/admin-messages-playwright-checks.js",
       "tiers": [
