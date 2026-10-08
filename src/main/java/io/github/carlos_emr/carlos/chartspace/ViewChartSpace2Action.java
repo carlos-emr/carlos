@@ -21,9 +21,7 @@
  */
 package io.github.carlos_emr.carlos.chartspace;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -34,7 +32,7 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-import java.util.OptionalInt;
+import java.util.Optional;
 
 /**
  * Gate action for the read-only ChartSpace page ({@code encounter/chartspace}).
@@ -60,7 +58,7 @@ public class ViewChartSpace2Action extends ActionSupport {
 
     public static final String SPRING_BEAN_NAME = "viewChartSpace2Action";
 
-    private final transient SecurityInfoManager securityInfoManager;
+    private final transient ChartSpaceRequestValidator validator;
 
     /**
      * Creates the action for Struts-managed instantiation paths, resolving
@@ -75,43 +73,28 @@ public class ViewChartSpace2Action extends ActionSupport {
     /**
      * Creates the action with explicit collaborators for Spring injection and tests.
      *
+     * <p>The validator is stateless and built here from the same
+     * {@code SecurityInfoManager}, so this action keeps a single-collaborator
+     * constructor.</p>
+     *
      * @param securityInfoManager privilege checker
      */
     @Autowired
     public ViewChartSpace2Action(SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager;
+        this.validator = new ChartSpaceRequestValidator(securityInfoManager);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (HTTP method); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (HTTP method); not a security or authorization decision")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
-        String method = request.getMethod();
-        if (!"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method)) {
-            response.setHeader("Allow", "GET, HEAD");
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        Optional<ChartSpaceRequestValidator.Validated> validated = validator.validate(request, response);
+        if (validated.isEmpty()) {
             return NONE;
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (loggedInInfo == null) {
-            throw new SecurityException("missing required sec object (_eChart)");
-        }
-
-        OptionalInt demographicNo = ChartSpaceParams.parseDemographicNo(request.getParameter("demographicNo"));
-        if (demographicNo.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", String.valueOf(demographicNo.getAsInt()))) {
-            throw new SecurityException("missing required sec object (_eChart)");
-        }
-
-        request.setAttribute("demographicNo", demographicNo.getAsInt());
+        request.setAttribute("demographicNo", validated.get().demographicNo());
         return SUCCESS;
     }
 }
