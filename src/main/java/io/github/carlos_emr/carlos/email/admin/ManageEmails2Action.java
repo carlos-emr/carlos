@@ -12,8 +12,11 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -244,7 +247,12 @@ public class ManageEmails2Action extends ActionSupport {
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
         } catch (PDFGenerationException e) {
-            request.setAttribute("emailErrorMessage", "This previously sent email cannot be re-opened for editing/resending. Please generate a new email instead. \\n\\n" + e.getMessage());
+            // As for an eForm email: the exception's text stays out of the page and the log.
+            String reference = EmailFailureMessage.newReference();
+            logger.error("Unable to prepare attachments to resend an email; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            request.setAttribute("emailErrorMessage", EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.RESEND_ATTACHMENTS_KEY, reference));
             request.setAttribute("isEmailError", true);
         }
 

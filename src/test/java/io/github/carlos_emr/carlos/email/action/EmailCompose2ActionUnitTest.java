@@ -181,6 +181,52 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should show the generic message, not the error's text, when attachment preparation throws unexpectedly")
+    void shouldShowGenericMessage_whenAttachmentPreparationThrowsUnexpectedly() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+                .thenThrow(new IllegalStateException("FAKE-Smith /var/FAKE-path/scan.pdf"));
+
+        MockHttpServletRequest request = prepare(keyA);
+
+        assertThat(request.getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat((String) request.getAttribute("errorMessage"))
+                .startsWith("This eForm could not be emailed because an attachment could not be prepared.")
+                .doesNotContain("FAKE");
+    }
+
+    @Test
+    @DisplayName("should show a generic message and log only the failure's class and reference when attachments fail")
+    void shouldShowGenericMessageAndLogNoDetail_whenAttachmentPreparationFails() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        // Stands for an exception whose text names a file and repeats document content.
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any()))
+                .thenThrow(new PDFGenerationException("FAKE-Smith /var/FAKE-path/report.pdf"));
+
+        MockHttpServletRequest request;
+        List<String> log;
+        boolean anyThrowableLogged;
+        try (LogCapture capture = LogCapture.forLogger(EmailCompose2Action.class)) {
+            request = prepare(keyA);
+            log = capture.messages();
+            // A logged exception would print its text with the stack trace.
+            anyThrowableLogged = capture.events().stream().anyMatch(event -> event.getThrown() != null);
+        }
+
+        String message = (String) request.getAttribute("errorMessage");
+        assertThat(request.getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat(message).startsWith("This eForm could not be emailed because an attachment could not be prepared.")
+                .doesNotContain("FAKE");
+        String reference = message.substring(message.lastIndexOf(' ') + 1);
+        assertThat(reference).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(log).noneSatisfy(line -> assertThat(line).contains("FAKE"));
+        assertThat(anyThrowableLogged).as("no exception attached to the log line").isFalse();
+        assertThat(log).anySatisfy(line -> assertThat(line)
+                .contains("causeType=" + PDFGenerationException.class.getName())
+                .contains("reference=" + reference));
+    }
+
+    @Test
     @DisplayName("should ignore and clear compose fields an older version left in the session")
     void shouldIgnoreAndClearOldSessionFields_whenDraftIsTaken() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
