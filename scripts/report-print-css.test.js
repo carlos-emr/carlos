@@ -78,6 +78,11 @@ test('billing reconciliation hides its own Print button in print', () => {
   const src = read(PAGES.reconciliation);
   assert.match(src, /name='print'[^>]*/);
   assert.match(src, /class="btn btn-primary float-end d-print-none report-print-hide" type='button' name='print'/);
+  // Row actions are workflow controls: the Action column and the Settle/S35 links.
+  assert.match(src, /<th class="report-print-hide">Action<\/th>/);
+  assert.match(src, /<td align="center" class="report-print-hide">\s*<a href="[^"]*ViewOnGenRAError/);
+  const settleLinks = src.match(/<span class="report-print-hide">\s*<a href="#" onclick="checkReconcile\(/g) || [];
+  assert.equal(settleLinks.length, 2, 'both Settle/S35 link groups are print-hidden');
 });
 
 test('administration shell removes the schedule menu and full-width pane in print', () => {

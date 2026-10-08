@@ -392,6 +392,12 @@ async function main() {
         await inPrintMedia(admin, async () => {
           await assertVisibility(scope, { 'Print button': 'button[name="print"]' }, false, 'Reconciliation in print');
           await assertVisibility(scope, { 'result table': RESULT_TABLE.reconciliation }, true, 'Reconciliation in print');
+          // Row actions (Error/Summary/Report, Settle/S35) are workflow controls, not
+          // report content. With no RA rows this is vacuously true; seed an RA row
+          // in raheader to exercise it.
+          const rowControls = await scope('table.table tbody a').evaluateAll(links =>
+            links.filter(link => link.getClientRects().length > 0).map(link => link.textContent.trim()));
+          assert(!rowControls.length, `Reconciliation prints row controls: ${rowControls.join(', ')}`);
           // The demo dataset has no RA files, so the table may legitimately be empty.
           await assertPrintableTable(scope, RESULT_TABLE.reconciliation, 'Billing reconciliation', { requireRows: false });
           await assertPdf(admin, 'billing-reconciliation', { present: ['Payment Date'], absent: ['Print'] });
