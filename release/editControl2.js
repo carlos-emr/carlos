@@ -1120,7 +1120,7 @@ function submitFaxButton() {
 
 	cache.addMapping({
 		name: "letterhead", 
-		values: ["clinic_name", "clinic_fax", "clinic_phone", "clinic_addressLineFull", "doctor", "current_user_work_phone", "current_user_fax", "current_user_address","current_user"],
+		values: ["clinic_name", "clinic_fax", "clinic_phone", "clinic_addressLineFull", "doctor", "doctor_work_phone", "doctor_fax", "doctor_address_label","current_user"],
 		storeInCacheHandler: function (key, value) {
 			var text = genericLetterhead();
 			cache.put("letterhead", text);
@@ -1491,9 +1491,9 @@ function submitFaxButton() {
 		var address = '<table border=0><tbody><tr><td><font size=6>'
 				+ cache.get('clinic_name')
 				+ '</font></td></tr><tr><td><font size=2>'
-				+ cache.get('current_user_address')
-				+ ' Fax: ' + cache.get('current_user_fax')
-				+ ' Phone: ' + cache.get('current_user_work_phone')
+				+ cache.get('doctor_address_label')
+				+ ' Fax: ' + cache.get('doctor_fax')
+				+ ' Phone: ' + cache.get('doctor_work_phone')
 				+ '</font><hr></td></tr></tbody></table><br>';
 		if ( (cache.get('clinic_name').toLowerCase()).indexOf('amily health team',0)>-1){
 		address=fhtLetterhead(); }
