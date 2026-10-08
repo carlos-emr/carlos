@@ -779,3 +779,22 @@ test('installCleanupSignalHandlers.dispose removes both listeners and a non-func
   assert.throws(() => harness.installCleanupSignalHandlers(null), /needs a cleanup function/);
   assert.deepEqual(harness.NO_PLAYWRIGHT_SIGNAL_HANDLING, { handleSIGINT: false, handleSIGTERM: false });
 });
+
+test('screenshot captures nothing when SCREENSHOT_DIR is unset and validates a directory that is set', async () => {
+  const shots = [];
+  const page = { screenshot: async (options) => { shots.push(options.path); } };
+  for (const unset of ['', '   ', undefined, null]) {
+    assert.equal(await harness.screenshot(page, unset, 'optional-shot'), null);
+  }
+  assert.deepEqual(shots, [], 'an unset SCREENSHOT_DIR must not write or fail');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-shot-'));
+  try {
+    const written = await harness.screenshot(page, dir, 'set-shot');
+    assert.equal(written, path.join(dir, 'set-shot.png'));
+    assert.deepEqual(shots, [written]);
+    await assert.rejects(harness.screenshot(page, '/etc', 'outside'), /Artifact directory must be under/);
+    await assert.rejects(harness.screenshot(page, dir, '../escape'), /Invalid artifact name/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

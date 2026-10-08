@@ -1025,6 +1025,10 @@ async function login(context, config, recorder, options = {}) {
 }
 
 async function screenshot(page, screenshotDir, name) {
+  // SCREENSHOT_DIR is optional (readConfig defaults it to ''): screenshots are diagnostics, so an
+  // unset directory captures nothing instead of failing a check that otherwise passed. A directory
+  // that IS set still goes through the artifact-path validation below.
+  if (screenshotDir === undefined || screenshotDir === null || String(screenshotDir).trim() === '') return null;
   const outputPath = buildArtifactPath(screenshotDir, name);
   await page.screenshot({ path: outputPath, fullPage: true }); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- buildArtifactPath constrains output to a validated local artifact directory with a sanitized basename
   return outputPath;
