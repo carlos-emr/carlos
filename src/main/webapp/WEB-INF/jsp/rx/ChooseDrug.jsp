@@ -295,7 +295,7 @@
                                                             <carlos:encode value='<%= getMaxVal(t.name) %>' context="html"/>
                                                         </a>
                                                         <span>&nbsp;&nbsp;(<a
-                                                                href="#" onclick="ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScript"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                href="#" onclick="ShowDrugInfoGN('<carlos:encode value='<%= t.name %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -325,7 +325,7 @@
                                                                 <carlos:encode value='<%= brandName %>' context="html"/>
                                                             </a>
                                                             <span>&nbsp;&nbsp;(<a
-                                                                    href="#" onclick="ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                                    href="#" onclick="ShowDrugInfoBN('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                                     </td>
                                                 </tr>
                                                 <%
@@ -379,7 +379,7 @@
                                                 <carlos:encode value='<%= t.name %>' context="html"/>
                                             </a>
                                             <span>&nbsp;&nbsp;(<a
-                                                    href="#" onclick="ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScript"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
+                                                    href="#" onclick="ShowDrugInfo('<carlos:encode value='<%= t.pKey %>' context="javaScriptAttribute"/>'); return false;"><fmt:message key="ChooseDrug.msgInfo"/></a>)</span>
                                         </td>
                                     </tr>
                                     <%

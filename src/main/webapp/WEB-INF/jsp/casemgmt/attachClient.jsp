@@ -231,7 +231,7 @@
             </display:column>
             <display:column sortable="true" title="Name" sortProperty="formattedName">
                 <a
-                        href="#" onclick="popupPage(600,800,'client','${carlos:forJavaScript(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${carlos:forUriComponent(client.currentRecord)}&amp;consent=${carlos:forUriComponent(consent)}'); return false;">${carlos:forHtml(client.formattedName)}</a>
+                        href="#" onclick="popupPage(600,800,'client','${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/PMmodule/ClientManager?id=${carlos:forUriComponent(client.currentRecord)}&amp;consent=${carlos:forUriComponent(consent)}'); return false;">${carlos:forHtml(client.formattedName)}</a>
             </display:column>
             <display:column sortable="true" title="Date of Birth">
                 ${carlos:forHtml(client.yearOfBirth)}/${carlos:forHtml(client.monthOfBirth)}/${carlos:forHtml(client.dateOfBirth)}

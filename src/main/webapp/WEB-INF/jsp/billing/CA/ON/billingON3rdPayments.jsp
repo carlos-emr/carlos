@@ -317,7 +317,7 @@
                 <td><carlos:encode value='${payRow.totalRefund}' context='html'/></td>
                 <td><carlos:encode value='${payRow.balanceDisplay}' context='html'/></td>
                 <td>
-                    <a href="#" onclick="onViewPayment('<carlos:encode value="${payRow.id}" context="javaScript"/>'); return false;" >view</a>
+                    <a href="#" onclick="onViewPayment('<carlos:encode value="${payRow.id}" context="javaScriptAttribute"/>'); return false;" >view</a>
                 </td>
             </tr>
         </c:forEach>

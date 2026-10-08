@@ -1547,13 +1547,13 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="javascript:ShowDrugInfo('${rx2.genericName}');">
+                                                    <a href="#" onclick="ShowDrugInfo('${carlos:forJavaScriptAttribute(rx2.genericName)}'); return false;">
                                                         <fmt:message key="WriteScript.msgInfo"/>
                                                     </a>
                                                 </td>
                                                 <td>
                                                     <c:set var="drugNameForFavorite" value="${rx2.custom ? rx2.customName : rx2.brandName}"/>
-                                                    <a href="#" onclick="addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScript"/>'); return false;">
+                                                    <a href="#" onclick="addFavorite('${loopStatus.index}', '<carlos:encode value='<%= (String)pageContext.getAttribute("drugNameForFavorite") %>' context="javaScriptAttribute"/>'); return false;">
                                                         <fmt:message key="WriteScript.msgAddtoFavorites"/>
                                                     </a>
                                                 </td>

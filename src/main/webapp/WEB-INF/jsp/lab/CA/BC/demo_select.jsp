@@ -162,7 +162,7 @@
         %>
         <tr class="<%=(other? "LightBG" : "WhiteBG")%>">
             <td class="Text" align="center"><a
-                    href="#" onclick="PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScript"/>'); return false;">
+                    href="#" onclick="PopupReturn('<carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="javaScriptAttribute"/>'); return false;">
                 <carlos:encode value='<%= String.valueOf(d.getDemographicNo()) %>' context="html"/>
             </a></td>
             <td class="Text"><carlos:encode value='<%= Misc.toUpperLowerCase(d.getLastName()) %>' context="html"/>
