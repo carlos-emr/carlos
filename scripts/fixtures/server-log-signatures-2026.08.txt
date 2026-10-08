@@ -1,0 +1,71 @@
+# Signatures scripts/deb-server-log-audit.sh printed for the 2026.08.0~alpha19 promotion
+# validation (Ontario demo install, full Playwright suite, docs/ui-tests/deb-install-validation.md).
+# Signatures carry no message text. scripts/deb-server-log-audit.test.js requires every
+# baseline entry to match at least one of these, so a regex that drifts from the real
+# signature shape fails the test rather than silently explaining nothing.
+ERROR prevention.PreventionDisplayConfig (PreventionDisplayConfig.java:383) @PreventionDisplayConfig.display :: java.lang.NullPointerException
+ERROR core.FaxImporter (FaxImporter.java:406)
+ERROR action.Log (Log.java:73) csrf-method:POST csrf-error:Required Token is missing from the Request
+SEVERE org.apache.catalina.core.ApplicationDispatcher.invoke
+ERROR oscarMeasurements.HealthTrackerPage_jspf (HealthTrackerPage_jspf.java:652) @MeasurementFlowSheet.getMessages :: java.lang.IllegalStateException
+ERROR pageUtil.RxWriteScriptForm (RxWriteScriptForm.java:267) @RxWriteScriptForm.setSpecial :: java.lang.IllegalArgumentException
+ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/provider/ViewTabAlertsRefresh status=500 @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.SecurityException
+ERROR log.LogAction (LogAction.java:237) @LogAction.addLog :: java.lang.NumberFormatException
+ERROR dispatcher.DefaultDispatcherErrorHandler (DefaultDispatcherErrorHandler.java:88) @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.SecurityException
+SEVERE org.apache.catalina.loader.WebappClassLoaderBase.checkThreadLocalMapForLeaks
+ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/WEB-INF/jsp/provider/providercontrol.jsp status=500 @CarlosExceptionMappingInterceptor.intercept :: jakarta.servlet.ServletException
+ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:335)
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) uri=/carlos/ws/services/demographics/1
+ERROR parsers.Factory (Factory.java:224) @DefaultGenericHandler.init :: java.lang.StringIndexOutOfBoundsException
+ERROR parsers.Factory (Factory.java:215) @CMLHandler.init :: ca.uhn.hl7v2.parser.EncodingNotSupportedException
+ERROR handlers.CMLHandler (CMLHandler.java:97) @MessageUploader.routeReport
+ERROR handlers.CMLHandler (CMLHandler.java:96) @MessageUploader.routeReport
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) uri=/carlos/webfonts/fa-solid-900.woff2 @ResponseSanitizationFilter$CloseShieldServletOutputStream.flush :: org.apache.catalina.connector.ClientAbortException java.io.IOException
+ERROR oscarMeasurements.TemplateFlowSheetPage_jspf (TemplateFlowSheetPage_jspf.java:387) @MeasurementFlowSheet.getMessages :: java.lang.IllegalStateException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) @CaseManagementEntry2Action.makeNewNote :: java.lang.NullPointerException
+ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:713) @DmsInboxManage2Action.isDocumentLinkedToDemographic :: java.lang.NumberFormatException
+ERROR action.Log (Log.java:73) csrf-method:POST csrf-error:The token should exist in the storage at this point
+SEVERE org.apache.catalina.core.StandardWrapperValve.invoke
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) uri=/carlos/ws/services/oauth/info
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) uri=/carlos/form/createcustomedpdf @FrmCustomedPDFServlet.parseSCAddress :: jakarta.servlet.ServletException java.lang.NullPointerException
+ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/eform/addEForm status=500 @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.NullPointerException
+ERROR utility.DbConnectionFilter (DbConnectionFilter.java:96) @ResponseSanitizationFilter$CloseShieldServletOutputStream.write :: org.apache.catalina.connector.ClientAbortException java.io.IOException
+ERROR utility.DbConnectionFilter (DbConnectionFilter.java:96) @FrmCustomedPDFServlet.parseSCAddress :: java.lang.NullPointerException
+ERROR rest.ScheduleService (ScheduleService.java:657) @ScheduleManagerImpl.listProviderAppointmentCounts :: jakarta.ws.rs.WebApplicationException
+ERROR pageUtil.RxAddAllergy2Action (RxAddAllergy2Action.java:180) @RxDrugData.getDrug :: java.util.NoSuchElementException
+ERROR pageUtil.PrintAppointmentReceipt2Action (PrintAppointmentReceipt2Action.java:173)
+ERROR pageUtil.PreventionPrint2Action (PreventionPrint2Action.java:98) @PreventionPrintPdf.printPdf :: org.openpdf.text.DocumentException
+ERROR hibernate.AssertionFailure (AssertionFailure.java:23)
+ERROR dispatcher.DefaultDispatcherErrorHandler (DefaultDispatcherErrorHandler.java:88) @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.NullPointerException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) @TicklerManagerImpl.checkPrivilege :: java.lang.RuntimeException
+ERROR action.Log (Log.java:73) csrf-method:POST csrf-error:Request Token does not match the Master Token
+ERROR web.ManageFlowsheetsUpload2Action (ManageFlowsheetsUpload2Action.java:112)
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) uri=/carlos/library/jquery/jquery-ui-1.14.2.min.js @ResponseSanitizationFilter$CloseShieldServletOutputStream.write :: jakarta.servlet.ServletException org.apache.catalina.connector.ClientAbortException java.io.IOException
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) uri=/carlos/eform/displayImage @ResponseSanitizationFilter$CloseShieldServletOutputStream.flush :: org.apache.catalina.connector.ClientAbortException java.io.IOException
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) uri=/carlos/css/font/Roboto/Roboto-Bold.woff2 @ResponseSanitizationFilter$CloseShieldServletOutputStream.write :: jakarta.servlet.ServletException org.apache.catalina.connector.ClientAbortException java.io.IOException
+ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/eform/fieldNoteReport/fieldnotereport status=500 @BaseEFormView2Action.requirePrivilege :: java.lang.SecurityException
+ERROR tld.DemographicNameAgeTag (DemographicNameAgeTag.java:60)
+ERROR service.BillingReviewLoader (BillingReviewLoader.java:110)
+ERROR service.BillingOnReviewDiagPersister (BillingOnReviewDiagPersister.java:104)
+ERROR reportByTemplate.SQLReporter (SQLReporter.java:215) @LegacyJdbcQuery.validateReportSelectQuery :: java.sql.SQLException
+ERROR pageUtil.LabUpload2Action (LabUpload2Action.java:219) @Hl7TextMessageDaoImpl.findByFileUploadCheckId
+ERROR pageUtil.InsideLabUpload2Action (InsideLabUpload2Action.java:205) @Hl7TextMessageDaoImpl.findByFileUploadCheckId
+ERROR pageUtil.FrmXmlUpload2Action (FrmXmlUpload2Action.java:201)
+ERROR pageUtil.FrmFormRHPrevention2Action (FrmFormRHPrevention2Action.java:134) @FrmFormRHPrevention2Action.lambda$execute$0 :: java.lang.IllegalStateException java.sql.SQLException
+ERROR pageUtil.DownloadPatientLetters2Action (DownloadPatientLetters2Action.java:94) @ManageLetters.getReportData :: java.lang.NumberFormatException
+ERROR pageUtil.CpsoSearch2Action (CpsoSearch2Action.java:108) @CpsoSearch2Action.callCpsoApi :: javax.net.ssl.SSLHandshakeException sun.security.validator.ValidatorException sun.security.provider.certpath.SunCertPathBuilderException
+ERROR managers.EmailManager (EmailManager.java:144) @SMTPEmailSender.send :: io.github.carlos_emr.carlos.utility.EmailSendingException java.net.ConnectException org.springframework.mail.MailSendException org.eclipse.angus.mail.util.MailConnectException
+ERROR managers.ConsultationSignatureService (ConsultationSignatureService.java:143)
+ERROR healthtracker.HealthTrackerSubmissionService (HealthTrackerSubmissionService.java:162)
+ERROR eform.EFormUtil (EFormUtil.java:1463)
+ERROR documentManager.IncomingDocUtil (IncomingDocUtil.java:1429) @IncomingDocUtil.extractPageLocked :: java.nio.file.FileAlreadyExistsException
+ERROR dispatcher.DefaultDispatcherErrorHandler (DefaultDispatcherErrorHandler.java:88) @BaseEFormView2Action.requirePrivilege :: java.lang.SecurityException
+ERROR dao.QueueDaoImpl (QueueDaoImpl.java:129) @QueueDaoImpl.addNewQueue :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
+ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:149)
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) @MeasurementTemplateFlowSheetConfig.getExportFlowsheet :: org.apache.jasper.JasperException java.lang.NullPointerException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) :: org.apache.jasper.JasperException jakarta.el.ELException
+ERROR actions.ManageDocument2Action (ManageDocument2Action.java:985) @IncomingDocumentMutationLock.acquire :: java.nio.file.NoSuchFileException
+ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:676) @QueueDaoImpl$$SpringCGLIB$$0.addNewQueue :: org.springframework.transaction.UnexpectedRollbackException
+ERROR ON.labValuesGraph_jsp (labValuesGraph_jsp.java:524)

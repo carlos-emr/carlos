@@ -215,6 +215,8 @@
     "test:rh-form-workflow-playwright": "node scripts/rh-form-workflow-playwright-checks.js",
     "test:billing-bc-associations-playwright": "node scripts/billing-bc-associations-playwright-checks.js",
     "test:billing-bc-simulation-encoding-playwright": "node scripts/billing-bc-simulation-encoding-playwright-checks.js",
+    "test:billing-bc-reprocess-bill-playwright": "node scripts/billing-bc-reprocess-bill-playwright-checks.js",
+    "test:eform-email-two-windows-playwright": "node scripts/eform-email-two-windows-playwright-checks.js",
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
     "test:ocean-display-settings-playwright": "node scripts/ocean-display-settings-playwright-checks.js",
     "test:hrm-retired-statement-playwright": "node scripts/hrm-retired-statement-playwright-checks.js",

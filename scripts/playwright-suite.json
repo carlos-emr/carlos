@@ -3289,6 +3289,21 @@
       "env": []
     },
     {
+      "name": "billing-bc-reprocess-bill",
+      "script": "scripts/billing-bc-reprocess-bill-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at 'Edit opens the adjust bill page' while app-findings-log.md finding 147 stands (TypeError on load for an unsettled bill), then at the note step while finding 145 stands (each save adds a backslash before an apostrophe). Steps 1, 3 and 4 passed on 2026.08.0~alpha19 BC.",
+      "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
+    },
+    {
       "name": "facility-selection",
       "script": "scripts/facility-selection-playwright-checks.js",
       "tiers": [
@@ -4247,6 +4262,21 @@
       "env": [],
       "notes": "Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched).",
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "eform-email-two-windows",
+      "script": "scripts/eform-email-two-windows-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (app-findings-log.md finding 140; fails while the session-wide attachment list stands).",
+      "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
     },
     {
       "name": "admin-role-management",
