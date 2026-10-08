@@ -1345,7 +1345,9 @@ restart after seeding.
 **Known demo-data sharp edges** (handled by the steps above, listed for when a
 check fails anyway): the filtered demo snapshot carries `casemgmt_note_link`
 rows whose TICKLER target no longer exists (new ticklers reuse those ids and
-"inherit" orphaned notes — `tickler-note-dialog` purges them in setup); the HRM
+"inherit" orphaned notes — `tickler-note-dialog` skips any fixture tickler whose
+id already has a note link older than the run, and the tickler cleanup never
+deletes those inherited links, #4409); the HRM
 parser logs `FileNotFoundException` for lab files the dump references but does
 not ship (cosmetic); the Rich Text Letter page logs a 404 + MIME-refusal
 console error for `displayImage.do?imagefile=stamps.js` on every stock install
