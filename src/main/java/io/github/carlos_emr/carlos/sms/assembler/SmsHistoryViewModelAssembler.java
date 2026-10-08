@@ -31,7 +31,9 @@ import io.github.carlos_emr.carlos.sms.viewmodel.SmsHistoryViewModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +57,8 @@ public class SmsHistoryViewModelAssembler {
     public static final int PAGE_SIZE = 25;
 
     private static final String MESSAGE_BODY_SECURITY_OBJECT = "_msgSMS";
-    private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm";
+    private static final DateTimeFormatter DATE_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT);
 
     private final SmsTransactionDao smsTransactionDao;
     private final DemographicManager demographicManager;
@@ -145,8 +148,11 @@ public class SmsHistoryViewModelAssembler {
         return value == null ? "" : value.name();
     }
 
+    /** Server-local time, as the rest of the patient record shows it. */
     private static String format(Date date) {
-        return date == null ? "" : new SimpleDateFormat(DATE_TIME_PATTERN, Locale.ROOT).format(date);
+        return date == null
+                ? ""
+                : DATE_TIME_FORMAT.format(Instant.ofEpochMilli(date.getTime()).atZone(ZoneId.systemDefault()));
     }
 
     private static String nullToEmpty(String value) {

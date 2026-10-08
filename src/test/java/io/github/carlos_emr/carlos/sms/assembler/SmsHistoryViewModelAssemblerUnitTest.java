@@ -43,6 +43,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,6 +144,26 @@ class SmsHistoryViewModelAssemblerUnitTest {
     }
 
     @Test
+    @DisplayName("assemble shows times in server-local time, and the delivered time ahead of the sent time")
+    void shouldFormatTimesInServerZone_andPreferDeliveredTime() {
+        Instant created = Instant.parse("2026-09-01T14:30:00Z");
+        Instant sentAt = Instant.parse("2026-09-01T14:31:00Z");
+        Instant deliveredAt = Instant.parse("2026-09-01T14:45:00Z");
+        SmsTransaction delivered = outbound(11L);
+        ReflectionTestUtils.setField(delivered, "createdAt", Date.from(created));
+        ReflectionTestUtils.setField(delivered, "sentAt", Date.from(sentAt));
+        ReflectionTestUtils.setField(delivered, "deliveredAt", Date.from(deliveredAt));
+        when(smsTransactionDao.countByDemographicNo(DEMOGRAPHIC_NO)).thenReturn(1L);
+        when(smsTransactionDao.findByDemographicNo(DEMOGRAPHIC_NO, 0, 25)).thenReturn(List.of(delivered));
+
+        SmsHistoryViewModel.Row row = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
+
+        assertThat(row)
+                .extracting(SmsHistoryViewModel.Row::createdAt, SmsHistoryViewModel.Row::completedAt)
+                .containsExactly(serverLocal(created), serverLocal(deliveredAt));
+    }
+
+    @Test
     @DisplayName("assemble passes the recorded consent status for translation, and the reason code only for rows without one")
     void shouldPassConsentStatus_andFallBackToReasonCodeForOlderRows() {
         SmsTransaction sent = outbound(11L);
@@ -195,6 +218,13 @@ class SmsHistoryViewModelAssemblerUnitTest {
 
     private SmsHistoryViewModelAssembler assembler() {
         return new SmsHistoryViewModelAssembler(smsTransactionDao, demographicManager, securityInfoManager);
+    }
+
+    /** Builds the expected text field by field, so the check does not reuse the formatter under test. */
+    private static String serverLocal(Instant instant) {
+        ZonedDateTime local = instant.atZone(ZoneId.systemDefault());
+        return String.format("%04d-%02d-%02d %02d:%02d", local.getYear(), local.getMonthValue(),
+                local.getDayOfMonth(), local.getHour(), local.getMinute());
     }
 
     private static SmsTransaction outbound(long id) {

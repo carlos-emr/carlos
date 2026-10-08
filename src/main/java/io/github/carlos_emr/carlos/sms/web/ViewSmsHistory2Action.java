@@ -60,10 +60,10 @@ public class ViewSmsHistory2Action extends ActionSupport {
     private static final String SMS_SECURITY_OBJECT = "_sms";
     private static final String DEMOGRAPHIC_SECURITY_OBJECT = "_demographic";
 
-    private final SecurityInfoManager securityInfoManager;
-    private final SmsHistoryViewModelAssembler assembler;
-    private final SmsTransactionDao smsTransactionDao;
-    private final SmsMessageBodyReadService bodyReadService;
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient SmsHistoryViewModelAssembler assembler;
+    private final transient SmsTransactionDao smsTransactionDao;
+    private final transient SmsMessageBodyReadService bodyReadService;
 
     public ViewSmsHistory2Action(SecurityInfoManager securityInfoManager, SmsHistoryViewModelAssembler assembler,
                                  SmsTransactionDao smsTransactionDao, SmsMessageBodyReadService bodyReadService) {
