@@ -243,6 +243,10 @@ public class ManageEmails2Action extends ActionSupport {
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        if (emailLog == null) {
+            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            return null;
+        }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
@@ -319,7 +323,7 @@ public class ManageEmails2Action extends ActionSupport {
      * @param emailLog EmailLog containing the list of attachments to refresh
      * @return List<EmailAttachment> the updated list of email attachments with refreshed PDF paths and sizes
      * @throws PDFGenerationException if any document cannot be rendered to PDF
-     * @throws RuntimeException if the user lacks required _email security privilege
+     * @throws SecurityException if the user lacks the _email read privilege
      * @see DocumentAttachmentManager#renderDocument
      * @see FormsManager#renderForm
      * @see DocumentType

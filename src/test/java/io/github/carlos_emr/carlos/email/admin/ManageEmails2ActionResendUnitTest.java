@@ -173,6 +173,19 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should answer as an invalid id, not open a compose, when no email has that id")
+    void shouldAnswerInvalidId_whenNoEmailHasThatId() {
+        prepareResend(true);
+        when(emailComposeManager.prepareEmailForResend(any(), eq(5))).thenReturn(null);
+
+        String result = resend(new ArrayList<>(), new boolean[1]);
+
+        assertThat(result).isNull();
+        assertThat(request.getAttribute("emailErrorMessage")).isNull();
+        assertThat(request.getAttribute("demographicId")).isNull();
+    }
+
+    @Test
     @DisplayName("should refuse, not show the attachment message, when the user may not read emails")
     void shouldRefuse_whenEmailReadPrivilegeMissing() {
         prepareResend(false);
