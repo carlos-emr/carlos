@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.test.logging.HibernateSessionAssertions;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
@@ -47,6 +48,7 @@ import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -200,6 +202,36 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
 
         assertThat(countMessages()).as("the doomed transaction rolled back").isZero();
         assertThat(countRecycledMessages() + countRecycledInfos()).as("nothing was recycled by a skipped clean").isZero();
+    }
+
+    @Test
+    void shouldSkipCleanup_whenManagerFailsEarlyOnRollbackOnlyTransaction() {
+        // A transaction manager set to fail early completes a participant in a rollback-only transaction by
+        // throwing UnexpectedRollbackException. clean joins the transaction as a participant to read its
+        // state, so that exception must still read as "doomed" rather than "unknown, try the cleanup".
+        AbstractPlatformTransactionManager manager =
+                (AbstractPlatformTransactionManager) SpringUtils.getBean(PlatformTransactionManager.class);
+        boolean failEarly = manager.isFailEarlyOnGlobalRollbackOnly();
+        manager.setFailEarlyOnGlobalRollbackOnly(true);
+        try (LogCapture hibernateCore = HibernateSessionAssertions.capture()) {
+            tx.executeWithoutResult(status -> {
+                Hl7TextMessage message = persistMessage();
+                assertThatThrownBy(() -> infos.persist(infoFor(message, "x".repeat(400))))
+                        .as("the insert the database rejects")
+                        .isInstanceOf(RuntimeException.class);
+
+                assertThatCode(() -> MessageUploader.clean(CHECKSUM))
+                        .as("clean must not throw out of a handler's catch block").doesNotThrowAnyException();
+                assertThat(HibernateSessionAssertions.in(hibernateCore))
+                        .as("clean must not query the failed session when the manager fails early").isEmpty();
+
+                status.setRollbackOnly();
+            });
+        } finally {
+            manager.setFailEarlyOnGlobalRollbackOnly(failEarly);
+        }
+
+        assertThat(countMessages()).as("the doomed transaction rolled back").isZero();
     }
 
     @Test

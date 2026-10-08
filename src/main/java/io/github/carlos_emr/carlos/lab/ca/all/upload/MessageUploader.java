@@ -54,6 +54,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -712,8 +713,10 @@ public final class MessageUploader {
      *
      * <p>Asks the transaction manager, as a participant, whether the transaction is rollback-only: the
      * same question it asks at commit, so it sees Hibernate's own mark after a failed insert as well as
-     * one left by a failing transactional DAO. Never throws: if the state cannot be read, the transaction
-     * is treated as usable and {@link #clean(int)} attempts the cleanup.</p>
+     * one left by a failing transactional DAO. A manager configured to fail early answers by throwing
+     * {@code UnexpectedRollbackException} when the probe completes, which also means rollback-only. Never
+     * throws: if the state cannot be read, the transaction is treated as usable and {@link #clean(int)}
+     * attempts the cleanup.</p>
      */
     private static boolean isEnclosingTransactionRollbackOnly() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -721,6 +724,9 @@ public final class MessageUploader {
         }
         try {
             return Boolean.TRUE.equals(joinEnclosingTransaction().execute(TransactionStatus::isRollbackOnly));
+        } catch (UnexpectedRollbackException alreadyRollbackOnly) {
+            // A manager set to fail early on global rollback-only reports it this way when the probe completes.
+            return true;
         } catch (RuntimeException unreadable) {
             logger.debug("Could not read the transaction's rollback state: {}", LogSafe.exceptionTrace(unreadable));
             return false;
