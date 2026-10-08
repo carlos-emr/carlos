@@ -49,7 +49,9 @@
  *   BASE_URL (loopback only unless ALLOW_NON_LOCAL_BASE_URL=true), TEST_USER,
  *   TEST_PASSWORD, TEST_PIN, CHROME_PATH, FAX_CONFIG_SCREENSHOT_DIR (default /tmp),
  *   SRFAX_ACCESS_ID (account number), SRFAX_PASS, SRFAX_USER (login email, used as
- *   the sender/notification email), SRFAX_FAX_NUMBER (10 digits), SRFAX_LIVE.
+ *   the sender/notification email), SRFAX_FAX_NUMBER (10 digits), SRFAX_LIVE,
+ *   MYSQL_PASSWORD (+ MYSQL_HOST / MYSQL_USER / MYSQL_DATABASE) for the fax_config
+ *   snapshot and restore described below.
  *
  * Never prints any SRFAX_* value. Screenshots go to FAX_CONFIG_SCREENSHOT_DIR
  * (default /tmp) but are only taken when they cannot carry a real account: fake
@@ -58,20 +60,35 @@
  * FAX_CONFIG_SCREENSHOTS=always is set, so CI artifacts and shared dev runs never
  * pick up a real account number, sender email, or a filled password field.
  *
- * SIDE EFFECT: the save step leaves the fax_config row configured with the
- * supplied (or fake) account values and the gateway ENABLED with polling on, the
- * same end state an operator reaches. With fake defaults the scheduler will log
- * SRFax authentication failures until the row is corrected or disabled. To keep a
- * default run from clobbering a real configuration, the save step only runs when
- * the page shows no account yet, the stored account number is this check's fake
- * one, SRFAX_LIVE=true (you supplied the real values), or
- * FAX_CONFIG_ALLOW_OVERWRITE=true; otherwise it is reported as SKIP (not PASS) and
- * the connection-test and guidance checks still run.
+ * CLINIC-WIDE STATE, RESTORED. The save step rewrites the single fax_config row with the
+ * account values and the gateway ENABLED with polling on, the end state an operator
+ * reaches, and the save starts the fax scheduler. Left that way, FaxImporter polls the
+ * fake (unreachable) account every minute and logs an ERROR each time (findings-log row
+ * 180: 189 of them in three hours). So the check snapshots the whole table before it
+ * launches a browser (scripts/lib/fax-config-state.js), puts it back byte-exact however
+ * the run ends (a failure, the runner's timeout SIGTERM, Ctrl-C), deletes a row the save
+ * created, and asserts polling is as it was (off) afterwards. That holds in SRFAX_LIVE
+ * mode too: nothing the run saves is kept, so to configure an account use the UI. The
+ * scheduler the save started keeps running until the application restarts; with no active
+ * account it only logs a warning each minute. A save needs the snapshot, so it requires
+ * MYSQL_PASSWORD; without it the save step is SKIP, not PASS. Run it exclusively
+ * (EXCLUSIVE=1): it changes a table every fax check shares.
+ *
+ * To keep a default run from clobbering a real configuration, the save step also only
+ * runs when the page shows no account yet, the stored account number is this check's
+ * fake one, SRFAX_LIVE=true (you supplied the real values), or
+ * FAX_CONFIG_ALLOW_OVERWRITE=true; otherwise it is reported as SKIP (not PASS) and the
+ * connection-test and guidance checks still run. A table that already polls this check's
+ * fake account (an earlier, unrestored run) fails the check before it starts, with the
+ * UPDATE that disables it. The sql is the harness client, so MYSQL_HOST / MYSQL_USER /
+ * MYSQL_DATABASE apply as for any database-asserting check.
  */
 
 'use strict';
 
 const { chromium } = require('playwright');
+const { createFaxConfigGuard } = require('./lib/fax-config-state');
+const { createSqlRunner, readConfig } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -239,17 +256,39 @@ async function armSaveButton(form) {
 const recorder = createRecorder();
 
 async function main() {
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  const context = await browser.newContext({
-    // A packaged standalone install begins with a self-signed certificate.
-    // Remote targets explicitly opted into above must still prove their TLS.
-    ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
-    viewport: { width: 1360, height: 1100 },
+  // The fax account is clinic-wide. Snapshot it BEFORE a browser exists, so there is no path on
+  // which the save runs and the table is not put back. Without MYSQL_PASSWORD there is nothing to
+  // restore from, so the save step below is skipped rather than risked.
+  const faxSql = process.env.MYSQL_PASSWORD ? createSqlRunner(readConfig().mysql) : null;
+  const faxGuard = faxSql === null ? null : createFaxConfigGuard({
+    sql: faxSql,
+    own: { faxUser: FAKE_ACCESS_ID, accountName: ACCOUNT_NAME_MARKER },
+    release: () => faxSql.dispose(),
   });
+  if (faxGuard !== null) {
+    try {
+      faxGuard.begin();
+    } catch (error) {
+      faxGuard.release();
+      throw error;
+    }
+    faxGuard.armSignals();
+  }
+
+  let browser = null;
+  let context = null;
   let page;
   const existing = { accountNumber: '', accountName: '', senderEmail: '', faxNumber: '' };
 
   try {
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({
+      // A packaged standalone install begins with a self-signed certificate.
+      // Remote targets explicitly opted into above must still prove their TLS.
+      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
+      viewport: { width: 1360, height: 1100 },
+    });
+
     await step('login as an administrator', async () => {
       page = await login(context, config, recorder);
       await assertNotErrorPage(page, 'post-login page');
@@ -384,18 +423,24 @@ async function main() {
       assert(!(await result.isVisible()), 'Connection result reappeared after restoring the account number');
     });
 
-    // Saving overwrites the single fax_config row. Safe cases: no account configured yet,
-    // the row holds this check's FAKE account number (a live run leaves the real number
+    // Saving overwrites the single fax_config row, and the row is only put back from the snapshot,
+    // so a save needs the guard. Safe cases beyond that: no account configured yet, the row holds
+    // this check's FAKE account number (an unrestored live run would have left the real number
     // behind, so the account-name marker alone is NOT proof of ownership), live mode (the
     // operator supplied the real values), or an explicit opt-in.
-    const saveIsSafe = existing.accountNumber === ''
+    const accountAllowsSave = existing.accountNumber === ''
       || existing.accountNumber === FAKE_ACCESS_ID
       || config.srfax.live
       || config.allowOverwrite;
+    const saveIsSafe = faxGuard !== null
+      && accountAllowsSave;
     const saveStep = 'save persists the account and masks the password on reload';
     if (!saveIsSafe) {
-      skip(saveStep, 'an existing fax account is configured; set FAX_CONFIG_ALLOW_OVERWRITE=true '
-        + '(or SRFAX_LIVE=true with real values) to let this check overwrite it');
+      skip(saveStep, faxGuard === null
+        ? 'MYSQL_PASSWORD is not set, so fax_config cannot be snapshotted and restored afterwards; '
+          + 'a save would leave the clinic polling this account'
+        : 'an existing fax account is configured; set FAX_CONFIG_ALLOW_OVERWRITE=true '
+          + '(or SRFAX_LIVE=true with real values) to let this check overwrite it');
     }
 
     // The skip path never enters step(), so it can never be recorded as a PASS.
@@ -441,8 +486,23 @@ async function main() {
         + 'set FAX_CONFIG_SCREENSHOTS=always to capture them anyway');
     }
   } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
+    if (faxGuard !== null) {
+      // However the flow ended, put the clinic's fax account back and prove polling is as it was.
+      // A failure is recorded as its own step and never thrown from here, so it cannot hide the
+      // error that ended the flow; a restore that did not take fails the run.
+      faxGuard.disarmSignals();
+      const restoreStep = 'fax_config is restored to its snapshot and polling is off';
+      try {
+        faxGuard.finish();
+        record(restoreStep, true);
+      } catch (error) {
+        record(restoreStep, false, error.message);
+      } finally {
+        faxGuard.release();
+      }
+    }
   }
 }
 

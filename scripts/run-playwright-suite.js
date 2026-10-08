@@ -44,11 +44,22 @@
  *       failed-elsewhere  failed at any other step, outside a labelled step, in its
  *                         cleanup, by timeout or interruption: FAILS the run, so a
  *                         known defect cannot hide a new one.
+ *   - --residue-audit. A check that changes the shared install and does not put it back
+ *     poisons every check after it (finding 180: fax-configure left a fake SRFax account
+ *     polling, and FaxImporter logged an ERROR a minute until the next restart). With the flag
+ *     the runner takes a baseline of fax_config, the encounterForm registrations and the
+ *     property rows the selected checks' manifest `mutates` names BEFORE the first check, and
+ *     audits AFTER the last (scripts/lib/residue-audit.js): marker-named fixture rows that
+ *     survive, and any difference from the baseline. It prints `residue: <table> <count>` per
+ *     table, never a row, and exits non-zero on residue; a clean audit prints
+ *     `residue audit: no residue`. It needs MYSQL_* like a database-asserting check, and a run
+ *     that cannot take its baseline stops before any check starts rather than pass unaudited.
  *
  * Usage:
  *   node scripts/run-playwright-suite.js --tier smoke
  *   node scripts/run-playwright-suite.js --tier core --tier front-door --junit out.xml
  *   node scripts/run-playwright-suite.js --only tickler-crud --only login
+ *   node scripts/run-playwright-suite.js --only fax-configure --residue-audit
  *   node scripts/run-playwright-suite.js --list
  */
 
@@ -58,8 +69,9 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const {
-  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, isLocalTlsTarget, validateBaseUrl, validateMysqlHost,
+  EXIT_FAIL, EXIT_PASS, EXIT_SKIP, createSqlRunner, isLocalTlsTarget, readConfig, validateBaseUrl, validateMysqlHost,
 } = require('./lib/playwright-harness');
+const { auditResidueDetailed, captureBaseline, formatResidue } = require('./lib/residue-audit');
 
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
@@ -73,7 +85,7 @@ function loadManifest(manifestPath = MANIFEST_PATH) {
 
 function parseArguments(argv) {
   const options = {
-    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false,
+    tiers: [], only: [], skip: [], province: '', junit: '', list: false, dryRun: false, residueAudit: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -93,6 +105,7 @@ function parseArguments(argv) {
       case '--junit': options.junit = takeValue(); break;
       case '--list': options.list = true; break;
       case '--dry-run': options.dryRun = true; break;
+      case '--residue-audit': options.residueAudit = true; break;
       case '--help': options.help = true; break;
       default: throw new Error(`Unknown argument ${argument}`);
     }
@@ -495,9 +508,67 @@ function validateExpectedFailure(check, { statuses, source, scriptSource }) {
   return problems;
 }
 
+/** The selected checks' manifest `mutates`, each entry once, in the order first seen. */
+function mutatesOf(checks) {
+  return [...new Set(checks.flatMap((check) => check.mutates || []))];
+}
+
 /**
- * `deps` lets a test supply the manifest, the child-process spawner and the build probe; a real
- * run uses scripts/playwright-suite.json, spawnSync and curl.
+ * The residue audit a real run uses: the harness mysql client, the baseline of scripts/lib/
+ * residue-audit.js, and an audit against it. `begin` throws when the database cannot be reached
+ * (MYSQL_PASSWORD unset, a non-loopback MYSQL_HOST without its opt-in), and main() then refuses
+ * to run any check, because a run it cannot audit must not read as a clean one.
+ */
+const databaseResidueAudit = Object.freeze({
+  begin({ env, mutates }) {
+    const sql = createSqlRunner(readConfig({ env }).mysql, { env });
+    let since;
+    try {
+      since = captureBaseline({ sql, mutates });
+    } catch (error) {
+      sql.dispose();
+      throw error;
+    }
+    return {
+      finish: () => auditResidueDetailed({ sql, since }),
+      dispose: () => sql.dispose(),
+    };
+  },
+});
+
+/**
+ * Run the audit, print its verdict and return the result row that makes residue fail the run
+ * (null when clean). An audit that itself fails is a failure, never a pass: it proves nothing.
+ */
+function finishResidueAudit(audit, out) {
+  let report;
+  try {
+    report = audit.finish();
+  } catch (error) {
+    out.error(`residue audit: could not run (${error.message})`);
+    return {
+      name: 'residue-audit',
+      outcome: 'FAIL',
+      detail: `the audit could not run (${error.message}), so the run is not known to be clean`,
+      durationMs: 0,
+    };
+  }
+  for (const line of formatResidue(report.residue)) out.log(line);
+  // Say what the audit did NOT cover, so a clean verdict is not read as wider than it is.
+  if (report.absent.length) out.log(`residue audit: not installed here: ${report.absent.join(', ')}`);
+  if (report.notDiffed.length) out.log(`residue audit: not diffed: ${report.notDiffed.join(', ')}`);
+  if (!report.residue.length) return null;
+  return {
+    name: 'residue-audit',
+    outcome: 'FAIL',
+    detail: report.residue.map(({ table, count }) => `${table} ${count}`).join(', '),
+    durationMs: 0,
+  };
+}
+
+/**
+ * `deps` lets a test supply the manifest, the child-process spawner, the build probe and the
+ * residue audit; a real run uses scripts/playwright-suite.json, spawnSync, curl and MariaDB.
  */
 function main(argv = process.argv.slice(2), env = process.env, out = console, deps = {}) {
   const run = deps.run || spawnSync;
@@ -510,7 +581,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
     return EXIT_FAIL;
   }
   if (options.help) {
-    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--list] [--dry-run]');
+    out.log('Usage: node scripts/run-playwright-suite.js [--tier T]... [--only NAME]... [--skip NAME]... [--province ON|BC] [--junit FILE] [--residue-audit] [--list] [--dry-run]');
     return EXIT_PASS;
   }
 
@@ -543,23 +614,42 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
     return EXIT_PASS;
   }
 
-  const identityBefore = probeIdentity(env);
-  const results = selected.map((check) => {
-    out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
-    // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
-    // the environment it was HANDED, so the child has to receive that same one
-    // or the gate and the run are about different deployments.
-    return runOne(check, { ...options, env }, run);
-  });
-  const identityAfter = probeIdentity(env);
+  // The baseline comes BEFORE the first check and the audit AFTER the last, so everything a check
+  // leaves behind is measured against the state the run started from.
+  let audit = null;
+  if (options.residueAudit) {
+    try {
+      audit = (deps.residueAudit || databaseResidueAudit).begin({ env, mutates: mutatesOf(selected) });
+    } catch (error) {
+      out.error(`residue audit: could not take the baseline, so no check was run (${error.message})`);
+      return EXIT_FAIL;
+    }
+  }
 
-  if (identityBefore && identityAfter && identityBefore !== identityAfter) {
-    results.push({
-      name: 'application-identity',
-      outcome: 'FAIL',
-      detail: 'the deployment changed while the suite ran, so these results span two different applications',
-      durationMs: 0,
-    });
+  const results = [];
+  try {
+    const identityBefore = probeIdentity(env);
+    for (const check of selected) {
+      out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
+      // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
+      // the environment it was HANDED, so the child has to receive that same one
+      // or the gate and the run are about different deployments.
+      results.push(runOne(check, { ...options, env }, run));
+    }
+    const identityAfter = probeIdentity(env);
+
+    if (identityBefore && identityAfter && identityBefore !== identityAfter) {
+      results.push({
+        name: 'application-identity',
+        outcome: 'FAIL',
+        detail: 'the deployment changed while the suite ran, so these results span two different applications',
+        durationMs: 0,
+      });
+    }
+    const residue = audit ? finishResidueAudit(audit, out) : null;
+    if (residue) results.push(residue);
+  } finally {
+    if (audit) audit.dispose();
   }
 
   summarise(results, out);
@@ -575,6 +665,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  assertSafeTarget, classifyResult, exitCodeFor, loadManifest, main, parseArguments, readBuildIdentity, runOne,
-  selectChecks, summarise, toJUnit, validateExpectedFailure,
+  assertSafeTarget, classifyResult, exitCodeFor, loadManifest, main, mutatesOf, parseArguments, readBuildIdentity,
+  runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

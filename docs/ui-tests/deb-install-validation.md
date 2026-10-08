@@ -637,6 +637,16 @@ it does not approve omitted content to obtain a PDF.
 > ```
 >
 > See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
+>
+> Add `--residue-audit` to any run to check that it left the install as it found it
+> (needs the `MYSQL_*` variables of the environment contract below). The runner takes a
+> baseline of `fax_config`, the `encounterForm` registrations and the `property` rows that
+> the selected checks' manifest `mutates` names before the first check, and after the last
+> it counts marker-named (`FAKE-PW...`) fixture rows left in `demographic`, `provider`,
+> `security`, `tickler`, `casemgmt_note`, `billing_on_cheader1`, `billingmaster`,
+> `eform_data` and `document`. It prints `residue: <table> <count>` (never a row) and exits
+> non-zero, or `residue audit: no residue`. A run that cannot take its baseline stops before
+> any check starts.
 
 Environment contract (one block, exported before every script):
 

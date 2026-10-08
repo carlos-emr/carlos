@@ -39,6 +39,13 @@
     "            there; does not fail the run), unexpected-pass (passed; reported) and",
     "            failed-elsewhere (any other failure, cleanup included; fails the run).",
     "            A script that labels no steps cannot carry one. notes may add the detail.",
+    "mutates     the clinic-wide objects the check changes: a table name, property:<name>",
+    "            (or UserProperty:<name>) for property rows, or file:<label> for something",
+    "            on disk. The runner's --residue-audit snapshots fax_config, encounterForm and",
+    "            the named property rows before the first check and reports any difference",
+    "            after the last; other entries are listed in its output as not diffed.",
+    "            A check that mutates more than the audit log must say in fixtures that it",
+    "            must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
     "",
     "TIERS ARE A FIRST CUT. They were assigned from each checks dependencies, not",
     "from a measured run; the smoke list is the one in the coverage plan. Adjust them",
@@ -981,7 +988,11 @@
       "timeoutSec": 300,
       "env": [
         "EFORM_SCREENSHOT_DIR"
-      ]
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Creates, edits and deletes one uniquely named library eForm ('Playwright Admin CRUD <timestamp>'); the delete only sets eform.status to 0, so an inactive row remains (a failing run leaves it active). The eForm library is clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "eform-admin-schedule-navigation",
@@ -1022,7 +1033,11 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": []
+      "env": [],
+      "mutates": [
+        "file:eform-images"
+      ],
+      "fixtures": "Uploads one uniquely named image into the clinic-wide eForm image library (EFORM_IMAGE_DIR) and deletes it again; a failing run leaves it. The library is shared by every eForm check, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "eform-consultation-acceptance",
@@ -1312,7 +1327,7 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
@@ -1326,7 +1341,11 @@
         "SRFAX_LIVE",
         "SRFAX_PASS",
         "SRFAX_USER"
-      ]
+      ],
+      "mutates": [
+        "fax_config"
+      ],
+      "fixtures": "Snapshots the whole clinic-wide fax_config table before any browser starts and restores it byte-exact however the run ends (failure, timeout, Ctrl-C), deleting a row the save created, then asserts polling is off; the Configure Fax save enables a fake SRFax account and starts the fax scheduler, which would poll that account every minute until the row is restored (finding 180). The save step needs MYSQL_PASSWORD for the snapshot and is skipped without it. A table already polling the check's fake account fails the check before it starts. Real SRFax credentials (SRFAX_LIVE=true) are never used by the suite; the Test SRFax connection step posts the fake account. It changes a table every fax check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "first-nations-encoding",
@@ -2358,7 +2377,12 @@
       "timeoutSec": 300,
       "env": [
         "TEST_SCHEDULE_PROVIDER"
-      ]
+      ],
+      "mutates": [
+        "rschedule",
+        "scheduledate"
+      ],
+      "fixtures": "Writes real rschedule and scheduledate rows for the selected provider over 2031-03-03 to 2031-03-28 and does not remove them (the residue audit does not diff these tables); clinic-wide schedule state, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "schedule-template-crud",
@@ -3043,7 +3067,11 @@
         "PREVENTION_DEMOGRAPHIC_NO",
         "PREVENTION_UNRESOLVED",
         "PREVENTION_RESOLVED"
-      ]
+      ],
+      "mutates": [
+        "log"
+      ],
+      "fixtures": "Read-only: opens the Add Prevention popup and never saves. CHECKSUM TABLE of every table before and after a run changed only log, the audit rows a login and a page view write."
     },
     {
       "name": "tickler-demo-main",

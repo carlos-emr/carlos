@@ -647,3 +647,51 @@ test('shouldTakeTheReportingGuardFromTheScriptsOwnText_notFromWhatItRequires', (
   // A caller that forgets scriptSource fails safe rather than reading the combined text.
   assert.match(validateExpectedFailure(check, { statuses, source: `${label} runWorkflow(` }).join(';'), /neither runWorkflow/);
 });
+
+/*
+ * THE `mutates` FIELD.
+ *
+ * A check that changes clinic-wide state (a properties row, the fax account, a form registration,
+ * a schedule) has to say what, so the next check that reads that state can be told what may have
+ * moved under it, and so `run-playwright-suite.js --residue-audit` knows which property rows to
+ * snapshot. `mutates` is a list of clinic-wide objects; scripts/lib/residue-audit.js parseMutates()
+ * is its grammar: a table name, `property:<name>` (or its alias `UserProperty:<name>`), or
+ * `file:<label>` for something on disk.
+ */
+const { parseMutates } = require('./lib/residue-audit');
+
+const KNOWN_WRITERS = ['fax-configure', 'schedule-setting', 'eform-admin-crud', 'eform-image-delete', 'prevention-add-data'];
+
+test('shouldDeclareMutates_onTheKnownClinicWideWriters', () => {
+  for (const name of KNOWN_WRITERS) {
+    const check = checks.find((entry) => entry.name === name);
+    assert.ok(check, `${name} is no longer in the manifest`);
+    assert.ok(Array.isArray(check.mutates) && check.mutates.length > 0,
+      `${name} changes clinic-wide state and must list it in mutates`);
+  }
+  assert.deepEqual(checks.find((entry) => entry.name === 'fax-configure').mutates, ['fax_config']);
+});
+
+test('shouldKeepMutatesWellFormed_whereverItIsDeclared', () => {
+  for (const check of checks.filter((entry) => entry.mutates !== undefined)) {
+    assert.doesNotThrow(() => parseMutates(check.mutates), `${check.name}: mutates is not a valid list`);
+    assert.equal(new Set(check.mutates).size, check.mutates.length, `${check.name}: mutates repeats an entry`);
+  }
+});
+
+test('shouldRequireAnExclusiveRun_whenACheckMutatesMoreThanTheAuditLog', () => {
+  // Global constraint: a check that changes clinic-wide state must not run beside another one. The
+  // audit log is append-only and every login writes it, so it alone does not count.
+  for (const check of checks.filter((entry) => Array.isArray(entry.mutates))) {
+    if (check.mutates.every((entry) => entry === 'log')) continue;
+    assert.match(check.fixtures || '', /must not run concurrently with other checks \(live wrapper: EXCLUSIVE=1\)/,
+      `${check.name} mutates ${check.mutates.join(', ')}; its fixtures must say it needs an exclusive run`);
+  }
+});
+
+test('shouldDeclareThatFaxConfigureReadsTheDatabase_sinceItNowRestoresTheRow', () => {
+  const check = checks.find((entry) => entry.name === 'fax-configure');
+  assert.equal(check.assertsDatabase, true, 'it snapshots and reads back fax_config');
+  assert.match(check.fixtures, /fax_config/);
+  assert.match(check.fixtures, /restores/);
+});
