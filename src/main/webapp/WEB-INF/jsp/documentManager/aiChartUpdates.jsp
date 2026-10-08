@@ -87,6 +87,9 @@
                     <blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote>
                     <a href="#full-source" data-show-source><fmt:message key="chartUpdates.showSource"/></a>
                 </div>
+                <%-- Shown by script when the chart check beside the suggestion (below it on a narrow
+                     screen) has found something, so it is never missed before adding. --%>
+                <p class="chart-check-pointer" hidden><a href="#chart-check"><fmt:message key="chartUpdates.chartCheckPointer"/></a></p>
                 <%-- Filled by script, which moves them all into the chart check beside the suggestions and
                      shows the current suggestion's. --%>
                 <div class="chart-check-notices" data-check-for="${carlos:forHtmlAttribute(proposal.key)}">
@@ -171,7 +174,7 @@
         </article>
         </c:forEach>
         <section id="review-summary" class="review-summary" aria-labelledby="review-summary-title">
-        <h2 id="review-summary-title" class="h4"><carlos:encode value="${chartUpdateSummaryLabel}"/></h2>
+        <h2 id="review-summary-title" class="h4" data-review-focus><carlos:encode value="${chartUpdateSummaryLabel}"/></h2>
         <c:if test="${not empty chartUpdateReview.agentName}"><p class="small"><fmt:message key="chartUpdates.agent"/>: <carlos:encode value="${chartUpdateReview.agentName}"/></p></c:if>
         <p class="review-progress" role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
         <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
@@ -187,9 +190,9 @@
             <thead class="table-light"><tr><th scope="col"><fmt:message key="chartUpdates.summarySection"/></th><th scope="col"><fmt:message key="chartUpdates.summaryEntry"/></th><th scope="col"><fmt:message key="chartUpdates.summaryResult"/></th></tr></thead>
             <tbody>
             <c:forEach items="${chartUpdateRows}" var="proposal">
-                <tr data-section="${carlos:forHtmlAttribute(proposal.kind == 'tickler' ? 'Tickler' : (proposal.kind == 'review' ? proposal.recordDestination : proposal.destination))}">
-                    <td><span class="section-chip"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:when test="${not empty proposal.destination}"><fmt:message key="chartUpdates.section.${proposal.destination}"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></span></td>
-                    <td class="source-text"><carlos:encode value="${proposal.text}"/></td>
+                <tr data-summary-for="${carlos:forHtmlAttribute(proposal.key)}" data-section="${carlos:forHtmlAttribute(proposal.kind == 'tickler' ? 'Tickler' : (proposal.kind == 'review' ? proposal.recordDestination : proposal.destination))}">
+                    <td><span class="section-chip" data-summary-section><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:when test="${not empty proposal.destination}"><fmt:message key="chartUpdates.section.${proposal.destination}"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></span></td>
+                    <td class="source-text" data-summary-entry><carlos:encode value="${proposal.text}"/></td>
                     <td><c:choose><c:when test="${not empty proposal.outcome}"><carlos:encode value="${proposal.outcome}"/></c:when>
                         <c:otherwise><a href="${carlos:forHtmlAttribute(chartUpdateReviewUrl)}#proposal-${carlos:forHtmlAttribute(proposal.key)}" data-review-proposal="${carlos:forHtmlAttribute(proposal.key)}"><carlos:encode value="${chartUpdateNotReviewed}"/></a></c:otherwise></c:choose></td>
                 </tr>

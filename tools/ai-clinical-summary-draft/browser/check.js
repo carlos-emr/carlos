@@ -386,6 +386,7 @@ async function run() {
     const match = await notice(page, history, '.chart-match-notice');
     assert.equal(await match.isVisible(), true, 'The chart check beside the suggestion shows the possible duplicate');
     assert.equal(await page.locator('.chart-check-clear').isVisible(), false);
+    assert.equal(await history.locator('.chart-check-pointer').isVisible(), true, 'The card points to what the chart check found');
     await match.locator('.chart-match-links a').click();
     assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.open), true);
     assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.classList.contains('chart-entry-match')), true);
@@ -399,6 +400,7 @@ async function run() {
     const reminderMatch = await notice(page, reminder, '.chart-match-notice');
     assert.equal(await shown(reminderMatch), false);
     assert.equal(await page.locator('.chart-check-clear').isVisible(), true, 'The chart check says when nothing matched');
+    assert.equal(await reminder.locator('.chart-check-pointer').isVisible(), false);
     await reminder.locator('[name="entryText"]').fill('Previous clinician entry: seasonal symptoms.');
     assert.equal(await shown(reminderMatch), false, 'A reminder must not be treated as a duplicate of a history note');
     await reminder.locator('[name="entryText"]').fill('New reminder text');
@@ -488,6 +490,8 @@ async function run() {
     assert.equal(await diagnosis.locator('[data-section-chip]').innerText(), 'Family history');
     assert.equal(await page.locator(`[data-review-step="${await diagnosis.getAttribute('data-proposal-key')}"]`)
       .getAttribute('data-section'), 'FamHistory');
+    const row = page.locator(`[data-summary-for="${await diagnosis.getAttribute('data-proposal-key')}"]`);
+    assert.equal(await row.locator('[data-summary-section]').textContent(), 'Family history', 'The summary follows the edits');
     await diagnosis.locator('[name="destination"]').selectOption('');
     assert.equal(await match.isVisible(), false);
     assert.equal(await diagnosis.locator('[data-section-chip]').isVisible(), false);
@@ -789,6 +793,8 @@ async function run() {
     for (const box of await Promise.all((await steps.all()).map(step => step.boundingBox()))) {
       assert(box.width >= 24 && box.height >= 24, 'Each step is at least a 24px target');
     }
+    assert((await page.locator('#chart-check').boundingBox()).y < (await page.locator('#full-source').boundingBox()).y,
+      'On a narrow screen the chart check comes before the source');
     await page.screenshot({ path: path.join(runDir, 'one-at-a-time-mobile.png'), fullPage: true });
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
   });
@@ -796,9 +802,13 @@ async function run() {
     await generate(page);
     const reminder = card(page, 'Follow-up reminder');
     await reminder.locator('[name="dueDate"]').fill('2026-10-12');
-    // Without approval, Enter is stopped by the browser's own check.
+    // Without approval, Enter is stopped by the browser's own check: nothing is sent, not even a dismissal.
+    const before = page.url();
     await reminder.locator('[name="dueDate"]').press('Enter');
-    assert.equal(await reminder.locator('[name="confirmed"]').evaluate(input => input.validity.valid), false);
+    await page.waitForTimeout(500);
+    assert.equal(page.url(), before);
+    assert.equal(await reminder.locator('form.proposal-form').count(), 1, 'Enter must not dismiss the suggestion');
+    assert.equal(await reminder.locator('[name="dueDate"]').inputValue(), '2026-10-12');
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
     await reminder.locator('[name="confirmed"]').check();
     await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), reminder.locator('[name="dueDate"]').press('Enter')]);

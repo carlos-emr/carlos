@@ -81,7 +81,10 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
 
 @media (max-width: 800px) {
     .chart-update-layout, .proposal-fields { grid-template-columns: 1fr; }
-    .chart-reference { position: static; max-height: none; }
+    .chart-reference, .review-stepping .chart-reference { position: static; max-height: none; }
+    /* Below the suggestion, the chart check comes first: the source has its own scroll box. */
+    .chart-reference { display: flex; flex-direction: column; }
+    .chart-reference .chart-check { order: -1; margin-top: 0; }
 }
 
 .review-in-modal .review-header .page-header-title { display: none; }
@@ -94,6 +97,8 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
 .chart-check, .current-chart { margin-top: 1rem; }
 .chart-check[hidden] { display: none; }
 .chart-check-clear { margin: 0; color: #555; }
+.chart-check-pointer { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .35rem .75rem; margin-bottom: .75rem; }
+.chart-check-pointer[hidden] { display: none; }
 .chart-match-notice, .related-proposal-notice { border-left: 3px solid #ad7d16; background: #fff8e6; padding: .5rem .75rem; margin-bottom: .75rem; }
 .chart-match-notice p, .related-proposal-notice p { margin: 0 0 .35rem; }
 .chart-match-links { margin-bottom: 0; padding-left: 1.25rem; }

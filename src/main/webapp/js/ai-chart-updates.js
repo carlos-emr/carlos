@@ -20,17 +20,31 @@
     if (workflowFrame) document.body.classList.add('review-in-modal');
     const cards = Array.from(document.querySelectorAll('article.proposal'));
     // A history entry takes its chart section's colour and name as the section is chosen.
-    cards.forEach(card => card.querySelector('[name="destination"]')?.addEventListener('change', event => {
-        const select = event.target;
-        card.dataset.section = select.value;
-        const step = document.querySelector(`[data-review-step="${CSS.escape(card.dataset.proposalKey)}"]`);
-        if (step) step.dataset.section = select.value;
-        const chip = card.querySelector('[data-section-chip]');
-        if (chip) {
-            chip.textContent = select.value ? select.selectedOptions[0].textContent : '';
-            chip.hidden = !select.value;
-        }
-    }));
+    // Its summary row follows the edits, so the summary never shows an older draft.
+    cards.forEach(card => {
+        const key = CSS.escape(card.dataset.proposalKey);
+        const row = document.querySelector(`[data-summary-for="${key}"]`);
+        card.querySelector('[name="entryText"]')?.addEventListener('input', event => {
+            const entry = row?.querySelector('[data-summary-entry]');
+            if (entry) entry.textContent = event.target.value;
+        });
+        card.querySelector('[name="destination"]')?.addEventListener('change', event => {
+            const select = event.target;
+            const name = select.value ? select.selectedOptions[0].textContent : '';
+            card.dataset.section = select.value;
+            const step = document.querySelector(`[data-review-step="${key}"]`);
+            if (step) step.dataset.section = select.value;
+            const chip = card.querySelector('[data-section-chip]');
+            if (chip) {
+                chip.textContent = name;
+                chip.hidden = !select.value;
+            }
+            if (row) {
+                row.dataset.section = select.value;
+                row.querySelector('[data-summary-section]').textContent = name || card.querySelector('h3').textContent;
+            }
+        });
+    });
     const strip = document.querySelector('.review-strip');
     const summary = document.getElementById('review-summary');
     if (cards.length && strip && summary) {
@@ -60,10 +74,12 @@
             if (!check) return;
             notices.forEach((group, position) => { if (group) group.hidden = position !== index; });
             check.hidden = index < 0 || !open(cards[index]);
-            if (!check.hidden) {
-                check.querySelector('.chart-check-clear').hidden =
-                    Array.from(notices[index]?.children || []).some(notice => !notice.hidden);
-            }
+            const found = !check.hidden && Array.from(notices[index]?.children || []).some(notice => !notice.hidden);
+            if (!check.hidden) check.querySelector('.chart-check-clear').hidden = found;
+            cards.forEach((card, position) => {
+                const pointer = card.querySelector('.chart-check-pointer');
+                if (pointer) pointer.hidden = !(found && position === index);
+            });
         };
         // The bar is fixed to the bottom of the window: leave its height free below the page.
         const clearBar = () => {
