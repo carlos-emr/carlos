@@ -145,8 +145,9 @@ public class EmailCompose2Action extends ActionSupport {
      * options and attachment selections) under a one-time key passed as the {@code draft}
      * parameter. This takes exactly that draft, once, and reads nothing else from the session, so
      * another window's save cannot change it. A missing, reused or dropped key shows the error page
-     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If preparing the
-     * attachments fails, the draft goes back under its key, so refreshing retries.
+     * with {@link #COMPOSE_EXPIRED_MESSAGE}, never another window's draft. If any later step of
+     * preparing the compose fails (the patient, consent, recipient or sender lookups, the PDF
+     * password, or the attachments), the draft goes back under its key, so refreshing retries.
      *
      * Request Parameters:
      * <ul>
@@ -247,20 +248,27 @@ public class EmailCompose2Action extends ActionSupport {
             fid = null;
         }
 
-        String[] emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
-
-        String receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
-        List<?>[] receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
-
-        List<EmailConfig> senderAccounts = emailComposeManager.getAllSenderAccounts();
-
-        if (emailPDFPassword == null) {
-            emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
-            emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
-        }
-
+        // Every lookup from here on runs after take() has consumed the draft, so all of them sit
+        // inside the restoring try: a transient failure (a database error, for one) must leave the
+        // window retryable rather than reporting it as expired on refresh.
+        String[] emailConsent;
+        String receiverName;
+        List<?>[] receiverEmailList;
+        List<EmailConfig> senderAccounts;
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
+            emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
+
+            receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
+            receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
+
+            senderAccounts = emailComposeManager.getAllSenderAccounts();
+
+            if (emailPDFPassword == null) {
+                emailPDFPassword = emailComposeManager.createEmailPDFPassword(loggedInInfo, demographicNo);
+                emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
+            }
+
             emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms));
             emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments));
             emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
