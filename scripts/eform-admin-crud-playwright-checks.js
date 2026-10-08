@@ -91,7 +91,6 @@ const config = {
 const stamp = Date.now();
 const formName = `Playwright Admin CRUD ${stamp}`;
 let restoredForm = false;
-let passed = false;
 
 // Optional database access, used only to remove this run's own probe form. The
 // check stays runnable without credentials; see the CLEANUP note in the header.
@@ -253,8 +252,11 @@ async function libraryRow(page, name) {
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+  // Launched inside the try so a launch failure still reaches the finally that
+  // disposes the SQL runner's 0600 option file (it holds the DB password).
+  let browser;
   try {
+    browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
     // validateBaseUrl returns a URL object, not a string.
     if (config.baseUrl.protocol !== 'https:') {
       console.log(
@@ -661,7 +663,12 @@ async function libraryRow(page, name) {
 
     await context.close();
 
-    passed = true;
+    // Purge the probe form BEFORE reporting PASS: a configured cleanup that cannot
+    // complete (database down, DELETE denied) throws into the catch below, so the
+    // run reports FAIL and exits 1 instead of printing PASS over leaked rows. A
+    // run that failed earlier never reaches this line and keeps its form.
+    cleanupProbeForm();
+
     console.log(
       `PASS eForm admin create/edit/delete round trip (fid ${fid}): edit persisted, `
       + 'delete removed the form and returned to the library'
@@ -674,17 +681,10 @@ async function libraryRow(page, name) {
     process.exitCode = 1;
   } finally {
     try {
-      await browser.close();
+      if (browser) await browser.close();
     } finally {
-      try {
-        // Failing runs keep their form for diagnosis; passing runs purge it.
-        if (passed) cleanupProbeForm();
-      } catch (error) {
-        console.error(`[warn] Could not remove "${formName}": ${error.message}`);
-      } finally {
-        if (sql) sql.dispose();
-        signalHandlers.dispose();
-      }
+      if (sql) sql.dispose();
+      signalHandlers.dispose();
     }
   }
 })();

@@ -85,7 +85,9 @@ asset was not downloadable) and installed into an Ubuntu 26.04 container with th
 dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`, `:443`). With
 `MYSQL_PASSWORD` set: a passing run **PASS**es and leaves no `Playwright Admin CRUD`
 row; a real SIGTERM sent after the form was created exits 143 and removes it; a run
-forced to fail after creation keeps the form for diagnosis. Without `MYSQL_PASSWORD`
+forced to fail after creation keeps the form for diagnosis. A configured cleanup that cannot complete (DB user denied) now makes the run **FAIL**
+with exit 1 rather than print PASS over leaked rows, and a Chromium launch failure leaves no
+SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
 the check still **PASS**es, prints a note, and leaves the restored form. The three
 other library forms were untouched in every case.
 

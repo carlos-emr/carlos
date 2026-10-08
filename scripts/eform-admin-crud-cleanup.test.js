@@ -25,19 +25,27 @@ test('the probe name carries the per-run stamp', () => {
   assert.match(source, /const stamp = Date\.now\(\)/);
 });
 
-test('a passing run purges the form but a failing run leaves it for diagnosis', () => {
-  assert.match(source, /if \(passed\) cleanupProbeForm\(\)/);
-  const markPassed = source.indexOf('passed = true;');
-  assert.ok(markPassed > source.indexOf('assertNoPageErrors(recorder)'), 'passed is set only after every assertion');
-  assert.ok(markPassed < source.indexOf('console.log(\n      `PASS'), 'passed is set before the PASS line');
+test('a passing run purges the form before PASS, so a failed cleanup fails the run', () => {
+  const purge = source.lastIndexOf('    cleanupProbeForm();\n');
+  assert.ok(purge > source.indexOf('assertNoPageErrors(recorder)'), 'purge only after every assertion');
+  assert.ok(purge < source.indexOf('console.log(\n      `PASS'), 'purge runs before the PASS line');
+  const catchBlock = source.slice(source.indexOf('} catch (error) {', purge));
+  assert.match(catchBlock, /process\.exitCode = 1/);
+  assert.doesNotMatch(source, /if \(passed\)/, 'no swallowed post-PASS cleanup');
+});
+
+test('a browser launch failure still disposes the SQL runner', () => {
+  const tryIndex = source.indexOf('  let browser;\n  try {');
+  assert.ok(tryIndex > 0, 'browser is declared outside, launched inside, the try');
+  assert.ok(source.indexOf('browser = await chromium.launch', tryIndex) > tryIndex);
 });
 
 test('database access is optional and the signal handler is disposed last', () => {
   assert.match(source, /process\.env\.MYSQL_PASSWORD\s*\?\s*createSqlRunner/);
   assert.match(source, /if \(!sql\) \{[\s\S]*?return;/);
-  const finallyBlock = source.slice(source.indexOf('await browser.close()'));
-  assert.ok(finallyBlock.indexOf('browser.close()') < finallyBlock.indexOf('cleanupProbeForm()'));
-  assert.ok(finallyBlock.indexOf('cleanupProbeForm()') < finallyBlock.indexOf('signalHandlers.dispose()'));
+  const finallyBlock = source.slice(source.indexOf('if (browser) await browser.close()'));
+  assert.ok(finallyBlock.indexOf('browser.close()') < finallyBlock.indexOf('sql.dispose()'));
+  assert.ok(finallyBlock.indexOf('sql.dispose()') < finallyBlock.indexOf('signalHandlers.dispose()'));
 });
 
 test('the stale "is gone by the end" claim is gone from the header', () => {
