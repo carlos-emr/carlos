@@ -22,7 +22,10 @@ LIMITS = ROOT / "debian" / "assets" / "nginx" / "conf.d" / "carlos-emr-limits.co
 
 
 def strip_comments(text):
-    return "\n".join(re.sub(r"(^|\s)#.*$", "", ln) for ln in text.splitlines())
+    # Whole-line comments only: nginx also treats a mid-line `#` as a comment, but
+    # a quoted location regex may legitimately contain " #", which a looser strip
+    # would silently truncate.
+    return "\n".join(re.sub(r"^\s*#.*$", "", ln) for ln in text.splitlines())
 
 
 def throttled_locations():

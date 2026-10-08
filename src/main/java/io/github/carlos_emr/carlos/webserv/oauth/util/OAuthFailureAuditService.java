@@ -48,6 +48,12 @@ import com.github.benmanes.caffeine.cache.Ticker;
  * same window return {@link Decision#SUPPRESS}. Tracked addresses are capped at {@value #MAX_ADDRESSES}
  * so the limiter's own memory is bounded under address spraying.
  *
+ * <p>Trade-off: a bounded trail can be exhausted. Enough distinct addresses (about 28 at the per-address
+ * budget) can spend the global budget and temporarily hide other clients' individual failure rows. That is
+ * the price of an upper bound on synchronous inserts; it is made visible rather than silent by the
+ * {@code OAUTH_LOGIN_FAILURE_SUPPRESSED} marker and by a {@code WARN} log line, it ends when the window
+ * rolls over, and the packaged nginx per-address request ceiling limits how fast one source can contribute.
+ *
  * <p>Successful authentications are not throttled here: they require a valid signed token.
  */
 final class OAuthFailureAuditService {

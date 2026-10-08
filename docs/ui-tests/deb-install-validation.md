@@ -2262,3 +2262,29 @@ checks whose paired waits were settled 21/22. The exception,
 `rx-interactions-renal-luc` ("No major interaction marker is shown ... for
 ciprofloxacin + theophylline"), fails identically with the unmodified
 `release/2026.08` script and is unrelated to this change.
+
+
+### OAuth `/ws/services` rate-limit validation (2026-10-08)
+
+Validation of issue #4429: `/ws/services` and `/ws/oauth/authorize` had no `limit_req`, and every
+rejected call wrote one synchronous `OAUTH_LOGIN_FAILURE` row. Packages were built from the
+`release/2026.08` fix branch (`2026.09.0~snapshot26`, DrugRef from its pin) in an `ubuntu:26.04`
+build container and installed into a `--privileged` Ubuntu 26.04 systemd container (host
+networking, cgroup v1 host, same entrypoint workaround as above) with the section 3 preseed.
+`carlos-ctl check` passed in full. carlos-ctl was built from its repository `main` (the pinned
+1.1.2 release was not published yet), stamped `1.1.2` so `Depends: carlos-ctl (>= 1.1.2)` held.
+Gotcha: systemd mounts a tmpfs over `/tmp` in the container, so files `docker cp`'d there
+vanish; use `/root`. The first postinst run reported "has not answered after five minutes" on this
+slow host although `carlos-ctl check` passed straight after.
+
+| Probe (through `https://localhost/carlos` unless noted) | Result |
+|---|---|
+| 150 sequential anonymous `GET /ws/services/oauth/info` | 150 x 401; **11** audit rows (10 `OAUTH_LOGIN_FAILURE` + 1 `OAUTH_LOGIN_FAILURE_SUPPRESSED`) |
+| 100 more direct to `127.0.0.1:18080` (bypassing nginx) in the next window | 100 x 401; 11 more rows |
+| 600 `/ws/services` requests, 60 in parallel | 141 x 401, 459 x 429 (`carlos_wsapi`); `/login` still 302 straight after |
+| 60 sequential `GET /ws/oauth/authorize` | 31 x 400, 29 x 429 |
+| `scripts/oauth-ws-rate-limit-playwright-checks.js`, `EXPECT_FRONT_DOOR=true` | PASS. **FAILS** with the previous nginx site and limits files swapped back in (`a 600-request burst at /ws/services was never throttled: {"401":600}`); PASS again once restored |
+
+The application half (audit-row bound) has no negative control on a package: the unfixed
+`snapshot26` build was not available to reinstall; it is pinned by `OAuthFailureAuditServiceUnitTest`
+and the new `OAuthInterceptorAuditLoggingUnitTest` flood case.

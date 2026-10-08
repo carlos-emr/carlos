@@ -205,6 +205,23 @@
       "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
     },
     {
+      "name": "oauth-ws-rate-limit",
+      "script": "scripts/oauth-ws-rate-limit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "WS_FLOOD_REQUESTS",
+        "WS_FLOOD_CONCURRENCY"
+      ],
+      "notes": "Issue #4429: anonymous /ws/services rejections write a bounded number of OAUTH_LOGIN_FAILURE audit rows; with EXPECT_FRONT_DOOR=true the packaged nginx answers 429 for a /ws/services and /ws/oauth/authorize burst without throttling /login. Creates no fixture; trips the rate limit for the caller briefly."
+    },
+    {
       "name": "application-health",
       "script": "scripts/application-health-playwright-checks.js",
       "tiers": [
