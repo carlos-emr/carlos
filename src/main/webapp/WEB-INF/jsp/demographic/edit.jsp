@@ -36,7 +36,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
@@ -53,7 +52,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.WaitingListName" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
@@ -71,7 +69,6 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -127,7 +124,6 @@
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = (ScheduleTemplateCodeDao) request.getAttribute("scheduleTemplateCodeDao");
     WaitingListDao waitingListDao = (WaitingListDao) request.getAttribute("waitingListDao");
     WaitingListNameDao waitingListNameDao = (WaitingListNameDao) request.getAttribute("waitingListNameDao");
-    UserPropertyDAO pref = (UserPropertyDAO) request.getAttribute("userPropertyDAO");
     DemographicDao demographicDao = (DemographicDao) request.getAttribute("demographicDao");
     DemographicExtDao demographicExtDao = (DemographicExtDao) request.getAttribute("demographicExtDao");
     DemographicArchiveDao demographicArchiveDao = (DemographicArchiveDao) request.getAttribute("demographicArchiveDao");
@@ -167,11 +163,6 @@
         printLabLbl = demoPath + "printClientLabLabelAction?demographic_no=";
     }
 
-    String wLReadonly = "";
-    if (oscarProps != null && "true".equals(oscarProps.getProperty("DEMOGRAPHIC_WAITING_LIST"))) {
-        wLReadonly = "readonly";
-    }
-    
     String warningLevel = demoExt != null ? demoExt.get("rxInteractionWarningLevel") : null;
     if (warningLevel == null) warningLevel = "0";
 
@@ -1383,22 +1374,6 @@
             dobEl.addEventListener('change', syncDobParts);
             dobEl.addEventListener('blur',   syncDobParts);
         }
-
-        function checkInsuranceEligibility() {
-            let params = {};
-            params.demographic = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';
-            params.method = 'checkElig';
-            params.rand = Math.round(Math.random()*1000000);  //hack to get around ie caching the page
-            let url = '${ctx}/billing/CA/BC/ManageTeleplan';
-            jQuery.post(url, params, function() {
-                jQuery('#menu2').dialog({
-                    title: "MSP Eligibility"
-                });
-            }).done(function(data){
-                jQuery('#menu2 #search_spinner').text("");
-                jQuery('#menu2 #returnTeleplanMsg').html(data);
-            })
-         }
 
         <%
 if (privateConsentEnabled) {
