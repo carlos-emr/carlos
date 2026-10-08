@@ -38,7 +38,9 @@
  *
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   REPORT_PRINT_TIMEOUT_MS=20000     per-step allowance
- *   REPORT_PRINT_ARTIFACT_DIR=/tmp    keep the rendered PDFs here (default: discarded)
+ *   REPORT_PRINT_ARTIFACT_DIR=/tmp    keep the rendered PDFs, in an owner-only per-run
+ *                                     subdirectory (default: discarded). They hold whatever
+ *                                     the reports list: use synthetic data only
  *   REPORT_PRINT_KEEP_GOING=true      report every failing report, not only the first
  */
 
@@ -138,22 +140,36 @@ async function assertPrintControlPrints(frameOrPage, locator, label) {
   assert(calls === 1, `${label}: the Print control called window.print() ${calls} time(s)`);
 }
 
+let retainedDir = null;
+
+/** One owner-only directory per run, so retained PDFs neither overwrite another run's nor open to other local users. */
+function retentionDir() {
+  if (!retainedDir) {
+    fs.mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
+    retainedDir = fs.mkdtempSync(path.join(artifactDir, 'report-print-'));
+    console.log(`  NOTE retaining rendered report PDFs in ${retainedDir} (owner-only; they hold whatever the reports list)`);
+  }
+  return retainedDir;
+}
+
 function pdfText(pdf, name) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'report-print-'));
-  const file = path.join(dir, `${name}.pdf`);
-  fs.writeFileSync(file, pdf);
   assert(pdf.subarray(0, 5).toString('latin1') === '%PDF-', `${name}: print output is not a PDF`);
-  if (artifactDir) {
-    fs.mkdirSync(artifactDir, { recursive: true });
-    fs.copyFileSync(file, path.join(artifactDir, `${name}.pdf`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'report-print-'));
+  try {
+    const file = path.join(dir, `${name}.pdf`);
+    fs.writeFileSync(file, pdf, { mode: 0o600 });
+    // Rendered reports can list patients when this runs against more than the
+    // synthetic demo data, so retention is opt-in and private.
+    if (artifactDir) fs.copyFileSync(file, path.join(retentionDir(), `${name}.pdf`));
+    const probe = spawnSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
+    if (probe.error || probe.status !== 0) {
+      console.log(`  NOTE ${name}: pdftotext unavailable; PDF text assertions skipped`);
+      return null;
+    }
+    return probe.stdout;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
   }
-  const probe = spawnSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' });
-  fs.rmSync(dir, { recursive: true, force: true });
-  if (probe.error || probe.status !== 0) {
-    console.log(`  NOTE ${name}: pdftotext unavailable; PDF text assertions skipped`);
-    return null;
-  }
-  return probe.stdout;
 }
 
 async function assertPdf(admin, name, { present, absent, repeatsOnEveryPage = null }) {
