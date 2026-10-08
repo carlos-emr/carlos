@@ -49,6 +49,12 @@
  * fault was the mirror image (a stale band from the previous patient). A valid
  * age is entered again afterwards to prove a refusal leaves nothing stuck.
  *
+ * THE FRAMINGHAM/UKPDS CALCULATOR had the same fault in every box (#3665,
+ * findings-log 129): a blank or mistyped value became NaN and the page
+ * highlighted its HIGHEST-risk band, and it ignored the patient the chart
+ * passed. FRAMINGHAM_REFUSALS / UKPDS_REFUSALS pin each refusal, and the check
+ * proves the chart's sex and age arrive in the form.
+ *
  * ENTERED THE WAY A CLINICIAN ENTERS IT: login, Search, the patient's Master
  * Record, E-Chart, the calculator icon in the chart header, then the calculator.
  *
@@ -149,6 +155,38 @@ const CORONARY_OUTSIDE_TABLE_AGES = ['19', '80'];
 const REFUSED_AGE_TEXT = /whole number from \d+ to \d+/;
 /* The band highlight the fracture page paints on a computed answer. */
 const FRACTURE_HIGHLIGHT = 'rgb(204, 204, 255)';
+
+/*
+ * The Framingham/UKPDS calculator (riskcalc/). A valid entry and the cell it
+ * must highlight: systolic 140 is the "140" row (bp6) and 5 / 1 the "5"
+ * column (c3); on the UKPDS page 149.5 is the 140 row (bp2, the ladder used to
+ * throw on it), a ratio of 5 is c2 and an A1C of 6 is h2.
+ */
+const FRAMINGHAM_VALID = { cAge: '55', cSystolic: '140', cCholesterol: '5', cHDL: '1' };
+const FRAMINGHAM_VALID_CELL = 'bp6c3';
+const UKPDS_VALID = { ...FRAMINGHAM_VALID, cSystolic: '149.5', cDuration: '5', cALC: '6' };
+const UKPDS_VALID_CELL = 'UKPDS_bp2c2h2';
+/*
+ * Boxes each page must refuse. `says` is the stable fragment of the message
+ * naming the box and its range. Each of these used to compute: a NaN fell
+ * through to the highest band, a zero HDL divided by zero into the highest
+ * column, a comma decimal was read as its integer part, and an out-of-range
+ * age was clamped and the box rewritten.
+ */
+const FRAMINGHAM_REFUSALS = [
+  { field: 'cAge', value: '', says: /age as a whole number from 30 to 75/, why: 'blank age' },
+  { field: 'cAge', value: 'abc', says: /age as a whole number from 30 to 75/, why: 'non-numeric age' },
+  { field: 'cAge', value: '80', says: /age as a whole number from 30 to 75/, why: 'age above the range' },
+  { field: 'cSystolic', value: '', says: /systolic blood pressure as a number from 60 to 300/, why: 'blank systolic' },
+  { field: 'cCholesterol', value: '1,2', says: /total cholesterol as a number from 1 to 20/, why: 'comma decimal' },
+  { field: 'cHDL', value: '0', says: /HDL cholesterol as a number from 0\.1 to 5/, why: 'zero HDL' },
+];
+const UKPDS_REFUSALS = [
+  { field: 'cSystolic', value: 'abc', says: /systolic blood pressure/, why: 'non-numeric systolic (used to throw)' },
+  { field: 'cALC', value: '', says: /A1C as a number from 3 to 20/, why: 'blank A1C' },
+  { field: 'cDuration', value: '55', says: /duration of diabetes as a number from 0 to 54/,
+    why: 'a duration as long as the patient has lived' },
+];
 
 /*
  * Keystroke sequences for the simple calculator, as button labels. Each entry is
@@ -344,6 +382,114 @@ async function checkCoronaryRisk(context, chartPage, recorder, timeout) {
   }
 }
 
+/** Every computed figure cell on the riskcalc page and which one is highlighted. */
+async function riskTable(page) {
+  return page.evaluate(() => {
+    const cells = Array.from(document.querySelectorAll('td[id]'))
+      .filter((cell) => /^(?:bp\d+c\d+|UKPDS_bp\d+c\d+h\d+)$/.test(cell.id));
+    return {
+      filled: cells.filter((cell) => /^≥?\d+%$/.test(cell.textContent.trim())).length,
+      empty: cells.filter((cell) => cell.textContent.trim() === '').length,
+      total: cells.length,
+      bold: cells.filter((cell) => cell.style.fontWeight === 'bold').map((cell) => cell.id),
+      nan: /NaN|Infinity/.test(document.body.innerText),
+      refused: (document.getElementById('riskInputRefused') || { textContent: '' }).textContent,
+    };
+  });
+}
+
+async function fillRiskInputs(page, values) {
+  for (const [field, value] of Object.entries(values)) {
+    await page.locator(`#${field}`).fill(value);
+  }
+}
+
+/** Compute a valid entry and assert a full table with exactly the expected cell highlighted. */
+async function assertRiskComputed(page, values, cell, label, timeout) {
+  await fillRiskInputs(page, values);
+  await page.locator('input.btn[value="Calculate"]').click({ timeout });
+  const table = await riskTable(page);
+  assert(table.refused === '', `${label}: a valid entry was refused: ${table.refused}`);
+  assert(table.total > 0 && table.filled === table.total,
+    `${label}: only ${table.filled} of ${table.total} risk cells show a percentage`);
+  assert(!table.nan, `${label}: the page shows NaN or Infinity for a valid entry`);
+  assert(table.bold.length === 1 && table.bold[0] === cell,
+    `${label}: expected ${cell} highlighted for ${JSON.stringify(values)}, found ${JSON.stringify(table.bold)}`);
+}
+
+/** Enter one unusable box and prove the page refused it and left no answer standing. */
+async function assertRiskRefused(page, valid, scenario, label, timeout) {
+  await fillRiskInputs(page, valid);
+  await page.locator(`#${scenario.field}`).fill(scenario.value);
+  await page.locator('input.btn[value="Calculate"]').click({ timeout });
+  const table = await riskTable(page);
+  assert(scenario.says.test(table.refused) && /Nothing has been calculated/.test(table.refused),
+    `${label}, ${scenario.why}: ${scenario.field}=${JSON.stringify(scenario.value)} should be refused naming the `
+    + `box and its range; the page says ${JSON.stringify(table.refused)}`);
+  assert(table.empty === table.total && table.bold.length === 0,
+    `${label}, ${scenario.why}: refused, yet ${table.total - table.empty} risk cell(s) still show a figure `
+    + `and ${table.bold.length} are highlighted; a clinician would read them`);
+  assert(await page.locator(`#${scenario.field}`).getAttribute('aria-invalid') === 'true',
+    `${label}, ${scenario.why}: the box to correct is not marked invalid`);
+  assert(await page.locator(`#${scenario.field}`).inputValue() === scenario.value,
+    `${label}, ${scenario.why}: the typed value was rewritten instead of refused`);
+}
+
+/**
+ * Framingham, then UKPDS through the page's own "Is the patient diabetic?"
+ * link. The chart's patient must arrive in the form first.
+ */
+async function checkFraminghamUkpds(context, chartPage, recorder, timeout) {
+  const page = await openCalculator(context, chartPage, 'Framingham/UKPDS', recorder, timeout);
+  try {
+    const opened = new URL(page.url());
+    const params = opened.searchParams;
+    assert(params.has('age') && params.has('sex'),
+      `the Calculators index opened the risk calculator without the patient's sex and age: ${page.url()}`);
+    const age = params.get('age');
+    assert(await page.locator('#cAge').inputValue() === age,
+      `the chart passed age ${JSON.stringify(age)} but the calculator shows ${JSON.stringify(await page.locator('#cAge').inputValue())}`);
+    if (params.get('sex') === 'F' || params.get('sex') === 'M') {
+      const sexBox = params.get('sex') === 'F' ? '#cFemale' : '#cMale';
+      assert(await page.locator(sexBox).isChecked(), `the chart passed sex ${params.get('sex')} but it is not selected`);
+    }
+    const onLoad = await riskTable(page);
+    if (/^\d+$/.test(age) && Number(age) >= 30 && Number(age) <= 75) {
+      assert(onLoad.refused === '' && onLoad.filled === onLoad.total,
+        `the chart's age ${age} is inside the table yet the page did not compute on load: ${onLoad.refused}`);
+    } else {
+      assert(/age as a whole number from 30 to 75/.test(onLoad.refused) && onLoad.empty === onLoad.total,
+        `the chart's age ${JSON.stringify(age)} is outside the table, so the page must refuse it on load, `
+        + 'not answer for another age');
+    }
+
+    const refused = [];
+    await assertRiskComputed(page, FRAMINGHAM_VALID, FRAMINGHAM_VALID_CELL, 'Framingham', timeout);
+    for (const scenario of FRAMINGHAM_REFUSALS) {
+      await assertRiskRefused(page, FRAMINGHAM_VALID, scenario, 'Framingham', timeout);
+      refused.push(`Framingham: ${scenario.why}`);
+    }
+    await assertRiskComputed(page, FRAMINGHAM_VALID, FRAMINGHAM_VALID_CELL, 'Framingham after refusals', timeout);
+
+    await Promise.all([
+      page.waitForURL(/riskcalc\/diabetic\.html/, { timeout }),
+      page.locator('#otherCalculator').click({ timeout }),
+    ]);
+    await page.waitForLoadState('domcontentloaded', { timeout });
+    assert(new URL(page.url()).search === opened.search,
+      `the diabetic page lost the patient: ${page.url()}`);
+    await assertRiskComputed(page, UKPDS_VALID, UKPDS_VALID_CELL, 'UKPDS', timeout);
+    for (const scenario of UKPDS_REFUSALS) {
+      await assertRiskRefused(page, UKPDS_VALID, scenario, 'UKPDS', timeout);
+      refused.push(`UKPDS: ${scenario.why}`);
+    }
+    await assertRiskComputed(page, UKPDS_VALID, UKPDS_VALID_CELL, 'UKPDS after refusals', timeout);
+    return { refused };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 async function checkArithmetic(context, chartPage, recorder, timeout) {
   const page = await openCalculator(context, chartPage, 'Simple Calculator', recorder, timeout);
   try {
@@ -387,6 +533,7 @@ async function main() {
     const fracture = await checkFractureRisk(context, chartPage, recorder, timeout);
     const coronary = await checkCoronaryRisk(context, chartPage, recorder, timeout);
     const arithmetic = await checkArithmetic(context, chartPage, recorder, timeout);
+    const risk = await checkFraminghamUkpds(context, chartPage, recorder, timeout);
 
     // A floor, not a formality. Everything above is inside a loop over a table;
     // an empty table would leave every assertion unexecuted and the check would
@@ -399,11 +546,14 @@ async function main() {
       + 'the table holds more, so the loop did not execute');
     assert(arithmetic.length >= 4,
       `Only ${arithmetic.length} arithmetic sequence(s) ran; the table holds more, so the loop did not execute`);
+    assert(risk.refused.length >= 8,
+      `Only ${risk.refused.length} Framingham/UKPDS refusal(s) ran; the tables hold more, so the loop did not execute`);
 
     assertStrictPage(recorder);
     console.log(`  verified ${fracture.computed.length} fracture-risk scenario(s), refused ${fracture.refused.length} `
-      + `fracture and ${coronary.refused.length} coronary age(s), and ${arithmetic.length} arithmetic sequence(s)`);
-    return { fracture, coronary, arithmetic };
+      + `fracture and ${coronary.refused.length} coronary age(s), ${arithmetic.length} arithmetic sequence(s), `
+      + `and ${risk.refused.length} Framingham/UKPDS box(es)`);
+    return { fracture, coronary, arithmetic, risk };
   } finally {
     await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
@@ -414,6 +564,7 @@ if (require.main === module) {
 }
 
 module.exports = {
-  ARITHMETIC_CASES, CORONARY_OUTSIDE_TABLE_AGES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, INVALID_AGE_CASES,
-  REFUSED_AGE_TEXT, T_SCORES, main, openCalculator, parsePointCount, parsePrediction,
+  ARITHMETIC_CASES, CORONARY_OUTSIDE_TABLE_AGES, FRACTURE_BELOW_TABLE_AGE, FRACTURE_CASES, FRAMINGHAM_REFUSALS,
+  FRAMINGHAM_VALID, FRAMINGHAM_VALID_CELL, INVALID_AGE_CASES, REFUSED_AGE_TEXT, T_SCORES, UKPDS_REFUSALS, UKPDS_VALID,
+  UKPDS_VALID_CELL, main, openCalculator, parsePointCount, parsePrediction,
 };

@@ -380,6 +380,20 @@
       ]
     },
     {
+      "name": "legacy-calculator-bookmarks",
+      "script": "scripts/legacy-calculator-bookmarks-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Read-only issue3665 finding130: legacy static calculator bookmarks redirect to the guarded maintained pages with sex/age kept; Framingham/UKPDS prefills from its address and refuses an out-of-range age."
+    },
+    {
       "name": "clinical-freetext",
       "script": "scripts/clinical-freetext-playwright-checks.js",
       "tiers": [
