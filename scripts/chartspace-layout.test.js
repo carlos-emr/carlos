@@ -1,0 +1,50 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const { PRESET, TOP_MAX, normalizeLayout, partition } =
+  require('../src/main/webapp/js/chartspace/chartspace-layout.js');
+
+test('normalizeLayout drops unknown ids and duplicates, first region wins', () => {
+  const out = normalizeLayout({ top: ['a', 'x'], right: ['a', 'b'], hidden: ['b'] }, ['a', 'b']);
+  assert.deepEqual(out, { top: ['a'], right: ['b'], hidden: [] });
+});
+
+test('normalizeLayout caps top at 4 and moves the overflow to the start of right', () => {
+  const out = normalizeLayout(
+    { top: ['a', 'b', 'c', 'd', 'e'], right: ['f'], hidden: [] },
+    ['a', 'b', 'c', 'd', 'e', 'f']);
+  assert.equal(TOP_MAX, 4);
+  assert.deepEqual(out.top, ['a', 'b', 'c', 'd']);
+  assert.deepEqual(out.right, ['e', 'f']);
+});
+
+test('normalizeLayout tolerates missing or non-array regions', () => {
+  assert.deepEqual(normalizeLayout(null, ['a']), { top: [], right: [], hidden: [] });
+  assert.deepEqual(normalizeLayout({ top: 'a', right: 7 }, ['a']), { top: [], right: [], hidden: [] });
+});
+
+test('normalizeLayout returns a fresh object and never mutates PRESET', () => {
+  const out = normalizeLayout(PRESET, ['allergies']);
+  assert.notEqual(out, PRESET);
+  assert.notEqual(out.right, PRESET.right);
+  assert.ok(Object.isFrozen(PRESET));
+  assert.deepEqual(out, { top: [], right: ['allergies'], hidden: [] });
+  out.right.push('zzz');
+  assert.deepEqual(PRESET.right, ['allergies']);
+});
+
+test('partition auto-hides EMPTY blocks but never NO_ACCESS, ERROR or LOADING', () => {
+  const out = partition(
+    { top: [], right: ['a', 'b', 'c', 'd'], hidden: [] },
+    { a: 'EMPTY', b: 'NO_ACCESS', c: 'ERROR', d: 'LOADING' });
+  assert.deepEqual(out.right, ['b', 'c', 'd']);
+  assert.deepEqual(out.hidden, ['a']);
+  assert.equal(out.hiddenHasData, false);
+});
+
+test('partition flags hiddenHasData only when a hidden block has data', () => {
+  const layout = { top: [], right: [], hidden: ['a'] };
+  assert.equal(partition(layout, { a: 'OK' }).hiddenHasData, true);
+  assert.equal(partition(layout, { a: 'EMPTY' }).hiddenHasData, false);
+});
