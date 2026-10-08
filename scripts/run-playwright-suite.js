@@ -44,6 +44,14 @@
  *       failed-elsewhere  failed at any other step, outside a labelled step, in its
  *                         cleanup, by timeout or interruption: FAILS the run, so a
  *                         known defect cannot hide a new one.
+ *   - the browser version. A failure that comes from the browser (Chromium 154 refuses a
+ *     beforeunload prompt from a handler that removes itself, and names a non-ASCII download
+ *     "download" under the POSIX locale) looks exactly like one that comes from the application, so
+ *     a result is only readable next to the browser that produced it. A check that starts its
+ *     browser through the harness's launchBrowser() reports it in its RESULT_JSON record
+ *     (`browserVersion`); the runner keeps it on that check's result, prints the distinct versions
+ *     once under the summary, and writes them into the JUnit <properties> as `browserVersion`. A
+ *     check that never launched one (or drives Playwright itself) reports none.
  *   - --residue-audit. A check that changes the shared install and does not put it back
  *     poisons every check after it (finding 180: fax-configure left a fake SRFax account
  *     polling, and FaxImporter logged an ERROR a minute until the next restart). With the flag
@@ -278,6 +286,20 @@ function readCheckRecord(resultPath) {
   }
 }
 
+/**
+ * The browser version a child reported, or undefined. The record is a file the child wrote, so the value
+ * is data: only a short run of plain version characters is kept, because it is printed to the console and
+ * written into the JUnit report.
+ */
+function cleanBrowserVersion(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9][\w .+-]{0,79}$/.test(value) ? value : undefined;
+}
+
+/** The distinct browser versions the results report, in order first seen (none when no check reported one). */
+function browserVersionsOf(results) {
+  return [...new Set(results.map((result) => result.browserVersion).filter(Boolean))];
+}
+
 /** Outcomes that fail the run. known-fail, unexpected-pass, SKIP and PASS do not. */
 const FAILING_OUTCOMES = new Set(['FAIL', 'failed-elsewhere']);
 
@@ -373,6 +395,10 @@ function runOne(check, options, run = spawnSync) {
       },
     });
     const durationMs = Date.now() - started;
+    // Read once, for every outcome: the failing step matters only to a failure, but the browser a check
+    // used is worth knowing for a pass too. A timeout wrote no record (it is written when the check ends).
+    const record = resultPath ? readCheckRecord(resultPath) : null;
+    const browserVersion = cleanBrowserVersion(record && record.browserVersion);
     let raw;
     if (result.error && result.error.code === 'ETIMEDOUT') {
       raw = { outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s` };
@@ -383,7 +409,6 @@ function runOne(check, options, run = spawnSync) {
     } else {
       // The failing step counts only for an ordinary failure (exit 1) whose record says FAIL:
       // exit 130/143 is an interruption, and a missing record means the child never reached runCheck.
-      const record = resultPath ? readCheckRecord(resultPath) : null;
       const ordinary = result.status === EXIT_FAIL && record && record.outcome === 'FAIL';
       const failedStep = ordinary && typeof record.failedStep === 'string' && record.failedStep
         ? record.failedStep : undefined;
@@ -394,7 +419,7 @@ function runOne(check, options, run = spawnSync) {
         cleanupFailed: Boolean(ordinary && record.cleanupFailed),
       };
     }
-    return { name: check.name, ...classifyResult(check, raw), durationMs };
+    return { name: check.name, ...classifyResult(check, raw), durationMs, ...(browserVersion ? { browserVersion } : {}) };
   } finally {
     if (resultDirectory) fs.rmSync(resultDirectory, { recursive: true, force: true });
   }
@@ -428,7 +453,13 @@ function toJUnit(results) {
     }
     return `${open}</testcase>`;
   }).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="carlos-playwright-suite" tests="${results.length}" failures="${failures}" skipped="${skipped}">\n${cases}\n  </testsuite>\n</testsuites>\n`;
+  // The browser goes in <properties> (the JUnit place for run metadata), once for the suite, and only when a
+  // check reported one, so a report from a run that launched no browser is unchanged.
+  const versions = browserVersionsOf(results);
+  const properties = versions.length
+    ? `\n    <properties>\n      <property name="browserVersion" value="${escapeXml(versions.join(', '))}"/>\n    </properties>`
+    : '';
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>\n  <testsuite name="carlos-playwright-suite" tests="${results.length}" failures="${failures}" skipped="${skipped}">${properties}\n${cases}\n  </testsuite>\n</testsuites>\n`;
 }
 
 function summarise(results, out = console) {
@@ -447,6 +478,9 @@ function summarise(results, out = console) {
     .filter((outcome) => counts[outcome]).map((outcome) => `${counts[outcome]} ${outcome}`);
   out.log('');
   out.log(`  ${counts.PASS || 0} passed, ${counts.FAIL || 0} failed, ${counts.SKIP || 0} skipped${expectation.length ? `, ${expectation.join(', ')}` : ''}`);
+  // Once per run, not per row: the browser is a property of the run, and a second version is worth a line.
+  const versions = browserVersionsOf(results);
+  if (versions.length) out.log(`  browser: ${versions.join(', ')}`);
 }
 
 /** 1 when any result is FAIL or failed-elsewhere; known-fail and unexpected-pass are reported only. */
@@ -665,6 +699,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  assertSafeTarget, classifyResult, exitCodeFor, loadManifest, main, mutatesOf, parseArguments, readBuildIdentity,
-  runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
+  assertSafeTarget, browserVersionsOf, classifyResult, cleanBrowserVersion, exitCodeFor, loadManifest, main, mutatesOf,
+  parseArguments, readBuildIdentity, runOne, selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

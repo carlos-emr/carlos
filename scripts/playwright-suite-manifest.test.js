@@ -269,7 +269,7 @@ test('every registered browser check parses before it can be scheduled', () => {
  *                     FAILS the run, because a known defect must not hide a new one
  */
 const {
-  classifyResult, exitCodeFor, runOne, main, summarise, validateExpectedFailure,
+  browserVersionsOf, classifyResult, cleanBrowserVersion, exitCodeFor, runOne, main, summarise, validateExpectedFailure,
 } = require('./run-playwright-suite');
 const { EXIT_FAIL, EXIT_PASS } = require('./lib/playwright-harness');
 
@@ -497,6 +497,146 @@ test('shouldExitZeroFromMain_whenOnlyKnownFailuresAndUnexpectedPassesOccur', () 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+/*
+ * The browser version. A failure that comes from the browser (Chromium 154 refuses a beforeunload prompt
+ * from a handler that removes itself, and names a non-ASCII download "download" under the POSIX locale)
+ * reads exactly like an application defect, so a result is recorded next to the browser that produced it:
+ * on the check's result, once under the console summary, and in the JUnit <properties>.
+ */
+const BROWSER = 'chromium 154.0.8025.0';
+const passingCheck = (overrides = {}) => expectingCheck({ expectedFailure: undefined, ...overrides });
+const passRecord = (extra = {}) => ({ name: 'two-windows', outcome: 'PASS', detail: '', durationMs: 1, ...extra });
+
+test('shouldCarryBrowserVersion_whenTheChildRecordsOne', () => {
+  const passed = runOne(passingCheck(), { env: {} }, child({ status: 0, record: passRecord({ browserVersion: BROWSER }) }));
+  assert.equal(passed.outcome, 'PASS');
+  assert.equal(passed.browserVersion, BROWSER);
+  // A browser-caused failure is when the version is wanted most, and it must not disturb the classification.
+  const known = runOne(expectingCheck(), { env: {} }, child({ record: failureAt(EXPECTED.step, { browserVersion: BROWSER }) }));
+  assert.equal(known.outcome, 'known-fail');
+  assert.match(known.detail, /finding 140/);
+  assert.equal(known.browserVersion, BROWSER);
+  const elsewhere = runOne(expectingCheck(), { env: {} }, child({ record: failureAt('another step', { browserVersion: BROWSER }) }));
+  assert.equal(elsewhere.outcome, 'failed-elsewhere');
+  assert.equal(elsewhere.browserVersion, BROWSER);
+  assert.equal(exitCodeFor([elsewhere]), EXIT_FAIL);
+});
+
+test('shouldLeaveTheResultUnchanged_whenTheChildRecordsNoBrowser', () => {
+  const passed = runOne(passingCheck(), { env: {} }, child({ status: 0 }));
+  assert.deepEqual(Object.keys(passed).sort(), ['detail', 'durationMs', 'name', 'outcome']);
+  const failed = runOne(passingCheck(), { env: {} }, child({ record: failureAt('a step') }));
+  assert.equal('browserVersion' in failed, false);
+  const timedOut = runOne(passingCheck(), { env: {} }, () => ({ status: null, error: { code: 'ETIMEDOUT' } }));
+  assert.equal(timedOut.detail, 'timed out after 5s');
+  assert.equal('browserVersion' in timedOut, false);
+});
+
+test('shouldDropABrowserVersion_thatIsNotPlainVersionText', () => {
+  // The record is a file the child wrote: its value is printed and written into JUnit, so it is data.
+  for (const bad of ['', '   ', 'x"><script>', 'a\nb', 'x'.repeat(81), 154, null, {}, ['chromium 1'], '-1', ' chromium 154']) {
+    assert.equal(cleanBrowserVersion(bad), undefined, `${JSON.stringify(bad)} must not reach the report`);
+  }
+  assert.equal(cleanBrowserVersion(BROWSER), BROWSER);
+  assert.equal(cleanBrowserVersion('chromium 154.0.8025.0-rc1+build.7'), 'chromium 154.0.8025.0-rc1+build.7');
+  const hostile = runOne(passingCheck(), { env: {} }, child({ status: 0, record: passRecord({ browserVersion: '"/><script>' }) }));
+  assert.equal('browserVersion' in hostile, false);
+});
+
+test('shouldListEachBrowserVersionOnce_inOrderFirstSeen', () => {
+  const rows = [BROWSER, undefined, BROWSER, 'chromium 153.0.1'].map((browserVersion, index) => ({ name: `c${index}`, browserVersion }));
+  assert.deepEqual(browserVersionsOf(rows), [BROWSER, 'chromium 153.0.1']);
+  assert.deepEqual(browserVersionsOf([{ name: 'a' }]), []);
+});
+
+test('shouldPrintTheBrowserOnce_underTheSummary', () => {
+  const row = (name, extra = {}) => ({ name, outcome: 'PASS', detail: '', durationMs: 1000, ...extra });
+  const { lines, out } = captured();
+  summarise([row('a', { browserVersion: BROWSER }), row('b', { browserVersion: BROWSER }), row('c')], out);
+  assert.equal(lines.filter((line) => /browser:/.test(line)).length, 1, 'once per run, not once per check');
+  assert.ok(lines.includes(`  browser: ${BROWSER}`), lines.join('\n'));
+  assert.equal(lines.at(-1), `  browser: ${BROWSER}`, 'under the counts line, where a reader looks for the verdict');
+  const mixed = captured();
+  summarise([row('a', { browserVersion: BROWSER }), row('b', { browserVersion: 'chromium 153.0.1' })], mixed.out);
+  assert.ok(mixed.lines.includes(`  browser: ${BROWSER}, chromium 153.0.1`), 'a second version is visible');
+  const none = captured();
+  summarise([row('a')], none.out);
+  assert.equal(none.lines.some((line) => /browser/.test(line)), false, 'no line when no check reported a browser');
+});
+
+test('shouldWriteBrowserVersionIntoJUnitProperties', () => {
+  const row = (name, extra = {}) => ({ name, outcome: 'PASS', detail: '', durationMs: 1200, ...extra });
+  const xml = toJUnit([row('a', { browserVersion: BROWSER }), row('b', { browserVersion: BROWSER }), row('c')]);
+  assert.match(xml, new RegExp(`<testsuite [^>]*>\\s*<properties>\\s*<property name="browserVersion" value="${BROWSER}"/>\\s*</properties>\\s*<testcase`),
+    'properties is the first child of the testsuite, before the testcases');
+  assert.equal((xml.match(/name="browserVersion"/g) || []).length, 1, 'one property for the suite');
+  assert.match(xml, /tests="3" failures="0" skipped="0"/);
+  // Nothing changes for a run that launched no browser.
+  const bare = toJUnit([row('a')]);
+  assert.doesNotMatch(bare, /<properties/);
+  assert.match(bare, /<testsuite name="carlos-playwright-suite" tests="1" failures="0" skipped="0">\n    <testcase /);
+  // The value is escaped even though cleanBrowserVersion already restricts it.
+  assert.match(toJUnit([row('a', { browserVersion: 'x"y<z' })]), /value="x&quot;y&lt;z"/);
+});
+
+test('shouldReportBrowserVersionFromARealChild_throughMainIntoJUnit', (t) => {
+  const { script, piped } = realChild(t, `
+    h.recordBrowserVersion({ version: () => '154.0.8025.0', browserType: () => ({ name: () => 'chromium' }) });
+    return null;`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runner-browser-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const junit = path.join(dir, 'out.xml');
+  const absolute = { ...passingCheck({ script, timeoutSec: 30 }) };
+  const { code, text } = mainWith([absolute], piped, ['--junit', junit], process.env);
+  assert.equal(code, EXIT_PASS);
+  assert.match(text, /\n {2}browser: chromium 154\.0\.8025\.0/);
+  assert.match(fs.readFileSync(junit, 'utf8'), /<property name="browserVersion" value="chromium 154\.0\.8025\.0"\/>/);
+  // A child that never launched a browser reports none.
+  const quiet = realChild(t, 'return null;');
+  const result = runOne(passingCheck({ script: quiet.script, timeoutSec: 30 }), { env: process.env }, quiet.piped);
+  assert.equal(result.outcome, 'PASS');
+  assert.equal('browserVersion' in result, false);
+});
+
+/*
+ * Three checks failed on alpha19 for reasons that belong to the browser and the front door, not the
+ * application. The fixes remove the artefact; these guards keep a later "simplification" from putting
+ * it back (each artefact was reproduced on the packaged Chromium 154).
+ */
+function scriptText(name) {
+  return fs.readFileSync(path.join(__dirname, name), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+test('shouldNotRegisterABeforeunloadHandlerThatRemovesItself_inDoubleSubmitEform', () => {
+  // Chromium suppresses the prompt of a handler that removes itself while it runs ({ once: true } does),
+  // and blames a missing user gesture. The check disarms the handler from a timer instead.
+  const source = scriptText('double-submit-eform-playwright-checks.js');
+  assert.doesNotMatch(source, /addEventListener\('beforeunload',[\s\S]{0,160}?\},\s*\{\s*once:\s*true/,
+    'a once:true beforeunload handler is blocked by Chromium 154');
+  assert.equal((source.match(/addEventListener\('beforeunload'/g) || []).length, 1, 'one registration, in the helper');
+  assert.match(source, /setTimeout\(\(\) => window\.removeEventListener\('beforeunload'/);
+  assert.match(source, /armUnsavedChangesPrompt\(form\)/);
+  assert.match(source, /await heading\.click\(\)/, 'the page is clicked before it is navigated away from');
+});
+
+test('shouldAssertTheHeaderFilename_notTheBrowsersDownloadName_inEformExportZip', () => {
+  // download.suggestedFilename() is the browser's choice and follows its locale: Chromium 154 under the
+  // POSIX locale names a download whose filename*= is not ASCII "download".
+  const source = scriptText('export-content-eform-export-zip-playwright-checks.js');
+  assert.doesNotMatch(source, /\bfile\.name\b|suggestedFilename|browserDownload/);
+  assert.match(source, /decodedName === form\.download/);
+  assert.match(source, /plainFilename\(header\) === form\.download/);
+});
+
+test('shouldClassifyTheFrontDoorsRefusal_withIsWafPage_inMessengerWriteToEncounter', () => {
+  const source = scriptText('gap-provider-messenger-write-to-encounter-playwright-checks.js');
+  assert.match(source, /h\.isWafPage\(status,/);
+  // Only the out-of-range id may be answered by the WAF; the others must reach the application's 400.
+  assert.match(source, /\{ id: '2147483648', wafMayRefuse: true \}/);
+  assert.equal((source.match(/wafMayRefuse: true/g) || []).length, 1);
+  assert.match(source, /written\(\) === rowsBefore/, 'a refusal is only shown with the rows unchanged');
 });
 
 /*

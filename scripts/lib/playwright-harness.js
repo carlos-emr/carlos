@@ -849,11 +849,48 @@ function getLaunchOptions(chromePath) {
   return launchOptions;
 }
 
+/**
+ * The version of the browser a check drove, for the run's record ("chromium 154.0.8025.0"), or undefined
+ * when the object does not say.
+ *
+ * WHY IT IS RECORDED. A browser's rules change between releases and under the host's settings: Chromium
+ * 154 refuses a beforeunload prompt from a handler that removes itself, and names a download "download"
+ * under the POSIX locale. A failure that comes from the browser looks exactly like one that comes from the
+ * application, so a result is only interpretable next to the browser that produced it (alpha19 validation,
+ * docs/ui-tests/deb-install-validation.md).
+ *
+ * `browser` is a Playwright Browser. Only the plain version text is kept (the runner copies it into
+ * JUnit and the console, so it is cut down to a short, harmless string).
+ */
+function describeBrowserVersion(browser) {
+  try {
+    const version = browser && typeof browser.version === 'function' ? browser.version() : undefined;
+    if (typeof version !== 'string' || !version.trim()) return undefined;
+    const type = typeof browser.browserType === 'function' ? browser.browserType() : undefined;
+    const name = type && typeof type.name === 'function' ? type.name() : undefined;
+    const text = `${typeof name === 'string' ? `${name} ` : ''}${version}`.replace(/[^\w .+-]/g, '').trim();
+    return text ? text.slice(0, 80) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What launchBrowser() saw in this process; one check is one process, so it is that check's browser. */
+let launchedBrowserVersion;
+
+/** Remember a launched browser's version for runCheck() to write into its record. null forgets it (tests). */
+function recordBrowserVersion(browser) {
+  launchedBrowserVersion = browser === null ? undefined : describeBrowserVersion(browser);
+  return launchedBrowserVersion;
+}
+
 /** Lazy so the harness stays require()-able in CI, which has no browser binary. */
 async function launchBrowser(config) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  return chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  recordBrowserVersion(browser);
+  return browser;
 }
 
 /**
@@ -1264,7 +1301,8 @@ async function assertRefused(s, {
  * A failure also reports WHICH labelled step threw (`failedStep`, set by markFailedStep, which
  * workflow-session's step() calls) and whether cleanup failed (`cleanupFailed`). A script that
  * runs through runCheck directly and labels its own steps wraps each body with markFailedStep to
- * take part in the manifest's expectedFailure bookkeeping.
+ * take part in the manifest's expectedFailure bookkeeping. The record also carries `browserVersion`
+ * ("chromium 154.0.8025.0") when launchBrowser() started a browser in this process.
  */
 async function runCheck(options) {
   const { name } = options;
@@ -1318,10 +1356,14 @@ async function runCheck(options) {
   // failedStep and cleanupFailed are written only when they carry information, so a passing
   // record keeps its original four fields. The runner reads both: a failure at the step the
   // manifest expects is a known failure only if its cleanup also left nothing behind.
+  // browserVersion only when this process launched a browser through launchBrowser(): a check that
+  // skipped before launching, or drives Playwright itself, records none rather than a guess.
+  const browserVersion = launchedBrowserVersion;
   const record = {
     name, outcome, detail, durationMs,
     ...(failedStep ? { failedStep } : {}),
     ...(cleanupFailed ? { cleanupFailed: true } : {}),
+    ...(browserVersion ? { browserVersion } : {}),
   };
   const resultPath = (options.env || processRef.env || {}).RESULT_JSON;
   if (resultPath) {
@@ -1359,6 +1401,8 @@ module.exports = {
   isLocalTlsTarget,
   isWafPage,
   launchBrowser,
+  describeBrowserVersion,
+  recordBrowserVersion,
   loadConsoleBaseline,
   login,
   markFailedStep,

@@ -19,6 +19,35 @@ const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowS
 
 const q = h.sqlString;
 
+/**
+ * Put the page in the state a clinician's is in when a browser shows its "Leave site?" prompt: the user
+ * has clicked in it, and a beforeunload handler asks to stay.
+ *
+ * TWO BROWSER RULES, BOTH ARTEFACTS OF THE TEST BROWSER AND NOT OF THE APPLICATION. Chromium suppresses
+ * the prompt, and logs "Blocked attempt to show a 'beforeunload' confirmation panel for a frame that never
+ * had a user gesture since its load", in these cases (reproduced on the packaged Chromium 154):
+ *   1. the frame never had a user gesture. locator.fill() inserts text and is not a gesture, so the page
+ *      is clicked first: a real, trusted click on the fixture's own heading, a neutral element with no
+ *      handler, so it cannot change the form, press a toolbar button or start the submission measured;
+ *   2. the handler removes ITSELF while it runs, which is what `addEventListener(..., { once: true })` does.
+ *      The message blames the gesture, but a gesture does not help: the same page and click show the prompt
+ *      for a handler that stays registered. So the handler disarms itself from a timer, after the browser
+ *      has taken the prompt, which keeps the one-shot behaviour the later steps rely on (the corrected
+ *      form must save without a second prompt).
+ */
+async function armUnsavedChangesPrompt(form) {
+  const heading = form.locator('h2').first();
+  await heading.waitFor({ state: 'visible' });
+  await heading.click();
+  await form.evaluate(() => {
+    const prompt = event => {
+      setTimeout(() => window.removeEventListener('beforeunload', prompt), 0);
+      event.preventDefault(); event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', prompt);
+  });
+}
+
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const formName = `${marker} dbl form`;
@@ -73,9 +102,7 @@ async function workflow(s) {
       const activate = () => rapid(mode.key, form.locator('#remoteSubmitButton'),
         { textField: form.locator('#remoteSubmitButton') });
       if (mode.key === 'slowResubmit') {
-        await form.evaluate(() => window.addEventListener('beforeunload', event => {
-          event.preventDefault(); event.returnValue = '';
-        }, { once: true }));
+        await armUnsavedChangesPrompt(form);
         const dialogs = await h.withExpectedDialogs(form, activate);
         h.assert(dialogs.length === 1 && dialogs[0].type === 'beforeunload', 'Expected an accepted unsaved-form navigation prompt');
       } else await activate();
@@ -150,9 +177,7 @@ async function workflow(s) {
     h.assert(rows() === '0' && await form.locator('#remoteSubmitButton').isEnabled(),
       'Late window cancellation saved or trapped the next attempt');
     h.assert(await form.locator('#oscar-spinner-screen.active-oscar-spinner').count() === 0, 'Late cancellation left an overlay blocking edits');
-    await form.evaluate(() => window.addEventListener('beforeunload', event => {
-      event.preventDefault(); event.returnValue = '';
-    }, { once: true }));
+    await armUnsavedChangesPrompt(form);
     const dialogs = await h.withExpectedDialogs(form, () => Promise.all([
       form.waitForEvent('dialog', { predicate: dialog => dialog.type() === 'beforeunload' }),
       form.locator('#remoteSubmitButton').click({ noWaitAfter: true }),

@@ -1059,3 +1059,83 @@ test('shouldShareOneWafDefinition_betweenTheHarnessAndTheGetRejectProbe', () => 
   assert.equal(harness.isWafPage(403, SECURITY_ERROR_BODY), false);
   assert.equal(harness.isWafPage(404, WAF_BODY), false);
 });
+
+/*
+ * The browser version a run used. A browser rule can fail a check (Chromium 154 refuses a beforeunload
+ * prompt from a handler that removes itself, and names a non-ASCII download "download" under the POSIX
+ * locale), and the failure reads exactly like an application defect, so the record names the browser.
+ */
+const fakeBrowser = (version = '154.0.8025.0', name = 'chromium') => ({
+  version: () => version, browserType: () => ({ name: () => name }),
+});
+
+test('shouldDescribeBrowserVersion_asNameAndVersion', () => {
+  assert.equal(harness.describeBrowserVersion(fakeBrowser()), 'chromium 154.0.8025.0');
+  assert.equal(harness.describeBrowserVersion({ version: () => '154.0.8025.0' }), '154.0.8025.0',
+    'a browser object that does not name its type still reports the version');
+});
+
+test('shouldDescribeNothing_whenTheBrowserDoesNotSayItsVersion', () => {
+  for (const browser of [null, undefined, {}, { version: () => '' }, { version: () => '   ' }, { version: () => 154 },
+    { version: () => { throw new Error('browser closed'); } }]) {
+    assert.equal(harness.describeBrowserVersion(browser), undefined);
+  }
+});
+
+test('shouldKeepOnlyPlainVersionText_whenTheBrowserReportsMore', () => {
+  const described = harness.describeBrowserVersion(fakeBrowser('154.0\n<b>x</b>"', 'chromium'));
+  assert.doesNotMatch(described, /[<>"\n]/, 'the text is copied into JUnit and the console');
+  assert.equal(harness.describeBrowserVersion(fakeBrowser('1'.repeat(200))).length <= 80, true);
+});
+
+test('shouldRecordBrowserVersion_whenLaunchBrowserStartedOne', async (t) => {
+  // launchBrowser requires playwright lazily; stand a fake in for it, as the CI job has no browser binary.
+  const Module = require('node:module');
+  const load = Module._load;
+  const launched = [];
+  Module._load = function stubbed(request, ...rest) {
+    if (request === 'playwright') {
+      return { chromium: { launch: async (options) => { launched.push(options); return fakeBrowser('154.0.8025.0'); } } };
+    }
+    return load.call(this, request, ...rest);
+  };
+  t.after(() => { Module._load = load; harness.recordBrowserVersion(null); });
+  harness.recordBrowserVersion(null);
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-browser-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const resultPath = path.join(directory, 'result.json');
+  const processRef = { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} };
+  const result = await runCheck({
+    name: 'browsing',
+    run: async () => { await harness.launchBrowser({ chromePath: '', headless: true }); },
+    stdout: { log() {} },
+    processRef,
+  });
+  assert.equal(launched.length, 1, 'launchBrowser reached the (fake) playwright');
+  assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
+  assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).browserVersion, 'chromium 154.0.8025.0');
+});
+
+test('shouldRecordBrowserVersion_evenWhenTheCheckFails', async (t) => {
+  // A browser-caused failure is exactly when the version is wanted.
+  t.after(() => harness.recordBrowserVersion(null));
+  harness.recordBrowserVersion(fakeBrowser());
+  const result = await runCheck({
+    name: 'failing',
+    run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'a step'); },
+    stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal(result.failedStep, 'a step');
+  assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
+});
+
+test('shouldOmitBrowserVersion_whenNoBrowserWasLaunched', async () => {
+  harness.recordBrowserVersion(null);
+  const result = await runCheck({
+    name: 'no-browser', run: async () => null, stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+  });
+  assert.equal('browserVersion' in result, false, 'a skipped or non-browser check records none rather than a guess');
+});
