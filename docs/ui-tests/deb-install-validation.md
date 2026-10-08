@@ -1856,6 +1856,58 @@ package health passed, and the VM stopped. Compilation ran with the VM stopped;
 all local build and installed-test tasks ran serially.
 
 
+### OAuth REST surfaces validation (2026-10-08)
+
+Validation of issue #3446: the CXF JAX-RS servers at `/ws/oauth` (OAuth 1.0a handshake) and
+`/ws/services` (the OAuth data API) answered 404 on every packaged install. The defects behind it
+are findings 129 to 133 in [app-findings-log.md](app-findings-log.md).
+
+**Environment deviations from the runbook above.** There was no LXD. The target was a
+`--privileged` Ubuntu 26.04 **container** running systemd, with host networking, on a cgroup v1
+host. Its entrypoint replaced `/sys/fs/cgroup` with a `cgroup2` mount and exec'd `/sbin/init`.
+The image masked `systemd-networkd`, `systemd-resolved`, `systemd-timesyncd`, udev and the
+gettys so that systemd could not touch the host network, and removed `/usr/sbin/policy-rc.d`.
+Packages were built with `dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` build container,
+with DrugRef from `debian/drugref.pin`, the pinned Chromium and carlos-ctl 1.1.1 from its
+release. The preseed was the one in section 3, except `bind-ip 127.0.0.1` and
+`reset-seed-admin false`. The first-login reset still ran once, to `Carlos2026!Verify`. On both
+installs the postinst's first nginx reload failed: the stock site's `[::]:80` fails on a host
+without IPv6. `carlos-ctl finish-install` then completed and `carlos-ctl check` passed in full.
+
+Two lessons from the rebuilds:
+
+- A rebuild with `-nc` reuses `debian/debhelper-build-stamp`, so `dh` skips `dh_auto_build` and
+  packages the previous WAR. Delete `debian/.debhelper`, `debian/debhelper-build-stamp`,
+  `debian/files` and the staging directories (keep `debian/build/m2` if you like), then confirm
+  the change in the packaged classes before installing.
+- The unfixed install still held the `ModuleNames=REST` experiment until the JVM restarted.
+  Restart after any `carlos.properties` change before probing.
+
+**Reproduction** on `carlos-emr 2026.09.0~snapshot26`, unfixed `release/2026.08` at
+`17c363e3`, through `https://localhost/carlos`:
+
+| Probe | Unfixed | `ModuleNames=REST` added | Fixed (no `ModuleNames` change) |
+|---|---|---|---|
+| `POST /ws/oauth/initiate` (no OAuth parameters) | 404 `No service was found.` | 400 `invalid_oauth_parameters` | 400 `invalid_oauth_parameters` |
+| `GET /ws/oauth/authorize` (no token) | 404 | 400 | 400 |
+| `GET /ws/services/oauth/info` (anonymous) | 404 | 401 | 401 |
+| `GET /ws/rs/status/checkIfAuthed` (anonymous) | 401 | 401 | 401 |
+| `GET /ws/LoginService?wsdl` | 200 | 200 | 200 |
+| `/ws/rs/demographics/1` `patientStatusDate` (session) | `1690243200000` | `"2023-07-25"` | `1690243200000` |
+
+**Results** (`EXPECT_FRONT_DOOR=true`, `https://127.0.0.1/carlos`):
+
+| Check | Upgrade (`snapshot26` → fix, in place) | Fresh install (`2026.09.0~snapshot26+issue3446.4`) |
+|---|---|---|
+| `oauth-rest-surfaces` (new) | PASS | PASS. FAILS on the same container downgraded to the unfixed `snapshot26` (CXF 404 on `/ws/oauth/initiate`) |
+| `application-health`, `browser-surface`, `schedule-links`, `echart`, `error-sanitization`, `mutator-get-rejection-live`, `drug-search`, `document-upload`, `tickler-crud`, `appointment-lifecycle`, `eform-render`, `eform-admin-crud`, `prevention-lifecycle`, `anonymous-access-refused`, `login` | PASS | PASS |
+| `demographic-edit-update` | FAIL: the default `FAKE-` search did not return patient 2 (precondition) | PASS with `DEMOGRAPHIC_EDIT_SEARCH` set to patient 2's surname |
+| `admin-jobs` | FAIL, **pre-existing** | FAIL, **pre-existing**: the DataTables `jobTypeTable` "Cannot reinitialise" alert the check's own header reports for the Job Type editor. It fails identically on the same container downgraded to the unfixed `snapshot26` |
+
+The upgrade column ran on the `+issue3446.3` package. `AuthorizeResource` and
+`AbstractServiceImpl` were then hot-replaced from the branch (findings 131 and 132 were found on
+that install), which is the code the fresh-install `.4` package carries.
+
 ### PR #4055 annotation capacity and session validation
 
 Annotation validation exercises a newly filed multipage document so cached page images cannot

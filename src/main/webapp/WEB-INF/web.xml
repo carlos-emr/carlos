@@ -8,9 +8,11 @@
 
   <!-- Not read. OscarSpringContextLoader (registered as a listener below) refreshes the root
        Spring context itself, so Spring never applies this parameter, and the wildcard below does
-       not load every applicationContext*.xml. The loader reads applicationContext.xml,
-       applicationContextREST.xml and each applicationContext<Name>.xml named in the ModuleNames
-       property. Change that list in OscarSpringContextLoader (issue #3446). -->
+       not load every applicationContext*.xml. JavaMelody's monitoring-spring.xml is not loaded
+       either, and nothing here uses @MonitoredWithSpring; its MonitoringFilter is wired separately.
+       The loader reads applicationContext.xml, applicationContextREST.xml and each
+       applicationContext<Name>.xml named in the ModuleNames property. Change that list in
+       OscarSpringContextLoader (issue #3446). -->
   <context-param>
     <param-name>contextConfigLocation</param-name>
     <param-value>
