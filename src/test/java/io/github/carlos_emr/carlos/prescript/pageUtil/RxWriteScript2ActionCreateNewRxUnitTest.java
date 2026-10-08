@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.AllergyDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -29,6 +31,8 @@ import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
+import io.github.carlos_emr.carlos.prescript.data.RxInteractionData;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -58,6 +62,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -82,6 +87,8 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<RxPatientData> patientDataMock;
+    private MockedStatic<RxInteractionData> interactionDataMock;
     private AutoCloseable mocks;
 
     @Mock
@@ -130,6 +137,16 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
 
+        // Staging a card starts the interaction and allergy preloads on worker threads; stub their
+        // sources so no worker reaches the DrugRef service (construction mocks are thread-local).
+        registerMock(AllergyDao.class, mock(AllergyDao.class));
+        RxPatientData.Patient patient = mock(RxPatientData.Patient.class);
+        when(patient.getActiveAllergies()).thenReturn(new Allergy[0]);
+        patientDataMock = mockStatic(RxPatientData.class);
+        patientDataMock.when(() -> RxPatientData.getPatient(any(LoggedInInfo.class), anyInt())).thenReturn(patient);
+        interactionDataMock = mockStatic(RxInteractionData.class);
+        interactionDataMock.when(RxInteractionData::getInstance).thenReturn(mock(RxInteractionData.class));
+
         bean = new RxSessionBean();
         bean.setDemographicNo(DEMOGRAPHIC_NO);
         bean.setProviderNo("999998");
@@ -144,6 +161,12 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDown() throws Exception {
+        if (interactionDataMock != null) {
+            interactionDataMock.close();
+        }
+        if (patientDataMock != null) {
+            patientDataMock.close();
+        }
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }

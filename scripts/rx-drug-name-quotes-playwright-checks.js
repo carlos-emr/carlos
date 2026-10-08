@@ -24,6 +24,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageCustomDrug } = require('./rx-stash-patient-isolation-playwright-checks');
+const { assertStored, hex } = require('./lib/boundary-values');
 
 const q = h.sqlString;
 const CATALOGUE_TERM = process.env.RX_QUOTE_DRUG_TERM || 'BENADRYL ALLERGY';
@@ -31,6 +32,7 @@ const CATALOGUE_NAME = process.env.RX_QUOTE_DRUG_NAME || "CHILDREN'S BENADRYL AL
 const isPost = route => response => response.request().method() === 'POST' && h.pathOnly(response.url()).endsWith(route);
 // The two ways the name used to come back wrong: a backslash before a quote, and U+FFFD for an accent.
 const mangled = text => /\\['"]/.test(text) || text.includes('�');
+const squash = text => String(text).replace(/\s+/g, ' ').trim();
 
 /** The print window is an iframe over the Rx page; poll Playwright's own frame list for it. */
 async function viewScriptFrame(page, timeout = 60000) {
@@ -117,7 +119,7 @@ async function workflow(s) {
       DELETE FROM DigitalSignature WHERE demographicId=${patient} AND moduleType='PRESCRIPTION'`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient})
       + (SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})`) === '0',
+      + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient} AND moduleType='PRESCRIPTION')`) === '0',
     'The owned prescription rows were not removed');
   });
   // Apostrophe, double-quote pair and an accent; the marker keeps it the owned patient's own drug.
@@ -136,21 +138,22 @@ async function workflow(s) {
     h.assert(staged === customName, `The staged card is named "${staged}", not "${customName}"`);
     const offered = await favouritePromptDefault(rx, key);
     h.assert(offered === customName, `Add to Favorites offered "${offered}", not "${customName}"`);
-    cards.push({ key, name: customName, column: 'customName' });
+    cards.push({ key, name: customName, column: 'customName', row: `customName LIKE ${q(`${s.marker}%`)}` });
   });
 
-  await s.step(`a DrugRef product with an apostrophe (${CATALOGUE_NAME}) is staged and offered to favourites as the search showed it`, async () => {
+  await s.step(`a DrugRef product with an apostrophe (${CATALOGUE_NAME}), when this install offers one, is staged and offered to favourites as the search showed it`, async () => {
     const picked = await stageCatalogueDrug(rx, CATALOGUE_TERM, CATALOGUE_NAME);
     if (!picked) {
       console.log(`  NOTE rx-drug-name-quotes: DrugRef offers no "${CATALOGUE_NAME}" for "${CATALOGUE_TERM}" on this install; `
         + 'the catalogue half is not exercised (set RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME)');
       return;
     }
+    // The menu label is rendered text (whitespace collapsed); the card holds the stored name itself.
     const staged = await rx.locator(`#drugName_${picked.key}`).inputValue();
-    h.assert(staged === picked.shown, `The search showed "${picked.shown}" but the staged card is named "${staged}"`);
+    h.assert(squash(staged) === picked.shown, `The search showed "${picked.shown}" but the staged card is named "${staged}"`);
     const offered = await favouritePromptDefault(rx, picked.key);
-    h.assert(offered === picked.shown, `Add to Favorites offered "${offered}", not "${picked.shown}"`);
-    cards.push({ key: picked.key, name: picked.shown, column: 'BN' });
+    h.assert(offered === staged, `Add to Favorites offered "${offered}", not "${staged}"`);
+    cards.push({ key: picked.key, name: staged.trim(), column: 'BN', row: "(customName IS NULL OR customName='')" });
   });
 
   let scriptNo;
@@ -165,17 +168,22 @@ async function workflow(s) {
     script = await viewScriptFrame(rx);
     scriptNo = new URL(script.url()).searchParams.get('scriptId');
     h.assert(/^[1-9]\d*$/.test(scriptNo), 'Save And Print opened no saved script');
+    await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND script_no=${scriptNo}`,
+      String(cards.length), `The saved script does not hold the ${cards.length} staged drug(s)`);
     for (const card of cards) {
-      await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND script_no=${scriptNo}
-        AND ${card.column}=${q(card.name)} AND special LIKE ${q(`${card.name.replace(/[\\%_]/g, '\\$&')}%`)}`, '1',
-      `drugs.${card.column} and drugs.special do not hold "${card.name}" exactly`);
+      // Byte-exact: the column collation ignores case and accents, so an "=" match would miss a lost accent.
+      card.drug = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient} AND script_no=${scriptNo} AND ${card.row}`);
+      h.assert(/^[1-9]\d*$/.test(card.drug), `No single saved drug row for "${card.name}"`);
+      assertStored(sql, 'drugs', card.column, `drugid=${card.drug}`, card.name, `drugs.${card.column}`);
+      h.assert(sql.value(`SELECT HEX(LEFT(special, ${Array.from(card.name).length})) FROM drugs WHERE drugid=${card.drug}`)
+        === hex(card.name), `drugs.special does not start with "${card.name}" exactly`);
     }
     const stored = sql.rows(`SELECT COALESCE(customName,''), COALESCE(BN,''), special FROM drugs WHERE demographic_no=${patient}`);
     h.assert(stored.every(row => row.every(value => !mangled(value))), `A saved drug row holds an escaped name: ${JSON.stringify(stored)}`);
     await script.locator('#preview').waitFor({ state: 'attached', timeout: 30000 });
     const shown = await previewText(script);
     for (const card of cards) {
-      h.assert(shown.includes(card.name), `The print preview does not show "${card.name}"`);
+      h.assert(shown.includes(squash(card.name)), `The print preview does not show "${card.name}"`);
     }
     h.assert(!mangled(shown), 'The print preview shows a backslash before a quote or a replacement character');
   });
@@ -183,11 +191,8 @@ async function workflow(s) {
   await s.step('the drug profile lists the saved names as stored', async () => {
     await rx.reload({ waitUntil: 'networkidle' });
     for (const card of cards) {
-      const drug = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient} AND script_no=${scriptNo}
-        AND ${card.column}=${q(card.name)}`);
-      h.assert(/^[1-9]\d*$/.test(drug), `No saved drug row for "${card.name}"`);
-      const listed = (await rx.locator(`#prescrip_${drug}`).innerText()).replace(/\s+/g, ' ');
-      h.assert(listed.includes(card.name) && !mangled(listed), `The drug profile lists "${listed}" for "${card.name}"`);
+      const listed = squash(await rx.locator(`#prescrip_${card.drug}`).innerText());
+      h.assert(listed.includes(squash(card.name)) && !mangled(listed), `The drug profile lists "${listed}" for "${card.name}"`);
     }
   });
 
@@ -202,7 +207,7 @@ async function workflow(s) {
     await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     const shown = await previewText(reprint);
     for (const card of cards) {
-      h.assert(shown.includes(card.name), `The reprinted preview does not show "${card.name}"`);
+      h.assert(shown.includes(squash(card.name)), `The reprinted preview does not show "${card.name}"`);
     }
     h.assert(!mangled(shown), 'The reprinted preview shows a backslash before a quote or a replacement character');
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === '1',

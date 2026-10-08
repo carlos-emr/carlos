@@ -512,7 +512,7 @@
             Script No: <%= drug.getScriptNo()%><br>
             hide for cpp: <%= drug.getHideFromCpp() %><br>
             GCN: <%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%><br>
-            Gen Name: <%= drug.getGenericName()%><br>
+            Gen Name: <%= SafeEncode.forHtmlContent(drug.getGenericName())%><br>
             Min: <%= drug.getTakeMin()%><br>
             Max: <%= drug.getTakeMax()%><br>
              --%>

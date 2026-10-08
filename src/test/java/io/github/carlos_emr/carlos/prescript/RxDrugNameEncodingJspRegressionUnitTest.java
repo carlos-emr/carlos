@@ -103,6 +103,12 @@ class RxDrugNameEncodingJspRegressionUnitTest {
                         "<%= drug.getAuditString()%>", "<%= SafeEncode.forHtmlContent(drug.getAuditString())%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp",
                         "<%= drug.getGcnSeqNo()%>", "<%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%>"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp",
+                        "<%= drug.getGenericName()%>", "<%= SafeEncode.forHtmlContent(drug.getGenericName())%>"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp",
+                        "<%=drug.getRxDisplay()%>", "<carlos:encode value='<%= drug.getRxDisplay() %>'/>"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/rx/prescribe.jsp",
+                        "value=\"<%=comment%>\"", "value=\"<carlos:encode value='<%= comment %>' context=\"htmlAttribute\"/>\""),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/ListDrugs.jsp",
                         "<%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \")%>",
                         "<carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \") %>'/>"));
