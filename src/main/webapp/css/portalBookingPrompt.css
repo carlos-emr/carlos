@@ -16,10 +16,12 @@
     margin: 0;
     padding: 8px 12px;
 }
+/* The record page styles every button (body#demographiceditdemographic button), which outranks a
+   class selector; the box's own buttons keep their look with !important on the properties it sets. */
 .portal-booking .h3-pill {
-    color: #fff;
-    background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: #fff !important;
+    background-color: transparent !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
     padding: 2px 8px;
     border-radius: 3px;
     font-size: 11px;
@@ -29,7 +31,7 @@
 }
 .portal-booking .h3-pill:hover,
 .portal-booking .h3-pill:focus-visible {
-    border-color: #fff;
+    border-color: #fff !important;
 }
 .portal-booking-summary p {
     margin: 0;
@@ -73,9 +75,9 @@
     margin: 0;
 }
 .portal-booking-dialog .portal-booking-dismiss {
-    background: transparent;
-    border: 0;
-    color: #fff;
+    background: transparent !important;
+    border: 0 !important;
+    color: #fff !important;
     font-size: 1.3rem;
     line-height: 1;
     padding: 0 .25rem;
@@ -91,9 +93,9 @@
 .portal-booking-dialog select { font: inherit; padding: .4rem .6rem; }
 .portal-booking-button {
     font: inherit; font-weight: 600; padding: .4rem .75rem; border: 0; border-radius: 3px; cursor: pointer;
-    background-color: var(--carlos-primary, #337ab7); color: #fff;
+    background-color: var(--carlos-primary, #337ab7) !important; color: #fff !important; border: 0 !important;
 }
-.portal-booking-button.secondary { background-color: #6c757d; }
+.portal-booking-button.secondary { background-color: #6c757d !important; }
 .portal-booking-button.small { padding: .2rem .5rem; font-size: 12px; }
 .portal-booking-button:disabled { opacity: .55; cursor: default; }
 .portal-booking-dialog [data-role="status"] { background-color: #e7f0f9; border-radius: 3px; padding: 6px 10px; margin: 0 0 .75rem; }
