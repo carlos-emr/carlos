@@ -16,14 +16,16 @@
            http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd
            http://cxf.apache.org/jaxrs http://cxf.apache.org/schemas/jaxrs.xsd">
 
-    <!-- CXF core beans -->
-    <import resource="classpath:META-INF/cxf/cxf.xml"/>
+    <!-- OscarSpringContextLoader loads this file on every deployment, into the same root context
+         as applicationContext.xml and the spring_ws.xml it imports (issue #3446). Reuse what that
+         context already provides rather than declaring it again here: the CXF bus
+         (META-INF/cxf/cxf.xml), the oauthProvider alias, and the component-scanned
+         oscarOAuthDataProvider, OAuth1ParamParser and OAuth1SignatureVerifierImplementation.
 
-    <!-- OAuth provider, uses component scan. -->
-    <alias name="oscarOAuthDataProvider" alias="oauthProvider"/>
-
-    <!-- Helpers for initiate -->
-    <bean id="OAuth1ParamParser" class="io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser"/>
+         Every bean id declared here must differ from the ids in spring_ws.xml. Spring allows bean
+         definition overriding, and this file is read after spring_ws.xml, so a shared id silently
+         replaces the session /ws/rs surface's bean with this file's. That is why the JSON/JAXB
+         providers below carry an "oauth" prefix. OAuthRestContextIsolationUnitTest enforces this. -->
 
     <!-- Step 1: Request token (initiate) -->
     <bean id="oscarRequestTokenService"
@@ -47,12 +49,13 @@
     </bean>
 
 
-    <!-- JSON/JAXB providers for CXF JAX-RS -->
+    <!-- JSON/JAXB providers for the OAuth CXF JAX-RS servers. These are NOT the session /ws/rs
+         providers (spring_ws.xml): SmartDateModule is registered only on this mapper. -->
     <!-- Custom Jackson module for smart date serialization -->
     <bean id="smartDateModule" class="io.github.carlos_emr.carlos.webserv.rest.util.SmartDateModule"/>
 
     <!-- Jackson 2 ObjectMapper -->
-    <bean id="jacksonObjectMapper" class="com.fasterxml.jackson.databind.ObjectMapper">
+    <bean id="oauthJacksonObjectMapper" class="com.fasterxml.jackson.databind.ObjectMapper">
         <!-- <property name="serializationInclusion">
             <util:constant static-field="com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL"/>
         </property> -->
@@ -77,7 +80,7 @@
 
     <!-- Register the smart date module with ObjectMapper -->
     <bean class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
-        <property name="targetObject" ref="jacksonObjectMapper"/>
+        <property name="targetObject" ref="oauthJacksonObjectMapper"/>
         <property name="targetMethod" value="registerModule"/>
         <property name="arguments">
             <list>
@@ -87,11 +90,11 @@
     </bean>
 
     <!-- Jackson 2 JAX-RS provider -->
-    <bean id="jsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
-        <property name="mapper" ref="jacksonObjectMapper"/>
+    <bean id="oauthJsonProvider" class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider">
+        <property name="mapper" ref="oauthJacksonObjectMapper"/>
     </bean>
 
-    <bean id="jaxb" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
+    <bean id="oauthJaxbProvider" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
         <property name="marshallerProperties">
             <map>
                 <entry key="jaxb.formatted.output">
@@ -113,7 +116,7 @@
         </property>
     </bean>
 
-    <!-- OAuth 1.0a endpoints at /oscar/ws/oauth/* -->
+    <!-- OAuth 1.0a handshake endpoints at /carlos/ws/oauth/* (initiate, authorize, token) -->
     <jaxrs:server id="oauthEndpoints" address="/oauth">
 
         <jaxrs:serviceBeans>
@@ -128,8 +131,8 @@
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
-            <ref bean="jaxb"/>
-            <ref bean="jsonProvider"/>
+            <ref bean="oauthJaxbProvider"/>
+            <ref bean="oauthJsonProvider"/>
             <!-- Optional: accept x-www-form-urlencoded bodies -->
             <bean class="org.apache.cxf.jaxrs.provider.FormEncodingProvider"/>
             <!-- Render OAuth1Exception with its carried HTTP status instead of a 500 -->
@@ -145,7 +148,8 @@
 
 
 
-    <!-- CXF JAX-RS server for data APIs at /ws/services (NO OAuth interceptor here) -->
+    <!-- CXF JAX-RS server for data APIs at /carlos/ws/services. OAuthInterceptor rejects any call
+         without a valid signed OAuth access token (401); browser sessions use /ws/rs instead. -->
     <jaxrs:server id="restServices" address="/services">
 
 		<jaxrs:inInterceptors>
@@ -194,8 +198,8 @@
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
-            <ref bean="jaxb"/>
-            <ref bean="jsonProvider"/>
+            <ref bean="oauthJaxbProvider"/>
+            <ref bean="oauthJsonProvider"/>
         </jaxrs:providers>
 
         <jaxrs:extensionMappings>
@@ -203,6 +207,5 @@
             <entry key="json" value="application/json"/>
         </jaxrs:extensionMappings>
     </jaxrs:server>
-<context:component-scan base-package="io.github.carlos_emr.carlos.login" />
 
 </beans>
