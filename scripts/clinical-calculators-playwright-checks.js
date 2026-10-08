@@ -443,8 +443,7 @@ async function assertRiskRefused(page, valid, scenario, label, timeout) {
 async function checkFraminghamUkpds(context, chartPage, recorder, timeout) {
   const page = await openCalculator(context, chartPage, 'Framingham/UKPDS', recorder, timeout);
   try {
-    const opened = new URL(page.url());
-    const params = opened.searchParams;
+    const params = new URL(page.url()).searchParams;
     assert(params.has('age') && params.has('sex'),
       `the Calculators index opened the risk calculator without the patient's sex and age: ${page.url()}`);
     const age = params.get('age');
@@ -473,13 +472,20 @@ async function checkFraminghamUkpds(context, chartPage, recorder, timeout) {
     }
     await assertRiskComputed(page, FRAMINGHAM_VALID, FRAMINGHAM_VALID_CELL, 'Framingham after refusals', timeout);
 
+    // The switch link carries the patient as currently entered, not the chart's
+    // original query, so a corrected age or sex survives the switch.
+    const typedAge = await page.locator('#cAge').inputValue();
+    const typedSex = await page.locator('#cFemale').isChecked() ? 'F' : 'M';
     await Promise.all([
       page.waitForURL(/riskcalc\/diabetic\.html/, { timeout }),
       page.locator('#otherCalculator').click({ timeout }),
     ]);
     await page.waitForLoadState('domcontentloaded', { timeout });
-    assert(new URL(page.url()).search === opened.search,
-      `the diabetic page lost the patient: ${page.url()}`);
+    const switched = new URL(page.url()).searchParams;
+    assert(switched.get('age') === typedAge && switched.get('sex') === typedSex,
+      `the diabetic page did not receive the patient as entered (sex ${typedSex}, age ${typedAge}): ${page.url()}`);
+    assert(await page.locator('#cAge').inputValue() === typedAge,
+      'the diabetic page did not prefill the age it was given');
     await assertRiskComputed(page, UKPDS_VALID, UKPDS_VALID_CELL, 'UKPDS', timeout);
     for (const scenario of UKPDS_REFUSALS) {
       await assertRiskRefused(page, UKPDS_VALID, scenario, 'UKPDS', timeout);
