@@ -153,14 +153,19 @@ class SmsHistoryViewModelAssemblerUnitTest {
         when(smsTransactionDao.findByDemographicNo(DEMOGRAPHIC_NO, 0, 25)).thenReturn(List.of(delivered));
         TimeZone original = TimeZone.getDefault();
         try {
-            // A zone other than UTC, so formatting in UTC (CI's usual zone) would fail here.
+            // Zones other than UTC (CI's usual zone), checked one after the other, so formatting in UTC, in one
+            // fixed zone, or in whichever zone was the default when the class loaded would fail here.
             TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+            SmsHistoryViewModel.Row toronto = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
+            TimeZone.setDefault(TimeZone.getTimeZone("America/St_Johns"));
+            SmsHistoryViewModel.Row stJohns = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
 
-            SmsHistoryViewModel.Row row = assembler().assemble(loggedInInfo, DEMOGRAPHIC_NO, 1).rows().get(0);
-
-            assertThat(row)
+            assertThat(toronto)
                     .extracting(SmsHistoryViewModel.Row::createdAt, SmsHistoryViewModel.Row::completedAt)
                     .containsExactly("2026-09-01 10:30", "2026-09-01 10:45");
+            assertThat(stJohns)
+                    .extracting(SmsHistoryViewModel.Row::createdAt, SmsHistoryViewModel.Row::completedAt)
+                    .containsExactly("2026-09-01 12:00", "2026-09-01 12:15");
         } finally {
             TimeZone.setDefault(original);
         }
