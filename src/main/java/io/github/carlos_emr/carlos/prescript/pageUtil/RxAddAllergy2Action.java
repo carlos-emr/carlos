@@ -142,16 +142,27 @@ public final class RxAddAllergy2Action extends ActionSupport {
             return NONE;
         }
         jakarta.servlet.http.HttpSession session = request.getSession();
-        AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken);
+        String fingerprint = AllergySaveTokens.fingerprint(id, name, type, description, startDate,
+                ageOfOnset, severityOfReaction, onSetOfReaction, lifeStage, allergyToArchive, nonDrug,
+                String.valueOf(patient.getDemographicNo()));
+        AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken, fingerprint);
         if (claim == AllergySaveTokens.Claim.ALREADY_SAVED) {
             demographicNo = patient.getDemographicNo();
             return SUCCESS;
         }
-        if (claim == AllergySaveTokens.Claim.IN_PROGRESS) {
+        if (claim == AllergySaveTokens.Claim.IN_PROGRESS || claim == AllergySaveTokens.Claim.PAYLOAD_MISMATCH) {
+            // A mismatch means an earlier attempt with this token may already have been saved with
+            // different values; refuse rather than report values as saved that were never written.
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
         try {
+            demographicNo = patient.getDemographicNo();
+            if (claim == AllergySaveTokens.Claim.RESUME_ARCHIVE) {
+                archiveOriginal(patient, archiveId);
+                AllergySaveTokens.markSaved(session, saveToken);
+                return SUCCESS;
+            }
             return saveAllergy(patient, id, name, type, description, startDate, ageOfOnset,
                     severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
         } finally {
@@ -218,17 +229,23 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         // Add the new allergy (whether new or modified)
         patient.addAllergy(RxUtil.Today(), allergy);
-        AllergySaveTokens.markSaved(request.getSession(), saveToken);
+        // Replacement persisted: a retry must not add again, but an edit still owes the archive.
+        AllergySaveTokens.markAdded(request.getSession(), saveToken);
 
         String ip = request.getRemoteAddr();
         LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_ALLERGY, "" + allergy.getAllergyId(), ip, "" + patient.getDemographicNo(), allergy.getAuditString());
 
-        // Archive only the allergy whose ownership was checked before adding its replacement.
-        if (archiveId != null && patient.deleteAllergy(archiveId)) {
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), ip, "" + patient.getDemographicNo(), null);
-        }
+        archiveOriginal(patient, archiveId);
+        AllergySaveTokens.markSaved(request.getSession(), saveToken);
 
         return SUCCESS;
+    }
+
+    /** Archives the allergy whose ownership was checked before its replacement was added. */
+    private void archiveOriginal(RxPatientData.Patient patient, Integer archiveId) {
+        if (archiveId != null && patient.deleteAllergy(archiveId)) {
+            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ARCHIVE, LogConst.CON_ALLERGY, String.valueOf(archiveId), request.getRemoteAddr(), "" + patient.getDemographicNo(), null);
+        }
     }
 
     /**

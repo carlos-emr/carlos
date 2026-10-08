@@ -216,11 +216,11 @@
                                     }
                                     var saving = false;
 
-                                    function showFailure(detail) {
+                                    function showFailure(detail, message) {
                                         var box = document.getElementById("allergySaveError");
-                                        box.textContent = "NOT SAVED \u2014 this allergy has not been saved (" + detail
-                                            + "). Your entries are kept below; press Add Allergy to try again. "
-                                            + "It will be saved only once.";
+                                        box.textContent = message || ("NOT SAVED \u2014 this allergy has not been saved ("
+                                            + detail + "). Your entries are kept below; press Add Allergy to try again. "
+                                            + "It will be saved only once.");
                                         box.hidden = false;
                                         box.focus();
                                     }
@@ -252,6 +252,12 @@
                                             // (4xx/5xx, a login page after a timeout) means nothing was saved.
                                             if (response.ok && response.redirected && /\/rx\/showAllergy/.test(response.url)) {
                                                 window.location.assign(response.url);
+                                                return;
+                                            }
+                                            if (response.status === 409) {
+                                                showFailure("", "CHECK BEFORE RETRYING \u2014 an earlier attempt with different entries "
+                                                    + "may already have been saved, or this save is still in progress. Open the allergy list "
+                                                    + "(Back to View Allergies) to check before entering this allergy again.");
                                                 return;
                                             }
                                             showFailure(response.redirected ? "your session may have expired"

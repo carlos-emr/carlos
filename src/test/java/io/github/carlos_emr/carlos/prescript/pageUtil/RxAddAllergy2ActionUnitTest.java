@@ -356,6 +356,35 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should resume the archive on retry when the replacement was added but archiving failed")
+    void shouldResumeArchive_whenArchiveFailedAfterAdd() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("allergyToArchive", "42");
+        when(mockRxPatient.getAllergy(42)).thenReturn(new Allergy());
+        when(mockRxPatient.deleteAllergy(42)).thenThrow(new IllegalStateException("db down")).thenReturn(true);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(IllegalStateException.class);
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+        verify(mockRxPatient, times(2)).deleteAllergy(42);
+    }
+
+    @Test
+    @DisplayName("should refuse a retry whose values changed after the token was used")
+    void shouldRejectRetry_whenValuesChangedForUsedToken() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("reactionDescription", "rash");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        mockRequest.setParameter("reactionDescription", "anaphylaxis");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
     @DisplayName("should reject a malformed saveToken before adding an allergy")
     void shouldRejectAdd_whenSaveTokenIsMalformed() throws Exception {
         mockRequest.setParameter("saveToken", "<script>");

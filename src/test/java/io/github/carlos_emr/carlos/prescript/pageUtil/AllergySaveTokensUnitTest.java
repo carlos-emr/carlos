@@ -25,43 +25,46 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AllergySaveTokensUnitTest {
 
     private static final String TOKEN = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    private static final String FP = AllergySaveTokens.fingerprint("a", "b");
 
     @Test
     void shouldClaimThenReportAlreadySaved_afterMarkSaved() {
         MockHttpSession session = new MockHttpSession();
-        assertThat(AllergySaveTokens.claim(session, TOKEN)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
         AllergySaveTokens.markSaved(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN)).isEqualTo(AllergySaveTokens.Claim.ALREADY_SAVED);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.ALREADY_SAVED);
     }
 
     @Test
     void shouldReportInProgress_whenClaimedTwiceConcurrently() {
         MockHttpSession session = new MockHttpSession();
-        AllergySaveTokens.claim(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN)).isEqualTo(AllergySaveTokens.Claim.IN_PROGRESS);
+        AllergySaveTokens.claim(session, TOKEN, FP);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.IN_PROGRESS);
     }
 
     @Test
     void shouldAllowReclaim_afterRelease() {
         MockHttpSession session = new MockHttpSession();
-        AllergySaveTokens.claim(session, TOKEN);
+        AllergySaveTokens.claim(session, TOKEN, FP);
         AllergySaveTokens.release(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
     }
 
     @Test
     void shouldNotReleaseSavedToken_forReleaseAfterSuccess() {
         MockHttpSession session = new MockHttpSession();
-        AllergySaveTokens.claim(session, TOKEN);
+        AllergySaveTokens.claim(session, TOKEN, FP);
         AllergySaveTokens.markSaved(session, TOKEN);
         AllergySaveTokens.release(session, TOKEN);
-        assertThat(AllergySaveTokens.claim(session, TOKEN)).isEqualTo(AllergySaveTokens.Claim.ALREADY_SAVED);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.ALREADY_SAVED);
     }
 
     @Test
     void shouldScopeTokensToSession_perSession() {
-        AllergySaveTokens.markSaved(new MockHttpSession(), TOKEN);
-        assertThat(AllergySaveTokens.claim(new MockHttpSession(), TOKEN)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
+        MockHttpSession other = new MockHttpSession();
+        AllergySaveTokens.claim(other, TOKEN, FP);
+        AllergySaveTokens.markSaved(other, TOKEN);
+        assertThat(AllergySaveTokens.claim(new MockHttpSession(), TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.CLAIMED);
     }
 
     @Test
@@ -71,5 +74,31 @@ class AllergySaveTokensUnitTest {
         assertThat(AllergySaveTokens.isAcceptable(TOKEN)).isTrue();
         assertThat(AllergySaveTokens.isAcceptable("short")).isFalse();
         assertThat(AllergySaveTokens.isAcceptable(TOKEN + "<")).isFalse();
+    }
+
+    @Test
+    void shouldResumeArchive_whenAddedButNotSaved() {
+        MockHttpSession session = new MockHttpSession();
+        AllergySaveTokens.claim(session, TOKEN, FP);
+        AllergySaveTokens.markAdded(session, TOKEN);
+        AllergySaveTokens.release(session, TOKEN);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.RESUME_ARCHIVE);
+        AllergySaveTokens.release(session, TOKEN);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.RESUME_ARCHIVE);
+    }
+
+    @Test
+    void shouldReportMismatch_whenValuesChangedForUsedToken() {
+        MockHttpSession session = new MockHttpSession();
+        AllergySaveTokens.claim(session, TOKEN, FP);
+        AllergySaveTokens.markSaved(session, TOKEN);
+        assertThat(AllergySaveTokens.claim(session, TOKEN, AllergySaveTokens.fingerprint("a", "changed")))
+                .isEqualTo(AllergySaveTokens.Claim.PAYLOAD_MISMATCH);
+    }
+
+    @Test
+    void shouldDistinguishFingerprints_forShiftedBoundaries() {
+        assertThat(AllergySaveTokens.fingerprint("ab", "c")).isNotEqualTo(AllergySaveTokens.fingerprint("a", "bc"));
+        assertThat(AllergySaveTokens.fingerprint((String) null)).isNotEqualTo(AllergySaveTokens.fingerprint("null"));
     }
 }
