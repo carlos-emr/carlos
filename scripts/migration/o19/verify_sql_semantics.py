@@ -68,6 +68,17 @@ checked against the server rather than argued about. (It also makes synthetic
 test data easy to get wrong -- the first draft of this check built its
 mojibake with Python's ISO-8859-1 and reported three false failures.)
 
+## Unique keys during the copy (#4100)
+
+Under FOREIGN_KEY_CHECKS=0 + UNIQUE_CHECKS=0 MariaDB 11.8 stored NO rows,
+and reported success, when an INSERT ... SELECT into an empty InnoDB table
+repeated a unique key. CARLOS adds unique keys OSCAR 19 does not have --
+`demographicExt` (one row per patient and key, `excludeIndicator` aside),
+which OSCAR 19's `addKey` appends to on every edit -- so this is settled on
+the engine with the target's real DDL and the CLI's real ETL executor: a
+collision must stop the copy with ERROR 1062 and the conflicting value
+withheld, and rows the key allows must all land.
+
 Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 2 = usage or connection error.
 """
@@ -150,7 +161,7 @@ if os.path.isdir(os.path.join(_installed, "carlos_ctl")) and _installed not in s
     sys.path.append(_installed)
 
 from carlos_ctl import (o19_preflight, o19digest,               # noqa: E402
-                        o19etl, o19map_schema, o19roles)
+                        o19etl, o19import, o19map_schema, o19roles)
 
 # One merge table, shaped as the manifest describes it: a surrogate integer
 # PK, one natural key, one payload column. consultationServices is the
@@ -2501,6 +2512,168 @@ def _primitive_types_body(client: Client, src: str, dst: str) -> List[str]:
     return failures
 
 
+#: The CARLOS `demographicExt` this tree builds: the V1 baseline's table,
+#: then V1.0.54, which swaps uk_demo_ext for a key over a generated column
+#: that exempts `excludeIndicator`. Read from the migrations, not restated,
+#: so the check follows the schema the package ships.
+MIGRATIONS = REPO_ROOT / "database" / "mysql" / "migration" / "common"
+
+
+def _demographic_ext_target_ddl() -> List[str]:
+    baseline = (MIGRATIONS / "V1__baseline_schema.sql").read_text(
+        encoding="utf-8")
+    match = re.search(r"CREATE TABLE `demographicExt` \(.*?\) ENGINE=[^;]*;",
+                      baseline, re.S)
+    if not match:
+        raise SystemExit("demographicExt is not in the V1 baseline")
+    upgrade = (MIGRATIONS / "V1.0.54__allow_dashboard_exclusion_history.sql"
+               ).read_text(encoding="utf-8")
+    return [match.group(0), upgrade]
+
+
+#: OSCAR 19 as oscarinit.sql creates it: no unique key, because OSCAR's
+#: DemographicExtDao.addKey appends a row per edit and reads the latest.
+UNIQUE_SOURCE_DDL = (
+    "CREATE TABLE demographicExt (id int(10) NOT NULL AUTO_INCREMENT, "
+    "demographic_no int(10), provider_no varchar(6), key_val varchar(64), "
+    "value text, date_time datetime, hidden char(1) DEFAULT '0', "
+    "PRIMARY KEY (id), KEY (demographic_no)) DEFAULT CHARSET=latin1")
+#: Rows CARLOS's key allows: distinct keys, NULL patient twins (a unique
+#: index admits repeated NULLs) and two `excludeIndicator` rows.
+UNIQUE_ALLOWED_ROWS = [
+    "(1, 100, '999998', 'cell', 'FAKE-1', '2020-01-01 00:00:00', '0')",
+    "(2, 100, '999998', 'email', 'FAKE-2', '2020-01-01 00:00:00', '0')",
+    "(3, 101, '999998', 'cell', 'FAKE-3', '2020-01-01 00:00:00', '0')",
+    "(4, NULL, '999998', 'cell', 'FAKE-4', NULL, '0')",
+    "(5, NULL, '999998', 'cell', 'FAKE-5', NULL, '0')",
+    "(6, 100, '999998', 'excludeIndicator', 'a', NULL, '0')",
+    "(7, 100, '999998', 'excludeIndicator', 'b', NULL, '0')",
+]
+#: An OSCAR 19 edit history: patient 100's `cell` changed once. The value
+#: is a marker the refusal must not echo.
+UNIQUE_COLLIDING_ROW = ("(8, 100, '999998', 'cell', 'FAKE-EDITED', "
+                        "'2021-01-01 00:00:00', '0')")
+
+
+def check_unique_collision_refusal(client: Client, src: str,
+                                   dst: str) -> List[str]:
+    """A unique-key collision stops the copy loudly (#4100).
+
+    Run through `o19import.make_etl_query`, the executor P4 copies with,
+    so the session the check measures is the CLI's own. Asserted: rows
+    the key allows all land; a collision raises ERROR 1062 without the
+    conflicting value and leaves the empty target empty, so the table is
+    never checkpointed as copied. The control re-runs the colliding copy
+    under the pre-fix prelude (UNIQUE_CHECKS=0) and reports what this
+    server does with it -- informational, because the silent zero-row
+    success is a server behaviour (seen on 11.8), not every server's.
+    """
+    try:
+        return _unique_collision_body(client, src, dst)
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF "
+                   "EXISTS `{1}`;".format(src, dst))
+
+
+def _unique_collision_body(client: Client, src: str,
+                           dst: str) -> List[str]:
+    """The checks themselves; the caller owns the teardown."""
+    failures: List[str] = []
+    print("\n  unique keys during the copy (#4100)")
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=latin1;".format(src))
+    client.setup("DROP DATABASE IF EXISTS `{0}`; CREATE DATABASE `{0}` "
+                 "DEFAULT CHARSET=utf8mb4;".format(dst))
+    client.setup(UNIQUE_SOURCE_DDL + ";", src)
+    for sql in _demographic_ext_target_ddl():
+        client.setup(sql, dst)
+    keys = {r[0] for r in client.rows(
+        "SELECT index_name FROM information_schema.statistics WHERE "
+        "table_schema = DATABASE() AND table_name = 'demographicExt' AND "
+        "non_unique = 0", dst)}
+    if "uk_demo_ext_single_value" not in keys:
+        # the fixture, not the code: without the key there is nothing to
+        # collide with and every line below would pass vacuously
+        print("setup failed: V1.0.54 did not leave uk_demo_ext_single_value "
+              "(unique keys: {0})".format(sorted(keys)), file=sys.stderr)
+        raise SystemExit(2)
+
+    entry = o19map_schema.TABLES["demographicExt"]
+    dst_cols = o19etl.introspect_columns(
+        lambda sql: client.rows(sql, dst), dst)["demographicExt"]
+    copy = o19etl.copy_statement("demographicExt", entry, src, dst, dst_cols)
+    etl = o19import.make_etl_query([client.cmd] + client.args)
+
+    def target_rows() -> int:
+        return int(client.rows("SELECT COUNT(*) FROM demographicExt",
+                               dst)[0][0])
+
+    client.setup("INSERT INTO demographicExt VALUES {0};".format(
+        ", ".join(UNIQUE_ALLOWED_ROWS)), src)
+    try:
+        etl(copy)
+        landed = target_rows()
+        problem = None if landed == len(UNIQUE_ALLOWED_ROWS) else \
+            "{0} of {1} row(s) landed".format(landed, len(UNIQUE_ALLOWED_ROWS))
+    except o19etl.QueryError as exc:
+        problem = "refused: {0}".format(str(exc)[-160:])
+    print("    {0:<44} {1}".format("rows the key allows all land",
+                                   problem or "ok"))
+    if problem:
+        failures.append("a copy the target's keys allow did not land whole "
+                        "({0})".format(problem))
+        return failures
+
+    client.setup("TRUNCATE TABLE demographicExt;", dst)
+    client.setup("INSERT INTO demographicExt VALUES {0};".format(
+        UNIQUE_COLLIDING_ROW), src)
+    try:
+        etl(copy)
+        refusal = None
+    except o19etl.QueryError as exc:
+        refusal = exc
+    landed = target_rows()
+    loud = refusal is not None and "1062" in str(refusal)
+    print("    {0:<44} {1}".format(
+        "a collision stops the copy with ERROR 1062",
+        "ok" if loud else "NO ({0})".format(
+            "reported success, {0} row(s) stored".format(landed)
+            if refusal is None else str(refusal)[-160:])))
+    if not loud:
+        failures.append("a duplicate unique key did not stop the copy with "
+                        "ERROR 1062 -- the table would be checkpointed")
+    leaked = refusal is not None and any(
+        "FAKE" in text for text in (str(refusal), refusal.stderr or ""))
+    print("    {0:<44} {1}".format("the refusal withholds the value",
+                                   "LEAKED" if leaked else "ok"))
+    if leaked:
+        failures.append("the duplicate-key refusal echoes the conflicting "
+                        "value, which can identify a patient")
+    print("    {0:<44} {1}".format("the refused copy wrote nothing",
+                                   "ok" if landed == 0 else
+                                   "{0} row(s)".format(landed)))
+    if landed:
+        failures.append("the refused copy left {0} row(s) behind".format(
+            landed))
+
+    # control: the pre-fix session. Informational only.
+    client.setup("TRUNCATE TABLE demographicExt;", dst)
+    rc, _out, err = client.run(
+        "SET SESSION FOREIGN_KEY_CHECKS=0, UNIQUE_CHECKS=0, sql_mode='';"
+        + copy + ";", dst)
+    stored = target_rows()
+    if rc == 0:
+        seen = "reported success and stored {0} of {1} row(s){2}".format(
+            stored, len(UNIQUE_ALLOWED_ROWS) + 1,
+            " -- the #4100 defect" if stored == 0 else "")
+    else:
+        seen = "refused it ({0})".format(
+            "ERROR 1062" if "1062" in err else err[:60])
+    print("    {0:<44} {1}".format("control: UNIQUE_CHECKS=0 on this server",
+                                   seen))
+    return failures
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="verify the ETL's merge, id-map and charset-repair "
@@ -2805,6 +2978,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
     names = check_login_names(client, args.prefix + "_lnd")
     if names:
         failures["login names"] = names
+    unique = check_unique_collision_refusal(client, args.prefix + "_uks",
+                                            args.prefix + "_ukd")
+    if unique:
+        failures["unique keys"] = unique
 
     if failures:
         print("\n{0} scenario(s) broke an invariant".format(len(failures)))
@@ -2844,7 +3021,9 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
           "presents -- on the rows that needed no substitution as much "
           "as on the rows that did, and the P7 login-name advisory lists "
           "exactly the accounts CARLOS's login refuses where the pattern "
-          "--admin-user used to enforce demonstrably lists none")
+          "--admin-user used to enforce demonstrably lists none, and a "
+          "duplicate unique key stops the copy with ERROR 1062 -- value "
+          "withheld, nothing written -- while every row the target's keys allow still lands")
     return 0
 
 

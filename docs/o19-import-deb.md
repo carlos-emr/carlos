@@ -855,6 +855,23 @@ clinic's sign-off.
   touching the target. On a `--resume` whose copy had already started the
   same message reads *(no further writes were made)*: the earlier phases'
   writes stand. Either way, fix the condition and `--resume`.
+- *ETL aborted: ETL statement failed (INSERT INTO \`oscar\`.\`demographicExt\`
+  …): ERROR 1062: duplicate unique key during ETL copy* (the table varies) —
+  two of the clinic's rows land on the same unique key in CARLOS's version
+  of the named table.
+  The copy keeps unique keys enforced, so the statement was refused whole:
+  that table (or that chunk of a chunked table) holds nothing from it and is
+  not marked copied; tables copied before it stand. The conflicting value is
+  left out of the message on purpose, because it can identify a patient.
+  Despite the message's generic advice, a `--resume` re-runs the same
+  statement against the same staged rows and fails the same way: restore the
+  pre-import snapshot (the documented rollback, last entry of this list)
+  and send `report.txt` with the table name. The known case is
+  `demographicExt`: OSCAR 19 adds a new row every time a patient's extension
+  value is edited, while CARLOS keeps one row per patient and key. Earlier
+  carlos-ctl releases did not refuse here: on MariaDB 11.8 the same
+  collision in an empty table stored **no rows and reported success**, and
+  only row parity stopped the import (carlos-emr/carlos#4100).
 - *ETL pre-checks failed: … value(s) longer than the target column* — the
   clinic's column is wider than CARLOS's. The import refuses to truncate
   clinical text; shorten the values on the OSCAR 19 side, or report the
