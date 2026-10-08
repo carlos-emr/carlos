@@ -84,6 +84,13 @@ class JspLineBreakRegressionTest {
     /** The cut #1787 made in the E-Chart link on oscarMDS/OpenEChart.jsp, the scan's known-bad sample. */
     private static final String KNOWN_CUT = "<a\n        href=\"javascript:p        \n"
             + "opupPage(700, 980, '<%= request.getContextPath() %>/encounter/IncomingEncounter');\">Please</a>";
+    /**
+     * A cut after a custom tag whose own attribute is double-quoted: found only because the tag is
+     * masked first, so its quote cannot end the handler early.
+     */
+    private static final String CUT_AFTER_TAG = "<input type=\"button\"\n        onClick=\"popupStart(360, 680, "
+            + "'/oscarMDS/SearchPatient?segmentID=<carlos:encode value='${id}' context=\"javaScriptAttribute\"/>&r=1        \n"
+            + "x', 'searchPatientWindow')\">";
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {
@@ -151,6 +158,7 @@ class JspLineBreakRegressionTest {
     void shouldFindKnownCut_whenScanningASample() {
         assertThat(scriptCuts("sample.jsp", KNOWN_CUT)).containsExactly("sample.jsp:2");
         assertThat(scriptCuts("sample.jsp", KNOWN_CUT.replace("p        \nopupPage", "popupPage"))).isEmpty();
+        assertThat(scriptCuts("sample.jsp", CUT_AFTER_TAG)).containsExactly("sample.jsp:2");
     }
 
     /** Each word cut across a line break inside a {@code javascript:} link or {@code on*} handler, as page:line. */

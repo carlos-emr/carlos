@@ -53,7 +53,7 @@ class NumericLinkNumberJspRegressionTest {
     /** The pattern in a {@code value.matches("...")} call, as written in the JSP's Java source. */
     private static final Pattern MATCHES_CALL = Pattern.compile("\\.matches\\(\"((?:[^\"\\\\]|\\\\.)*)\"\\)");
     private static final String[] NOT_NUMBERS = {"", " 12", "12 ", "12a", "-12", "1.5", "1e3", "null",
-        "1');x", "12%27", "١٢٣"};
+        "12-3", "A12", "12/3", "\u0661\u0662\u0663"};
 
     @Test
     @DisplayName("should send anything but a patient number to the patient search before the page is drawn")
