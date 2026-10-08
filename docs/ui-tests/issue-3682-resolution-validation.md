@@ -9,7 +9,12 @@ the focused PRs below carry the follow-up fixes. No PR is merged by this validat
 
 Every PR listed below has since merged, #3694 included: its signature migration landed as
 `common/V1.0.52__enforce_provider_signature_identity.sql`, so the `V1.0.23.1` collision noted
-in the next paragraph no longer applies. This pass validates the combined result.
+in the next paragraph no longer applies. Two packages were validated: the first was built from
+the PR base `17c363e3` (the full pass below, which found the defects), the second from the
+fix commit (the rebuilt-package retest; built as `3bb4e716`, whose tree is identical to
+`f35304f5` after the commits were re-signed). The PR's later commits change only the
+browser checks, their Node tests and documentation. Those checks ran from the mounted
+checkout, so every run used the check code as it stands on the branch, not a packaged copy.
 
 **Build and install.** `release/2026.08` at `17c363e3` was packaged with `dpkg-buildpackage`
 in an `ubuntu:26.04` container: `carlos-emr` and `carlos-emr-drugref` 2026.09.0~snapshot26,
@@ -47,12 +52,15 @@ answers 302 to the application icon.
 and `documentManager/ViewDocumentReport`, so they are probed even when the catalogue does not
 reach them. A pinned route that answers 404 fails the run.
 
-**Rebuilt-package retest.** After the fix, the package was rebuilt from the branch. The installed
+**Rebuilt-package retest.** After the fix, the package was rebuilt from the fix commit (`3bb4e716`, tree-identical to `f35304f5`), which carries the only application change in this PR. The installed
 `Contact2Action.class` hash matched the build, and `carlos-ctl check` passed. On it,
 `get-reject-contact-directory`, `contact-lifecycle`, `contact-editor`,
 `provider-signature-contact`, `anonymous-access-refused`, `master-record-tabs` and
 `demographic-labels` all pass. `episode-lifecycle` SKIPs without the grant and passes with it.
-The doctor role's episode privileges were verified restored to `o,o`.
+The doctor role's episode privileges were verified restored to `o,o`. After the review
+follow-up `fc5837a9` (pinned-flag and role-semantics changes in the checks only),
+`anonymous-access-refused` passed again and `episode-lifecycle` SKIPped as expected without
+the grant; the with-grant episode run predates that follow-up.
 
 **Automated tests.** `Contact2ActionUnitTest` has 71 cases, including 16 GET/HEAD dispatch cases
 and the denied `saveProContact` POST. The new denied-POST case failed before the fix with an NPE,
