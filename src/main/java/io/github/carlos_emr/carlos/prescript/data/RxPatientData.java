@@ -233,8 +233,15 @@ public class RxPatientData {
 
         public void addAllergy(java.util.Date entryDate, Allergy allergy) {
             allergy.setEntryDate(entryDate);
-            allergyDao.persist(allergy);
-            partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
+            // One transaction: the two DAOs commit separately otherwise, and a failure of the
+            // partial-date write would leave a committed allergy row that an idempotent retry
+            // (#3488) would then insert a second time.
+            new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> {
+                        allergyDao.persist(allergy);
+                        partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
+                    });
         }
 
         private boolean setAllergyArchive(int allergyId, boolean archive) {
