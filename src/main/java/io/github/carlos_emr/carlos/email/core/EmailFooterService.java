@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.PersistenceException;
@@ -59,9 +60,10 @@ import org.springframework.transaction.annotation.Transactional;
  * had until then, which they can put back.</p>
  *
  * <p>All values live in the {@code property} table ({@link UserProperty}): the clinic default as a
- * row without a provider, users' footers and notices per provider. Its {@code value} column holds
- * 2000 characters, the footer limit, so line breaks are stored as one character each, as the send
- * action counts them. A longer footer is refused, never cut.</p>
+ * row without a provider, users' footers and notices per provider. Footers are formatted HTML,
+ * stored cleaned ({@link EmailFooterHtml#clean}) in its {@code value} column (TEXT since #3981's
+ * migration). A footer over the limits (2,000 characters of plain text, 10,000 of HTML) is
+ * refused, never cut.</p>
  *
  * <p>Saves run at READ COMMITTED, as {@code PatientConsentManagerImpl}'s do: under MariaDB's
  * default REPEATABLE READ with {@code innodb_snapshot_isolation} on (the default from 11.6), a save
@@ -117,6 +119,8 @@ public class EmailFooterService {
         this.providerDao = providerDao;
         this.replaceOwnFooters = replaceOwnFooters;
     }
+
+    private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
 
     /**
      * Thrown when a footer is longer than {@link EmailData#FOOTER_MAX_LENGTH} characters of plain
@@ -177,9 +181,9 @@ public class EmailFooterService {
     /**
      * A fingerprint of a footer, for a page to send back with its form: comparing it with the
      * stored footer's tells whether the footer changed after the page was opened, without putting
-     * the text in a hidden field. Footers that differ only in line-break style, surrounding
-     * whitespace or characters the page shows as spaces have the same fingerprint, as they save
-     * the same.
+     * the text in a hidden field. Footers that clean to the same HTML (surrounding whitespace, an
+     * editor's trailing empty lines, anything outside the allow-list) have the same fingerprint, as
+     * they save the same.
      *
      * @param footer a footer, or null for none
      * @return the fingerprint, 64 hexadecimal characters
@@ -243,23 +247,55 @@ public class EmailFooterService {
      * Saves the user's own footer and clears any clinic-change notice. A blank footer is not "no
      * footer": it removes the user's own, so they follow the clinic default.
      *
+     * Not public: a page always saves through the checked overload, with the clinic footer it showed.
+     *
      * @param providerNo the logged-in user
      * @param footer the footer as typed
      * @throws FooterTooLongException when the footer is over the limit; nothing is saved
      */
+    void saveOwnFooter(String providerNo, String footer) {
+        saveOwnFooter(providerNo, footer, null);
+    }
+
+    /**
+     * As {@link #saveOwnFooter(String, String)}, from a page that showed the clinic footer whose
+     * {@link #fingerprint} is {@code clinicFooterShown}. Checked after the clinic footer's lock is
+     * taken, so a clinic change in progress has finished: if the clinic footer changed after the page
+     * was opened, nothing is saved and the clinic-change notice stays, so a page opened earlier can
+     * neither keep the old clinic text unnoticed nor erase the notice. Every clinic change changes the
+     * clinic footer, a second one while a notice is still unanswered included; answering the notice
+     * elsewhere does not, so that save goes through.
+     *
+     * @param providerNo the logged-in user
+     * @param footer the footer as typed
+     * @param clinicFooterShown the fingerprint of the clinic footer the page showed, or null not to check
+     * @return false when nothing was saved because the clinic footer changed after the page was opened
+     * @throws FooterTooLongException when the footer is over the limit; nothing is saved
+     */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public void saveOwnFooter(String providerNo, String footer) {
+    public boolean saveOwnFooter(String providerNo, String footer, String clinicFooterShown) {
         String normalised = withinLimit(footer);
-        translated(() -> {
+        return translated(() -> {
             waitForClinicChange();
+            if (clinicFooterShown != null && !clinicFooterShown.equals(fingerprint(clinicDefault()))) {
+                return false;
+            }
             if (normalised.isEmpty()) {
                 deleteRows(providerNo, USER_FOOTER);
             } else {
                 writeRow(providerNo, USER_FOOTER, normalised);
             }
             deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
-            return null;
+            return true;
         });
+    }
+
+    /**
+     * @param value a value a page sent back as a {@link #fingerprint}
+     * @return whether it has a fingerprint's form (64 lower-case hexadecimal characters)
+     */
+    public static boolean isFingerprint(String value) {
+        return value != null && FINGERPRINT.matcher(value).matches();
     }
 
     /**
@@ -395,8 +431,8 @@ public class EmailFooterService {
         Set<String> alreadyNoticed = providersWith(CLINIC_CHANGE_NOTICE, previousFooters.keySet());
         previousFooters.forEach((providerNo, footer) -> {
             if (!alreadyNoticed.contains(providerNo)) {
-                // A new row, as alreadyNoticed shows: no per-user lookup, which would scan the
-                // property table (it has no index on name) once per user while the locks are held.
+                // A new row, as alreadyNoticed shows: no per-user lookup, one query per user while
+                // the locks are held.
                 userPropertyDao.saveProp(newRow(providerNo, CLINIC_CHANGE_NOTICE, footer));
             }
         });

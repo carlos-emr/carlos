@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -53,6 +54,7 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     private FormsManager formsManager;
     private SecurityInfoManager securityInfoManager;
     private PdfPreviewCapabilityService pdfPreviewCapabilityService;
+    private EmailFooterService emailFooterService;
 
     @BeforeEach
     void setUp() {
@@ -75,6 +77,10 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         registerMock(FormsManager.class, formsManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
+        // The resend path looks up the clinic footer for the compose window (follow-up to #3981).
+        emailFooterService = mock(EmailFooterService.class);
+        when(emailFooterService.clinicDefault()).thenReturn("<b>Riverside Clinic</b>");
+        registerMock(EmailFooterService.class, emailFooterService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -461,6 +467,10 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         assertThat(request.getAttribute("message")).isEqualTo("body");
         assertThat(request.getAttribute("footerEmail"))
                 .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+        // The window carries the clinic footer it shows, so "Also make this my usual footer" works
+        // on a resend and is refused if the clinic changes its footer meanwhile.
+        assertThat(request.getAttribute("footerClinicFingerprint"))
+                .isEqualTo(EmailFooterService.fingerprint("<b>Riverside Clinic</b>"));
     }
 
     @Test

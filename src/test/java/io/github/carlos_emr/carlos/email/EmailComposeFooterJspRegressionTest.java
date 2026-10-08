@@ -85,11 +85,23 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("<fmt:message key=\"email.compose.footer.saveAsMine\"/>")
                 .contains("<c:if test=\"${footerSavedAsMine}\">")
                 .contains("<c:if test=\"${footerSaveAsMineFailed}\">")
-                // A failed save keeps the window open so the user sees it.
-                .contains("&& !document.getElementById('footerSaveAsMineFailed')");
+                .contains("<c:if test=\"${footerSavedAsClinic}\">")
+                .contains("<c:if test=\"${footerSaveAsMineStale}\">")
+                .contains("<c:if test=\"${footerSaveAsMineNotDone}\">")
+                // A retry form keeps the box ticked.
+                .contains("${param.saveFooterAsMine eq 'true' ? 'checked' : ''}")
+                // The clinic footer the window showed goes back with the send, attribute-encoded.
+                .contains("name=\"footerClinicShown\"")
+                .contains("value=\"${carlos:forHtmlAttribute(empty footerClinicFingerprint ? param.footerClinicShown : footerClinicFingerprint)}\"")
+                // On an unconfirmed delivery the form is hidden: the note shows in the result too.
+                .contains("id=\"footerSaveAsMineNotDoneUnconfirmed\"")
+                // A failed or refused save keeps the window open so the user sees it.
+                .contains("&& !document.getElementById('footerSaveAsMineFailed')")
+                .contains("&& !document.getElementById('footerSaveAsMineStale')");
         for (String locale : LOCALES) {
             for (String key : List.of("email.compose.footer.saveAsMine", "email.compose.footer.savedAsMine",
-                    "email.compose.footer.saveAsMineFailed")) {
+                    "email.compose.footer.saveAsMineFailed", "email.compose.footer.savedAsClinic",
+                    "email.compose.footer.saveAsMineStale", "email.compose.footer.saveAsMineNotDone")) {
                 assertThat(bundle(locale).getProperty(key)).as(locale + " " + key).isNotBlank();
                 if (!"en".equals(locale)) {
                     assertThat(bundle(locale).getProperty(key)).as(locale + " " + key)

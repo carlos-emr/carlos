@@ -1004,6 +1004,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(emailFooterService.composeFooter("101")).thenReturn(Optional.of("<b>Dr A</b><br>Book online"));
         when(emailFooterService.clinicChangeNotice("101")).thenReturn("Dr A old footer");
         when(emailFooterService.clinicChangeKeptOwnFooter("101")).thenReturn(true);
+        when(emailFooterService.clinicDefault()).thenReturn("Riverside Clinic");
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         request.getSession(true).setAttribute("demographicId", "123");
 
@@ -1017,6 +1018,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(rendered.getAttribute("footerEmail")).isEqualTo("<b>Dr A</b><br>Book online");
             assertThat(rendered.getAttribute("footerClinicChanged")).isEqualTo(true);
             assertThat(rendered.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(true);
+            assertThat(rendered.getAttribute("footerClinicFingerprint")).isEqualTo(EmailFooterService.fingerprint("Riverside Clinic"));
         } finally {
             composeSubmissionStateService.clear(request.getSession().getId());
         }

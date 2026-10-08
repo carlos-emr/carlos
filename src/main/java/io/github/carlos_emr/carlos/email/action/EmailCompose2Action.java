@@ -441,12 +441,18 @@ public class EmailCompose2Action extends ActionSupport {
         request.setAttribute("message", view.message());
         // No session user means no footer of their own; the clinic default still applies.
         String providerNo = loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo();
+        // Read first, so a clinic save landing during this render errs toward refusing "Also make
+        // this my usual footer" rather than toward a window that shows old text with a new fingerprint.
+        String clinicFooterFingerprint = EmailFooterService.fingerprint(emailFooterService.clinicDefault());
         request.setAttribute("footerEmail",
                 resolveComposeFooter(view.footerEmail(), emailFooterService.composeFooter(providerNo)));
         if (emailFooterService.clinicChangeNotice(providerNo) != null) {
             request.setAttribute("footerClinicChanged", true);
             request.setAttribute("clinicChangeKeptOwnFooter", emailFooterService.clinicChangeKeptOwnFooter(providerNo));
         }
+        // Sent back with "Also make this my usual footer", so a clinic change made after this window
+        // opened is not overwritten (see EmailSend2Action); Manage Emails' resend sets it too.
+        request.setAttribute("footerClinicFingerprint", clinicFooterFingerprint);
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());
         request.setAttribute("fdid", context.fdid());

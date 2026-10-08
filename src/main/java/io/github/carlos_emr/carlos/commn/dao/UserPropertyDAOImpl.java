@@ -163,9 +163,10 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     }
 
     /**
-     * Locks each row by its primary key, oldest first, and re-reads it. The {@code property} table
-     * has no index on {@code name}, so a locking query by name would scan, and wait on, every row
-     * of the table; a lock by key touches only these rows.
+     * Locks each row by its primary key, oldest first, and re-reads it. A locking query by name
+     * would lock whatever its index range covers (gaps included, before #3981's
+     * {@code property (name, provider_no)} index the whole table); a lock by key touches only
+     * these rows.
      */
     private List<UserProperty> lockEach(List<UserProperty> rows) {
         List<UserProperty> locked = new ArrayList<>(rows.size());

@@ -22,11 +22,12 @@
 package io.github.carlos_emr.carlos.email.admin;
 
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -62,19 +63,22 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
     static final String FINGERPRINT_PARAM = "clinicFooterFingerprint";
 
     private static final Logger logger = MiscUtils.getLogger();
-    private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
 
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterService emailFooterService;
+    private final EmailFooterLogoService logoService;
 
     public SaveClinicEmailFooter2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class),
+                SpringUtils.getBean(EmailFooterLogoService.class));
     }
 
     // Package-private so tests can supply the collaborators.
-    SaveClinicEmailFooter2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService) {
+    SaveClinicEmailFooter2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService,
+            EmailFooterLogoService logoService) {
         this.securityInfoManager = securityInfoManager;
         this.emailFooterService = emailFooterService;
+        this.logoService = logoService;
     }
 
     @Override
@@ -94,7 +98,7 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
 
         String footer = request.getParameter(FOOTER_PARAM);
         String shown = request.getParameter(FINGERPRINT_PARAM);
-        if (footer == null || shown == null || !FINGERPRINT.matcher(shown).matches()) {
+        if (footer == null || !EmailFooterService.isFingerprint(shown)) {
             // A post without the field is not a request to clear the footer, and one without the
             // fingerprint of what the page showed cannot be checked against later changes.
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -134,6 +138,8 @@ public final class SaveClinicEmailFooter2Action extends ActionSupport {
         request.setAttribute(FOOTER_PARAM, footer);
         request.setAttribute(FINGERPRINT_PARAM, fingerprint);
         request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
+        // The page renders straight from here, not through its gate: give it the logo card's state too.
+        ViewConfigureEmail2Action.exposeClinicLogo(request, logoService);
         request.setAttribute(message, true);
         return INPUT;
     }

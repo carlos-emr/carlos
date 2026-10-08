@@ -151,7 +151,10 @@ class ClinicalProseWafExclusionRegressionTest {
                 // The other GET: the tickler list's DataTables search term rides the query string.
                 Arguments.of("1141", "/carlos/tickler/ListTicklers", "GET", List.of("search[value]")),
                 // Back to POST: the provider encounter-note template body, note prose by construction.
-                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")));
+                Arguments.of("1142", "/carlos/admin/ProviderTemplate", "POST", List.of("value")),
+                // Email footers saved for later emails (follow-up to #3981): the same text as 1124's footerEmail.
+                Arguments.of("1143", "/carlos/email/saveMyEmailFooter", "POST", List.of("myFooter")),
+                Arguments.of("1144", "/carlos/admin/saveClinicEmailFooter", "POST", List.of("clinicFooter")));
     }
 
     /** Routes whose prose rides a GET query string; everything else must chain to POST. */

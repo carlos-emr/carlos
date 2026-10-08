@@ -153,7 +153,9 @@ The compose screen fills in the footer from the first of these that applies:
 2. The user's own footer. Every user who can send patient email (`_email`
    write), doctor or front desk, can save one on **Preferences > My Email
    Footer** (`email/myEmailFooter`), or by ticking **Also make this my usual
-   footer** under the footer on the email screen (saved when the email is sent).
+   footer** under the footer on the email screen. That box saves the footer only
+   once the email is accepted (a retry form keeps it ticked), and an empty footer
+   there means the clinic footer; the email screen says what happened.
    Saving it empty is not "no footer": it removes the user's own footer, so the
    clinic footer applies.
 3. The clinic footer, set on **Administration > Emails > Configure Email**
@@ -215,17 +217,23 @@ that changes the footer locks the clinic footer (once one exists) and the users'
 footers it reads, row by row by key, so another save at the same moment waits. A
 user's own save, restore or dismiss takes the clinic footer's lock first, so it
 waits for a clinic change in progress and then sees its notice.
-A second clinic save then compares against the first one's result; a user's own
-save then goes through, or, if the clinic change replaced their footer, is
-rolled back and the page asks them to try again. The other collisions are
+A second clinic save then compares against the first one's result. A user's own
+save (My Email Footer, or the email screen's box) sends back a fingerprint of the
+clinic footer its page showed: if the clinic changed its footer after the page
+was opened (a second change while a notice is still unanswered included),
+nothing is saved and the notice stays, and the page shows the notice with the
+user's text so they can decide with the change in front of them. The other collisions are
 handled the same way: a deadlock, or a user's footer removed between the clinic
 save reading it and locking it (the clinic save is the one rolled back then).
 Footers are stored as formatted HTML, cleaned against the footer's allow-list
 first, so a footer saved twice unchanged compares equal.
 
-**Web application firewall.** The footer is posted as HTML in `footerEmail`.
-The CARLOS ModSecurity setup keeps its cross-site scripting rules on for this
-field (`ClinicalProseWafExclusionRegressionTest` pins that). The footer's
+**Web application firewall.** The footer is posted as HTML in `footerEmail`
+(the email screen, rule 1124), `myFooter` (My Email Footer, rule 1143) and
+`clinicFooter` (Configure Email, rule 1144). These rules lift the same
+injection families as for the message, and the CARLOS ModSecurity setup keeps
+its cross-site scripting rules on for all three fields
+(`ClinicalProseWafExclusionRegressionTest` pins that). The footer's
 allowed tags (`b`, `strong`, `i`, `em`, `br`, `p`, `div`, `a href="https:..."`)
 do not match those rules at the default paranoia level 1. A clinic that raises
 the paranoia level may see footer posts refused; check the ModSecurity audit log

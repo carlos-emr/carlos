@@ -68,6 +68,9 @@ class EmailFooterPagesJspRegressionTest {
                 .contains("<input type=\"hidden\" id=\"myFooter\" name=\"myFooter\" value=\"<carlos:encode value='${myFooter}' context='htmlAttribute'/>\"/>")
                 .contains("data-footer-editor-target=\"myFooter\" data-footer-editor-preview=\"myFooterPreview\"")
                 .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeMine\"/>")
+                // The clinic footer the page showed goes back with a save (EmailFooterService.saveOwnFooter).
+                .contains("<input type=\"hidden\" name=\"clinicFooterShown\" value=\"${carlos:forHtmlAttribute(clinicFooterShownFingerprint)}\"/>")
+                .contains("<fmt:message key=\"email.myFooter.changedSinceShown\"/>")
                 .contains("<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>")
                 // A blank footer means the clinic footer (maintainer decision, 8 Oct), and the page says so.
                 .contains("<div id=\"myFooterEmptyHelp\" class=\"form-text\"><fmt:message key=\"email.myFooter.emptyUsesClinic\"/></div>")

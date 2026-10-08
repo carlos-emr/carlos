@@ -96,6 +96,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_FOOTER_EMAIL = "footerEmail";
     // "Also make this my usual footer" on the email screen (follow-up to #3981).
     static final String PARAM_SAVE_FOOTER_AS_MINE = "saveFooterAsMine";
+    static final String PARAM_FOOTER_CLINIC_SHOWN = "footerClinicShown";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
@@ -316,22 +317,37 @@ public class EmailSend2Action extends ActionSupport {
 
     /**
      * "Also make this my usual footer" (follow-up to #3981): once the email is accepted, the footer
-     * it carried becomes the user's own footer, as saving it on My Email Footer would. Only an
-     * accepted email does it, so a failed send that is retried does not save twice. A failure here
-     * never touches the email already sent: the result page says the footer was not changed and
-     * stays open.
+     * it carried becomes the user's own footer, as saving it on My Email Footer would; a blank one
+     * means the clinic footer, and the page says so. Only an accepted email does it: when it was not
+     * accepted the page says the footer was not changed, and a retry form keeps the box ticked. Like
+     * My Email Footer, it is refused when the clinic changed its footer after this window opened
+     * (the window sends back the fingerprint of the clinic footer it showed).
+     * A failure here never touches the email already sent: the result page says the footer was not
+     * changed and stays open.
      */
     private void saveFooterAsMineIfAsked(LoggedInInfo loggedInInfo, boolean emailAccepted) {
-        if (!emailAccepted || !"true".equals(request.getParameter(PARAM_SAVE_FOOTER_AS_MINE))) {
+        if (!"true".equals(request.getParameter(PARAM_SAVE_FOOTER_AS_MINE))) {
+            return;
+        }
+        if (!emailAccepted) {
+            request.setAttribute("footerSaveAsMineNotDone", true);
             return;
         }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String footer = request.getParameter(PARAM_FOOTER_EMAIL);
+        String clinicFooterShown = request.getParameter(PARAM_FOOTER_CLINIC_SHOWN);
         try {
+            if (!EmailFooterService.isFingerprint(clinicFooterShown)) {
+                throw new IllegalArgumentException("Clinic footer fingerprint missing or malformed");
+            }
             // Looked up here, not held in a field: only this optional step needs it.
-            SpringUtils.getBean(EmailFooterService.class)
-                    .saveOwnFooter(providerNo, request.getParameter(PARAM_FOOTER_EMAIL));
+            boolean saved = SpringUtils.getBean(EmailFooterService.class).saveOwnFooter(providerNo, footer, clinicFooterShown);
+            if (!saved) {
+                request.setAttribute("footerSaveAsMineStale", true);
+                return;
+            }
             LogAction.addLog(providerNo, LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
-            request.setAttribute("footerSavedAsMine", true);
+            request.setAttribute(EmailFooterHtml.clean(footer).isEmpty() ? "footerSavedAsClinic" : "footerSavedAsMine", true);
         } catch (RuntimeException e) {
             logger.warn("Email accepted, but its footer could not be saved as the user's own ({})",
                     e.getClass().getSimpleName());

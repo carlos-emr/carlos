@@ -73,12 +73,24 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         request.setAttribute("clinicFooter", clinicFooter);
         request.setAttribute("clinicFooterFingerprint", EmailFooterService.fingerprint(clinicFooter));
         request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
+        exposeClinicLogo(request, logoService);
+        return SUCCESS;
+    }
+
+    /**
+     * Gives the page the clinic email footer logo's state. Every path that renders the page calls
+     * it, including the clinic footer save shown again (SaveClinicEmailFooter2Action), so the logo
+     * card never claims there is no logo.
+     *
+     * @param request the request the page renders from
+     * @param logoService the clinic logo
+     */
+    public static void exposeClinicLogo(HttpServletRequest request, EmailFooterLogoService logoService) {
         EmailFooterLogo logo = logoService.currentLogo();
         request.setAttribute("clinicLogoSet", logo != null);
         if (logo != null) {
             request.setAttribute("clinicLogoWidth", logo.getWidth());
             request.setAttribute("clinicLogoHeight", logo.getHeight());
         }
-        return SUCCESS;
     }
 }

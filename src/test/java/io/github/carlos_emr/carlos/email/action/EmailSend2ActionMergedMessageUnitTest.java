@@ -709,47 +709,95 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     @Test
     @DisplayName("should make the sent footer the user's usual footer when the box is ticked and the email is accepted")
     void shouldSaveFooterAsMine_whenTickedAndAccepted() {
-        EmailFooterService footers = mock(EmailFooterService.class);
-        registerMock(EmailFooterService.class, footers);
+        EmailFooterService footers = footerService(true);
 
-        MockHttpServletRequest request = sendForFooterSave("true", EmailStatus.SUCCESS);
+        MockHttpServletRequest request = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.SUCCESS);
 
-        verify(footers).saveOwnFooter("101", "<b>Dr A</b>");
+        verify(footers).saveOwnFooter("101", "<b>Dr A</b>", EmailFooterService.fingerprint("Riverside Clinic"));
         assertThat(request.getAttribute("footerSavedAsMine")).isEqualTo(true);
         assertThat(request.getAttribute("footerSaveAsMineFailed")).isNull();
     }
 
     @Test
-    @DisplayName("should not touch the usual footer when the box is not ticked or the email was not accepted")
-    void shouldNotSaveFooterAsMine_whenUntickedOrNotAccepted() {
-        EmailFooterService footers = mock(EmailFooterService.class);
-        registerMock(EmailFooterService.class, footers);
+    @DisplayName("should say the user now follows the clinic footer when the ticked footer was empty")
+    void shouldReportClinicFooter_whenTickedFooterEmpty() {
+        footerService(true);
 
-        sendForFooterSave(null, EmailStatus.SUCCESS);
-        MockHttpServletRequest failed = sendForFooterSave("true", EmailStatus.FAILED);
+        MockHttpServletRequest request = sendForFooterSave("true", "<br>", EmailStatus.SUCCESS);
+
+        assertThat(request.getAttribute("footerSavedAsClinic")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSavedAsMine")).isNull();
+    }
+
+    @Test
+    @DisplayName("should not touch the usual footer when the box is not ticked, and say so when the email was not accepted")
+    void shouldNotSaveFooterAsMine_whenUntickedOrNotAccepted() {
+        EmailFooterService footers = footerService(true);
+
+        MockHttpServletRequest unticked = sendForFooterSave(null, "<b>Dr A</b>", EmailStatus.SUCCESS);
+        MockHttpServletRequest failed = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.FAILED);
 
         verifyNoInteractions(footers);
+        assertThat(unticked.getAttribute("footerSaveAsMineNotDone")).isNull();
         assertThat(failed.getAttribute("footerSavedAsMine")).isNull();
+        assertThat(failed.getAttribute("footerSaveAsMineNotDone")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("should not change the usual footer when the clinic changed its footer after the window opened")
+    void shouldReportStale_whenClinicChangedSinceWindowOpened() {
+        footerService(false);
+
+        MockHttpServletRequest request = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.SUCCESS);
+
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSaveAsMineStale")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSavedAsMine")).isNull();
+    }
+
+    @Test
+    @DisplayName("should not save, and say so, when the window sent no well-formed clinic footer fingerprint")
+    void shouldReportFailure_whenClinicFingerprintMissing() {
+        EmailFooterService footers = footerService(true);
+
+        MockHttpServletRequest request = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.SUCCESS, "none");
+
+        verifyNoInteractions(footers);
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSaveAsMineFailed")).isEqualTo(true);
     }
 
     @Test
     @DisplayName("should report a footer that could not be saved without failing the email already sent")
     void shouldReportFailure_whenSavingFooterAsMineFails() {
         EmailFooterService footers = mock(EmailFooterService.class);
-        doThrow(new IllegalStateException("lock wait")).when(footers).saveOwnFooter(anyString(), anyString());
+        doThrow(new IllegalStateException("lock wait")).when(footers).saveOwnFooter(anyString(), anyString(), anyString());
         registerMock(EmailFooterService.class, footers);
 
-        MockHttpServletRequest request = sendForFooterSave("true", EmailStatus.SUCCESS);
+        MockHttpServletRequest request = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.SUCCESS);
 
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
         assertThat(request.getAttribute("footerSaveAsMineFailed")).isEqualTo(true);
         assertThat(request.getAttribute("footerSavedAsMine")).isNull();
     }
 
-    /** A direct send by provider 101 with footer {@code <b>Dr A</b>}, the tick box as given. */
-    private MockHttpServletRequest sendForFooterSave(String saveFooterAsMine, EmailStatus status) {
+    private EmailFooterService footerService(boolean saves) {
+        EmailFooterService footers = mock(EmailFooterService.class);
+        when(footers.saveOwnFooter(anyString(), anyString(), anyString())).thenReturn(saves);
+        registerMock(EmailFooterService.class, footers);
+        return footers;
+    }
+
+    /** A direct send by provider 101 from a window that showed the clinic footer "Riverside Clinic". */
+    private MockHttpServletRequest sendForFooterSave(String saveFooterAsMine, String footer, EmailStatus status) {
+        return sendForFooterSave(saveFooterAsMine, footer, status, EmailFooterService.fingerprint("Riverside Clinic"));
+    }
+
+    private MockHttpServletRequest sendForFooterSave(String saveFooterAsMine, String footer, EmailStatus status,
+            String clinicFooterShown) {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("footerEmail", "<b>Dr A</b>");
+        request.setParameter("footerEmail", footer);
+        request.setParameter("footerClinicShown", clinicFooterShown);
         if (saveFooterAsMine != null) {
             request.setParameter("saveFooterAsMine", saveFooterAsMine);
         }

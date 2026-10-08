@@ -27,6 +27,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -71,6 +73,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
 
     private SecurityInfoManager securityInfoManager;
     private EmailFooterService emailFooterService;
+    private EmailFooterLogoService logoService;
     private LoggedInInfo loggedInInfo;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -82,6 +85,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
     void setUp() {
         securityInfoManager = mock(SecurityInfoManager.class);
         emailFooterService = mock(EmailFooterService.class);
+        logoService = mock(EmailFooterLogoService.class);
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         request = new MockHttpServletRequest("POST", "/admin/saveClinicEmailFooter");
@@ -107,7 +111,7 @@ class SaveClinicEmailFooter2ActionUnitTest {
     private static final String SHOWN = EmailFooterService.fingerprint("Riverside Clinic");
 
     private SaveClinicEmailFooter2Action action() {
-        return new SaveClinicEmailFooter2Action(securityInfoManager, emailFooterService);
+        return new SaveClinicEmailFooter2Action(securityInfoManager, emailFooterService, logoService);
     }
 
     private void post(String footer) {
@@ -248,8 +252,13 @@ class SaveClinicEmailFooter2ActionUnitTest {
         request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, tooLong);
         request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, SHOWN);
 
+        EmailFooterLogo logo = new EmailFooterLogo();
+        logo.setWidth(320);
+        logo.setHeight(80);
+        when(logoService.currentLogo()).thenReturn(logo);
+
         String result = new SaveClinicEmailFooter2Action(securityInfoManager,
-                new EmailFooterService(dao, mock(ProviderDao.class))).execute();
+                new EmailFooterService(dao, mock(ProviderDao.class)), logoService).execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(request.getAttribute("clinicFooter")).isEqualTo(tooLong);
@@ -257,6 +266,9 @@ class SaveClinicEmailFooter2ActionUnitTest {
         // Still the footer the page first showed, so the next save checks against it.
         assertThat(request.getAttribute("clinicFooterFingerprint")).isEqualTo(SHOWN);
         assertThat(request.getAttribute("ownFootersReplacedOnClinicChange")).isEqualTo(true);
+        // The page renders straight from here: its logo card still shows the clinic's logo.
+        assertThat(request.getAttribute("clinicLogoSet")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicLogoWidth")).isEqualTo(320);
         assertThat(response.getRedirectedUrl()).isNull();
         verifyNoInteractions(dao);
         logAction.verifyNoInteractions();

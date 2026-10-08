@@ -60,6 +60,7 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
 
     static final String FOOTER_PARAM = "myFooter";
     static final String ACTION_PARAM = "footerAction";
+    static final String CLINIC_SHOWN_PARAM = "clinicFooterShown";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -119,13 +120,23 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
         switch (footerAction) {
             case "save" -> {
                 String footer = request.getParameter(FOOTER_PARAM);
-                if (footer == null) {
-                    // A post without the field is not a request to follow the clinic footer.
+                String clinicFooterShown = request.getParameter(CLINIC_SHOWN_PARAM);
+                if (footer == null || !EmailFooterService.isFingerprint(clinicFooterShown)) {
+                    // A post without the field is not a request to follow the clinic footer, and one
+                    // without the clinic footer the page showed cannot be checked against a later change.
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                     return NONE;
                 }
                 try {
-                    emailFooterService.saveOwnFooter(providerNo, footer);
+                    if (!emailFooterService.saveOwnFooter(providerNo, footer, clinicFooterShown)) {
+                        // The clinic changed its footer after the page was opened: show the notice and
+                        // keep the text, so the user decides with the change in front of them. The
+                        // status line keeps saying which footer is in use now.
+                        ViewMyEmailFooter2Action.exposeSettings(request, emailFooterService.settingsFor(providerNo));
+                        request.setAttribute(FOOTER_PARAM, footer);
+                        request.setAttribute("myFooterChangedSinceShown", true);
+                        return INPUT;
+                    }
                 } catch (EmailFooterService.FooterTooLongException e) {
                     ViewMyEmailFooter2Action.exposeSettings(request, emailFooterService.settingsFor(providerNo));
                     request.setAttribute(FOOTER_PARAM, footer);
@@ -135,6 +146,9 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
                 }
                 audit(request, providerNo);
             }
+            // The buttons below do not check clinicFooterShown: each picks the clinic footer as it is
+            // now, or puts back the footer the notice holds, so a page opened before a clinic change
+            // cannot store old clinic text through them. Only "save" stores text the page showed.
             case "useClinicDefault" -> {
                 emailFooterService.useClinicDefault(providerNo);
                 audit(request, providerNo);

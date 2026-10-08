@@ -632,12 +632,22 @@
                              data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
                             <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" name="saveFooterAsMine" id="saveFooterAsMine" value="true">
+                                <%-- Ticked again on a retry form, so the retry still saves it. --%>
+                                <input class="form-check-input" type="checkbox" name="saveFooterAsMine" id="saveFooterAsMine" value="true"
+                                       ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
                                 <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
+                                <%-- The clinic footer this window showed (its fingerprint): the save is refused if the
+                                     clinic changed its footer after the window opened. A retry form sends it on. --%>
+                                <input type="hidden" name="footerClinicShown"
+                                       value="${carlos:forHtmlAttribute(empty footerClinicFingerprint ? param.footerClinicShown : footerClinicFingerprint)}"/>
                             </div>
                             <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
                                class="small" id="myEmailFooterLink"><fmt:message key="email.compose.footer.myFooterLink"/></a>
                         </div>
+                        <c:if test="${footerSaveAsMineNotDone}">
+                            <div class="form-text text-warning" id="footerSaveAsMineNotDone">
+                                <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
+                        </c:if>
                     </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
@@ -817,28 +827,21 @@
 							${carlos:forHtml(emailComposeStatusTrackingFailed)}
 						</div>
 					</c:if>
-                    <%-- "Also make this my usual footer": done only once the email was accepted. --%>
-                    <c:if test="${footerSavedAsMine}">
-                        <div class="alert alert-info" role="status" id="footerSavedAsMine">
-                            <fmt:message key="email.compose.footer.savedAsMine"/></div>
-                    </c:if>
-                    <c:if test="${footerSaveAsMineFailed}">
-                        <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
-                            <fmt:message key="email.compose.footer.saveAsMineFailed"/>
-                            <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                               class="alert-link ms-1"><fmt:message key="email.compose.footer.myFooterLink"/></a>
-                        </div>
-                    </c:if>
                     <c:if test="${isEmailFollowUpRequired}">
                         <div class="alert alert-warning" role="alert" id="emailFollowUpWarning">
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed and not footerSaveAsMineStale}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
                 <c:when test="${ isEmailDeliveryUnconfirmed }">
+                    <%-- The form below is hidden on this outcome: say here that a ticked box did nothing. --%>
+                    <c:if test="${footerSaveAsMineNotDone}">
+                        <div class="alert alert-info" role="status" id="footerSaveAsMineNotDoneUnconfirmed">
+                            <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
+                    </c:if>
                     <div class="alert alert-warning" role="alert" id="deliveryUnconfirmedWarning">
                         ${carlos:forHtml(emailComposeDeliveryUnconfirmed)}
                     </div>
@@ -862,6 +865,31 @@
                     </div>
                 </c:otherwise>
             </c:choose>
+            <%-- "Also make this my usual footer": done only once the email was accepted. Outside the
+                 outcome branches, so it shows on every outcome that accepted the email (a portal
+                 delivery still to resolve included). --%>
+            <c:if test="${footerSavedAsMine}">
+                <div class="alert alert-info" role="status" id="footerSavedAsMine">
+                    <fmt:message key="email.compose.footer.savedAsMine"/></div>
+            </c:if>
+            <c:if test="${footerSavedAsClinic}">
+                <div class="alert alert-info" role="status" id="footerSavedAsClinic">
+                    <fmt:message key="email.compose.footer.savedAsClinic"/></div>
+            </c:if>
+            <c:if test="${footerSaveAsMineStale}">
+                <div class="alert alert-warning" role="alert" id="footerSaveAsMineStale">
+                    <fmt:message key="email.compose.footer.saveAsMineStale"/>
+                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                       class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>
+                </div>
+            </c:if>
+            <c:if test="${footerSaveAsMineFailed}">
+                <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
+                    <fmt:message key="email.compose.footer.saveAsMineFailed"/>
+                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                       class="alert-link ms-1"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                </div>
+            </c:if>
             <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>
         </c:if>
     </div>
@@ -916,6 +944,7 @@
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')
                     && !document.getElementById('footerSaveAsMineFailed')
+                    && !document.getElementById('footerSaveAsMineStale')
                     && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.

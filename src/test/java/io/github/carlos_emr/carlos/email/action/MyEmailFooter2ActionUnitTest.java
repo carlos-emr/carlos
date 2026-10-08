@@ -39,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -110,6 +111,9 @@ class MyEmailFooter2ActionUnitTest {
         return new SaveMyEmailFooter2Action(securityInfoManager, emailFooterService);
     }
 
+    /** The page showed this clinic footer. */
+    private static final String SHOWN = EmailFooterService.fingerprint("Riverside Clinic");
+
     private void allowEmailWrite() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)).thenReturn(true);
     }
@@ -128,6 +132,7 @@ class MyEmailFooter2ActionUnitTest {
         assertThat(request.getAttribute("myFooter")).isEqualTo("Riverside Clinic");
         assertThat(request.getAttribute("clinicFooter")).isEqualTo("Riverside Clinic");
         assertThat(request.getAttribute("clinicChangeNotice")).isEqualTo("Dr A footer");
+        assertThat(request.getAttribute("clinicFooterShownFingerprint")).isEqualTo(EmailFooterService.fingerprint("Riverside Clinic"));
         assertThat(request.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(false);
     }
 
@@ -189,12 +194,14 @@ class MyEmailFooter2ActionUnitTest {
         allowEmailWrite();
         request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
         request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, "Dr A footer");
+        request.addParameter(SaveMyEmailFooter2Action.CLINIC_SHOWN_PARAM, SHOWN);
         // A provider number in the request is never used.
         request.addParameter("providerNo", "999");
+        when(emailFooterService.saveOwnFooter(PROVIDER, "Dr A footer", SHOWN)).thenReturn(true);
 
         assertThat(saveAction().execute()).isEqualTo(ActionSupport.NONE);
 
-        verify(emailFooterService).saveOwnFooter(PROVIDER, "Dr A footer");
+        verify(emailFooterService).saveOwnFooter(PROVIDER, "Dr A footer", SHOWN);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/email/myEmailFooter?saved=true");
         logAction.verify(() -> LogAction.addLog(eq(PROVIDER), eq("update"), eq("emailFooterOwn"), eq(""), anyString()));
     }
@@ -255,6 +262,7 @@ class MyEmailFooter2ActionUnitTest {
         String tooLong = "x".repeat(EmailData.FOOTER_MAX_LENGTH + 1);
         request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
         request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, tooLong);
+        request.addParameter(SaveMyEmailFooter2Action.CLINIC_SHOWN_PARAM, SHOWN);
 
         String result = new SaveMyEmailFooter2Action(securityInfoManager,
                 new EmailFooterService(dao, mock(ProviderDao.class))).execute();
@@ -269,13 +277,57 @@ class MyEmailFooter2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should save nothing and show the notice when the clinic changed its footer after the page opened")
+    void shouldShowNotice_whenClinicChangedSincePageOpened() throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
+        request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, "Dr A, call 555-0100");
+        request.addParameter(SaveMyEmailFooter2Action.CLINIC_SHOWN_PARAM, SHOWN);
+        when(emailFooterService.saveOwnFooter(PROVIDER, "Dr A, call 555-0100", SHOWN))
+                .thenReturn(false);
+        when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
+                new EmailFooterService.UserFooterSettings(null, "Call 555-0199", "Call 555-0100", false));
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.INPUT);
+
+        assertThat(request.getAttribute("myFooterChangedSinceShown")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicChangeNotice")).isEqualTo("Call 555-0100");
+        // The page now carries the notice it shows, so the next save goes through.
+        assertThat(request.getAttribute("clinicFooterShownFingerprint")).isEqualTo(EmailFooterService.fingerprint("Call 555-0199"));
+        // The status line still says which footer is in use now: the clinic's.
+        assertThat(request.getAttribute("followsClinicDefault")).isEqualTo(true);
+        assertThat(request.getAttribute("myFooter")).isEqualTo("Dr A, call 555-0100");
+        assertThat(response.getRedirectedUrl()).isNull();
+        logAction.verifyNoInteractions();
+    }
+
+    @ParameterizedTest(name = "clinicFooterShown={0}")
+    @NullAndEmptySource
+    @ValueSource(strings = {"none", "abc", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg"})
+    @DisplayName("should refuse a save without a well-formed fingerprint of the clinic footer the page showed")
+    void shouldRejectSave_whenClinicFingerprintMissingOrMalformed(String token) throws Exception {
+        allowEmailWrite();
+        request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
+        request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, "Dr A footer");
+        if (token != null) {
+            request.addParameter(SaveMyEmailFooter2Action.CLINIC_SHOWN_PARAM, token);
+        }
+
+        assertThat(saveAction().execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(emailFooterService, never()).saveOwnFooter(anyString(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("should keep the typed footer and ask to try again when the save collided with another")
     void shouldAskToRetry_whenSaveCollides() throws Exception {
         allowEmailWrite();
         request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
         request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, "Dr A new footer");
+        request.addParameter(SaveMyEmailFooter2Action.CLINIC_SHOWN_PARAM, SHOWN);
         doThrow(new ObjectOptimisticLockingFailureException("UserProperty", 7))
-                .when(emailFooterService).saveOwnFooter(PROVIDER, "Dr A new footer");
+                .when(emailFooterService).saveOwnFooter(PROVIDER, "Dr A new footer", SHOWN);
         when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
                 new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, false));
 

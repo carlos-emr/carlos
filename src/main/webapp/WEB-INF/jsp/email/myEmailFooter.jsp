@@ -9,7 +9,8 @@
   are cleaned and drawn by footerEditor.js (data-footer-html), never written into the page raw.
   Every change is a POST to email/saveMyEmailFooter; the provider comes from the session.
   Request attributes: myFooter, followsClinicDefault, clinicFooter, clinicChangeNotice,
-  clinicChangeKeptOwnFooter, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
+  clinicFooterShownFingerprint, clinicChangeKeptOwnFooter, myFooterTooLong, myFooterSaveConflict,
+  myFooterChangedSinceShown (set by ViewMyEmailFooter2Action and
   SaveMyEmailFooter2Action). The page needs _email write, as saving does.
   Request parameters: saved (true after a change).
   @since 2026-10-07
@@ -38,6 +39,9 @@
     </c:if>
     <c:if test="${myFooterTooLong}">
         <div class="alert alert-danger" role="alert" id="myFooterTooLong"><fmt:message key="email.myFooter.tooLong"/></div>
+    </c:if>
+    <c:if test="${myFooterChangedSinceShown}">
+        <div class="alert alert-warning" role="alert" id="myFooterChangedSinceShown"><fmt:message key="email.myFooter.changedSinceShown"/></div>
     </c:if>
     <c:if test="${myFooterSaveConflict}">
         <div class="alert alert-danger" role="alert" id="myFooterSaveConflict"><fmt:message key="email.footer.saveConflict"/></div>
@@ -88,6 +92,9 @@
     </c:if>
 
     <form action="${ctx}/email/saveMyEmailFooter" method="post" id="myFooterForm">
+        <%-- The clinic footer this page showed: a save is refused if the clinic changed its footer
+             after the page opened (EmailFooterService.saveOwnFooter). --%>
+        <input type="hidden" name="clinicFooterShown" value="${carlos:forHtmlAttribute(clinicFooterShownFingerprint)}"/>
         <p class="small text-muted" id="myFooterSource">
             <c:choose>
                 <c:when test="${followsClinicDefault}"><fmt:message key="email.myFooter.followsClinic"/></c:when>

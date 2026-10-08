@@ -71,6 +71,8 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
         request.setAttribute("myFooter", followsClinicDefault ? settings.clinicDefault() : settings.ownFooter());
         request.setAttribute("clinicFooter", settings.clinicDefault());
         request.setAttribute("clinicChangeNotice", settings.clinicChangeNotice());
+        // Sent back with a save, so a clinic change made after the page opened is not overwritten.
+        request.setAttribute("clinicFooterShownFingerprint", EmailFooterService.fingerprint(settings.clinicDefault()));
         request.setAttribute("clinicChangeKeptOwnFooter", settings.keptOwnFooter());
     }
 }

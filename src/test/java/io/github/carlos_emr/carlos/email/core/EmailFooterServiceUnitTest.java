@@ -185,6 +185,71 @@ class EmailFooterServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should save nothing and keep the notice when the clinic changed its footer after the page opened")
+    void shouldRefuseSave_whenClinicFooterChangedSincePageOpened() {
+        // The page showed "Call 555-0100"; the clinic then saved "Call 555-0199" and left a notice.
+        clinicDefault("Call 555-0199");
+        UserProperty notice = property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Call 555-0100");
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
+
+        boolean saved = service.saveOwnFooter("101", "Dr A, call 555-0100", EmailFooterService.fingerprint("Call 555-0100"));
+
+        assertThat(saved).isFalse();
+        verify(dao, never()).saveProp(anyString(), anyString(), anyString());
+        verify(dao, never()).saveProp(any(UserProperty.class));
+        verify(dao, never()).delete(any(UserProperty.class));
+        // Checked only after the clinic footer's lock, so a clinic change in progress had finished.
+        InOrder order = inOrder(dao);
+        order.verify(dao).lockClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+        order.verify(dao).findClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+    }
+
+    @Test
+    @DisplayName("should refuse a page opened before a second clinic change while the first notice is unanswered")
+    void shouldRefuseSave_whenSecondClinicChangeWhileNoticePending() {
+        // The first change's notice is still there, unchanged by the second change; the clinic footer is not.
+        clinicDefault("Version two");
+        UserProperty notice = property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Dr A's old footer");
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
+
+        assertThat(service.saveOwnFooter("101", "Version one", EmailFooterService.fingerprint("Version one"))).isFalse();
+        verify(dao, never()).delete(notice);
+    }
+
+    @Test
+    @DisplayName("should save and clear the notice when the clinic footer is still the one the page showed")
+    void shouldSave_whenClinicFooterUnchangedSincePageOpened() {
+        clinicDefault("Call 555-0199");
+        UserProperty notice = property("101", EmailFooterService.CLINIC_CHANGE_NOTICE, "Call 555-0100");
+        ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
+
+        boolean saved = service.saveOwnFooter("101", "Dr A", EmailFooterService.fingerprint("Call 555-0199"));
+
+        assertThat(saved).isTrue();
+        verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "Dr A");
+        verify(dao).delete(notice);
+    }
+
+    @Test
+    @DisplayName("should save when the notice was answered elsewhere and the clinic footer is unchanged")
+    void shouldSave_whenNoticeAnsweredInAnotherTab() {
+        // The page showed a notice; the user answered it in another tab, so none is left now.
+        clinicDefault("Call 555-0199");
+
+        assertThat(service.saveOwnFooter("101", "Dr A", EmailFooterService.fingerprint("Call 555-0199"))).isTrue();
+        verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "Dr A");
+    }
+
+    @Test
+    @DisplayName("should accept only a fingerprint's form as a page's clinic footer fingerprint")
+    void shouldRecogniseFingerprint_forPostedValues() {
+        assertThat(EmailFooterService.isFingerprint(EmailFooterService.fingerprint(""))).isTrue();
+        assertThat(EmailFooterService.isFingerprint("none")).isFalse();
+        assertThat(EmailFooterService.isFingerprint(EmailFooterService.fingerprint("x").toUpperCase(java.util.Locale.ROOT))).isFalse();
+        assertThat(EmailFooterService.isFingerprint(null)).isFalse();
+    }
+
+    @Test
     @DisplayName("should store a footer cleaned against the footer's allow-list")
     void shouldStoreCleanedFooter_whenFooterCarriesUnsafeMarkup() {
         service.saveOwnFooter("101", "<b>Dr A</b><script>x()</script><a href=\"javascript:x()\">Book</a>");
