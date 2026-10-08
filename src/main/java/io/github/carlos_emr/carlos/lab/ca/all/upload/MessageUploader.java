@@ -51,10 +51,15 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import jakarta.persistence.EntityTransaction;
+import org.springframework.orm.jpa.EntityManagerHolder;
+import org.springframework.transaction.support.ResourceHolderSupport;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -637,9 +642,68 @@ public final class MessageUploader {
     }
 
     /**
-     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables
+     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables.
+     *
+     * <p>Every upload entry point runs the handlers inside {@code FileUploadCheck.storeIfNew}'s
+     * transaction, which rolls back on an exception or a rejected parse, and a handler calls this from
+     * its {@code catch} block. When the failure was a rejected insert, Hibernate has already marked that
+     * transaction rollback-only and left the failed entity in the session with no id, so the first query
+     * here threw {@code AssertionFailure} (HHH000099, which Hibernate itself logs at ERROR) out of the
+     * handler before it logged the real cause (#4436). Nothing a rollback-only transaction wrote can
+     * commit, so there is nothing to clean: this returns without touching the session.</p>
+     *
+     * <p>A transaction that is still healthy is cleaned as before, because {@code IHAPOIHandler}
+     * returns a per-message failure string, which the caller commits, and relies on this to undo its
+     * rows first; so is a call with no transaction at all. The cleanup is best effort and never throws:
+     * a failure is logged at WARN so it cannot replace the failure that brought the caller here.</p>
+     *
+     * @param fileId the id of the {@code fileUploadCheck} row that the failed upload's rows reference
      */
     public static void clean(int fileId) {
+        if (isEnclosingTransactionRollbackOnly()) {
+            logger.info("Not cleaning up a failed lab upload: its transaction is already rollback-only, so nothing it wrote can commit");
+            return;
+        }
+        try {
+            removeStoredRows(fileId);
+        } catch (RuntimeException cleanupFailure) {
+            // exceptionTrace, like the upload actions: a persistence failure's nested causes can carry row content.
+            logger.warn("Could not clean up the rows of lab upload {}: {}", fileId, LogSafe.exceptionTrace(cleanupFailure));
+        }
+    }
+
+    /**
+     * Reports whether the calling thread's Spring transaction exists and can no longer commit.
+     *
+     * <p>A failed insert leaves two marks, both read here: Hibernate's own, on the JPA
+     * {@code EntityTransaction}, and Spring's, on the bound connection holder when the failure passed
+     * through a transactional DAO. Spring's {@code EntityManagerHolder} flag is not set by a
+     * participating failure, so it cannot be the only one read. Never throws: if the state cannot be
+     * read, the transaction is treated as usable and {@link #clean(int)} attempts the cleanup.</p>
+     */
+    private static boolean isEnclosingTransactionRollbackOnly() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return false;
+        }
+        try {
+            for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
+                if (resource instanceof ResourceHolderSupport holder && holder.isRollbackOnly()) {
+                    return true;
+                }
+                if (resource instanceof EntityManagerHolder entityManagers) {
+                    EntityTransaction jpaTransaction = entityManagers.getEntityManager().getTransaction();
+                    if (jpaTransaction.isActive() && jpaTransaction.getRollbackOnly()) {
+                        return true;
+                    }
+                }
+            }
+        } catch (RuntimeException unreadable) {
+            logger.debug("Could not read the transaction's rollback state: {}", LogSafe.exceptionTrace(unreadable));
+        }
+        return false;
+    }
+
+    private static void removeStoredRows(int fileId) {
 
         List<Hl7TextMessage> results = hl7TextMessageDao.findByFileUploadCheckId(fileId);
 
