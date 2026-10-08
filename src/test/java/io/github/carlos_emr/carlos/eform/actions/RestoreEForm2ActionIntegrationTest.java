@@ -53,7 +53,7 @@ import static org.mockito.Mockito.when;
 @Tag("eform")
 @Tag("security")
 @Tag("update")
-class RestoreEForm2ActionTest extends CarlosWebTestBase {
+class RestoreEForm2ActionIntegrationTest extends CarlosWebTestBase {
 
     private static final String FID = "42";
 
