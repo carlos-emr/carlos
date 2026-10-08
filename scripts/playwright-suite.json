@@ -380,6 +380,20 @@
       ]
     },
     {
+      "name": "legacy-calculator-bookmarks",
+      "script": "scripts/legacy-calculator-bookmarks-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Read-only issue3665 finding130: legacy static calculator bookmarks redirect to the guarded maintained pages with sex/age kept; Framingham/UKPDS prefills from its address and refuses an out-of-range age."
+    },
+    {
       "name": "clinical-freetext",
       "script": "scripts/clinical-freetext-playwright-checks.js",
       "tiers": [
@@ -2007,6 +2021,21 @@
       ]
     },
     {
+      "name": "eform-restore-fid-validation",
+      "script": "scripts/eform-restore-fid-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
+      ]
+    },
+    {
       "name": "pr-hardening",
       "script": "scripts/pr-hardening-playwright-checks.js",
       "tiers": [
@@ -3447,6 +3476,23 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "fixtures": "Stores two owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) plus one owned document type, and turns on the test provider's edoc_browser_in_document_report preference (restored exactly); do not run it concurrently with another check that reads that preference."
+    },
+    {
+      "name": "note-browser-controls",
+      "script": "scripts/note-browser-controls-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Stores three owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) with fixed content, update and observation dates on the run's FAKE- patient, and saves one owned note; all removed and verified gone."
     },
     {
       "name": "admin-messages",
@@ -5801,8 +5847,26 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product.",
-      "notes": "Expected to FAIL at its only step: RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava, so the card shows CHILDREN\\'S and AC\\311TAMINOPH\\310NE."
+      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product."
+    },
+    {
+      "name": "rx-drug-name-quotes",
+      "script": "scripts/rx-drug-name-quotes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; one marker-named custom drug with quotes and an accent and, when DrugRef offers it, one catalogue product with an apostrophe are saved through Save And Print, reprinted and read back from the E-Chart Medications panel; cleanup removes the patient's drugs, prescription and prescription signature rows and asserts them gone.",
+      "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {
       "name": "boundary-date-billing-claims",
@@ -5980,6 +6044,21 @@
       "env": [],
       "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart (one multi-line); notes and eChart rows removed and asserted gone.",
       "notes": "Verifies paging, Load All, Collapse/Expand and preserved container bounds after the final empty batch (#4171)."
+    },
+    {
+      "name": "echart-notes-pagination-retry",
+      "script": "scripts/echart-notes-pagination-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart; notes and eChart rows removed and asserted gone. Pagination failures are injected with Playwright routes (a 401, a 200 session-expired page, then 500s).",
+      "notes": "Issue #3609: a pagination fetch that rendered nothing is retried on the next scroll-to-top, capped at three in a row, shown with a Retry link, never left in the pane (a non-2xx body is not inserted, a 200 non-fragment page is taken back out); a failed Load All can be clicked again; a note save re-renders the fragment with paging started over so no batch is skipped."
     },
     {
       "name": "gap-clinical-calculators-conversions",

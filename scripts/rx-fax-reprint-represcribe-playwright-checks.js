@@ -87,10 +87,10 @@ const { randomInt } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, validateMysqlHost } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
 const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
-const { validateMysqlHost } = require('./lib/playwright-harness');
 
 // Node keeps the brackets on an IPv6 URL hostname ('http://[::1]/' -> '[::1]'), so a bare '::1'
 // entry in a host set would never match. Strip them before every comparison.
@@ -336,9 +336,10 @@ function cleanupFixtures() {
   });
 }
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => { cleanupFixtures(); removeSecretsDir(); process.exit(signal === 'SIGTERM' ? 143 : 130); });
-}
+// Issue #3600: shared handler (cleanup, then exit 130/143). Both steps are idempotent.
+installCleanupSignalHandlers(() => {
+  try { cleanupFixtures(); } finally { removeSecretsDir(); }
+});
 
 // --- page wiring -------------------------------------------------------------
 
@@ -751,7 +752,7 @@ async function runChecks(context) {
 (async () => {
   const args = ['--disable-dev-shm-usage'];
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') args.unshift('--no-sandbox');
-  const launchOptions = { headless: true, args };
+  const launchOptions = { headless: true, args, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
   if (chromePath) launchOptions.executablePath = chromePath;
   const browser = await chromium.launch(launchOptions);
   // The packaged install serves a self-signed certificate on the loopback front door.

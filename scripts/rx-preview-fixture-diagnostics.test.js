@@ -89,7 +89,9 @@ test('missing automatic fixtures and unusable explicit fixtures without alternat
 
 // Execute the real entry point through its failure paths: invalid fixture validation must run
 // before Chromium launch or pharmacy mutation, and defaults/owned cleanup must still run.
-const pharmacyEntry = pharmacy.slice(pharmacy.indexOf('(async () => {'));
+// The module-scope state, cleanupRun() and the entry point are one unit since issue #3600
+// moved cleanup out of the finally block so a SIGINT/SIGTERM handler can share it.
+const pharmacyEntry = pharmacy.slice(pharmacy.indexOf('let browser = null;'));
 for (const invalid of [true, false]) {
   test(`pharmacy fixture startup cleans up after ${invalid ? 'fixture validation' : 'browser launch'} failure`, async () => {
     const events = [];
@@ -98,13 +100,18 @@ for (const invalid of [true, false]) {
       randomBytes: () => ({toString: () => 'fixture'}),
       initMysqlDefaults() { events.push('defaults'); },
       resolvePrescriptionScriptId() { events.push('resolve'); if (invalid) throw new Error('unusable fixture'); return '45'; },
-      chromium: {launch() {events.push('launch'); throw new Error('browser unavailable');}},
+      chromium: {launch(options) {
+        assert.equal(options.handleSIGINT, false); assert.equal(options.handleSIGTERM, false);
+        events.push('launch'); throw new Error('browser unavailable');
+      }},
+      NO_PLAYWRIGHT_SIGNAL_HANDLING: {handleSIGINT: false, handleSIGTERM: false},
       getLaunchOptions: () => ({}),
       stageNoPharmacy() {assert.fail('startup failure must not change pharmacy links');},
       restorePharmacy(ids) {assert.equal(ids, null); events.push('restore');},
       cleanupOwnedWorkflow: async value => {assert.equal(value.browser, null); events.push('owned cleanup');},
       cleanupMysqlDefaults() {events.push('defaults cleanup');}, sql() {},
       buildFailureDetails: () => ({}), process: {exitCode: 0}, console: {error() {}, warn() {}},
+      installCleanupSignalHandlers: () => ({dispose() {}}),
     };
     await vm.runInNewContext(pharmacyEntry, context);
     assert.equal(context.process.exitCode, 1);
@@ -114,10 +121,10 @@ for (const invalid of [true, false]) {
 
 // Run the production finally block with an otherwise successful status. Restoration failures
 // must change the process result while browser/owned fixture/defaults cleanup still proceeds.
-const cleanupStart = pharmacy.lastIndexOf('  } finally {') + '  } finally {'.length;
-const cleanupEnd = pharmacy.lastIndexOf('\n  }\n})();');
+const cleanupStart = pharmacy.indexOf('async function cleanupRunOnce() {');
+const cleanupEnd = pharmacy.indexOf('\n}\n', cleanupStart) + '\n}'.length;
 assert.ok(cleanupStart > 0 && cleanupEnd > cleanupStart);
-const teardown = `(async () => {${pharmacy.slice(cleanupStart, cleanupEnd)}\n})()`;
+const teardown = `(${pharmacy.slice(cleanupStart, cleanupEnd)})()`;
 for (const failRestore of [false, true]) {
   test(`pharmacy restoration ${failRestore ? 'failure fails' : 'success preserves'} an otherwise successful run`, async () => {
     const events = [];
@@ -192,7 +199,7 @@ test('an initially loading page only receives an empty diagnosis once it settles
 });
 
 test('pharmacy render failure never reads or reports prescription body text', async () => {
-  const code = section(pharmacy, 'async function assertPreviewRenders(', '(async () => {');
+  const code = section(pharmacy, 'async function assertPreviewRenders(', '// Module scope so the SIGINT');
   const context = {assert};
   vm.runInNewContext(code, context);
   const frame = {locator(selector) {assert.equal(selector, '#signature'); return {async waitFor() {throw new Error('timeout');}};}};

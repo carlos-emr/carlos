@@ -340,6 +340,17 @@ in a column the page assumes is numeric, as legacy data holds it).
 | 127 | Schedule Setting ▸ Template Setting prints each template's name and summary unencoded into its select | `xss-poison-schedule` (`schedule/scheduleedittemplate.jsp:161`, Public templates) Filed as #4191, which also covers `scheduleedittemplate.jsp:220` (the summary in a `value` attribute). | `issue-filed` |
 | 128 | The Allergies page prints the patient's surname and first name unencoded (EL with no encoder) | `xss-poison-echart` (E-Chart ▸ Allergies; `rx/ShowAllergies2.jsp:514`; the header copy passed to `TopLinks.jsp` at `:480` is escaped by `c:out`) Filed as #4192. | `issue-filed` |
 
+## 12. Found while closing out #3665 (October 2026)
+
+Findings 8 and 9 were fixed in the two maintained risk calculators. A final pass over everything the
+chart's Calculators index opens found the same class of fault in a third calculator, and the two
+filed defects still live in public copies of the fixed pages.
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 129 | **The Framingham/UKPDS risk calculator answers with its highest-risk band for a box it cannot use.** `riskcalc/js/js.js` read every box with `parseFloat`: a blank or mistyped systolic or HDL became `NaN`, every `<=` in the band ladders compared false, and the page highlighted the >=160 row and the highest cholesterol-ratio column; an HDL of 0 divided by zero to the same column, `1,2` was read as 1, and an age outside 30-75 was clamped and the box silently rewritten. The UKPDS page threw on a `NaN` systolic (and on any decimal between 149 and 150) and left the previous calculation's table and advice on screen. The calculator also ignored the `sex`/`age` the index passes, so it opened on a 55-year-old man for every patient | Source reading, then the page's own script under a fake DOM. Fixed: every box goes through `readRiskInputs()` (the age through the shared `clinicalCalculatorAge.js`), which refuses blank, non-numeric and out-of-range values with a message naming the box and its range, clears every figure and highlight, and computes nothing; the UKPDS ladder covers every value below 150 in the 140 row; the chart's sex and age prefill the form and carry to the diabetic page. `scripts/framingham-ukpds-calculator.test.js` pins the guard; `clinical-calculators-playwright-checks.js` opens the calculator from the chart and asserts the prefill, valid answers and every refusal | `fixed` |
+| 130 | **Public static copies of the fixed calculators still carried findings 8 and 9.** `encounter/calculators/OsteoporoticFracture.htm` and `CoronaryArteryDiseaseRiskPrediction.html` (and `SimpleCalculator.htm`) were duplicates of the maintained `WEB-INF` pages that nothing links to, still served to a bookmark, and still ran the unguarded `age <= 54` ladder | Source search: no caller in `src/main`; `grep "age <= 54"` matched only these copies. Fixed: each is now a redirect to its maintained `encounter/calculators/View*` route that forwards the legacy `?sex=&age=` query and fragment, as `GeneralCalculators.htm` already was. `framingham-ukpds-calculator.test.js` runs each redirect; `legacy-calculator-bookmarks-playwright-checks.js` follows them on a deployment and proves the maintained page refuses a blank age | `fixed` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is
