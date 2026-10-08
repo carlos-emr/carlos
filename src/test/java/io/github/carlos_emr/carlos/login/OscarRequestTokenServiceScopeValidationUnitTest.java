@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestToken;
+import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
 import io.github.carlos_emr.carlos.webserv.oauth.util.OAuth1ParamParser;
 
 import jakarta.ws.rs.core.Response;
@@ -123,6 +124,23 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(dataProvider).createRequestToken(any());
+    }
+
+    @Test
+    @DisplayName("should issue a token for several percent-encoded scopes when enforcement is on")
+    void shouldIssueToken_whenSeveralPercentEncodedScopesRequested() {
+        // The parser hands the query value over still percent-encoded; %20 must separate scopes.
+        enableEnforcement();
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OscarRequestTokenService service = serviceFor("demographic.read%20provider.read", dataProvider);
+
+        Response response = service.initiatePost(new MockHttpServletRequest());
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        org.mockito.ArgumentCaptor<RequestTokenRegistration> registration =
+                org.mockito.ArgumentCaptor.forClass(RequestTokenRegistration.class);
+        verify(dataProvider).createRequestToken(registration.capture());
+        assertThat(registration.getValue().getScopes()).containsExactly("demographic.read", "provider.read");
     }
 
     @Test

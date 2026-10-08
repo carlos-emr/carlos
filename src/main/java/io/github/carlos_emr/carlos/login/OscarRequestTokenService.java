@@ -134,10 +134,15 @@ public class OscarRequestTokenService {
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
+        // OAuth1ParamParser leaves query and Authorization-header values percent-encoded (it only maps
+        // '+' to a space), so "demographic.read%20provider.read" would read as one unknown scope and,
+        // with enforcement on by default (#4419), refuse every multi-scope request. Scopes are plain ASCII
+        // tokens, so one percent-decode is safe whichever source the value came from.
+        String scopes = pctDecode(oreq.scopesCsv);
         // trim before splitting so leading/trailing whitespace does not yield an empty token that
         // would otherwise be rejected as an unknown scope under enforcement
-        String[] requestedScopes = (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank())
-                ? oreq.scopesCsv.trim().split("\\s+")
+        String[] requestedScopes = (scopes != null && !scopes.isBlank())
+                ? scopes.trim().split("\\s+")
                 : new String[0];
         validateRequestedScopes(requestedScopes);
         if (requestedScopes.length > 0) {
