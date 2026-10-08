@@ -135,8 +135,8 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         Allergy allergy = new Allergy();
             allergy.setDrugrefId(id);
-			// this can be overwritten with the conditions further down this code block
-			allergy.setRegionalIdentifier(id);
+        // regionalIdentifier is exported as a DIN (CDS export, REST), so it is set only from a resolved
+        // brand lookup below; the DrugRef search id stays in drugrefId and is never passed off as a DIN.
         allergy.setDescription(name);
         allergy.setTypeCode(Integer.parseInt(type));
         allergy.setReaction(description);

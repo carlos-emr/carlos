@@ -288,7 +288,10 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(drugData.constructed()).isEmpty();
         }
         assertThat(action.isIdentifiersUnresolved()).isFalse();
-        verify(mockRxPatient).addAllergy(any(), any());
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
+        assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
     }
 
     @Test
@@ -329,8 +332,9 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
         verify(mockRxPatient).addAllergy(any(), saved.capture());
         assertThat(saved.getValue().getAtc()).isNullOrEmpty();
-        // The submitted id stays as the fallback identifier, as before.
-        assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("39007");
+        // The search id is kept as the DrugRef id but is not presented as a DIN.
+        assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
+        assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
         assertThat(action.isIdentifiersUnresolved()).isTrue();
     }
 
