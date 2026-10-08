@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1492,6 +1494,95 @@ class PathValidationUtilsUnitTest {
                         PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
             } finally {
                 tempFile.delete();
+            }
+        }
+    }
+
+    // ========================================================================
+    // LOG CONTENT - paths named by reference, failures by type
+    // ========================================================================
+
+    @Nested
+    @DisplayName("Log Content Tests")
+    class LogContentTests {
+
+        @Test
+        @DisplayName("should name a path by the start of its SHA-256, as the documented shell recipe computes it")
+        void shouldNamePath_byShortFingerprint() {
+            // printf '%s' /srv/FAKE-PATIENT-NAME/report.pdf | sha256sum | cut -c1-12
+            assertThat(PathValidationUtils.logReference("/srv/FAKE-PATIENT-NAME/report.pdf")).isEqualTo("ref:41a8779aad5d");
+            assertThat(PathValidationUtils.logReference(null)).isEqualTo("ref:none");
+        }
+
+        @Test
+        @DisplayName("should log a path outside the allowed directory by reference, never the path")
+        void shouldLogReferenceOnly_whenPathOutsideAllowedDirectory() throws IOException {
+            File allowed = Files.createDirectory(tempDir.resolve("FAKE-IMPORT-FOLDER")).toFile();
+            File outside = Files.writeString(tempDir.resolve("FAKE-PATIENT-NAME.pdf"), "content").toFile();
+
+            try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThatThrownBy(() -> PathValidationUtils.validateExistingPath(outside, allowed))
+                        .isInstanceOf(SecurityException.class);
+
+                assertThat(logs.messages())
+                        .contains("Path " + PathValidationUtils.logReference(outside.getCanonicalPath())
+                                + " is outside allowed directory " + PathValidationUtils.logReference(allowed.getCanonicalPath()))
+                        .allSatisfy(message -> assertThat(message)
+                                .doesNotContain("FAKE-PATIENT-NAME")
+                                .doesNotContain("FAKE-IMPORT-FOLDER")
+                                .doesNotContain(tempDir.toRealPath().toString()));
+                assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+            }
+        }
+
+        @Test
+        @DisplayName("should log a configured file that is a directory by reference, never the path")
+        void shouldLogReferenceOnly_whenConfiguredFileIsDirectory() throws IOException {
+            File directory = Files.createDirectory(tempDir.resolve("FAKE-PATIENT-NAME")).toFile();
+
+            try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThatThrownBy(() -> PathValidationUtils.validateConfiguredFile(directory.getPath(), "test file"))
+                        .isInstanceOf(SecurityException.class);
+
+                assertThat(logs.messages())
+                        .contains("test file is not a file: " + PathValidationUtils.logReference(directory.getCanonicalPath()))
+                        .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
+            }
+        }
+
+        @Test
+        @DisplayName("should log a configured directory that is a file by reference, never the path")
+        void shouldLogReferenceOnly_whenConfiguredDirectoryIsFile() throws IOException {
+            File file = Files.writeString(tempDir.resolve("FAKE-PATIENT-NAME"), "content").toFile();
+
+            try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThatThrownBy(() -> PathValidationUtils.validateConfiguredDirectory(file.getPath(), "test dir"))
+                        .isInstanceOf(SecurityException.class);
+
+                assertThat(logs.messages())
+                        .contains("test dir is not a directory: " + PathValidationUtils.logReference(file.getCanonicalPath()))
+                        .allSatisfy(message -> assertThat(message)
+                                .doesNotContain("FAKE-PATIENT-NAME")
+                                .doesNotContain(tempDir.toRealPath().toString()));
+            }
+        }
+
+        @Test
+        @DisplayName("should log an IO failure by its type with nothing attached, keeping the thrown exception")
+        void shouldLogExceptionTypeOnly_whenPathCannotBeResolved() {
+            // A NUL byte makes File.getCanonicalPath throw IOException.
+            String unresolvable = tempDir.resolve("FAKE-PATIENT-NAME") + "\0";
+
+            try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
+                assertThatThrownBy(() -> PathValidationUtils.validateConfiguredDirectory(unresolvable, "test dir"))
+                        .isInstanceOf(SecurityException.class)
+                        .hasMessage("Error validating configured directory")
+                        .hasCauseInstanceOf(IOException.class);
+
+                assertThat(logs.messages())
+                        .contains("Error validating test dir (IOException)")
+                        .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
+                assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
             }
         }
     }
