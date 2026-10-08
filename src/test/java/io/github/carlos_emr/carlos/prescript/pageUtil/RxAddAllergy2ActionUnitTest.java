@@ -334,6 +334,24 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.isIdentifiersUnresolved()).isTrue();
     }
 
+    @ParameterizedTest(name = "ID={0}")
+    @ValueSource(strings = {"", "0", "null"})
+    @DisplayName("should flag a brand allergen submitted without a usable DrugRef id")
+    void shouldFlagAllergy_whenBrandAllergenHasNoLookupId(String id) throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", id);
+        mockRequest.setParameter("name", "AMOXIL");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(drugData.constructed()).isEmpty();
+        }
+        verify(mockRxPatient).addAllergy(any(), any());
+        assertThat(action.isIdentifiersUnresolved()).isTrue();
+    }
+
     @Test
     @DisplayName("should log archive when archived allergy belongs to the session patient")
     void shouldLogArchive_whenAllergyBelongsToSessionPatient() throws Exception {

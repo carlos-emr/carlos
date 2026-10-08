@@ -175,18 +175,22 @@ public final class RxAddAllergy2Action extends ActionSupport {
         // code. The ids of ingredient (14), generic (11/12) and class (8/10) results are not drug
         // codes, so asking for them always fails (#4435). Those allergens are checked by DrugRef
         // from their type and name, and need no stored identifier, so they are not looked up.
-        if (BRAND_TYPE.equals(type) && !id.isEmpty() && !"0".equals(id)) {
-            try {
-                RxDrugData.DrugMonograph f = new RxDrugData().getDrug(id);
-                if (StringUtils.isNotBlank(f.regionalIdentifier)) {
-                    allergy.setRegionalIdentifier(f.regionalIdentifier);
+        if (BRAND_TYPE.equals(type)) {
+            if (!id.isEmpty() && !"0".equals(id)) {
+                try {
+                    RxDrugData.DrugMonograph f = new RxDrugData().getDrug(id);
+                    if (StringUtils.isNotBlank(f.regionalIdentifier)) {
+                        allergy.setRegionalIdentifier(f.regionalIdentifier);
+                    }
+                    allergy.setAtc(f.getAtc());
+                } catch (Exception e) {
+                    MiscUtils.getLogger().warn("Allergy saved without DrugRef identifiers: lookup failed ({})", e.getClass().getSimpleName());
                 }
-                allergy.setAtc(f.getAtc());
-            } catch (Exception e) {
-                MiscUtils.getLogger().warn("Allergy saved without DrugRef identifiers: lookup failed ({})", e.getClass().getSimpleName());
             }
             // The allergy is still saved (the clinician's record must not be lost), but the user
-            // is told, because without an ATC code it may not be checkable against prescriptions.
+            // is told whenever a brand allergen ends up without an ATC code, including when no id
+            // was submitted so no lookup could be tried (e.g. editing a legacy allergy that has
+            // no drugref_id): it may not be checkable against prescriptions.
             identifiersUnresolved = StringUtils.isBlank(allergy.getAtc());
         }
 
