@@ -2,7 +2,7 @@
 # Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later; no warranty.
 """Render the current queue JSP on an isolated loopback Tomcat with synthetic models.
 
-Run: HEAVY_SLOTS=1 heavy python3 scripts/sms-queue-render-checks.py
+Run: python3 scripts/sms-queue-render-checks.py
 Requires Java 21+, Tomcat 11 (CATALINA_HOME or --tomcat-home), and the project's
 already cached Maven dependencies. Does not start CARLOS or connect to a database.
 """

@@ -217,9 +217,13 @@ public class SmsQueueScheduler {
             return processed;
         } finally {
             // Publish the finished run before the in-progress count drops, so a reader that sees no run in
-            // progress also sees this run's result.
-            lastCompletedRun = new CompletedRun(startedAt, clock.instant(), outcome, processed);
-            activeRuns.decrementAndGet();
+            // progress also sees this run's result. The count drops even if recording the run throws, so the
+            // page can never show this run as still going.
+            try {
+                lastCompletedRun = new CompletedRun(startedAt, clock.instant(), outcome, processed);
+            } finally {
+                activeRuns.decrementAndGet();
+            }
         }
     }
 

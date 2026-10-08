@@ -55,8 +55,8 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     Map<SmsProviderType, Long> countOverdueQueuedOutboundByProvider(Date dueBefore);
 
     /**
-     * Counts outbound rows still {@code SENDING} whose last attempt started before {@code staleBefore}: the
-     * same rows the queue worker's stale recovery would claim.
+     * Counts outbound rows still {@code SENDING} whose last attempt started before {@code staleBefore}: the same
+     * condition the queue worker's stale recovery uses (which claims at most one batch per run).
      *
      * @param staleBefore rows whose last attempt is strictly before this time count; {@code null} counts nothing
      * @return counts per SMS provider; providers with no such rows are absent

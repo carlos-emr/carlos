@@ -138,16 +138,44 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should count a never-attempted row as overdue even when the rate limit keeps resetting its due time")
     void shouldCountOverdueQueued_whenRateLimitKeepsReleasingIt() {
-        // The worker claimed this row and handed it back a moment ago because the rate limit held it.
-        SmsTransaction held = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), NOW);
+        // The worker claimed this row and handed it back a moment ago because the rate limit held it: the real
+        // claim and release, so the view's "attempt count 0 means due since creation" rule rests on what
+        // markClaimReleased actually leaves behind.
+        SmsTransaction held = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), null);
+        held.markSending(Date.from(NOW.minusSeconds(2)));
+        held.markClaimReleased(Date.from(NOW));
         entityManager.flush();
+        assertThat(held.getAttemptCount()).as("a released claim gives its attempt back").isZero();
 
         Map<SmsProviderType, Long> counts = smsTransactionDao.countOverdueQueuedOutboundByProvider(FIVE_MINUTES_AGO);
         List<SmsQueueRowDto> rows = smsTransactionDao.findOverdueQueuedOutbound(
                 SmsProviderType.STUB, FIVE_MINUTES_AGO, 10);
+        List<Long> claimedByWorker = smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, Date.from(NOW), 10)
+                .stream().map(SmsTransaction::getId).toList();
 
         assertThat(counts).containsEntry(SmsProviderType.STUB, 1L);
         assertThat(rows).extracting(SmsQueueRowDto::id).containsExactly(held.getId());
+        assertThat(claimedByWorker).as("the worker treats the overdue row as due").containsExactly(held.getId());
+    }
+
+    @Test
+    @DisplayName("should only call rows overdue that the worker's due query would also claim")
+    void shouldListOnlyRowsTheWorkerConsidersDue_asOverdue() {
+        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(3)), null);
+        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), NOW.minus(Duration.ofMinutes(30)));
+        SmsTransaction retried = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), null);
+        retried.markSending(Date.from(NOW.minus(Duration.ofHours(1))));
+        retried.markClaimReleased(Date.from(NOW.minus(Duration.ofMinutes(10))));
+        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(1)), null);
+        entityManager.flush();
+
+        List<Long> overdue = smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 10)
+                .stream().map(SmsQueueRowDto::id).toList();
+        List<Long> claimedByWorker = smsTransactionDao.claimDueOutboundQueue(SmsProviderType.STUB, Date.from(NOW), 10)
+                .stream().map(SmsTransaction::getId).toList();
+
+        assertThat(overdue).hasSize(3);
+        assertThat(claimedByWorker).containsAll(overdue);
     }
 
     @Test
@@ -170,6 +198,30 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
             assertThat(row.createdAt()).isEqualTo(NOW.minus(Duration.ofHours(3)));
             assertThat(row.nextAttemptAt()).isNull();
         });
+    }
+
+    @Test
+    @DisplayName("should list exactly the rows the worker's stale recovery claims as sends with an unknown outcome")
+    void shouldListSameRowsAsStaleRecovery_onOneFixture() {
+        persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(30)));
+        persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)).minusSeconds(1));
+        persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)));
+        persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(1)));
+        persistSending(SmsProviderType.VOIPMS, NOW.minus(Duration.ofMinutes(30)));
+        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), null);
+        SmsTransaction inbound = inbound(SmsProviderType.STUB, SmsStatus.SENDING, NOW.minus(Duration.ofHours(1)));
+        ReflectionTestUtils.setField(inbound, "lastAttemptAt", Date.from(NOW.minus(Duration.ofHours(1))));
+        entityManager.persist(inbound);
+        entityManager.flush();
+
+        // The view reads first: the worker's claim changes the rows it takes.
+        List<Long> shown = smsTransactionDao.findStaleSendingOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 10)
+                .stream().map(SmsQueueRowDto::id).toList();
+        List<Long> claimed = smsTransactionDao.claimStaleOutboundSendingForRecovery(
+                        SmsProviderType.STUB, FIVE_MINUTES_AGO, Date.from(NOW), 10)
+                .stream().map(SmsTransaction::getId).toList();
+
+        assertThat(shown).hasSize(2).containsExactlyElementsOf(claimed);
     }
 
     @Test

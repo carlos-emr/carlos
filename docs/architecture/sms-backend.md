@@ -158,7 +158,7 @@ Record diagnostics are redacted. Full body retrieval goes through authorization 
 
 ### Queue page render check
 
-Run `HEAVY_SLOTS=1 heavy python3 scripts/sms-queue-render-checks.py` with Java 21+, Tomcat 11
+Run `python3 scripts/sms-queue-render-checks.py` with Java 21+, Tomcat 11
 (`CATALINA_HOME` or `--tomcat-home`) and the cached Maven dependencies. This compiles the current
 view-model and encoder sources, then renders the actual queue JSP and includes in a temporary
 Tomcat bound to loopback. Its 20 cases cover empty/populated queues, hidden rows, demographic-column
