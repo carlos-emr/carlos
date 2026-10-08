@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -28,11 +30,26 @@ import org.apache.struts2.ServletActionContext;
  * security-hardening migration (defense in depth; matches the 2Action
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
+ * <p>The page also shows the clinic's email footer logo (issue #3981), which {@code _admin}
+ * writers can replace or remove there.</p>
+ *
  * @since 2026-04-13
  */
 public final class ViewConfigureEmail2Action extends ActionSupport {
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final EmailFooterLogoService logoService;
+
+    /** Used by Struts, which needs a no-argument constructor. */
+    public ViewConfigureEmail2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class));
+    }
+
+    // Package-private for tests.
+    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService) {
+        this.securityInfoManager = securityInfoManager;
+        this.logoService = logoService;
+    }
 
     @Override
     public String execute() throws Exception {
@@ -43,6 +60,12 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
+        EmailFooterLogo logo = logoService.currentLogo();
+        request.setAttribute("clinicLogoSet", logo != null);
+        if (logo != null) {
+            request.setAttribute("clinicLogoWidth", logo.getWidth());
+            request.setAttribute("clinicLogoHeight", logo.getHeight());
+        }
         return SUCCESS;
     }
 }

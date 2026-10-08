@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -466,7 +467,7 @@ public class ManageEmails2Action extends ActionSupport {
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
         // The footer that was sent (issue #3981): this is a copy. A log written before footers
         // existed has none.
-        request.setAttribute("footerEmail", emailLog.getFooter());
+        request.setAttribute("footerEmail", EmailFooterHtml.clean(emailLog.getFooter()));
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

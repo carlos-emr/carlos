@@ -11,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.OutboundEmailArchive;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
@@ -174,18 +175,57 @@ class APISendGridEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
     void shouldCarryFooter_inArchivedPayloadContent() throws Exception {
         EmailData emailData = new EmailData();
         emailData.setBody("Test body");
-        emailData.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        emailData.setFooter("Riverside Clinic<br>Not monitored for urgent issues.");
         APISendGridEmailSender sender = new APISendGridEmailSender(loggedInInfo, validConfig(),
                 new String[]{"patient@example.test"}, "Test subject", emailData.getTransmittedBody(), "", List.of());
 
         try {
             JsonNode payload = OBJECT_MAPPER.readTree(sender.prepareArtifactBytes());
 
+            // No formatted version given: plain text only.
             assertThat(payload.path("content").size()).isEqualTo(1);
             JsonNode content = payload.path("content").get(0);
             assertThat(content.path("type").asText()).isEqualTo("text/plain");
             assertThat(content.path("value").asText())
                     .isEqualTo("Test body\n\nRiverside Clinic\nNot monitored for urgent issues.");
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
+    @Test
+    @DisplayName("should send text then HTML, and the clinic logo as an inline attachment named by its Content-ID")
+    void shouldAddHtmlAndInlineLogo_whenFormattedVersionSet() throws Exception {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Test body");
+        emailData.setFooter("<b>Riverside Clinic</b>");
+        byte[] logo = {(byte) 0xFF, (byte) 0xD8, 1, 2};
+        emailData.setFooterLogo(new EmailInlineImage("clinic-logo-0123456789abcdef@carlos-emr", "image/jpeg", logo));
+        APISendGridEmailSender sender = new APISendGridEmailSender(loggedInInfo, validConfig(),
+                new String[]{"patient@example.test"}, "Test subject", emailData.getTransmittedBody(), "", List.of());
+        sender.setFormattedVersion(emailData.getTransmittedHtml(), emailData.getFooterLogo());
+
+        try {
+            JsonNode payload = OBJECT_MAPPER.readTree(sender.prepareArtifactBytes());
+
+            JsonNode content = payload.path("content");
+            assertThat(content.size()).isEqualTo(2);
+            assertThat(content.get(0).path("type").asText()).isEqualTo("text/plain");
+            assertThat(content.get(0).path("value").asText()).isEqualTo("Test body\n\nRiverside Clinic");
+            assertThat(content.get(1).path("type").asText()).isEqualTo("text/html");
+            assertThat(content.get(1).path("value").asText())
+                    .contains("<img src=\"cid:clinic-logo-0123456789abcdef@carlos-emr\"")
+                    .contains("<b>Riverside Clinic</b>");
+            JsonNode attachments = payload.path("attachments");
+            assertThat(attachments.size()).isEqualTo(1);
+            JsonNode inline = attachments.get(0);
+            assertThat(inline.path("disposition").asText()).isEqualTo("inline");
+            assertThat(inline.path("content_id").asText()).isEqualTo("clinic-logo-0123456789abcdef@carlos-emr");
+            assertThat(inline.path("type").asText()).isEqualTo("image/jpeg");
+            assertThat(inline.path("filename").asText()).isEqualTo("clinic-logo-0123456789abcdef.jpg");
+            assertThat(Base64.getDecoder().decode(inline.path("content").asText())).isEqualTo(logo);
+            // The logo is not one of the patient's documents: no archive attachment record.
+            assertThat(sender.describePreparedAttachments()).isEmpty();
         } finally {
             sender.discardPrepared();
         }

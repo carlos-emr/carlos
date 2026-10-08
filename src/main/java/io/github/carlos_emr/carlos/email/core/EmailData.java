@@ -52,7 +52,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EmailData {
     /** Maximum persisted length of a consent override justification. */
     public static final int CONSENT_OVERRIDE_REASON_MAX_LENGTH = 255;
-    /** Maximum length of the footer sent below the message (issue #3981). */
+    /**
+     * Maximum length of the footer sent below the message (issue #3981), counted in the characters
+     * of its plain-text version ({@link EmailFooterHtml#visibleLength}); its HTML may not exceed
+     * {@link EmailFooterHtml#MAX_HTML_LENGTH}.
+     */
     public static final int FOOTER_MAX_LENGTH = 2000;
 
     private Integer senderConfigId;
@@ -61,6 +65,7 @@ public class EmailData {
     private String subject;
     private String body;
     private String footer = "";
+    private EmailInlineImage footerLogo;
     private String encryptedMessage = "";
     private String password;
     private String passwordClue;
@@ -244,7 +249,8 @@ public class EmailData {
     }
 
     /**
-     * Gets the footer sent to the recipient below the body (issue #3981).
+     * Gets the footer sent to the recipient below the body (issue #3981), as posted: formatted
+     * HTML, not yet cleaned. {@link #getSentFooter()} is what is stored and sent.
      *
      * @return String the footer, or empty string if not set
      * @since 2026-09-29
@@ -257,7 +263,8 @@ public class EmailData {
      * Sets the footer sent to the recipient below the body. The footer is not part of the body,
      * so it is never written into the chart note and never put inside the encrypted PDF.
      *
-     * @param footer String the footer text; null values are converted to empty string
+     * @param footer String the footer as formatted HTML (plain text must first go through
+     *        {@link EmailFooterHtml#fromPlainText}); null values are converted to empty string
      * @since 2026-09-29
      */
     public void setFooter(String footer) {
@@ -265,13 +272,13 @@ public class EmailData {
     }
 
     /**
-     * Returns the text the transport sends as the email body: the body, then one blank line, then
-     * the footer.
+     * Returns the plain-text body the transport sends: the body, then one blank line, then the
+     * footer as plain text ({@link EmailFooterHtml#toPlainText}).
      *
-     * <p>A footer that is empty or only whitespace leaves the body exactly as it is, so an email
-     * without a footer is byte-for-byte what it was before footers existed. With encryption on,
-     * the body is the fixed secure-message notice, so the footer follows the notice in clear text;
-     * it is never part of the encrypted PDF.</p>
+     * <p>Without a footer the body is exactly as it is, so an email without a footer is
+     * byte-for-byte what it was before footers existed, and is sent as plain text only. With
+     * encryption on, the body is the fixed secure-message notice, so the footer follows the notice
+     * in clear text; it is never part of the encrypted PDF.</p>
      *
      * @return String the transmitted body
      * @since 2026-09-29
@@ -282,21 +289,51 @@ public class EmailData {
             return body;
         }
         String visibleBody = body != null ? body : "";
-        return visibleBody.stripTrailing() + "\n\n" + sentFooter;
+        return visibleBody.stripTrailing() + "\n\n" + EmailFooterHtml.toPlainText(sentFooter);
     }
 
     /**
-     * Returns the footer as the recipient receives it: without surrounding whitespace, and empty
-     * when it is only whitespace. The email log stores this, so the log and a resend carry exactly
-     * the footer that was sent.
+     * Returns the formatted (HTML) version the transport sends alongside the plain-text body: the
+     * body, the clinic logo when one is attached ({@link #getFooterLogo()}), then the footer.
      *
-     * @return String the sent footer, never null
+     * @return the HTML document, or null for an email without a footer, which is sent as plain text
+     * @since 2026-10-08
+     */
+    public String getTransmittedHtml() {
+        String sentFooter = getSentFooter();
+        if (sentFooter.isEmpty()) {
+            return null;
+        }
+        return EmailFooterHtml.toHtmlDocument(body, sentFooter, footerLogo == null ? null : footerLogo.contentId());
+    }
+
+    /**
+     * Returns the footer as the recipient receives it: cleaned against the footer's allow-list
+     * ({@link EmailFooterHtml#clean}), and empty when it has no visible text. The email log stores
+     * this, so the log and a resend carry exactly the footer that was sent.
+     *
+     * @return String the sent footer HTML, never null
      * @since 2026-09-29
      */
     public String getSentFooter() {
-        // isBlank, not trim().isEmpty(): it treats whitespace exactly as strip() does, so a
-        // footer of only Unicode spaces cannot leave trailing blank lines behind.
-        return footer.isBlank() ? "" : footer.strip();
+        return EmailFooterHtml.clean(footer);
+    }
+
+    /**
+     * @return the clinic logo carried inline above the footer, or null for none; only an email with
+     *         a footer carries it
+     * @since 2026-10-08
+     */
+    public EmailInlineImage getFooterLogo() {
+        return getSentFooter().isEmpty() ? null : footerLogo;
+    }
+
+    /**
+     * @param footerLogo the clinic logo to carry inline above the footer, or null for none
+     * @since 2026-10-08
+     */
+    public void setFooterLogo(EmailInlineImage footerLogo) {
+        this.footerLogo = footerLogo;
     }
 
     /**

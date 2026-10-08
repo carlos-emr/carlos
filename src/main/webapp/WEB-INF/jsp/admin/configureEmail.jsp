@@ -83,5 +83,69 @@
             </dl>
         </div>
     </div>
+
+    <%-- The clinic's email footer logo (issue #3981): shown above the footer in patient emails and
+         carried inside each email. Only _admin writers get the form; everyone else sees the logo. --%>
+    <div class="card shadow-sm rounded mt-4 mb-5" id="clinicLogoCard">
+        <div class="card-body">
+            <h4 class="card-title"><fmt:message key="admin.configureEmail.logo.heading"/></h4>
+            <p class="card-text"><fmt:message key="admin.configureEmail.logo.intro"/></p>
+            <c:if test="${param.logoSaved eq 'true'}">
+                <div class="alert alert-success" role="status" id="clinicLogoSaved"><fmt:message key="admin.configureEmail.logo.saved"/></div>
+            </c:if>
+            <c:if test="${param.logoRemoved eq 'true'}">
+                <div class="alert alert-success" role="status" id="clinicLogoRemoved"><fmt:message key="admin.configureEmail.logo.removed"/></div>
+            </c:if>
+            <%-- One branch per known reason code; the parameter itself is never shown or used as a key. --%>
+            <c:choose>
+                <c:when test="${param.logoError eq 'EMPTY'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorEmpty"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'TOO_BIG'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooBig"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'NOT_AN_IMAGE'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorNotImage"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'TOO_LARGE'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooLarge"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'COPY_TOO_BIG'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorCopyTooBig"/></div>
+                </c:when>
+            </c:choose>
+            <c:choose>
+                <c:when test="${clinicLogoSet}">
+                    <img src="${ctx}/email/clinicEmailLogo" alt="<fmt:message key='admin.configureEmail.logo.alt'/>"
+                         class="border bg-white p-2 d-block" style="max-width: 100%;" id="clinicLogoImage">
+                    <p class="small text-muted mt-1" id="clinicLogoSize">
+                        <fmt:message key="admin.configureEmail.logo.size">
+                            <fmt:param value="${clinicLogoWidth}"/>
+                            <fmt:param value="${clinicLogoHeight}"/>
+                        </fmt:message>
+                    </p>
+                </c:when>
+                <c:otherwise>
+                    <p class="text-muted" id="clinicLogoNone"><fmt:message key="admin.configureEmail.logo.none"/></p>
+                </c:otherwise>
+            </c:choose>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
+                <form action="${ctx}/admin/saveClinicEmailLogo" method="post" enctype="multipart/form-data" class="mt-3" id="clinicLogoForm">
+                    <label for="logoFile" class="form-label"><fmt:message key="admin.configureEmail.logo.choose"/></label>
+                    <input class="form-control" type="file" id="logoFile" name="logoFile" accept="image/png,image/jpeg"
+                           aria-describedby="clinicLogoHelp">
+                    <div id="clinicLogoHelp" class="form-text"><fmt:message key="admin.configureEmail.logo.help"/></div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="submit" name="logoAction" value="upload" class="btn btn-primary">
+                            <fmt:message key="admin.configureEmail.logo.upload"/></button>
+                        <c:if test="${clinicLogoSet}">
+                            <button type="submit" name="logoAction" value="remove" class="btn btn-outline-danger">
+                                <fmt:message key="admin.configureEmail.logo.remove"/></button>
+                        </c:if>
+                    </div>
+                </form>
+            </security:oscarSec>
+        </div>
+    </div>
 </div>
 </body>

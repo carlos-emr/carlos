@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.SendOutcome;
 import io.github.carlos_emr.carlos.utility.OutboundEmailArchiveException;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
@@ -150,6 +151,8 @@ public class EmailManager {
     private PortalEmailDeliveryService portalEmailDelivery;
     @Autowired
     private PatientPortalInviteDeliveryDao inviteDeliveries;
+    @Autowired
+    private EmailFooterLogoService footerLogoService;
     private final EmailConsentResolver emailConsentResolver;
     private final EmailSenderFactory emailSenderFactory;
     private final OutboundEmailArchiveService outboundEmailArchiveService;
@@ -270,6 +273,13 @@ public class EmailManager {
                         emailData.getSenderConfigId());
                 return EmailSendResult.failed(createFailedEmailLog(emailData, SENDER_CONFIG_MISCONFIGURATION_ERROR), false);
             }
+            // The clinic logo travels above the footer (issue #3981); an email without a footer
+            // stays plain text, so it is looked up only for one with a footer. Looked up before the
+            // log row is written: a failed lookup fails the send outright rather than leaving a
+            // PENDING row behind, and both paths' senders then read it from emailData.
+            if (!emailData.getSentFooter().isEmpty()) {
+                emailData.setFooterLogo(footerLogoService.inlineLogo());
+            }
             EmailConsentResult consentResult = emailConsentResolver.resolve(loggedInInfo, emailData.getDemographicNo());
             EmailLog emailLog = prepareEmailForOutbox(loggedInInfo, emailData, emailConfig);
             persistedEmailLog = emailLog;
@@ -284,7 +294,6 @@ public class EmailManager {
                         String.valueOf(emailLog.getDemographic().getDemographicNo()), "");
                 return EmailSendResult.failed(emailLog, true);
             }
-
             if (portalPassword) {
                 // The portal path archives and dispatches exactly like a normal send; only the
                 // password handling around the transport step differs.

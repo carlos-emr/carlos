@@ -57,6 +57,9 @@ public class Property extends AbstractModel<Integer> implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    // TEXT since the email footer migration (V1.0.51): formatted email footers live here. The length
+    // mirrors it so the H2 test schema, built from the entities, holds what MariaDB holds.
+    @Column(length = 65535)
     private String value;
 
     @Column(name = "provider_no")

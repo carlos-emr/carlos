@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -444,13 +445,14 @@ public class EmailCompose2Action extends ActionSupport {
 
     /**
      * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged,
-     * otherwise empty (a blank one counts as none). Staff can type or change it before sending.
+     * otherwise empty (a blank one counts as none). Staff can change it before sending, in the
+     * Edit footer window.
      *
-     * @param stagedFooter footer the eForm posted, or null
-     * @return the footer text, never null
+     * @param stagedFooter footer the eForm posted, as plain text, or null
+     * @return the footer as formatted HTML (an eForm's line breaks kept), never null
      */
     static String resolveComposeFooter(String stagedFooter) {
-        return stagedFooter == null || stagedFooter.isBlank() ? "" : stagedFooter;
+        return EmailFooterHtml.fromPlainText(stagedFooter);
     }
 
     /**

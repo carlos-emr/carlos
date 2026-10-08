@@ -972,11 +972,13 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should treat a missing or blank eForm footer as none")
+    @DisplayName("should treat a missing or blank eForm footer as none, and read an eForm footer as plain text")
     void shouldResolveFooter_fromEFormOnly() {
         assertThat(EmailCompose2Action.resolveComposeFooter(null)).isEmpty();
         assertThat(EmailCompose2Action.resolveComposeFooter("  \n ")).isEmpty();
-        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\n")).isEqualTo("Book online\n");
+        // An eForm's footer is plain text: its line breaks are kept and nothing in it is markup.
+        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\nCall <front desk> & ask\n"))
+                .isEqualTo("Book online<br>Call &lt;front desk&gt; &amp; ask");
     }
 
     private static EmailConfig senderAccount(String senderEmail) {

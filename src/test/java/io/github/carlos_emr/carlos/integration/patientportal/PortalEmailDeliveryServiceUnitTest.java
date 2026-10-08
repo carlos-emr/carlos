@@ -120,7 +120,7 @@ class PortalEmailDeliveryServiceUnitTest extends CarlosUnitTestBase {
     @Test void shouldSendPortalBodyThenFooter_withoutStoringFooterInBody() {
         // Issue #3981: the portal path rewrites the body, so the footer must still follow it at
         // transmission, after one blank line, and must stay out of the stored body.
-        data.setFooter("  Riverside Clinic\nBook online  ");
+        data.setFooter("  Riverside Clinic<br>Book online  ");
         var transmitted = new java.util.concurrent.atomic.AtomicReference<String>();
 
         outcome = delivery.send(user, log, data, this::encrypt, () -> {
