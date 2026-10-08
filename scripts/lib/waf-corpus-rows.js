@@ -10,9 +10,18 @@
  * before it fails against a live install.
  *
  *   corpusStep the label of the row's corpus step, as written in the step (see corpusStepLabel)
+ *   outcome   what the corpus step proves (see OUTCOMES): 'stored' (default) the text lands byte for byte in a database row;
+ *             'accepted' the route took the request and nothing is stored for it (a session stash, a search, a display page);
+ *             'echoed' the route's ANSWER carries the text back exactly
+ *   response  true for a row that measures a response-body rule (CRS outbound), for which the package has no exclusion
  *   rules     ids in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf that are meant to let `args` through `route`
  *   afterCrs  the config-time pattern in RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf a row without a numbered rule relies on
  *   args      the prose arguments the row fills, as the exclusion names them (comments-<n> stands for the row-indexed names)
+ *
+ * One defect, one row. A route that is reached through two different arguments or answers gets a row for each, because
+ * playwright-suite.json pins a known failure by step label and an entry can pin only one defect: the tickler list is the
+ * search term going out (tickler-list) and the saved message coming back (tickler-list-response), and a custom Rx drug
+ * name is the rename key-up (rx-custom-drug-name) and the Save Only box (rx-custom-drug-save).
  *
  * Exclusions this check does not drive, and why:
  *   1100 and 1131       the consultation request and the master record's Alert/Notes: clinical-freetext
@@ -26,7 +35,7 @@
  *                       prose routes outside this plan's route list, still open for a later row
  */
 
-/** @type {Record<string, {title: string, rules: string[], afterCrs?: string[], route: string, method: string, args: string[]}>} */
+/** @type {Record<string, {title: string, corpusStep: string, outcome?: 'stored'|'accepted'|'echoed', response?: boolean, rules: string[], afterCrs?: string[], route: string, method: string, args: string[]}>} */
 const FACTS = {
   'tickler-add': {
     title: 'tickler add',
@@ -38,20 +47,39 @@ const FACTS = {
     corpusStep: 'tickler edit (append a comment): the clinical corpus saves through /tickler/EditTickler and lands exactly',
     rules: ['1105'], route: 'tickler/EditTickler', method: 'POST', args: ['newMessage'],
   },
+  // The search box sends the typed term as search[value] (exclusion 1141). The row sends the corpus as the term and
+  // asks that the list answers; the saved message coming back is the next row.
   'tickler-list': {
-    title: 'tickler list search (shows the saved message)',
-    corpusStep: 'tickler list search (shows the saved message): the clinical corpus saves through /tickler/ListTicklers and lands exactly',
+    title: 'tickler list search (the term)',
+    corpusStep: 'tickler list search (the term): the clinical corpus is accepted by /tickler/ListTicklers',
+    outcome: 'accepted',
     rules: ['1141'], route: 'tickler/ListTicklers', method: 'GET', args: ['search[value]'],
+  },
+  // No exclusion reaches the other direction: CRS 953120 reads the JSON answer, which carries each tickler's message.
+  'tickler-list-response': {
+    title: 'tickler list (the saved message comes back)',
+    corpusStep: 'tickler list (the saved message comes back): the clinical corpus comes back through /tickler/ListTicklers exactly',
+    outcome: 'echoed', response: true,
+    rules: [], route: 'tickler/ListTicklers', method: 'GET', args: ['message'],
   },
   'rx-special-instruction': {
     title: 'Rx special instruction (staged, then Save Only)',
     corpusStep: 'Rx special instruction (staged, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
     rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['specialInstruction'],
   },
-  // 1107 exempts customName on rx/writeScript; the page posts it to rx/WriteScript, where only `name` is exempt (finding 210).
+  // The rename key-up posts customName to rx/WriteScript?parameterValue=saveCustomName (the staged copy only, nothing is
+  // stored yet). 1107 exempts customName on rx/writeScript, lower case; the page posts to rx/WriteScript, where 1108
+  // exempts `name` (the box the drug search stages the card with) but not customName (finding 210).
   'rx-custom-drug-name': {
-    title: 'Rx custom drug name (staged, renamed, then Save Only)',
-    corpusStep: 'Rx custom drug name (staged, renamed, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
+    title: 'Rx custom drug name (renamed in its own box)',
+    corpusStep: 'Rx custom drug name (renamed in its own box): the clinical corpus is accepted by /rx/WriteScript',
+    outcome: 'accepted',
+    rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['name'],
+  },
+  // Save Only posts the card's drugName_<n> box, which the action stores as drugs.customName; no rule names it (finding 211).
+  'rx-custom-drug-save': {
+    title: 'Rx custom drug name (staged from the search box, then Save Only)',
+    corpusStep: 'Rx custom drug name (staged from the search box, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
     rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['name'],
   },
   'rx-update-script': {
@@ -126,14 +154,16 @@ const FACTS = {
   },
   'billing-on-display': {
     title: 'Ontario invoice display (history comment, display only)',
-    corpusStep: 'Ontario invoice display (history comment, display only): the clinical corpus saves through /billing/CA/ON/ViewBillingONDisplay and lands exactly',
+    corpusStep: 'Ontario invoice display (history comment, display only): the clinical corpus is accepted by /billing/CA/ON/ViewBillingONDisplay',
+    outcome: 'accepted',
     rules: ['1136'], route: 'billing/CA/ON/ViewBillingONDisplay', method: 'POST', args: ['comment'],
   },
 };
 
 /** The order the rows run in and report in: the plan's route list. */
 const ROW_ORDER = [
-  'tickler-add', 'tickler-edit', 'tickler-list', 'rx-special-instruction', 'rx-custom-drug-name', 'rx-update-script', 'allergy-add',
+  'tickler-add', 'tickler-edit', 'tickler-list', 'tickler-list-response', 'rx-special-instruction', 'rx-custom-drug-name',
+  'rx-custom-drug-save', 'rx-update-script', 'allergy-add',
   'measurement-data', 'measurement-comment', 'prevention-add', 'manage-document', 'lab-status', 'messenger-send',
   'appointment-add', 'appointment-update', 'chart-note', 'eform-letter', 'billing-on-save', 'billing-on-correction',
   'billing-on-display',
@@ -159,12 +189,28 @@ function selectedKeys(env = process.env) {
 /** The label of a row's control step: the real UI save with plain text, before the corpus (never pinned). */
 const controlStepLabel = (key) => `${FACTS[key].title}: the real UI save goes through the front door (control)`;
 
+/** What each outcome says in a row's corpus step label (the words after "the clinical corpus"), and what the row proves. */
+const OUTCOMES = {
+  stored: { verb: 'saves through', tail: ' and lands exactly' },
+  accepted: { verb: 'is accepted by', tail: '' },
+  echoed: { verb: 'comes back through', tail: ' exactly' },
+};
+
+/** The outcome a row proves; a row that says nothing stores its text. */
+const outcomeOf = (key) => FACTS[key].outcome || 'stored';
+
+/** The label a fact's corpus step must have: what waf-clinical-text-corpus.test.js holds each `corpusStep` literal to. */
+function corpusStepFor(fact) {
+  const { verb, tail } = OUTCOMES[fact.outcome || 'stored'];
+  return `${fact.title}: the clinical corpus ${verb} /${fact.route}${tail}`;
+}
+
 /**
  * The label of a row's corpus step, which is what a manifest `expectedFailure.step` names: the runner matches a
  * known failure on the step label alone. It is a literal in FACTS (`corpusStep`), not built here, because
  * playwright-suite-manifest.test.js proves a pin by finding the label's text in the script or the modules it requires;
- * waf-clinical-text-corpus.test.js holds each literal to `<title>: the clinical corpus saves through /<route> and lands exactly`.
+ * waf-clinical-text-corpus.test.js holds each literal to corpusStepFor.
  */
 const corpusStepLabel = (key) => FACTS[key].corpusStep;
 
-module.exports = { FACTS, ROW_ORDER, controlStepLabel, corpusStepLabel, selectedKeys };
+module.exports = { FACTS, OUTCOMES, ROW_ORDER, controlStepLabel, corpusStepFor, corpusStepLabel, outcomeOf, selectedKeys };

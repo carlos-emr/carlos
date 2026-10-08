@@ -14,8 +14,8 @@
  * record's Alert/Notes); every other check saves marker text that never scores, so a WAF false
  * positive on a clinician's note would first show up in the field as a bare 403.
  *
- * WHAT IT DOES. One row per route (lib/waf-corpus-rows.js: 20 rows over 20 of the package's 62 exclusion rules
- * and one after-CRS pattern). Each row is two steps:
+ * WHAT IT DOES. One row per route and per defect (lib/waf-corpus-rows.js: 22 rows over 20 of the package's 62 exclusion
+ * rules and one after-CRS pattern; the tickler list and the custom Rx drug name are two rows each, see that file). Each row is two steps:
  *   1. a CONTROL step drives the real UI save with plain marker text. That proves the page, the route
  *      and the fixture work through the front door, and for a row that replays it captures the request
  *      the page sent, so the route and the argument names are the page's own and not a guess;
@@ -23,6 +23,9 @@
  *      pasted-link phrase first because CRS 931100 is anchored on the start of an argument; fitted to
  *      the column when the column is short, see lib/waf-corpus.js) and asserts the row the save wrote
  *      holds the EXACT text, byte for byte (HEX compared, so a charset hop or an encoder cannot hide).
+ * What the corpus step asserts is the row's `outcome`: 'stored' (the default) is the byte-exact database row above;
+ * 'accepted' is for a route that stores nothing for the request (the Rx rename goes to a session stash, a search term, a
+ * display page) and asserts it answered as it should; 'echoed' is for a route whose ANSWER carries the text back.
  * A WAF 403, or a response the WAF drops, fails the corpus step naming the route, the exclusion that
  * should have covered it and the CRS rules the ModSecurity audit log reports for the request. The step
  * labels are the fault line for findings: a row's corpus step holds only that row's assertion, and the
@@ -64,10 +67,23 @@ const pdfs = require('./lib/stored-pdf-documents');
 const billing = require('./billing-on-invoice-third-party-playwright-checks');
 const rep = require('./lib/mutation-replay');
 const waf = require('./lib/waf-corpus');
-const { FACTS, controlStepLabel, corpusStepLabel, selectedKeys } = require('./lib/waf-corpus-rows');
+const { FACTS, controlStepLabel, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
 
-/** What a row's exclusion is called in a message: the numbered rule(s), or the after-CRS pattern a row without one relies on. */
-const exclusionOf = (row) => (row.rules.length ? `exclusion ${row.rules.join('/')}` : `the after-CRS pattern ${row.afterCrs.join(' ')}`);
+/**
+ * What a row's exclusion is called in a message: the numbered rule(s), the after-CRS pattern a row without one relies on,
+ * or, for a row that measures the response body, the fact that the package has no exclusion for one.
+ */
+const exclusionOf = (row) => {
+  if (row.rules.length) return `exclusion ${row.rules.join('/')}`;
+  return row.afterCrs ? `the after-CRS pattern ${row.afterCrs.join(' ')}` : 'no exclusion (the package has none for a response body)';
+};
+
+/** What a row's corpus step proves, in the words of the progress line and of a failure (the row's `outcome`, see lib/waf-corpus-rows.js). */
+const OUTCOME_TEXT = {
+  stored: { done: 'LANDED', detail: 'stored exactly', unmet: 'the text did not land' },
+  accepted: { done: 'ACCEPTED', detail: 'accepted, nothing stored for it', unmet: 'the route did not take it as it should' },
+  echoed: { done: 'ECHOED', detail: 'came back exactly', unmet: 'the answer did not carry the text back' },
+};
 
 /** What the front door (or the application behind it) did to a row's corpus: the corpus step's assertion. */
 class RowFailure extends Error {}
@@ -262,7 +278,6 @@ function replayRow(s, ctx, spec) {
   return {
     key: spec.key, title: spec.title, rules: spec.rules, afterCrs: spec.afterCrs, route: spec.route, method: spec.method, drive: spec.drive,
     get fields() { return typeof spec.fields === 'function' ? spec.fields() : spec.fields; },
-    landsInDb: spec.landsInDb !== false,
     get captured() { return captured; },
     early() { if (spec.early) spec.early(); },
     async prepare() { if (spec.prepare) await spec.prepare(); },
@@ -390,48 +405,85 @@ function rows(s, ctx) {
     });
   };
 
+  // ---- The tickler list is a DataTables GET: the search box sends its term as search[value] (exclusion 1141) and the
+  // JSON that comes back carries each listed tickler's message. The two directions are two rows, because a manifest
+  // pin names one defect: the term going out (tickler-list) and a saved message coming back (tickler-list-response).
+  const SEARCH = 'search[value]';
+
+  /** The owned patient's tickler list, searched the way a clinician does; returns the GET the search box sent. */
+  async function captureListSearch(message) {
+    const { route } = FACTS['tickler-list'];
+    let list;
+    try {
+      list = await tickler.openPatientTicklerList(s.context, s.master, s.recorder, 'tickler-list');
+      await tickler.listRow(list, message);
+      const captured = await captureRequest(list, (url) => url.pathname.endsWith(`/${route}`) && url.searchParams.get(SEARCH) === message,
+        () => list.locator('#ticklerResults_filter input[type="search"]').fill(message), { timeout: 20000, method: 'GET' });
+      h.assert(captured.status === 200, `the list's own search answered HTTP ${captured.status}`);
+      return captured;
+    } finally { await closeAll([list]); }
+  }
+
+  /** The captured list GET again, from the same session with the headers the page sent, and the search term replaced. */
+  function replayListSearch(captured, term) {
+    const params = replayParams(captured.params, { [SEARCH]: term }, { keepEmpty: true });
+    const headers = {};
+    for (const name of ['accept', 'referer', 'x-requested-with']) if (captured.headers[name] !== undefined) headers[name] = captured.headers[name];
+    return s.context.request.get(new URL(`${captured.path}?${params}`, baseUrl.origin).toString(), { headers, maxRedirects: 0, failOnStatusCode: false });
+  }
+
   all['tickler-list'] = () => {
-    // The tickler list is a DataTables GET: the search box sends its term as search[value] (exclusion 1141), and
-    // the JSON that comes back carries every tickler's message. A clinician who saves a tickler (1104) and then
-    // searches for it, or just opens the list, gets that message back; the row proves both halves.
+    // The fixture tickler is plain; only the search term carries the corpus, so nothing in the answer can trip a
+    // response rule. The list must answer, and a term no message contains must not match the fixture: that proves the
+    // term reached the application whole and was applied as a filter, not that it was ignored.
     let fixture;
     let captured = null;
-    const { route } = FACTS['tickler-list'];
-    const [field] = FACTS['tickler-list'].args;
     return {
       key: 'tickler-list', ...FACTS['tickler-list'],
-      drive: 'replay: real UI (Tickler list ▸ search box), then the captured GET with the search term and the tickler message set to the corpus',
-      // The search box is a single-line input, so the corpus is joined with spaces, and so is the message it must find.
-      fields: [{ name: field, joiner: ' ' }], landsInDb: true,
+      drive: 'replay: real UI (Tickler list ▸ search box), then the captured GET with the search term set to the corpus',
+      // The search box is a single-line input, so the corpus is joined with spaces.
+      fields: [{ name: SEARCH, joiner: ' ' }],
       get captured() { return captured; },
       prepare() { fixture = tickler.seedTickler(s, 'list'); },
-      async control() {
-        let list;
-        try {
-          list = await tickler.openPatientTicklerList(s.context, s.master, s.recorder, 'tickler-list');
-          await tickler.listRow(list, fixture.message);
-          captured = await captureRequest(list, (url) => url.pathname.endsWith(`/${route}`) && url.searchParams.get(field) === fixture.message,
-            () => list.locator('#ticklerResults_filter input[type="search"]').fill(fixture.message), { timeout: 20000, method: 'GET' });
-          h.assert(captured.status === 200, `the list's own search answered HTTP ${captured.status}`);
-          return captured;
-        } finally { await closeAll([list]); }
+      async control() { captured = await captureListSearch(fixture.message); return captured; },
+      watermark() {},
+      send: (values) => replayListSearch(captured, values[SEARCH]),
+      async landed(values, answer) {
+        let json;
+        try { json = JSON.parse(answer.body); } catch { return 'the list did not answer with JSON'; }
+        if (!Array.isArray(json.data)) return 'the list answer has no data array';
+        return json.data.some((entry) => String(entry.id) === String(fixture.id))
+          ? 'the list matched the owned tickler against a search term that tickler does not contain' : null;
       },
+    };
+  };
+
+  all['tickler-list-response'] = () => {
+    // The tickler's message is the corpus, written by SQL (saving it through the page is the tickler-add row's business),
+    // behind a plain tag the search finds it by. The list's JSON answer has to carry the message back exactly. The package
+    // has no exclusion for a response body, so CRS 953120 (a "<?" in the answer) is measured here unshielded.
+    let fixture;
+    let captured = null;
+    let message = '';
+    return {
+      key: 'tickler-list-response', ...FACTS['tickler-list-response'],
+      drive: 'replay: real UI (Tickler list ▸ search box), then the captured GET against a tickler whose message the check set to the corpus',
+      fields: [{ name: 'message' }],
+      get captured() { return captured; },
+      prepare() { fixture = tickler.seedTickler(s, 'list-response'); },
+      async control() { captured = await captureListSearch(fixture.message); return captured; },
       watermark() {},
       async send(values) {
-        // The tickler itself is saved by the row above this one; here its message is set to the same text by SQL so
-        // that the search term and the stored message are the corpus and the response has to carry it back.
-        s.sql.execute(`UPDATE tickler SET message=${q(values[field])} WHERE tickler_no=${fixture.id} AND demographic_no=${patient}`);
-        const params = replayParams(captured.params, { [field]: values[field] }, { keepEmpty: true });
-        const headers = {};
-        for (const name of ['accept', 'referer', 'x-requested-with']) if (captured.headers[name] !== undefined) headers[name] = captured.headers[name];
-        return s.context.request.get(new URL(`${captured.path}?${params}`, baseUrl.origin).toString(), { headers, maxRedirects: 0, failOnStatusCode: false });
+        message = `${fixture.message} ${values.message}`;
+        s.sql.execute(`UPDATE tickler SET message=${q(message)} WHERE tickler_no=${fixture.id} AND demographic_no=${patient}`);
+        return replayListSearch(captured, fixture.message);
       },
       async landed(values, answer) {
         let json;
         try { json = JSON.parse(answer.body); } catch { return 'the list did not answer with JSON'; }
         const row = (json.data || []).find((entry) => String(entry.id) === String(fixture.id));
-        if (!row) return `the list does not show the owned tickler for the corpus search (it lists ${(json.data || []).length} ticklers)`;
-        return row.message === values[field] ? null : 'the list shows the owned tickler with a message that differs from what was saved';
+        if (!row) return `the list does not show the owned tickler (it lists ${(json.data || []).length} ticklers)`;
+        return row.message === message ? null : 'the list shows the owned tickler with a message that differs from the one stored';
       },
     };
   };
@@ -503,7 +555,7 @@ function rows(s, ctx) {
         throw new RowFailure(`WAF 403 on the page's own POST /${route}: CRS rule(s): ${rules.length ? rules.join('; ') : `unknown (${note})`}`);
       }
       h.assert(status < 400, `the page's own POST /${route} answered HTTP ${status}`);
-      return { status, body };
+      return { status, body, headers: response.headers() };
     },
     /** Leave no staged card behind: a card that was never saved would ride along on the next row's Save. */
     async close() {
@@ -516,12 +568,16 @@ function rows(s, ctx) {
     },
   };
 
-  /** An Rx row: `drive_` types the corpus into the box the row is about and ends with Save Only. */
+  /**
+   * An Rx row: `drive_` types the corpus into the box the row is about and ends at the page's own request. A row with a
+   * `column` ends with Save Only and asserts the drugs row; one without it (the rename key-up posts only to the session
+   * stash) asserts that the page's own request was accepted.
+   */
   function rxRow(spec) {
     let mark = 0;
     return {
       key: spec.key, title: spec.title, rules: spec.rules, route: spec.route, method: spec.method, drive: spec.drive,
-      fields: spec.fields, landsInDb: true,
+      fields: spec.fields,
       prepare() { s.cleanup(() => removeDrugs(s)); },
       async control() {
         await rxUi.open();
@@ -537,10 +593,12 @@ function rows(s, ctx) {
         await rxUi.open();
         try {
           const answer = await spec.drive_(values, rxUi);
-          return { status: () => answer.status, text: async () => answer.body, headers: () => ({ server: 'nginx' }) };
+          // The page's own response, header and all: the front-door assertion reads the real Server header.
+          return { status: () => answer.status, text: async () => answer.body, headers: () => answer.headers };
         } finally { await rxUi.close(); }
       },
       async landed(values) {
+        if (!spec.column) return null;
         const wanted = spec.stored(values);
         const deadline = Date.now() + POLL_MS;
         let seen = [];
@@ -569,13 +627,24 @@ function rows(s, ctx) {
 
   all['rx-custom-drug-name'] = () => rxRow({
     key: 'rx-custom-drug-name', ...FACTS['rx-custom-drug-name'],
-    drive: 'typed: real UI (Rx ▸ custom drug named from the search box, renamed in its own box, Save Only)',
-    // The name is typed in a single-line box and stored in drugs.customName, which is 60 characters wide.
+    drive: 'typed: real UI (Rx ▸ custom drug staged from the search box, then renamed in its own box; the key-up post is the row)',
+    // A single-line box over drugs.customName, which is 60 characters wide. The rename is posted to the session stash
+    // only (saveCustomName); what Save Only then stores is the next row's business, so this one stops at the key-up.
+    fields: [{ name: 'name', limit: 60, joiner: ' ' }],
+    async drive_(values, ui) {
+      await ui.stage(values.name, '1 tab PO BID x 14 days');
+      return ui.rename(values.name);
+    },
+  });
+
+  all['rx-custom-drug-save'] = () => rxRow({
+    key: 'rx-custom-drug-save', ...FACTS['rx-custom-drug-save'],
+    drive: 'typed: real UI (Rx ▸ custom drug named from the search box with the corpus, Save Only)',
+    // Save Only posts the card's drugName_<n> box and the action stores it as drugs.customName, 60 characters wide.
     fields: [{ name: 'name', column: 'customName', limit: 60, joiner: ' ' }], column: 'customName',
     stored: (values) => values.name.trim(), match: (stored, wanted) => stored === wanted,
     async drive_(values, ui) {
       await ui.stage(values.name, '1 tab PO BID x 14 days');
-      await ui.rename(values.name);
       return ui.save();
     },
   });
@@ -858,7 +927,7 @@ function rows(s, ctx) {
     return {
       key: 'eform-letter', ...FACTS['eform-letter'],
       drive: 'typed: real UI throughout (E-Chart eForm ▸ Rich Text Letter, the corpus typed into the editor, toolbar Submit)',
-      fields, landsInDb: true,
+      fields,
       get captured() { return sent; },
       prepare() {
         fid = s.sql.value(`SELECT MIN(fid) FROM eform WHERE form_name=${q(process.env.RTL_FORM_NAME || 'Rich Text Letter')} AND status=1`);
@@ -954,7 +1023,7 @@ function rows(s, ctx) {
     return replayRow(s, ctx, {
       key: 'billing-on-display', ...FACTS['billing-on-display'],
       drive: 'replay: real UI (Billing History ▸ invoice number ▸ Enter in the invoice box), then the captured POST with the comment added',
-      fields: [{ name: 'comment', column: 'comment1' }], landsInDb: false,
+      fields: [{ name: 'comment', column: 'comment1' }],
       prepare() { bill = ownedBill(); },
       async control() {
         let history;
@@ -1078,10 +1147,13 @@ async function workflow(s) {
           // (response-body inspection) drops the connection instead: the client sees no answer at all.
           const { rules } = await audit.rulesSince(mark, where, { method: row.method || 'POST' });
           if (!rules.length) throw error;
-          const landed = await row.landed(values, { status: 0, body: '' }).then((problem) => problem === null, () => false);
-          throw new RowFailure(`WAF dropped the RESPONSE of ${row.method || 'POST'} /${row.route} (${position}; the text ${landed ? 'WAS saved' : 'was NOT saved'} `
-            + `but the client got no answer): the response echoes the clinician's prose from ${argNames} and CRS rule(s) `
-            + `${rules.join('; ')} blocked it (${exclusionOf(row)} covers the request only)`);
+          // Only a row that saves can say whether the text was saved; the others stored nothing for this request.
+          const fate = outcomeOf(row.key) === 'stored'
+            ? `the text ${await row.landed(values, { status: 0, body: '' }).then((problem) => problem === null, () => false) ? 'WAS saved' : 'was NOT saved'} but the client got no answer`
+            : 'the client got no answer';
+          throw new RowFailure(`WAF dropped the RESPONSE of ${row.method || 'POST'} /${row.route} (${position}; ${fate}): `
+            + `the response echoes the clinician's prose from ${argNames} and CRS rule(s) ${rules.join('; ')} blocked it `
+            + `(${row.response ? exclusionOf(row) : `${exclusionOf(row)} covers the request only`})`);
         }
         const status = response.status();
         const body = await response.text().catch(() => '');
@@ -1090,15 +1162,15 @@ async function workflow(s) {
           throw new RowFailure(`WAF 403 on ${row.method || 'POST'} /${row.route} (${position}): ${exclusionOf(row)} did not cover the clinician's `
             + `prose in ${argNames}; CRS rule(s): ${rules.length ? rules.join('; ') : `unknown (${note})`}`);
         }
-        if (status >= 400) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}), not a save: the front door let the prose through and the application refused it`);
+        if (status >= 400) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}), not a success: the front door let the prose through and the application refused it`);
         if (s.config.expectFrontDoor && !/nginx/i.test(response.headers().server || '')) {
           throw new Error(`the replayed ${row.method || 'POST'} to /${row.route} did not go through the nginx front door`);
         }
         const problem = await row.landed(values, { status, body });
-        if (problem !== null) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}) but ${row.landsInDb ? 'the text did not land' : 'the route did not behave as a display route'}: ${problem}`);
+        if (problem !== null) throw new RowFailure(`${row.method || 'POST'} /${row.route} answered HTTP ${status} (${position}) but ${OUTCOME_TEXT[outcomeOf(row.key)].unmet}: ${problem}`);
       }
-      console.log(`  ${row.landsInDb ? 'LANDED' : 'ACCEPTED'} ${row.key} (${row.rules.length ? row.rules.join('/') : 'after-CRS'}): ${requests.length} request(s) with ${argNames}`
-        + `${row.landsInDb ? ' stored exactly' : ', nothing stored (display route)'} [${row.drive}]`);
+      const outcome = OUTCOME_TEXT[outcomeOf(row.key)];
+      console.log(`  ${outcome.done} ${row.key} (${row.rules.length ? row.rules.join('/') : row.afterCrs ? 'after-CRS' : 'no exclusion'}): ${requests.length} request(s) with ${argNames} ${outcome.detail} [${row.drive}]`);
     }, { judged: true });
   });
 

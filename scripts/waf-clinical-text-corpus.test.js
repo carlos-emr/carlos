@@ -9,8 +9,8 @@ const path = require('node:path');
 
 const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
 const waf = require('./lib/waf-corpus');
-const { FACTS, ROW_ORDER, controlStepLabel, corpusStepLabel, selectedKeys } = require('./lib/waf-corpus-rows');
-const { exemptArguments } = require('./lib/waf-exclusion-rules');
+const { FACTS, OUTCOMES, ROW_ORDER, controlStepLabel, corpusStepFor, corpusStepLabel, outcomeOf, selectedKeys } = require('./lib/waf-corpus-rows');
+const { exemptArguments, logicalLines } = require('./lib/waf-exclusion-rules');
 
 /*
  * waf-clinical-text-corpus saves the clinical phrase corpus through every route that has a prose WAF exclusion.
@@ -207,7 +207,8 @@ test('shouldFillOnlyArgumentsTheRulesUnhook_forEveryRowWithRules', () => {
 test('shouldRelyOnTheAfterCrsPattern_whenARowHasNoNumberedRule', () => {
   const text = fs.readFileSync(AFTER_CRS, 'utf8');
   for (const [key, fact] of Object.entries(FACTS)) {
-    if (fact.rules.length) continue;
+    // A response row measures a rule that reads the answer; the package has no exclusion to rely on there.
+    if (fact.rules.length || fact.response) continue;
     assert.ok(fact.afterCrs && fact.afterCrs.length, `${key}: a row without a rule names the after-CRS pattern it relies on`);
     for (const pattern of fact.afterCrs) {
       for (const tag of ['attack-sqli', 'attack-rce', 'attack-injection-php', 'attack-protocol', 'attack-lfi', 'attack-rfi']) {
@@ -221,26 +222,102 @@ test('shouldRelyOnTheAfterCrsPattern_whenARowHasNoNumberedRule', () => {
 // reported as a todo) while the defect stands and the run says so the day the conf is fixed. A fix may take
 // any shape, so each looks for "some rule on this route unhooks this argument", not for one rule id.
 
-/** Whether some BEFORE-CRS rule covers `route` (route patterns are regular expressions) and unhooks `tag` from ARGS:`arg`. */
-function unhooks(route, arg, tag) {
-  return [...before.values()].some((rule) => new RegExp(`^${rule.route}$`).test(route)
-    && rule.removals.has(arg) && (!tag || rule.removals.get(arg).has(tag)));
+/** The tag family each CRS rule id belongs to, for an exemption written ctl:ruleRemoveTargetById. */
+const FAMILY_OF_RULE = {
+  930100: 'attack-lfi', 930110: 'attack-lfi', 931100: 'attack-rfi', 932100: 'attack-rce', 932110: 'attack-rce', 932130: 'attack-rce', 933100: 'attack-injection-php',
+};
+
+/** [{tag, arg}] for each `SecRuleUpdateTargetByTag "tag" "!ARGS:arg"` of a file; comments are not rules and are never read. */
+function afterCrsExemptions(file) {
+  const out = [];
+  for (const { text } of logicalLines(fs.readFileSync(file, 'utf8'))) {
+    const match = /^\s*SecRuleUpdateTargetByTag\s+"([^"]+)"\s+"!ARGS:([^"]+)"/.exec(text);
+    if (match) out.push({ tag: match[1], arg: match[2] });
+  }
+  return out;
 }
+
+/** Whether an exemption's argument (a literal name, or a /regex/ as ModSecurity writes one) names the argument `sample`. */
+function argumentNames(arg, sample) {
+  const regex = /^\/(.*)\/$/.exec(arg);
+  if (!regex) return arg === sample;
+  try { return new RegExp(regex[1]).test(sample); } catch { return false; }
+}
+
+/**
+ * The attack families the exclusion files unhook from the argument `sample` on `route`: the BEFORE-CRS rules keyed on that
+ * route (route patterns are regular expressions, matched case-sensitively as ModSecurity does) plus the AFTER-CRS patterns,
+ * which apply on every route. A fix may take any shape, so this looks for "some rule unhooks this", not for one rule id.
+ * It reads rules, not comments (both files go through logicalLines), and an exemption counts only when its argument
+ * name MATCHES the sample, so "instructions_" in a comment, or a literal `instructions_` that no real box
+ * (instructions_288452) is called, unhooks nothing.
+ */
+function familiesUnhooked(route, sample, { rules = before, exemptions = afterCrsExemptions(AFTER_CRS) } = {}) {
+  const families = new Set();
+  for (const rule of rules.values()) {
+    if (!new RegExp(`^${rule.route}$`).test(route)) continue;
+    for (const [arg, tags] of rule.removals) {
+      if (!argumentNames(arg, sample)) continue;
+      for (const tag of tags) {
+        const family = tag.startsWith('id:') ? FAMILY_OF_RULE[tag.slice(3)] : tag;
+        if (family) families.add(family);
+      }
+    }
+  }
+  for (const { tag, arg } of exemptions) if (argumentNames(arg, sample)) families.add(tag);
+  return families;
+}
+
+test('shouldCountOnlyRulesThatNameTheArgument_whenFamiliesAreLookedFor', () => {
+  const conf = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'waf-families-')), 'before.conf');
+  fs.writeFileSync(conf, [
+    '# 9000: drugName_ instructions_ comment_ are only mentioned in this comment',
+    'SecRule REQUEST_URI "@rx ^/carlos/rx/WriteScript(?:[;?]|$)" \\',
+    '    "id:9001,phase:1,pass,nolog,chain"',
+    '    SecRule REQUEST_METHOD "@streq POST" \\',
+    '        "t:none,\\',
+    '        ctl:ruleRemoveTargetByTag=attack-rce;ARGS:instructions_,\\',
+    '        ctl:ruleRemoveTargetByTag=attack-lfi;ARGS:/^drugName_[0-9]+$/,\\',
+    '        ctl:ruleRemoveTargetById=931100;ARGS:customName"',
+    'SecRule REQUEST_URI "@rx ^/carlos/rx/writeScript(?:[;?]|$)" \\',
+    '    "id:9002,phase:1,pass,nolog,chain"',
+    '    SecRule REQUEST_METHOD "@streq POST" \\',
+    '        "t:none,\\',
+    '        ctl:ruleRemoveTargetByTag=attack-rce;ARGS:customName"',
+    '',
+  ].join('\n'));
+  const rules = exemptArguments(conf);
+  const none = { rules, exemptions: [] };
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'instructions_288452', none)], [], 'a literal prefix is not the box');
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'comment_288452', none)], [], 'a comment unhooks nothing');
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_288452', none)], ['attack-lfi']);
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'customName', none)], ['attack-rfi'], 'an exemption by rule id counts for its family');
+  assert.deepEqual([...familiesUnhooked('rx/writeScript', 'customName', none)], ['attack-rce'], 'route names are case-sensitive');
+  assert.deepEqual([...familiesUnhooked('rx/WriteScript', 'drugName_1', { rules, exemptions: [{ tag: 'attack-rfi', arg: '/^drugName_[0-9]+$/' }] })].sort(), ['attack-lfi', 'attack-rfi']);
+});
 
 test('shouldUnhookAttackRfiOnLetter_whenTheRichTextLetterIsSaved', { todo: 'finding 209' }, () => {
   // A letter that starts with a pasted link with an IP address trips 931100 (attack-rfi) on ARGS:Letter.
-  assert.ok(unhooks('eform/addEForm', 'Letter', 'attack-rfi'));
+  assert.ok(familiesUnhooked('eform/addEForm', 'Letter').has('attack-rfi'));
 });
 
 test('shouldUnhookCustomNameOnTheRoutePageWritesTo_whenACustomDrugIsRenamed', { todo: 'finding 210' }, () => {
-  // The page posts saveCustomName's customName to rx/WriteScript; 1107 unhooks it on rx/writeScript only.
-  assert.ok(unhooks('rx/WriteScript', 'customName', 'attack-rfi'));
+  // The page posts saveCustomName's customName to rx/WriteScript; 1107 unhooks it on rx/writeScript only. The corpus trips
+  // 931100 (attack-rfi) and 932110 (attack-rce) there, so both families have to go, on the route the page posts to.
+  const families = familiesUnhooked('rx/WriteScript', 'customName');
+  assert.ok(families.has('attack-rfi'), '931100 (attack-rfi) on ARGS:customName');
+  assert.ok(families.has('attack-rce'), '932110 (attack-rce) on ARGS:customName');
 });
 
 test('shouldUnhookTheSaveOnlyBoxes_whenAPrescriptionHoldsProse', { todo: 'finding 211' }, () => {
-  // Save Only posts every card's boxes as instructions_<n>, drugName_<n>, comment_<n>; no rule or pattern names them.
-  const everything = fs.readFileSync(BEFORE_CRS, 'utf8') + fs.readFileSync(AFTER_CRS, 'utf8');
-  assert.match(everything, /instructions_/);
+  // Save Only posts every card's boxes as drugName_<n>, instructions_<n> and comment_<n> to rx/WriteScript. The corpus trips
+  // 930100/930110 (attack-lfi), 931100 (attack-rfi), 932100/932110/932130 (attack-rce) and 933100 (attack-injection-php).
+  for (const box of ['drugName_', 'instructions_', 'comment_']) {
+    const families = familiesUnhooked('rx/WriteScript', `${box}288452`);
+    for (const family of ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php']) {
+      assert.ok(families.has(family), `ARGS:${box}<n> still inspected for ${family}`);
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -264,7 +341,7 @@ test('shouldRefuseAnUnknownRow_whenOnlyOrSkipNamesOne', () => {
 
 test('shouldSpellTheCorpusStepLabelFromTheRowsTitleAndRoute_forEveryRow', () => {
   for (const key of ROW_ORDER) {
-    assert.equal(FACTS[key].corpusStep, `${FACTS[key].title}: the clinical corpus saves through /${FACTS[key].route} and lands exactly`, key);
+    assert.equal(FACTS[key].corpusStep, corpusStepFor(FACTS[key]), key);
   }
 });
 
@@ -272,7 +349,8 @@ test('shouldGiveEveryRowTwoDistinctStepLabels_soAPinNamesOnlyTheCorpusStep', () 
   const labels = ROW_ORDER.flatMap((key) => [controlStepLabel(key), corpusStepLabel(key)]);
   assert.equal(new Set(labels).size, labels.length);
   for (const key of ROW_ORDER) {
-    assert.match(corpusStepLabel(key), new RegExp(`through /${FACTS[key].route.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} and lands exactly$`));
+    const { verb, tail } = OUTCOMES[outcomeOf(key)];
+    assert.ok(corpusStepLabel(key).endsWith(`the clinical corpus ${verb} /${FACTS[key].route}${tail}`), key);
     assert.match(controlStepLabel(key), /\(control\)$/);
   }
 });
