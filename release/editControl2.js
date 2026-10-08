@@ -1120,7 +1120,7 @@ function submitFaxButton() {
 
 	cache.addMapping({
 		name: "letterhead", 
-		values: ["clinic_name", "clinic_fax", "clinic_phone", "clinic_addressLineFull", "doctor", "doctor_contact_phone", "doctor_contact_fax", "doctor_contact_addr","current_user"], 
+		values: ["clinic_name", "clinic_fax", "clinic_phone", "clinic_addressLineFull", "doctor", "current_user_work_phone", "current_user_fax", "current_user_address","current_user"], 
 		storeInCacheHandler: function (key, value) {
 			var text = genericLetterhead();
 			cache.put("letterhead", text);
