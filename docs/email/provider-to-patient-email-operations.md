@@ -171,7 +171,9 @@ and a pending notice as `email_footer_clinic_change`. Saves are POST only,
 refuse more than 2,000 characters, and are audited (who and when, not the
 text; a clinic change also records how many users were told). A clinic save
 that changes the footer locks the clinic footer (once one exists) and the users'
-footers it reads, row by row by key, so another save at the same moment waits.
+footers it reads, row by row by key, so another save at the same moment waits. A
+user's own save, restore or dismiss takes the clinic footer's lock first, so it
+waits for a clinic change in progress and then sees its notice.
 A second clinic save then compares against the first one's result; a user's own
 save then goes through, or, if the clinic change replaced their footer, is
 rolled back and the page asks them to try again. The other collisions are

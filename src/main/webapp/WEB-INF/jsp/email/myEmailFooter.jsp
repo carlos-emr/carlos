@@ -3,8 +3,8 @@
 <%--
   Purpose: The logged-in user's own footer for the emails they send to patients (follow-up to
   #3981). Every user, doctor or front desk, starts with the clinic footer and can save their own.
-  Key features: Shows the footer the compose screen fills in, the clinic footer, and a notice when
-  a clinic change replaced (or, with that rule switched off, kept) the user's own footer. Every
+  Key features: Shows the footer the compose screen fills in, the clinic footer, and a notice after
+  a clinic footer change, which every user gets, until they answer it. Every
   change is a POST to email/saveMyEmailFooter; the provider comes from the session.
   Request attributes: myFooter, followsClinicDefault, clinicFooter, clinicChangeNotice,
   clinicChangeKeptOwnFooter, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
@@ -70,13 +70,15 @@
                             <fmt:message key="email.myFooter.keepMine"/></button>
                     </c:when>
                     <c:otherwise>
-                        <%-- With no previous footer (no clinic footer was set) there is nothing to put back. --%>
+                        <%-- Keeping the new clinic footer is the main choice: putting the old one back would pin
+                             details the clinic just changed (a phone number, say). With no previous footer (no
+                             clinic footer was set) there is nothing to put back. --%>
+                        <button type="submit" name="footerAction" value="keepCurrent" class="btn btn-sm btn-primary">
+                            <fmt:message key="email.myFooter.keepClinic"/></button>
                         <c:if test="${not empty clinicChangeNotice}">
-                            <button type="submit" name="footerAction" value="restorePrevious" class="btn btn-sm btn-primary">
+                            <button type="submit" name="footerAction" value="restorePrevious" class="btn btn-sm btn-outline-secondary">
                                 <fmt:message key="email.myFooter.restorePrevious"/></button>
                         </c:if>
-                        <button type="submit" name="footerAction" value="keepCurrent" class="btn btn-sm btn-outline-secondary">
-                            <fmt:message key="email.myFooter.keepClinic"/></button>
                     </c:otherwise>
                 </c:choose>
             </form>

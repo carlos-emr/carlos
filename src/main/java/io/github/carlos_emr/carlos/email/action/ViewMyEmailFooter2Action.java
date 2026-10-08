@@ -32,7 +32,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Shows the logged-in user's email footer page ({@code email/myEmailFooter.jsp}): their own footer
- * or the clinic default they follow, and a notice when a clinic change affected their footer.
+ * or the clinic default they follow, and a notice after a clinic footer change they have not answered.
  * Read only; {@link SaveMyEmailFooter2Action} saves. It needs {@code _email} write, as saving does:
  * a user who cannot send email has no footer to manage, and would only meet Save buttons that fail.
  *

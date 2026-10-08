@@ -89,6 +89,34 @@ class EmailFooterPagesJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should word the clinic-change notice and its buttons by whether the user kept their own footer")
+    void shouldPickNoticeWording_byKeptOwnFooter() throws IOException {
+        String compose = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/email/emailCompose.jsp"), StandardCharsets.UTF_8);
+        assertThat(compose)
+                .contains("<c:when test=\"${clinicChangeKeptOwnFooter}\"><fmt:message key=\"email.compose.footer.clinicChangedKept\"/></c:when>")
+                .contains("<c:otherwise><fmt:message key=\"email.compose.footer.clinicChanged\"/></c:otherwise>");
+
+        String jsp = Files.readString(MY_FOOTER_JSP, StandardCharsets.UTF_8);
+        String kept = "<c:when test=\"${clinicChangeKeptOwnFooter}\">";
+        int wording = jsp.indexOf(kept);
+        int wordingElse = jsp.indexOf("<c:otherwise>", wording);
+        assertThat(wording).isPositive();
+        assertThat(jsp.substring(wording, wordingElse)).contains("email.myFooter.noticeKept").doesNotContain("noticeReplaced");
+        assertThat(jsp.substring(wordingElse, jsp.indexOf("</c:choose>", wordingElse))).contains("email.myFooter.noticeReplaced");
+
+        int buttons = jsp.indexOf(kept, wordingElse);
+        int buttonsElse = jsp.indexOf("<c:otherwise>", buttons);
+        assertThat(jsp.substring(buttons, buttonsElse))
+                .contains("value=\"useClinicDefault\"").contains("value=\"keepCurrent\"").doesNotContain("restorePrevious");
+        // Everyone else now uses the clinic footer: keeping it is the main button, putting the old one back the second.
+        String others = jsp.substring(buttonsElse, jsp.indexOf("</c:choose>", buttonsElse));
+        int keep = others.indexOf("value=\"keepCurrent\" class=\"btn btn-sm btn-primary\"");
+        int restore = others.indexOf("value=\"restorePrevious\" class=\"btn btn-sm btn-outline-secondary\"");
+        assertThat(keep).isNotNegative();
+        assertThat(restore).isGreaterThan(keep);
+    }
+
+    @Test
     @DisplayName("should let only _admin writers post the clinic footer, shown encoded either way")
     void shouldGateAndEncodeClinicFooter_onConfigureEmailPage() throws IOException {
         String jsp = Files.readString(CONFIGURE_EMAIL_JSP, StandardCharsets.UTF_8);

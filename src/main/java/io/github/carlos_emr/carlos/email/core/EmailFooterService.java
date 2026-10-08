@@ -154,8 +154,8 @@ public class EmailFooterService {
      * The outcome of saving the clinic default.
      *
      * @param outcome what the save did
-     * @param noticed how many users got (or kept) a notice: every active user, and anyone else
-     *        whose own footer the change touched
+     * @param noticed how many users got (or kept) a notice: every active user, and any other user
+     *        who has their own footer
      */
     public record ClinicDefaultSaved(ClinicDefaultOutcome outcome, int noticed) {
 
@@ -248,6 +248,7 @@ public class EmailFooterService {
     public void saveOwnFooter(String providerNo, String footer) {
         String normalised = withinLimit(footer);
         translated(() -> {
+            waitForClinicChange();
             if (normalised.isEmpty()) {
                 deleteRows(providerNo, USER_FOOTER);
             } else {
@@ -266,6 +267,7 @@ public class EmailFooterService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void useClinicDefault(String providerNo) {
         translated(() -> {
+            waitForClinicChange();
             deleteRows(providerNo, USER_FOOTER);
             deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
             return null;
@@ -283,6 +285,7 @@ public class EmailFooterService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean restorePreviousFooter(String providerNo) {
         return translated(() -> {
+            waitForClinicChange();
             UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
             if (notice == null) {
                 return false;
@@ -307,6 +310,7 @@ public class EmailFooterService {
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public boolean dismissClinicChangeNotice(String providerNo) {
         return translated(() -> {
+            waitForClinicChange();
             boolean hadNotice = firstRow(providerNo, CLINIC_CHANGE_NOTICE) != null;
             deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
             return hadNotice;
@@ -325,12 +329,12 @@ public class EmailFooterService {
      * <p>Otherwise, a user's own footer equal to the new default, or blank, is removed, so the
      * user follows the default from now on. With own footers replaced on a clinic change, every
      * other own footer is removed too; with the rule switched off, those are kept. Either way every
-     * active user, and anyone else whose own footer the change touched, gets a notice holding the
-     * footer they had until then: their own, or the previous clinic default.</p>
+     * active user, and any other user who has their own footer, gets a notice holding the footer
+     * they had until then: their own, or the previous clinic default.</p>
      *
      * @param footer the clinic default as typed; empty means no clinic default
      * @param shownFingerprint the {@link #fingerprint} of the footer the page showed
-     * @return what the save did, and how many own footers got a notice
+     * @return what the save did, and how many users got (or kept) a notice
      * @throws FooterTooLongException when the footer is over the limit; nothing is saved
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -388,7 +392,9 @@ public class EmailFooterService {
         Set<String> alreadyNoticed = providersWith(CLINIC_CHANGE_NOTICE, previousFooters.keySet());
         previousFooters.forEach((providerNo, footer) -> {
             if (!alreadyNoticed.contains(providerNo)) {
-                userPropertyDao.saveProp(providerNo, CLINIC_CHANGE_NOTICE, footer);
+                // A new row, as alreadyNoticed shows: no per-user lookup, which would scan the
+                // property table (it has no index on name) once per user while the locks are held.
+                userPropertyDao.saveProp(newRow(providerNo, CLINIC_CHANGE_NOTICE, footer));
             }
         });
         return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED, previousFooters.size());
@@ -430,7 +436,27 @@ public class EmailFooterService {
     private String ownFooter(String providerNo) {
         UserProperty own = firstRow(providerNo, USER_FOOTER);
         String text = own == null ? "" : nullToEmpty(own.getValue());
-        return text.isBlank() ? null : text;
+        // Blank as saves judge it, so a row the save would have removed reads as following.
+        return normalise(text).isEmpty() ? null : text;
+    }
+
+    /**
+     * Takes the clinic footer's lock first, in the order a clinic save takes its locks, so a user's
+     * save, restore or dismiss waits for a clinic change in progress and then sees its notice:
+     * otherwise a user with no footer of their own could save one unseen and be told afterwards that
+     * the clinic footer now applies. Before the first clinic footer is saved there is nothing to
+     * lock, the gap the class description notes.
+     */
+    private void waitForClinicChange() {
+        userPropertyDao.lockClinicProperties(CLINIC_DEFAULT);
+    }
+
+    private static UserProperty newRow(String providerNo, String name, String value) {
+        UserProperty row = new UserProperty();
+        row.setProviderNo(providerNo);
+        row.setName(name);
+        row.setValue(value);
+        return row;
     }
 
     private UserProperty firstClinicRow() {

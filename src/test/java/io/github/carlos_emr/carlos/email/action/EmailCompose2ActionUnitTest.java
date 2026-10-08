@@ -989,8 +989,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(EmailCompose2Action.resolveComposeFooter("Book online\n", Optional.of("Dr A")))
                 .isEqualTo("Book online\n");
         assertThat(EmailCompose2Action.resolveComposeFooter(" ", Optional.of("Dr A"))).isEqualTo("Dr A");
-        // A user who saved an empty footer means no footer, not the clinic default.
-        assertThat(EmailCompose2Action.resolveComposeFooter(null, Optional.of(""))).isEmpty();
     }
 
     @Test

@@ -45,9 +45,10 @@ import org.springframework.dao.ConcurrencyFailureException;
  * <p>POST only, with {@code _email} write; GET and HEAD get 405 before anything is read or saved.
  * The {@code footerAction} parameter picks one of:</p>
  * <ul>
- *   <li>{@code save}: save {@code myFooter} as the user's own footer (empty means no footer);</li>
+ *   <li>{@code save}: save {@code myFooter} as the user's own footer (empty means the clinic
+ *       footer);</li>
  *   <li>{@code useClinicDefault}: drop the own footer and follow the clinic default;</li>
- *   <li>{@code restorePrevious}: make the footer a clinic change replaced their own again;</li>
+ *   <li>{@code restorePrevious}: make the footer the user had before a clinic change their own;</li>
  *   <li>{@code keepCurrent}: dismiss the clinic-change notice.</li>
  * </ul>
  * <p>A footer over the limit, or a save that collided with another (two tabs saving at once), is
@@ -119,7 +120,7 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
             case "save" -> {
                 String footer = request.getParameter(FOOTER_PARAM);
                 if (footer == null) {
-                    // A post without the field is not a request to save "no footer".
+                    // A post without the field is not a request to follow the clinic footer.
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                     return NONE;
                 }

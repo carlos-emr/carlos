@@ -26,7 +26,9 @@ import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.SQLTransactionRollbackException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PessimisticLockException;
@@ -42,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.exception.LockAcquisitionException;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.owasp.encoder.Encode;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.ConcurrencyFailureException;
@@ -53,7 +56,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.calls;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -94,6 +100,14 @@ class EmailFooterServiceUnitTest {
             providers.add(new Provider(providerNo));
         }
         when(providerDao.getActiveProviders()).thenReturn(providers);
+    }
+
+    /** Rows saved whole with this name (a clinic save writes notices as new rows), by provider. */
+    private Map<String, String> savedRows(String name) {
+        ArgumentCaptor<UserProperty> saved = ArgumentCaptor.forClass(UserProperty.class);
+        verify(dao, atLeast(0)).saveProp(saved.capture());
+        return saved.getAllValues().stream().filter(row -> name.equals(row.getName()))
+                .collect(Collectors.toMap(row -> String.valueOf(row.getProviderNo()), UserProperty::getValue));
     }
 
     /** Notices still unanswered from an earlier clinic change, as a clinic save reads them. */
@@ -225,19 +239,14 @@ class EmailFooterServiceUnitTest {
         verify(dao).delete(isNewDefault);
         verify(dao).delete(customWithNotice);
         verify(dao).delete(blank);
-        // Every user is told (maintainer decision, 8 Oct), with the footer they had until now.
-        verify(dao).saveProp("101", N, "Dr A footer");
-        verify(dao).saveProp("102", N, "Old clinic footer");
-        verify(dao).saveProp("103", N, "New clinic footer");
-        // A blank own footer followed the clinic default, and so did 106, who had none.
-        verify(dao).saveProp("105", N, "Old clinic footer");
-        verify(dao).saveProp("106", N, "Old clinic footer");
-        // A notice from an earlier change keeps the footer the user had before that one.
-        verify(dao, never()).saveProp(eq("104"), anyString(), anyString());
-        ArgumentCaptor<UserProperty> clinic = ArgumentCaptor.forClass(UserProperty.class);
-        verify(dao).saveProp(clinic.capture());
-        assertThat(clinic.getValue().getValue()).isEqualTo("New clinic footer");
-        assertThat(clinic.getValue().getProviderNo()).isNull();
+        // Every user is told (maintainer decision, 8 Oct), with the footer they had until now. A blank
+        // own footer followed the clinic default, and so did 106, who had none. A notice from an
+        // earlier change keeps the footer 104 had before that one, so 104 gets no new notice.
+        assertThat(savedRows(N)).containsExactlyInAnyOrderEntriesOf(Map.of(
+                "101", "Dr A footer", "102", "Old clinic footer", "103", "New clinic footer",
+                "105", "Old clinic footer", "106", "Old clinic footer"));
+        verify(dao, never()).saveProp(anyString(), anyString(), anyString());
+        assertThat(savedRows(EmailFooterService.CLINIC_DEFAULT)).containsExactly(Map.entry("null", "New clinic footer"));
     }
 
     @Test
@@ -250,8 +259,7 @@ class EmailFooterServiceUnitTest {
         assertThat(saveClinic(service, "Riverside Clinic").noticed()).isEqualTo(2);
 
         verify(dao).delete(blank);
-        verify(dao).saveProp("101", N, "");
-        verify(dao).saveProp("105", N, "");
+        assertThat(savedRows(N)).containsExactlyInAnyOrderEntriesOf(Map.of("101", "", "105", ""));
     }
 
     @Test
@@ -267,7 +275,7 @@ class EmailFooterServiceUnitTest {
         assertThat(saved.changed()).isTrue();
         assertThat(saved.noticed()).isEqualTo(1);
         verify(dao).delete(blank);
-        verify(dao).saveProp("105", N, "Riverside Clinic");
+        assertThat(savedRows(N)).containsExactly(Map.entry("105", "Riverside Clinic"));
     }
 
     @Test
@@ -284,9 +292,8 @@ class EmailFooterServiceUnitTest {
 
         verify(dao, never()).delete(custom);
         verify(dao, never()).delete(wasOldDefault);
-        verify(dao).saveProp("101", N, "Dr A footer");
-        verify(dao).saveProp("102", N, "Old clinic footer");
-        verify(dao).saveProp("106", N, "Old clinic footer");
+        assertThat(savedRows(N)).containsExactlyInAnyOrderEntriesOf(Map.of(
+                "101", "Dr A footer", "102", "Old clinic footer", "106", "Old clinic footer"));
         assertThat(keeping.ownFootersReplacedOnClinicChange()).isFalse();
         // The notice wording: a user who kept their own footer is told so; one who follows the clinic is not.
         ownRows("101", U, custom);
@@ -471,6 +478,66 @@ class EmailFooterServiceUnitTest {
         verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "Dr A footer");
         verify(dao).delete(notice);
         verify(dao, never()).saveProp(eq("102"), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("should tell a user with two own-footer rows the oldest one, the footer in effect")
+    void shouldNoticeOldestOwnRow_whenRowsAreDoubled() {
+        clinicDefault("Old clinic footer");
+        activeUsers("101");
+        UserProperty older = property("101", U, "first");
+        UserProperty newer = property("101", U, "second");
+        when(dao.lockProviderProperties(U)).thenReturn(List.of(older, newer));
+
+        saveClinic(service, "New clinic footer");
+
+        assertThat(savedRows(N)).containsExactly(Map.entry("101", "first"));
+        verify(dao).delete(older);
+        verify(dao).delete(newer);
+    }
+
+    @Test
+    @DisplayName("should keep a blank or new-default own footer from lingering when the replace rule is off")
+    void shouldRemoveBlankAndNewDefaultOwnFooters_whenReplaceRuleIsOff() {
+        EmailFooterService keeping = new EmailFooterService(dao, providerDao, false);
+        clinicDefault("Old clinic footer");
+        UserProperty blank = property("101", U, "");
+        UserProperty isNewDefault = property("102", U, "New clinic footer");
+        UserProperty custom = property("103", U, "Dr C footer");
+        when(dao.lockProviderProperties(U)).thenReturn(List.of(blank, isNewDefault, custom));
+
+        saveClinic(keeping, "New clinic footer");
+
+        verify(dao).delete(blank);
+        verify(dao).delete(isNewDefault);
+        verify(dao, never()).delete(custom);
+    }
+
+    @Test
+    @DisplayName("should take the clinic footer's lock before a user's own save, restore or dismiss")
+    void shouldLockClinicFooterFirst_forUserSaves() {
+        UserProperty own = property("101", U, "Dr A footer");
+        UserProperty notice = property("101", N, "Old clinic footer");
+        ownRows("101", U, own);
+        ownRows("101", N, notice);
+
+        service.saveOwnFooter("101", "Dr A new footer");
+        service.useClinicDefault("101");
+        service.restorePreviousFooter("101");
+        service.dismissClinicChangeNotice("101");
+
+        // The order a clinic save takes them in: clinic row, then the user's rows. A user with no
+        // footer of their own therefore waits for a clinic change in progress instead of saving unseen.
+        InOrder order = inOrder(dao);
+        order.verify(dao).lockClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+        order.verify(dao).saveProp(own);
+        order.verify(dao).lockClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+        order.verify(dao).delete(own);
+        order.verify(dao).lockClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+        // calls(1), not times(1): restore reads the notice twice (to find it, then to delete it).
+        order.verify(dao, calls(1)).getAllProperties(N, List.of("101"));
+        order.verify(dao).lockClinicProperties(EmailFooterService.CLINIC_DEFAULT);
+        order.verify(dao, calls(1)).getAllProperties(N, List.of("101"));
     }
 
     @Test

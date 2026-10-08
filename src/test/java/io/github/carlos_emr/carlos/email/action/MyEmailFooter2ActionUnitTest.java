@@ -132,6 +132,20 @@ class MyEmailFooter2ActionUnitTest {
     }
 
     @Test
+    @DisplayName("should tell the page when a clinic change kept the user's own footer")
+    void shouldExposeKeptOwnFooter_whenReplaceRuleIsOff() {
+        allowEmailWrite();
+        when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
+                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", "Dr A footer", true));
+
+        new ViewMyEmailFooter2Action(securityInfoManager, emailFooterService).execute();
+
+        assertThat(request.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(true);
+        assertThat(request.getAttribute("followsClinicDefault")).isEqualTo(false);
+        assertThat(request.getAttribute("myFooter")).isEqualTo("Dr A footer");
+    }
+
+    @Test
     @DisplayName("should refuse the footer page to a user who can read email but not send it")
     void shouldThrowSecurityException_whenEmailWriteMissingOnPage() {
         // Read alone would show Save buttons that all end in an error.
