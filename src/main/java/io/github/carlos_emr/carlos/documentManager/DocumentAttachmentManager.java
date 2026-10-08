@@ -279,9 +279,9 @@ public interface DocumentAttachmentManager {
      * the whole render, unless the request carries {@link #ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE};
      * then it is left out. Either way it is added to the {@link #ATTACHMENT_WARNINGS_ATTRIBUTE}
      * list as {@link ConsultAttachmentWarning.Reason#NOT_RENDERED}, so a caller that fails can
-     * name it. Documents, labs and eForms whose target no longer exists, was deleted or belongs to
-     * another patient are always left out, with an {@link ConsultAttachmentWarning.Reason#UNAVAILABLE}
-     * warning.</p>
+     * name it. Documents, labs, eForms and HRM reports whose target no longer exists, was deleted or
+     * belongs to another patient, and HRM reports whose file is missing or unreadable, are always
+     * left out, with the warning {@link #getUnavailableConsultAttachmentWarnings} gives them.</p>
      *
      * @param request HttpServletRequest the HTTP request containing consultation parameters
      * @param response HttpServletResponse the HTTP response for potential streaming operations
@@ -293,12 +293,16 @@ public interface DocumentAttachmentManager {
 
     /**
      * Lists, without rendering anything, the warnings for attachments a consultation lists whose
-     * target no longer exists, was deleted, or does not belong to its patient. These are the attachments a
-     * render leaves out, so a screen shown before the render (the fax cover page) can name them.
+     * target no longer exists, was deleted, or does not belong to its patient, and for attached HRM
+     * reports whose report file is missing or cannot be read. These are the attachments a render
+     * leaves out, so a screen shown before the render (the fax cover page) can name them. Form
+     * attachments are not checked.
      *
      * @param requestId the consultation request id
-     * @return one {@link ConsultAttachmentWarning.Reason#UNAVAILABLE} warning per unavailable
-     *         attachment, naming its type and id; empty when there are none
+     * @return one warning per unavailable attachment, naming its type and id: {@link
+     *         ConsultAttachmentWarning.Reason#UNAVAILABLE}, or {@link
+     *         ConsultAttachmentWarning.Reason#FILE_UNAVAILABLE} for an HRM report whose file is
+     *         missing or unreadable; empty when there are none
      */
     public List<ConsultAttachmentWarning> getUnavailableConsultAttachmentWarnings(Integer requestId);
 

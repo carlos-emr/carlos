@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.data.AttachmentLabResultData;
@@ -87,6 +88,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     private static final String ATTR_DEMOGRAPHIC_ID = "demographicId";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_TEMPORARY_PDF = "unreadable temporary PDF";
+    private static final String UNREADABLE_HRM_REPORT = "missing or unreadable HRM report file";
+    private static final String UNAVAILABLE_ATTACHMENT_TARGET = "unavailable consult attachment target";
     private static final String UNOPENABLE_DOCUMENT_PDF = "document PDF cannot be opened";
     private static final String MISSING_CONSULT_SECURITY_OBJECT = "missing required sec object (_con)";
     private static final LongCounter TEMP_CLEANUP_FAILURES = GlobalOpenTelemetry.getMeter(
@@ -359,23 +362,25 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     /**
      * Keeps attached a consultation's attachments whose target is no longer available.
      *
-     * <p>The consultation form does not list an attachment whose document, lab or eForm was
-     * deleted or moved to another patient, so an Update submits a set without it, and the
+     * <p>The consultation form does not list an attachment whose document, lab, eForm or HRM report was
+     * deleted or moved to another patient, or an HRM report whose file is missing or unreadable, so
+     * an Update submits a set without it, and the
      * whole-set replace in {@link DocumentAttach} would detach it with no warning. It is folded
      * back into the submitted set instead, as archive eDocs are: it stays attached, so the
      * preview, print, fax cover page and confirmation pages keep naming it as left out. An
      * attachment the user removed that is still available is not in this set, and is detached
-     * as before. HRM and form attachments are outside the unavailable-attachment check, so they
-     * keep the old behaviour.</p>
+     * as before. Form attachments remain outside the unavailable-attachment check.</p>
      */
     private String[] preserveUnavailableConsultAttachments(
             DocumentType documentType, String[] submittedAttachments, Integer requestId) {
         if (requestId == null
                 || (documentType != DocumentType.DOC && documentType != DocumentType.LAB
-                        && documentType != DocumentType.EFORM)) {
+                        && documentType != DocumentType.EFORM && documentType != DocumentType.HRM)) {
             return submittedAttachments;
         }
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
+        List<ConsultDocs> unavailableAttachments = documentType == DocumentType.HRM
+                ? findUnavailableConsultAttachments(requestId).stream().map(UnavailableAttachment::attachment).toList()
+                : consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
         if (unavailableAttachments == null || unavailableAttachments.isEmpty()) {
             return submittedAttachments;
         }
@@ -633,16 +638,17 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
 
             // Warnings so far are for attachments the lists above already leave out: a target that
-            // no longer exists, was deleted, is a patient-independent eForm, or is another patient's.
-            // Any warning added below is an attachment that failed to render.
-            int unavailableWarnings = attachmentWarnings.size();
+            // no longer exists, was deleted, is a patient-independent eForm, or is another patient's,
+            // or an HRM report whose file is missing or unreadable. Any warning added below is an
+            // attachment that failed to render.
             boolean allowSkipped = Boolean.TRUE.equals(request.getAttribute(ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE));
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList, attachmentWarnings);
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList, attachmentWarnings);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList, attachmentWarnings);
             attachHRMPDFs(loggedInInfo, attachedHRMs, pdfDocumentList, attachmentWarnings);
             attachFormPDFs(request, response, attachedForms, pdfDocumentList, attachmentWarnings);
-            if (!allowSkipped && attachmentWarnings.size() > unavailableWarnings) {
+            // Print and fax refuse a packet missing anything other than an unavailable target.
+            if (!allowSkipped && attachmentWarnings.stream().anyMatch(warning -> !warning.isUnavailable())) {
                 // Do not print or fax a consult that silently lacks an attachment it lists.
                 throw new PDFGenerationException("One or more consultation attachments could not be rendered");
             }
@@ -1153,17 +1159,74 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             logger.warn("Skipped unavailable consult attachment lookup for invalid requestId={}", LogSafe.sanitize(requestId));
             return;
         }
-        List<ConsultDocs> unavailableAttachments = consultDocsDao.findUnavailableActiveConsultAttachments(consultRequestId);
-        if (unavailableAttachments == null) {
-            return;
+        for (UnavailableAttachment unavailable : findUnavailableConsultAttachments(consultRequestId)) {
+            recordSkippedAttachment(attachmentWarnings, unavailable.warning(), unavailable.reason());
         }
-        for (ConsultDocs consultDoc : unavailableAttachments) {
-            if (consultDoc == null) {
-                continue;
+    }
+
+    /**
+     * An attachment a consultation can no longer include: the warning staff see (type and id
+     * only), and for the server log why, as a fixed text or for an HRM report the parser's
+     * exception class. Never a path or exception message.
+     */
+    private record UnavailableAttachment(ConsultDocs attachment, ConsultAttachmentWarning warning, String reason) {
+    }
+
+    /**
+     * Finds unavailable targets using both the patient-match query and the parser used by
+     * {@link HRMUtil#listHRMDocuments}. Sharing this check with saves keeps an unreadable HRM
+     * attached when the reopened form omits it, so the later print or fax still warns.
+     * Permission and billing-region filtering remain outside this availability check.
+     */
+    private List<UnavailableAttachment> findUnavailableConsultAttachments(Integer requestId) {
+        List<UnavailableAttachment> unavailable = new ArrayList<>();
+        Set<Integer> handledHrmIds = new HashSet<>();
+        List<ConsultDocs> missingTargets = consultDocsDao.findUnavailableActiveConsultAttachments(requestId);
+        if (missingTargets != null) {
+            for (ConsultDocs attachment : missingTargets) {
+                if (attachment != null) {
+                    if (!ConsultDocs.DOCTYPE_HRM.equals(attachment.getDocType())
+                            || handledHrmIds.add(attachment.getDocumentNo())) {
+                        unavailable.add(new UnavailableAttachment(attachment,
+                                ConsultAttachmentWarning.unavailable(documentTypeFromConsultDoc(attachment),
+                                        attachment.getDocumentNo()),
+                                UNAVAILABLE_ATTACHMENT_TARGET));
+                    }
+                }
             }
-            recordSkippedAttachment(attachmentWarnings,
-                    ConsultAttachmentWarning.unavailable(documentTypeFromConsultDoc(consultDoc), consultDoc.getDocumentNo()),
-                    "unavailable consult attachment target");
+        }
+        List<ConsultDocs> attachedHrms = consultDocsDao.findByRequestIdDocType(requestId, ConsultDocs.DOCTYPE_HRM);
+        if (attachedHrms != null) {
+            // By id, so every screen lists these the same way, as the database check's list is.
+            List<ConsultDocs> byId = attachedHrms.stream().filter(Objects::nonNull)
+                    .sorted(Comparator.comparingInt(ConsultDocs::getDocumentNo))
+                    .toList();
+            for (ConsultDocs attachment : byId) {
+                if (handledHrmIds.add(attachment.getDocumentNo())) {
+                    String readFailure = hrmReportReadFailure(attachment.getDocumentNo());
+                    if (readFailure != null) {
+                        // Left out like an unavailable report (a fax goes ahead once staff
+                        // confirm), worded as a missing or unreadable file.
+                        unavailable.add(new UnavailableAttachment(attachment,
+                                ConsultAttachmentWarning.fileUnavailable(DocumentType.HRM, attachment.getDocumentNo()),
+                                readFailure));
+                    }
+                }
+            }
+        }
+        return unavailable;
+    }
+
+    /** @return why the HRM report cannot be read, or {@code null} when it can */
+    private String hrmReportReadFailure(Integer hrmId) {
+        try {
+            // The same lookup and parse the HRM listing uses (the file kept inside DOCUMENT_DIR),
+            // without its logging: this runs on every cover page, render and Update.
+            return HRMReportParser.isReportReadable(hrmId) ? null : UNREADABLE_HRM_REPORT;
+        } catch (RuntimeException e) {
+            // Logged as the skip reason: the exception class only, as for render failures, because
+            // the message can carry a file path.
+            return e.getClass().getSimpleName();
         }
     }
 
@@ -1175,6 +1238,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                 return DocumentType.DOC;
             case ConsultDocs.DOCTYPE_LAB:
                 return DocumentType.LAB;
+            case ConsultDocs.DOCTYPE_HRM:
+                return DocumentType.HRM;
             default:
                 return null;
         }
@@ -1234,8 +1299,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             ConsultAttachmentWarning warning, String reason) {
         attachmentWarnings.add(warning);
         // An unavailable target is expected (it was deleted or moved) and is named to staff; one
-        // that exists but could not be read is worth a warning.
-        if (warning.isUnavailable()) {
+        // whose file is missing or that exists but could not be read is worth a warning.
+        if (warning.getReason() == ConsultAttachmentWarning.Reason.UNAVAILABLE) {
             logger.info("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));
         } else if (logger.isWarnEnabled()) {
             logger.warn("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));

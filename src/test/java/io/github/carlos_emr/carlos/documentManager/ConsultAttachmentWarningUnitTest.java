@@ -82,6 +82,18 @@ class ConsultAttachmentWarningUnitTest {
     }
 
     @Test
+    @DisplayName("should treat an HRM report whose file is missing as unavailable, with its own wording")
+    void shouldWordMissingFile_asUnavailable() {
+        ConsultAttachmentWarning report = ConsultAttachmentWarning.fileUnavailable(DocumentType.HRM, 12);
+
+        assertThat(report.isUnavailable()).isTrue();
+        assertThat(report.getKey()).isEqualTo("H:12");
+        assertThat(report.format(Locale.ENGLISH))
+                .isEqualTo("HRM report 12 is no longer available (its file is missing or cannot be read).");
+        assertThat(ConsultAttachmentWarning.notRenderedOnly(List.of(report))).isEmpty();
+    }
+
+    @Test
     @DisplayName("should read only warnings from the request attribute, and nothing when it is absent")
     void shouldReadWarnings_fromRequestAttribute() {
         MockHttpServletRequest request = new MockHttpServletRequest();
