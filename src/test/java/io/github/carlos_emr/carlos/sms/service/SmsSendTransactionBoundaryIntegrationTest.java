@@ -111,7 +111,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                 SmsTransaction released = observer.find(SmsTransaction.class, claimedId.get());
                 assertThat(released.getStatus()).isEqualTo(SmsStatus.QUEUED);
                 assertThat(released.getAttemptCount()).isZero();
-                assertThat(released.getNextAttemptAt()).isNotNull();
+                assertThat(released.getNextAttemptAt()).isNotNull().isBeforeOrEqualTo(new java.util.Date());
             }
         } finally {
             if (claimedId.get() != null) {

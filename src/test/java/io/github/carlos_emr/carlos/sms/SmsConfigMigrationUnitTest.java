@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("dao")
 class SmsConfigMigrationUnitTest {
     private static final Path MIGRATION =
-            Path.of("database", "mysql", "migration", "common", "V1.0.34__add_sms_config.sql");
+            Path.of("database", "mysql", "migration", "common", "V1.0.59__add_sms_config.sql");
 
     @Test
     @DisplayName("applied twice, creates sms_config with the columns the entity maps")

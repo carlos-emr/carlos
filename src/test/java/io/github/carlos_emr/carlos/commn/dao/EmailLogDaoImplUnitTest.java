@@ -73,6 +73,36 @@ class EmailLogDaoImplUnitTest extends CarlosUnitTestBase {
         verify(query).setParameter("ts", timestamp);
     }
 
+    @Test
+    @DisplayName("should write only the body column, encoded as the entity stores it")
+    void shouldUpdateOnlyTheBody_whenReplacingIt() {
+        EntityManager entityManager = mock(EntityManager.class);
+        Query query = mock(Query.class);
+        when(entityManager.createQuery(anyString())).thenReturn(query);
+        when(query.setParameter(anyString(), org.mockito.ArgumentMatchers.any())).thenReturn(query);
+        when(query.executeUpdate()).thenReturn(1);
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        EmailLog stored = new EmailLog();
+        stored.setBody("code removed");
+
+        assertThat(dao.replaceBody(42, "code removed")).isOne();
+        verify(entityManager).createQuery("UPDATE EmailLog e SET e.body = :body WHERE e.id = :id");
+        org.mockito.ArgumentCaptor<Object> body = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(query).setParameter(org.mockito.ArgumentMatchers.eq("body"), body.capture());
+        assertThat((byte[]) body.getValue()).isEqualTo(ReflectionTestUtils.getField(stored, "body"));
+        verify(query).setParameter("id", 42);
+        verify(entityManager, org.mockito.Mockito.never()).find(EmailLog.class, 42);
+    }
+
+    @Test
+    @DisplayName("should refuse a null replacement body")
+    void shouldRefuse_whenTheReplacementIsNull() {
+        ReflectionTestUtils.setField(dao, "entityManager", mock(EntityManager.class));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.replaceBody(42, null))
+                .isInstanceOf(NullPointerException.class).hasMessage("replacement");
+    }
+
     private Query wireQueryMock() {
         EntityManager entityManager = mock(EntityManager.class);
         Query query = mock(Query.class);

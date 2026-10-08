@@ -15,8 +15,7 @@
 --
 -- Idempotent (CREATE TABLE IF NOT EXISTS), so a re-run is harmless.
 --
--- Numbered V1.0.34 because V1.0.32 and V1.0.33 are held by open branches (portal email delivery,
--- #3845 consent uniqueness) and V1.0.29 to V1.0.31 by other open PRs when this was written; see
+-- Numbered V1.0.59: above develop (V1.0.57), release/2026.08 (V1.0.56) and #4440 (V1.0.58); see
 -- database/mysql/migration/common/README.md. Renumber above the high-water mark at merge if needed.
 
 CREATE TABLE IF NOT EXISTS sms_config (

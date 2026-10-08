@@ -28,7 +28,7 @@ package io.github.carlos_emr.carlos.sms.support;
  * segment, and characters from the extension table ({@code ^ { } [ ] ~ | \ €}, form feed) take two.
  * Any other character, including accents outside the GSM alphabet (for example {@code ô}, {@code ç}),
  * curly quotes and dashes, switches the whole body to UCS-2, where one segment holds 70 UTF-16 units
- * and an emoji takes two. Multipart messages lose room to the concatenation header: 153 units per
+ * and most emoji take two or more. Multipart messages lose room to the concatenation header: 153 units per
  * part in GSM-7 and 67 in UCS-2. Part counts are the usual ceiling estimate; a carrier may use one more
  * part when it avoids splitting an escaped extension character (GSM-7) or an emoji's surrogate pair
  * (UCS-2).

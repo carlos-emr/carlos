@@ -43,7 +43,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.34).
+ * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.59).
  * <p>
  * There is at most one row, {@link #SINGLETON_ID}; when there is none, the {@code sms.*} properties still
  * apply. A save that races another fails instead of adding a second row or overwriting the other: the
@@ -63,7 +63,7 @@ public class SmsConfig extends AbstractModel<Integer> {
     private static final TypeReference<TreeMap<String, String>> CREDENTIAL_MAP = new TypeReference<>() {
     };
 
-    /** The only row's id; V1.0.34 refuses any other. */
+    /** The only row's id; V1.0.59 refuses any other. */
     public static final int SINGLETON_ID = 1;
 
     @Id

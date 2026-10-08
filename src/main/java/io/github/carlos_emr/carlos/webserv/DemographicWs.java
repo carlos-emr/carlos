@@ -31,10 +31,12 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.jws.WebMethod;
 import jakarta.jws.WebParam;
 import jakarta.jws.WebService;
 
@@ -108,10 +110,7 @@ public class DemographicWs extends AbstractWs {
 
 
     public DemographicTransfer[] getDemographics(Integer[] demographicIds) {
-        ArrayList<Integer> ids = new ArrayList<Integer>();
-        for (Integer i : demographicIds) {
-            ids.add(i);
-        }
+        ArrayList<Integer> ids = new ArrayList<Integer>(Arrays.asList(demographicIds));
 
         requireReadPrivilege(ids);
         List<Demographic> demographics = demographicManager.getDemographics(getLoggedInInfo(), ids);
@@ -217,16 +216,20 @@ public class DemographicWs extends AbstractWs {
         return hasPrivilege(DEMOGRAPHIC_OBJECT, "r", demographicId);
     }
 
+    /**
+     * Switched off: CXF does not publish this as a SOAP operation, so a caller gets a SOAP fault.
+     *
+     * <p>A remnant of OSCAR's 2019 PHR sharing work. Despite its name it returns the ids of every
+     * patient whose data-sharing consent record was edited after {@code lastUpdate}, including
+     * patients who opted out, and nothing in CARLOS calls it. The code is kept until
+     * #4090 decides whether to remove it.</p>
+     */
+    @WebMethod(exclude = true)
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
         requirePrivilege(DEMOGRAPHIC_OBJECT, "r");
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
-        List<Integer> demoIds = new ArrayList<Integer>();
-        for (Consent c : consents) {
-            if (!demoIds.contains(c.getDemographicNo())) demoIds.add(c.getDemographicNo());
-        }
-
-        return demoIds.toArray(new Integer[0]);
+        return consents.stream().map(Consent::getDemographicNo).distinct().toArray(Integer[]::new);
     }
 }
