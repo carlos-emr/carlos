@@ -88,10 +88,18 @@ class ChartUpdatesTest(unittest.TestCase):
             self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History:\n- Asthma'}],
                              result['proposals'], kind)
 
-    def test_blank_excerpt_is_what_preserve_preceding_context_cannot_widen(self):
-        # The guard above exists because this still fails; callers must never pass a blank excerpt.
-        with self.assertRaises(IndexError):
-            updates.preserve_preceding_context('', 'Plan:\n- Rest.', 0)
+    def test_a_blank_line_under_a_heading_gives_no_heading_only_card(self):
+        source = 'Allergies:\n\n- Penicillin\nPlan:\n- Arrange respiratory clinic follow-up in 6 weeks.\n'
+        parts = updates.source_segments(source)
+        self.assertEqual('', parts[2].strip())
+        for row in ({'destination': 'Allergies', 'start_id': 2, 'end_id': 2},
+                    {'kind': 'tickler', 'start_id': 2, 'end_id': 2}):
+            self.assertEqual([], updates.resolve_ranges({'proposals': [row]}, parts, source)['proposals'])
+
+    def test_preserve_preceding_context_refuses_a_blank_excerpt_cleanly(self):
+        for excerpt, start in (('', 0), ('', 7), ('  ', 7)):
+            with self.assertRaisesRegex(ValueError, 'Source excerpt is blank'):
+                updates.preserve_preceding_context(excerpt, 'Plan:\n  - Rest.', start)
 
     def test_rejects_expanded_lists_exceeding_budget_without_partial_output(self):
         source = 'Plan\n' + '\n'.join(f'- Arrange clinic {i} follow-up.' for i in range(updates.MAX_PROPOSALS + 5))

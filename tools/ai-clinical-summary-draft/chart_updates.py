@@ -189,6 +189,7 @@ def preserve_preceding_context(excerpt, source, range_start):
     preferable to deciding that a preceding negation or condition cannot apply. This may
     produce overlapping review cards; it never removes a qualifier or rewrites a quotation.
     """
+    require(excerpt.strip(), 'Source excerpt is blank')  # callers skip blank ranges first
     start = source.find(excerpt, range_start)
     require(start >= 0, 'Source excerpt is unavailable')
     end = start + len(excerpt)
@@ -291,11 +292,12 @@ def resolve_ranges(raw, lines, source):
         start, end = row['start_id'], row['end_id']
         require(type(start) is int and type(end) is int and 1 <= start <= end <= len(lines),
                 'Invalid proposal line range')
-        contextual, evidence = contextual_range(row, lines)
         # A range that covers only blank lines quotes nothing. Skip it, not the whole
-        # document: widening below needs at least one character to start from.
-        if not evidence:
+        # document. Check the model's own lines: contextual_range may prepend a heading,
+        # which would otherwise turn a blank line under it into a heading-only card.
+        if not ''.join(lines[n] for n in range(start, end + 1)).strip():
             continue
+        contextual, evidence = contextual_range(row, lines)
         range_start = sum(len(lines[n]) for n in range(1, contextual['start_id']))
         if row['kind'] == 'tickler':
             original_start = source.find(evidence, range_start)
@@ -314,8 +316,6 @@ def resolve_ranges(raw, lines, source):
             continue
         excerpts = followup_items(evidence) if row['kind'] == 'tickler' else independent_items(evidence)
         for excerpt in excerpts:
-            if not excerpt.strip():
-                continue  # a blank item quotes nothing and cannot be widened
             excerpt = preserve_preceding_context(excerpt, source, range_start)
             # One unbounded paragraph must not discard unrelated valid facts. Never
             # truncate context to make it fit: leave this source text in the audit gaps.
