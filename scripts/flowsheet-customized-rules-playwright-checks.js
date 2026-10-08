@@ -73,7 +73,7 @@ async function workflow(s) {
   }
   async function editorRow(page, flowsheet, measurement) {
     const row = page.locator('#measurementTbl tbody tr')
-      .filter({ has: page.locator('td:nth-child(3)', { hasText: new RegExp(`^\\s*${measurement}\\s*$`) }) });
+      .filter({ has: page.locator('td:nth-child(3)').getByText(measurement, { exact: true }) });
     h.assert(await row.count() === 1, `The ${flowsheet} editor does not list exactly one ${measurement} row`);
     return row;
   }
