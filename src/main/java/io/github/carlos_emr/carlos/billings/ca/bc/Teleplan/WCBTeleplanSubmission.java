@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.Misc;
+import org.owasp.encoder.Encode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
@@ -62,24 +63,27 @@ public class WCBTeleplanSubmission {
     }
 
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
+        // Each field is encoded for where it lands: table text, or the record number inside the
+        // script call of the invoice link.
+        String recordNo = Misc.forwardZero(billingMasterNo, 7);
         String htmlContent =
                 "<tr>" +
                         "<td class='bodytext'>" +
                         "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
-                        Misc.forwardZero(billingMasterNo, 7) +
+                        Encode.forJavaScriptAttribute(Encode.forUriComponent(recordNo)) +
                         "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">" +
-                        invNo +
+                        Encode.forHtml(invNo) +
                         "</a>" +
                         "</td>" +
-                        "<td class='bodytext'>" + demoName + "</td>" +
-                        "<td class='bodytext'>" + phn + "</td>" +
-                        "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" +
-                        "<td class='bodytext'>" + billingCode + "</td>" +
-                        "<td align='right' class='bodytext'>" + billAmount + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" +
-                        "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" +
+                        "<td class='bodytext'>" + Encode.forHtml(demoName) + "</td>" +
+                        "<td class='bodytext'>" + Encode.forHtml(phn) + "</td>" +
+                        "<td class='bodytext'>" + Encode.forHtml(dateFormat(serviceDate)) + "</td>" +
+                        "<td class='bodytext'>" + Encode.forHtml(billingCode) + "</td>" +
+                        "<td align='right' class='bodytext'>" + Encode.forHtml(billAmount) + "</td>" +
+                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx1, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx2, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx3, 5)) + "</td>" +
+                        "<td class='bodytext'>" + Encode.forHtml(recordNo) + "</td>" +
                         "<td class='bodytext'>&nbsp;</td>" +
                         "</tr>";
         return htmlContent;
