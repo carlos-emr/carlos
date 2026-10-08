@@ -518,7 +518,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
 
             assertThat(log.messages()).anySatisfy(message -> assertThat(message)
-                    .contains("type=H id=12")
+                    .contains("Left out consultation attachment H:12 UNAVAILABLE")
                     .endsWith("missing or unreadable HRM report file"));
         }
     }
@@ -537,7 +537,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
 
             assertThat(log.messages()).anySatisfy(message -> assertThat(message)
-                    .contains("type=H id=12")
+                    .contains("Left out consultation attachment H:12 UNAVAILABLE")
                     .endsWith("IllegalStateException"));
             assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-hrm-path"));
         }
