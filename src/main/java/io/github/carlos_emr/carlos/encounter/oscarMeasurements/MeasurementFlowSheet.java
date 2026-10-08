@@ -825,6 +825,11 @@ public class MeasurementFlowSheet {
             return;
         }
         dsRulesFileName = string;
+        // The named file replaces whatever ran before; if it does not load, run nothing rather than
+        // stale rules, so getMessages reports the missing file.
+        flowsheetRuleBase = null;
+        ruleBase = null;
+        rulesLoaded = false;
         try {
             String drl = null;
             // Priority 1: Check for DRL file on the filesystem (allows site-specific customization)

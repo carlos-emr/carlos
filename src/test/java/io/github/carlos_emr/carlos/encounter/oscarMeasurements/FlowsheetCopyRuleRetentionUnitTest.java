@@ -330,6 +330,20 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should drop the previous rules when a later rules file does not load")
+    void shouldDropPreviousRules_whenReloadedRulesFileDoesNotLoad() {
+        MeasurementFlowSheet flowsheet = parse(diabetesDefinition());
+        assertThat(flowsheet.ruleBase).as("fixture: diab.drl loaded").isNotNull();
+
+        flowsheet.loadRuleBase("issue4433-absent.drl");
+
+        assertThat(flowsheet.ruleBase).isNull();
+        assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("issue4433-absent.drl");
+    }
+
+    @Test
     @DisplayName("should say that a flowsheet declares no rules when it has none")
     void shouldSayNoRulesDeclared_whenFlowsheetHasNone() {
         MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"

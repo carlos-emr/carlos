@@ -4052,8 +4052,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient with one seeded INR reading; patient-scoped delete customizations of diab3 and inrFlow created through the flowsheet editor; all owned rows removed and verified by cleanup.",
-      "notes": "Issue #4433: a patient-customized flowsheet must show the same flowsheet-level DRL output as the uncustomized one (diab.drl on CDM Indicators, inrFlowsheet.drl on INR) and keep the INR inr.html header."
+      "fixtures": "Owned FAKE-PW patient with one seeded WAIS and one seeded INR reading; patient-scoped delete customizations of diab3 (DTYP) and inrFlow (COUM) and a patient-scoped update customization of diab3 WAIS (a warning rule) created through the flowsheet editor; all owned rows removed and verified by cleanup.",
+      "notes": "Issue #4433: a patient-customized flowsheet must show the same flowsheet-level DRL output as the uncustomized one (diab.drl on CDM Indicators, inrFlowsheet.drl on INR), run a warning rule added through Update Flowsheet alongside diab.drl, and keep the INR inr.html header."
     },
     {
       "name": "immunization-schedule-config",
