@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.TypedQuery;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
@@ -179,7 +180,8 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
                 Hl7TextMessage message = persistMessage();
                 // A value longer than the column is rejected by the database like the trigger in the
                 // lab-upload-rollback probe: IDENTITY ids make persist insert immediately, so it throws here.
-                assertThatThrownBy(() -> infos.persist(infoFor(message, "x".repeat(400))))
+                Hl7TextInfo oversized = infoFor(message, "x".repeat(400));
+                assertThatThrownBy(() -> infos.persist(oversized))
                         .as("the insert the database rejects")
                         .isInstanceOf(RuntimeException.class);
 
@@ -191,8 +193,9 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
 
                 // Control: the session really is unusable, and this capture does see Hibernate's assertion,
                 // so the check above cannot pass because the capture listens on the wrong logger.
-                assertThatThrownBy(() -> em.createQuery("select count(m) from Hl7TextMessage m", Long.class)
-                        .getSingleResult()).as("a query in the failed session").isInstanceOf(RuntimeException.class);
+                TypedQuery<Long> count = em.createQuery("select count(m) from Hl7TextMessage m", Long.class);
+                assertThatThrownBy(count::getSingleResult)
+                        .as("a query in the failed session").isInstanceOf(RuntimeException.class);
                 assertThat(HibernateSessionAssertions.in(hibernateCore))
                         .as("the capture records HHH000099 when a query does run in the failed session").isNotEmpty();
 
@@ -216,7 +219,8 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
         try (LogCapture hibernateCore = HibernateSessionAssertions.capture()) {
             tx.executeWithoutResult(status -> {
                 Hl7TextMessage message = persistMessage();
-                assertThatThrownBy(() -> infos.persist(infoFor(message, "x".repeat(400))))
+                Hl7TextInfo oversized = infoFor(message, "x".repeat(400));
+                assertThatThrownBy(() -> infos.persist(oversized))
                         .as("the insert the database rejects")
                         .isInstanceOf(RuntimeException.class);
 
