@@ -278,6 +278,7 @@
     "test:rx-edit-discontinue-playwright": "node scripts/rx-edit-discontinue-playwright-checks.js",
     "test:admin-api-keygen-playwright": "node scripts/admin-api-keygen-playwright-checks.js",
     "test:admin-email-config-playwright": "node scripts/admin-email-config-playwright-checks.js",
+    "test:eform-email-attachment-binding-playwright": "node scripts/eform-email-attachment-binding-playwright-checks.js",
     "test:admin-role-management-playwright": "node scripts/admin-role-management-playwright-checks.js",
     "test:document-refile-combine-playwright": "node scripts/document-refile-combine-playwright-checks.js",
     "test:report-daysheet-labs-playwright": "node scripts/report-daysheet-labs-playwright-checks.js",

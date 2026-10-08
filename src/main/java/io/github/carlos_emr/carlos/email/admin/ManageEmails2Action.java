@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
+import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -212,6 +213,8 @@ public class ManageEmails2Action extends ActionSupport {
      *   <li>Refreshes all email attachments by re-rendering PDF documents</li>
      *   <li>Retrieves patient consent status and email addresses</li>
      *   <li>Populates request attributes for the email compose page</li>
+     *   <li>Stages the attachments under this window's own one-time key, bound to the email's
+     *       patient, for the send (#4425)</li>
      * </ul>
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
@@ -273,7 +276,14 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("isEmailAttachmentEncrypted", emailLog.getIsAttachmentEncrypted());
         request.setAttribute("emailPatientChartOption", emailLog.getChartDisplayOption().getValue());
         request.setAttribute("emailAdditionalParams", emailLog.getAdditionalParams());
-        request.getSession().setAttribute("emailAttachmentList", emailAttachmentList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // Stage the resend's attachments under this window's own key, bound to the logged email's
+        // patient, exactly as a compose does (#4425). A session-wide list would let a compose or
+        // resend in another window replace what this window sends.
+        EmailAttachmentStaging.Staged stagedAttachments =
+                EmailAttachmentStaging.stage(request.getSession(), demographicNo, emailAttachmentList);
+        request.getSession().removeAttribute("emailAttachmentList");
+        request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
+        request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
 
         return "compose";
     }

@@ -258,6 +258,10 @@
                 <input type="hidden" name="openEFormAfterEmail" value="${openEFormAfterEmail}"/>
                 <input type="hidden" name="deleteEFormAfterEmail" value="${deleteEFormAfterEmail}"/>
                 <input type="hidden" name="transactionType" id="transactionType" value="${transactionType}"/>
+                <%-- This window's own attachments: the send takes exactly the entry staged under this key,
+                     bound to this patient, so another window's compose cannot change them (#4425). --%>
+                <input type="hidden" name="emailAttachmentKey" id="emailAttachmentKey"
+                       value="${carlos:forHtmlAttribute(emailAttachmentKey)}"/>
 
                 <%-- To and From sit side by side: recipient (To) first/leftmost, sender (From) on the right.
                      Equal-height cards keep the row tidy when the To card grows with extra recipients. --%>
