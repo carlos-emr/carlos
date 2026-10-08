@@ -89,13 +89,15 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
     assert.equal(fixtureErrorTag(refusal), ' (RX_FAX_FIXTURE_LOCKED)');
     console.log('PASS: a concurrent run is refused the shared lock');
 
-    // 3. An edit made during the run survives the restore; everything else is restored exactly.
-    db.execute(`UPDATE pharmacyInfo SET fax = '9055550199' WHERE recordID = ${active[1]}`);
+    // 3. An edit made during the run survives the restore; everything else is restored exactly. The
+    // edit differs from the run's number only by a trailing space, which utf8mb4_general_ci ignores,
+    // so it stays only if the restore compares bytes.
+    db.execute(`UPDATE pharmacyInfo SET fax = '555${suffix} ' WHERE recordID = ${active[1]}`);
     assert.deepEqual(run.restore(), { restored: listed.length - 1, untouched: 1 });
     await run.unlock();
     const restored = Object.fromEntries(state());
     assert.equal(restored[active[0]], null, 'NULL restored as NULL');
-    assert.equal(restored[active[1]], '9055550199', 'an edit made during the run is kept');
+    assert.equal(restored[active[1]], `555${suffix} `, 'an edit made during the run is kept, byte for byte');
     assert.equal(restored[active[2]], '416 400 0305 ', 'trailing space restored byte for byte');
     assert.equal(restored[active[3]], '(905) 555-0100 x.2+1');
     assert.equal(restored[deleted], '9055550100');

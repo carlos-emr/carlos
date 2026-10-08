@@ -23,7 +23,9 @@
  *     outside RESTORABLE_FAX is refused before ANY row is written, because it is restored later as
  *     a quoted literal;
  *   - the rewrite is compare-and-swap against that snapshot, and the restore is compare-and-swap
- *     against this run's number, so an operator edit made during the run is never overwritten;
+ *     against this run's number, so an operator edit made during the run is never overwritten.
+ *     Every comparison is BINARY: the column's utf8mb4_general_ci collation ignores case and
+ *     trailing spaces, so a plain '=' would treat an edit like '5551234567 ' as untouched;
  *   - pharmacyInfo.addDate is `ON UPDATE current_timestamp()`, so every statement here sets it to
  *     itself (KEEP_ADD_DATE); otherwise each run would stamp the pharmacy as added today.
  *
@@ -169,7 +171,7 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
     let restored = 0;
     for (const entry of journal.entries) {
       try {
-        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(entry)}, ${KEEP_ADD_DATE} WHERE recordId = ${entry.recordId} AND fax = '${journal.stagedFax}'`)) {
+        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(entry)}, ${KEEP_ADD_DATE} WHERE recordId = ${entry.recordId} AND fax = BINARY '${journal.stagedFax}'`)) {
           restored += 1;
         } else {
           summary.untouched += 1;
@@ -287,7 +289,7 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
     while (seeded.length) {
       const row = seeded.pop();
       try {
-        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(row)}, ${KEEP_ADD_DATE} WHERE recordId = ${row.recordId} AND fax = '${stagedFax}'`)) {
+        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(row)}, ${KEEP_ADD_DATE} WHERE recordId = ${row.recordId} AND fax = BINARY '${stagedFax}'`)) {
           summary.restored += 1;
         } else {
           summary.untouched += 1;

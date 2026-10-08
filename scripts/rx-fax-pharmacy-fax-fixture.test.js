@@ -172,6 +172,22 @@ test('restore leaves a destination someone else changed during the run', async (
   assert.equal(db.pharmacies.get('3').fax, '9055550144');
 });
 
+test('every compare-and-swap is byte-exact, not collation-equal', async (t) => {
+  const db = demoDatabase();
+  const dir = journalDir(t);
+  const crashed = fixture(db, dir, '5551111111');
+  await crashed.lock();
+  crashed.seed();
+  await fixture(db, dir, '5552222222').lock();
+  const run = fixture(db, dir, '5553333333');
+  await run.lock();
+  run.seed();
+  run.restore();
+  const swaps = db.statements.filter((q) => q.startsWith('UPDATE pharmacyInfo'));
+  assert.ok(swaps.length > 0);
+  for (const q of swaps) assert.match(q, /AND (fax IS NULL|fax = BINARY ')/, q);
+});
+
 test('restore is idempotent for the finally-plus-signal-handler path', async (t) => {
   const db = demoDatabase();
   const run = fixture(db, journalDir(t));
