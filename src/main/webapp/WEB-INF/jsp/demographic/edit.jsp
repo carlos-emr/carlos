@@ -1099,193 +1099,8 @@
             </tr>
             <tr>
                 <td class="MainTableLeftColumn" valign="top">
-                    <table border=0 cellspacing=0 width="100%" id="appt_table">
-                        <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="demographic.demographiceditdemographic.msgAppt"/></td>
-                        </tr>
-                        <tr id="appt_hx">
-                            <td><a
-                                    href='<%= request.getContextPath() %>/demographic/DemographicApptHistory?demographic_no=<%=demographic.getDemographicNo()%>&orderby=appttime&dboperation=appt_history&limit1=0&limit2=25'><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
-                            </td>
-                        </tr>
-
-                        <%
-                            // wLReadonly already computed in preamble
-                            WaitingList wL = WaitingList.getInstance();
-                            if (!wL.getFound()) {
-                                wLReadonly = "readonly";
-                            }
-                            if (wLReadonly.equals("")) {
-                        %>
-                        <tr>
-                            <td><a
-                                    href="<%= request.getContextPath() %>/waitinglist/SetupDisplayPatientWaitingList?demographic_no=<%=demographic.getDemographicNo()%>">
-                                <fmt:message key="demographic.demographiceditdemographic.msgWaitList"/></a>
-                            </td>
-                        </tr>
-                    </table>
-                    <table border=0 cellspacing=0 width="100%">
-                        <%}%>
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
-                            <tr class="Header">
-                                <td style="font-weight: bold"><fmt:message key="admin.admin.billing"/></td>
-                            </tr>
-                            <tr>
-                                <td>
-                                    <%
-                                        if ("ON".equals(prov)) {
-                                    %>
-                                    <c:set var="__encBillingHistoryDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encBillingHistoryUrl" value="${pageContext.request.contextPath}/billing/CA/ON/ViewBillingONHistory?demographic_no=${__encBillingHistoryDemoNo}" />
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(500,800,'<carlos:encode value='${__encBillingHistoryUrl}' context="javaScriptAttribute"/>')">
-                                        <fmt:message key="demographic.demographiceditdemographic.msgBillHistory"/></a>
-                                    <%
-                                    } else {
-                                    %>
-                                    <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
-                                    <a href="#"
-                                       onclick="popupPage(800,1000,'<carlos:encode value='${__encInvoiceUrl}' context="javaScriptAttribute"/>');return false;">
-                                        <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
-
-
-                                    <br/>
-                                    <a href="javascript:void(0);" onclick="return !showMenu('2', event);"
-                                       onmouseover="callEligibilityWebService('<%=request.getContextPath()%>/billing/CA/BC/ManageTeleplan','returnTeleplanMsg');"><fmt:message key="demographic.demographiceditdemographic.btnCheckElig"/></a>
-                                    <div id='menu2' class='menu' onclick='event.cancelBubble = true;'
-                                         style="width:350px;">
-                                        <span id="search_spinner"><fmt:message key="demographic.demographiceditdemographic.msgLoading"/></span>
-                                        <span id="returnTeleplanMsg"></span>
-                                    </div>
-                                    <%}%>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700, 1000, '<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarProps.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=&appointment_no=0&demographic_name=<%=URLEncoder.encode(demographic.getLastName(), StandardCharsets.UTF_8)%>%2C<%=URLEncoder.encode(demographic.getFirstName(), StandardCharsets.UTF_8)%>&demographic_no=<%=demographic.getDemographicNo()%>&providerview=<%=demographic.getProviderNo()%>&user_no=<%=curProvider_no%>&apptProvider_no=none&appointment_date=<%=dateString%>&start_time=00:00:00&bNewForm=1&status=t');return false;"
-                                        title="<fmt:message key="demographic.demographiceditdemographic.msgBillPatient"/>"><fmt:message key="demographic.demographiceditdemographic.msgCreateInvoice"/></a></td>
-                            </tr>
-                            <%
-                                if ("ON".equals(prov)) {
-                            %>
-                            <%
-                                }
-                            %>
-
-                        </security:oscarSec>
-                        <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalModules"/></td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,960,'<%= request.getContextPath() %>/encounter/oscarConsultationRequest/ViewDisplayDemographicConsultationRequests?de=<%=demographic.getDemographicNo()%>&proNo=<%=demographic.getProviderNo()%>')"><fmt:message key="demographic.demographiceditdemographic.btnConsultation"/></a></td>
-                        </tr>
-
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupOscarRx(700,1027,'<%= request.getContextPath() %>/rx/choosePatient?providerNo=<carlos:encode value='<%= curProvider_no %>' context="javaScriptAttribute"/>&demographicNo=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>')"><fmt:message key="global.prescriptions"/></a>
-                            </td>
-                        </tr>
-
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_eChart"
-                                           rights="r" reverse="<%=false%>">
-                                <tr>
-                                    <td>
-                                        <a href="javascript: function myFunction() {return false; }"
-                                           onClick="popupEChart(710, 1024,encURL);return false;"
-                                           title="<fmt:message key="demographic.demographiceditdemographic.btnEChart"/>">
-                                            <fmt:message key="demographic.demographiceditdemographic.btnEChart"/></a>
-                                    </td>
-                                </tr>
-                            <tr>
-                                <td><a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,960,'${carlos:forHtml(ctx)}/prevention/ViewPreventionIndex?demographic_no=<carlos:encode value='<%= demographic_no %>' context="javaScriptAttribute"/>');return false;">
-                                    <fmt:message key="encounter.LeftNavBar.Prevent"/></a></td>
-                            </tr>
-                        </security:oscarSec>
-                        <tr>
-                            <td>
-                                <c:set var="__enc_1"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
-                                <a
-                                        href="javascript: function myFunction() {return false; }"
-                                        onClick="popupPage(700,1000,'<%= request.getContextPath() %>/tickler/ViewTicklerMain?demoview=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>');return false;">
-                                    <fmt:message key="global.tickler"/></a>
-                            </td>
-                        </tr>
-                        <%-- Patient portal (issue #3854): shown only while the portal is switched on
-                             (patient_portal.enabled) and the user can read invitations or accounts; the page's
-                             gate and JSON routes re-check both. It opens in
-                             this window, like Appointment History, and links back to this record. --%>
-                        <% if (io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings.isConfigured()) { %>
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_portal.invite,_portal.account" rights="r">
-                            <tr>
-                                <td>
-                                    <a href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/demographic/portalManage?demographicNo=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>">
-                                        <fmt:message key="demographic.portal.link"/></a>
-                                </td>
-                            </tr>
-                        </security:oscarSec>
-                        <% } %>
-
-
-                        <% if (oscarProps.getProperty("clinic_no", "").startsWith("1022")) { // quick hack to make Dr. Hunter happy
-                        %>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR1&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR1</a>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><a
-                                    href="javascript: function myFunction() {return false; }"
-                                    onClick="popupPage(700,1000,'<%=request.getContextPath()%>/form/forwardshortcutname?formname=AR2&demographic_no=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("demographic_no")) %>' context="uriComponent"/>');">AR2</a>
-                            </td>
-                        </tr>
-                        <% } %>
-                                           <c:set var="__enc_2"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
-                    <tr class="Header">
-                            <td style="font-weight: bold"><fmt:message key="encounter.Index.clinicalResources"/></td>
-                        </tr>
-                        <special:SpecialPlugin moduleName="inboxmnger">
-                            <tr>
-                                <td>
-
-                                    <a href="#"
-                                       onClick="window.open('<%=request.getContextPath()%>/mod/docmgmtComp/DocList?method=list&&demographic_no=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>','_blank','resizable=yes,status=yes,scrollbars=yes');return false;">Inbox
-                                        Manager</a><br>
-                                </td>
-                            </tr>
-                        </special:SpecialPlugin>
-                        <special:SpecialPlugin moduleName="inboxmnger" reverse="true">
-                            <tr>
-                                <td>
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/>')"><fmt:message key="demographic.demographiceditdemographic.msgDocuments"/></a></td>
-                            </tr>
-                            <%
-                                UserProperty upDocumentBrowserLink = pref.getProp(curProvider_no, UserProperty.EDOC_BROWSER_IN_MASTER_FILE);
-                                if (upDocumentBrowserLink != null && upDocumentBrowserLink.getValue() != null && upDocumentBrowserLink.getValue().equals("yes")) {%>
-                            <tr>
-                                <td>
-                                    <a href="javascript: function myFunction() {return false; }"
-                                       onClick="popupPage(710,970,'<%= request.getContextPath() %>/documentManager/ViewDocumentBrowser?function=demographic&doctype=lab&functionid=<%=demographic.getDemographicNo()%>&categorykey=Private Documents')"><fmt:message key="demographic.demographiceditdemographic.msgDocumentBrowser"/></a></td>
-                            </tr>
-                            <%}%>
-                        </special:SpecialPlugin>
-                        <tr>
-                            <td><a
-                                    href="<%= request.getContextPath() %>/eform/efmpatientformlist?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&apptProvider=<carlos:encode value='<%= apptProvider != null ? apptProvider : "" %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment != null ? appointment : "" %>' context="uriComponent"/>"><fmt:message key="demographic.demographiceditdemographic.btnEForm"/></a></td>
-                        </tr>
-
-                    </table>
+                    <%-- The patient's navigation, shared with the patient portal page (PatientNavModel). --%>
+                    <jsp:include page="/WEB-INF/jsp/demographic/patient-nav.jsp"/>
                 </td>
                 <td class="MainTableRightColumn" valign="top">
                     <!-- A list used in the mobile version for users to pick which information they'd like to see -->
@@ -1511,7 +1326,6 @@
                 step: 1
             });
         </script>
-    <c:set var="__enc_3"><carlos:encode value='<%= demographic_no %>' context="uriComponent"/></c:set>
     </oscar:oscarPropertiesCheck>
 
     <script type="text/javascript">
@@ -1570,23 +1384,6 @@
             dobEl.addEventListener('blur',   syncDobParts);
         }
 
-        function callEligibilityWebService(url, id) {
-            var ran_number = Math.round(Math.random() * 1000000);
-            var params = "demographic=<carlos:encode value='${__enc_3}' context="javaScript"/>&method=checkElig&rand=" + ran_number;  //hack to get around ie caching the page
-            fetch(url + '?' + params, {
-                method: 'GET',
-                credentials: 'same-origin',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            }).then(function(r) { return r.text(); })
-              .then(function(text) {
-                // Server-rendered eligibility HTML inserted into DOM (same-origin trusted content)
-                document.getElementById(id).innerHTML = text;
-                document.getElementById('search_spinner').innerHTML = "";
-            });
-        }
-        
         function checkInsuranceEligibility() {
             let params = {};
             params.demographic = '<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>';

@@ -38,7 +38,8 @@
     explanation, or a portal failure) is shown as the server worded it.
 
     Request attributes: portalDemographicNo, portalCanInvite, portalCanRecover, portalCanRevoke, portalCanSetAccess,
-    portalCanUnlock, and, when portalCanInvite, portalConsentName, portalConsentStatus and portalConsentLabelKey.
+    portalCanUnlock, patientNav (the master record's navigation, when the patient was found), and, when
+    portalCanInvite, portalConsentName, portalConsentStatus and portalConsentLabelKey.
 
     @since 2026-09-22
 --%>
@@ -79,9 +80,18 @@
     <div class="portal-layout">
         <fmt:message key="demographic.portal.navigation" var="navigationLabel"/>
         <nav class="portal-sidebar" aria-label="${carlos:forHtmlAttribute(navigationLabel)}">
-            <a href="${carlos:forHtmlAttribute(demographicRecord)}"><fmt:message key="encounter.Index.masterFile"/></a>
-            <a href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicApptHistory?demographic_no=${carlos:forUriComponent(portalDemographicNo)}&amp;orderby=appttime&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25"><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
-            <span class="portal-sidebar__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span>
+            <%-- The master record's own navigation (PatientNavModel), with the same privilege checks;
+                 the short list below only if the patient could not be looked up for it. --%>
+            <c:choose>
+                <c:when test="${not empty patientNav}">
+                    <jsp:include page="/WEB-INF/jsp/demographic/patient-nav.jsp"/>
+                </c:when>
+                <c:otherwise>
+                    <a href="${carlos:forHtmlAttribute(demographicRecord)}"><fmt:message key="encounter.Index.masterFile"/></a>
+                    <a href="${carlos:forHtmlAttribute(ctx)}/demographic/DemographicApptHistory?demographic_no=${carlos:forUriComponent(portalDemographicNo)}&amp;orderby=appttime&amp;dboperation=appt_history&amp;limit1=0&amp;limit2=25"><fmt:message key="demographic.demographiceditdemographic.btnApptHist"/></a>
+                    <span class="portal-sidebar__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span>
+                </c:otherwise>
+            </c:choose>
         </nav>
 
         <main class="portal-content">
