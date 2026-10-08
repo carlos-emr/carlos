@@ -238,6 +238,14 @@ def first_answer_hint(answers):
 
 # ---------------------------------------------------------------- one document
 
+def budget_allows(gateway, repeats):
+    """Whether the trial budget still covers all of one card's asks (a partial card would be wasted)."""
+    transport = gateway.transport
+    if not isinstance(transport, ut.CountingTransport):
+        return True
+    return len(transport.calls) + repeats <= transport.budget
+
+
 def run_document(gateway, config, notes, doc, embed=None, repeats=REPEATS, reuse=None):
     body = ut.incoming_document(notes, doc)
     request = ut.build_request(body)
@@ -261,16 +269,26 @@ def run_document(gateway, config, notes, doc, embed=None, repeats=REPEATS, reuse
     for chunks in passages.values():
         for chunk in chunks:
             ut.check_outgoing_passage(notes, doc['patient'], chunk)
-    hints = {}
+    hints, not_asked = {}, []
     for ref, card in asked.items():
+        if not budget_allows(gateway, repeats):
+            not_asked.append(ref)  # recorded, never silently dropped; scored as showing no hint
+            continue
         answers = []
         for _ in range(repeats):
-            text = complete_text(gateway, hint_payload(config, card, doc['date'], passages[ref]))
+            try:
+                text = complete_text(gateway, hint_payload(config, card, doc['date'], passages[ref]))
+            except pipeline.OutputLimitError:
+                # An answer that runs past the length limit is no clear answer: it counts as invalid
+                # (so as disagreement) instead of ending the document's run.
+                answers.append({'status': None, 'passage': None, 'quote': None, 'valid': False,
+                                'text': '(answer exceeded the length limit)'})
+                continue
             answers.append(dict(parse_answer(text, passages[ref]), text=text))
         hints[ref] = {'answers': answers, 'shown': agreed_hint(answers), 'first_only': first_answer_hint(answers)}
     return {'patient': doc['patient'], 'note': doc['note'], 'date': doc['date'], 'model': config['model'],
             'candidates': candidates, 'review': review, 'kept': sorted(kept, key=int), 'skipped_by_rule': skipped,
-            'hints': hints,
+            'hints': hints, 'not_asked_budget': sorted(not_asked, key=int),
             'passages': {ref: [{'id': f'P{i}', 'chunk': f"C{c['id']}", 'note_id': c['note_id'], 'date': c['date'],
                                 'heading': c['heading']} for i, c in enumerate(chunks, 1)]
                          for ref, chunks in passages.items()}}

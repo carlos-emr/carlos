@@ -182,6 +182,18 @@ class CompletionTest(unittest.TestCase):
             trial.complete_text(gateway, {})
 
 
+class BudgetTest(unittest.TestCase):
+    def test_a_card_is_asked_only_when_all_its_asks_fit_the_budget(self):
+        class Gate:
+            pass
+        gate = Gate()
+        gate.transport = ut.CountingTransport(transport=lambda c, e, p: {}, budget=5)
+        gate.transport.calls = [{}] * 2
+        self.assertTrue(trial.budget_allows(gate, 3))
+        gate.transport.calls = [{}] * 3
+        self.assertFalse(trial.budget_allows(gate, 3))
+
+
 class ScoreTest(unittest.TestCase):
     LABELS = {'patient': 'NHSSYN099', 'note': 12, 'date': '2026-01-09', 'facts': [
         {'id': 'amlodipine', 'cues': ['amlodipine 5 mg'], 'dest': ['Medications'], 'status': 'already_recorded',
