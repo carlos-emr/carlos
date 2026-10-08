@@ -78,6 +78,19 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`eform-admin-crud-playwright-checks.js` fixture cleanup (issue #4408) was run on
+2026-10-08 against 2026.09.0~snapshot26 packages built from the `release/2026.08`
+fix branch (carlos-ctl 1.1.2 built from the pinned commit, because its release
+asset was not downloadable) and installed into an Ubuntu 26.04 container with the demo
+dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`, `:443`). With
+`MYSQL_PASSWORD` set: a passing run **PASS**es and leaves no `Playwright Admin CRUD`
+row; a real SIGTERM sent after the form was created exits 143 and removes it; a run
+forced to fail after creation keeps the form for diagnosis. A configured cleanup that cannot complete (DB user denied) now makes the run **FAIL**
+with exit 1 rather than print PASS over leaked rows, and a Chromium launch failure leaves no
+SQL option file in `/tmp`. Without `MYSQL_PASSWORD`
+the check still **PASS**es, prints a note, and leaves the restored form. The three
+other library forms were untouched in every case.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
