@@ -32,6 +32,9 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -83,6 +86,13 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
             return INPUT;
         }
+        // Audit the generation as OSCAR 19's ongenreport.jsp did: the selected
+        // provider, MOH office and date window, no claim or patient data.
+        LogAction.addLog(loggedInInfo, LogConst.GENERATE, LogConst.CON_OHIP, null, null,
+                "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                        + "; billCenter=" + LogSafe.sanitize(request.getParameter("billcenter"))
+                        + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                        + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date")));
         return SUCCESS;
     }
 }

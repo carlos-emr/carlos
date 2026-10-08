@@ -24,7 +24,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
@@ -78,6 +81,11 @@ public class ViewBillingOhipSimulation2Action extends ActionSupport {
                 .assemble(request, loggedInInfo, teamBillingOnly,
                         siteAccessPrivacy, teamAccessPrivacy);
         request.setAttribute("simulationModel", model);
+        // Audit the dry run as OSCAR 19's billingOHIPsimulation.jsp did.
+        LogAction.addLog(loggedInInfo, LogConst.SIMULATE, LogConst.CON_OHIP, null, null,
+                "provider_no=" + LogSafe.sanitize(request.getParameter("providers"))
+                        + "; dateBegin=" + LogSafe.sanitize(request.getParameter("xml_vdate"))
+                        + "; dateEnd=" + LogSafe.sanitize(request.getParameter("xml_appointment_date")));
 
         return SUCCESS;
     }
