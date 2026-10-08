@@ -45,6 +45,7 @@
     <title><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/report-print.css">
     <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
     <script language="JavaScript">
@@ -104,13 +105,13 @@
     </div>
 </c:if>
 
-<div class="container-fluid card card-body bg-body-tertiary">
-    <button class="btn btn-primary float-end" type='button' name='print' value='Print'
+<div class="container-fluid card card-body bg-body-tertiary report-print-plain">
+    <button class="btn btn-primary float-end d-print-none report-print-hide" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
     <br/><br/>
 
-    <table class="table table-striped table-hover table-sm">
+    <table class="table table-striped table-hover table-sm report-print-table">
         <thead>
         <tr>
             <th>Read Date</th>

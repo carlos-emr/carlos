@@ -56,6 +56,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Catchment Report</title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/report-print.css">
 </head>
 <body>
 
@@ -111,9 +112,9 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:message key="oscarReport.oscarReportCatchment.title"/>
+        <fmt:message key="admin.admin.pcnReport"/>
         <div class="float-end">
-            <button name='print' onClick='window.print()' class="btn btn-secondary">
+            <button name='print' onClick='window.print()' class="btn btn-secondary d-print-none report-print-hide">
                 <i class="fa-solid fa-print"></i>
                 <fmt:message key="global.btnPrint"/>
             </button>
@@ -121,7 +122,7 @@
     </h4>
 </div>
 
-<table class="table table-bordered table-striped table-sm table-hover">
+<table class="table table-bordered table-striped table-sm table-hover report-print-table" id="pcnReportTable">
     <thead>
     <tr>
         <th><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
@@ -170,7 +171,7 @@
             - Integer.parseInt(strLimit2);
 %>
 
-<nav>
+<nav class="d-print-none report-print-hide" id="pcnPagination">
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
             href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>"
