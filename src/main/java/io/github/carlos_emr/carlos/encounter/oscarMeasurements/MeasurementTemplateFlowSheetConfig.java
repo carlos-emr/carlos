@@ -1643,7 +1643,8 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * <p>This method produces a complete XML representation of a {@link MeasurementFlowSheet},
      * including:</p>
      * <ul>
-     *   <li>Flowsheet-level attributes (name, display name, colours, triggers, HTML header).</li>
+     *   <li>Flowsheet-level attributes (name, display name, colours, triggers, HTML header file,
+     *       flowsheet-level {@code ds_rules} file, and the universal/medical flags).</li>
      *   <li>Indicator colour definitions (e.g., HIGH_1 = red, LOW = blue).</li>
      *   <li>All measurement and prevention items with their rules.</li>
      *   <li>Measurement type definitions via {@link ExportMeasurementType}, allowing the
@@ -1661,14 +1662,26 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         Element va = new Element("flowsheet");
 
 
-        // Serialize flowsheet-level attributes
+        // Serialize flowsheet-level attributes. makeNewFlowsheet re-parses this element to copy a
+        // flowsheet for customization, so every root attribute createflowsheet reads must be
+        // written here, in the form createflowsheet reads it, or the copy silently loses it (#4433).
         addAttributeifValueNotNull(va, "name", mFlowsheet.getName());
         addAttributeifValueNotNull(va, "display_name", mFlowsheet.getDisplayName());
         addAttributeifValueNotNull(va, "warning_colour", mFlowsheet.getWarningColour());
         addAttributeifValueNotNull(va, "recommendation_colour", mFlowsheet.getRecommendationColour());
-        addAttributeifValueNotNull(va, "top_HTML", mFlowsheet.getTopHTMLStream());
+        // top_HTML is a file name; the rendered HTML (getTopHTMLStream) would be re-read as a name.
+        addAttributeifValueNotNull(va, "top_HTML", mFlowsheet.getTopHTMLFileName());
+        // Without ds_rules the copy never loads the flowsheet's DRL and has no decision support.
+        addAttributeifValueNotNull(va, "ds_rules", mFlowsheet.getDsRulesFileName());
         addAttributeifValueNotNull(va, "dxcode_triggers", mFlowsheet.getDxTriggersString());
         addAttributeifValueNotNull(va, "program_triggers", mFlowsheet.getProgramTriggersString());
+        // Flags are written only when they differ from createflowsheet's defaults.
+        if (mFlowsheet.isUniversal()) {
+            va.setAttribute("is_universal", "true");
+        }
+        if (!mFlowsheet.isMedical()) {
+            va.setAttribute("is_medical", "false");
+        }
 
         // Serialize indicator colour mappings (severity key -> CSS colour)
         Hashtable indicatorHash = mFlowsheet.getIndicatorHashtable();
