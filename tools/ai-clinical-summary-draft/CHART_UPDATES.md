@@ -3,7 +3,9 @@
 This add-on starts from the **original selected document**, not generated summary
 prose. The eChart header opens a modal containing the authorized patient document
 list, with review links for active text and HTML documents. Choosing a document
-continues inside that modal, one suggestion at a time with Previous/Next controls. The document summary also links to the review page. It is off by default
+continues inside that modal, one suggestion at a time: a progress strip, the suggestion with
+the source and a chart check beside it, **Previous**, **Skip**, **Dismiss** and **Add & next** in a
+bar at the bottom of the window, and a summary at the end. The document summary also links to the review page. It is off by default
 and is available only in the isolated synthetic trial; it has not been clinically validated.
 
 The review page uses CARLOS's shared grey header, white background and standard

@@ -108,11 +108,12 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         const passage = await page.locator('article.proposal:visible .proposal-evidence blockquote').textContent();
         assert((await page.locator('.source-highlight').allTextContents()).includes(passage));
         assert.equal(await page.locator('#chart-update-source').textContent(), fullSource);
-        if (step < 2) await page.getByRole('button', { name: 'Next', exact: true }).click();
+        if (step < 2) await page.locator('article.proposal:visible').getByRole('button', { name: 'Skip', exact: true }).click();
       }
-      await page.getByRole('button', { name: 'Previous', exact: true }).click();
-      await page.getByRole('button', { name: 'Previous', exact: true }).click();
-      assert.match(await page.locator('main').innerText(), /Fixed NHS proposals - no model/);
+      await page.locator('article.proposal:visible').getByRole('button', { name: 'Previous', exact: true }).click();
+      await page.locator('article.proposal:visible').getByRole('button', { name: 'Previous', exact: true }).click();
+      // The agent's name is in the summary, behind the strip's Summary button.
+      assert.match(await page.locator('#review-summary').textContent(), /Fixed NHS proposals - no model/);
       const reminder = page.locator('article').filter({ has: page.locator('[name="dueDate"]') });
       const date = sql.value(`SELECT DATE(observationdate) FROM document WHERE document_no=${doc}`);
       let expected = '';
@@ -120,7 +121,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         const due = new Date(`${date}T00:00:00Z`);
         due.setUTCDate(due.getUTCDate() + (index === 0 ? 28 : 1));
         expected = due.toISOString().slice(0, 10);
-        assert.match(await reminder.locator('.field-help').first().innerText(), new RegExp(date));
+        assert.match(await reminder.locator('.field-help').first().textContent(), new RegExp(date));
       }
       assert.equal(await reminder.locator('[name="dueDate"]').inputValue(), expected);
       assert.equal(await reminder.locator('[name="assignee"]').inputValue(), '999998');

@@ -99,7 +99,7 @@ node tools/ai-clinical-summary-draft/browser/nhs_suggestions_check.cjs
 
 This follows the eChart header link through the modal patient document list
 to the review step, verifies that only one suggestion is visible at a time,
-and checks that Previous/Next highlights each quoted passage without changing
+and checks that Skip and Previous highlight each quoted passage without changing
 the full source text, then checks NHSSYN001's four-week date, NHSSYN002's next-day date, NHSSYN003's blank
 unspecified date, the active clinician assignee, suggested chart sections, unchecked
 approvals and mobile layout. Dates are calculated from each document observation

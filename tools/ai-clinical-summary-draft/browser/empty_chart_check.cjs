@@ -70,11 +70,13 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         status: error ? 'generation-unavailable' : 'generated',
         proposals: error ? null : count, error };
       if (!error) {
-        await frame.locator('.review-progress').waitFor();
+        // The summary holds the progress line, the agent and the coverage audit; the strip opens it.
+        await frame.locator('.review-progress').waitFor({ state: 'attached' });
+        if (count) await frame.locator('.review-strip [data-review-summary]').click();
         row.history = await cards.filter({ has: frame.locator('[name="destination"]') }).count();
         row.reminders = await cards.filter({ has: frame.locator('[name="dueDate"]') }).count();
         row.nativeReviews = await cards.locator('[name="entryText"][readonly]').count();
-        row.agentLabel = await frame.locator('main > p.small').innerText();
+        row.agentLabel = (await frame.locator('#review-summary > p.small').textContent()).trim();
         row.defaults = [];
         const audit = frame.locator('#coverage-audit');
         await audit.locator(':scope > summary').click();
@@ -86,6 +88,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
         row.textGaps = await audit.locator('.coverage-gap').count();
         row.rejected = await audit.locator('.coverage-rejected blockquote').count();
         await audit.locator(':scope > summary').click();
+        if (count) await frame.locator('[data-review-step]').first().click();
         let checkedNativeForm = false;
         assert.equal(row.history + row.reminders + row.nativeReviews, count);
         for (let index = 0; index < count; index++) {
@@ -94,7 +97,8 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
           assert((await frame.locator('.source-highlight').allTextContents()).includes(quote));
           assert.equal(await frame.locator('#chart-update-source').textContent(), source);
           const card = frame.locator('article.proposal:visible');
-          const related = card.locator('.related-proposal-notice');
+          // A card's notices sit beside it, in the chart check.
+          const related = frame.locator(`[data-check-for="${await card.getAttribute('data-proposal-key')}"] .related-proposal-notice`);
           const hasRelated = await related.count() ? await related.isVisible() : false;
           if (await card.locator('[name="dueDate"]').count()) {
             const dueDate = await card.locator('[name="dueDate"]').inputValue();
@@ -113,7 +117,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
             const destination = await card.getAttribute('data-destination');
             row.defaults.push({ kind: 'review', destination, relatedSuggestion: hasRelated });
             assert.equal(await card.locator('[name="confirmed"]').count(), 0);
-            assert.equal(await card.getByRole('button', { name: 'Accept and save', exact: true }).count(), 0);
+            assert.equal(await card.getByRole('button', { name: 'Add & next', exact: true }).count(), 0);
             if (destination === 'Demographics' && !checkedNativeForm) {
               assert.equal(await card.locator('.native-review-open').count(), 1, 'Demographics review must offer its normal form');
               await card.locator('.native-review-open').click();
@@ -136,7 +140,7 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
               assert.match(await card.innerText(), /Closing this suggestion does not save a record/);
             }
           }
-          if (index + 1 < count) await frame.getByRole('button', { name: 'Next', exact: true }).click();
+          if (index + 1 < count) await card.getByRole('button', { name: 'Skip', exact: true }).click();
         }
       }
       assert.equal(await frame.locator('[name="confirmed"]:checked').count(), 0);

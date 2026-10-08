@@ -115,19 +115,26 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(count(), receiptsBefore);
       details.checks.push('review token rejection');
       await page.screenshot({ path: path.join(output, `${fixture.fixture}-review.png`), fullPage: true });
+      // One suggestion is on screen at a time: open each from the progress strip before using it.
+      const open = async card => {
+        await page.locator(`[data-review-step="${await card.getAttribute('data-proposal-key')}"]`).click();
+        await card.waitFor();
+      };
       const reminder = proposals.filter({ has: page.locator('input[name="dueDate"]') }).first();
       assert.equal(await reminder.count(), 1);
       const historyDraft = proposals.filter({ has: page.locator('select[name="destination"]') }).first();
+      await open(historyDraft);
       const editedHistory = 'Synthetic workflow check: ' + await historyDraft.locator('textarea').inputValue();
       await historyDraft.locator('textarea').fill(editedHistory);
       await historyDraft.locator('select[name="destination"]').selectOption('MedHistory');
       await historyDraft.locator('input[name="confirmed"]').check();
+      await open(reminder);
       await reminder.locator('input[name="dueDate"]').fill('2026-10-05');
       await reminder.locator('select[name="assignee"]').selectOption('999998');
       const edited = 'Synthetic workflow check: ' + await reminder.locator('textarea').inputValue();
       await reminder.locator('textarea').fill(edited);
       await reminder.locator('input[name="confirmed"]').check();
-      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), reminder.getByRole('button', { name: /Accept/ }).click()]);
+      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), reminder.getByRole('button', { name: 'Add & next', exact: true }).click()]);
       assert.equal(await page.locator('.alert-danger').count(), 0, 'Reminder save must succeed');
       assert.equal(count(), Math.max(1, receiptsBefore));
       const tickler = sql.rows(`SELECT t.message,t.task_assigned_to,t.service_date FROM tickler t JOIN clinical_chart_update_receipt r ON r.target_id=t.tickler_no AND r.kind='tickler' WHERE r.demographic_no=${patient} AND r.document_no=${doc}`);
@@ -146,9 +153,10 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert.equal(await history.locator('textarea').inputValue(), editedHistory);
       assert.equal(count(), Math.max(1, receiptsBefore), 'Refreshing must not repeat a save');
       details.checks.push('other edits retained', 'approval reset', 'refresh-safe GET');
+      await open(history);
       await history.locator('select[name="destination"]').selectOption('MedHistory');
       await history.locator('input[name="confirmed"]').check();
-      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), history.getByRole('button', { name: /Accept/ }).click()]);
+      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), history.getByRole('button', { name: 'Add & next', exact: true }).click()]);
       assert.equal(await page.locator('.alert-danger').count(), 0, 'History save must succeed');
       assert.equal(count(), 2);
       const note = sql.rows(`SELECT n.signed,n.signing_provider_no,n.note FROM casemgmt_note n JOIN clinical_chart_update_receipt r ON r.target_id=n.note_id AND r.kind='history' WHERE r.demographic_no=${patient} AND r.document_no=${doc}`);
@@ -158,7 +166,9 @@ const { openChart } = require('../../../scripts/echart-navbar-modules-playwright
       assert(note[0][2].includes('Reviewed source passage:'));
       assert.equal(Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note_link l JOIN clinical_chart_update_receipt r ON r.target_id=l.note_id AND r.kind='history' WHERE r.demographic_no=${patient} AND r.document_no=${doc} AND l.table_name=5 AND l.table_id=${doc}`)), 1);
       details.checks.push('signed history persisted', 'history source link');
-      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), proposals.getByRole('button', { name: /Dismiss/ }).first().click()]);
+      const remaining = proposals.filter({ has: page.locator('form.proposal-form') }).first();
+      await open(remaining);
+      await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), remaining.getByRole('button', { name: /Dismiss|Done reviewing/ }).click()]);
       assert.equal(count(), 2, 'Dismissal must not write');
       details.checks.push('dismissal without writes');
       if (receiptsBefore === 2) details.checks.push('durable replay without duplicates');

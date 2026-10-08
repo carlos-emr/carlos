@@ -1,4 +1,13 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. --%>
+<%--
+    Review AI-suggested chart updates for one document.
+
+    With script, suggestions are reviewed one at a time: a progress strip (one step per suggestion, in
+    its chart section's colour), the current suggestion with its fields, the source document and a
+    chart check beside it, the actions in a bar that stays at the bottom of the window, and a summary
+    at the end. Without script, every suggestion is listed in order, followed by the summary.
+    Nothing is written to the chart without the clinician's explicit approval of that suggestion.
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -32,85 +41,73 @@
 <div class="review-content">
     <div class="review-context">
     <c:if test="${chartUpdateReady}">
-    <p><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>)</p>
-    <p><carlos:encode value="${chartUpdateTitle}"/> · <carlos:encode value="${chartUpdateDate}"/></p>
-    <p class="review-guidance"><fmt:message key="chartUpdates.warning"/></p>
+    <p class="review-document"><fmt:message key="chartUpdates.patient"/>: <carlos:encode value="${chartUpdatePatientLabel}"/> (#<carlos:encode value="${chartUpdatePatient}"/>) · <carlos:encode value="${chartUpdateTitle}"/> · <carlos:encode value="${chartUpdateDate}"/></p>
+    <div class="review-guidance">
+        <p><fmt:message key="chartUpdates.warning"/></p>
+        <c:if test="${not empty chartUpdateRows}"><p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p></c:if>
+    </div>
     </c:if>
 </div>
 <c:if test="${not empty chartUpdateError}"><p class="alert alert-danger" role="alert"><carlos:encode value="${chartUpdateError}"/></p></c:if>
 <c:if test="${chartUpdateReady}">
 <fmt:message key="chartUpdates.proposals" var="chartUpdateWorkflowLabel"/>
+<fmt:message key="chartUpdates.notReviewed" var="chartUpdateNotReviewed"/>
+<fmt:message key="chartUpdates.summary" var="chartUpdateSummaryLabel"/>
+<c:if test="${not empty chartUpdateReview and not empty chartUpdateRows}">
+<%-- One step per suggestion. Shown by script, which reviews one suggestion at a time. --%>
+<nav class="review-strip" aria-label="${carlos:forHtmlAttribute(chartUpdateWorkflowLabel)}" data-summary-label="${carlos:forHtmlAttribute(chartUpdateSummaryLabel)}" hidden>
+    <ol class="review-strip-steps">
+    <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
+        <c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}" var="stepKind"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler" var="stepKind"/></c:when><c:otherwise><fmt:message key="chartUpdates.history" var="stepKind"/></c:otherwise></c:choose>
+        <fmt:message key="chartUpdates.step" var="stepLabel"><fmt:param value="${position.count}"/><fmt:param value="${chartUpdateRows.size()}"/><fmt:param value="${stepKind}"/><fmt:param value="${empty proposal.outcome ? chartUpdateNotReviewed : proposal.outcome}"/></fmt:message>
+        <li><button type="button" class="review-step ${empty proposal.outcome ? '' : 'review-step-done'}" data-review-step="${carlos:forHtmlAttribute(proposal.key)}" data-section="${carlos:forHtmlAttribute(proposal.kind == 'tickler' ? 'Tickler' : (proposal.kind == 'review' ? proposal.recordDestination : proposal.destination))}" title="${carlos:forHtmlAttribute(stepLabel)}"><span class="visually-hidden"><carlos:encode value="${stepLabel}"/></span></button></li>
+    </c:forEach>
+    </ol>
+    <span class="review-strip-count" data-review-position role="status"></span>
+    <button type="button" class="btn btn-outline-secondary btn-sm" data-review-summary><carlos:encode value="${chartUpdateSummaryLabel}"/></button>
+</nav>
+</c:if>
 <div class="chart-update-layout">
-<main id="proposals">
+<main id="proposals" data-current-proposal="${carlos:forHtmlAttribute(chartUpdateCurrent)}">
     <c:choose>
     <c:when test="${not empty chartUpdateReview}">
-        <h2 class="h4"><fmt:message key="chartUpdates.proposals"/> (<carlos:encode value="${chartUpdateRows.size()}"/>)</h2>
-        <c:if test="${not empty chartUpdateReview.agentName}"><p class="small"><fmt:message key="chartUpdates.agent"/>: <carlos:encode value="${chartUpdateReview.agentName}"/></p></c:if>
-        <p class="review-progress" role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
-        <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
-        <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
-        <p><a href="#current-chart-title"><fmt:message key="chartUpdates.current"/></a></p>
-        <p class="suggestions-help"><fmt:message key="chartUpdates.suggestionsHelp"/></p>
-        <details class="coverage-audit" id="coverage-audit">
-            <summary><fmt:message key="chartUpdates.audit.title"/></summary>
-            <p><fmt:message key="chartUpdates.audit.help"/></p>
-            <p><fmt:message key="chartUpdates.audit.workflows"/></p>
-            <c:choose><c:when test="${not empty chartUpdateCoverage}">
-                <p><fmt:message key="chartUpdates.audit.processed"><fmt:param value="${chartUpdateCoverage.size()}"/></fmt:message></p>
-                <%-- In the modal, script handles plain clicks. A new tab needs the GET review: an error page is
-                     served at the POST-only action URL, and a bare fragment would resolve against that URL. --%>
-                <c:url var="chartUpdateReviewUrl" value="/documentManager/AiChartUpdates">
-                    <c:param name="documentId" value="${chartUpdateDocumentId}"/>
-                </c:url>
-                <c:forEach items="${chartUpdateCoverage}" var="section" varStatus="sectionNumber">
-                    <details class="coverage-section">
-                        <summary><fmt:message key="chartUpdates.audit.section"><fmt:param value="${sectionNumber.count}"/><fmt:param value="${section.links.size()}"/><fmt:param value="${section.gaps.size()}"/></fmt:message></summary>
-                        <h3 class="h5"><fmt:message key="chartUpdates.evidence"/></h3>
-                        <blockquote class="source-text"><carlos:encode value="${section.text}"/></blockquote>
-                        <c:forEach items="${section.links}" var="link">
-                            <a href="${carlos:forHtmlAttribute(chartUpdateReviewUrl)}#proposal-${carlos:forHtmlAttribute(link.key)}" data-review-proposal="${carlos:forHtmlAttribute(link.key)}"><fmt:message key="chartUpdates.audit.suggestion"><fmt:param value="${link.number}"/></fmt:message></a>
-                            <c:if test="${link.nativeRecord}"> (<fmt:message key="chartUpdates.section.${link.destination}"/>: <fmt:message key="chartUpdates.audit.normalForm"/>)</c:if>
-                        </c:forEach>
-                        <c:if test="${not empty section.gaps}">
-                            <h3 class="h5"><fmt:message key="chartUpdates.audit.gaps"/></h3>
-                            <p><fmt:message key="chartUpdates.audit.gapsHelp"/></p>
-                            <c:forEach items="${section.gaps}" var="gap"><blockquote class="source-text coverage-gap"><carlos:encode value="${gap}"/></blockquote></c:forEach>
-                        </c:if>
-                    </details>
-                </c:forEach>
-                <c:if test="${not empty chartUpdateRejected}">
-                    <details class="coverage-rejected">
-                        <summary><fmt:message key="chartUpdates.audit.rejected"><fmt:param value="${chartUpdateRejected.size()}"/></fmt:message></summary>
-                        <p><fmt:message key="chartUpdates.audit.rejectedHelp"/></p>
-                        <c:forEach items="${chartUpdateRejected}" var="rejected">
-                            <blockquote class="source-text"><carlos:encode value="${rejected.evidence}"/></blockquote>
-                            <p><carlos:encode value="${rejected.reason}"/></p>
-                        </c:forEach>
-                    </details>
-                </c:if>
-            </c:when><c:otherwise><p><fmt:message key="chartUpdates.audit.unavailable"/></p></c:otherwise></c:choose>
-        </details>
-        <nav class="review-steps" aria-label="${carlos:forHtmlAttribute(chartUpdateWorkflowLabel)}" hidden>
-            <button type="button" class="btn btn-secondary btn-sm" data-review-previous><fmt:message key="dms.incomingDocs.previous"/></button>
-            <span data-review-position role="status"></span>
-            <button type="button" class="btn btn-secondary btn-sm" data-review-next><fmt:message key="dms.incomingDocs.next"/></button>
-        </nav>
+        <h2 class="visually-hidden"><fmt:message key="chartUpdates.proposals"/> (<carlos:encode value="${chartUpdateRows.size()}"/>)</h2>
         <c:forEach items="${chartUpdateRows}" var="proposal" varStatus="position">
-        <article id="proposal-${carlos:forHtmlAttribute(proposal.key)}" class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}" data-kind="${carlos:forHtmlAttribute(proposal.kind)}" data-destination="${carlos:forHtmlAttribute(proposal.recordDestination)}">
+        <c:set var="proposalSection" value="${proposal.kind == 'tickler' ? 'Tickler' : (proposal.kind == 'review' ? proposal.recordDestination : proposal.destination)}"/>
+        <article id="proposal-${carlos:forHtmlAttribute(proposal.key)}" class="card mb-3 proposal ${empty proposal.outcome ? '' : 'proposal-complete'}" data-proposal-key="${carlos:forHtmlAttribute(proposal.key)}" data-kind="${carlos:forHtmlAttribute(proposal.kind)}" data-destination="${carlos:forHtmlAttribute(proposal.recordDestination)}" data-section="${carlos:forHtmlAttribute(proposalSection)}">
+            <div class="proposal-heading">
+                <span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span>
+                <h3 class="h5"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3>
+                <c:if test="${proposal.kind == 'history'}"><span class="section-chip" data-section-chip <c:if test="${empty proposal.destination}">hidden</c:if>><c:if test="${not empty proposal.destination}"><fmt:message key="chartUpdates.section.${proposal.destination}"/></c:if></span></c:if>
+                <span class="proposal-position"><fmt:message key="chartUpdates.position"><fmt:param value="${position.count}"/><fmt:param value="${chartUpdateRows.size()}"/></fmt:message></span>
+            </div>
             <div class="card-body">
-                <div class="proposal-heading"><span class="proposal-number" aria-hidden="true"><carlos:encode value="${position.count}"/>.</span><h3 class="h5"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></h3></div>
-                <details class="proposal-evidence" open><summary><fmt:message key="chartUpdates.evidence"/></summary><blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote></details>
-                <p><a href="#full-source" data-show-source><fmt:message key="chartUpdates.showSource"/></a></p>
-                <div class="chart-match-notice" role="status" hidden>
-                    <p><fmt:message key="chartUpdates.matchingChartText"/></p>
-                    <ul class="chart-match-links"></ul>
+                <div class="proposal-evidence">
+                    <p class="evidence-label"><fmt:message key="chartUpdates.evidence"/></p>
+                    <blockquote class="source-text"><carlos:encode value="${proposal.evidence}"/></blockquote>
+                    <a href="#full-source" data-show-source><fmt:message key="chartUpdates.showSource"/></a>
                 </div>
-                <div class="related-proposal-notice" role="status" hidden>
-                    <p><fmt:message key="chartUpdates.relatedProposals"/></p>
-                    <div class="related-proposal-quotes"></div>
+                <%-- Filled by script, which moves them all into the chart check beside the suggestions and
+                     shows the current suggestion's. --%>
+                <div class="chart-check-notices" data-check-for="${carlos:forHtmlAttribute(proposal.key)}">
+                    <div class="chart-match-notice" role="status" hidden>
+                        <p><fmt:message key="chartUpdates.matchingChartText"/></p>
+                        <ul class="chart-match-links"></ul>
+                    </div>
+                    <div class="related-proposal-notice" role="status" hidden>
+                        <p><fmt:message key="chartUpdates.relatedProposals"/></p>
+                        <div class="related-proposal-quotes"></div>
+                    </div>
                 </div>
                 <c:choose>
-                <c:when test="${not empty proposal.outcome}"><p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p></c:when>
+                <c:when test="${not empty proposal.outcome}">
+                    <p class="alert alert-success mt-2" role="status"><carlos:encode value="${proposal.outcome}"/></p>
+                    <div class="review-action-bar" data-step-only hidden>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-review-previous><span aria-hidden="true">← </span><fmt:message key="dms.incomingDocs.previous"/></button>
+                        <span class="review-action-spacer"></span>
+                        <button type="button" class="btn btn-primary btn-sm" data-review-next><fmt:message key="dms.incomingDocs.next"/><span aria-hidden="true"> →</span></button>
+                    </div>
+                </c:when>
                 <c:otherwise>
                 <form class="proposal-form" method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ApplyAiChartUpdate">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
@@ -119,7 +116,7 @@
                     <input type="hidden" name="proposalKey" value="${carlos:forHtmlAttribute(proposal.key)}">
                     <input type="hidden" name="chartFingerprint" value="${carlos:forHtmlAttribute(chartUpdateReview.fingerprint)}">
                     <label class="form-label mt-2" for="text-${carlos:forHtmlAttribute(proposal.key)}"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.nativeInformation"/></c:when><c:otherwise><fmt:message key="chartUpdates.entry"/></c:otherwise></c:choose></label>
-                    <textarea id="text-${carlos:forHtmlAttribute(proposal.key)}" class="form-control" name="entryText" rows="3" maxlength="2000" <c:if test="${proposal.kind == 'review'}">readonly</c:if> required><carlos:encode value="${proposal.text}"/></textarea>
+                    <textarea id="text-${carlos:forHtmlAttribute(proposal.key)}" class="form-control" name="entryText" rows="5" maxlength="2000" <c:if test="${proposal.kind == 'review'}">readonly</c:if> required><carlos:encode value="${proposal.text}"/></textarea>
                     <c:choose><c:when test="${proposal.kind == 'review'}">
                         <p><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></p>
                         <p class="field-help"><fmt:message key="chartUpdates.nativeHelp"/></p>
@@ -157,14 +154,87 @@
                         <p class="field-help"><fmt:message key="chartUpdates.sectionHelp"/></p>
                         <p class="small mt-2"><fmt:message key="chartUpdates.signing"/></p>
                     </c:otherwise></c:choose>
-                    <c:if test="${proposal.kind != 'review'}"><label class="approval-confirmation"><input type="checkbox" name="confirmed" value="true" required> <fmt:message key="chartUpdates.confirm"/></label></c:if>
-                    <div class="proposal-actions"><c:if test="${proposal.kind != 'review'}"><button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.accept"/></button></c:if>
-                    <button class="btn btn-secondary btn-sm" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.doneReviewing"/></c:when><c:otherwise><fmt:message key="chartUpdates.dismiss"/></c:otherwise></c:choose></button></div>
+                    <%-- Kept at the bottom of the window by script, which also adds Previous and Skip (they
+                         only move between suggestions). "Add & next" is the form's first submit button, so
+                         Enter in a field saves (after the browser's checks) and never dismisses. --%>
+                    <div class="review-action-bar">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-review-previous data-step-only hidden><span aria-hidden="true">← </span><fmt:message key="dms.incomingDocs.previous"/></button>
+                        <c:choose><c:when test="${proposal.kind != 'review'}"><label class="approval-confirmation"><input type="checkbox" name="confirmed" value="true" required> <fmt:message key="chartUpdates.confirm"/></label>
+                            <button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.addNext"/><span aria-hidden="true"> →</span></button></c:when>
+                        <c:otherwise><span class="review-action-spacer"></span></c:otherwise></c:choose>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-review-skip data-step-only hidden><fmt:message key="chartUpdates.skip"/></button>
+                        <button class="btn btn-outline-secondary btn-sm" type="submit" formnovalidate formaction="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/DismissAiChartUpdate"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.doneReviewing"/></c:when><c:otherwise><fmt:message key="chartUpdates.dismiss"/></c:otherwise></c:choose></button>
+                    </div>
                 </form>
                 </c:otherwise></c:choose>
             </div>
         </article>
         </c:forEach>
+        <section id="review-summary" class="review-summary" aria-labelledby="review-summary-title">
+        <h2 id="review-summary-title" class="h4"><carlos:encode value="${chartUpdateSummaryLabel}"/></h2>
+        <c:if test="${not empty chartUpdateReview.agentName}"><p class="small"><fmt:message key="chartUpdates.agent"/>: <carlos:encode value="${chartUpdateReview.agentName}"/></p></c:if>
+        <p class="review-progress" role="status"><fmt:message key="chartUpdates.remaining"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></p>
+        <c:if test="${chartUpdateRemaining == 0 and not empty chartUpdateRows}"><p class="alert alert-success"><fmt:message key="chartUpdates.complete"/></p></c:if>
+        <c:if test="${empty chartUpdateRows}"><p><fmt:message key="chartUpdates.none"/></p></c:if>
+        <%-- Links that open in a new tab need the GET review: after a refused save this page sits at a
+             POST-only action URL, which a bare fragment would resolve against. --%>
+        <c:url var="chartUpdateReviewUrl" value="/documentManager/AiChartUpdates">
+            <c:param name="documentId" value="${chartUpdateDocumentId}"/>
+        </c:url>
+        <c:if test="${not empty chartUpdateRows}">
+        <div class="table-responsive">
+        <table class="table table-sm review-summary-table">
+            <thead class="table-light"><tr><th scope="col"><fmt:message key="chartUpdates.summarySection"/></th><th scope="col"><fmt:message key="chartUpdates.summaryEntry"/></th><th scope="col"><fmt:message key="chartUpdates.summaryResult"/></th></tr></thead>
+            <tbody>
+            <c:forEach items="${chartUpdateRows}" var="proposal">
+                <tr data-section="${carlos:forHtmlAttribute(proposal.kind == 'tickler' ? 'Tickler' : (proposal.kind == 'review' ? proposal.recordDestination : proposal.destination))}">
+                    <td><span class="section-chip"><c:choose><c:when test="${proposal.kind == 'review'}"><fmt:message key="chartUpdates.section.${proposal.recordDestination}"/></c:when><c:when test="${proposal.kind == 'tickler'}"><fmt:message key="chartUpdates.tickler"/></c:when><c:when test="${not empty proposal.destination}"><fmt:message key="chartUpdates.section.${proposal.destination}"/></c:when><c:otherwise><fmt:message key="chartUpdates.history"/></c:otherwise></c:choose></span></td>
+                    <td class="source-text"><carlos:encode value="${proposal.text}"/></td>
+                    <td><c:choose><c:when test="${not empty proposal.outcome}"><carlos:encode value="${proposal.outcome}"/></c:when>
+                        <c:otherwise><a href="${carlos:forHtmlAttribute(chartUpdateReviewUrl)}#proposal-${carlos:forHtmlAttribute(proposal.key)}" data-review-proposal="${carlos:forHtmlAttribute(proposal.key)}"><carlos:encode value="${chartUpdateNotReviewed}"/></a></c:otherwise></c:choose></td>
+                </tr>
+            </c:forEach>
+            </tbody>
+        </table>
+        </div>
+        <p data-step-only hidden><button type="button" class="btn btn-primary btn-sm" data-review-skipped <c:if test="${chartUpdateRemaining == 0}">disabled</c:if>><fmt:message key="chartUpdates.reviewSkipped"><fmt:param value="${chartUpdateRemaining}"/></fmt:message></button></p>
+        </c:if>
+        <p><a href="#current-chart-title"><fmt:message key="chartUpdates.current"/></a></p>
+        <details class="coverage-audit" id="coverage-audit">
+            <summary><fmt:message key="chartUpdates.audit.title"/></summary>
+            <p><fmt:message key="chartUpdates.audit.help"/></p>
+            <p><fmt:message key="chartUpdates.audit.workflows"/></p>
+            <c:choose><c:when test="${not empty chartUpdateCoverage}">
+                <p><fmt:message key="chartUpdates.audit.processed"><fmt:param value="${chartUpdateCoverage.size()}"/></fmt:message></p>
+                <%-- Script handles plain clicks; others open the GET review (chartUpdateReviewUrl, above). --%>
+                <c:forEach items="${chartUpdateCoverage}" var="section" varStatus="sectionNumber">
+                    <details class="coverage-section">
+                        <summary><fmt:message key="chartUpdates.audit.section"><fmt:param value="${sectionNumber.count}"/><fmt:param value="${section.links.size()}"/><fmt:param value="${section.gaps.size()}"/></fmt:message></summary>
+                        <h3 class="h5"><fmt:message key="chartUpdates.evidence"/></h3>
+                        <blockquote class="source-text"><carlos:encode value="${section.text}"/></blockquote>
+                        <c:forEach items="${section.links}" var="link">
+                            <a href="${carlos:forHtmlAttribute(chartUpdateReviewUrl)}#proposal-${carlos:forHtmlAttribute(link.key)}" data-review-proposal="${carlos:forHtmlAttribute(link.key)}"><fmt:message key="chartUpdates.audit.suggestion"><fmt:param value="${link.number}"/></fmt:message></a>
+                            <c:if test="${link.nativeRecord}"> (<fmt:message key="chartUpdates.section.${link.destination}"/>: <fmt:message key="chartUpdates.audit.normalForm"/>)</c:if>
+                        </c:forEach>
+                        <c:if test="${not empty section.gaps}">
+                            <h3 class="h5"><fmt:message key="chartUpdates.audit.gaps"/></h3>
+                            <p><fmt:message key="chartUpdates.audit.gapsHelp"/></p>
+                            <c:forEach items="${section.gaps}" var="gap"><blockquote class="source-text coverage-gap"><carlos:encode value="${gap}"/></blockquote></c:forEach>
+                        </c:if>
+                    </details>
+                </c:forEach>
+                <c:if test="${not empty chartUpdateRejected}">
+                    <details class="coverage-rejected">
+                        <summary><fmt:message key="chartUpdates.audit.rejected"><fmt:param value="${chartUpdateRejected.size()}"/></fmt:message></summary>
+                        <p><fmt:message key="chartUpdates.audit.rejectedHelp"/></p>
+                        <c:forEach items="${chartUpdateRejected}" var="rejected">
+                            <blockquote class="source-text"><carlos:encode value="${rejected.evidence}"/></blockquote>
+                            <p><carlos:encode value="${rejected.reason}"/></p>
+                        </c:forEach>
+                    </details>
+                </c:if>
+            </c:when><c:otherwise><p><fmt:message key="chartUpdates.audit.unavailable"/></p></c:otherwise></c:choose>
+        </details>
     </c:when>
     <c:otherwise><p><fmt:message key="chartUpdates.intro"/></p></c:otherwise>
     </c:choose>
@@ -176,7 +246,7 @@
         <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(chartUpdateDocumentId)}">
         <button class="btn btn-primary btn-sm" type="submit"><fmt:message key="chartUpdates.generate"/></button>
     </form>
-    <c:if test="${not empty chartUpdateReview}"></details></c:if>
+    <c:if test="${not empty chartUpdateReview}"></details></section></c:if>
 </main>
 <aside class="chart-reference" id="chart-reference">
     <section aria-labelledby="full-source-title">
@@ -185,6 +255,11 @@
         <div id="full-source" class="source-viewer" tabindex="0" aria-labelledby="full-source-title">
             <div id="chart-update-source" class="source-text"><carlos:encode value="${chartUpdateSource}"/></div>
         </div>
+    </section>
+    <section class="chart-check" id="chart-check" aria-labelledby="chart-check-title" hidden>
+        <h2 id="chart-check-title"><fmt:message key="chartUpdates.chartCheck"/></h2>
+        <p class="chart-check-clear" hidden><fmt:message key="chartUpdates.chartCheckClear"/></p>
+        <div class="chart-check-body"></div>
     </section>
     <section class="current-chart" aria-labelledby="current-chart-title">
         <h2 id="current-chart-title"><fmt:message key="chartUpdates.current"/></h2>

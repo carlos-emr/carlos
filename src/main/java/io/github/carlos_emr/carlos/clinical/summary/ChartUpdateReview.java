@@ -117,6 +117,8 @@ public final class ChartUpdateReview implements Serializable {
         proposal(key);
         if (!outcomes.containsKey(key)) drafts.put(key, draft);
     }
-    public void record(String key, String outcome) { proposal(key); outcomes.put(key, outcome); drafts.remove(key); }
+    // The last draft stays (remember() ignores a finished proposal), so the review shows what was saved or
+    // dismissed, and in which section, rather than the original suggestion.
+    public void record(String key, String outcome) { proposal(key); outcomes.put(key, outcome); }
     public void refresh(String value) { fingerprint = value; }
 }

@@ -57,4 +57,15 @@ class ChartUpdateReviewUnitTest {
         review.record(proposal.key(), "Dismissed");
         assertThat(review.getOutcomes()).containsEntry(proposal.key(), "Dismissed");
     }
+
+    @Test void shouldKeepSavedDraft_afterRecordingOutcome() {
+        var review = review(3001, 42);
+        var saved = new ChartUpdateReview.Draft("Clinician text", "", "", "MedHistory");
+        review.remember(proposal.key(), saved);
+        review.record(proposal.key(), "Saved: history #201");
+        assertThat(review.draft(proposal.key())).isEqualTo(saved);
+        // A finished proposal takes no later drafts.
+        review.remember(proposal.key(), new ChartUpdateReview.Draft("Later edit", "", "", "Concerns"));
+        assertThat(review.draft(proposal.key())).isEqualTo(saved);
+    }
 }

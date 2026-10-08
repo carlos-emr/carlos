@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateContext;
 import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateProposals;
 import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateReview;
+import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateSections;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
 import io.github.carlos_emr.carlos.clinical.summary.ReviewedChartUpdateService;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -33,6 +34,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,11 +129,14 @@ public final class AiChartUpdates2Action extends ActionSupport {
             }
             synchronized (session) {
                 ChartUpdateReview review = (ChartUpdateReview) session.getAttribute(ChartUpdateReview.SESSION_KEY);
+                // The suggestion just saved or dismissed: the review reopens after it.
+                String reviewed = "";
                 if (!view && !"generate".equals(operation)) {
                     if (review == null || review.getDocument() != document) throw new IllegalStateException("Generate proposals before reviewing an update.");
                     review.authorize(user.getLoggedInProviderNo(), single(request, "reviewToken"));
                     String key = single(request, "proposalKey");
                     review.proposal(key);
+                    reviewed = key;
                     rememberDrafts(request, review, key);
                     if (!review.getOutcomes().containsKey(key)) {
                         if ("dismiss".equals(operation)) {
@@ -153,7 +159,9 @@ public final class AiChartUpdates2Action extends ActionSupport {
                 } else {
                     // Refreshing the result page must never repeat inference or a chart mutation.
                     response.setStatus(HttpServletResponse.SC_SEE_OTHER);
-                    response.setHeader("Location", request.getContextPath() + "/documentManager/AiChartUpdates?documentId=" + document);
+                    // A key only once the session's review has it (proposal() above), and encoded all the same.
+                    response.setHeader("Location", request.getContextPath() + "/documentManager/AiChartUpdates?documentId=" + document
+                            + (reviewed.isEmpty() ? "" : "#after-" + URLEncoder.encode(reviewed, StandardCharsets.UTF_8)));
                     return NONE;
                 }
             }
@@ -161,6 +169,8 @@ public final class AiChartUpdates2Action extends ActionSupport {
         // mapping: CarlosExceptionMappingInterceptor records the refusal and returns HTTP 403.
         } catch (IllegalArgumentException | IllegalStateException | ClinicalSummaryGenerationException expected) {
             request.setAttribute("chartUpdateError", expected.getMessage());
+            // The refused suggestion stays on screen. Only compared with the rendered keys, never trusted.
+            request.setAttribute("chartUpdateCurrent", request.getParameter("proposalKey"));
             try {
                 synchronized (session) {
                     render(request, user, context.load(user, document),
@@ -232,9 +242,13 @@ public final class AiChartUpdates2Action extends ActionSupport {
         for (String key : review.getProposals().keySet()) {
             String prefix = key.equals(submittedKey) ? "" : "draft." + key + ".";
             if (request.getParameter(prefix + "entryText") == null) continue;
+            // A kept section is rendered later, including as part of a message key: only a known code is kept.
+            String destination = single(request, prefix + "destination");
+            if (!destination.isEmpty() && !ChartUpdateSections.CODES.contains(destination)) {
+                throw new IllegalArgumentException("Invalid review draft.");
+            }
             drafts.put(key, new ChartUpdateReview.Draft(single(request, prefix + "entryText"),
-                    single(request, prefix + "dueDate"), single(request, prefix + "assignee"),
-                    single(request, prefix + "destination")));
+                    single(request, prefix + "dueDate"), single(request, prefix + "assignee"), destination));
         }
         drafts.forEach(review::remember);
     }

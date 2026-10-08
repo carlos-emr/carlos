@@ -17,46 +17,125 @@
         discard() { edited = false; discarded = true; },
     };
     const notifyState = () => workflowFrame?.dispatchEvent(new Event('chart-update-state'));
-    if (workflowFrame) {
-        document.body.classList.add('review-in-modal');
-        const cards = Array.from(document.querySelectorAll('article.proposal'));
-        const steps = document.querySelector('.review-steps');
-        if (cards.length && steps) {
-            const previous = steps.querySelector('[data-review-previous]');
-            const next = steps.querySelector('[data-review-next]');
-            let index = Math.max(0, cards.findIndex(card => card.querySelector('.proposal-form')));
-            const failed = document.querySelector('.alert-danger') && workflowFrame.dataset.currentProposal;
-            if (failed && cards.some(card => card.dataset.proposalKey === failed)) {
-                index = cards.findIndex(card => card.dataset.proposalKey === failed);
-            }
-            const show = focus => {
-                cards.forEach((card, position) => { card.hidden = position !== index; });
-                window.CarlosChartUpdateEvidence?.show(cards[index]);
-                previous.disabled = index === 0;
-                next.disabled = index === cards.length - 1;
-                steps.querySelector('[data-review-position]').textContent = `${index + 1} / ${cards.length}`;
-                if (focus) {
-                    const heading = cards[index].querySelector('h3');
-                    heading.setAttribute('tabindex', '-1');
-                    heading.focus();
-                }
-            };
-            previous.addEventListener('click', () => { if (index > 0) { index--; show(true); } });
-            next.addEventListener('click', () => { if (index < cards.length - 1) { index++; show(true); } });
-            document.querySelectorAll('[data-review-proposal]').forEach(link => {
-                link.addEventListener('click', event => {
-                    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-                    const target = cards.findIndex(card => card.dataset.proposalKey === link.dataset.reviewProposal);
-                    if (target < 0) return;
-                    event.preventDefault();
-                    index = target;
-                    show(true);
-                    cards[index].scrollIntoView({ block: 'nearest' });
-                });
-            });
-            steps.hidden = false;
-            show(false);
+    if (workflowFrame) document.body.classList.add('review-in-modal');
+    const cards = Array.from(document.querySelectorAll('article.proposal'));
+    // A history entry takes its chart section's colour and name as the section is chosen.
+    cards.forEach(card => card.querySelector('[name="destination"]')?.addEventListener('change', event => {
+        const select = event.target;
+        card.dataset.section = select.value;
+        const step = document.querySelector(`[data-review-step="${CSS.escape(card.dataset.proposalKey)}"]`);
+        if (step) step.dataset.section = select.value;
+        const chip = card.querySelector('[data-section-chip]');
+        if (chip) {
+            chip.textContent = select.value ? select.selectedOptions[0].textContent : '';
+            chip.hidden = !select.value;
         }
+    }));
+    const strip = document.querySelector('.review-strip');
+    const summary = document.getElementById('review-summary');
+    if (cards.length && strip && summary) {
+        // One suggestion at a time. Without script, every suggestion stays listed with the summary after them.
+        document.documentElement.classList.add('review-stepping');
+        document.querySelectorAll('[data-step-only]').forEach(element => { element.hidden = false; });
+        strip.hidden = false;
+        const steps = Array.from(strip.querySelectorAll('[data-review-step]'));
+        const count = strip.querySelector('[data-review-position]');
+        const summaryButton = strip.querySelector('[data-review-summary]');
+        const check = document.getElementById('chart-check');
+        const checkBody = check?.querySelector('.chart-check-body');
+        // The chart check sits beside the suggestion: each card's notices move there, and only the
+        // current card's are shown. The evidence script keeps its own references to them.
+        const notices = cards.map(card => {
+            const group = card.querySelector('.chart-check-notices');
+            if (group && checkBody) checkBody.append(group);
+            return group;
+        });
+        const open = card => !!card.querySelector('.proposal-form');
+        const nextOpen = from => {
+            for (let next = from + 1; next < cards.length; next++) if (open(cards[next])) return next;
+            return -1;
+        };
+        let index = -1;
+        const updateCheck = () => {
+            if (!check) return;
+            notices.forEach((group, position) => { if (group) group.hidden = position !== index; });
+            check.hidden = index < 0 || !open(cards[index]);
+            if (!check.hidden) {
+                check.querySelector('.chart-check-clear').hidden =
+                    Array.from(notices[index]?.children || []).some(notice => !notice.hidden);
+            }
+        };
+        // The bar is fixed to the bottom of the window: leave its height free below the page.
+        const clearBar = () => {
+            const bar = index === -1 ? null : cards[index].querySelector('.review-action-bar');
+            document.documentElement.style.setProperty('--review-bar-space', `${bar ? bar.offsetHeight : 0}px`);
+        };
+        window.addEventListener('resize', clearBar);
+        // index -1 is the summary.
+        const show = (target, focus) => {
+            index = target;
+            cards.forEach((card, position) => { card.hidden = position !== index; });
+            summary.hidden = index !== -1;
+            steps.forEach((step, position) => {
+                if (position === index) step.setAttribute('aria-current', 'step');
+                else step.removeAttribute('aria-current');
+            });
+            if (index === -1) summaryButton.setAttribute('aria-current', 'step');
+            else summaryButton.removeAttribute('aria-current');
+            count.textContent = index === -1 ? strip.dataset.summaryLabel
+                : cards[index].querySelector('.proposal-position').textContent.trim();
+            if (index === -1) window.CarlosChartUpdateEvidence?.clear();
+            else window.CarlosChartUpdateEvidence?.show(cards[index]);
+            updateCheck();
+            clearBar();
+            // The eChart modal focuses this heading when the page loads.
+            const heading = index === -1 ? summary.querySelector('h2') : cards[index].querySelector('h3');
+            document.querySelector('[data-review-focus]')?.removeAttribute('data-review-focus');
+            heading.setAttribute('data-review-focus', '');
+            heading.setAttribute('tabindex', '-1');
+            if (focus) heading.focus();
+        };
+        steps.forEach((step, position) => step.addEventListener('click', () => show(position, true)));
+        summaryButton.addEventListener('click', () => show(-1, true));
+        cards.forEach((card, position) => {
+            const previous = card.querySelector('[data-review-previous]');
+            if (previous) {
+                previous.disabled = position === 0;
+                previous.addEventListener('click', () => show(Math.max(0, position - 1), true));
+            }
+            card.querySelector('[data-review-skip]')?.addEventListener('click', () => show(nextOpen(position), true));
+            card.querySelector('[data-review-next]')?.addEventListener('click',
+                () => show(position + 1 < cards.length ? position + 1 : -1, true));
+            // After the evidence script's own listeners, which show or hide the notices.
+            card.addEventListener('input', updateCheck);
+            card.addEventListener('change', updateCheck);
+        });
+        summary.querySelector('[data-review-skipped]')?.addEventListener('click', () => show(nextOpen(-1), true));
+        document.querySelectorAll('[data-review-proposal]').forEach(link => {
+            link.addEventListener('click', event => {
+                // A modified click opens the GET review in a new tab, as the link says.
+                if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                const target = cards.findIndex(card => card.dataset.proposalKey === link.dataset.reviewProposal);
+                if (target < 0) return;
+                event.preventDefault();
+                show(target, true);
+            });
+        });
+        // A refused save or dismissal keeps its suggestion on screen. One that went through redirects to
+        // #after-<key>: the next open suggestion after that one, or the summary when none is left after it.
+        const at = key => cards.findIndex(card => card.dataset.proposalKey === key);
+        let hash = '';
+        try { hash = decodeURIComponent(location.hash.slice(1)); } catch { /* A malformed fragment starts at the first open card. */ }
+        const refused = document.querySelector('.alert-danger') ? at(document.getElementById('proposals').dataset.currentProposal) : -1;
+        let start = nextOpen(-1);
+        if (refused >= 0) {
+            start = refused;
+        } else if (hash.startsWith('after-') && at(hash.slice(6)) >= 0) {
+            start = nextOpen(at(hash.slice(6)));
+        } else if (hash.startsWith('proposal-') && at(hash.slice(9)) >= 0) {
+            start = at(hash.slice(9));
+        }
+        show(start, false);
     }
     const clearTransferredDrafts = form => form.querySelectorAll('[data-transferred-draft]').forEach(input => input.remove());
     window.addEventListener('pageshow', () => {
@@ -103,7 +182,6 @@
                     });
                 });
             }
-            if (workflowFrame) workflowFrame.dataset.currentProposal = form.elements.namedItem('proposalKey')?.value || '';
             submitting = true;
             notifyState();
             form.setAttribute('aria-busy', 'true');

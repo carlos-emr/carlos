@@ -14,6 +14,10 @@
         kind: element.dataset.kind, destinations: (element.dataset.destinations || '').split(' '),
     }));
     const matches = new Map();
+    // Taken before the review script moves each card's notices beside it, into the chart check.
+    const notices = new Map(cards.map(card => [card, {
+        match: card.querySelector('.chart-match-notice'), related: card.querySelector('.related-proposal-notice'),
+    }]));
     let active;
     const evidence = card => card.querySelector('.proposal-evidence blockquote')?.textContent || '';
     // Shared wording is an advisory signal, not proof that diagnoses are equivalent.
@@ -32,7 +36,7 @@
             return { card, draft, text, words: terms(text) };
         });
         states.forEach(({ card, draft, words }) => {
-            const notice = card.querySelector('.related-proposal-notice');
+            const notice = notices.get(card).related;
             if (!notice) return;
             const peers = states.filter(other => other.card !== card && related(words, other.words));
             notice.hidden = !draft || peers.length === 0;
@@ -70,7 +74,7 @@
                 : entry.kind === (nativeKinds[destination] || card.dataset.kind)).map(entry => ({ entry, fact: matcher.find(draft, entry.facts) }))
             .filter(match => match.fact);
         matches.set(card, found);
-        const notice = card.querySelector('.chart-match-notice');
+        const notice = notices.get(card).match;
         notice.hidden = !input || !found.length;
         const links = notice.querySelector('.chart-match-links');
         links.replaceChildren();
@@ -131,8 +135,9 @@
     }
     cards.forEach(card => {
         compare(card);
-        card.addEventListener('focusin', () => show(card));
-        card.addEventListener('click', () => show(card));
+        // A click on Skip or Previous reaches its card after that card was hidden for the next one.
+        card.addEventListener('focusin', () => { if (!card.hidden) show(card); });
+        card.addEventListener('click', () => { if (!card.hidden) show(card); });
         card.querySelector('[name="entryText"]')?.addEventListener('input', () => {
             compare(card);
             compareProposals();
@@ -143,7 +148,14 @@
             show(card, true);
         });
     });
+    // The summary: the source without marks, and no chart entry marked as matching.
+    function clear() {
+        active = undefined;
+        source.replaceChildren(document.createTextNode(original));
+        document.querySelector('.source-highlight-help').hidden = true;
+        entries.forEach(entry => entry.element.classList.remove('chart-entry-match'));
+    }
     compareProposals();
-    window.CarlosChartUpdateEvidence = { show };
+    window.CarlosChartUpdateEvidence = { show, clear };
     if (cards.length) show(cards.find(card => card.querySelector('.proposal-form')) || cards[0]);
 })();

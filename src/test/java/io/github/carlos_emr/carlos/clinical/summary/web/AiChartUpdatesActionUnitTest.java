@@ -215,6 +215,24 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("entryText", "x".repeat(2001));
         action.apply();
         assertThat(request.getAttribute("chartUpdateError")).isEqualTo("Invalid review draft.");
+        assertThat(request.getAttribute("chartUpdateCurrent")).isEqualTo(proposal.key());
+        verifyNoInteractions(writer);
+    }
+
+    @Test void shouldRejectDraft_whenSectionIsNotAKnownCode() throws Exception {
+        var other = new ChartUpdateProposals.Proposal("history", "Suspected asthma.");
+        review = new ChartUpdateReview("101", snapshot, List.of(proposal, other));
+        request.getSession().setAttribute(ChartUpdateReview.SESSION_KEY, review);
+        request.setParameter("reviewToken", review.getToken());
+        request.setParameter("entryText", "Edited reminder");
+        request.setParameter("draft." + other.key() + ".entryText", "Clinician history edit");
+        request.setParameter("draft." + other.key() + ".destination", "<svg onload=alert()>");
+        action.dismiss();
+        assertThat(request.getAttribute("chartUpdateError")).isEqualTo("Invalid review draft.");
+        // Nothing from the refused form is kept, the valid fields included.
+        assertThat(review.draft(other.key()).destination()).isNotEqualTo("<svg onload=alert()>");
+        assertThat(review.draft(proposal.key()).text()).isNotEqualTo("Edited reminder");
+        assertThat(review.getOutcomes()).isEmpty();
         verifyNoInteractions(writer);
     }
 
@@ -235,6 +253,10 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("reviewToken", review.getToken());
         action.dismiss();
         assertThat(review.getOutcomes().get(proposal.key())).contains("Nothing saved");
+        // The review reopens after the suggestion just dismissed.
+        assertThat(response.getStatus()).isEqualTo(303);
+        assertThat(response.getHeader("Location"))
+                .isEqualTo("/documentManager/AiChartUpdates?documentId=42#after-" + proposal.key());
         verifyNoInteractions(writer, generator);
     }
 
@@ -255,6 +277,8 @@ class AiChartUpdatesActionUnitTest extends CarlosUnitTestBase {
                 argThat(approval -> approval.text().equals("Clinician edit") && approval.confirmed()
                         && approval.fingerprint().equals("fresh")));
         assertThat(review.getOutcomes().get(proposal.key())).contains("Saved: tickler #123");
+        assertThat(response.getHeader("Location"))
+                .isEqualTo("/documentManager/AiChartUpdates?documentId=42#after-" + proposal.key());
     }
 
     @Test void shouldAvoidWrites_whenReadAccessRevoked() {

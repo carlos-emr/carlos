@@ -53,7 +53,9 @@
                     requestClose();
                 }
             });
-            const heading = Array.from(doc.querySelectorAll('h1, h2')).find(element => element.getClientRects().length);
+            // The review marks the heading of what it shows (a suggestion or its summary).
+            const heading = doc.querySelector('[data-review-focus]')
+                || Array.from(doc.querySelectorAll('h1, h2')).find(element => element.getClientRects().length);
             if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus(); }
         } catch {
             status.textContent = dialog.dataset.error;
