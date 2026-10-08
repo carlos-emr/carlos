@@ -240,7 +240,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     + " (re-enter the SMTP password or API key of each email sender account;"
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
-                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS;"
+                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS > Configure SMS;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
                     + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected).");
             logs.assertNoSecretMaterial(secretMaterial);
@@ -271,7 +271,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     + " Now: re-enter the SMTP password or API key of each email sender account;"
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
-                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS;"
+                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS > Configure SMS;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
                     + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected."
                     + " Then remove " + ACK + " from the properties file.");

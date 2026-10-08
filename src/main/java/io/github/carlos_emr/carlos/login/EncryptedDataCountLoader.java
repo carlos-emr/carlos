@@ -108,7 +108,7 @@ final class EncryptedDataCountLoader {
         TELEPLAN_CREDENTIALS("Teleplan passwords",
                 "re-enter the Teleplan password"),
         SMS_CREDENTIALS("SMS settings",
-                "re-enter the SMS webhook secret and provider credentials in Administration > SMS"),
+                "re-enter the SMS webhook secret and provider credentials in Administration > SMS > Configure SMS"),
         MFA_SECRETS("users with an MFA secret",
                 "reset MFA for each of those users, who cannot log in until it is reset"),
         DIGITAL_SIGNATURES("stored digital signature images",
