@@ -111,6 +111,9 @@ function oauthSignature({ method, url, oauthParams, consumerSecret, tokenSecret 
     pct(params.map(([k, v]) => `${k}=${v}`).join('&')),
   ].join('&');
   const key = `${pct(consumerSecret)}&${pct(tokenSecret || '')}`;
+  // HMAC-SHA1 is the only HMAC method OAuth 1.0a defines (RFC 5849 section 3.4.2) and the
+  // only one OAuth1SignatureVerifierImplementation verifies; SHA-1 collisions do not apply to HMAC.
+  // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
   return crypto.createHmac('sha1', key).update(base).digest('base64');
 }
 
