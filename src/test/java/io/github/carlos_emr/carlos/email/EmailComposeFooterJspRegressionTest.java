@@ -68,6 +68,8 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("<div id=\"footerEmailPreview\"")
                 .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeThisEmail\"/>")
                 .contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.applyThisEmail\"/>");
+        // The page stops Enter from submitting the form, but not in the editor, where it starts a new line.
+        assertThat(jsp).contains("&& !event.target.isContentEditable");
         String include = "<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>";
         assertThat(jsp.indexOf(include)).isEqualTo(jsp.lastIndexOf(include))
                 .isGreaterThan(jsp.indexOf("</form>"))
