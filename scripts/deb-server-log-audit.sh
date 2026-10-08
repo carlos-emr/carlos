@@ -24,10 +24,13 @@
 # not explain.
 #
 # PHI. Log messages can carry patient data. A signature is built only from
-# the logger, its source location, the exception CLASS names in the event's
-# stack, and -- for the error page logger, which logs no request parameters
-# -- the request path and status. Message text is never printed unless
-# --show-messages is given, and that is for disposable demonstration hosts.
+# the logger, its source location, the first CARLOS frame, the exception CLASS
+# names in the event's stack, a request path where the message logs one
+# (query string cut off and every all-digit path segment replaced by {n}, so a
+# demographic or record number never reaches the output), the error page
+# status, and a CSRF rejection's method and reason. Message text is never
+# printed unless --show-messages is given, and that is for disposable
+# demonstration hosts.
 #
 # Usage:
 #   scripts/deb-server-log-audit.sh [--since 'YYYY-MM-DD HH:MM:SS'] [--baseline FILE]
@@ -57,14 +60,15 @@ INPUT=""
 SHOW_MESSAGES=false
 
 usage() { sed -n '/^# Usage:/,/^# Exit status/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage_error() { echo "deb-server-log-audit: $1" >&2; usage >&2; exit 2; }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --since) SINCE="${2:?--since needs a value}"; shift 2 ;;
-    --baseline) BASELINE="${2:?--baseline needs a file}"; shift 2 ;;
-    --unit) UNIT="${2:?--unit needs a name}"; shift 2 ;;
-    --catalina-dir) CATALINA_DIR="${2:?--catalina-dir needs a directory}"; shift 2 ;;
-    --input) INPUT="${2:?--input needs a file}"; shift 2 ;;
+    --since) [ -n "${2:-}" ] || usage_error "--since needs a value"; SINCE="$2"; shift 2 ;;
+    --baseline) [ -n "${2:-}" ] || usage_error "--baseline needs a file"; BASELINE="$2"; shift 2 ;;
+    --unit) [ -n "${2:-}" ] || usage_error "--unit needs a name"; UNIT="$2"; shift 2 ;;
+    --catalina-dir) [ -n "${2:-}" ] || usage_error "--catalina-dir needs a directory"; CATALINA_DIR="$2"; shift 2 ;;
+    --input) [ -n "${2:-}" ] || usage_error "--input needs a file"; INPUT="$2"; shift 2 ;;
     --show-messages) SHOW_MESSAGES=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "deb-server-log-audit: unknown argument '$1'" >&2; usage >&2; exit 2 ;;
@@ -128,9 +132,13 @@ awk -v show="$SHOW_MESSAGES" '
       logger = $4; loc = $5
       sig = level " " logger " " loc
       rest = $0; cut = index(rest, ") - "); if (cut > 0) rest = substr(rest, cut + 4)
-      # A request path is an operational identifier, not PHI; the query string
-      # (which can carry a demographic number) is cut off.
-      if (match(rest, /uri=[^,) ?\]]+/)) sig = sig " " substr(rest, RSTART, RLENGTH)
+      # A request path is an operational identifier, not PHI, once the query
+      # string is cut off and numeric segments (/demographics/1234) are masked.
+      if (match(rest, /uri=[^,) ?\]]+/)) {
+        u = substr(rest, RSTART, RLENGTH)
+        while (match(u, /\/[0-9]+(\/|$)/)) u = substr(u, 1, RSTART) "{n}" substr(u, RSTART + RLENGTH - (substr(u, RSTART + RLENGTH - 1, 1) == "/" ? 1 : 0))
+        sig = sig " " u
+      }
       if (logger ~ /ErrorPageLogger$/ && match(rest, /status=[0-9]+/)) sig = sig " " substr(rest, RSTART, RLENGTH)
       # A CSRF rejection is ERROR by design. CSRFGuard logs no request path,
       # and the CARLOS session login is invisible to it, so every violation

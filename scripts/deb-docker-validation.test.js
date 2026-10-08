@@ -125,3 +125,29 @@ test('should hand the audit no empty argument and quote the ones it is given', (
   assert.match(calls[1], /deb-server-log-audit\.sh --since 2026-10-08\\ 04:40:00 $/);
 });
 
+
+test('should refuse a cgroup-v1-only host before building an image or starting a container', (t) => {
+  const box = sandbox(t);
+  const v1 = path.join(box.dir, 'v1');
+  fs.mkdirSync(path.join(v1, 'memory'), { recursive: true });
+  const debs = path.join(box.dir, 'debs');
+  fs.mkdirSync(debs);
+  for (const name of ['carlos-emr_1_amd64.deb', 'carlos-emr-drugref_1_all.deb', 'carlos-ctl_1_all.deb']) {
+    fs.writeFileSync(path.join(debs, name), '');
+  }
+  const r = run(['up'], { ...box.env, CARLOS_DISPOSABLE_HOST: 'true', DEBS_DIR: debs, CGROUP_ROOT: v1 });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /cgroup-v1-only hierarchy/);
+  const calls = fs.existsSync(box.calls) ? fs.readFileSync(box.calls, 'utf8') : '';
+  assert.doesNotMatch(calls, /^(build|buildx|run) /m, `docker was asked to build or run: ${calls}`);
+});
+
+test('should refuse a reset password that quoting could not carry into the container', (t) => {
+  const box = sandbox(t);
+  for (const password of ["it's", 'Pa$$w0rd', 'a`id`', 'back\\slash', 'q"x']) {
+    const r = run(['print-preseed'], { ...box.env, RESET_PASSWORD: password });
+    assert.equal(r.status, 1, `accepted ${password}`);
+    assert.match(r.stderr, /RESET_PASSWORD must not/);
+  }
+  assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
+});

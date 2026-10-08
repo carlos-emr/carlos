@@ -162,3 +162,37 @@ test('should match every shipped baseline entry against a signature a packaged i
     assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(open)), `baseline swallows an unexplained defect: ${open}`);
   }
 });
+
+test('should mask every all-digit path segment so no record number reaches the output', (t) => {
+  const r = audit(t, [
+    '2026-10-08 04:54:01,000 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=401 uri=/carlos/ws/services/demographics/48213]',
+    '2026-10-08 04:54:02,000 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=401 uri=/carlos/ws/services/demographics/7]',
+    '2026-10-08 04:54:03,000 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - x [uri=/carlos/ws/rs/notes/12/history/34?demographicNo=48213]',
+  ]);
+  assert.match(r.out, /^UNKNOWN +2 +.*uri=\/carlos\/ws\/services\/demographics\/\{n\}$/m);
+  assert.match(r.out, /uri=\/carlos\/ws\/rs\/notes\/\{n\}\/history\/\{n\}$/m);
+  assert.doesNotMatch(r.out, /48213|demographics\/7\b/);
+});
+
+test('should exit 2, not 1, when an option is missing its value', (t) => {
+  for (const option of ['--since', '--baseline', '--unit', '--catalina-dir', '--input']) {
+    const r = spawnSync('bash', [SCRIPT, option], { encoding: 'utf8' });
+    assert.equal(r.status, 2, `${option} without a value: ${r.stderr}`);
+  }
+});
+
+test('should pin every shipped baseline entry that names no frame and no exception to one source line', () => {
+  const entries = fs.readFileSync(BASELINE, 'utf8').split('\n').filter((line) => line.trim() && !line.startsWith('#'));
+  for (const entry of entries) {
+    const regex = entry.split('\t')[0];
+    if (regex.includes(' @') || regex.includes('::') || regex.includes('uri=') || regex.includes('csrf-')) continue;
+    // A class-only entry with any line number would also hide every other
+    // failure that class logs by name alone.
+    assert.doesNotMatch(regex, /\.java:\[0-9\]\+/, `class-only entry is not pinned to a line: ${regex}`);
+  }
+  // A JSP include failure the page swallows reaches only catalina's log.
+  const catalinaInclude = 'SEVERE org.apache.catalina.core.ApplicationDispatcher.invoke';
+  assert.ok(!entries.some((entry) => new RegExp(entry.split('\t')[0]).test(catalinaInclude)),
+    'the baseline must not explain catalina include failures wholesale');
+});
+

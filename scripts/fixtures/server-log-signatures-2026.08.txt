@@ -1,6 +1,6 @@
 # Signatures scripts/deb-server-log-audit.sh printed for the 2026.08.0~alpha19 promotion
 # validation (Ontario demo install, full Playwright suite, docs/ui-tests/deb-install-validation.md).
-# Signatures carry no message text. scripts/deb-server-log-audit.test.js requires every
+# Signatures carry no message text (numeric path segments read {n}). scripts/deb-server-log-audit.test.js requires every
 # baseline entry to match at least one of these, so a regex that drifts from the real
 # signature shape fails the test rather than silently explaining nothing.
 ERROR prevention.PreventionDisplayConfig (PreventionDisplayConfig.java:383) @PreventionDisplayConfig.display :: java.lang.NullPointerException
@@ -15,7 +15,7 @@ ERROR dispatcher.DefaultDispatcherErrorHandler (DefaultDispatcherErrorHandler.ja
 SEVERE org.apache.catalina.loader.WebappClassLoaderBase.checkThreadLocalMapForLeaks
 ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/WEB-INF/jsp/provider/providercontrol.jsp status=500 @CarlosExceptionMappingInterceptor.intercept :: jakarta.servlet.ServletException
 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:335)
-ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) uri=/carlos/ws/services/demographics/1
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) uri=/carlos/ws/services/demographics/{n}
 ERROR parsers.Factory (Factory.java:224) @DefaultGenericHandler.init :: java.lang.StringIndexOutOfBoundsException
 ERROR parsers.Factory (Factory.java:215) @CMLHandler.init :: ca.uhn.hl7v2.parser.EncodingNotSupportedException
 ERROR handlers.CMLHandler (CMLHandler.java:97) @MessageUploader.routeReport

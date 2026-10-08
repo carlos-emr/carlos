@@ -787,7 +787,8 @@ test('screenshot captures nothing when SCREENSHOT_DIR is unset and validates a d
     assert.equal(await harness.screenshot(page, unset, 'optional-shot'), null);
   }
   assert.deepEqual(shots, [], 'an unset SCREENSHOT_DIR must not write or fail');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-shot-'));
+  // resolveArtifactDir allows /tmp or the cwd, not $TMPDIR (macOS, /var/tmp).
+  const dir = fs.mkdtempSync('/tmp/carlos-shot-');
   try {
     const written = await harness.screenshot(page, dir, 'set-shot');
     assert.equal(written, path.join(dir, 'set-shot.png'));

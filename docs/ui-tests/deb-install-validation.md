@@ -402,7 +402,7 @@ overrides, including `DRUGREF_REF`, so DrugRef is built from the repository pin.
 >
 > It uses host networking (the front door must be on `:443`), so validate one
 > province at a time. Logs, the install transcript and JUnit reports land in
-> `LOG_DIR` (default `./deb-docker-validation-logs`).
+> `LOG_DIR` (default `target/deb-docker-validation`, which git ignores).
 
 ```bash
 lxc launch ubuntu:26.04 carlos-test --vm \
@@ -1284,16 +1284,23 @@ Notes on the contract:
 
 A check can pass while the server threw behind it: an AJAX fragment that failed
 inside a catch, a 500 on a request no assertion read, an include of a JSP that
-no longer exists. Run the audit after the suite, as root on the VM:
+no longer exists. Note the time before the suite starts, then run the audit
+after it, as root on the VM:
 
 ```bash
-scripts/deb-server-log-audit.sh --since "$SUITE_START"   # or CARLOS_LOG_AUDIT_SINCE
+SUITE_START="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"   # before the first check
+# ... run the suite ...
+scripts/deb-server-log-audit.sh --since "$SUITE_START"
 ```
+
+`deb-docker-validation.sh` writes the same value as `CARLOS_LOG_AUDIT_SINCE`, which
+the audit uses when `--since` is not given.
 
 It reduces every ERROR, FATAL and SEVERE event in the `carlos-emr` journal and
 Tomcat's catalina log to a signature (logger, source location, first CARLOS
 stack frame, exception classes, and the request path where one is logged) and
 fails on any signature `scripts/lib/server-log-baseline.tsv` does not explain.
+A request path keeps no query string, and every all-digit segment reads `{n}`.
 Message text is never printed unless `--show-messages` is given, because log
 messages can carry patient data. The baseline explains three kinds of event,
 each entry citing the check, the issue or the findings-log row behind it:
@@ -1306,6 +1313,11 @@ each entry citing the check, the issue or the findings-log row behind it:
   deleted while the chart is still loading, a service restart);
 - recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
   error stands out from the ones already recorded.
+
+An entry that names neither a stack frame nor an exception is pinned to its exact
+source line, because one class can log many different failures by name alone.
+Catalina's own SEVERE lines are never explained wholesale: a JSP include failure the
+page swallows is recorded only there.
 
 CSRFGuard logs no request path and sees every CARLOS user as anonymous, so the
 audit cannot tell a deliberate CSRF probe from a page that lost its token; that
@@ -2372,7 +2384,8 @@ then fails on the adjust page's TypeError (finding 147); run past it, the GET re
 Settle steps pass and the note step fails on finding 145.
 
 **Server-log audit.** Over the Ontario suite window, 596 ERROR or SEVERE events reduced to 66
-signatures. After triage the baseline explains 55 of them (deliberate probes, the
-environment, and findings 137 to 144); 11 stay unexplained, among them the stale-form
-`uk_demo_ext` violation, the flowsheet `getMessages` state error and the `addEForm` NPE.
+signatures. After triage the baseline explains 53 of them (deliberate probes, the
+environment, and findings 137 to 144); 13 stay unexplained, among them the stale-form
+`uk_demo_ext` violation, the flowsheet `getMessages` state error, the `addEForm` NPE and
+catalina's copies of JSP include failures.
 The British Columbia window passed with 6 known signatures.

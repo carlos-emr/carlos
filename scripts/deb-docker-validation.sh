@@ -45,7 +45,8 @@
 #   up            build the image, start the container, install the debs,
 #                 require `carlos-ctl check` to pass, stage the fixtures,
 #                 perform the first-login reset and write /root/suite-env.sh
-#   suite [ARGS]  run scripts/run-playwright-suite.js ARGS in the container
+#   suite [ARGS]  run scripts/run-playwright-suite.js ARGS in the container,
+#                 limited to the installed province unless ARGS name one
 #                 (default: --tier smoke); fails if carlos-emr restarted
 #                 during the run; the JUnit report is copied to LOG_DIR
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
@@ -75,7 +76,7 @@
 #   CONTAINER_CPUS      optional --cpus limit for the container (on a host that
 #                       also builds, so the browser checks are not starved)
 #   LOG_DIR             host directory for logs and reports
-#                       (default ./deb-docker-validation-logs)
+#                       (default target/deb-docker-validation, git-ignored)
 #   CGROUP_ROOT         override /sys/fs/cgroup (tests only)
 set -euo pipefail
 
@@ -91,7 +92,7 @@ BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
 CONTAINER_CPUS="${CONTAINER_CPUS:-}"
-LOG_DIR="${LOG_DIR:-$PWD/deb-docker-validation-logs}"
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/target/deb-docker-validation}"
 CGROUP_ROOT="${CGROUP_ROOT:-/sys/fs/cgroup}"
 
 die() { echo "deb-docker-validation: $*" >&2; exit 1; }
@@ -101,6 +102,14 @@ usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '
 
 case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
 case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
+# Both values are written into shell text that runs as root in the container
+# (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
+# could not carry through unchanged.
+case "$RESET_PASSWORD" in
+  *[\'\"\$\`\\]*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
+esac
+[ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
+  || die "BUILD_PROXY must be a plain http(s)://host:port URL"
 
 # The debconf answers of runbook section 3. reset-seed-admin stays true: the
 # validation must prove a fresh install replaces the published seed credential
@@ -215,14 +224,17 @@ cmd_up() {
   for port in 80 443 3306 18080 9515; do
     if ss -Hltn "sport = :$port" 2>/dev/null | grep -q .; then die "port $port is already in use on this host"; fi
   done
-  local extra=()
+  local extra=() cgroup_args
   [ -n "$CONTAINER_CPUS" ] && extra+=(--cpus "$CONTAINER_CPUS")
+  # An assignment, not a substitution inside docker run's arguments: a v1-only
+  # host must stop here, before an image is built or a container started.
+  cgroup_args=$(cgroup_run_args) || exit 1
   build_image
 
   say "starting $CONTAINER (cgroup mode: $(cgroup_mode))"
-  # shellcheck disable=SC2046 # cgroup_run_args is a deliberate word list
+  # shellcheck disable=SC2086 # cgroup_args is a deliberate word list
   docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network host \
-    $(cgroup_run_args) "${extra[@]}" --tmpfs /run --tmpfs /run/lock \
+    $cgroup_args "${extra[@]}" --tmpfs /run --tmpfs /run/lock \
     -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" "$IMAGE" >/dev/null
   local state="" i
   for i in $(seq 1 60); do
@@ -344,6 +356,8 @@ first_login_reset() {
 # The environment block of runbook section 6, with the build tag read from the
 # installed WAR so the About-page assertion is exact for THIS package.
 write_suite_env() {
+  local suite_province=''
+  case "$CARLOS_PROVINCE" in on) suite_province=ON ;; bc) suite_province=BC ;; esac
   in_container "
     set -e
     props=/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties
@@ -387,7 +401,9 @@ export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
 # The package ships ALLOW_UPDATE_DOCUMENT_CONTENT=true.
 export STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true
 # This container is disposable: checks that change clinic-wide settings may run.
-export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr
+export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
+# The installed province: 'suite' passes it as --province unless one is given.
+export CARLOS_SUITE_PROVINCE=$suite_province
 export RX_FAX_DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 export RX_FAX_ROUND_TRIP_TIMEOUT_MS=180000 RX_FAX_SPOOL_DIR=/var/lib/carlos-emr/catalina/temp
 export DRUGREF_UPDATE_TRIGGER=false DRUGREF_UPDATE_REQUIRE_STATUS=true
@@ -400,7 +416,7 @@ export APPOINTMENT_PROVIDER_NO=999998 APPOINTMENT_DEMOGRAPHIC_NO=1 APPOINTMENT_D
 export MESSENGER_PROVIDER_NO=999998 LAB_PROVIDER_NO=999998
 export MEASUREMENT_DEMOGRAPHIC_NO=1 MEASUREMENT_GROUP=Anthropometrics MEASUREMENT_TYPE=WT
 export NEXT_APPT_DEMOGRAPHIC_NO=1 NEXT_APPT_PROVIDER_NO=999998
-export CARLOS_LOG_AUDIT_SINCE='\$(date -u '+%Y-%m-%d %H:%M:%S')'
+export CARLOS_LOG_AUDIT_SINCE='\$(date -u '+%Y-%m-%d %H:%M:%S UTC')'
 cd /root/carlos
 EOF
     chmod 0600 /root/suite-env.sh"
@@ -410,6 +426,14 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # Select only checks for the installed province (and province-neutral ones),
+  # unless the caller chose a province.
+  local province
+  province=$(in_container '. /root/suite-env.sh; printf %s "${CARLOS_SUITE_PROVINCE:-}"' 2>/dev/null || true)
+  case " $* " in
+    *" --province "*) ;;
+    *) [ -z "$province" ] || set -- "$@" --province "$province" ;;
+  esac
   local quoted before after rc=0 stamp
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
