@@ -141,6 +141,16 @@
         .label {
             font-weight: bold;
         }
+        /* An in-page action shown as a link: a real button for keyboard and screen-reader users. */
+        .rx-link-button {
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            color: LinkText;
+            text-decoration: underline;
+            cursor: pointer;
+        }
     </style>
     <script>
 
@@ -350,8 +360,7 @@
                 </tr>
                 <tr>
                     <td class="label">Form:</td>
-                    <td><%= StringUtils.trimToEmpty(drug.getDrugForm()) %> &nbsp; (<a href="javascript:void()"
-                                                                                      onClick="updateForm();return false;">Update</a>)
+                    <td><%= StringUtils.trimToEmpty(drug.getDrugForm()) %> &nbsp; (<button type="button" class="rx-link-button" onclick="updateForm();">Update</button>)
                     </td>
                 </tr>
                 <tr>

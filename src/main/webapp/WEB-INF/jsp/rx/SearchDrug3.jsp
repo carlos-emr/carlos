@@ -989,9 +989,10 @@ function renderRxStage() {
 
 
                                                     <div style="text-indent: 5px">
-                                                    <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')">
+                                                    <button type="button" class="btn btn-link p-0 align-baseline text-start" style="font: inherit;"
+                                                            onclick="reprint2('<carlos:encode value='<%= drug.getScript_no() %>' context="javaScriptAttribute"/>')">
                                                         <carlos:encode value='<%= drug.getRxDisplay() %>'/>
-                                                    </a>
+                                                    </button>
                                                     </div>
 
                                                     <%
@@ -1012,7 +1013,7 @@ function renderRxStage() {
                                                             </div>
                                                         </div>
                                                         <div style="text-indent: 5px">
-                                                        <a href="javascript:void(0);" onclick="reprint2('<%=drug.getScript_no()%>')"><carlos:encode value='<%= drug.getRxDisplay() %>'/></a>
+                                                        <button type="button" class="btn btn-link p-0 align-baseline text-start" style="font: inherit;" onclick="reprint2('<carlos:encode value='<%= drug.getScript_no() %>' context="javaScriptAttribute"/>')"><carlos:encode value='<%= drug.getRxDisplay() %>'/></button>
                                                         </div>
 
 

@@ -211,7 +211,7 @@ async function workflow(s) {
     h.assert((await field('Problem Code')).includes('(icd9:401'), 'The record popup does not show the filed indication');
     const before = sql.value(`SELECT COALESCE(drug_form,'') FROM drugs WHERE drugid=${drug}`);
     const target = before === 'Capsule' ? 'Tablet' : 'Capsule';
-    const form = await s.popup(record, record.locator('a[onclick*="updateForm()"]'), 'rx-update-form');
+    const form = await s.popup(record, record.locator('[onclick*="updateForm()"]'), 'rx-update-form');
     h.assert(new URL(form.url()).searchParams.get('id') === drug, 'The form update popup opened for another drug');
     await form.locator('select[name="drugForm"]').selectOption(target);
     const closed = form.waitForEvent('close', { timeout: 20000 });

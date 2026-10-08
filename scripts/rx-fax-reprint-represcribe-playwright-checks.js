@@ -512,7 +512,7 @@ async function openReprintPanel(page) {
 
 /**
  * Reprint the script through the drug-profile link an operator clicks
- * (SearchDrug3.jsp renders <a onclick="reprint2('<script_no>')">), then assert the reprint wrote
+ * (SearchDrug3.jsp renders <button onclick="reprint2('<script_no>')">), then assert the reprint wrote
  * nothing: no extra prescription row, and the reprinted script's own signature and date untouched.
  */
 async function checkReprintIsReadOnly(page, scriptId) {
@@ -527,7 +527,7 @@ async function checkReprintIsReadOnly(page, scriptId) {
     findings.push({ label: 'reprint', type: 'no-reprint-toggle', text: 'the drug profile offered no Reprint toggle, so the reprint route could not be exercised' });
     return;
   }
-  const reprintLink = page.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first();
+  const reprintLink = page.locator(`#reprint [onclick*="reprint2('${scriptId}')"]`).first();
   const haveLink = await reprintLink.count();
   if (!haveLink) {
     findings.push({ label: 'reprint', type: 'no-link', text: `no reprint link for script ${scriptId} in the prescription history` });
@@ -614,7 +614,7 @@ async function checkRePrescribeThenReprint(page, scriptId) {
 
   // Now reprint the SAME historical script while that unsaved stash is live.
   const panelOpen = await openReprintPanel(page);
-  const reprintLink = page.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first();
+  const reprintLink = page.locator(`#reprint [onclick*="reprint2('${scriptId}')"]`).first();
   if (!panelOpen || !(await reprintLink.count())) {
     // Without the reprint the assertions below would compare an untouched row against itself and
     // report success, so treat an unreachable reprint as a failure rather than a skip.

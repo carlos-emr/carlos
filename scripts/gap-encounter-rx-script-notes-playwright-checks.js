@@ -175,7 +175,7 @@ async function workflow(s) {
     await rx.reload({ waitUntil: 'networkidle' });
     const again = rx;
     await again.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
-    const row = again.locator(`#reprint a[onclick*="reprint2('${scriptNo}')"]`).first();
+    const row = again.locator(`#reprint [onclick*="reprint2('${scriptNo}')"]`).first();
     await row.waitFor({ state: 'visible', timeout: 20000 });
     await row.click();
     const reprint = await viewScriptFrame(again);

@@ -253,7 +253,7 @@ async function assertPreviewRenders(hostFrame, label) {
       assert(/^[1-9]\d*$/.test(savedScript), 'Save And Print did not persist exactly one owned script');
       const olderView = olderPage.waitForResponse(response => response.request().method() === 'POST'
         && /\/rx\/viewScript\?/.test(response.url()));
-      await olderPage.locator(`#reprint a[onclick*="reprint2('${foreignScript}')"]`).first().click();
+      await olderPage.locator(`#reprint [onclick*="reprint2('${foreignScript}')"]`).first().click();
       const olderViewResponse = await olderView;
       assert(olderViewResponse.ok(), 'the interleaved older reprint was refused');
       releaseSavedView();
@@ -286,7 +286,7 @@ async function assertPreviewRenders(hostFrame, label) {
     await assertNotErrorPage(rxPage, 'rx module');
 
     await rxPage.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
-    const reprintRow = rxPage.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first();
+    const reprintRow = rxPage.locator(`#reprint [onclick*="reprint2('${scriptId}')"]`).first();
     await reprintRow.waitFor({ state: 'visible', timeout: 15000 });
     await reprintRow.click();
 
@@ -342,7 +342,7 @@ async function assertPreviewRenders(hostFrame, label) {
       && originalPreviewUrl.pathname === `${config.baseUrl.pathname}/rx/ViewPreview2`,
     'saved preview URL did not stay on the configured application preview route');
     const alternateCandidates = sql(`SELECT p.script_no FROM prescription p JOIN drugs d ON d.script_no=p.script_no WHERE p.demographic_no=${demographicNo} AND d.demographic_no=${demographicNo} AND p.script_no<>${scriptId} GROUP BY p.script_no HAVING SHA2(GROUP_CONCAT(COALESCE(d.special,'') ORDER BY d.drugid),256) <> (SELECT SHA2(GROUP_CONCAT(COALESCE(special,'') ORDER BY drugid),256) FROM drugs WHERE script_no=${scriptId} AND demographic_no=${demographicNo}) ORDER BY p.script_no`).split(/\r?\n/).filter((id) => /^\d+$/.test(id));
-    const reprintLinks = await rxPage.locator('#reprint a[onclick*="reprint2("]').evaluateAll((links) =>
+    const reprintLinks = await rxPage.locator('#reprint [onclick*="reprint2("]').evaluateAll((links) =>
       links.map((link) => (link.getAttribute('onclick').match(/reprint2\('(\d+)'\)/) || [])[1]));
     const alternateScript = alternateCandidates.find((id) => reprintLinks.includes(id));
     assert(alternateScript, 'preview identity coverage requires two visible prescriptions with different drug text');
@@ -366,14 +366,14 @@ async function assertPreviewRenders(hostFrame, label) {
       }
       await route.continue();
     });
-    await delayedPage.locator(`#reprint a[onclick*="reprint2('${scriptId}')"]`).first().click();
+    await delayedPage.locator(`#reprint [onclick*="reprint2('${scriptId}')"]`).first().click();
     await Promise.race([viewReceived, delayedPage.waitForTimeout(15000).then(() => {
       throw new Error('reprint A did not reach the delayed preview handoff');
     })]);
     try {
       await rxPage.locator('#carlosModalCloseBtn').click();
       await rxPage.locator('#carlosModal').waitFor({ state: 'hidden' });
-      await rxPage.locator(`#reprint a[onclick*="reprint2('${alternateScript}')"]`).first().click();
+      await rxPage.locator(`#reprint [onclick*="reprint2('${alternateScript}')"]`).first().click();
       let alternateHost = null;
       for (let attempt = 0; attempt < 30 && !alternateHost; attempt += 1) {
         alternateHost = rxPage.frames().find((frame) => frame.url().includes('/rx/viewScript')

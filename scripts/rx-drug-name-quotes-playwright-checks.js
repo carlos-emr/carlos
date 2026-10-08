@@ -204,7 +204,7 @@ async function workflow(s) {
 
   await s.step('Reprint brings the saved script back with each name exactly as stored', async () => {
     await rx.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
-    const row = rx.locator(`#reprint a[onclick*="reprint2('${scriptNo}')"]`).first();
+    const row = rx.locator(`#reprint [onclick*="reprint2('${scriptNo}')"]`).first();
     await row.waitFor({ state: 'visible', timeout: 20000 });
     await row.click();
     const reprint = await viewScriptFrame(rx);

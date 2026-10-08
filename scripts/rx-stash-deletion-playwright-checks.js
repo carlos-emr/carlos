@@ -373,7 +373,7 @@ async function workflow(session) {
     const openingTransition = await holdPreviewOpeningTransition(page);
     try {
       await page.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
-      await page.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();
+      await page.locator(`#reprint [onclick*="reprint2('${script}')"]`).first().click();
       const modal = page.locator('#carlosModal');
       await modal.waitFor({ state: 'visible' });
       await openingTransition.pause();

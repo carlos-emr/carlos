@@ -91,6 +91,20 @@ class RxDrugNameEncodingJspRegressionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("rx.getFullOutLine().replaceAll(\";\", \"<br />\")");
     }
 
+    @Test
+    @DisplayName("should render the reprint rows and the form update action as buttons, not javascript: links")
+    void shouldRenderInPageActions_asButtons() throws IOException {
+        String searchDrug = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp"), StandardCharsets.UTF_8);
+        String record = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(searchDrug)
+                .doesNotContain("<a href=\"javascript:void(0);\" onclick=\"reprint2(")
+                .contains("<button type=\"button\" class=\"btn btn-link p-0 align-baseline text-start\"");
+        assertThat(record)
+                .doesNotContain("href=\"javascript:void()\"")
+                .contains("<button type=\"button\" class=\"rx-link-button\" onclick=\"updateForm();\">Update</button>");
+    }
+
     static Stream<Arguments> savedNameSinks() {
         return Stream.of(
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp",
