@@ -104,6 +104,11 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
     /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
     private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
+    /**
+     * OscarLog action recorded once per window when rejected-call auditing is throttled (issue #4429), so the
+     * trail shows that individual failure rows were withheld rather than silently omitting them.
+     */
+    private static final String OAUTH_LOGIN_FAILURE_SUPPRESSED = "OAUTH_LOGIN_FAILURE_SUPPRESSED";
 
     /**
      * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) preserves
@@ -111,6 +116,9 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * truthy value to require the granted scope on piloted {@code /ws/services/*} endpoints.
      */
     private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
+
+    /** Bounds synchronous failure-audit inserts an anonymous caller can force (issue #4429). */
+    private final OAuthFailureAuditService failureAuditBudget = new OAuthFailureAuditService();
 
     @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
@@ -257,15 +265,30 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * Records a rejected REST OAuth authentication in the sanctioned OscarLog audit trail,
      * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_FAILURE entry. No providerNo
      * is recorded because the request never resolved to an authenticated provider.
+     *
+     * <p>Writes are budgeted by {@link OAuthFailureAuditService}: past the budget one
+     * {@code OAUTH_LOGIN_FAILURE_SUPPRESSED} row marks the start of suppression and further
+     * rejections in that window write nothing.
      */
     private void auditAuthFailure(String ip, String consumerKey) {
         // Guard the audit write so a logging failure cannot replace the intended 400/401 Fault
         // with an unexpected error surfaced to the caller.
         try {
+            // Unauthenticated callers can be rejected at will, so the number of synchronous inserts
+            // they can cause is bounded per address and globally (issue #4429).
+            OAuthFailureAuditService.Decision decision = failureAuditBudget.admit(ip);
+            if (decision == OAuthFailureAuditService.Decision.SUPPRESS) {
+                return;
+            }
             OscarLog oscarLog = new OscarLog();
-            oscarLog.setAction(OAUTH_LOGIN_FAILURE);
             oscarLog.setIp(ip);
-            oscarLog.setContent(safeConsumerKey(consumerKey));
+            if (decision == OAuthFailureAuditService.Decision.WRITE_SUMMARY) {
+                logger.warn("Throttling OAUTH_LOGIN_FAILURE audit rows: rejection budget exhausted");
+                oscarLog.setAction(OAUTH_LOGIN_FAILURE_SUPPRESSED);
+            } else {
+                oscarLog.setAction(OAUTH_LOGIN_FAILURE);
+                oscarLog.setContent(safeConsumerKey(consumerKey));
+            }
             LogAction.addLogSynchronous(oscarLog);
         } catch (Exception e) {
             logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);

@@ -254,4 +254,25 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
         assertThat(log.getProviderNo()).isNull();
         assertThat(log.getContent()).isNull();
     }
+
+    @Test
+    @DisplayName("bounds synchronous failure rows from one address and marks where suppression began")
+    void shouldBoundFailureRows_whenOneAddressFloods() {
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        int calls = OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS + 40;
+
+        for (int i = 0; i < calls; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()),
+            org.mockito.Mockito.times(OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS + 1));
+        long failures = captor.getAllValues().stream()
+            .filter(l -> "OAUTH_LOGIN_FAILURE".equals(l.getAction())).count();
+        long summaries = captor.getAllValues().stream()
+            .filter(l -> "OAUTH_LOGIN_FAILURE_SUPPRESSED".equals(l.getAction())).count();
+        assertThat(failures).isEqualTo(OAuthFailureAuditService.MAX_ROWS_PER_ADDRESS);
+        assertThat(summaries).isEqualTo(1);
+    }
 }
