@@ -196,6 +196,7 @@
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
     "test:registry-ichppc-lifecycle-playwright": "node scripts/registry-ichppc-lifecycle-playwright-checks.js",
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
+    "test:legacy-calculator-bookmarks-playwright": "node scripts/legacy-calculator-bookmarks-playwright-checks.js",
     "test:consultation-null-booking-playwright": "node scripts/consultation-null-booking-playwright-checks.js",
     "test:pharmacy-search-playwright": "node scripts/pharmacy-search-playwright-checks.js",
     "test:pharmacy-list-filters-playwright": "node scripts/pharmacy-list-filters-playwright-checks.js",
