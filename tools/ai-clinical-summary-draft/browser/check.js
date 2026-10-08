@@ -386,7 +386,15 @@ async function run() {
     const match = await notice(page, history, '.chart-match-notice');
     assert.equal(await match.isVisible(), true, 'The chart check beside the suggestion shows the possible duplicate');
     assert.equal(await page.locator('.chart-check-clear').isVisible(), false);
-    assert.equal(await history.locator('.chart-check-pointer').isVisible(), true, 'The card points to what the chart check found');
+    const pointer = history.locator('.chart-check-pointer');
+    assert.equal(await pointer.isVisible(), true, 'The card points to what the chart check found');
+    await pointer.getByRole('link').click();
+    assert.equal(await page.locator('#chart-check-title').evaluate(el => el === document.activeElement), true);
+    assert.doesNotMatch(page.url(), /#chart-check/, 'The pointer adds no history entry');
+    await history.locator('[name="entryText"]').fill('Unrelated synthetic clinician text.');
+    assert.equal(await pointer.isVisible(), false, 'The pointer goes when nothing matches any more');
+    await history.locator('[name="entryText"]').fill(await history.locator('.proposal-evidence blockquote').textContent());
+    assert.equal(await pointer.isVisible(), true);
     await match.locator('.chart-match-links a').click();
     assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.open), true);
     assert.equal(await page.locator('#chart-entry-note-duplicate').evaluate(el => el.classList.contains('chart-entry-match')), true);
@@ -494,6 +502,7 @@ async function run() {
     assert.equal(await row.locator('[data-summary-section]').textContent(), 'Family history', 'The summary follows the edits');
     await diagnosis.locator('[name="destination"]').selectOption('');
     assert.equal(await match.isVisible(), false);
+    assert.equal(await diagnosis.locator('.chart-check-pointer').isVisible(), false);
     assert.equal(await diagnosis.locator('[data-section-chip]').isVisible(), false);
     await diagnosis.locator('[name="destination"]').selectOption('MedHistory');
     assert.equal(await match.isVisible(), false);
@@ -803,11 +812,14 @@ async function run() {
     const reminder = card(page, 'Follow-up reminder');
     await reminder.locator('[name="dueDate"]').fill('2026-10-12');
     // Without approval, Enter is stopped by the browser's own check: nothing is sent, not even a dismissal.
-    const before = page.url();
+    const posts = [];
+    const record = request => { if (request.method() === 'POST') posts.push(request.url()); };
+    page.on('request', record);
     await reminder.locator('[name="dueDate"]').press('Enter');
     await page.waitForTimeout(500);
-    assert.equal(page.url(), before);
-    assert.equal(await reminder.locator('form.proposal-form').count(), 1, 'Enter must not dismiss the suggestion');
+    page.off('request', record);
+    assert.deepEqual(posts, [], 'Enter must not send the form, and never as a dismissal');
+    assert.equal(await reminder.locator('form.proposal-form').count(), 1);
     assert.equal(await reminder.locator('[name="dueDate"]').inputValue(), '2026-10-12');
     assert.deepEqual(await stats(page), { reminders: 0, histories: 0, receipts: 0 });
     await reminder.locator('[name="confirmed"]').check();

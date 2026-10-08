@@ -125,6 +125,14 @@
             // After the evidence script's own listeners, which show or hide the notices.
             card.addEventListener('input', updateCheck);
             card.addEventListener('change', updateCheck);
+            // Moves the focus to the chart check, without a history entry for Back to undo.
+            card.querySelector('.chart-check-pointer a')?.addEventListener('click', event => {
+                if (!check) return;
+                event.preventDefault();
+                const title = check.querySelector('h2');
+                title.setAttribute('tabindex', '-1');
+                title.focus();
+            });
         });
         summary.querySelector('[data-review-skipped]')?.addEventListener('click', () => show(nextOpen(-1), true));
         document.querySelectorAll('[data-review-proposal]').forEach(link => {

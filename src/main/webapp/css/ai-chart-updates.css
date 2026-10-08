@@ -84,7 +84,8 @@ summary:focus-visible { outline: 2px solid var(--carlos-primary); outline-offset
     .chart-reference, .review-stepping .chart-reference { position: static; max-height: none; }
     /* Below the suggestion, the chart check comes first: the source has its own scroll box. */
     .chart-reference { display: flex; flex-direction: column; }
-    .chart-reference .chart-check { order: -1; margin-top: 0; }
+    /* Its own bottom margin: the next section's full-width header pulls up by .75rem. */
+    .chart-reference .chart-check { order: -1; margin-top: 0; margin-bottom: 1rem; }
 }
 
 .review-in-modal .review-header .page-header-title { display: none; }
