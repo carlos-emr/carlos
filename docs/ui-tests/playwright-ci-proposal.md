@@ -536,7 +536,14 @@ jobs:
               echo "shard $SHARD/$SHARDS: ${#names[@]} checks"
             fi
             args=("${select[@]}" --junit "$junit")
-            [ "$RESIDUE_AUDIT" = "true" ] && args+=(--residue-audit)
+            if [ "$RESIDUE_AUDIT" = "true" ]; then
+              # Older branches have a runner without the audit; run them unaudited, loudly.
+              if grep -q -- "--residue-audit" scripts/run-playwright-suite.js; then
+                args+=(--residue-audit)
+              else
+                echo "::warning::the runner on this ref has no --residue-audit; running without it"
+              fi
+            fi
             node scripts/run-playwright-suite.js "${args[@]}"
           '
 
@@ -795,7 +802,9 @@ jobs:
   the smoke budget is about a minute a check, which puts a 58-check shard near an hour plus about 12 min of
   boot. Replace the guess with the first `workflow_dispatch` run's numbers and move `shards` accordingly.
 - **Residue audit.** Each shard passes `--residue-audit`, so a check that leaves the shared install changed
-  fails its shard (Task 3).
+  fails its shard (Task 3). `origin/release/2026.08` does not have the option until the coverage-gap pull
+  request merges, so the workflow checks the checked-out runner for it and runs unaudited with a warning
+  when it is missing.
 - **Known failures stay green.** The runner exits 1 only for `FAIL` and `failed-elsewhere`.
   `known-fail` and `unexpected-pass` are reported and do not fail the job.
 - **JUnit.** Every shard uploads `junit.xml` inside its artifact `playwright-core-<branch>-<n>of8`; the
@@ -832,8 +841,9 @@ fewer branches.
    run without `EXCLUSIVE=1`. Each job owns a private stack and runs one check at a time, so the workflow sets
    `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true`.
 4. **Older release branches.** The reusable workflow comes from `develop`'s copy; the scripts that run are
-   each branch's own. A release branch that predates `--residue-audit` or the `--province` flag fails with
-   "Unknown argument". `release/2026.08` has both.
+   each branch's own. `origin/release/2026.08` already has the `standalone` tier, `--province` and `--junit`
+   (checked), but not `--residue-audit` or `expectedFailure`, which arrive with the coverage-gap pull request.
+   A branch whose runner predates `--province` would fail with "Unknown argument".
 5. **Same as change 2:** `appointment-lifecycle`, and nothing has run on GitHub.
 
 ## 5. Populated-database migration leg for `db-schema-verify.yml`
@@ -1050,7 +1060,9 @@ Not run, and only a first run on GitHub (or a maintainer's machine) can settle:
 
 ## Rollout order
 
-1. Commit change 1 alone. Zero dependencies.
+1. Merge the coverage-gap pull request, then commit change 1 alone. (Change 1 already works on
+   `release/2026.08`, which has the `standalone` tier; the nightly's residue audit and known-failure
+   reporting come from this branch.)
 2. Commit `playwright-smoke.yml` in a pull request whose diff touches the file (its `paths` list includes it,
    so it triggers itself). Read the first run's log. Fix the sequence, not the checks.
 3. Keep it non-required. After two weeks of green runs, require `Playwright smoke`.
