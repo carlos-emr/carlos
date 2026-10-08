@@ -96,14 +96,19 @@ public final class PreventionPageData {
     /**
      * Returns the patient's preventions of one type, as
      * {@link PreventionData#getPreventionData(LoggedInInfo, String, Integer)} lists them. The
-     * first call for a type reads them; later calls in the request return the same list, which
-     * callers must not change.
+     * first call for a type reads them; later calls in the request return the same list.
+     *
+     * <p>The list and its row maps are shared, not copied: every loop in the request that reads
+     * this type gets the same objects, so a change made by one would show up in the others.
+     * Callers must only read them. Some callers of the public
+     * {@code PreventionData.getPreventionData} do change the list they get (for example with
+     * {@code addAll}); code like that must copy this list first.
      *
      * @param preventionType the prevention type's name
      * @return the preventions of that type, never {@code null}
      */
     public ArrayList<Map<String, Object>> getPreventionData(String preventionType) {
         return preventionDataByType.computeIfAbsent(preventionType,
-                type -> PreventionData.getPreventionData(type, demographicId, dateOfBirth));
+                type -> PreventionData.listForCheckedPatient(type, demographicId, dateOfBirth));
     }
 }

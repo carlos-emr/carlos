@@ -35,11 +35,15 @@ import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -54,6 +58,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
@@ -73,6 +78,7 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
 
     private static final String PATIENT = "7";
     private static final String DENIED = "missing required sec object (_demographic)";
+    private static final String HIDDEN = "style=\"display:none;\"";
 
     private final DemographicManager demographicManager = mock(DemographicManager.class);
     private final PreventionDao preventionDao = mock(PreventionDao.class);
@@ -232,23 +238,110 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         Map<String, Object> childSet = Map.of("maxAge", "17");
         Map<String, Object> womenSet = Map.of("sex", "F");
         Map<String, Object> menSet = Map.of("sex", "M");
-        String hidden = "style=\"display:none;\"";
 
         assertThat(config.display(adults, patient, 0)).isTrue();
         assertThat(config.display(children, patient, 0)).isFalse();
         assertThat(config.display(men, patient, 0)).isFalse();
         assertThat(config.getDisplay(adultSet, patient)).isEmpty();
         assertThat(config.getDisplay(womenSet, patient)).isEmpty();
-        assertThat(config.getDisplay(childSet, patient)).isEqualTo(hidden);
-        assertThat(config.getDisplay(menSet, patient)).isEqualTo(hidden);
-        assertThat(config.getDisplay(Map.of(), patient)).isEqualTo(hidden);
-        assertThat(config.getDisplay(adultSet, null)).isEqualTo(hidden);
+        assertThat(config.getDisplay(childSet, patient)).isEqualTo(HIDDEN);
+        assertThat(config.getDisplay(menSet, patient)).isEqualTo(HIDDEN);
+        assertThat(config.getDisplay(Map.of(), patient)).isEqualTo(HIDDEN);
+        assertThat(config.getDisplay(adultSet, null)).isEqualTo(HIDDEN);
         assertThat(config.display(adults, null, 0)).isFalse();
         verifyNoInteractions(demographicManager);
 
         assertThat(config.display(user, adults, PATIENT, 0)).isTrue();
         assertThat(config.display(user, children, PATIENT, 0)).isFalse();
         verify(demographicManager, times(2)).getDemographic(eq(user), eq(PATIENT));
+    }
+
+    @Test
+    @DisplayName("should show or hide every shipped configuration set as the per-call lookup did, at each age boundary")
+    void shouldMatchPerCallLookup_forEveryShippedConfigurationSet() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        List<Map<String, Object>> sets = new ArrayList<>(config.getConfigurationSets());
+        List<BoundaryPatient> patients = boundaryPatients();
+
+        // The nine sets in oscar/prevention/PreventionConfigSets.xml, read by the real loader.
+        assertThat(sets).hasSize(9);
+        // No shipped set has an upper age alone or a sex alone; these cover those branches too.
+        sets.add(Map.of("title", "FAKE up to 19 only", "maxAge", "19"));
+        sets.add(Map.of("title", "FAKE women only", "sex", "F"));
+        SoftAssertions softly = new SoftAssertions();
+        for (Map<String, Object> set : sets) {
+            Set<String> outcomes = new HashSet<>();
+            for (BoundaryPatient boundary : patients) {
+                // The removed getDisplay(LoggedInInfo, Map, String) looked the patient up through
+                // DemographicData on every call, then ran the rules getDisplay(Map, Demographic)
+                // now holds unchanged. This rebuilds that path; the rules themselves are checked
+                // against shows() below.
+                String perCallLookup = config.getDisplay(set,
+                        new DemographicData().getDemographic(user, boundary.demographicNo()));
+                String pageLookup = config.getDisplay(set,
+                        new PreventionPageData(user, boundary.demographicNo(), demographicManager).getDemographic());
+                softly.assertThat(pageLookup)
+                        .as("%s for %s", set.get("title"), boundary)
+                        .isEqualTo(perCallLookup)
+                        .isEqualTo(shows(set, boundary) ? "" : HIDDEN);
+                outcomes.add(pageLookup);
+            }
+            // Each set is shown to some of these patients and hidden from others, so a rule that
+            // always hid (or always showed) a set could not pass.
+            softly.assertThat(outcomes).as("%s outcomes", set.get("title")).containsExactlyInAnyOrder("", HIDDEN);
+        }
+        softly.assertAll();
+    }
+
+    /**
+     * A FAKE patient whose age today is exactly {@code age}, or no patient at all when
+     * {@code demographic} is {@code null} (the number is not stubbed, so the lookup finds nothing).
+     */
+    private record BoundaryPatient(String demographicNo, int age, String sex, Demographic demographic) {
+        @Override
+        public String toString() {
+            return demographic == null ? "no patient" : sex + " aged " + age;
+        }
+    }
+
+    /**
+     * Both sexes on each side of every age limit in the shipped sets (19/20, 49/50, 54/55,
+     * 64/65, 74/75, 80/81), plus newborns and a number with no patient. Each is born a day (two
+     * on 29 February in a common birth year) before the birthday that gives the age, so the age
+     * still holds tomorrow and a run that crosses midnight is safe.
+     */
+    private List<BoundaryPatient> boundaryPatients() {
+        List<BoundaryPatient> patients = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        int demographicNo = 100;
+        for (int age : new int[] {0, 19, 20, 49, 50, 54, 55, 64, 65, 74, 75, 80, 81}) {
+            LocalDate born = today.minusYears(age).minusDays(1);
+            for (String sex : List.of("F", "M")) {
+                Demographic demographic = patient(String.valueOf(born.getYear()),
+                        String.format("%02d", born.getMonthValue()), String.format("%02d", born.getDayOfMonth()), sex);
+                String number = String.valueOf(demographicNo++);
+                when(demographicManager.getDemographic(user, number)).thenReturn(demographic);
+                patients.add(new BoundaryPatient(number, age, sex, demographic));
+            }
+        }
+        patients.add(new BoundaryPatient(String.valueOf(demographicNo), 0, null, null));
+        return patients;
+    }
+
+    /**
+     * The rule as the prevention page states it, worked out independently of the code under test:
+     * a set shows when it has an age range or a sex and the patient meets every one it has.
+     */
+    private static boolean shows(Map<String, Object> set, BoundaryPatient boundary) {
+        String minAge = (String) set.get("minAge");
+        String maxAge = (String) set.get("maxAge");
+        String sex = (String) set.get("sex");
+        if (boundary.demographic() == null || (minAge == null && maxAge == null && sex == null)) {
+            return false;
+        }
+        return (minAge == null || boundary.age() >= Integer.parseInt(minAge))
+                && (maxAge == null || boundary.age() <= Integer.parseInt(maxAge))
+                && (sex == null || sex.equals(boundary.sex()));
     }
 
     private static Demographic patient(String year, String month, String day, String sex) {

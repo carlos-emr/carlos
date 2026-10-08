@@ -320,7 +320,7 @@ public class PreventionData {
             log.error(e.getMessage(), e);
             return new ArrayList<Map<String, Object>>();
         }
-        return getPreventionData(preventionType, demographicId, dob);
+        return listForCheckedPatient(preventionType, demographicId, dob);
     }
 
     /**
@@ -328,11 +328,12 @@ public class PreventionData {
      * {@code preventionType} is {@code null}, as
      * {@link #getPreventionData(LoggedInInfo, String, Integer)} does, for a date of birth the
      * caller has already looked up. It makes no privilege check of its own, so it stays
-     * package-private: {@link PreventionPageData} calls it after its own checked lookup of the
-     * same patient.
+     * package-private, and its name says so: call it only for a patient the caller has already
+     * looked up through a privilege-checked call. {@link PreventionPageData} calls it after its own
+     * checked lookup of the same patient.
      */
     @Nonnull
-    static ArrayList<Map<String, Object>> getPreventionData(String preventionType, Integer demographicId, Date dob) {
+    static ArrayList<Map<String, Object>> listForCheckedPatient(String preventionType, Integer demographicId, Date dob) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
         try {
