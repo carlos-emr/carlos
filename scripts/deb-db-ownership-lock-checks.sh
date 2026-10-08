@@ -61,7 +61,10 @@ fi
 HOLDER=""
 # The holder child touches READY only once IT holds the lock: a busy lock alone
 # could be some other run's, and this script must never act on that.
-READY="$(mktemp -u)"
+# in a private directory: a bare mktemp -u name in shared /tmp is unreserved,
+# and this runs as root. Kept across holder phases, removed at final cleanup.
+READY_DIR="$(mktemp -d)"
+READY="${READY_DIR}/ready"
 LEDGER_CREATED=0
 remove_ledger() {
     # only a ledger this script wrote, under a lock it held: the empty
@@ -82,6 +85,7 @@ release() {
 cleanup() {
     remove_ledger
     release
+    rm -rf "${READY_DIR}"
 }
 trap cleanup EXIT
 
