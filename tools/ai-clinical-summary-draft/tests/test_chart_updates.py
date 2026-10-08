@@ -73,6 +73,26 @@ class ChartUpdatesTest(unittest.TestCase):
                 {'kind': 'history', 'start_id': 4, 'end_id': 4}]}, parts, source)
             self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History:\n- Asthma'}], result['proposals'])
 
+    def test_skips_a_range_of_blank_lines_and_keeps_the_rest_of_the_document(self):
+        # A model range that covers only a blank line used to fail the whole document with an
+        # IndexError in preserve_preceding_context (seen on synthetic note NHSSYN009 n24).
+        source = 'Past Medical History:\n- Asthma\n\nPlan:\n- Arrange respiratory clinic follow-up in 6 weeks.\n'
+        parts = updates.source_segments(source)
+        blank = next(n for n, line in parts.items() if not line.strip())
+        for kind in ('history', 'tickler', 'review'):
+            row = {'kind': kind, 'start_id': blank, 'end_id': blank}
+            if kind == 'review':
+                row = {'destination': 'Allergies', 'start_id': blank, 'end_id': blank}
+            result = updates.resolve_ranges({'proposals': [
+                row, {'kind': 'history', 'start_id': 2, 'end_id': 2}]}, parts, source)
+            self.assertEqual([{'kind': 'history', 'evidence': 'Past Medical History:\n- Asthma'}],
+                             result['proposals'], kind)
+
+    def test_blank_excerpt_is_what_preserve_preceding_context_cannot_widen(self):
+        # The guard above exists because this still fails; callers must never pass a blank excerpt.
+        with self.assertRaises(IndexError):
+            updates.preserve_preceding_context('', 'Plan:\n- Rest.', 0)
+
     def test_rejects_expanded_lists_exceeding_budget_without_partial_output(self):
         source = 'Plan\n' + '\n'.join(f'- Arrange clinic {i} follow-up.' for i in range(updates.MAX_PROPOSALS + 5))
         parts = updates.source_segments(source)

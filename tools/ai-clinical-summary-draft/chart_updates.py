@@ -292,6 +292,10 @@ def resolve_ranges(raw, lines, source):
         require(type(start) is int and type(end) is int and 1 <= start <= end <= len(lines),
                 'Invalid proposal line range')
         contextual, evidence = contextual_range(row, lines)
+        # A range that covers only blank lines quotes nothing. Skip it, not the whole
+        # document: widening below needs at least one character to start from.
+        if not evidence:
+            continue
         range_start = sum(len(lines[n]) for n in range(1, contextual['start_id']))
         if row['kind'] == 'tickler':
             original_start = source.find(evidence, range_start)
@@ -310,6 +314,8 @@ def resolve_ranges(raw, lines, source):
             continue
         excerpts = followup_items(evidence) if row['kind'] == 'tickler' else independent_items(evidence)
         for excerpt in excerpts:
+            if not excerpt.strip():
+                continue  # a blank item quotes nothing and cannot be widened
             excerpt = preserve_preceding_context(excerpt, source, range_start)
             # One unbounded paragraph must not discard unrelated valid facts. Never
             # truncate context to make it fit: leave this source text in the audit gaps.
