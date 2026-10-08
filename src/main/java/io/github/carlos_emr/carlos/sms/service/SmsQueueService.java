@@ -72,6 +72,12 @@ public class SmsQueueService {
         }
 
         SmsProviderType providerType = providerSelector.configuredDefault();
+        if (configService != null && !configService.providerReady(providerType)) {
+            // As on the direct path: a text the worker could never send is refused before it is recorded,
+            // rather than reported as queued and held until an administrator notices.
+            LOGGER.error("SMS not queued: SMS provider {} is not ready (see Administration > SMS).", providerType);
+            return SmsSendResultDto.validationFailed(List.of(SmsSendService.SMS_PROVIDER_NOT_READY_MESSAGE));
+        }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
         transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);

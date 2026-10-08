@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.sms.assembler;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsCredentialField;
 import io.github.carlos_emr.carlos.sms.service.SmsDefaultProviderResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsProviderClientResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
@@ -76,7 +77,9 @@ class SmsConfigViewModelAssemblerUnitTest {
         stored.setCredential("field_two", "value two");
         org.springframework.test.util.ReflectionTestUtils.setField(stored, "version", 7);
         when(configService.current()).thenReturn(Optional.of(stored));
-        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two", "field_one"));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", true),
+                new SmsCredentialField("field_one", "sms.test.fieldOne", false)));
         when(scheduler.isRunning()).thenReturn(true);
 
         SmsConfigViewModel model = assembler().assemble("saved", List.of());
@@ -89,8 +92,8 @@ class SmsConfigViewModelAssemblerUnitTest {
                 .containsExactly("STUB", true, true, true, "+14165551212", true, true, "sms.config.result.saved");
         assertThat(model.version()).as("sent back with the next save").isEqualTo("7");
         assertThat(model.credentialFields()).containsExactly(
-                new SmsConfigViewModel.CredentialField("field_two", true),
-                new SmsConfigViewModel.CredentialField("field_one", false));
+                new SmsConfigViewModel.CredentialField("field_two", "sms.test.fieldTwo", true, true),
+                new SmsConfigViewModel.CredentialField("field_one", "sms.test.fieldOne", false, false));
         assertThat(model.toString()).doesNotContain("webhook-value-123").doesNotContain("value two");
     }
 
@@ -173,13 +176,53 @@ class SmsConfigViewModelAssemblerUnitTest {
         SmsConfig stored = new SmsConfig();
         org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
         when(configService.current()).thenReturn(Optional.of(stored));
-        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_one"));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_one", "sms.test.fieldOne", false)));
 
         SmsConfigViewModel model = assembler().assemble(null, List.of());
 
         assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialsUnreadable");
         assertThat(model.credentialFields())
-                .containsExactly(new SmsConfigViewModel.CredentialField("field_one", false));
+                .containsExactly(new SmsConfigViewModel.CredentialField("field_one", "sms.test.fieldOne", false, false));
+    }
+
+    @Test
+    @DisplayName("warns, and shows the field as not stored, when a stored credential no longer decrypts")
+    void shouldWarn_whenStoredCredentialNoLongerDecrypts() throws Exception {
+        SmsConfig stored = new SmsConfig();
+        stored.setCredential("field_one", "value one");
+        stored.setCredential("field_two", "value two");
+        EncryptionKeyTestSupport.seedFreshKey();
+        stored.setCredential("field_two", "entered again");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_one", "sms.test.fieldOne", true),
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", true)));
+
+        SmsConfigViewModel model = assembler().assemble(null, List.of());
+
+        assertThat(model.errorKeys()).containsExactly("sms.config.error.credentialsUnreadable");
+        assertThat(model.credentialFields()).extracting(SmsConfigViewModel.CredentialField::set)
+                .as("only the value entered under the current key counts").containsExactly(false, true);
+    }
+
+    @Test
+    @DisplayName("shows another provider's stored credentials as not stored, since saving the swap clears them")
+    void shouldShowCredentialsAsNotStored_whenTheyBelongToAnotherProvider() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "another provider's value");
+        when(configService.current()).thenReturn(Optional.of(stored));
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_one", "sms.test.fieldOne", true)));
+        SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(SmsProviderType.STUB, true, false, "", "", false,
+                Map.of(), null);
+
+        SmsConfigViewModel model = assembler().assembleRejected(submitted, List.of("sms.config.error.credentialRequired"));
+
+        assertThat(model.providerType()).isEqualTo("STUB");
+        assertThat(model.credentialFields())
+                .containsExactly(new SmsConfigViewModel.CredentialField("field_one", "sms.test.fieldOne", true, false));
     }
 
     private SmsConfigViewModelAssembler assembler() {

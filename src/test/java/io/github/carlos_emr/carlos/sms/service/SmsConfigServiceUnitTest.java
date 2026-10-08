@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
+import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceException;
@@ -43,6 +44,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -119,6 +121,7 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save stores only the credentials the provider declares, keeps blank ones, and drops the rest")
     void shouldStoreDeclaredCredentialsOnly_forProvider() {
         SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
         stored.setCredential("field_one", "old-value-one");
         stored.setCredential("field_two", "old-value-two");
         stored.setCredential("legacy_field", "stale-value");
@@ -168,6 +171,7 @@ class SmsConfigServiceUnitTest {
     @DisplayName("save replaces stored credentials that cannot be read, instead of failing")
     void shouldReplaceUnreadableCredentials_whenSaving() {
         SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
         org.springframework.test.util.ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
         when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
 
@@ -415,9 +419,181 @@ class SmsConfigServiceUnitTest {
     @Test
     @DisplayName("credential fields come from the provider client, and are empty for a provider with no client")
     void shouldListCredentialFields_fromProviderClient() {
-        assertThat(service().credentialFields(SmsProviderType.VOIPMS)).containsExactly("field_one", "field_two");
+        assertThat(service().credentialFields(SmsProviderType.VOIPMS)).extracting(SmsCredentialField::name)
+                .containsExactly("field_one", "field_two");
         assertThat(service().credentialFields(SmsProviderType.STUB)).isEmpty();
         assertThat(service().credentialFields(SmsProviderType.CLOUDLI)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("only the saved provider gets the saved sender number and its declared credentials")
+    void shouldHandSettings_toSavedProviderOnly() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setSenderNumber("+14165551212");
+        stored.setCredential("field_one", "value one");
+        stored.setCredential("retired", "old value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        SmsProviderSettings settings = service().providerSettings(SmsProviderType.VOIPMS);
+        assertThat(settings.credential("field_one")).contains("value one");
+        assertThat(settings.credential("field_two")).as("declared, not stored").isEmpty();
+        assertThat(settings.credential("retired")).as("not declared").isEmpty();
+        assertThat(settings.senderNumber()).contains("+14165551212");
+
+        SmsProviderSettings other = service().providerSettings(SmsProviderType.STUB);
+        assertThat(other.senderNumber()).isEmpty();
+        assertThat(other.credential("field_one")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("no provider gets settings while nothing is saved")
+    void shouldHandNoSettings_whenNothingIsSaved() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+
+        SmsProviderSettings settings = service().providerSettings(SmsProviderType.VOIPMS);
+
+        assertThat(settings.senderNumber()).isEmpty();
+        assertThat(settings.credential("field_one")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("refuses to hand over settings whose credentials cannot be read, without showing them")
+    void shouldRefuseSettings_whenCredentialsCannotBeRead() throws Exception {
+        SmsConfig unparseable = new SmsConfig();
+        unparseable.setProviderType(SmsProviderType.VOIPMS);
+        ReflectionTestUtils.setField(unparseable, "credentialsJson", "{not json");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(unparseable));
+        assertThatThrownBy(() -> service().providerSettings(SmsProviderType.VOIPMS))
+                .isInstanceOf(SmsProviderNotReadyException.class);
+
+        SmsConfig undecryptable = new SmsConfig();
+        undecryptable.setProviderType(SmsProviderType.VOIPMS);
+        undecryptable.setCredential("field_one", "value one");
+        EncryptionKeyTestSupport.seedFreshKey();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(undecryptable));
+        assertThatThrownBy(() -> service().providerSettings(SmsProviderType.VOIPMS))
+                .isInstanceOf(SmsProviderNotReadyException.class)
+                .hasMessageNotContaining("value one");
+    }
+
+    @Test
+    @DisplayName("unreadable stored credentials never block a provider that needs none, and any save repairs them")
+    void shouldNotBlockProviderWithoutCredentials_whenStoredCredentialsAreUnparseable() {
+        SmsConfig stored = new SmsConfig();
+        stored.setSenderNumber("+14165551212");
+        ReflectionTestUtils.setField(stored, "credentialsJson", "{not json");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().providerSettings(SmsProviderType.STUB).senderNumber()).contains("+14165551212");
+        assertThat(service().providerReady(SmsProviderType.STUB)).isTrue();
+
+        service().save(update(SmsProviderType.STUB, true, "", "", false, Map.of()), "999998");
+        assertThat(stored.credentialsReadable()).isTrue();
+        assertThat(stored.credentialNames()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a credential that no longer decrypts does not count as stored")
+    void shouldNotCountCredential_whenItNoLongerDecrypts() throws Exception {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "value one");
+        EncryptionKeyTestSupport.seedFreshKey();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().providerNeeds(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of()))
+                .storedCredentials()).isEmpty();
+        assertThat(service().providerReady(SmsProviderType.VOIPMS)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a blank field drops a stored value that no longer decrypts, so it cannot block every send")
+    void shouldDropUndecryptableCredential_whenItsFieldIsLeftBlank() throws Exception {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_two", "optional value");
+        EncryptionKeyTestSupport.seedFreshKey();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of("field_one", "typed again")),
+                "999998");
+
+        assertThat(stored.hasCredential("field_two")).isFalse();
+        assertThat(service().readyProviderSettings(SmsProviderType.VOIPMS).credential("field_one"))
+                .contains("typed again");
+    }
+
+    @Test
+    @DisplayName("a required stored value that no longer decrypts is kept, in case the encryption key is put right")
+    void shouldKeepUndecryptableRequiredCredential_whenItsFieldIsLeftBlank() throws Exception {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "required value");
+        EncryptionKeyTestSupport.seedFreshKey();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of()), "999998");
+
+        assertThat(stored.hasCredential("field_one")).isTrue();
+        assertThat(service().providerReady(SmsProviderType.VOIPMS)).isFalse();
+    }
+
+    @Test
+    @DisplayName("a provider is not ready while a required credential is missing, as when nothing is saved")
+    void shouldNotBeReady_whenRequiredCredentialIsMissing() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service().readyProviderSettings(SmsProviderType.VOIPMS))
+                .as("only sms.provider.default names it").isInstanceOf(SmsProviderNotReadyException.class);
+
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_two", "optional value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+        assertThatThrownBy(() -> service().readyProviderSettings(SmsProviderType.VOIPMS))
+                .isInstanceOf(SmsProviderNotReadyException.class)
+                .hasMessageNotContaining("optional value");
+
+        stored.setCredential("field_one", "required value");
+        assertThat(service().providerReady(SmsProviderType.VOIPMS)).isTrue();
+        assertThat(service().providerReady(SmsProviderType.STUB)).as("needs nothing").isTrue();
+    }
+
+    @Test
+    @DisplayName("what a provider needs counts stored credentials only when they are that provider's")
+    void shouldCountStoredCredentials_onlyForSameProvider() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setCredential("field_one", "value one");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().providerNeeds(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of())))
+                .isEqualTo(new SmsConfigValidator.ProviderNeeds(Set.of("field_one"), false, Set.of("field_one")));
+        assertThat(service().providerNeeds(update(SmsProviderType.STUB, true, "", "", false, Map.of())))
+                .isEqualTo(SmsConfigValidator.ProviderNeeds.NONE);
+
+        stored.setProviderType(SmsProviderType.STUB);
+        assertThat(service().providerNeeds(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of()))
+                .storedCredentials()).as("saving the swap clears them").isEmpty();
+    }
+
+    @Test
+    @DisplayName("choosing another provider clears every stored credential, even one the new provider declares")
+    void shouldClearCredentials_whenProviderChanges() {
+        SmsConfig stored = new SmsConfig();
+        stored.setProviderType(SmsProviderType.STUB);
+        stored.setWebhookSecret("webhook-value");
+        stored.setCredential("field_one", "another provider's value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of()), "999998");
+
+        assertThat(stored.credentialNames()).isEmpty();
+        assertThat(stored.getWebhookSecret()).as("CARLOS's own secret is kept").isEqualTo("webhook-value");
+
+        service().save(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of("field_one", "typed")), "999998");
+        service().save(update(SmsProviderType.VOIPMS, true, "", "", false, Map.of()), "999998");
+        assertThat(stored.getCredential("field_one")).as("same provider: a blank field keeps it").isEqualTo("typed");
     }
 
     private SmsConfigService service() {
@@ -432,8 +608,9 @@ class SmsConfigServiceUnitTest {
             }
 
             @Override
-            public List<String> credentialFields() {
-                return List.of("field_one", "field_two");
+            public List<SmsCredentialField> credentialFields() {
+                return List.of(new SmsCredentialField("field_one", "sms.test.fieldOne", true),
+                        new SmsCredentialField("field_two", "sms.test.fieldTwo", false));
             }
         };
         return new SmsProviderClientResolver(List.of(new StubSmsProviderClient(), voipMs));

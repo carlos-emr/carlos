@@ -179,6 +179,27 @@ public class SmsConfig extends AbstractModel<Integer> {
         writeCredentials(credentials);
     }
 
+    /**
+     * @return whether a value is stored under {@code name} and decrypts with the current key; {@code false} when
+     *         none is stored or it cannot be read, for example after the encryption key changed
+     */
+    public boolean hasReadableCredential(String name) {
+        if (!hasCredential(name)) {
+            return false;
+        }
+        try {
+            getCredential(name);
+            return true;
+        } catch (IllegalStateException e) {
+            return false;
+        }
+    }
+
+    /** Removes every stored credential, readable or not; used when the clinic chooses another provider. */
+    public void clearCredentials() {
+        credentialsJson = null;
+    }
+
     /** @return whether {@code name} is stored; {@code false} when the stored credentials cannot be read */
     public boolean hasCredential(String name) {
         return readableCredentials().containsKey(name);

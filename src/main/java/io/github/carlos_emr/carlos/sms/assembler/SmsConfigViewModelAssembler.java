@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsCredentialField;
 import io.github.carlos_emr.carlos.sms.service.SmsDefaultProviderResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsProviderClientResolver;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueScheduler;
@@ -98,16 +99,12 @@ public class SmsConfigViewModelAssembler {
                 messageKeys.add("sms.config.error.invalidPropertyProvider");
             }
         }
-        if (stored.isPresent() && !stored.get().credentialsReadable()) {
+        if (stored.isPresent() && !credentialsReadable(stored.get())) {
             // The page still opens, so the administrator can enter the credentials again and save.
             messageKeys.add("sms.config.error.credentialsUnreadable");
         }
         boolean schedulerRunning = scheduler.isRunning();
-        List<SmsConfigViewModel.CredentialField> credentialFields = configService.credentialFields(providerType)
-                .stream()
-                .map(field -> new SmsConfigViewModel.CredentialField(
-                        field, stored.map(config -> config.hasCredential(field)).orElse(false)))
-                .toList();
+        List<SmsConfigViewModel.CredentialField> credentialFields = credentialFields(providerType, stored.orElse(null));
         return new SmsConfigViewModel(
                 providerType.name(),
                 providerClients.registeredProviderTypes().stream().map(Enum::name).sorted().toList(),
@@ -146,13 +143,8 @@ public class SmsConfigViewModelAssembler {
                 && page.providerOptions().contains(submitted.providerType().name())
                 ? submitted.providerType().name()
                 : page.providerType();
-        Optional<SmsConfig> stored = configService.current();
-        List<SmsConfigViewModel.CredentialField> credentialFields = configService
-                .credentialFields(SmsProviderType.valueOf(providerType))
-                .stream()
-                .map(field -> new SmsConfigViewModel.CredentialField(
-                        field, stored.map(config -> config.hasCredential(field)).orElse(false)))
-                .toList();
+        List<SmsConfigViewModel.CredentialField> credentialFields =
+                credentialFields(SmsProviderType.valueOf(providerType), configService.current().orElse(null));
         return new SmsConfigViewModel(
                 providerType,
                 page.providerOptions(),
@@ -168,5 +160,31 @@ public class SmsConfigViewModelAssembler {
                 page.errorKeys(),
                 submitted.expectedVersion() == null ? "" : String.valueOf(submitted.expectedVersion())
         );
+    }
+
+    /**
+     * Whether every stored credential the saved provider declares can be read. One that no longer decrypts (for
+     * example after the encryption key changed) would otherwise look stored while every send fails.
+     */
+    private boolean credentialsReadable(SmsConfig stored) {
+        return stored.credentialsReadable() && configService.credentialFields(stored.getProviderType()).stream()
+                .map(SmsCredentialField::name)
+                .allMatch(name -> !stored.hasCredential(name) || stored.hasReadableCredential(name));
+    }
+
+    /**
+     * The provider's credential fields, each marked stored only when the stored credentials belong to that
+     * provider and can be read: after choosing another provider, saving clears them, so they must not look kept,
+     * and one that cannot be read must be entered again.
+     *
+     * @param stored the saved settings, or {@code null} while nothing is saved
+     */
+    private List<SmsConfigViewModel.CredentialField> credentialFields(SmsProviderType providerType,
+                                                                      SmsConfig stored) {
+        boolean sameProvider = stored != null && stored.getProviderType() == providerType;
+        return configService.credentialFields(providerType).stream()
+                .map(field -> new SmsConfigViewModel.CredentialField(field.name(), field.labelKey(), field.required(),
+                        sameProvider && stored.hasReadableCredential(field.name())))
+                .toList();
     }
 }

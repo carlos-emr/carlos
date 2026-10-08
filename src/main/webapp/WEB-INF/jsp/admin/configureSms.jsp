@@ -136,7 +136,7 @@
                     <c:forEach items="${smsConfig.credentialFields}" var="field">
                         <div class="mb-2">
                             <label class="form-label"
-                                   for="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"><carlos:encode value="${field.name}"/></label>
+                                   for="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"><fmt:message key="${field.labelKey}"/></label>
                             <input class="form-control" type="password" value="" autocomplete="new-password"
                                    id="credential-<carlos:encode value='${field.name}' context='htmlAttribute'/>"
                                    name="credential.<carlos:encode value='${field.name}' context='htmlAttribute'/>"/>
@@ -145,6 +145,7 @@
                                     <c:when test="${field.set}"><fmt:message key="sms.config.secretStored"/></c:when>
                                     <c:otherwise><fmt:message key="sms.config.secretNotStored"/></c:otherwise>
                                 </c:choose>
+                                <c:if test="${field.required}"><fmt:message key="sms.config.credentialRequiredHint"/></c:if>
                             </div>
                         </div>
                     </c:forEach>

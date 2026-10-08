@@ -67,7 +67,7 @@ class SmsQueueProcessingServiceUnitTest {
     }
 
     @Test
-    @DisplayName("processDueMessages drains queued rows for a non-STUB provider")
+    @DisplayName("processDueMessages drains queued rows for a non-STUB active provider")
     void shouldSendMessage_whenQueueItemIsForNonStubProvider() {
         SmsTransaction transaction = SmsTransaction.outboundAttempt(
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
@@ -80,7 +80,9 @@ class SmsQueueProcessingServiceUnitTest {
                 new SmsProviderClientResolver(List.of(new VoipMsAcceptingProviderClient())),
                 new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
                 providerType -> true,
-                command -> CONSENTED
+                command -> CONSENTED,
+                () -> SmsProviderType.VOIPMS,
+                SmsProviderSettings::none
         );
 
         int processed = worker.processDueMessages(25);
@@ -550,40 +552,34 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(worker.processDueMessages(1)).isZero();
 
-        verify(client, never()).send(any(), anyString());
+        verify(client, never()).send(any(), anyString(), any());
         assertThat(transaction.getConsentId()).isEqualTo(5);
     }
 
     @Test
-    @DisplayName("a rate limiter failure hands the claim back and leaves the other providers draining")
-    void shouldReleaseClaimAndDrainOtherProvider_whenRateLimiterThrows() {
+    @DisplayName("a rate limiter failure hands the claim back and the run goes on to a former provider's rows")
+    void shouldReleaseClaimAndContinueRun_whenRateLimiterThrows() {
         SmsTransaction stubRow = queuedTransaction();
         SmsTransaction voipMsRow = queuedVoipMsTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stubRow, voipMsRow));
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(
-                recorder,
-                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
-                new SmsRetryCalculator(),
+        SmsQueueProcessingService worker = voipMsActiveWorker(recorder,
                 providerType -> {
-                    // VoIP.ms drains before the stub provider, so this proves the providers after it still run.
-                    if (providerType == SmsProviderType.VOIPMS) {
-                        throw new IllegalStateException("rate limit row cannot be written");
-                    }
-                    return true;
+                    throw new IllegalStateException("rate limit row cannot be written");
                 },
                 command -> CONSENTED);
 
-        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+        assertThat(worker.processDueMessages(5)).isZero();
 
         assertThat(voipMsRow)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
                 .containsExactly(SmsStatus.QUEUED, 0);
-        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(stubRow).extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, "QUEUE_PROVIDER_NOT_ACTIVE");
     }
 
     @Test
-    @DisplayName("a claim that cannot be handed back stays for stale recovery and the other providers keep draining")
-    void shouldDrainOtherProvider_whenClaimCannotBeHandedBack() {
+    @DisplayName("a claim that cannot be handed back stays for stale recovery and the run goes on")
+    void shouldContinueRun_whenClaimCannotBeHandedBack() {
         SmsTransaction stubRow = queuedTransaction();
         SmsTransaction voipMsRow = queuedVoipMsTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stubRow, voipMsRow)) {
@@ -592,22 +588,17 @@ class SmsQueueProcessingServiceUnitTest {
                 throw new IllegalStateException("claim release cannot be written");
             }
         };
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(
-                recorder,
-                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
-                new SmsRetryCalculator(),
-                providerType -> providerType != SmsProviderType.VOIPMS,
-                command -> CONSENTED);
+        SmsQueueProcessingService worker = voipMsActiveWorker(recorder, providerType -> false, command -> CONSENTED);
 
-        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+        assertThat(worker.processDueMessages(5)).isZero();
 
         assertThat(voipMsRow.getStatus()).isEqualTo(SmsStatus.SENDING);
-        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.FAILED);
     }
 
     @Test
-    @DisplayName("a limiter failure whose hand-back fails with the same exception still leaves the other providers draining")
-    void shouldDrainOtherProvider_whenLimiterAndHandBackFailTogether() {
+    @DisplayName("a limiter failure whose hand-back fails with the same exception still lets the run go on")
+    void shouldContinueRun_whenLimiterAndHandBackFailTogether() {
         SmsTransaction stubRow = queuedTransaction();
         SmsTransaction voipMsRow = queuedVoipMsTransaction();
         IllegalStateException databaseDown = new IllegalStateException("database unavailable");
@@ -617,47 +608,52 @@ class SmsQueueProcessingServiceUnitTest {
                 throw databaseDown;
             }
         };
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(
-                recorder,
-                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
-                new SmsRetryCalculator(),
+        SmsQueueProcessingService worker = voipMsActiveWorker(recorder,
                 providerType -> {
-                    if (providerType == SmsProviderType.VOIPMS) {
-                        throw databaseDown;
-                    }
-                    return true;
+                    throw databaseDown;
                 },
                 command -> CONSENTED);
 
-        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+        assertThat(worker.processDueMessages(5)).isZero();
 
         assertThat(voipMsRow.getStatus()).isEqualTo(SmsStatus.SENDING);
-        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.FAILED);
         assertThat(databaseDown.getSuppressed()).isEmpty();
     }
 
     @Test
-    @DisplayName("a consent recheck failure for one SMS provider leaves the other providers draining")
-    void shouldDrainOtherProvider_whenConsentRecheckFailsForOneProvider() {
+    @DisplayName("a former provider's row that cannot be failed goes back to the queue, with nothing sent")
+    void shouldHandRowBack_whenInactiveRowCannotBeFailed() {
+        SmsTransaction stubRow = queuedTransaction();
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stubRow)) {
+            @Override
+            public SmsTransaction markProviderResult(SmsTransaction transaction, SmsProviderSendResultDto result) {
+                throw new IllegalStateException("row cannot be written");
+            }
+        };
+
+        assertThat(voipMsActiveWorker(recorder, providerType -> true, command -> CONSENTED).processDueMessages(5))
+                .isZero();
+
+        assertThat(stubRow).extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
+                .containsExactly(SmsStatus.QUEUED, 0);
+        assertThat(stubRow.getProviderMessageId()).isNull();
+    }
+
+    @Test
+    @DisplayName("a consent recheck failure backs the row off and the run goes on")
+    void shouldContinueRun_whenConsentRecheckFails() {
         SmsTransaction stubRow = queuedTransaction();
         SmsTransaction voipMsRow = queuedVoipMsTransaction();
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(stubRow, voipMsRow));
-        SmsQueueProcessingService worker = new SmsQueueProcessingService(
-                recorder,
-                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
-                new SmsRetryCalculator(),
-                providerType -> true,
+        SmsQueueProcessingService worker = voipMsActiveWorker(recorder, providerType -> true,
                 command -> {
-                    // The VoIP.ms row (patient 456) drains first, so the stub provider must still run after it.
-                    if (Integer.valueOf(456).equals(command.demographicNo())) {
-                        throw new IllegalStateException("consent record cannot be loaded");
-                    }
-                    return CONSENTED;
+                    throw new IllegalStateException("consent record cannot be loaded");
                 });
 
-        assertThat(worker.processDueMessages(5)).isEqualTo(1);
+        assertThat(worker.processDueMessages(5)).isZero();
 
-        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(stubRow.getStatus()).isEqualTo(SmsStatus.FAILED);
         assertThat(voipMsRow)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
                 .containsExactly(SmsStatus.QUEUED, "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED");
@@ -754,7 +750,7 @@ class SmsQueueProcessingServiceUnitTest {
         };
         SmsProviderClient client = mock(SmsProviderClient.class);
         when(client.providerType()).thenReturn(SmsProviderType.STUB);
-        when(client.send(any(), anyString())).thenReturn(SmsProviderSendResultDto.accepted("provider-2", SmsStatus.SENT));
+        when(client.send(any(), anyString(), any())).thenReturn(SmsProviderSendResultDto.accepted("provider-2", SmsStatus.SENT));
         SmsQueueProcessingService worker = new SmsQueueProcessingService(
                 recorder,
                 new SmsProviderClientResolver(List.of(client)),
@@ -765,8 +761,8 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(worker.processDueMessages(5)).isEqualTo(1);
 
         assertThat(events).containsExactly("tryAcquire", "renewClaim 1", "tryAcquire", "renewClaim 2");
-        verify(client).send(any(), eq(second.getClientReferenceId()));
-        verify(client, never()).send(any(), eq(first.getClientReferenceId()));
+        verify(client).send(any(), eq(second.getClientReferenceId()), any());
+        verify(client, never()).send(any(), eq(first.getClientReferenceId()), any());
         assertThat(second.getStatus()).isEqualTo(SmsStatus.SENT);
     }
 
@@ -797,7 +793,7 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(worker.processDueMessages(5)).isZero();
 
-        verify(client, never()).send(any(), anyString());
+        verify(client, never()).send(any(), anyString(), any());
         // Nothing was sent, so the claim is handed back rather than left SENDING for stale recovery.
         assertThat(first)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getAttemptCount)
@@ -865,7 +861,7 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(worker.processDueMessages(1)).isZero();
 
-        verify(client, never()).send(any(), anyString());
+        verify(client, never()).send(any(), anyString(), any());
         // Backed off like a failed consent check, with the attempt counted, rather than handed back.
         assertThat(transaction)
                 .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode, SmsTransaction::getAttemptCount)
@@ -902,7 +898,7 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(worker.processDueMessages(5)).isZero();
 
-        verify(client, never()).send(any(), anyString());
+        verify(client, never()).send(any(), anyString(), any());
         assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENDING);
     }
 
@@ -938,10 +934,11 @@ class SmsQueueProcessingServiceUnitTest {
         RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(transaction));
         SmsProviderClient client = mock(SmsProviderClient.class);
         when(client.providerType()).thenReturn(SmsProviderType.STUB);
-        when(client.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()))
+        when(client.send(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new IllegalStateException("synthetic timeout after acceptance"));
         when(client.lookupMessageStatus(org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.isNull())).thenReturn(SmsProviderMessageStatusDto.found(
+                org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any())).thenReturn(SmsProviderMessageStatusDto.found(
                         SmsProviderSendResultDto.accepted("accepted-once", SmsStatus.SENT)));
         SmsQueueProcessingService worker = new SmsQueueProcessingService(recorder, new SmsProviderClientResolver(List.of(client)),
                 new SmsRetryCalculator(), type -> true, command -> CONSENTED);
@@ -955,7 +952,18 @@ class SmsQueueProcessingServiceUnitTest {
 
         assertThat(transaction.getStatus()).isEqualTo(SmsStatus.SENT);
         verify(client, times(1)).send(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("sms-transaction-1"));
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("sms-transaction-1"),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    /** A worker with VoIP.ms as the clinic's active provider, so a stub row belongs to a former provider. */
+    private static SmsQueueProcessingService voipMsActiveWorker(RecordingSmsTransactionService recorder,
+                                                                SmsSendRateLimitService rateLimiter,
+                                                                SmsConsentService consentService) {
+        return new SmsQueueProcessingService(recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient(), new VoipMsAcceptingProviderClient())),
+                new SmsRetryCalculator(), rateLimiter, consentService, () -> SmsProviderType.VOIPMS,
+                SmsProviderSettings::none);
     }
 
     private static void scheduleTwoFailedAttempts(SmsTransaction transaction) {
@@ -1128,7 +1136,7 @@ class SmsQueueProcessingServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             return SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT);
         }
 
@@ -1155,28 +1163,29 @@ class SmsQueueProcessingServiceUnitTest {
         }
 
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             return SmsProviderSendResultDto.accepted("provider-voipms-1", SmsStatus.SENT);
         }
     }
 
     private static class FailingProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             return SmsProviderSendResultDto.failed("PROVIDER_ERROR", "Provider rejected message");
         }
     }
 
     private static class ThrowingProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+        public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
             throw new IllegalStateException("provider unavailable");
         }
     }
 
     private static class FoundStatusProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId) {
+        public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId,
+                                                               SmsProviderSettings settings) {
             return SmsProviderMessageStatusDto.found(
                     SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT)
             );
@@ -1185,7 +1194,8 @@ class SmsQueueProcessingServiceUnitTest {
 
     private static class NotFoundStatusProviderClient extends AcceptingProviderClient {
         @Override
-        public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId) {
+        public SmsProviderMessageStatusDto lookupMessageStatus(String clientReferenceId, String providerMessageId,
+                                                               SmsProviderSettings settings) {
             return SmsProviderMessageStatusDto.notFound();
         }
     }

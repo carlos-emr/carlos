@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsCredentialField;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
 import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
 import io.github.carlos_emr.carlos.sms.viewmodel.SmsConfigViewModel;
@@ -50,6 +51,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -179,13 +181,18 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("webhookSecret", "webhook-value");
         request.setParameter("credential.field_two", FIELD_INPUT);
         request.setParameter("version", "4");
-        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two"));
-        when(validator.validate(any(), any())).thenReturn(List.of());
+        when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of(
+                new SmsCredentialField("field_two", "sms.test.fieldTwo", false)));
+        SmsConfigValidator.ProviderNeeds needs =
+                new SmsConfigValidator.ProviderNeeds(Set.of("field_two"), true, Set.of());
+        when(configService.providerNeeds(any())).thenReturn(needs);
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
 
         String result = action().execute();
 
         assertThat(result).isEqualTo("none");
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=saved");
+        verify(validator).validate(any(), any(), eq(needs));
         ArgumentCaptor<SmsConfigUpdateDto> update = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
         verify(configService).save(update.capture(), eq("999998"));
         assertThat(update.getValue())
@@ -203,7 +210,7 @@ class ConfigureSms2ActionUnitTest {
         allowWrite();
         request.setParameter("method", "configure");
         request.setParameter("providerType", "STUB");
-        when(validator.validate(any(), any())).thenReturn(List.of());
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
         ArgumentCaptor<SmsConfigUpdateDto> update = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
 
         request.setParameter("version", "");
@@ -223,7 +230,7 @@ class ConfigureSms2ActionUnitTest {
         allowWrite();
         request.setParameter("method", "configure");
         request.setParameter("providerType", "VOIPMS");
-        when(validator.validate(any(), any())).thenReturn(List.of("sms.config.error.providerNotInstalled"));
+        when(validator.validate(any(), any(), any())).thenReturn(List.of("sms.config.error.providerNotInstalled"));
         SmsConfigViewModel model = mock(SmsConfigViewModel.class);
         when(assembler.assembleRejected(any(SmsConfigUpdateDto.class), eq(List.of("sms.config.error.providerNotInstalled"))))
                 .thenReturn(model);
@@ -242,7 +249,7 @@ class ConfigureSms2ActionUnitTest {
         allowWrite();
         request.setParameter("method", "configure");
         request.setParameter("providerType", "STUB");
-        when(validator.validate(any(), any())).thenReturn(List.of());
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
         doThrow(new SmsConfigConflictException(new IllegalStateException("stale")))
                 .when(configService).save(any(), any());
         when(configService.alreadySaved(any(), eq("999998"))).thenReturn(false);
@@ -265,7 +272,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("method", "configure");
         request.setParameter("providerType", "STUB");
         request.setParameter("version", "4");
-        when(validator.validate(any(), any())).thenReturn(List.of());
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
         doThrow(new SmsConfigConflictException()).when(configService).save(any(), any());
         when(configService.alreadySaved(any(), eq("999998"))).thenReturn(true);
 
@@ -288,7 +295,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("method", "configure");
         request.setParameter("providerType", "STUB");
         request.setParameter("webhookSecret", "webhook-value");
-        when(validator.validate(any(), any())).thenReturn(List.of());
+        when(validator.validate(any(), any(), any())).thenReturn(List.of());
         doThrow(new SmsSecretEncryptionException()).when(configService).save(any(), any());
         SmsConfigViewModel model = mock(SmsConfigViewModel.class);
         when(assembler.assembleRejected(any(SmsConfigUpdateDto.class),
@@ -369,7 +376,7 @@ class ConfigureSms2ActionUnitTest {
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=testInvalid");
         verifyNoInteractions(sendService);
         verify(configService, never()).save(any(), any());
-        verify(validator, never()).validate(any(), any());
+        verify(validator, never()).validate(any(), any(), any());
     }
 
     private void allowWrite() {

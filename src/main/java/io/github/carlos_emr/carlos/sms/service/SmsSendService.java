@@ -28,6 +28,12 @@ public class SmsSendService {
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
     public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
+    /**
+     * Returned, without recording anything, while the provider cannot send: a credential or the sender number it
+     * needs is not saved, or a saved credential cannot be read.
+     */
+    public static final String SMS_PROVIDER_NOT_READY_MESSAGE = "The SMS provider is not set up: a credential or "
+            + "the sender number it needs is missing or cannot be read. Check Administration > SMS.";
     /** Fixed, synthetic body for the Administration &gt; SMS system test; never patient content. */
     static final String SYSTEM_TEST_BODY = "CARLOS SMS system test. No reply needed.";
 
@@ -129,6 +135,16 @@ public class SmsSendService {
         }
 
         SmsProviderType providerType = forcedProvider != null ? forcedProvider : providerSelector.configuredDefault();
+        SmsProviderSettings settings;
+        try {
+            settings = configService == null ? SmsProviderSettings.none(providerType)
+                    : configService.readyProviderSettings(providerType);
+        } catch (SmsProviderNotReadyException e) {
+            // Nothing is recorded, so nothing waits in the queue on settings that cannot work until an
+            // administrator fixes them.
+            LOGGER.error("SMS not sent: SMS provider {} is not ready: {}.", providerType, e.getMessage());
+            return SmsSendResultDto.validationFailed(List.of(SMS_PROVIDER_NOT_READY_MESSAGE));
+        }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
         SmsTransaction transaction = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
@@ -168,7 +184,10 @@ public class SmsSendService {
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(providerType);
-            providerResult = Objects.requireNonNull(providerClient.send(command, clientReferenceId(transaction)),
+            // The recorded row, not the caller's command: the provider gets the number in E.164 form, exactly
+            // as the queue worker hands it over.
+            providerResult = Objects.requireNonNull(
+                    providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction), settings),
                     "SMS provider result is required");
         } catch (RuntimeException e) {
             providerResult = SmsProviderSendResultDto.uncertain(DIRECT_PROVIDER_EXCEPTION_CODE);

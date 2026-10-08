@@ -59,9 +59,11 @@ public record SmsConfigViewModel(String providerType, List<String> providerOptio
     /**
      * One credential field of the selected provider.
      *
-     * @param name field name as the provider client declares it
-     * @param set  whether a value is stored
+     * @param name     field name as the provider client declares it
+     * @param labelKey message key of the field's label
+     * @param required whether sending can be switched on only once the field has a value
+     * @param set      whether a value is stored
      */
-    public record CredentialField(String name, boolean set) {
+    public record CredentialField(String name, String labelKey, boolean required, boolean set) {
     }
 }

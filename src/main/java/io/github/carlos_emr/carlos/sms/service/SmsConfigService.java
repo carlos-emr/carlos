@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
+import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.OptimisticLockException;
 import org.hibernate.StaleStateException;
@@ -42,8 +43,10 @@ import java.security.MessageDigest;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -56,8 +59,9 @@ import java.util.Set;
  * {@code sms.queue.scheduler.enabled}. Once saved, the stored values win.
  * <p>
  * Secrets are write-only: a blank webhook secret or credential keeps what is stored. Only the
- * credential fields the chosen provider declares are kept; others (for example from a previously
- * chosen provider) are removed so no stale secret lingers. Saving publishes
+ * credential fields the chosen provider declares are kept, and choosing another provider removes every
+ * stored credential, so one provider's login is never handed to another that happens to use the same
+ * field name. The webhook secret is CARLOS's own and is kept. Saving publishes
  * {@link SmsConfigChangedEvent} so the queue scheduler can start or stop without a restart.
  *
  * @since 2026-09-24
@@ -132,11 +136,114 @@ public class SmsConfigService {
     }
 
     /** @return the credential fields the provider's client declares; empty when no client is installed */
-    public List<String> credentialFields(SmsProviderType providerType) {
+    public List<SmsCredentialField> credentialFields(SmsProviderType providerType) {
         if (providerType == null || !providerClients.registeredProviderTypes().contains(providerType)) {
             return List.of();
         }
         return List.copyOf(providerClients.resolve(providerType).credentialFields());
+    }
+
+    /**
+     * What saving {@code update} needs before sending can be switched on: the provider's required credential
+     * fields, whether it needs a sender number, and which credentials are already stored for it. Nothing
+     * counts as stored when the update chooses another provider, because saving clears the old provider's
+     * credentials, or when a stored credential cannot be read.
+     *
+     * @param update the submitted settings
+     * @return the provider's needs, for {@code SmsConfigValidator}
+     */
+    @Transactional(readOnly = true)
+    public SmsConfigValidator.ProviderNeeds providerNeeds(SmsConfigUpdateDto update) {
+        SmsProviderType providerType = update.providerType();
+        if (providerType == null || !providerClients.registeredProviderTypes().contains(providerType)) {
+            return SmsConfigValidator.ProviderNeeds.NONE;
+        }
+        SmsProviderClient client = providerClients.resolve(providerType);
+        Set<String> required = new HashSet<>();
+        client.credentialFields().stream().filter(SmsCredentialField::required)
+                .forEach(field -> required.add(field.name()));
+        Set<String> stored = new HashSet<>();
+        current().filter(config -> config.getProviderType() == providerType).ifPresent(config ->
+                client.credentialFields().stream().map(SmsCredentialField::name)
+                        .filter(config::hasReadableCredential).forEach(stored::add));
+        return new SmsConfigValidator.ProviderNeeds(required, client.requiresSenderNumber(), stored);
+    }
+
+    /**
+     * @param providerType the provider about to be used
+     * @return whether it can send now ({@link #readyProviderSettings(SmsProviderType)}), so a text that could
+     *         never be sent is refused before it is recorded
+     */
+    @Transactional(readOnly = true)
+    public boolean providerReady(SmsProviderType providerType) {
+        try {
+            readyProviderSettings(providerType);
+            return true;
+        } catch (SmsProviderNotReadyException e) {
+            return false;
+        }
+    }
+
+    /**
+     * The settings a provider sends with, checked against what it declares it needs. A provider with no
+     * installed client is not checked: resolving it fails anyway.
+     *
+     * @param providerType the provider about to send
+     * @return its settings, with every required credential and, if it needs one, the sender number
+     * @throws SmsProviderNotReadyException when a stored credential cannot be read, or a required credential or
+     *                                      the sender number is missing, as while only {@code sms.provider.default}
+     *                                      names a provider that needs credentials
+     */
+    @Transactional(readOnly = true)
+    public SmsProviderSettings readyProviderSettings(SmsProviderType providerType) {
+        SmsProviderSettings settings = providerSettings(providerType);
+        if (!providerClients.registeredProviderTypes().contains(providerType)) {
+            return settings;
+        }
+        SmsProviderClient client = providerClients.resolve(providerType);
+        boolean credentialMissing = client.credentialFields().stream()
+                .anyMatch(field -> field.required() && settings.credential(field.name()).isEmpty());
+        if (credentialMissing) {
+            throw new SmsProviderNotReadyException("a required SMS provider credential is not saved");
+        }
+        if (client.requiresSenderNumber() && settings.senderNumber().isEmpty()) {
+            throw new SmsProviderNotReadyException("the SMS sender number the provider needs is not saved");
+        }
+        return settings;
+    }
+
+    /**
+     * The settings a provider gets when it sends or looks up a text: the saved sender number and its declared
+     * credentials while it is the saved provider, otherwise none. While nothing is saved there is nothing to
+     * hand over, so every provider gets none.
+     *
+     * @param providerType the provider about to send or look up a text
+     * @return its settings
+     * @throws SmsProviderNotReadyException when a stored credential cannot be read (for example after the
+     *                                      encryption key changed); the administrator must enter it again
+     */
+    @Transactional(readOnly = true)
+    public SmsProviderSettings providerSettings(SmsProviderType providerType) {
+        Optional<SmsConfig> stored = current().filter(config -> config.getProviderType() == providerType);
+        if (stored.isEmpty()) {
+            return SmsProviderSettings.none(providerType);
+        }
+        SmsConfig config = stored.get();
+        List<SmsCredentialField> fields = credentialFields(providerType);
+        if (!fields.isEmpty() && !config.credentialsReadable()) {
+            throw new SmsProviderNotReadyException("the stored SMS provider credentials cannot be parsed");
+        }
+        Map<String, String> credentials = new HashMap<>();
+        for (SmsCredentialField field : fields) {
+            if (config.hasCredential(field.name())) {
+                try {
+                    credentials.put(field.name(), config.getCredential(field.name()));
+                } catch (IllegalStateException e) {
+                    throw new SmsProviderNotReadyException("a stored SMS provider credential cannot be decrypted", e);
+                }
+            }
+        }
+        return SmsProviderSettings.of(providerType, config.getSenderNumber(), credentials);
     }
 
     /**
@@ -161,6 +268,9 @@ public class SmsConfigService {
         }
         SmsConfig config = existing.orElseGet(SmsConfig::new);
         Snapshot before = Snapshot.of(config, existing.isPresent());
+        if (existing.isPresent() && config.getProviderType() != update.providerType()) {
+            config.clearCredentials();
+        }
         config.setProviderType(update.providerType());
         config.setEnabled(update.enabled());
         config.setSchedulerEnabled(update.schedulerEnabled());
@@ -232,7 +342,7 @@ public class SmsConfigService {
     }
 
     private boolean credentialsMatch(SmsConfig config, SmsConfigUpdateDto update) {
-        Set<String> declared = new HashSet<>(credentialFields(update.providerType()));
+        Set<String> declared = declaredNames(update.providerType());
         if (!config.credentialsReadable() || !declared.containsAll(config.credentialNames())) {
             return false;
         }
@@ -291,17 +401,35 @@ public class SmsConfigService {
         return false;
     }
 
+    private Set<String> declaredNames(SmsProviderType providerType) {
+        Set<String> names = new HashSet<>();
+        credentialFields(providerType).forEach(field -> names.add(field.name()));
+        return names;
+    }
+
     private void applyCredentials(SmsConfig config, SmsConfigUpdateDto update) {
-        Set<String> declared = new HashSet<>(credentialFields(update.providerType()));
+        if (!config.credentialsReadable()) {
+            // Values that cannot be parsed are lost already; dropping them lets any save repair the row, even
+            // for a provider that declares no credentials and so would never rewrite them.
+            config.clearCredentials();
+        }
+        Set<String> declared = declaredNames(update.providerType());
         for (String stored : config.credentialNames()) {
             if (!declared.contains(stored)) {
                 config.setCredential(stored, null);
             }
         }
-        for (String field : declared) {
-            String value = update.credentials().get(field);
+        for (SmsCredentialField field : credentialFields(update.providerType())) {
+            String value = update.credentials().get(field.name());
             if (!isBlank(value)) {
-                config.setCredential(field, value);
+                config.setCredential(field.name(), value);
+            } else if (!field.required() && config.hasCredential(field.name())
+                    && !config.hasReadableCredential(field.name())) {
+                // An optional value that no longer decrypts, left blank because the page showed it as not stored,
+                // would block every send until something was typed into its field, so it is dropped. A required
+                // one is kept, in case the encryption key is put right: sending stays blocked until it is entered
+                // again either way.
+                config.setCredential(field.name(), null);
             }
         }
     }

@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderMessageStatusDto;
@@ -16,14 +17,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("unit")
 @Tag("service")
 class StubSmsProviderClientUnitTest {
+    private static final SmsProviderSettings NO_SETTINGS = SmsProviderSettings.none(SmsProviderType.STUB);
+
     @Test
     @DisplayName("stub SMS provider returns stable non-blank SMS provider ids")
     void shouldReturnStableProviderId_whenCommandRepeats() {
         StubSmsProviderClient client = new StubSmsProviderClient();
         SmsSendCommand command = SmsSendCommand.patientMessage(123, "(416) 555-1212", "Appointment reminder", "999998");
 
-        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1");
-        SmsProviderSendResultDto second = client.send(command, "sms-transaction-1");
+        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1", NO_SETTINGS);
+        SmsProviderSendResultDto second = client.send(command, "sms-transaction-1", NO_SETTINGS);
 
         assertThat(first.accepted()).isTrue();
         assertThat(first.status()).isEqualTo(SmsStatus.SENT);
@@ -39,8 +42,8 @@ class StubSmsProviderClientUnitTest {
 
         // Same body+number, different sms_transaction rows: ids must differ so the second send does not
         // collide on the (provider_type, provider_message_id) unique key.
-        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1");
-        SmsProviderSendResultDto second = client.send(command, "sms-transaction-2");
+        SmsProviderSendResultDto first = client.send(command, "sms-transaction-1", NO_SETTINGS);
+        SmsProviderSendResultDto second = client.send(command, "sms-transaction-2", NO_SETTINGS);
 
         assertThat(first.providerMessageId()).startsWith("stub-");
         assertThat(second.providerMessageId()).startsWith("stub-");
@@ -82,14 +85,14 @@ class StubSmsProviderClientUnitTest {
     void shouldReturnUnavailableStatus_whenDefaultStatusLookupIsUsed() {
         StubSmsProviderClient client = new StubSmsProviderClient();
 
-        assertThat(client.lookupMessageStatus("sms-transaction-1", null).status())
+        assertThat(client.lookupMessageStatus("sms-transaction-1", null, NO_SETTINGS).status())
                 .isEqualTo(SmsProviderMessageStatusDto.Status.UNAVAILABLE);
-        assertThat(client.lookupMessageStatus(" ", "provider-1").status())
+        assertThat(client.lookupMessageStatus(" ", "provider-1", NO_SETTINGS).status())
                 .isEqualTo(SmsProviderMessageStatusDto.Status.UNAVAILABLE);
-        assertThatThrownBy(() -> client.lookupMessageStatus(null, "provider-1"))
+        assertThatThrownBy(() -> client.lookupMessageStatus(null, "provider-1", NO_SETTINGS))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("clientReferenceId");
-        assertThatThrownBy(() -> client.lookupMessageStatus(" ", null))
+        assertThatThrownBy(() -> client.lookupMessageStatus(" ", null, NO_SETTINGS))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("clientReferenceId or providerMessageId");
     }

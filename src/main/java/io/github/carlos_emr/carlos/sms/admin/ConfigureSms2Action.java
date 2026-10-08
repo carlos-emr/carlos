@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
+import io.github.carlos_emr.carlos.sms.service.SmsCredentialField;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import io.github.carlos_emr.carlos.sms.validator.SmsConfigValidator;
@@ -109,10 +110,10 @@ public class ConfigureSms2Action extends ActionSupport {
             throws IOException {
         SmsProviderType providerType = parseProvider(request.getParameter("providerType"));
         Map<String, String> credentials = new HashMap<>();
-        for (String field : configService.credentialFields(providerType)) {
-            String value = request.getParameter(CREDENTIAL_PARAMETER_PREFIX + field);
+        for (SmsCredentialField field : configService.credentialFields(providerType)) {
+            String value = request.getParameter(CREDENTIAL_PARAMETER_PREFIX + field.name());
             if (value != null) {
-                credentials.put(field, value);
+                credentials.put(field.name(), value);
             }
         }
         SmsConfigUpdateDto update = new SmsConfigUpdateDto(
@@ -125,7 +126,8 @@ public class ConfigureSms2Action extends ActionSupport {
                 credentials,
                 parseVersion(request.getParameter("version"))
         );
-        List<String> errors = validator.validate(update, configService.installedProviders());
+        List<String> errors = validator.validate(update, configService.installedProviders(),
+                configService.providerNeeds(update));
         if (!errors.isEmpty()) {
             // Re-displayed with 200: CARLOS's ResponseSanitizationFilter mishandles a JSP body rendered
             // under a 4xx status ("committed mid-chain"), which left the admin a blank page.
