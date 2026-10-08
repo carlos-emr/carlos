@@ -340,6 +340,17 @@
         } else if (modal) {
             init(modal);
         }
+        // Footers a page only shows (the clinic footer, a previous footer) carry their HTML in
+        // data-footer-html and are drawn here, cleaned the same way: never written into the page raw.
+        document.querySelectorAll('[data-footer-html]').forEach(function (holder) {
+            var source = holder.getAttribute('data-footer-html');
+            var html = window.DOMPurify ? clean(source) : '';
+            if (html) {
+                holder.innerHTML = html; // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method -- DOMPurify-sanitized footer
+            } else {
+                holder.textContent = (window.DOMPurify ? '' : inertText(source)) || holder.getAttribute('data-empty-text') || '';
+            }
+        });
         // Each footer on the page shows its current value, cleaned, until the window changes it.
         document.querySelectorAll('[data-footer-editor-target]').forEach(function (opener) {
             renderPreview(document.getElementById(opener.getAttribute('data-footer-editor-target')),

@@ -817,12 +817,24 @@
 							${carlos:forHtml(emailComposeStatusTrackingFailed)}
 						</div>
 					</c:if>
+                    <%-- "Also make this my usual footer": done only once the email was accepted. --%>
+                    <c:if test="${footerSavedAsMine}">
+                        <div class="alert alert-info" role="status" id="footerSavedAsMine">
+                            <fmt:message key="email.compose.footer.savedAsMine"/></div>
+                    </c:if>
+                    <c:if test="${footerSaveAsMineFailed}">
+                        <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
+                            <fmt:message key="email.compose.footer.saveAsMineFailed"/>
+                            <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                               class="alert-link ms-1"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        </div>
+                    </c:if>
                     <c:if test="${isEmailFollowUpRequired}">
                         <div class="alert alert-warning" role="alert" id="emailFollowUpWarning">
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
@@ -903,6 +915,7 @@
 
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')
+                    && !document.getElementById('footerSaveAsMineFailed')
                     && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.

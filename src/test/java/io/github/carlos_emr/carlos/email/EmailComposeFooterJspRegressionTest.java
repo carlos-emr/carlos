@@ -75,6 +75,31 @@ class EmailComposeFooterJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should offer to make the footer the user's usual one, report the outcome, and stay open if it failed")
+    void shouldOfferSaveAsMine_insideSendForm() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        int box = jsp.indexOf("name=\"saveFooterAsMine\" id=\"saveFooterAsMine\" value=\"true\"");
+        assertThat(box).isGreaterThan(jsp.indexOf("id=\"footerEmail\"")).isLessThan(jsp.indexOf("</form>"));
+        assertThat(jsp)
+                .contains("<fmt:message key=\"email.compose.footer.saveAsMine\"/>")
+                .contains("<c:if test=\"${footerSavedAsMine}\">")
+                .contains("<c:if test=\"${footerSaveAsMineFailed}\">")
+                // A failed save keeps the window open so the user sees it.
+                .contains("&& !document.getElementById('footerSaveAsMineFailed')");
+        for (String locale : LOCALES) {
+            for (String key : List.of("email.compose.footer.saveAsMine", "email.compose.footer.savedAsMine",
+                    "email.compose.footer.saveAsMineFailed")) {
+                assertThat(bundle(locale).getProperty(key)).as(locale + " " + key).isNotBlank();
+                if (!"en".equals(locale)) {
+                    assertThat(bundle(locale).getProperty(key)).as(locale + " " + key)
+                            .isNotEqualTo(bundle("en").getProperty(key));
+                }
+            }
+        }
+    }
+
+    @Test
     @DisplayName("should show the help line and the encrypted-message notice from the bundle in every locale")
     void shouldShowFooterHelpLine_fromBundleKey() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);

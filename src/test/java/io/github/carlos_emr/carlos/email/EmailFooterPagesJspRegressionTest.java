@@ -59,19 +59,23 @@ class EmailFooterPagesJspRegressionTest {
             "<fmt:message key=\"((?:admin\\.configureEmail\\.footer|email\\.myFooter|email\\.footer|email\\.compose\\.footer)\\.[A-Za-z]+)\"");
 
     @Test
-    @DisplayName("should show the user's footers encoded and post every change to the save action")
+    @DisplayName("should edit the user's footer in the shared window, show footers only through the cleaner, and post every change")
     void shouldEncodeFootersAndPostChanges_onMyFooterPage() throws IOException {
         String jsp = Files.readString(MY_FOOTER_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("aria-describedby=\"myFooterEmptyHelp myFooterHelp\"><carlos:encode value=\"${myFooter}\"/></textarea>")
+                .contains("<input type=\"hidden\" id=\"myFooter\" name=\"myFooter\" value=\"<carlos:encode value='${myFooter}' context='htmlAttribute'/>\"/>")
+                .contains("data-footer-editor-target=\"myFooter\" data-footer-editor-preview=\"myFooterPreview\"")
+                .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeMine\"/>")
+                .contains("<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>")
                 // A blank footer means the clinic footer (maintainer decision, 8 Oct), and the page says so.
                 .contains("<div id=\"myFooterEmptyHelp\" class=\"form-text\"><fmt:message key=\"email.myFooter.emptyUsesClinic\"/></div>")
-                .contains("<carlos:encode value=\"${clinicChangeNotice}\"/>")
-                .contains("<carlos:encode value=\"${clinicFooter}\"/>")
-                .contains("maxlength=\"<%= EmailData.FOOTER_MAX_LENGTH %>\"")
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.email.core.EmailData\" %>")
+                // Footers are HTML: attribute-encoded into data-footer-html, drawn by the cleaner, never raw.
+                .contains("data-footer-html=\"<carlos:encode value='${clinicChangeNotice}' context='htmlAttribute'/>\"")
+                .contains("data-footer-html=\"<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>\"")
+                .doesNotContain("<textarea")
+                .doesNotContain(">${clinicFooter}<").doesNotContain(">${myFooter}<").doesNotContain(">${clinicChangeNotice}<")
                 .contains("<fmt:message key=\"email.footer.saveConflict\"/>")
                 .doesNotContain("${myFooter}<")
                 .doesNotContain(">${clinicFooter}")
@@ -124,10 +128,13 @@ class EmailFooterPagesJspRegressionTest {
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
                 .contains("<form action=\"${ctx}/admin/saveClinicEmailFooter\" method=\"post\">")
-                .contains("aria-describedby=\"clinicFooterHelp\"><carlos:encode value=\"${clinicFooter}\"/></textarea>")
-                .contains("maxlength=\"<%= EmailData.FOOTER_MAX_LENGTH %>\"")
-                .contains("<%@ page import=\"io.github.carlos_emr.carlos.email.core.EmailData\" %>")
-                .contains("<carlos:encode value=\"${clinicFooterCurrent}\"/>")
+                .contains("<input type=\"hidden\" id=\"clinicFooter\" name=\"clinicFooter\" value=\"<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>\"/>")
+                .contains("data-footer-editor-target=\"clinicFooter\" data-footer-editor-preview=\"clinicFooterPreview\"")
+                .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeClinic\"/>")
+                .contains("<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>")
+                .contains("data-footer-html=\"<carlos:encode value='${clinicFooterCurrent}' context='htmlAttribute'/>\"")
+                .contains("data-footer-html=\"<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>\"")
+                .doesNotContain("<textarea")
                 .doesNotContain(">${clinicFooter}")
                 .doesNotContain(">${clinicFooterCurrent}");
         int form = jsp.indexOf("<form action=\"${ctx}/admin/saveClinicEmailFooter\"");

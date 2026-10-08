@@ -118,7 +118,10 @@ public class EmailFooterService {
         this.replaceOwnFooters = replaceOwnFooters;
     }
 
-    /** Thrown when a footer is longer than {@link EmailData#FOOTER_MAX_LENGTH}; nothing is saved. */
+    /**
+     * Thrown when a footer is longer than {@link EmailData#FOOTER_MAX_LENGTH} characters of plain
+     * text or {@link EmailFooterHtml#MAX_HTML_LENGTH} of HTML; nothing is saved.
+     */
     public static final class FooterTooLongException extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
 
@@ -492,55 +495,33 @@ public class EmailFooterService {
     }
 
     /**
-     * @param footer a footer as typed
-     * @return the footer with line breaks stored as one character each, as the send action counts,
-     *         characters the page shows as spaces stored as spaces, and without surrounding
-     *         whitespace
-     * @throws FooterTooLongException when it is over the limit
+     * @param footer a footer as posted by the Edit footer window (formatted HTML)
+     * @return the footer as stored: cleaned against the footer's allow-list
+     * @throws FooterTooLongException when it is over a limit: {@link EmailData#FOOTER_MAX_LENGTH}
+     *         characters of plain text, or {@link EmailFooterHtml#MAX_HTML_LENGTH} of HTML
      */
     static String withinLimit(String footer) {
+        // Refused before it is parsed, as the send action does: no footer within the limits is
+        // posted longer than this.
+        if (footer != null && footer.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
+            throw new FooterTooLongException();
+        }
         String normalised = normalise(footer);
-        if (normalised.length() > EmailData.FOOTER_MAX_LENGTH) {
+        if (EmailFooterHtml.visibleLength(normalised) > EmailData.FOOTER_MAX_LENGTH
+                || normalised.length() > EmailFooterHtml.MAX_HTML_LENGTH) {
             throw new FooterTooLongException();
         }
         return normalised;
     }
 
     /**
-     * Line breaks as one character each, as the send action counts them, characters the page
-     * would show as a space stored as one, and no surrounding whitespace: sending drops it anyway,
-     * and a browser drops a textarea's first line break. Each would otherwise make an unchanged
-     * footer look changed on its next save.
+     * The footer as stored and compared: cleaned against the footer's allow-list
+     * ({@link EmailFooterHtml#clean}), which also drops surrounding whitespace and an editor's
+     * trailing empty lines, and empty when it has no visible text. Cleaning twice gives the same
+     * result, so a footer saved again unchanged compares equal.
      */
     static String normalise(String footer) {
-        if (footer == null) {
-            return "";
-        }
-        String lines = footer.replace("\r\n", "\n").replace('\r', '\n');
-        StringBuilder shown = new StringBuilder(lines.length());
-        lines.codePoints().forEach(cp -> {
-            if (shownAsSpace(cp)) {
-                shown.append(' ');
-            } else {
-                shown.appendCodePoint(cp);
-            }
-        });
-        return shown.toString().strip();
-    }
-
-    /**
-     * Whether the pages' encoder (OWASP {@code forHtmlContent}) shows this code point as a space:
-     * control characters other than tab, line breaks and NEL, Unicode non-characters, and lone
-     * surrogates (a pair arrives here as one code point).
-     */
-    private static boolean shownAsSpace(int cp) {
-        if (cp == '\t' || cp == '\n' || cp == '\r' || cp == 0x85) {
-            return false;
-        }
-        return Character.isISOControl(cp)
-                || (cp >= 0xFDD0 && cp <= 0xFDEF)
-                || (cp & 0xFFFE) == 0xFFFE
-                || (cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE);
+        return EmailFooterHtml.clean(footer);
     }
 
     private static String nullToEmpty(String value) {

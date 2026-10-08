@@ -45,7 +45,6 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.hibernate.exception.LockAcquisitionException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.owasp.encoder.Encode;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -171,24 +170,38 @@ class EmailFooterServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should store line breaks as one character each and accept exactly the limit")
+    @DisplayName("should store the cleaned footer and accept exactly the limit, counted on the plain text")
     void shouldSaveNormalisedFooter_whenWithinLimit() {
-        // 2,000 characters once each CRLF counts as one, ending in text (surrounding whitespace is dropped).
-        String crlfFooter = "a\r\n".repeat(EmailData.FOOTER_MAX_LENGTH / 2 - 1) + "ab";
+        // 2,000 characters of plain text once each <br> counts as one line break; the formatting
+        // does not count, and an editor's trailing break is dropped.
+        String footer = "a<br>".repeat(EmailData.FOOTER_MAX_LENGTH / 2 - 1) + "<b>ab</b><br>";
 
-        service.saveOwnFooter("101", crlfFooter);
+        service.saveOwnFooter("101", footer);
 
         ArgumentCaptor<String> saved = ArgumentCaptor.forClass(String.class);
         verify(dao).saveProp(eq("101"), eq(EmailFooterService.USER_FOOTER), saved.capture());
-        assertThat(saved.getValue()).hasSize(EmailData.FOOTER_MAX_LENGTH).doesNotContain("\r");
+        assertThat(EmailFooterHtml.visibleLength(saved.getValue())).isEqualTo(EmailData.FOOTER_MAX_LENGTH);
+        assertThat(saved.getValue()).endsWith("<b>ab</b>");
+    }
+
+    @Test
+    @DisplayName("should store a footer cleaned against the footer's allow-list")
+    void shouldStoreCleanedFooter_whenFooterCarriesUnsafeMarkup() {
+        service.saveOwnFooter("101", "<b>Dr A</b><script>x()</script><a href=\"javascript:x()\">Book</a>");
+
+        verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "<b>Dr A</b><a>Book</a>");
     }
 
     @Test
     @DisplayName("should refuse a footer over the limit and save nothing")
     void shouldRefuseFooter_whenOverLimit() {
         String tooLong = "x".repeat(EmailData.FOOTER_MAX_LENGTH + 1);
+        // Under 2,000 characters of text, but over the formatting limit.
+        String tooMuchFormatting = "<b>x</b>".repeat(1_500);
 
         assertThatThrownBy(() -> service.saveOwnFooter("101", tooLong))
+                .isInstanceOf(EmailFooterService.FooterTooLongException.class);
+        assertThatThrownBy(() -> service.saveOwnFooter("101", tooMuchFormatting))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
         assertThatThrownBy(() -> service.saveClinicDefault(tooLong, EmailFooterService.fingerprint("")))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
@@ -198,12 +211,12 @@ class EmailFooterServiceUnitTest {
     @Test
     @DisplayName("should change nothing when the clinic footer is saved unchanged, or empty when none is set")
     void shouldChangeNothing_whenClinicFooterUnchanged() {
-        clinicDefault("Riverside Clinic\nBook online");
+        clinicDefault("Riverside Clinic<br>Book online");
 
-        assertThat(saveClinic(service, "Riverside Clinic\r\nBook online").outcome())
+        assertThat(saveClinic(service, "Riverside Clinic<br>Book online").outcome())
                 .isEqualTo(EmailFooterService.ClinicDefaultOutcome.UNCHANGED);
-        // A browser drops a textarea's first line break; the same text with blank lines around it is unchanged.
-        assertThat(saveClinic(service, "\nRiverside Clinic\nBook online\n").changed()).isFalse();
+        // The same footer with an editor's trailing empty line and surrounding spaces is unchanged.
+        assertThat(saveClinic(service, "  Riverside Clinic<br>Book online<div><br></div> ").changed()).isFalse();
 
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).lockProviderProperties(anyString());
@@ -311,7 +324,7 @@ class EmailFooterServiceUnitTest {
         when(dao.lockProviderProperties(EmailFooterService.USER_FOOTER)).thenReturn(List.of(custom));
 
         EmailFooterService.ClinicDefaultSaved saved =
-                service.saveClinicDefault("Old clinic footer\r\n", EmailFooterService.fingerprint("Old clinic footer"));
+                service.saveClinicDefault("Old clinic footer<br>", EmailFooterService.fingerprint("Old clinic footer"));
 
         // A's unedited save neither undoes B's footer nor replaces users' footers a second time,
         // and takes no lock.
@@ -351,48 +364,16 @@ class EmailFooterServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should treat characters the page shows as spaces as spaces, so an unedited save stays unedited")
-    void shouldTreatControlCharactersAsShown_whenSavedBackUnedited() {
-        // Pasted from a word processor: a vertical tab and a C1 control, which the page shows as spaces.
-        clinicDefault("Riverside\u000BClinic\u0090Book online");
+    @DisplayName("should treat the editor's way of writing the same footer as unchanged")
+    void shouldTreatEditorSerialisationAsUnchanged_whenSavedBackUnedited() {
+        // Stored cleaned; the Edit footer window posts it back with an entity and an empty last line.
+        clinicDefault(EmailFooterService.normalise("Smith & Jones<br>Book online"));
 
-        // The page showed the stored footer and posts back what its box held: spaces.
-        EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "Riverside Clinic Book online");
+        EmailFooterService.ClinicDefaultSaved saved = saveClinic(service, "Smith &amp; Jones<br>Book online<div><br></div>");
 
         assertThat(saved.changed()).isFalse();
         verify(dao, never()).saveProp(any(UserProperty.class));
         verify(dao, never()).lockClinicProperties(anyString());
-        // Tabs and line breaks are kept, as the page shows them.
-        assertThat(EmailFooterService.fingerprint("a\tb\nc")).isNotEqualTo(EmailFooterService.fingerprint("a b c"));
-    }
-
-    @Test
-    @DisplayName("should store characters the page shows as spaces as spaces in a user's own footer")
-    void shouldStoreControlCharactersAsSpaces_inOwnFooter() {
-        service.saveOwnFooter("101", "Dr A\u000BBook online\u0000");
-
-        verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "Dr A Book online");
-    }
-
-    @Test
-    @DisplayName("should show as a space exactly the characters the page's encoder shows as a space")
-    void shouldMatchEncoderSpaces_forEveryCodePoint() {
-        List<String> mismatches = new ArrayList<>();
-        for (int cp = 0; cp <= Character.MAX_CODE_POINT; cp++) {
-            if (cp == '\r' || (cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE)) {
-                // A carriage return is a line break here; surrogates only come in pairs or alone (below).
-                continue;
-            }
-            String text = "a" + new String(Character.toChars(cp)) + "b";
-            boolean encoderSpace = Encode.forHtmlContent(text).equals("a b");
-            if (EmailFooterService.normalise(text).equals("a b") != encoderSpace) {
-                mismatches.add(String.format("U+%04X", cp));
-            }
-        }
-        assertThat(mismatches).isEmpty();
-        for (String lone : new String[] {"a\uD800b", "a\uDC00b", "a\uDBFF\uD83D\uDE00b"}) {
-            assertThat(EmailFooterService.normalise(lone)).isEqualTo(Encode.forHtmlContent(lone));
-        }
     }
 
     @Test
@@ -451,10 +432,11 @@ class EmailFooterServiceUnitTest {
     @Test
     @DisplayName("should give the same fingerprint to footers that save the same, and a different one otherwise")
     void shouldFingerprintNormalisedFooter_forStaleCheck() {
-        String fingerprint = EmailFooterService.fingerprint("Riverside Clinic\nBook online");
+        String fingerprint = EmailFooterService.fingerprint("Riverside Clinic<br>Book online");
 
         assertThat(fingerprint).matches("[0-9a-f]{64}");
-        assertThat(EmailFooterService.fingerprint("\nRiverside Clinic\r\nBook online \n")).isEqualTo(fingerprint);
+        assertThat(EmailFooterService.fingerprint(" Riverside Clinic<br>Book online<br><br> ")).isEqualTo(fingerprint);
+        assertThat(EmailFooterService.fingerprint("Riverside Clinic<br>Book online<script>x()</script>")).isEqualTo(fingerprint);
         assertThat(EmailFooterService.fingerprint("Riverside Clinic")).isNotEqualTo(fingerprint);
         assertThat(EmailFooterService.fingerprint(null)).isEqualTo(EmailFooterService.fingerprint(""));
     }
@@ -564,7 +546,7 @@ class EmailFooterServiceUnitTest {
         ownRows("101", U, own);
         ownRows("101", N, notice);
 
-        service.saveOwnFooter("101", " \r\n ");
+        service.saveOwnFooter("101", " <br>&nbsp;<div><br></div> ");
 
         verify(dao).delete(own);
         verify(dao).delete(notice);

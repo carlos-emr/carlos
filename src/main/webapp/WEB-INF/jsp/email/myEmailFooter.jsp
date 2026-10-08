@@ -4,8 +4,10 @@
   Purpose: The logged-in user's own footer for the emails they send to patients (follow-up to
   #3981). Every user, doctor or front desk, starts with the clinic footer and can save their own.
   Key features: Shows the footer the compose screen fills in, the clinic footer, and a notice after
-  a clinic footer change, which every user gets, until they answer it. Every
-  change is a POST to email/saveMyEmailFooter; the provider comes from the session.
+  a clinic footer change, which every user gets, until they answer it. The footer is edited in the
+  shared Edit footer window (footerEditorModal.jspf), as on the email screen; footers shown here
+  are cleaned and drawn by footerEditor.js (data-footer-html), never written into the page raw.
+  Every change is a POST to email/saveMyEmailFooter; the provider comes from the session.
   Request attributes: myFooter, followsClinicDefault, clinicFooter, clinicChangeNotice,
   clinicChangeKeptOwnFooter, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
   SaveMyEmailFooter2Action). The page needs _email write, as saving does.
@@ -16,7 +18,6 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.email.core.EmailData" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
@@ -58,7 +59,8 @@
                     <p class="fst-italic"><fmt:message key="email.myFooter.none"/></p>
                 </c:when>
                 <c:otherwise>
-                    <pre class="border bg-light p-2" style="white-space: pre-wrap;"><carlos:encode value="${clinicChangeNotice}"/></pre>
+                    <div class="border bg-white p-2 mb-2 footer-editor-mail" id="clinicChangePrevious"
+                         data-footer-html="<carlos:encode value='${clinicChangeNotice}' context='htmlAttribute'/>"></div>
                 </c:otherwise>
             </c:choose>
             <form action="${ctx}/email/saveMyEmailFooter" method="post" class="d-flex flex-wrap gap-2">
@@ -92,9 +94,17 @@
                 <c:otherwise><fmt:message key="email.myFooter.ownFooter"/></c:otherwise>
             </c:choose>
         </p>
-        <label for="myFooter" class="form-label"><fmt:message key="email.myFooter.label"/></label>
-        <textarea class="form-control" id="myFooter" name="myFooter" rows="4" maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>"
-                  aria-describedby="myFooterEmptyHelp myFooterHelp"><carlos:encode value="${myFooter}"/></textarea>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="form-label mb-0" id="myFooterLabel"><fmt:message key="email.myFooter.label"/></span>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="myFooterEdit"
+                    data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                    data-footer-editor-target="myFooter" data-footer-editor-preview="myFooterPreview"
+                    aria-describedby="myFooterEmptyHelp myFooterHelp">
+                <fmt:message key="email.footerEditor.open"/></button>
+        </div>
+        <input type="hidden" id="myFooter" name="myFooter" value="<carlos:encode value='${myFooter}' context='htmlAttribute'/>"/>
+        <div id="myFooterPreview" class="border bg-white p-2 footer-editor-mail" aria-labelledby="myFooterLabel"
+             data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
         <div id="myFooterEmptyHelp" class="form-text"><fmt:message key="email.myFooter.emptyUsesClinic"/></div>
         <div id="myFooterHelp" class="form-text"><fmt:message key="email.compose.footer.help"/></div>
         <div class="d-flex flex-wrap gap-2 mt-2">
@@ -113,9 +123,14 @@
             <p class="text-muted" id="clinicFooter"><fmt:message key="email.myFooter.noClinicFooter"/></p>
         </c:when>
         <c:otherwise>
-            <pre class="border bg-light p-2" style="white-space: pre-wrap;" id="clinicFooter"><carlos:encode value="${clinicFooter}"/></pre>
+            <div class="border bg-white p-2 footer-editor-mail" id="clinicFooter"
+                 data-footer-html="<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>"></div>
         </c:otherwise>
     </c:choose>
 </div>
+<script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeMine"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyFooter"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>
 </html>

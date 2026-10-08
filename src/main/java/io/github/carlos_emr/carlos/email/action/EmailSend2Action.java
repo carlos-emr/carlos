@@ -34,6 +34,9 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -91,6 +94,8 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_PATIENT_CHART_OPTION = "patientChartOption";
     private static final String PARAM_MESSAGE = "message";
     private static final String PARAM_FOOTER_EMAIL = "footerEmail";
+    // "Also make this my usual footer" on the email screen (follow-up to #3981).
+    static final String PARAM_SAVE_FOOTER_AS_MINE = "saveFooterAsMine";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
@@ -244,6 +249,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
+        saveFooterAsMineIfAsked(loggedInInfo, isEmailSuccessful);
         if (isEmailSuccessful && context.deleteEFormAfterEmail() && StringUtils.filled(context.fdid())) {
             try {
                 eformDataManager.removeEFormData(loggedInInfo, context.fdid());
@@ -303,8 +309,34 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
+    }
+
+    /**
+     * "Also make this my usual footer" (follow-up to #3981): once the email is accepted, the footer
+     * it carried becomes the user's own footer, as saving it on My Email Footer would. Only an
+     * accepted email does it, so a failed send that is retried does not save twice. A failure here
+     * never touches the email already sent: the result page says the footer was not changed and
+     * stays open.
+     */
+    private void saveFooterAsMineIfAsked(LoggedInInfo loggedInInfo, boolean emailAccepted) {
+        if (!emailAccepted || !"true".equals(request.getParameter(PARAM_SAVE_FOOTER_AS_MINE))) {
+            return;
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        try {
+            // Looked up here, not held in a field: only this optional step needs it.
+            SpringUtils.getBean(EmailFooterService.class)
+                    .saveOwnFooter(providerNo, request.getParameter(PARAM_FOOTER_EMAIL));
+            LogAction.addLog(providerNo, LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
+            request.setAttribute("footerSavedAsMine", true);
+        } catch (RuntimeException e) {
+            logger.warn("Email accepted, but its footer could not be saved as the user's own ({})",
+                    e.getClass().getSimpleName());
+            request.setAttribute("footerSaveAsMineFailed", true);
+        }
     }
 
     /** Replaces a consumed attempt with fresh secret state only after a definite failure. */

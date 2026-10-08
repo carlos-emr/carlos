@@ -42,7 +42,9 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -54,6 +56,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -701,6 +706,78 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
 
         return captor.getValue();
     }
+    @Test
+    @DisplayName("should make the sent footer the user's usual footer when the box is ticked and the email is accepted")
+    void shouldSaveFooterAsMine_whenTickedAndAccepted() {
+        EmailFooterService footers = mock(EmailFooterService.class);
+        registerMock(EmailFooterService.class, footers);
+
+        MockHttpServletRequest request = sendForFooterSave("true", EmailStatus.SUCCESS);
+
+        verify(footers).saveOwnFooter("101", "<b>Dr A</b>");
+        assertThat(request.getAttribute("footerSavedAsMine")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSaveAsMineFailed")).isNull();
+    }
+
+    @Test
+    @DisplayName("should not touch the usual footer when the box is not ticked or the email was not accepted")
+    void shouldNotSaveFooterAsMine_whenUntickedOrNotAccepted() {
+        EmailFooterService footers = mock(EmailFooterService.class);
+        registerMock(EmailFooterService.class, footers);
+
+        sendForFooterSave(null, EmailStatus.SUCCESS);
+        MockHttpServletRequest failed = sendForFooterSave("true", EmailStatus.FAILED);
+
+        verifyNoInteractions(footers);
+        assertThat(failed.getAttribute("footerSavedAsMine")).isNull();
+    }
+
+    @Test
+    @DisplayName("should report a footer that could not be saved without failing the email already sent")
+    void shouldReportFailure_whenSavingFooterAsMineFails() {
+        EmailFooterService footers = mock(EmailFooterService.class);
+        doThrow(new IllegalStateException("lock wait")).when(footers).saveOwnFooter(anyString(), anyString());
+        registerMock(EmailFooterService.class, footers);
+
+        MockHttpServletRequest request = sendForFooterSave("true", EmailStatus.SUCCESS);
+
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSaveAsMineFailed")).isEqualTo(true);
+        assertThat(request.getAttribute("footerSavedAsMine")).isNull();
+    }
+
+    /** A direct send by provider 101 with footer {@code <b>Dr A</b>}, the tick box as given. */
+    private MockHttpServletRequest sendForFooterSave(String saveFooterAsMine, EmailStatus status) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("footerEmail", "<b>Dr A</b>");
+        if (saveFooterAsMine != null) {
+            request.setParameter("saveFooterAsMine", saveFooterAsMine);
+        }
+        request.setParameter("message", "A non-clinical reminder.");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
+        request.setParameter("senderConfigId", "1");
+        request.setParameter("demographicId", "42");
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        Provider provider = new Provider();
+        provider.setProviderNo("101");
+        loggedInInfo.setLoggedInProvider(provider);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+
+        EmailLog emailLog = mock(EmailLog.class);
+        when(emailLog.getStatus()).thenReturn(status);
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+        EmailSend2Action action = spy(new EmailSend2Action());
+        doReturn("SECURE_NOTICE").when(action).getText(ENCRYPTED_BODY_NOTICE_KEY);
+        action.request = request;
+        action.response = new MockHttpServletResponse();
+        prepareSubmission(request, List.of());
+        action.sendDirectEmail();
+        return request;
+    }
+
     private EmailSendResult sendResult(EmailLog log) {
         return log.getStatus() == EmailLog.EmailStatus.SUCCESS
                 ? EmailSendResult.accepted(log, true) : EmailSendResult.failed(log, true);

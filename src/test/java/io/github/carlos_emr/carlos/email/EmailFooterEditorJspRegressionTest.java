@@ -92,9 +92,10 @@ class EmailFooterEditorJspRegressionTest {
             // Either a clean(...) call, or the local "html" that the line above set from clean(...).
             assertThat(value).as(assignment.group()).matches("clean\\(.*\\)|html");
         }
-        assertThat(count).isEqualTo(4);
+        assertThat(count).isEqualTo(5);
         assertThat(script).containsSubsequence("var html = clean(target.value);", "preview.innerHTML = html;")
-                .containsSubsequence("var html = clean(editor.innerHTML);", "previewFooter.innerHTML = html;");
+                .containsSubsequence("var html = clean(editor.innerHTML);", "previewFooter.innerHTML = html;")
+                .containsSubsequence("var html = window.DOMPurify ? clean(source) : '';", "holder.innerHTML = html;");
     }
 
     @Test
