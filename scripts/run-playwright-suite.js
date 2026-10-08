@@ -275,7 +275,13 @@ function runOne(check, options, run = spawnSync) {
     return { name: check.name, outcome: 'PASS', detail: '', durationMs };
   }
   if (result.status === EXIT_SKIP) {
-    return { name: check.name, outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured', durationMs };
+    // The check printed its own reason above; the summary repeats the
+    // manifest's fixture note so the table says what to stage, not just that
+    // something was missing (#4412).
+    const detail = check.fixtures
+      ? `a fixture or credential this check needs is not configured (its output says which). Fixtures: ${check.fixtures}`
+      : 'a fixture or credential this check needs is not configured';
+    return { name: check.name, outcome: 'SKIP', detail, durationMs };
   }
   return { name: check.name, outcome: 'FAIL', detail: `exit ${result.status === null ? 'signal' : result.status}`, durationMs };
 }

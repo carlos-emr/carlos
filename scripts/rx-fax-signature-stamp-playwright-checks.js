@@ -92,12 +92,14 @@ const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require(
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const { validateMysqlHost } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
@@ -282,7 +284,7 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (error) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}${errorSourceLocation(error)}` });
   }
 }
 
@@ -299,7 +301,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -359,7 +361,7 @@ function sql(query) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     // Accept ONLY the one confirm() the custom-drug button legitimately raises, and only while we are
@@ -618,8 +620,8 @@ async function runChecks(context, cancellation) {
       visited.push({ label: 'fax-request', url: new URL(faxRequest.url()).pathname + ' (query redacted)', status: faxStatus });
     } catch (error) {
       // A captured request whose response never came is a different failure from no request at all.
-      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: browserErrorClass(error) });
-      else findings.push({ label: 'fax-click', type: 'no-request', text: browserErrorClass(error) });
+      if (faxRequest) findings.push({ label: 'fax-click', type: 'no-response', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
+      else findings.push({ label: 'fax-click', type: 'no-request', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
     }
 
     if (faxRequest) {
@@ -746,7 +748,7 @@ async function runChecks(context, cancellation) {
     }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
   removeSecretsDir();
   process.exit(1);
 });

@@ -16,7 +16,7 @@ for (const filename of ['rx-fax-record-binding-playwright-checks.js', 'rx-fax-si
       faxConfig: null, findings: [], visited: [], demographicNo: '1',
       pharmacyFax: { restore: () => ({ restored: 0, untouched: 0 }) },
       fixtureErrorTag,
-      customDrugName: 'owned-test', throwawayUnsignedScriptId: null, browserErrorClass: () => 'Error', ...overrides });
+      customDrugName: 'owned-test', throwawayUnsignedScriptId: null, browserErrorClass: () => 'Error', errorSourceLocation: () => '', ...overrides });
     for (const name of ['stageFaxConfig', 'selectOwnedFaxSender', 'assertOwnedFaxRequest', 'cleanupOwnedFaxSender', 'seedPharmacyFax', 'cleanupFixtures']) {
       const start = source.indexOf(`function ${name}(`);
       assert.notEqual(start, -1);

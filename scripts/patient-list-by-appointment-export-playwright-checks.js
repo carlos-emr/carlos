@@ -43,16 +43,21 @@
  *   8. The report page has no JavaScript errors while wiring its client-side
  *      date validation.
  *
- * This script only reads; it seeds nothing and mutates nothing. Its fixture set
- * is not part of the repository's default database seed. Before running, provision
- * the three LOCAL_SEED_OBEC_REPORT_* appointments represented in EXPECTED_ROWS
- * (2026-08-07..2026-08-10), then explicitly select that fixture contract with
- * PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1. Missing data remains a
- * test failure so representative-content assertions cannot pass without coverage.
+ * The fixture is the three LOCAL_SEED_OBEC_REPORT_* appointments represented in
+ * EXPECTED_ROWS (2026-08-07..2026-08-10) against demo-dataset patients; it is not
+ * part of the default database seed. scripts/lib/patient-list-appointment-fixture.js
+ * picks one of three ways to get it (issue #4412):
+ *   - PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1: the operator inserted
+ *     the rows (deb-install-validation.md fixture d). The check only reads, and
+ *     missing data is a failure so the content assertions cannot pass uncovered.
+ *   - profile unset, MYSQL_* set: the check inserts the three rows itself, marked
+ *     with a per-run notes value, and deletes exactly those rows afterwards (also on
+ *     SIGINT/SIGTERM). It SKIPs instead when the database is not the demo dataset or
+ *     either date window already holds appointments.
+ *   - neither: SKIP (exit 2) naming both options.
  *
- * Example for a local devcontainer after provisioning the required fixtures:
- *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 \
- *     node scripts/patient-list-by-appointment-export-playwright-checks.js
+ * Example for a local devcontainer or package install with the demo dataset:
+ *   MYSQL_PASSWORD=... node scripts/patient-list-by-appointment-export-playwright-checks.js
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -60,7 +65,8 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 (required)
+ *   PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 (operator-provisioned rows)
+ *   MYSQL_HOST=localhost MYSQL_USER=root MYSQL_PASSWORD= MYSQL_DATABASE=carlos (self-seeding)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-loopback HTTPS test app
  *   TEST_USER and TEST_PASSWORD are required for non-loopback targets; TEST_PIN is
  *   additionally required only when that target renders the legacy PIN field
@@ -69,9 +75,15 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const { settleOperations } = require('./graceful-signal-cancellation');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
+const {
+  EXIT_SKIP, NO_PLAYWRIGHT_SIGNAL_HANDLING, SkipCheck, createSqlRunner, installCleanupSignalHandlers,
+} = require('./lib/playwright-harness');
+const {
+  EMPTY_DATE_FROM, EMPTY_DATE_TO, SEED_DATE_FROM, SEED_DATE_TO, createPatientListFixture, planPatientListFixture,
+} = require('./lib/patient-list-appointment-fixture');
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
-const REQUIRED_FIXTURE_PROFILE = 'local-seed-obec-report-v1';
 
 function isLoopbackHost(rawHost) {
   // URL.hostname keeps the brackets on IPv6 literals (e.g. "[::1]"); strip
@@ -102,11 +114,11 @@ function validateBaseUrl(rawBaseUrl) {
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const loopbackTarget = isLoopbackHost(baseUrl.hostname);
-if (process.env.PATIENT_LIST_FIXTURE_PROFILE !== REQUIRED_FIXTURE_PROFILE) {
-  throw new Error(`PATIENT_LIST_FIXTURE_PROFILE must be ${REQUIRED_FIXTURE_PROFILE}; this harness does not seed its required appointments`);
-}
+const fixturePlan = planPatientListFixture(process.env);
 if (!loopbackTarget && ['TEST_USER', 'TEST_PASSWORD'].some((name) => !process.env[name])) {
   throw new Error('TEST_USER and TEST_PASSWORD are required for non-loopback targets');
 }
@@ -120,8 +132,6 @@ const testPin = process.env.TEST_PIN || (loopbackTarget ? '2026' : '');
 // demo load (devcontainer populate_db.sh and the deb's carlos-ctl demo-data)
 // runs demo-name-sanitization.sql over the provider table too — only the
 // functional accounts (-1, 999998 carlosdoc) are exempt and keep their names.
-const SEED_DATE_FROM = '2026-08-07';
-const SEED_DATE_TO = '2026-08-10';
 const PROVIDER_ALL = 'all';
 const PROVIDER_WELCH = '9';
 const PROVIDER_CARLOSDOC = '999998';
@@ -200,7 +210,8 @@ function wirePage(page, label) {
     }
   });
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: error.stack || error.message });
+    // Class and throwing frame only: a page error's message can quote patient content.
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     findings.push({ label, type: 'dialog', text: dialog.message() });
@@ -416,13 +427,64 @@ async function checkUnauthenticatedRejection(browser) {
   }
 }
 
+/**
+ * Seeds the fixture when the plan says so and returns its cleanup. Throws
+ * SkipCheck when the run has no fixture and cannot make one.
+ */
+function prepareFixture() {
+  if (fixturePlan.mode === 'skip') {
+    throw new SkipCheck(fixturePlan.reason);
+  }
+  if (fixturePlan.mode === 'provisioned') {
+    return null;
+  }
+  const sql = createSqlRunner({
+    host: process.env.MYSQL_HOST || 'localhost',
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE || 'carlos',
+  });
+  const fixture = createPatientListFixture(sql, { marker: `playwright-patient-list-${process.pid}-${Date.now()}` });
+  let signals = null;
+  // Idempotent: fixture.cleanup() touches only this run's marked rows and is a
+  // no-op once they are gone, and both disposals tolerate a second call.
+  const release = () => {
+    try {
+      fixture.cleanup();
+    } finally {
+      if (signals) signals.dispose();
+      sql.dispose();
+    }
+  };
+  // Installed before the INSERT so an interrupt mid-seed still removes the rows
+  // (and the client option file that holds MYSQL_PASSWORD).
+  signals = installCleanupSignalHandlers(release);
+  try {
+    const { seeded } = fixture.prepare();
+    console.log(`seeded ${seeded} fixture appointment(s); they are removed when the check ends`);
+  } catch (error) {
+    // A cleanup failure here outranks the original error: a SKIP must never
+    // leave rows behind for the next run to inherit.
+    release();
+    throw error;
+  }
+  return release;
+}
+
 (async () => {
-  const launchOptions = { args: ['--no-sandbox', '--disable-dev-shm-usage'] };
+  const cleanupFixture = prepareFixture();
+  // Playwright's own SIGINT/SIGTERM handling closes Chromium; it is switched off only
+  // when the fixture's handler is installed to run cleanup first.
+  const launchOptions = {
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...(cleanupFixture ? NO_PLAYWRIGHT_SIGNAL_HANDLING : {}),
+  };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
-  const browser = await chromium.launch(launchOptions);
+  let browser;
   try {
+    browser = await chromium.launch(launchOptions);
     // Certificate validation is only relaxed for loopback targets (self-signed dev
     // certs are common there). A non-loopback target reached via ALLOW_NON_LOCAL_BASE_URL
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
@@ -458,7 +520,7 @@ async function checkUnauthenticatedRejection(browser) {
       checkRows(label, rows, EXPECTED_ROWS[providerNo]);
     }
 
-    const emptyRange = await exportViaForm(context, 'empty-range', PROVIDER_ALL, '2026-09-01', '2026-09-02');
+    const emptyRange = await exportViaForm(context, 'empty-range', PROVIDER_ALL, EMPTY_DATE_FROM, EMPTY_DATE_TO);
     checkDownloadEnvelope('empty-range', emptyRange);
     const emptyRows = dataRows(emptyRange.body);
     observed.push({ check: 'empty-range', status: emptyRange.status, rowCount: emptyRows.length });
@@ -477,9 +539,23 @@ async function checkUnauthenticatedRejection(browser) {
 
     console.log('PASS CARLOS EMR patient list by appointment time exports patientlist.txt with correct provider filtering');
   } finally {
-    await browser.close();
+    if (browser) await browser.close().catch(() => {});
+    if (cleanupFixture) {
+      try {
+        cleanupFixture();
+      } catch (cleanupError) {
+        // Reported on its own line and forced to FAIL, without replacing whatever
+        // the check itself concluded (a PASS line above is then not the verdict).
+        console.error(`FAIL fixture cleanup: ${cleanupError.message}`);
+        process.exitCode = 1;
+      }
+    }
   }
 })().catch((error) => {
+  if (error instanceof SkipCheck) {
+    console.log(`SKIP patient-list-by-appointment-export -- ${error.message}`);
+    process.exit(EXIT_SKIP);
+  }
   console.error('FAIL CARLOS EMR patient list by appointment time export Playwright check');
   console.error(error.stack || error.message);
   process.exit(1);

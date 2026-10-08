@@ -1198,7 +1198,8 @@
         "RTL_FORM_NAME",
         "RTL_SCREENSHOT_DIR",
         "RTL_TEMPLATE_NAME"
-      ]
+      ],
+      "fixtures": "The template step uses clinic_letter.rtl, which EFormAssetDeployer seeds on every install, so no fixture is needed. RTL_TEMPLATE_NAME names another template (e.g. MissedAppointment.rtl, deb-install-validation.md fixture c); if it is not installed every other step still runs and the check SKIPs naming it."
     },
     {
       "name": "eform-rtl-signature-stamp",
@@ -1961,7 +1962,8 @@
         "O19_ARCHIVE_SCHEMA",
         "O19_SMOKE_SCREENSHOT_DIR",
         "O19_STATE_DIR"
-      ]
+      ],
+      "fixtures": "Needs a database produced by carlos-ctl import-o19 and its break-glass credentials (O19_STATE_DIR/admin-credentials.txt); SKIPs on a fresh install. Drive it end to end with scripts/migration/o19/rehearsal/ui-smoke.sh."
     },
     {
       "name": "patient-list-by-appointment-export",
@@ -1969,14 +1971,15 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [
         "PATIENT_LIST_FIXTURE_PROFILE"
-      ]
+      ],
+      "fixtures": "Needs the demo dataset. With MYSQL_* it seeds and removes its own three LOCAL_SEED_OBEC_REPORT_* appointments; PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 instead uses rows the operator inserted (fixture d). SKIPs with neither, or when its date windows already hold appointments."
     },
     {
       "name": "patient-search-dob",
@@ -2220,7 +2223,8 @@
         "RX_FAX_NOTES_SAVE_DELAY_MS",
         "RX_FAX_PROVIDER_NO",
         "RX_FAX_ROUND_TRIP_TIMEOUT_MS"
-      ]
+      ],
+      "fixtures": "Needs rx_fax_enabled=true, the consult_sig_<RX_FAX_PROVIDER_NO>.png stamp (fixture b) and a readable RX_FAX_DOCUMENT_DIR (run as root on the install); stages and restores its own pharmacy fax numbers and fax sender. SKIPs without Poppler pdftotext."
     },
     {
       "name": "rx-fax-reprint-represcribe",
