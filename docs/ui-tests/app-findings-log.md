@@ -342,13 +342,15 @@ in a column the page assumes is numeric, as legacy data holds it).
 
 ## 12. Found while resolving #3446: the OAuth web-service surfaces (October 2026)
 
-Every row was reproduced on `carlos-emr 2026.09.0~snapshot26` built from `release/2026.08`
-and installed into an Ubuntu 26.04 container behind the packaged nginx + ModSecurity front
-door, and confirmed fixed both on that install upgraded in place and on a fresh install of the
+Rows 129 to 132 were reproduced on `carlos-emr 2026.09.0~snapshot26` built from `release/2026.08`
+and installed into an Ubuntu 26.04 container behind the packaged nginx + ModSecurity front door.
+Each was confirmed fixed both on that install upgraded in place and on a fresh install of the
 #3446 build (see
 [deb-install-validation.md](deb-install-validation.md#oauth-rest-surfaces-validation-2026-10-08)).
 Rows 130 to 132 were hidden behind row 129: nothing could reach them while the servers were unpublished.
-`oauth-rest-surfaces-playwright-checks.js` fails on each of them.
+`oauth-rest-surfaces-playwright-checks.js` fails on rows 129, 131 and 132.
+Row 130's guard is its unit test: once row 131's fix tells CXF the consent page is the response,
+CXF no longer probes the output stream on that page. Row 133 is a static finding and stays open.
 
 | # | Defect | Evidence | Status |
 |---|---|---|---|

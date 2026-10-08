@@ -326,10 +326,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         // Each flag is set only after the container hands the channel over. A caller may ask
-        // for the other channel and swallow the IllegalStateException: CXF closes a void JAX-RS
-        // response with getOutputStream().close() even after a forwarded JSP took the writer
-        // (GET /ws/oauth/authorize, issue #3446). Flagging the stream before that call failed
-        // made printConfidentialityStatement() open it, which threw and turned the page into a 500.
+        // for the other channel and swallow the IllegalStateException. CXF does that when it
+        // closes a void JAX-RS response with getOutputStream().close() after a forwarded JSP
+        // took the writer. Flagging the stream before that call failed made
+        // printConfidentialityStatement() open it, which threw, and the OAuth consent page
+        // answered 500 (issue #3446). AuthorizeResource now tells CXF the forward is the
+        // response, so this guard covers any other forwarding JAX-RS method.
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
             ServletOutputStream stream = super.getOutputStream();

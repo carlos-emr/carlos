@@ -22,10 +22,12 @@
          (META-INF/cxf/cxf.xml), the oauthProvider alias, and the component-scanned
          oscarOAuthDataProvider, OAuth1ParamParser and OAuth1SignatureVerifierImplementation.
 
-         Every bean id declared here must differ from the ids in spring_ws.xml. Spring allows bean
-         definition overriding, and this file is read after spring_ws.xml, so a shared id silently
-         replaces the session /ws/rs surface's bean with this file's. That is why the JSON/JAXB
-         providers below carry an "oauth" prefix. OAuthRestContextIsolationUnitTest enforces this. -->
+         Every bean id declared here must differ from every bean the root context already defines
+         (applicationContext.xml and its imports, spring_ws.xml among them). Spring allows bean
+         definition overriding, and this file is read last, so a shared id silently replaces the
+         earlier bean. That is how this file once replaced the session /ws/rs JSON mapper, and why
+         the JSON/JAXB providers below carry an "oauth" prefix. OAuthRestContextIsolationUnitTest
+         enforces this. -->
 
     <!-- Step 1: Request token (initiate) -->
     <bean id="oscarRequestTokenService"
