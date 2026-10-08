@@ -40,6 +40,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNotErrorPage,
@@ -869,7 +870,7 @@ async function cleanupUploadedImage(context, imageName) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     context = await browser.newContext({
       acceptDownloads: true,
-      ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isLocalTestBaseUrl(config.baseUrl),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1600 },
     });
     const landingPage = await login(context, config, recorder);

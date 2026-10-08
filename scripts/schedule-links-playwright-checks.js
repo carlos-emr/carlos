@@ -22,6 +22,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -319,7 +320,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
 
   const browser = await chromium.launch(launchOptions);
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const schedulePage = await login(context);
 
     await selectProviderFromLastNameSearch(context, schedulePage);

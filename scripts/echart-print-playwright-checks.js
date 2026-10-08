@@ -59,6 +59,7 @@
 const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -448,7 +449,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
   // billing-on-third-party and allergy-rx-alert, and the same loopback test as
   // validateBaseUrl(), so every 127.0.0.0/8 literal the guard admits gets it.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: isLoopback(baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase()),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
     acceptDownloads: true,
   });
 

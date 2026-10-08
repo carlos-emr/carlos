@@ -72,6 +72,7 @@
 'use strict';
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -243,7 +244,7 @@ async function main() {
   const context = await browser.newContext({
     // A packaged standalone install begins with a self-signed certificate.
     // Remote targets explicitly opted into above must still prove their TLS.
-    ignoreHTTPSErrors: config.baseUrl.protocol === 'https:' && isExactLoopback(config.baseUrl.hostname),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
     viewport: { width: 1360, height: 1100 },
   });
   let page;

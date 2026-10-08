@@ -68,6 +68,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
@@ -520,7 +521,7 @@ async function run() {
     initMysqlDefaults();
     browser = await chromium.launch(launchOptions);
     cancellation.throwIfCancelled();
-    context = await browser.newContext({ ignoreHTTPSErrors: isLoopbackTarget() });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
     const schedulePage = await cancellation.run(() => login(context));
     const edocPath = await readEdocPath(schedulePage);
 

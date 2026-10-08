@@ -66,6 +66,7 @@
  */
 const fs = require('fs');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   buildArtifactPath,
@@ -283,7 +284,7 @@ async function run() {
   const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
   const host = baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   const context = await browser.newContext({
-    ignoreHTTPSErrors: loopback.has(host),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     baseURL: `${baseUrl.toString().replace(/\/$/, '')}/`,
   });
   const page = await context.newPage();

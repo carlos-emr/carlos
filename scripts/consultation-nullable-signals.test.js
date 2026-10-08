@@ -101,6 +101,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
             return { locator() { return { first() { return { async click() {} }; } }; } };
           },
         };
+        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
         throw new Error(`Unexpected dependency: ${name}`);
       },
     });

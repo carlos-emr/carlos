@@ -45,6 +45,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -169,7 +170,7 @@ async function fillStartDate(page, form, value) {
   // either still reaches the fixture cleanup below.
   try {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1200, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1200, height: 1000 } });
     await login(context, config, recorder);
 
     // 1. Allergy page -> Penicillin shortcut.

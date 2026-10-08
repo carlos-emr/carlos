@@ -40,6 +40,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -172,7 +173,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     const [expectedName, expectedDob, expectedDobIso] = sql(`SELECT CONCAT(last_name, ', ', first_name), CONCAT(LPAD(date_of_birth, 2, '0'), '/', LPAD(month_of_birth, 2, '0'), '/', year_of_birth), CONCAT(year_of_birth, '-', LPAD(month_of_birth, 2, '0'), '-', LPAD(date_of_birth, 2, '0')) FROM demographic WHERE demographic_no=${Number(demographicNo)}`).split('\t');
     assert(expectedName && expectedDob, `demographic ${demographicNo} not found`);
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1500, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1500, height: 1100 } });
     await login(context, config, recorder);
 
     // 1. New form: identity auto-populated.

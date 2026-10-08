@@ -73,6 +73,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
@@ -1084,7 +1085,7 @@ async function runChecks(context, cancellation) {
     cancellation.throwIfCancelled();
     const host = baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     const isLoopback = ['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host);
-    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback && baseUrl.protocol === 'https:' });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
     await runChecks(context, cancellation);
     await context.close();
   } catch (error) {

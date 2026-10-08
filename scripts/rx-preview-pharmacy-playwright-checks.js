@@ -39,6 +39,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -185,7 +186,7 @@ async function assertPreviewRenders(hostFrame, label) {
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
     stagedLinkIds = stageNoPharmacy();
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
     await schedulePage.close();
 

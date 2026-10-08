@@ -15,6 +15,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -184,7 +185,7 @@ async function checkAuthenticatedRoute(context, route) {
 }
 
 async function checkProtectedRedirect(browser, appPath) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const page = await context.newPage();
   const label = `unauthenticated:${appPath}`;
   wirePage(page, label);
@@ -224,7 +225,7 @@ async function checkProtectedRedirect(browser, appPath) {
       await checkProtectedRedirect(browser, appPath);
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const schedulePage = await login(context);
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of authenticatedRoutes) {

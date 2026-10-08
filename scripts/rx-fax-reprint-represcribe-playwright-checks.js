@@ -78,6 +78,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
@@ -778,7 +779,7 @@ async function runChecks(context) {
   // self-signed certificate. An operator who opts in to a non-local BASE_URL still gets a real
   // TLS check against that host.
   const context = await browser.newContext({
-    ignoreHTTPSErrors: baseUrlIsLoopback(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     viewport: { width: 1440, height: 1000 },
   });
   let result = null;

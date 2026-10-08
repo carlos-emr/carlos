@@ -50,6 +50,7 @@
 // Cleanup includes the facility/program memberships created by these UI steps.
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const fs = require('fs');
@@ -356,7 +357,7 @@ async function login(page) {
 /** Exercise an actual new login in a separate session; credentials are never logged. */
 async function verifyNewProviderLogin(browser, username, expectDenied) {
   const context = await browser.newContext({
-    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: true,
+    baseURL: playwrightBaseUrl(), ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
   });
   const page = await context.newPage();
   const pageErrors = [];
@@ -441,7 +442,7 @@ async function run() {
     const context = await browser.newContext({
       baseURL: playwrightBaseUrl(),
       viewport: { width: 1280, height: 900 },
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
     });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
