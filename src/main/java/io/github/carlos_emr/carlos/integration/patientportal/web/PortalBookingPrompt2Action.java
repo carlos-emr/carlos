@@ -40,7 +40,7 @@ import org.apache.struts2.ServletActionContext;
 
 /**
  * Staff booking-prompt JSON contract. Lists need patient-specific read; changes need write.
- * Creating also needs account read, because the patient must have an active portal account.
+ * Creating checks a narrow eligibility endpoint using booking permission alone.
  * The CSRFGuard filter protects every POST, including the read operation.
  */
 public class PortalBookingPrompt2Action extends PortalJsonAction {
@@ -80,13 +80,9 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
                 "list".equals(method) || "panel".equals(method)
                         ? SecurityInfoManager.READ : SecurityInfoManager.WRITE, patient);
-        boolean mayReadAccount = "panel".equals(method) && security.hasPrivilege(session,
-                PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ, String.valueOf(patient));
         PatientPortalBookingPromptRequest creation = null;
         long promptId = 0;
         if ("create".equals(method)) {
-            requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_ACCOUNT,
-                    SecurityInfoManager.READ, patient);
             try {
                 // Provider attribution needs a server-verified provider selection in the staff UI.
                 // Until that exists, omit the optional name instead of accepting browser free text.
@@ -106,10 +102,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
             return portalNotConfigured(response);
         }
         PatientPortalStaffContext staff = resolver.resolveForPatient(session,
-                "create".equals(method) || mayReadAccount
-                        ? Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
-                                PortalStaffContextResolver.OBJECT_ACCOUNT)
-                        : Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT), patient);
+                Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT), patient);
         boolean mutationAttempted = false;
         try {
             ObjectNode payload = newPayload();
@@ -118,20 +111,13 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                 boolean mayWrite = security.hasPrivilege(session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
                         SecurityInfoManager.WRITE, String.valueOf(patient));
                 payload.put("mayWithdraw", mayWrite);
-                payload.put("mayCreate", mayWrite && mayReadAccount);
-                if (mayReadAccount) {
-                    try {
-                        payload.put("accountActive", "active".equals(portal.findAccount(patient, staff).status()));
-                    } catch (PatientPortalException exception) {
-                        if (!exception.isAccountAbsent()) {
-                            throw exception;
-                        }
-                        payload.put("accountActive", false);
-                    }
+                payload.put("mayCreate", mayWrite);
+                if (mayWrite) {
+                    payload.put("accountActive", portal.isBookingEligible(patient, staff));
                 }
             }
             if ("create".equals(method)) {
-                if (!"active".equals(portal.findAccount(patient, staff).status())) {
+                if (!portal.isBookingEligible(patient, staff)) {
                     return notFound(response, "portal_account_inactive",
                             "This patient does not have an active portal account. Contact the patient directly.");
                 }

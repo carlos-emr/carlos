@@ -20,8 +20,7 @@
                     SecurityInfoManager.READ, portalPatientScope)) { return; }
     boolean portalMayWrite = portalSecurity.hasPrivilege(portalSession,
             PortalStaffContextResolver.OBJECT_BOOKING_PROMPT, SecurityInfoManager.WRITE, portalPatientScope);
-    boolean portalMayCreate = portalMayWrite && portalSecurity.hasPrivilege(portalSession,
-            PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ, portalPatientScope);
+    boolean portalMayCreate = portalMayWrite;
 %>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/portalBookingPrompt.css">

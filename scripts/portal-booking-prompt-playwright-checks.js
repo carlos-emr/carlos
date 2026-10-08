@@ -154,6 +154,21 @@ async function main() {
     const retry = calls.filter(call => call.method === 'create').at(-1);
     assert.equal(retry.operationId, first.operationId); assert.equal(retry.urgency, 'soon'); assert.equal(notifications, 2);
     console.log('PASS lost-response retry keeps identity and choices across reload, one notification');
+    loseCreate = true; await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const bookedRequest = calls.filter(call => call.method === 'create').at(-1);
+    const bookedPrompt = { ...operations.get(bookedRequest.operationId), state: 'booked' };
+    operations.set(bookedRequest.operationId, bookedPrompt); prompts = [bookedPrompt];
+    const noticesBeforeRetry = notifications;
+    await page.reload(); await waitReady(); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed')
+      && document.querySelector('[data-role="prompts"]').textContent.includes('Booked'));
+    assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, bookedRequest.operationId);
+    assert.equal(notifications, noticesBeforeRetry);
+    assert.match(await status.innerText(), /Check its current status below/);
+    assert.doesNotMatch(await status.innerText(), /No appointment has been booked/);
+    assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    console.log('PASS booked retry confirms original request without a false booking claim or new notification');
     for (const state of ['choice_pending', 'declined_all', 'booked', 'expired']) {
       prompts = [prompt(7, state)]; await page.locator('[data-role="refresh"]').click();
       const withdraw = page.locator('[data-role="prompts"] button'); await withdraw.waitFor();
@@ -193,7 +208,7 @@ async function main() {
     console.log('PASS unconfirmed request during an outage shows both');
     outage = false; const notified = notifications; await page.reload(); await openDialog(); await waitReady();
     assert.match(await send.innerText(), /same request/); await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(notifications, notified); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     console.log('PASS unconfirmed request retried once the portal is back, no second notice');
     await page.reload(); await openDialog(); await waitReady(); refuseCreate = true; active = false; await send.click();
@@ -212,7 +227,7 @@ async function main() {
       && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, unconfirmed);
     refuseCreate = false; const noticesBefore = notifications; await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, unconfirmed);
     assert.equal(notifications, noticesBefore);
     console.log('PASS a refusal after an unconfirmed attempt (and a reload) keeps the identity; no second notice');
@@ -226,13 +241,13 @@ async function main() {
     assert.doesNotMatch(await status.innerText(), /was not sent/);
     assert.equal(JSON.parse(await page.evaluate(() => sessionStorage.getItem('portal.booking.pending:999998:123'))).operationId, stranded);
     refuseCreate = false; await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, stranded);
     console.log('PASS a stored entry from an interrupted page is kept when its retry is refused');
     await page.goto(url + '/master-late-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
-    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     console.log('PASS waits for the page CSRF bootstrap on first load');
     await page.goto(url + '/master-reject-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
@@ -245,7 +260,7 @@ async function main() {
     await plainPage.locator('[data-role="send"]').waitFor({ state: 'visible' });
     await plainPage.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled);
     await plainPage.locator('[data-role="send"]').click();
-    await plainPage.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed.'));
+    await plainPage.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.match(calls.filter(call => call.method === 'create').at(-1).operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     await plain.close();
     console.log('PASS operation IDs without randomUUID (plain HTTP) are random version-4 UUIDs');
@@ -287,7 +302,7 @@ async function main() {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await openDialog(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 24 browser scenarios; no page errors');
+    console.log('PASS all 25 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
