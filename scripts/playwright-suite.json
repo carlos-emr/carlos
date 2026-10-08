@@ -8333,6 +8333,25 @@
       "env": [],
       "notes": "An unsaved E-Chart note survives leaving the chart. Typing autosaves exactly one casemgmt_tmpsave row (the autosave POST is awaited, no fixed sleep); Exit's window.confirm, dismissed, keeps the window, the text and the draft, and accepted closes the window and leaves exactly one draft; a second provider (throwaway login) opening the same chart gets an editor without the draft, a page without its text and leaves the first provider's row untouched; reopening restores the text; a window killed with no Exit, beforeunload or lock release (context closed with the page's release flag cleared, as echart-lock-lifecycle does, because context.close() alone still sends the unload beacon) leaves a stale note lock, and a new login is asked to continue, takes the lock over and gets the extended draft back; Save then writes the unsigned casemgmt_note and removes the draft. Passes on 2026.08 (no known defect). The window closes this check causes make Chromium report the unload beacon as an aborted ping; exactly those entries are excused, the beacon being proven delivered by the lock rows going away.",
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and a throwaway provider login (lib/throwaway-login-fixture.js) with a copy of the test provider's program_provider and provider_default_program rows so the same chart opens for it. The saved note, its link/extension rows, both providers' drafts, every note lock of the patient, eChart and the throwaway are removed by key and asserted gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "inbox-file-forward",
+      "script": "scripts/inbox-file-forward-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Inbox Forward and File for HL7 labs and a document. Three synthetic CML labs are uploaded through Inbox > HL7 Lab Upload (the patient's MRP is the test provider, so each is routed to it) and two owned PDFs get New routing and an active queue link. From the lab popup and from a preview card (an iframe of the same lab page) Forward, through the dialog's provider search, posts ReportReassign for exactly that lab and provider: the throwaway recipient gets one providerLabRouting row, status N, and the sender's row (id, status, comment, timestamp) and every other provider's row (the demo clinic forwards the test provider's labs to a second provider by a rule) are unchanged; the recipient, logged in, finds exactly the forwarded labs in their own Inbox. List-mode File on a forwarded lab sets the sender's row to F only (not A, comment untouched), the recipient's row stays N and still shows in their Inbox; the document viewer's File (FileLabs method=fileLabAjax) files the document and sets every queue_document_link of it to I. A GET and HEAD replay of the real FileLabs (both shapes) and ReportReassign (popup and card) POSTs, aimed at untouched control items, passes h.assertRefused (the application's 405 carrying its own header) with the owned rows unchanged. Passes on 2026.08 (no known defect). Run on Ontario only; not yet run on BC (issue #4439), so provinces is the planned value until Task 27 corrects it from a real BC run.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; its NULL HIN set to '' after the labs are matched, as the Inbox name search needs), a throwaway provider login that is the recipient (lib/throwaway-login-fixture.js), three synthetic CML labs with unique accessions (hl7TextInfo / hl7TextMessage / providerLabRouting / patientLabRouting / fileUploadCheck rows and the archived upload files under LAB_UPLOAD_DOCUMENT_STORE), and two owned PDFs in DOCUMENT_DIR with document / ctl_document / patientLabRouting / providerLabRouting / queue_document_link rows. Everything is removed by key and asserted gone (the archived lab files stay, and the run says so, when LAB_UPLOAD_DOCUMENT_STORE is unset). Posts ReportReassign as the test login, which rewrites that login's forwarding favourites from the dialog's list (snapshotted and asserted unchanged), so it must not run concurrently with detached-delete-forward-favourites or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     }
   ]
 }
