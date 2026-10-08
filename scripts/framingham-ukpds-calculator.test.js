@@ -25,6 +25,14 @@ const CALCULATORS_DIR = path.join(WEBAPP, 'encounter', 'calculators');
 global.CarlosCalculatorAge = require('../src/main/webapp/share/javascript/clinicalCalculatorAge');
 const calc = require('../src/main/webapp/encounter/calculators/riskcalc/js/js.js');
 
+// Remove the page globals this file installs (the parser above and fakePage's
+// document/window), so nothing sharing the process inherits a fake DOM.
+test.after(() => {
+  delete global.document;
+  delete global.window;
+  delete global.CarlosCalculatorAge;
+});
+
 const FRAMINGHAM_CELL = /^bp\d+c\d+$/;
 const UKPDS_CELL = /^UKPDS_bp\d+c\d+h\d+$/;
 
