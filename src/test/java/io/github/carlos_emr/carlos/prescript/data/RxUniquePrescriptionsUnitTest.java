@@ -140,7 +140,6 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
         addChange(changes, "route", d -> d.setRoute("topical"));
         addChange(changes, "method", d -> d.setMethod("apply"));
         addChange(changes, "form", d -> d.setDrugForm("liquid"));
-        addChange(changes, "dispensed unit", d -> d.setUnitName("mL"));
         addChange(changes, "product identifier", d -> d.setRegionalIdentifier("different-product"));
         addChange(changes, "generic name", d -> d.setGenericName("different-ingredient"));
         addChange(changes, "as needed", d -> d.setPrn(true));
@@ -154,6 +153,7 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
         addChange(changes, "end date", d -> d.setEndDate(daysFromToday(60)));
         addChange(changes, "last refill date", d -> d.setLastRefillDate(daysFromToday(-5)));
         addChange(changes, "quantity", d -> d.setQuantity("60"));
+        addChange(changes, "quantity unit", d -> d.setUnitName("tabs"));
         addChange(changes, "repeats", d -> d.setRepeat(2));
         addChange(changes, "duration", d -> d.setDuration("14"));
         addChange(changes, "dispensing interval", d -> d.setDispenseInterval("7"));

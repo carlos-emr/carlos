@@ -124,8 +124,9 @@ public final class UniqueMedicationList {
                     values(gcn(drug), text(drug.getBrandName()), text(drug.getCustomName()),
                             text(drug.getGenericName()), text(drug.getAtc()), text(drug.getRegionalIdentifier()),
                             text(drug.getDosage()), text(drug.getUnit()), text(drug.getDrugForm())),
-                    values(drug.getTakeMin(), drug.getTakeMax(), text(drug.getFreqCode()), text(drug.getUnitName()),
-                            text(drug.getRoute()), text(drug.getMethod()), drug.isPrn(), freeTextRegimen(drug)));
+                    // Not unitName: RxWriteScript2Action stores the quantity's unit (and the Mitte marker) there.
+                    values(drug.getTakeMin(), drug.getTakeMax(), text(drug.getFreqCode()), text(drug.getRoute()),
+                            text(drug.getMethod()), drug.isPrn(), freeTextRegimen(drug)));
         }
 
         /**
