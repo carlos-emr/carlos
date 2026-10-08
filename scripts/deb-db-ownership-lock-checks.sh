@@ -51,8 +51,10 @@ check() { # check DESCRIPTION COMMAND...
 
 [ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 2; }
 [ -x /usr/sbin/carlos-ctl ] || { echo "carlos-ctl is not installed" >&2; exit 2; }
-if [ -e "${WORKSPACE}" ]; then
-    echo "${WORKSPACE} exists: this host has (or had) an import; refusing to run" >&2
+# The package's tmpfiles.d lays down an EMPTY workspace on every install; any
+# content in it is a real (or past) import, which this must never disturb.
+if [ -n "$(ls -A "${WORKSPACE}" 2>/dev/null)" ]; then
+    echo "${WORKSPACE} is not empty: this host has (or had) an import; refusing to run" >&2
     exit 2
 fi
 
@@ -66,7 +68,8 @@ release() {
 }
 cleanup() {
     release
-    rm -rf "${WORKSPACE}"
+    # only what this script wrote: the empty workspace itself is the package's
+    rm -f "${LEDGER}"
 }
 trap cleanup EXIT
 
@@ -151,7 +154,7 @@ fi
 
 echo "=== 4. the import ends; provisioning resumes ==="
 release
-rm -rf "${WORKSPACE}"
+rm -f "${LEDGER}"
 check "carlos-emr-drugref configure succeeds" dpkg-reconfigure -f noninteractive carlos-emr-drugref
 check "carlos-emr configure succeeds" dpkg-reconfigure -f noninteractive carlos-emr
 check "no unfinished install is recorded" test ! -e "${MARKER}"

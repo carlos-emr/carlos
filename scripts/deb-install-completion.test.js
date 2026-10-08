@@ -506,14 +506,15 @@ db_get() { RET=selfsigned; }`;
 // against a lock held by a real second process.
 const hasFlock = spawnSync('sh', ['-c', 'command -v flock'], { encoding: 'utf8' }).status === 0;
 
+/** Spawns a child that holds `lock` the way import-o19 (or another configure) does. */
 function holdLock(lock) {
-  // A child holding the lock the way import-o19 (or another configure) does.
   const holder = require('node:child_process').spawn('sh', ['-c',
     'exec 9>"$1"; flock 9; echo held; exec sleep 60', 'sh', lock],
   { stdio: ['ignore', 'pipe', 'inherit'] });
   return holder;
 }
 
+/** Returns once `lock` is held by someone else; throws if it never is. */
 function waitHeld(lock) {
   for (let i = 0; i < 200; i += 1) {
     const probe = spawnSync('sh', ['-c', 'exec 9>"$1"; flock -n 9', 'sh', lock]);
@@ -523,6 +524,11 @@ function waitHeld(lock) {
   throw new Error('the holder never took the lock');
 }
 
+/**
+ * Runs a postinst's real acquire_provision_lock() in sh, with the guard stubbed
+ * by `fnGuard(importRunning)` and the five-minute wait shortened; stdout carries
+ * `rc=<status>`.
+ */
 function postinstAcquire(script, fnGuard, { state, importRunning, waitSeconds }) {
   const acquire = script.match(/acquire_provision_lock\(\) \{[\s\S]*?\n\}/)[0]
     .replace('flock -w 300 9', `flock -w ${waitSeconds} 9`);
