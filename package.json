@@ -417,6 +417,7 @@
     "test:authz-read-admin-objects-playwright": "node scripts/authz-read-admin-objects-playwright-checks.js",
     "test:authz-read-print-export-playwright": "node scripts/authz-read-print-export-playwright-checks.js",
     "test:authz-read-record-by-id-playwright": "node scripts/authz-read-record-by-id-playwright-checks.js",
+    "test:authz-rest-sweep-playwright": "node scripts/authz-rest-sweep-playwright-checks.js",
     "test:gap-encounter-eform-save-as-edoc-playwright": "node scripts/gap-encounter-eform-save-as-edoc-playwright-checks.js",
     "test:gap-encounter-eform-edoc-approval-playwright": "node scripts/gap-encounter-eform-edoc-approval-playwright-checks.js",
     "test:gap-encounter-eform-error-log-playwright": "node scripts/gap-encounter-eform-error-log-playwright-checks.js",

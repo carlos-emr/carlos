@@ -6548,6 +6548,25 @@
       "notes": "Expected to FAIL at the last step 'the chart's Note Browser lists documents only to a role holding _edoc': casemgmt/ViewNoteBrowser lists the patient's document descriptions to a nurse without _edoc. Steps 1-4 (controls, 13 pinned by-id routes x 3 roles, HEAD) pass."
     },
     {
+      "name": "authz-rest-sweep",
+      "script": "scripts/authz-rest-sweep-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The workflow's owned FAKE- patient; two throwaway logins (own provider rows 800000-899999, roles receptionist and doctor); an |o| _eChart$<patient> lock row keyed on the doctor login; one consent type named after the run marker, created through the API by the control login. Cleanup removes every owned row and asserts it.",
+      "notes": "Issue #2798: the /ws/rs REST services authorize, not only authenticate. Anonymous calls get 401; the receptionist is refused (application 403) app/getApps, the recordUX chart print, summary and templates, and the consent-type POST (which must write nothing), while still reading the consent catalogue; the doctor reads the chart and templates but is refused the admin-only endpoints; a patient-level _eChart lock withholds that patient's print and summary."
+    },
+    {
       "name": "gap-encounter-eform-save-as-edoc",
       "script": "scripts/gap-encounter-eform-save-as-edoc-playwright-checks.js",
       "tiers": [
