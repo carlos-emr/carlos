@@ -187,8 +187,10 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
 
         @SuppressWarnings("unchecked")
         List<String> warnings = customized.getMessages(new MeasurementInfo("1")).getWarnings();
-        assertThat(warnings).contains("issue4433 item A1C rule", "issue4433 custom waist warning");
-        assertThat(warnings).as("diab.drl is not this flowsheet's rule set").doesNotContain("no BP has been recorded");
+        assertThat(warnings)
+                .contains("issue4433 item A1C rule", "issue4433 custom waist warning")
+                .as("diab.drl is not this flowsheet's rule set")
+                .doesNotContain("no BP has been recorded");
         assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings())
                 .containsExactly("issue4433 item A1C rule");
     }
@@ -215,7 +217,8 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
         MeasurementFlowSheet copy = configuration.makeNewFlowsheet(base);
 
         assertThat(copy.getDsRulesFileName()).isEqualTo("issue4433-absent.drl");
-        assertThatThrownBy(() -> copy.getMessages(new MeasurementInfo("1")))
+        MeasurementInfo noReadings = new MeasurementInfo("1");
+        assertThatThrownBy(() -> copy.getMessages(noReadings))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("issue4433-absent.drl");
     }
@@ -234,7 +237,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should treat an empty ds_rules attribute as no rules file")
-    void shouldIgnoreBlankRulesFile_whenFlowsheetDeclaresEmptyDsRules() throws Exception {
+    void shouldIgnoreBlankRulesFile_whenFlowsheetDeclaresEmptyDsRules() {
         try (MockedStatic<DroolsHelper> drools = mockStatic(DroolsHelper.class, Mockito.CALLS_REAL_METHODS)) {
             MeasurementFlowSheet base = configuration.validateFlowsheet(
                     "<flowsheet name='issue4433' ds_rules=''><item measurement_type='WT' display_name='Weight'/></flowsheet>");
@@ -285,7 +288,8 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                 + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
 
         assertThat(flowsheet.getDsRulesFileName()).isEqualTo("issue4433-absent.drl");
-        assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+        MeasurementInfo noReadings = new MeasurementInfo("1");
+        assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("issue4433")
                 .hasMessageContaining("issue4433-absent.drl")
@@ -296,7 +300,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should name both missing sources when the rules file and the item recommendations fail")
     void shouldNameBothCauses_whenRulesFileAndItemRecommendationsFailToLoad() {
-        try (MockedConstruction<RuleBaseCreator> compiler = mockConstruction(RuleBaseCreator.class,
+        try (var _ = mockConstruction(RuleBaseCreator.class,
                 (creator, context) -> when(creator.getRuleBase(anyString(), anyList()))
                         .thenThrow(new IllegalStateException("simulated item rule compilation failure")))) {
             MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433' ds_rules='issue4433-absent.drl'>"
@@ -304,7 +308,9 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                     + "<recommendation strength='warning' message='issue4433 item A1C rule'>"
                     + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item></flowsheet>");
 
-            assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+            MeasurementInfo noReadings = new MeasurementInfo("1");
+
+            assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("issue4433-absent.drl")
                     .hasMessageContaining("its item recommendations did not compile");
@@ -314,7 +320,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should say that item recommendations did not compile when they are the only rules")
     void shouldNameItemRecommendations_whenTheyFailToCompile() {
-        try (MockedConstruction<RuleBaseCreator> compiler = mockConstruction(RuleBaseCreator.class,
+        try (var _ = mockConstruction(RuleBaseCreator.class,
                 (creator, context) -> when(creator.getRuleBase(anyString(), anyList()))
                         .thenThrow(new IllegalStateException("simulated item rule compilation failure")))) {
             MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"
@@ -322,7 +328,9 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                     + "<recommendation strength='warning' message='issue4433 item A1C rule'>"
                     + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item></flowsheet>");
 
-            assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+            MeasurementInfo noReadings = new MeasurementInfo("1");
+
+            assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("its item recommendations did not compile")
                     .hasMessageNotContaining("rules file");
@@ -338,7 +346,8 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
         flowsheet.loadRuleBase("issue4433-absent.drl");
 
         assertThat(flowsheet.ruleBase).isNull();
-        assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+        MeasurementInfo noReadings = new MeasurementInfo("1");
+        assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("issue4433-absent.drl");
     }
@@ -349,7 +358,9 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
         MeasurementFlowSheet flowsheet = parse("<flowsheet name='issue4433'>"
                 + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
 
-        assertThatThrownBy(() -> flowsheet.getMessages(new MeasurementInfo("1")))
+        MeasurementInfo noReadings = new MeasurementInfo("1");
+
+        assertThatThrownBy(() -> flowsheet.getMessages(noReadings))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("issue4433")
                 .hasMessageContaining("declares no decision support rules")
@@ -361,7 +372,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     void shouldReuseCompiledRules_whenSameRulesFileIsLoadedAgain(@TempDir Path rulesDirectory) throws Exception {
         writeRules(rulesDirectory, "issue4433.drl", uniqueRules("A1C"));
 
-        try (MockedStatic<CarlosProperties> properties = measurementRulesDirectory(rulesDirectory);
+        try (var _ = measurementRulesDirectory(rulesDirectory);
                 MockedStatic<DroolsHelper> drools = mockStatic(DroolsHelper.class, Mockito.CALLS_REAL_METHODS)) {
             MeasurementFlowSheet first = new MeasurementFlowSheet();
             first.loadRuleBase("issue4433.drl");
@@ -379,7 +390,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
     void shouldRecompileRules_whenRulesFileContentChanges(@TempDir Path rulesDirectory) throws Exception {
         writeRules(rulesDirectory, "issue4433.drl", uniqueRules("A1C"));
 
-        try (MockedStatic<CarlosProperties> properties = measurementRulesDirectory(rulesDirectory)) {
+        try (var _ = measurementRulesDirectory(rulesDirectory)) {
             MeasurementFlowSheet before = new MeasurementFlowSheet();
             before.loadRuleBase("issue4433.drl");
             writeRules(rulesDirectory, "issue4433.drl", uniqueRules("LDL"));

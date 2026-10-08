@@ -1109,19 +1109,16 @@ public class MeasurementFlowSheet {
         return mi;
     }
 
-    private void fireRules(KieBase rules, MeasurementInfo mi) throws Exception {
-        // Create a new stateful session for this evaluation
-        KieSession kieSession = rules.newKieSession();
-        try {
+    private void fireRules(KieBase rules, MeasurementInfo mi) {
+        // A new stateful session per evaluation; closing it disposes it (KieSession.close()
+        // delegates to dispose()), so the session never outlives this call.
+        try (KieSession kieSession = rules.newKieSession()) {
             // Insert the patient's measurement data as the Drools fact
             kieSession.insert(mi);
             kieSession.fireAllRules();
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("Failed to execute flowsheet decision support rules for flowsheet: {}", name, e);
             throw e;
-        } finally {
-            // Always dispose the session to release resources
-            kieSession.dispose();
         }
     }
 
