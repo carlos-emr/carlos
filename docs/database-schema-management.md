@@ -117,6 +117,13 @@ differed from the Flyway baseline loaded "successfully" with patient names coerc
   with `0` or `''`; a strict one refuses the row (error 1364, `Field 'x' doesn't have a default value`).
   The same rule exposes entities that do not map such a column: `Favorites` (`dispenseInternal`) and
   `PharmacyInfo` (`uid`) both failed this way on a strict server until they were mapped.
+- **A value must also fit its column.** A permissive server cuts an over-long string to the column width
+  without a word; a strict one refuses the statement (error 1406, `Data too long`). Fixtures must keep their
+  generated names inside the narrow columns (`raheader.filename` and `demographic.last_name` are
+  `varchar(30)`, the run marker is 23 characters). The application had two writes that only worked by that
+  truncation, both fixed alongside this change: Appointment Group Cancel put the display name into
+  `appointment.lastupdateuser` (`varchar(6)`, a provider number), and Age-Sex Report regeneration copied the
+  20-character `demographic.roster_status` into `reportagesex.roster` (`varchar(4)`).
 - **Who else runs strict.** `container-images.yml` builds and starts the devcontainer database image, so a
   strict violation anywhere in `populate_db.sh` now fails that job. `db-schema-verify.yml` mounts the same
   `my.cnf`, so its `mariadb`-client steps now run against the strict default too (its Flyway steps already
