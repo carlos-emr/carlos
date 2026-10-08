@@ -11,6 +11,13 @@ import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 import jakarta.ws.rs.core.Response;
 
 import java.util.Map;
+import java.util.function.Supplier;
+
+import org.apache.cxf.message.Exchange;
+import org.apache.cxf.message.ExchangeImpl;
+import org.apache.cxf.message.Message;
+import org.apache.cxf.message.MessageImpl;
+import org.apache.cxf.transport.http.AbstractHTTPDestination;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -52,6 +59,50 @@ class AuthorizeResourceUnitTest {
         assertThat(request.getSession().getAttribute("oauth.authorize.nonce.request-token"))
                 .isEqualTo(data.getAuthenticityToken());
         verify(provider, never()).finalizeAuthorization(token, "999");
+    }
+
+    @Test
+    @DisplayName("should tell CXF the forwarded consent page is already the response")
+    void shouldMarkResponseWritten_whenConsentPageForwarded() throws Exception {
+        // Issue #3446: showConsent is a void JAX-RS method that forwards to a JSP. The filter
+        // chain's response wrappers keep that output uncommitted, so CXF finished the void call
+        // as 204 with Content-Length 0 and the consent page reached the browser empty.
+        // AbstractHTTPDestination.flushHeaders leaves the response alone when the exchange
+        // carries REQUEST_REDIRECTED.
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        when(provider.getRequestToken("request-token")).thenReturn(requestToken("request-token"));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+        request.setContextPath("/carlos");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AuthorizeResource resource = resource(request, response, provider);
+        Exchange exchange = new ExchangeImpl();
+        Message message = new MessageImpl();
+        message.setExchange(exchange);
+        ReflectionTestUtils.setField(resource, "currentMessage", (Supplier<Message>) () -> message);
+
+        resource.showConsent("request-token");
+
+        assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/login/3rdpartyLogin.jsp");
+        assertThat(exchange.get(AbstractHTTPDestination.REQUEST_REDIRECTED)).isEqualTo(Boolean.TRUE);
+    }
+
+    @Test
+    @DisplayName("should leave the CXF exchange alone when the request token is unknown")
+    void shouldNotMarkResponseWritten_whenRequestTokenUnknown() throws Exception {
+        // The 400 is an ordinary error response, which CXF must finish as usual.
+        OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        AuthorizeResource resource = resource(request, response, provider);
+        Exchange exchange = new ExchangeImpl();
+        Message message = new MessageImpl();
+        message.setExchange(exchange);
+        ReflectionTestUtils.setField(resource, "currentMessage", (Supplier<Message>) () -> message);
+
+        resource.showConsent("unknown-token");
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(exchange.get(AbstractHTTPDestination.REQUEST_REDIRECTED)).isNull();
     }
 
     @Test
