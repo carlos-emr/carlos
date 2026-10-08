@@ -2276,6 +2276,21 @@
       ]
     },
     {
+      "name": "rx-unique-medication-list",
+      "script": "scripts/rx-unique-medication-list-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows (a renewal after expiry, two overlapping copies, two concurrent regimens, a ReRx pair, a current copy with a newer archived sibling); cleanup deletes the patient's drugs and prescription rows and asserts them gone. The consultation form is opened, never saved.",
+      "notes": "Regression for #4420: the E-Chart Medications panel, a new consultation's Current Medications and the REST medication summary list each current product and regimen once and agree."
+    },
+    {
       "name": "rx-preview-pharmacy",
       "script": "scripts/rx-preview-pharmacy-playwright-checks.js",
       "tiers": [
@@ -7035,8 +7050,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient with one signed note, two allergies (one archived), three preventions (given, deleted, refused), one prescription row and five drugs (two custom-name rows of the same drug, one discontinued, one expired); cleanup deletes each table's owned rows and asserts them gone. Needs pdftotext.",
-      "notes": "Checks actual PDF contents: active allergy details, archived-allergy exclusion, entirely archived lists, reactivated allergies, and the Allergies section toggle, alongside prevention and medication contents. A separate final assertion retains the known duplicate-medication failure: an interleaved custom-name prescription is listed twice in Rx history."
+      "fixtures": "Owned FAKE-PW patient with one signed note, two allergies (one archived), three preventions (given, deleted, refused), one prescription row and fourteen drugs (repeated custom-name and coded rows, two regimens, a renewal with a later start date, one discontinued, one expired, a current copy with a newer archived sibling); cleanup deletes each table's owned rows and asserts them gone. Needs pdftotext.",
+      "notes": "Checks actual PDF contents: active allergy details, archived-allergy exclusion, entirely archived lists, reactivated allergies, and the Allergies section toggle, alongside prevention and medication contents. The Rx history lists each product and regimen once (#4270, #4420): repeated and renewed copies collapse, concurrent regimens stay apart, and a newer archived copy does not hide its current sibling."
     },
     {
       "name": "export-content-provider-service-csv",
