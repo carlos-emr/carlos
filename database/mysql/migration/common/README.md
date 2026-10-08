@@ -78,16 +78,19 @@ both develop and `release/2026.08`: a lower number never runs on an already-migr
 
 `V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
 used by the patient portal client and grants them to `admin` only.
-Versions up to `V1.0.53` are not free: `release/2026.08` holds them and they arrive with that
+Versions up to `V1.0.56` are not free: `release/2026.08` holds them and they arrive with that
 forward-merge.
 
 `V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
 (state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
 password.
 
-`V1.0.43__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
+`V1.0.58__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
 attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
 sequence got. It never stores the invitation code.
+It was merged as `V1.0.43` (#3856) and then renumbered to `V1.0.58`, above the highest version on
+both develop and `release/2026.08`: that line has its own, different `V1.0.43`, and a lower number
+never runs on an already-migrated database.
 
 `V1.0.54__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
 with its approved wording (#3848) and, in the same statement, switches the type on where the
@@ -99,7 +102,6 @@ number is set when it merges: it must be above the highest version on both devel
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.54`
-(also the highest shared one), `common/V1.0.43` (portal invite delivery) is in use, and
-`release/2026.08` holds versions up to `V1.0.53`, so the next free version for ANY location is
-`V1.0.55` (see `../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.58`
+(also the highest shared one), and `release/2026.08` holds versions up to `V1.0.56`, so the next
+free version for ANY location is `V1.0.59` (see `../README.md`).

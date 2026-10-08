@@ -32,12 +32,12 @@ migration/
            V1.0.27__prepare_outbound_email_archive_reference_engines.sql
            V1.0.28__outbound_email_archive.sql
            V1.0.31__add_sms_security_objects.sql  # 29-30 were held by open PRs; see common/README.md
-           V1.0.32__add_sms_consent.sql
-           V1.0.41__patient_portal_security_objects.sql
-           V1.0.42__portal_email_delivery.sql
-           V1.0.43__patient_portal_invite_delivery.sql
+           V1.0.32__add_sms_consent.sql  # release/2026.08 uses V1.0.32 too: renumber at the forward-merge
+           V1.0.41__patient_portal_security_objects.sql  # release/2026.08 uses V1.0.41 too: renumber at the forward-merge
+           V1.0.42__portal_email_delivery.sql  # release/2026.08 uses V1.0.42 too: renumber at the forward-merge
            V1.0.54__activate_sms_consent.sql  # release/2026.08 later used V1.0.54 too: renumber at the forward-merge
            V1.0.57__one_live_consent_per_type.sql  # merged as V1.0.33 (#3917), renumbered above both lines (#3917 follow-up)
+           V1.0.58__patient_portal_invite_delivery.sql  # merged as V1.0.43 (#3856), renumbered above both lines (#3856 follow-up)
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -52,17 +52,19 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.57`
-(`common/V1.0.57`, shared by both provinces); `common/V1.0.54` and `common/V1.0.43` (portal invite
-delivery) are in use too. `release/2026.08` holds versions up to `V1.0.56`
+`V1.0.3` onward is a forward delta. The highest version currently in use is `V1.0.58`
+(`common/V1.0.58`, shared by both provinces); `common/V1.0.57` and `common/V1.0.54` are in use
+too. `release/2026.08` holds versions up to `V1.0.56`
 (`on/V1.0.56__preserve_claim_item_explanations.sql`), which arrive here with that
-line's forward-merge, so the next free number for ANY location — shared or province — is `V1.0.58`.
-That line also uses `V1.0.33` and `V1.0.54` for different files than this one; this line's `V1.0.54`
-must be renumbered at the forward-merge.
+line's forward-merge, so the next free number for ANY location — shared or province — is `V1.0.59`.
+That line also uses `V1.0.32`, `V1.0.41`, `V1.0.42` and `V1.0.54` for different files than this
+one; this line's copies of those must be renumbered at the forward-merge. (It uses `V1.0.33` and
+`V1.0.43` too; this line's files with those numbers were already renumbered to `V1.0.57` and
+`V1.0.58`.)
 The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.57` on both provinces once this line is merged. A hypothetical new `bc/V1.0.11`
+run — `common/V1.0.58` on both provinces once this line is merged. A hypothetical new `bc/V1.0.11`
 would apply fine on a fresh install (version order places it before `common/V1.0.54`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
