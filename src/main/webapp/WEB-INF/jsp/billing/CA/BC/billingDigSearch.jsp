@@ -205,10 +205,10 @@
                     href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <input type="text" name="<%=Dcode%>"
-                                                   value="<%=DcodeDesc%>" size="60"> <input type="submit"
+                                  size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
+                                                   value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
                                                                                             name="update"
-                                                                                            value="Update <%=Dcode%>">
+                                                                                            value="Update <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>">
             </font></td>
         </tr>
         <%
@@ -233,10 +233,10 @@
                     href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <input type="text" name="<%=Dcode%>"
-                                                   value="<%=DcodeDesc%>" size="60"> <input type="submit"
+                                  size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>"
+                                                   value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc)%>" size="60"> <input type="submit"
                                                                                             name="update"
-                                                                                            value="Update <%=Dcode%>">
+                                                                                            value="Update <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode)%>">
             </font></td>
         </tr>
         <%
@@ -260,10 +260,10 @@
                     href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
-                                  size="2"> <input type="text" name="<%=Dcode2%>"
-                                                   value="<%=DcodeDesc2%>" size="60"> <input type="submit"
+                                  size="2"> <input type="text" name="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode2)%>"
+                                                   value="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(DcodeDesc2)%>" size="60"> <input type="submit"
                                                                                              name="update"
-                                                                                             value="Update <%=Dcode2%>">
+                                                                                             value="Update <%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(Dcode2)%>">
             </font></td>
         </tr>
         <%
