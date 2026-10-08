@@ -32,7 +32,18 @@
  *   - the build-identity guard the loop did by counting systemd restarts: the
  *     application must be the same process at the end as at the start, so a
  *     suite cannot finish green having tested two different deployments;
- *   - JUnit XML for CI, and a summary table a human can read.
+ *   - JUnit XML for CI, and a summary table a human can read;
+ *   - known-failure bookkeeping. A check asserts correct behaviour, so while a
+ *     logged defect stands it fails at the step that exercises it. The manifest
+ *     records that as `expectedFailure: { finding, step }` (finding = a row of
+ *     docs/ui-tests/app-findings-log.md that is not `fixed`; step = the label the
+ *     script gives s.step()), and the run reports one of three outcomes:
+ *       known-fail        failed at exactly that step: reported, does not fail the run
+ *       unexpected-pass   passed although a failure was expected: reported, does not
+ *                         fail the run (the defect may be fixed; update the manifest)
+ *       failed-elsewhere  failed at any other step, outside a labelled step, in its
+ *                         cleanup, by timeout or interruption: FAILS the run, so a
+ *                         known defect cannot hide a new one.
  *
  * Usage:
  *   node scripts/run-playwright-suite.js --tier smoke
@@ -42,6 +53,7 @@
  */
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -240,6 +252,68 @@ function readBuildIdentity(env, run = spawnSync) {
   return fingerprint || null;
 }
 
+/**
+ * The record runCheck() wrote to RESULT_JSON, or null when the child wrote none (it crashed
+ * before reaching runCheck, was killed, or is a script that does not use it).
+ */
+function readCheckRecord(resultPath) {
+  try {
+    const record = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    return record && typeof record === 'object' ? record : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Outcomes that fail the run. known-fail, unexpected-pass, SKIP and PASS do not. */
+const FAILING_OUTCOMES = new Set(['FAIL', 'failed-elsewhere']);
+
+function describeExpectation(expected) {
+  return `step "${expected.step}" (finding ${expected.finding})`;
+}
+
+/**
+ * Turn what a check did into the outcome the run reports, given what the manifest expects.
+ *
+ * `raw` is { outcome: PASS|FAIL|SKIP, detail, failedStep?, cleanupFailed? }. Without an
+ * expectedFailure nothing changes. With one:
+ *   PASS                                        -> unexpected-pass
+ *   FAIL at exactly expectedFailure.step,
+ *        cleanup clean                          -> known-fail
+ *   any other FAIL (another step, no labelled
+ *        step, cleanup, timeout, signal)        -> failed-elsewhere
+ *   SKIP                                        -> SKIP (nothing was tested either way)
+ * A failure with a leaking cleanup is never a clean known failure: the fixtures it left behind
+ * are a new problem the known defect must not excuse.
+ */
+function classifyResult(check, raw) {
+  const expected = check.expectedFailure;
+  if (!expected || raw.outcome === 'SKIP') {
+    return { outcome: raw.outcome, detail: raw.detail };
+  }
+  const label = describeExpectation(expected);
+  if (raw.outcome === 'PASS') {
+    return {
+      outcome: 'unexpected-pass',
+      detail: `passed although it was expected to fail at ${label}; if the finding is fixed, mark it fixed in `
+        + 'app-findings-log.md and remove expectedFailure',
+    };
+  }
+  if (raw.failedStep === expected.step && !raw.cleanupFailed) {
+    return { outcome: 'known-fail', detail: `known failure at ${label}` };
+  }
+  const reasons = [];
+  if (raw.failedStep && raw.failedStep !== expected.step) {
+    reasons.push(`failed at step "${raw.failedStep}"`);
+  } else if (!raw.failedStep) {
+    reasons.push(`failed without reaching a labelled step (${raw.detail})`);
+  }
+  if (raw.cleanupFailed) {
+    reasons.push('its cleanup failed, so owned fixtures may remain');
+  }
+  return { outcome: 'failed-elsewhere', detail: `expected to fail at ${label} but ${reasons.join(' and ')}` };
+}
+
 function runOne(check, options, run = spawnSync) {
   const started = Date.now();
   // Resolved against the repository, not the working directory. Manifest paths
@@ -247,37 +321,70 @@ function runOne(check, options, run = spawnSync) {
   // which some CI wrappers do -- made Node fail to find the script and every
   // check "fail to start" for a reason that had nothing to do with the check.
   const script = path.resolve(__dirname, '..', check.script);
-  const result = run(process.execPath, [script], {
-    stdio: 'inherit',
-    timeout: check.timeoutSec * 1000,
-    // envSet lets one script back several named checks: the table-driven
-    // families (surface-audit, direct-response-contract) are one engine plus a
-    // row selector, and the runner has to pass the selector that picks the row.
-    // Anything already exported still wins for the shared contract variables.
-    // The CALLER's environment, not the process's. main() validates BASE_URL
-    // and MYSQL_HOST out of the env it was handed, so reading process.env here
-    // meant a caller passing an explicit environment gated one target and ran
-    // the child against another -- exactly the disassociation assertSafeTarget
-    // exists to prevent.
-    //
-    // envSet comes SECOND on purpose and the order is load-bearing: it is how
-    // one script backs several named checks (SURFACE=inbox, SURFACE=report),
-    // so a per-check selector has to beat an ambient value of the same name.
-    // Spread the other way and every surface-audit row would run whichever
-    // SURFACE happened to be exported, i.e. the same surface ten times.
-    env: { ...(options.env || process.env), ...(check.envSet || {}) },
-  });
-  const durationMs = Date.now() - started;
-  if (result.error && result.error.code === 'ETIMEDOUT') {
-    return { name: check.name, outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s`, durationMs };
+  // A private, per-check result record. runCheck() writes its outcome, failing step and
+  // cleanup status to RESULT_JSON; the runner needs the failing step to tell a known failure
+  // from a new one. The file is created fresh for each child and removed afterwards, so a
+  // record can never be a previous check's, and the runner owns the variable for the children
+  // it starts (an exported RESULT_JSON used to be overwritten by every check in turn).
+  let resultDirectory = null;
+  try {
+    resultDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-check-result-'));
+  } catch {
+    // An unwritable temp directory costs the failing-step detail, not the run: a check
+    // with an expectedFailure then reads failed-elsewhere, which fails safe.
   }
-  if (result.status === EXIT_PASS) {
-    return { name: check.name, outcome: 'PASS', detail: '', durationMs };
+  const resultPath = resultDirectory ? path.join(resultDirectory, 'result.json') : null;
+  try {
+    const result = run(process.execPath, [script], {
+      stdio: 'inherit',
+      timeout: check.timeoutSec * 1000,
+      // envSet lets one script back several named checks: the table-driven
+      // families (surface-audit, direct-response-contract) are one engine plus a
+      // row selector, and the runner has to pass the selector that picks the row.
+      // Anything already exported still wins for the shared contract variables.
+      // The CALLER's environment, not the process's. main() validates BASE_URL
+      // and MYSQL_HOST out of the env it was handed, so reading process.env here
+      // meant a caller passing an explicit environment gated one target and ran
+      // the child against another -- exactly the disassociation assertSafeTarget
+      // exists to prevent.
+      //
+      // envSet comes SECOND on purpose and the order is load-bearing: it is how
+      // one script backs several named checks (SURFACE=inbox, SURFACE=report),
+      // so a per-check selector has to beat an ambient value of the same name.
+      // Spread the other way and every surface-audit row would run whichever
+      // SURFACE happened to be exported, i.e. the same surface ten times.
+      env: {
+        ...(options.env || process.env),
+        ...(check.envSet || {}),
+        ...(resultPath ? { RESULT_JSON: resultPath } : {}),
+      },
+    });
+    const durationMs = Date.now() - started;
+    let raw;
+    if (result.error && result.error.code === 'ETIMEDOUT') {
+      raw = { outcome: 'FAIL', detail: `timed out after ${check.timeoutSec}s` };
+    } else if (result.status === EXIT_PASS) {
+      raw = { outcome: 'PASS', detail: '' };
+    } else if (result.status === EXIT_SKIP) {
+      raw = { outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured' };
+    } else {
+      // The failing step counts only for an ordinary failure (exit 1) whose record says FAIL:
+      // exit 130/143 is an interruption, and a missing record means the child never reached runCheck.
+      const record = resultPath ? readCheckRecord(resultPath) : null;
+      const ordinary = result.status === EXIT_FAIL && record && record.outcome === 'FAIL';
+      const failedStep = ordinary && typeof record.failedStep === 'string' && record.failedStep
+        ? record.failedStep : undefined;
+      raw = {
+        outcome: 'FAIL',
+        detail: `exit ${result.status === null ? 'signal' : result.status}${failedStep ? ` (failed at step "${failedStep}")` : ''}`,
+        failedStep,
+        cleanupFailed: Boolean(ordinary && record.cleanupFailed),
+      };
+    }
+    return { name: check.name, ...classifyResult(check, raw), durationMs };
+  } finally {
+    if (resultDirectory) fs.rmSync(resultDirectory, { recursive: true, force: true });
   }
-  if (result.status === EXIT_SKIP) {
-    return { name: check.name, outcome: 'SKIP', detail: 'a fixture or credential this check needs is not configured', durationMs };
-  }
-  return { name: check.name, outcome: 'FAIL', detail: `exit ${result.status === null ? 'signal' : result.status}`, durationMs };
 }
 
 function escapeXml(value) {
@@ -287,16 +394,24 @@ function escapeXml(value) {
 }
 
 function toJUnit(results) {
-  const failures = results.filter((result) => result.outcome === 'FAIL').length;
-  const skipped = results.filter((result) => result.outcome === 'SKIP').length;
+  // failed-elsewhere is a failure (it fails the run). known-fail is a skipped testcase whose
+  // message names the finding, so CI shows it without counting it as red; unexpected-pass is a
+  // passing testcase that carries its warning in <system-out>.
+  const failures = results.filter((result) => FAILING_OUTCOMES.has(result.outcome)).length;
+  const skipped = results.filter((result) => result.outcome === 'SKIP' || result.outcome === 'known-fail').length;
   const cases = results.map((result) => {
     const time = (result.durationMs / 1000).toFixed(3);
     const open = `    <testcase classname="playwright-suite" name="${escapeXml(result.name)}" time="${time}">`;
-    if (result.outcome === 'FAIL') {
-      return `${open}\n      <failure message="${escapeXml(result.detail || 'failed')}"/>\n    </testcase>`;
+    // Only the new outcomes are prefixed, so the original FAIL/SKIP messages are unchanged.
+    const message = (fallback) => `${['FAIL', 'SKIP'].includes(result.outcome) ? '' : `${result.outcome}: `}${result.detail || fallback}`;
+    if (FAILING_OUTCOMES.has(result.outcome)) {
+      return `${open}\n      <failure message="${escapeXml(message('failed'))}"/>\n    </testcase>`;
     }
-    if (result.outcome === 'SKIP') {
-      return `${open}\n      <skipped message="${escapeXml(result.detail || 'skipped')}"/>\n    </testcase>`;
+    if (result.outcome === 'SKIP' || result.outcome === 'known-fail') {
+      return `${open}\n      <skipped message="${escapeXml(message('skipped'))}"/>\n    </testcase>`;
+    }
+    if (result.outcome === 'unexpected-pass') {
+      return `${open}\n      <system-out>${escapeXml(message('unexpected pass'))}</system-out>\n    </testcase>`;
     }
     return `${open}</testcase>`;
   }).join('\n');
@@ -305,17 +420,84 @@ function toJUnit(results) {
 
 function summarise(results, out = console) {
   const width = Math.max(...results.map((result) => result.name.length), 4);
+  // known-fail, unexpected-pass and failed-elsewhere are longer than PASS/FAIL/SKIP.
+  const outcomeWidth = Math.max(6, ...results.map((result) => result.outcome.length));
   out.log('');
-  out.log('  RESULT  CHECK'.padEnd(width + 12) + 'TIME');
+  out.log(`  ${'RESULT'.padEnd(outcomeWidth)}  ${'CHECK'.padEnd(width)}  TIME`);
   for (const result of results) {
-    out.log(`  ${result.outcome.padEnd(6)}  ${result.name.padEnd(width)}  ${(result.durationMs / 1000).toFixed(1)}s${result.detail ? `  -- ${result.detail}` : ''}`);
+    out.log(`  ${result.outcome.padEnd(outcomeWidth)}  ${result.name.padEnd(width)}  ${(result.durationMs / 1000).toFixed(1)}s${result.detail ? `  -- ${result.detail}` : ''}`);
   }
   const counts = results.reduce((totals, result) => ({ ...totals, [result.outcome]: (totals[result.outcome] || 0) + 1 }), {});
+  // The three known-failure outcomes are appended only when present, so a run with no
+  // expectedFailure prints exactly the line it always did.
+  const expectation = ['known-fail', 'unexpected-pass', 'failed-elsewhere']
+    .filter((outcome) => counts[outcome]).map((outcome) => `${counts[outcome]} ${outcome}`);
   out.log('');
-  out.log(`  ${counts.PASS || 0} passed, ${counts.FAIL || 0} failed, ${counts.SKIP || 0} skipped`);
+  out.log(`  ${counts.PASS || 0} passed, ${counts.FAIL || 0} failed, ${counts.SKIP || 0} skipped${expectation.length ? `, ${expectation.join(', ')}` : ''}`);
 }
 
-function main(argv = process.argv.slice(2), env = process.env, out = console) {
+/** 1 when any result is FAIL or failed-elsewhere; known-fail and unexpected-pass are reported only. */
+function exitCodeFor(results) {
+  return results.some((result) => FAILING_OUTCOMES.has(result.outcome)) ? EXIT_FAIL : EXIT_PASS;
+}
+
+/**
+ * Problems with a manifest entry's expectedFailure, as strings (none means valid).
+ *
+ * `statuses` maps findings-log row number -> status; `source` is the text of the check's script
+ * (and the modules it requires, where the step labels may live). The finding must be a row that
+ * is not `fixed` -- a fixed defect must not keep excusing a failure -- and the step must be a
+ * label the script really passes to step(), or failedStep could never equal it and the check
+ * would read failed-elsewhere forever.
+ */
+function validateExpectedFailure(check, { statuses, source }) {
+  const expected = check.expectedFailure;
+  if (expected === null || typeof expected !== 'object' || Array.isArray(expected)) {
+    return ['expectedFailure must be an object { finding, step }'];
+  }
+  const problems = [];
+  const extra = Object.keys(expected).filter((key) => key !== 'finding' && key !== 'step');
+  if (extra.length) {
+    problems.push(`expectedFailure takes only finding and step; remove ${extra.join(', ')}`);
+  }
+  if (!Number.isInteger(expected.finding) || expected.finding < 1) {
+    problems.push('expectedFailure.finding must be a positive integer (a row number in docs/ui-tests/app-findings-log.md)');
+  } else if (!statuses.has(expected.finding)) {
+    problems.push(`finding ${expected.finding} is not a row in docs/ui-tests/app-findings-log.md`);
+  } else if (statuses.get(expected.finding) === 'fixed') {
+    problems.push(`finding ${expected.finding} is fixed; remove expectedFailure (or cite the open finding the check fails on now)`);
+  }
+  // failedStep reaches the runner only through runCheck()'s RESULT_JSON record, and only for a
+  // step that tags its error: runWorkflow's s.step() does, a script's own step helper must call
+  // markFailedStep().
+  if (!/\brunWorkflow\(/.test(source) && !(/\brunCheck\(/.test(source) && /\bmarkFailedStep\(/.test(source))) {
+    problems.push(`${check.script} reports through neither runWorkflow() nor a runCheck() whose steps call markFailedStep(), `
+      + 'so the runner can never see its failing step');
+  }
+  if (typeof expected.step !== 'string' || expected.step.trim() === '') {
+    problems.push('expectedFailure.step must be a non-empty string (the label the script gives step())');
+  } else {
+    // The label as it appears inside a quoted string literal in the script.
+    const spellings = [
+      expected.step,
+      expected.step.replace(/\\/g, '\\\\').replace(/'/g, "\\'"),
+      expected.step.replace(/\\/g, '\\\\').replace(/"/g, '\\"'),
+      expected.step.replace(/\\/g, '\\\\').replace(/`/g, '\\`'),
+    ];
+    if (!spellings.some((spelling) => source.includes(spelling))) {
+      problems.push(`${check.script} has no step labelled "${expected.step}"`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * `deps` lets a test supply the manifest, the child-process spawner and the build probe; a real
+ * run uses scripts/playwright-suite.json, spawnSync and curl.
+ */
+function main(argv = process.argv.slice(2), env = process.env, out = console, deps = {}) {
+  const run = deps.run || spawnSync;
+  const probeIdentity = deps.readBuildIdentity || readBuildIdentity;
   let options;
   try {
     options = parseArguments(argv);
@@ -330,7 +512,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
 
   let selected;
   try {
-    selected = selectChecks(loadManifest(), options);
+    selected = selectChecks(deps.checks || loadManifest(), options);
   } catch (error) {
     out.error(error.message);
     return EXIT_FAIL;
@@ -357,15 +539,15 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     return EXIT_PASS;
   }
 
-  const identityBefore = readBuildIdentity(env);
+  const identityBefore = probeIdentity(env);
   const results = selected.map((check) => {
     out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
     // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
     // the environment it was HANDED, so the child has to receive that same one
     // or the gate and the run are about different deployments.
-    return runOne(check, { ...options, env });
+    return runOne(check, { ...options, env }, run);
   });
-  const identityAfter = readBuildIdentity(env);
+  const identityAfter = probeIdentity(env);
 
   if (identityBefore && identityAfter && identityBefore !== identityAfter) {
     results.push({
@@ -381,7 +563,7 @@ function main(argv = process.argv.slice(2), env = process.env, out = console) {
     fs.writeFileSync(options.junit, toJUnit(results));
     out.log(`  JUnit written to ${options.junit}`);
   }
-  return results.some((result) => result.outcome === 'FAIL') ? EXIT_FAIL : EXIT_PASS;
+  return exitCodeFor(results);
 }
 
 if (require.main === module) {
@@ -389,5 +571,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  assertSafeTarget, loadManifest, main, parseArguments, readBuildIdentity, runOne, selectChecks, toJUnit,
+  assertSafeTarget, classifyResult, exitCodeFor, loadManifest, main, parseArguments, readBuildIdentity, runOne,
+  selectChecks, summarise, toJUnit, validateExpectedFailure,
 };

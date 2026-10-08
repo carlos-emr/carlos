@@ -32,6 +32,13 @@
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
+    "expectedFailure  { finding, step }. The check asserts correct behaviour and fails",
+    "            at that step while a logged defect stands. finding is a row of",
+    "            docs/ui-tests/app-findings-log.md whose status is not fixed; step is the",
+    "            label the script gives s.step(). The runner reports known-fail (failed",
+    "            there; does not fail the run), unexpected-pass (passed; reported) and",
+    "            failed-elsewhere (any other failure, cleanup included; fails the run).",
+    "            A script that labels no steps cannot carry one. notes may add the detail.",
     "",
     "TIERS ARE A FIRST CUT. They were assigned from each checks dependencies, not",
     "from a measured run; the smoke list is the one in the coverage plan. Adjust them",
@@ -3301,6 +3308,10 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "BC Bill Status and adjust bill page (#4373, #4346): Invoice List, Edit, Settle, billing history and note. Expected to FAIL at 'Edit opens the adjust bill page' while app-findings-log.md finding 147 stands (TypeError on load for an unsettled bill), then at the note step while finding 145 stands (each save adds a backslash before an apostrophe). Steps 1, 3 and 4 passed on 2026.08.0~alpha19 BC.",
+      "expectedFailure": {
+        "finding": 147,
+        "step": "Edit opens the adjust bill page with the stored billing note"
+      },
       "fixtures": "Seeds and removes one billing/billingmaster/billingnote row for its own FAKE patient."
     },
     {
@@ -4162,7 +4173,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08: the Add eForm list throws a TypeError on unload (unguarded window.opener), and the group mutators answer 405 / 403 (forward to a GET-only gate; missing CSRF token in the Administration panel).",
+      "notes": "Fails on 2026.08, and since #4130 it stops at the first panel mutation (Add Group): the Administration panel's POST is now redirected (POST/redirect/GET) and the check's submitInPanel requires HTTP 200 from the POST itself, so it fails on the 302 before it reaches the 405 / 403 the group mutators used to answer (findings 69 and 74: missing CSRF token in the Administration panel; a success result that forwards the POST to a GET-only gate). The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77). Not an expectedFailure: the 302 is the check's own assumption about the response, not a logged application defect, and the failing step is not yet confirmed by a live run.",
       "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
     },
     {
@@ -4276,6 +4287,10 @@
       "timeoutSec": 600,
       "env": [],
       "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (app-findings-log.md finding 140; fails while the session-wide attachment list stands).",
+      "expectedFailure": {
+        "finding": 140,
+        "step": "Send in X's window delivers to X only, with X's own eForm"
+      },
       "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
     },
     {
@@ -7797,7 +7812,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XP...) whose text columns, extension values, custom fields, contact, relationship and tickler carry inert markup, and three providers (doctor, nurse, midwife) with poisoned names. Inserts GLOBALLY VISIBLE poisoned rows while it runs (three active providers): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 118): the Master Record view prints official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type and the alert raw (demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810), the Edit form's doctor/nurse/midwife selects print provider names raw (demographic/edit-form-clinical.jsp:260,277,294), and Documents and Manage Contacts print the patient name raw through <oscar:nameage> (DemographicNameAgeTag.java:66 out.print without encoding; documentManager/documentReport.jsp:475, demographic/ManageContacts.jsp:362). Search results, Appointment/Billing/Enrollment History, Consultations, Prescriptions, Preventions, Tickler and eForms encode. Create Invoice is skipped: the WAF refuses its URL, which carries the patient name (CRS 949110). Tickler, Manage Contacts, Documents, Appointment History and Consultations must open a page of their own (an in-place change of the Master Record does not count) and show their seeded values. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (findings 117, 118): the Master Record view prints official/spoken language, contact role, cytology number, phone extensions, cell, email, health card type and the alert raw (demographic/edit-view.jsp:295,310,416,508,530,734,740,746,794,810), the Edit form's doctor/nurse/midwife selects print provider names raw (demographic/edit-form-clinical.jsp:260,277,294), and Documents and Manage Contacts print the patient name raw through <oscar:nameage> (DemographicNameAgeTag.java:66 out.print without encoding; documentManager/documentReport.jsp:475, demographic/ManageContacts.jsp:362). Search results, Appointment/Billing/Enrollment History, Consultations, Prescriptions, Preventions, Tickler and eForms encode. Create Invoice is skipped: the WAF refuses its URL, which carries the patient name (CRS 949110). Tickler, Manage Contacts, Documents, Appointment History and Consultations must open a page of their own (an in-place change of the Master Record does not count) and show their seeded values. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 117,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-echart",
@@ -7817,7 +7836,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient (chart number XE...) with a progress note, seven CPP notes, allergy, drug, measurement, prevention, document, eForm instance, tickler and consultation request whose text carries inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 119, 120, 128): the E-Chart left navbar prints item titles raw (encounter/LeftNavBarDisplay.jsp:338) and the Rx, Tickler and eForm modules build those titles from stored text without encoding (EctDisplayRx2Action.java:112/123, EctDisplayTickler2Action.java:96/104, EctDisplayEForm2Action.java:123); Medications prints drug instructions raw (rx/ListDrugs.jsp:326); Disease Registry and the CDM Indicators flowsheet header print the patient name raw through <oscar:nameage> (oscarResearch/oscarDxResearch/dxResearch.jsp:247, TemplateFlowSheetPage.jspf:486, DemographicNameAgeTag.java:66); the chart's consultation entry opens the request form whose letterhead script breaks (finding 120); Allergies prints the patient name raw (rx/ShowAllergies2.jsp:514, finding 128). The Grid/Row Display cumulative lab views and a measurement's history (HT) print the patient name raw through <oscar:nameage> as well (lab/CumulativeLabValues3.jsp:249, lab/CumulativeLabValues.jsp:214, encounter/oscarMeasurements/DisplayHistory.jsp:130; finding 117). An entry's window is inspected even when the chart redraws itself before it appears, and a required module counts only when it opened a page of its own (the chart's own copy of a value never stands in for it). Notes, CPP, allergies, preventions, documents, eForm list and tickler list encode. Medications, Tickler, eForms and Disease Registry must open and show their seeded values; the seeded document (no file behind it), dated encounter entries and prevention-due entries the chart redraws are noted when they cannot be reopened. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (findings 117, 119, 120, 128): the E-Chart left navbar prints item titles raw (encounter/LeftNavBarDisplay.jsp:338) and the Rx, Tickler and eForm modules build those titles from stored text without encoding (EctDisplayRx2Action.java:112/123, EctDisplayTickler2Action.java:96/104, EctDisplayEForm2Action.java:123); Medications prints drug instructions raw (rx/ListDrugs.jsp:326); Disease Registry and the CDM Indicators flowsheet header print the patient name raw through <oscar:nameage> (oscarResearch/oscarDxResearch/dxResearch.jsp:247, TemplateFlowSheetPage.jspf:486, DemographicNameAgeTag.java:66); the chart's consultation entry opens the request form whose letterhead script breaks (finding 120); Allergies prints the patient name raw (rx/ShowAllergies2.jsp:514, finding 128). The Grid/Row Display cumulative lab views and a measurement's history (HT) print the patient name raw through <oscar:nameage> as well (lab/CumulativeLabValues3.jsp:249, lab/CumulativeLabValues.jsp:214, encounter/oscarMeasurements/DisplayHistory.jsp:130; finding 117). An entry's window is inspected even when the chart redraws itself before it appears, and a required module counts only when it opened a page of its own (the chart's own copy of a value never stands in for it). Notes, CPP, allergies, preventions, documents, eForm list and tickler list encode. Medications, Tickler, eForms and Disease Registry must open and show their seeded values; the seeded document (no file behind it), dated encounter entries and prevention-due entries the chart redraws are noted when they cannot be reopened. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 117,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-schedule",
@@ -7837,7 +7860,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, an active doctor with a schedule today, two appointments, a tickler with a comment and suggested text, a Public schedule template and a template code, a holiday and a day reason on a free day this month, an appointment type, an appointment-reason lookup item and a waiting list. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an active provider, an appointment type, a schedule code, a holiday, a lookup item): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 123, 126, 127): the month view's provider select prints the truncated provider name raw (provider/appointmentprovideradminmonth.jsp:592,619) and its day cell prints the holiday name raw (:716); Schedule Setting > Template Setting prints template names and summaries raw into its select (schedule/scheduleedittemplate.jsp:161). Day sheet, week view, appointment edit popup and card, tickler list and edit popup, Add Appointment, appointment Search and the Schedule Setting provider selects encode. Template Setting is opened for Public: for the seeded doctor the WAF refuses the URL, which carries the provider name. Holiday and Template Code Setting are not offered to the test login (site/team access privacy) and are noted. The Add Appointment form must open, but its seeded appointment type is not required: appointment types are served from a 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that a run minutes earlier leaves warm, so it is inspected when listed and noted otherwise. SKIPs when every other day of the month already has a schedule or a holiday for the test provider. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (findings 123, 126, 127): the month view's provider select prints the truncated provider name raw (provider/appointmentprovideradminmonth.jsp:592,619) and its day cell prints the holiday name raw (:716); Schedule Setting > Template Setting prints template names and summaries raw into its select (schedule/scheduleedittemplate.jsp:161). Day sheet, week view, appointment edit popup and card, tickler list and edit popup, Add Appointment, appointment Search and the Schedule Setting provider selects encode. Template Setting is opened for Public: for the seeded doctor the WAF refuses the URL, which carries the provider name. Holiday and Template Code Setting are not offered to the test login (site/team access privacy) and are noted. The Add Appointment form must open, but its seeded appointment type is not required: appointment types are served from a 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that a run minutes earlier leaves warm, so it is inspected when listed and noted otherwise. SKIPs when every other day of the month already has a schedule or a holiday for the test provider. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 123,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-documents-inbox",
@@ -7857,7 +7884,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 117,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-note-history",
@@ -7877,7 +7908,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with poisoned text columns and one signed note whose text and history are poisoned, seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone.",
-      "notes": "Expected to FAIL at the last step while app-findings-log.md finding 148 stands: since #4307 the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) prints the patient's name raw (casemgmt/showHistory.jsp ${demoName}). Failed as described on 2026.08.0~alpha19 BC."
+      "notes": "Expected to FAIL at the last step while app-findings-log.md finding 148 stands: since #4307 the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) prints the patient's name raw (casemgmt/showHistory.jsp ${demoName}). Failed as described on 2026.08.0~alpha19 BC.",
+      "expectedFailure": {
+        "finding": 148,
+        "step": "the popup found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-eform",
@@ -7897,7 +7932,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a poisoned eForm template and a patient-independent template with current and deleted instances, an eForm group and a security role. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an eForm template, an eForm group, a role): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). The group Delete confirmation is only opened and dismissed. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 121, 125): Manage eForms' upload form prints role names raw in its select (eform/partials/upload.jsp:127); the eForm Groups Delete confirmation re-parses the attribute-encoded group name as HTML (efmmanageformgroups.jsp:148 into efmFooter.jspf:70 .html()); Patient-independent eForms prints instance name and subject raw on the current list (eform/efmmanageindependent.jsp:149,151) and on the Deleted list (eform/efmmanageindependentdeleted.jsp:160,162). The Deleted eForms list also throws TypeError on unload (window.opener cut by COOP, known finding 77). The seeded template's editor, group view, patient eForm list and Add eForm list encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (findings 121, 125): Manage eForms' upload form prints role names raw in its select (eform/partials/upload.jsp:127); the eForm Groups Delete confirmation re-parses the attribute-encoded group name as HTML (efmmanageformgroups.jsp:148 into efmFooter.jspf:70 .html()); Patient-independent eForms prints instance name and subject raw on the current list (eform/efmmanageindependent.jsp:149,151) and on the Deleted list (eform/efmmanageindependentdeleted.jsp:160,162). The Deleted eForms list also throws TypeError on unload (window.opener cut by COOP, known finding 77). The seeded template's editor, group view, patient eForm list and Add eForm list encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 121,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-messenger-consult",
@@ -7917,7 +7956,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a message to the test provider attached to that patient, a consultation service with a specialist and a consultation request, all carrying inert markup. Inserts GLOBALLY VISIBLE poisoned rows while it runs (a consultation service and specialist): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Cleanup also strips the service's lines from the shared specialistsJavascript cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 117, 120, 78, 124): the Msg inbox prints the linked patient's name raw through <oscar:nameage> (messenger/DisplayMessages.jsp:610; DemographicNameAgeTag.java:66); the consultation request form writes the saved letterhead name into a script string unescaped (encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:3525), a SyntaxError that stops the page script; Compose's Search Demographic popup closes itself on load (msgSearchDemo.jsp:219, finding 78), so its results cannot be inspected; Consultation Settings > the specialist answers 500 because the stored specialty type is text (AddSpecialist.jsp:527, finding 124). The message body is Markdown rendered through DOMPurify by design (ViewMessage.jsp), so markup there is noted, not counted. The message view, consultation list, the specialist list, Show All Services and Master Record > Consultations encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (findings 117, 120, 78, 124): the Msg inbox prints the linked patient's name raw through <oscar:nameage> (messenger/DisplayMessages.jsp:610; DemographicNameAgeTag.java:66); the consultation request form writes the saved letterhead name into a script string unescaped (encounter/oscarConsultationRequest/ConsultationFormRequest.jsp:3525), a SyntaxError that stops the page script; Compose's Search Demographic popup closes itself on load (msgSearchDemo.jsp:219, finding 78), so its results cannot be inspected; Consultation Settings > the specialist answers 500 because the stored specialty type is text (AddSpecialist.jsp:527, finding 124). The message body is Markdown rendered through DOMPurify by design (ViewMessage.jsp), so markup there is noted, not counted. The message view, consultation list, the specialist list, Show All Services and Master Record > Consultations encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 117,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-billing",
@@ -7957,7 +8000,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "A poisoned active provider with a group, a group row for the test provider, a lookup list and item, a dx quick list, a document type, a document description template, an encounter template and a report template. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an active provider and the lists above): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 122): Search/Edit/Delete Groups prints group member names raw (admin/admindisplaymygroup.jsp:117) and Document Description Template prints document types raw in its select (admin/displayDocumentDescriptionTemplate.jsp:291). Provider search results, the provider edit form, the report template run page, the clinic-default description templates of the consult type, Insert a Template and Customize Disease Registry Quick List > Edit Quick List encode. A surface that cannot be reached is a MISSING finding. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (finding 122): Search/Edit/Delete Groups prints group member names raw (admin/admindisplaymygroup.jsp:117) and Document Description Template prints document types raw in its select (admin/displayDocumentDescriptionTemplate.jsp:291). Provider search results, the provider edit form, the report template run page, the clinic-default description templates of the consult type, Insert a Template and Customize Disease Registry Quick List > Edit Quick List encode. A surface that cannot be reached is a MISSING finding. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 122,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-admin-users-billing",
@@ -7977,7 +8024,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "Part 1 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 1): about 35 poisoned rows across provider, group, role, job, lookup, quick-list, document-template, queue, eForm, report-template, measurement, appointment-type, tickler-category, billing, consultation-service, institution, REST-client, lot-number, guideline, waiting-list and system-message tables. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 121): Manage eForms' upload form prints role names raw (eform/partials/upload.jsp:127). The other items of the first half of the menu (users, billing, labs, forms) encode the seeded values they show. Manage eForms, Add New Queue, Manage Payment Type and Add Billing Location must show their seeded rows; Customize Consult Appointment Instructions must open, but its seeded item is not required (30-minute lookup-list cache). Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (finding 121): Manage eForms' upload form prints role names raw (eform/partials/upload.jsp:127). The other items of the first half of the menu (users, billing, labs, forms) encode the seeded values they show. Manage eForms, Add New Queue, Manage Payment Type and Add Billing Location must show their seeded rows; Customize Consult Appointment Instructions must open, but its seeded item is not required (30-minute lookup-list cache). Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 121,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "xss-poison-admin-reports-system",
@@ -7997,7 +8048,11 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "Part 2 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 101): the same poisoned row set as part 1. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (finding 122): raw stored values on Report by Template (oscarReport/reportByTemplate/homePage.jsp:129,131), Age-Sex Report (oscarReport/oscarReportAgeSex.jsp:192), Disease Registry report (oscarReport/oscarReportDxReg.jsp:168,247), Add a Group (admin/adminnewgroup.jsp:177), Access Control (admin/groupnoacl.jsp:162,180), Document Description Template (admin/displayDocumentDescriptionTemplate.jsp:291), Manage Faxes (admin/manageFaxes.jsp:371), Demographic Export (demographic/demographicExport.jsp:483), Fix notes with invalid role (admin/fixRolesOnNotes.jsp:93) and Jobs Management (admin/jobs.jsp:214, finding 63). Manage Lookup Lists, Jobs Management and REST Clients must show their seeded rows; Appointment Type List (30-minute cache) and the panel's own Messages item must open. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
+      "notes": "Expected to FAIL at the last step (finding 122): raw stored values on Report by Template (oscarReport/reportByTemplate/homePage.jsp:129,131), Age-Sex Report (oscarReport/oscarReportAgeSex.jsp:192), Disease Registry report (oscarReport/oscarReportDxReg.jsp:168,247), Add a Group (admin/adminnewgroup.jsp:177), Access Control (admin/groupnoacl.jsp:162,180), Document Description Template (admin/displayDocumentDescriptionTemplate.jsp:291), Manage Faxes (admin/manageFaxes.jsp:371), Demographic Export (demographic/demographicExport.jsp:483), Fix notes with invalid role (admin/fixRolesOnNotes.jsp:93) and Jobs Management (admin/jobs.jsp:214, finding 63). Manage Lookup Lists, Jobs Management and REST Clients must show their seeded rows; Appointment Type List (30-minute cache) and the panel's own Messages item must open. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "expectedFailure": {
+        "finding": 122,
+        "step": "the walk found no output-encoding defect"
+      }
     },
     {
       "name": "messenger-pdf-attachments-server-render",

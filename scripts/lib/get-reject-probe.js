@@ -87,12 +87,10 @@ function replayParams(params, overrides = {}) {
   return out;
 }
 
-/** A header the application's own filters add to every response and the WAF's nginx error page lacks. */
-const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
-
-function isWafPage(status, body) {
-  return status === 403 && /ModSecurity|<center>nginx<\/center>/i.test(body || '');
-}
+// One definition of the application header and of the WAF's block page, shared with
+// h.assertRefused() so the GET-reject ledger and the single-request refusal assertion cannot
+// disagree about what a WAF page looks like. isWafPage stays exported from here for callers.
+const { APPLICATION_HEADER, isWafPage } = h;
 
 /**
  * Ledger of probes. Each probe snapshots, sends GET then HEAD, re-snapshots, and

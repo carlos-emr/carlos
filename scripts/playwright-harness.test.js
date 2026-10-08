@@ -799,3 +799,242 @@ test('screenshot captures nothing when SCREENSHOT_DIR is unset and validates a d
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+/*
+ * assertRefused() -- the shared "the application refused this request and wrote nothing"
+ * assertion every GET-reject, CSRF and authorization check ends with.
+ *
+ * A refusal needs TWO pieces of evidence: the application's own answer (405, a 403 that
+ * CARLOS wrote, or its securityError page) and an unchanged row count. A bare non-200 is not
+ * enough: the ModSecurity front door answers 403 to the test's own fixture text, and a
+ * mistyped route answers 404; neither says anything about the route under test.
+ */
+const APP_HEADERS = { 'x-permitted-cross-domain-policies': 'none' };
+const WAF_BODY = '<html><head><title>403 Forbidden</title></head><body><center><h1>403 Forbidden</h1></center>'
+  + '<hr><center>nginx</center></body></html>';
+const SECURITY_ERROR_BODY = '<html><body><h5>Security Exception</h5>\n\n'
+  + 'You tried to access a resource with insufficient privileges.<h5>Object:_tickler</h5></body></html>';
+
+function apiResponse({ status, body = '', headers = {}, url = 'https://localhost/carlos/tickler/ViewAddTickler?demographic_no=77' }) {
+  return { status: () => status, text: async () => body, headers: () => headers, url: () => url };
+}
+
+/** A workflow-session stand-in whose COUNT(*) reads return the given values in order. */
+function sessionCounting(...counts) {
+  const queries = [];
+  return {
+    queries,
+    s: { sql: { value(query) { queries.push(query); return String(counts.shift()); } } },
+  };
+}
+
+test('shouldPassAssertRefused_when405AndRowCountUnchanged', async () => {
+  const { s, queries } = sessionCounting(3);
+  const verdict = await harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  });
+  assert.equal(verdict.status, 405);
+  assert.deepEqual(queries, ['SELECT COUNT(*) FROM tickler WHERE demographic_no=77']);
+});
+
+test('shouldPassAssertRefused_whenApplication403CarriesItsHeader', async () => {
+  const { s } = sessionCounting(0);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, headers: APP_HEADERS }), table: 'tickler', where: '1=1', before: 0,
+  });
+});
+
+test('shouldPassAssertRefused_whenHeadAnswers403WithApplicationHeaderAndNoBody', async () => {
+  // A HEAD has no body to recognise the application's page by; the header is the evidence.
+  const { s } = sessionCounting(5);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: '', headers: APP_HEADERS }), table: 'tickler', where: 'id=5', before: '5',
+  });
+});
+
+test('shouldPassAssertRefused_whenBodyIsTheSecurityErrorPage', async () => {
+  const { s } = sessionCounting(2);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: SECURITY_ERROR_BODY }), table: 'tickler', where: 'id=5', before: '2',
+  });
+  // An include()d gate cannot set a status, so the same page can arrive under a 200.
+  const included = sessionCounting(2);
+  await harness.assertRefused(included.s, {
+    response: apiResponse({ status: 200, body: SECURITY_ERROR_BODY }), table: 'tickler', where: 'id=5', before: '2',
+  });
+});
+
+test('shouldPassAssertRefused_whenRedirectedToSecurityError', async () => {
+  const { s } = sessionCounting(2);
+  await harness.assertRefused(s, {
+    response: apiResponse({ status: 302, headers: { location: '/carlos/securityError?type=_tickler' } }),
+    table: 'tickler', where: 'id=5', before: '2',
+  });
+});
+
+test('shouldFailAssertRefused_whenResponseIsWafPage', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /WAF refusal, not an application refusal/);
+  const modsecurity = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(modsecurity.s, {
+    response: apiResponse({ status: 403, body: '<h1>ModSecurity: Access denied (CRS 949110)</h1>' }),
+    table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /WAF refusal, not an application refusal/);
+});
+
+test('shouldFailAssertRefused_whenResponseIs404', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 404, body: '<h1>HTTP Status 404</h1>' }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /HTTP 404.*not the application's 403\/405\/securityError refusal/);
+});
+
+test('shouldFailAssertRefused_whenRowCountChanged', async () => {
+  // The route answered with a refusal AND wrote: the row count is the stronger evidence.
+  const { s } = sessionCounting(4);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: 'demographic_no=77', before: '3',
+  }), /changed tickler: COUNT\(\*\) was 3 before the request and 4 after/);
+});
+
+test('shouldFailAssertRefused_whenUnmarked403CannotBeAttributedToTheApplication', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: '<h1>Forbidden</h1>' }), table: 'tickler', where: 'id=1', before: '3',
+  }), /403 whose origin cannot be shown to be the application/);
+});
+
+test('shouldFailAssertRefused_whenRouteServedOrErrored', async () => {
+  for (const status of [200, 204, 302, 401, 500, 502]) {
+    const { s } = sessionCounting(3);
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status }), table: 'tickler', where: 'id=1', before: '3',
+    }), new RegExp(`HTTP ${status}`), `HTTP ${status} is not a refusal`);
+  }
+});
+
+test('shouldNameEveryProblem_whenWafPageAndRowCountChanged', async () => {
+  const { s } = sessionCounting(4);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'id=1', before: '3',
+  }), (error) => /WAF refusal, not an application refusal/.test(error.message)
+    && /COUNT\(\*\) was 3 before the request and 4 after/.test(error.message));
+});
+
+test('shouldAcceptPreReadResponse_whenGivenPlainStatusBodyAndHeaders', async () => {
+  const { s } = sessionCounting(1);
+  await harness.assertRefused(s, {
+    response: { status: 403, body: SECURITY_ERROR_BODY, headers: {} }, table: 'tickler', where: 'id=1', before: 1,
+  });
+});
+
+test('shouldRefuseAssertRefused_whenCallerGivesNoBeforeCountOrAnUnsafeTable', async () => {
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: 'id=1',
+  }), /needs the COUNT\(\*\) taken before the request/);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler; DROP TABLE x', where: 'id=1', before: 3,
+  }), /table must be a plain table name/);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 405 }), table: 'tickler', where: '  ', before: 3,
+  }), /needs a where clause that selects only the rows the check owns/);
+});
+
+test('shouldNotEchoTheResponseBody_inTheAssertionMessage', async () => {
+  // A refusal page can reflect request text, and the message lands in stdout and RESULT_JSON.
+  const { s } = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(s, {
+    response: apiResponse({ status: 200, body: '<p>FAKE-PATIENT-NAME 1234567890</p>' }), table: 'tickler', where: 'id=1', before: '3',
+  }), (error) => !/FAKE-PATIENT-NAME|1234567890|demographic_no=77/.test(error.message));
+});
+
+test('shouldTagTheStepLabel_whenAStepThrows', () => {
+  const error = new Error('boom');
+  assert.equal(harness.markFailedStep(error, 'inner step'), error);
+  assert.equal(error.failedStep, 'inner step');
+  // The innermost label wins: an outer wrapper must not relabel a failure a nested step already named.
+  harness.markFailedStep(error, 'outer step');
+  assert.equal(error.failedStep, 'inner step');
+  // Thrown primitives cannot carry a property; they pass through untouched.
+  assert.equal(harness.markFailedStep('plain string', 'step'), 'plain string');
+  assert.equal(harness.markFailedStep(null, 'step'), null);
+});
+
+test('shouldRecordFailedStep_whenRunCheckBodyThrowsATaggedError', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-step-'));
+  try {
+    const resultPath = path.join(directory, 'result.json');
+    const processRef = { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} };
+    const result = await runCheck({
+      name: 'stepped',
+      run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'second step'); },
+      stdout: { log() {} },
+      processRef,
+    });
+    assert.equal(result.outcome, 'FAIL');
+    assert.equal(result.failedStep, 'second step');
+    const written = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+    assert.equal(written.failedStep, 'second step');
+    assert.equal('cleanupFailed' in written, false, 'a clean cleanup records nothing');
+    assert.equal(processRef.exitCode, 1);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('shouldOmitFailedStep_whenTheFailureHadNoLabelledStep', async () => {
+  const processRef = { exitCode: null, env: {}, on() {}, removeListener() {} };
+  const result = await runCheck({
+    name: 'unlabelled', run: async () => { throw new Error('plain failure'); }, stdout: { log() {} }, processRef,
+  });
+  assert.equal(result.outcome, 'FAIL');
+  assert.equal('failedStep' in result, false);
+  const passed = await runCheck({ name: 'ok', run: async () => null, stdout: { log() {} }, processRef: { ...processRef, env: {} } });
+  assert.equal('failedStep' in passed, false);
+});
+
+test('shouldNotRecordFailedStep_whenTheCheckWasInterrupted', async () => {
+  // An interrupted run exits 130/143 and is not a failure at a step; it must never read as a known failure.
+  const interruption = new Error('Interrupted by SIGINT');
+  const result = await runCheck({
+    name: 'interrupted',
+    run: async () => { throw harness.markFailedStep(interruption, 'a step'); },
+    stdout: { log() {} },
+    processRef: { exitCode: null, env: {}, on() {}, removeListener() {} },
+    createCancellation: () => ({
+      isCancellation: (error) => error === interruption, exitCode: 130, dispose() {}, throwIfCancelled() {},
+    }),
+  });
+  assert.equal(result.detail, 'interrupted');
+  assert.equal('failedStep' in result, false);
+});
+
+test('shouldFlagCleanupFailure_whenCleanupFailsAfterALabelledFailure', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runcheck-cleanup-'));
+  try {
+    const resultPath = path.join(directory, 'result.json');
+    const result = await runCheck({
+      name: 'leaky',
+      run: async () => { throw harness.markFailedStep(new Error('assertion failed'), 'the known step'); },
+      cleanup: async () => { throw new Error('DELETE failed'); },
+      stdout: { log() {} },
+      processRef: { exitCode: null, env: { RESULT_JSON: resultPath }, on() {}, removeListener() {} },
+    });
+    assert.equal(result.failedStep, 'the known step');
+    assert.equal(result.cleanupFailed, true, 'a known failure that also leaked its fixtures is not a clean known failure');
+    assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).cleanupFailed, true);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('shouldShareOneWafDefinition_betweenTheHarnessAndTheGetRejectProbe', () => {
+  const probe = require('./lib/get-reject-probe');
+  assert.equal(probe.isWafPage, harness.isWafPage);
+  assert.equal(harness.isWafPage(403, WAF_BODY), true);
+  assert.equal(harness.isWafPage(403, SECURITY_ERROR_BODY), false);
+  assert.equal(harness.isWafPage(404, WAF_BODY), false);
+});

@@ -4,6 +4,7 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const { spawnSync } = require('node:child_process');
 
 const { loadManifest, parseArguments, selectChecks, toJUnit } = require('./run-playwright-suite');
 const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
@@ -252,4 +253,337 @@ test('every registered browser check parses before it can be scheduled', () => {
     execFileSync(process.execPath, ['--check', path.join(__dirname, '..', check.script)],
       { stdio: 'pipe', timeout: 10000 });
   }
+});
+
+/*
+ * KNOWN-FAILURE BOOKKEEPING.
+ *
+ * A check asserts correct behaviour, so while a defect stands it fails at the step that
+ * exercises the defect. That used to be recorded as prose in `notes` ("Fails on 2026.08: ..."),
+ * and 94 failures of the alpha19 run were triaged by hand. `expectedFailure: { finding, step }`
+ * turns it into data the runner can compare with what actually happened:
+ *
+ *   known-fail        failed at exactly that step: reported, does not fail the run
+ *   unexpected-pass   passed although a failure was expected: reported, does not fail the run
+ *   failed-elsewhere  failed anywhere else (another step, no labelled step, cleanup, timeout):
+ *                     FAILS the run, because a known defect must not hide a new one
+ */
+const {
+  classifyResult, exitCodeFor, runOne, main, summarise, validateExpectedFailure,
+} = require('./run-playwright-suite');
+const { EXIT_FAIL, EXIT_PASS } = require('./lib/playwright-harness');
+
+// What a conforming script contains: it reports through the harness, so its failing step is recorded.
+const REPORTING = 'if (require.main === module) runWorkflow(\'two-windows\', workflow);\n';
+const EXPECTED = Object.freeze({ finding: 140, step: 'send from X\'s window' });
+const expectingCheck = (overrides = {}) => ({
+  name: 'two-windows', script: 'scripts/two-windows-playwright-checks.js', tiers: ['core'],
+  assertsDatabase: false, provinces: ['all'], timeoutSec: 5, expectedFailure: { ...EXPECTED }, ...overrides,
+});
+
+/** A spawn double: the "child" writes the RESULT_JSON record runCheck would, then exits with `status`. */
+function child({ status = 1, record = null, seen = null } = {}) {
+  return (command, args, spawnOptions) => {
+    if (seen) seen.push(spawnOptions.env.RESULT_JSON);
+    if (record) fs.writeFileSync(spawnOptions.env.RESULT_JSON, JSON.stringify(record));
+    return { status };
+  };
+}
+const failureAt = (failedStep, extra = {}) => ({ name: 'two-windows', outcome: 'FAIL', detail: 'assertion failed', failedStep, ...extra });
+
+test('shouldClassifyKnownFail_whenFailedStepMatches', () => {
+  const result = runOne(expectingCheck(), { env: {} }, child({ record: failureAt('send from X\'s window') }));
+  assert.equal(result.outcome, 'known-fail');
+  assert.match(result.detail, /finding 140/);
+  assert.match(result.detail, /send from X's window/);
+  assert.equal(exitCodeFor([result]), EXIT_PASS, 'a known failure must not fail the run');
+});
+
+test('shouldFailRun_whenFailedElsewhere', () => {
+  const elsewhere = runOne(expectingCheck(), { env: {} }, child({ record: failureAt('seed the patients') }));
+  assert.equal(elsewhere.outcome, 'failed-elsewhere');
+  assert.match(elsewhere.detail, /expected to fail at step "send from X's window" \(finding 140\)/);
+  assert.match(elsewhere.detail, /seed the patients/, 'the step it actually failed at must be named');
+  assert.equal(exitCodeFor([elsewhere]), EXIT_FAIL, 'a known defect must not hide a failure at another step');
+});
+
+test('shouldFailRun_whenFailureHasNoLabelledStep', () => {
+  // The child crashed before writing a record, or failed outside any step (final strict-page check, cleanup).
+  for (const [label, run] of [
+    ['no record', child({ status: 1 })],
+    ['a record without a step', child({ record: { name: 'two-windows', outcome: 'FAIL', detail: 'cleanup failed' } })],
+  ]) {
+    const result = runOne(expectingCheck(), { env: {} }, run);
+    assert.equal(result.outcome, 'failed-elsewhere', label);
+    assert.equal(exitCodeFor([result]), EXIT_FAIL, label);
+  }
+});
+
+test('shouldFailRun_whenKnownFailureAlsoLeaksItsFixtures', () => {
+  const result = runOne(expectingCheck(), { env: {} },
+    child({ record: failureAt('send from X\'s window', { cleanupFailed: true }) }));
+  assert.equal(result.outcome, 'failed-elsewhere');
+  assert.match(result.detail, /cleanup/);
+});
+
+test('shouldFailRun_whenExpectedFailureTimesOutOrIsInterrupted', () => {
+  const timedOut = runOne(expectingCheck(), { env: {} }, () => ({ status: null, error: Object.assign(new Error('x'), { code: 'ETIMEDOUT' }) }));
+  assert.equal(timedOut.outcome, 'failed-elsewhere');
+  assert.match(timedOut.detail, /timed out after 5s/);
+  // Exit 130/143 is a signal, not a failure at a step, even if a record named the step.
+  const interrupted = runOne(expectingCheck(), { env: {} },
+    child({ status: 130, record: failureAt('send from X\'s window') }));
+  assert.equal(interrupted.outcome, 'failed-elsewhere');
+});
+
+test('shouldReportUnexpectedPass_whenExpectedFailurePasses', () => {
+  const result = runOne(expectingCheck(), { env: {} }, child({ status: 0, record: { name: 'two-windows', outcome: 'PASS', detail: '' } }));
+  assert.equal(result.outcome, 'unexpected-pass');
+  assert.match(result.detail, /finding 140/);
+  assert.match(result.detail, /remove expectedFailure/);
+  assert.equal(exitCodeFor([result]), EXIT_PASS, 'an unexpected pass is reported, not punished');
+});
+
+test('shouldKeepSkip_whenExpectedFailureCheckSkips', () => {
+  const result = runOne(expectingCheck(), { env: {} }, child({ status: 2 }));
+  assert.equal(result.outcome, 'SKIP');
+  assert.equal(exitCodeFor([result]), EXIT_PASS);
+});
+
+test('shouldLeaveOrdinaryOutcomesUnchanged_whenNoFailureIsExpected', () => {
+  const plain = expectingCheck({ expectedFailure: undefined });
+  assert.equal(runOne(plain, { env: {} }, child({ status: 0 })).outcome, 'PASS');
+  assert.equal(runOne(plain, { env: {} }, child({ status: 2 })).outcome, 'SKIP');
+  const failed = runOne(plain, { env: {} }, child({ status: 1, record: failureAt('send from X\'s window') }));
+  assert.equal(failed.outcome, 'FAIL');
+  assert.match(failed.detail, /exit 1/);
+  assert.match(failed.detail, /send from X's window/, 'a plain failure names its step too, so triage can start there');
+  assert.equal(exitCodeFor([failed]), EXIT_FAIL);
+  assert.equal(runOne(plain, { env: {} }, child({ status: 1 })).detail, 'exit 1');
+});
+
+test('shouldGiveEveryCheckItsOwnResultFile_andRemoveIt', () => {
+  const seen = [];
+  runOne(expectingCheck({ name: 'a' }), { env: { RESULT_JSON: '/tmp/caller-exported.json' } }, child({ seen }));
+  runOne(expectingCheck({ name: 'b' }), { env: {} }, child({ seen }));
+  assert.equal(seen.length, 2);
+  assert.notEqual(seen[0], seen[1], 'a shared result file would let one check inherit the previous check\'s failed step');
+  assert.notEqual(seen[0], '/tmp/caller-exported.json', 'the runner owns RESULT_JSON for the children it starts');
+  for (const file of seen) assert.equal(fs.existsSync(file), false, 'the temporary record is removed after the run');
+});
+
+test('shouldIgnoreAStaleRecord_whenTheChildWritesNone', () => {
+  // A record left by an earlier run must not be read as this run's: the file is created fresh per check.
+  const result = runOne(expectingCheck(), { env: {} }, child({ status: 1 }));
+  assert.equal(result.outcome, 'failed-elsewhere');
+});
+
+/**
+ * The doubles above prove the classification; this proves the plumbing. A real child process
+ * fails through the real runCheck() and markFailedStep(), and the real runner reads the
+ * RESULT_JSON record it handed that child.
+ */
+function realChild(t, body) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runner-child-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const script = path.join(dir, 'child-playwright-checks.js');
+  const harnessPath = JSON.stringify(path.join(__dirname, 'lib', 'playwright-harness'));
+  fs.writeFileSync(script, `const h = require(${harnessPath});\nh.runCheck({ name: 'child', async run() { ${body} } });\n`);
+  const piped = (command, args, spawnOptions) => spawnSync(command, args, { ...spawnOptions, stdio: 'pipe' });
+  return { script, piped };
+}
+
+test('shouldClassifyKnownFail_whenARealChildFailsAtTheExpectedStep', (t) => {
+  const { script, piped } = realChild(t, `
+    try { throw new Error('boom'); } catch (error) { throw h.markFailedStep(error, 'second step'); }`);
+  const check = expectingCheck({ script, timeoutSec: 30, expectedFailure: { finding: 140, step: 'second step' } });
+  assert.equal(runOne(check, { env: process.env }, piped).outcome, 'known-fail');
+  const elsewhere = expectingCheck({ script, timeoutSec: 30, expectedFailure: { finding: 140, step: 'first step' } });
+  assert.equal(runOne(elsewhere, { env: process.env }, piped).outcome, 'failed-elsewhere');
+});
+
+test('shouldClassifyUnexpectedPass_whenARealChildPasses', (t) => {
+  const { script, piped } = realChild(t, 'return null;');
+  const result = runOne(expectingCheck({ script, timeoutSec: 30 }), { env: process.env }, piped);
+  assert.equal(result.outcome, 'unexpected-pass');
+});
+
+test('shouldClassifyDirectly_whenGivenARawResult', () => {
+  const check = expectingCheck();
+  assert.deepEqual(classifyResult(expectingCheck({ expectedFailure: undefined }), { outcome: 'FAIL', detail: 'exit 1' }),
+    { outcome: 'FAIL', detail: 'exit 1' });
+  assert.equal(classifyResult(check, { outcome: 'FAIL', detail: 'exit 1', failedStep: 'send from X\'s window' }).outcome, 'known-fail');
+  assert.equal(classifyResult(check, { outcome: 'PASS', detail: '' }).outcome, 'unexpected-pass');
+  assert.equal(classifyResult(check, { outcome: 'SKIP', detail: 'no fixture' }).outcome, 'SKIP');
+});
+
+test('shouldFailRunOnlyOn_failAndFailedElsewhere', () => {
+  const outcome = (name) => ({ name, outcome: name, detail: '', durationMs: 0 });
+  assert.equal(exitCodeFor(['PASS', 'SKIP', 'known-fail', 'unexpected-pass'].map(outcome)), EXIT_PASS);
+  assert.equal(exitCodeFor(['PASS', 'FAIL'].map(outcome)), EXIT_FAIL);
+  assert.equal(exitCodeFor(['PASS', 'known-fail', 'failed-elsewhere'].map(outcome)), EXIT_FAIL);
+});
+
+function captured() {
+  const lines = [];
+  return { lines, out: { log: (line = '') => lines.push(line), error: (line) => lines.push(line) } };
+}
+
+test('shouldSurfaceAllThreeOutcomes_inTheConsoleSummary', () => {
+  const { lines, out } = captured();
+  summarise([
+    { name: 'a', outcome: 'PASS', detail: '', durationMs: 1000 },
+    { name: 'b', outcome: 'known-fail', detail: 'known failure at step "s" (finding 140)', durationMs: 1000 },
+    { name: 'c', outcome: 'unexpected-pass', detail: 'passed although expected to fail', durationMs: 1000 },
+    { name: 'd', outcome: 'failed-elsewhere', detail: 'expected to fail at step "s" (finding 140) but failed at step "t"', durationMs: 1000 },
+  ], out);
+  const text = lines.join('\n');
+  assert.match(text, /known-fail\s+b/);
+  assert.match(text, /unexpected-pass\s+c/);
+  assert.match(text, /failed-elsewhere\s+d/);
+  assert.match(text, /1 passed, 0 failed, 0 skipped, 1 known-fail, 1 unexpected-pass, 1 failed-elsewhere/);
+});
+
+test('shouldKeepTheOriginalSummaryLine_whenNoFailureIsExpected', () => {
+  const { lines, out } = captured();
+  summarise([{ name: 'a', outcome: 'PASS', detail: '', durationMs: 1000 }, { name: 'b', outcome: 'SKIP', detail: 'x', durationMs: 1 }], out);
+  assert.ok(lines.includes('  1 passed, 0 failed, 1 skipped'), lines.join('\n'));
+});
+
+test('shouldWriteJUnit_forKnownFailUnexpectedPassAndFailedElsewhere', () => {
+  const xml = toJUnit([
+    { name: 'a', outcome: 'PASS', detail: '', durationMs: 1200 },
+    { name: 'b', outcome: 'known-fail', detail: 'known failure at step "send" (finding 140)', durationMs: 10 },
+    { name: 'c', outcome: 'unexpected-pass', detail: 'passed although expected to fail at step "x" (finding 7)', durationMs: 10 },
+    { name: 'd', outcome: 'failed-elsewhere', detail: 'expected to fail at step "x" (finding 7) but failed at step "y"', durationMs: 10 },
+    { name: 'e', outcome: 'FAIL', detail: 'exit 1', durationMs: 10 },
+  ]);
+  assert.match(xml, /tests="5" failures="2" skipped="1"/, 'failed-elsewhere is a failure; known-fail is a skip');
+  assert.match(xml, /<skipped message="known-fail: known failure at step &quot;send&quot; \(finding 140\)"\/>/);
+  assert.match(xml, /<failure message="failed-elsewhere: expected to fail at step &quot;x&quot; \(finding 7\) but failed at step &quot;y&quot;"\/>/);
+  assert.match(xml, /<testcase [^>]*name="c"[^>]*>\s*<system-out>unexpected-pass: passed although expected to fail at step &quot;x&quot; \(finding 7\)<\/system-out>\s*<\/testcase>/);
+  assert.match(xml, /<failure message="exit 1"\/>/);
+});
+
+function mainWith(checks, run, argv = [], env = {}) {
+  const { lines, out } = captured();
+  const code = main(argv, env, out, { checks, run, readBuildIdentity: () => null });
+  return { code, text: lines.join('\n') };
+}
+
+test('shouldExitNonZeroFromMain_whenAnExpectedFailureFailsElsewhere', () => {
+  const { code, text } = mainWith([expectingCheck()], child({ record: failureAt('seed the patients') }));
+  assert.equal(code, EXIT_FAIL);
+  assert.match(text, /failed-elsewhere\s+two-windows/);
+});
+
+test('shouldExitZeroFromMain_whenOnlyKnownFailuresAndUnexpectedPassesOccur', () => {
+  const checks = [expectingCheck({ name: 'known' }), expectingCheck({ name: 'fixed' })];
+  const run = (command, args, spawnOptions) => {
+    const name = args[0].includes('known') ? 'known' : 'fixed';
+    return child(name === 'known' ? { record: failureAt('send from X\'s window') } : { status: 0 })(command, args, spawnOptions);
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-runner-junit-'));
+  try {
+    const junit = path.join(dir, 'out.xml');
+    const checksWithScripts = checks.map((check) => ({ ...check, script: `scripts/${check.name}-playwright-checks.js` }));
+    const { code, text } = mainWith(checksWithScripts, run, ['--junit', junit]);
+    assert.equal(code, EXIT_PASS);
+    assert.match(text, /known-fail\s+known/);
+    assert.match(text, /unexpected-pass\s+fixed/);
+    const xml = fs.readFileSync(junit, 'utf8');
+    assert.match(xml, /known-fail: known failure at step/);
+    assert.match(xml, /unexpected-pass: passed although/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/*
+ * The manifest side: expectedFailure is only as good as the finding and the step it cites.
+ */
+const FINDINGS_LOG = fs.readFileSync(path.join(__dirname, '..', 'docs', 'ui-tests', 'app-findings-log.md'), 'utf8');
+
+/** finding number -> status, read like app-findings-log.test.js reads the log. */
+function findingStatuses() {
+  const statuses = new Map();
+  for (const line of FINDINGS_LOG.split('\n').filter((row) => /^\|\s*\d+\s*\|/.test(row))) {
+    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+    statuses.set(Number(cells[0]), cells[cells.length - 1].replace(/`/g, '').trim());
+  }
+  return statuses;
+}
+
+/** The script and the modules it requires from this repository: step labels may live in a shared engine. */
+function stepSources(script) {
+  const file = path.join(__dirname, '..', script);
+  const source = fs.readFileSync(file, 'utf8');
+  const parts = [source];
+  for (const match of source.matchAll(/require\('(\.[^']+)'\)/g)) {
+    for (const candidate of [match[1], `${match[1]}.js`]) {
+      const resolved = path.resolve(path.dirname(file), candidate);
+      if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) parts.push(fs.readFileSync(resolved, 'utf8'));
+    }
+  }
+  return parts.join('\n');
+}
+
+test('every expectedFailure cites an open finding and a step label its script contains', () => {
+  const statuses = findingStatuses();
+  const withExpectation = checks.filter((check) => check.expectedFailure !== undefined);
+  assert.ok(withExpectation.length > 0, 'the prose "Fails on ..." notes that name a finding and a step are converted');
+  for (const check of withExpectation) {
+    const problems = validateExpectedFailure(check, { statuses, source: stepSources(check.script) });
+    assert.deepEqual(problems, [], `${check.name}: ${problems.join('; ')}`);
+  }
+});
+
+test('shouldRejectExpectedFailure_whenFindingIsFixedOrMissing', () => {
+  const statuses = new Map([[140, 'issue-filed'], [141, 'fixed'], [142, 'open'], [143, 'needs-live-check']]);
+  const source = REPORTING + 'await s.step(\'send from X\\\'s window\', async () => {});';
+  const ok = (finding) => validateExpectedFailure(expectingCheck({ expectedFailure: { finding, step: 'send from X\'s window' } }), { statuses, source });
+  assert.deepEqual(ok(140), []);
+  assert.deepEqual(ok(142), []);
+  assert.deepEqual(ok(143), []);
+  assert.match(ok(141).join(';'), /finding 141 is fixed/);
+  assert.match(ok(9999).join(';'), /finding 9999 is not a row in docs\/ui-tests\/app-findings-log\.md/);
+});
+
+test('shouldRejectExpectedFailure_whenShapeIsWrong', () => {
+  const statuses = new Map([[140, 'issue-filed']]);
+  const source = REPORTING + 'await s.step(\'a step\', async () => {});';
+  const problems = (expectedFailure) => validateExpectedFailure(expectingCheck({ expectedFailure }), { statuses, source }).join(';');
+  assert.match(problems(140), /must be an object/);
+  assert.match(problems(null), /must be an object/);
+  assert.match(problems({ finding: '140', step: 'a step' }), /finding must be a positive integer/);
+  assert.match(problems({ finding: 0, step: 'a step' }), /finding must be a positive integer/);
+  assert.match(problems({ finding: 140, step: '' }), /step must be a non-empty string/);
+  assert.match(problems({ finding: 140 }), /step must be a non-empty string/);
+  assert.match(problems({ finding: 140, step: 'a step', reason: 'x' }), /only finding and step/);
+});
+
+test('shouldRejectExpectedFailure_whenTheScriptHasNoSuchStepLabel', () => {
+  // failedStep can only ever be a label the script passes to step(); anything else would read as failed-elsewhere forever.
+  const statuses = new Map([[140, 'issue-filed']]);
+  const check = expectingCheck({ expectedFailure: { finding: 140, step: 'a step that does not exist' } });
+  const problems = validateExpectedFailure(check, { statuses, source: REPORTING + 'await s.step(\'another step\', async () => {});' });
+  assert.match(problems.join(';'), /no step labelled "a step that does not exist"/);
+  // An escaped quote in the script's string literal is still the same label.
+  const escaped = expectingCheck({ expectedFailure: { finding: 140, step: 'Send in X\'s window' } });
+  assert.deepEqual(validateExpectedFailure(escaped, { statuses, source: REPORTING + 'await s.step(\'Send in X\\\'s window\', f);' }), []);
+  assert.deepEqual(validateExpectedFailure(escaped, { statuses, source: REPORTING + 'await s.step("Send in X\'s window", f);' }), []);
+});
+
+test('shouldRejectExpectedFailure_whenTheScriptDoesNotReportThroughRunCheck', () => {
+  // Only runCheck() writes the failing step where the runner can read it; a script with its own
+  // main() and its own PASS/FAIL printing can never satisfy an expectedFailure.
+  const statuses = new Map([[140, 'issue-filed']]);
+  const source = 'const step = (name, ok) => console.log(ok ? "PASS" : "FAIL", name); step(\'send from X\\\'s window\', true);';
+  const problems = validateExpectedFailure(expectingCheck(), { statuses, source });
+  assert.match(problems.join(';'), /neither runWorkflow\(\) nor a runCheck\(\) whose steps call markFailedStep\(\)/);
+  // runCheck() alone is not enough: its own step helper must tag the failing step.
+  const bare = source + ' runCheck({ name: \'x\', run });';
+  assert.match(validateExpectedFailure(expectingCheck(), { statuses, source: bare }).join(';'), /neither runWorkflow/);
+  const tagged = `${bare} h.markFailedStep(error, 'send from X\\'s window');`;
+  assert.deepEqual(validateExpectedFailure(expectingCheck(), { statuses, source: tagged }), []);
 });
