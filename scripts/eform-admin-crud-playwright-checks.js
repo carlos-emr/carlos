@@ -42,11 +42,22 @@
  * create — removing the shared "Rich Text Letter" breaks every RTL check in the
  * suite (learned the hard way while diagnosing these defects).
  *
- * A PASSING run cleans up after itself: the delete step is the last assertion,
- * so the probe form is gone by the end. A FAILING run deliberately leaves its
- * form behind for diagnosis; the names are timestamped, so repeated failures
- * accumulate rather than collide. Clear them with:
- *   UPDATE eform SET status=0 WHERE form_name LIKE 'Playwright Admin CRUD %';
+ * CLEANUP (issue #4408). The check drives the UI and needs no database, but when
+ * MYSQL_PASSWORD is set (MYSQL_HOST/MYSQL_USER/MYSQL_DATABASE optional, loopback
+ * host only) it also removes its own probe form with ONE statement keyed on the
+ * exact, epoch-stamped form_name it created:
+ *   - PASSING run: the form is restored by the last step, so it is back in the
+ *     library; it is purged so repeated runs do not accumulate library rows.
+ *   - INTERRUPTED run (SIGINT/SIGTERM, e.g. a CI timeout): purged by the shared
+ *     handler from lib/playwright-harness. A `finally` does not run on a kill.
+ *   - FAILING run: deliberately LEFT BEHIND for diagnosis; names are timestamped,
+ *     so repeated failures accumulate rather than collide.
+ * SQL was chosen over a UI purge because a signal handler cannot rely on a live
+ * browser session or CSRF token (the browser may be the thing interrupted), and
+ * the application has no purge route: delete is a soft delete (status='D').
+ * Without MYSQL_PASSWORD no cleanup runs and the leftovers can be cleared with:
+ *   DELETE FROM eform WHERE form_name LIKE 'Playwright Admin CRUD %';
+ * (or, to keep the rows hidden instead: UPDATE eform SET status=0 WHERE ...).
  */
 
 const { chromium } = require('playwright');
@@ -55,11 +66,15 @@ const {
   assertNoPageErrors,
   buildFailureDetails,
   createRecorder,
+  createSqlRunner,
   getLaunchOptions,
+  installCleanupSignalHandlers,
   gotoApp,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   openManager,
   screenshot,
+  sqlString,
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
@@ -76,6 +91,40 @@ const config = {
 const stamp = Date.now();
 const formName = `Playwright Admin CRUD ${stamp}`;
 let restoredForm = false;
+let passed = false;
+
+// Optional database access, used only to remove this run's own probe form. The
+// check stays runnable without credentials; see the CLEANUP note in the header.
+const sql = process.env.MYSQL_PASSWORD
+  ? createSqlRunner({
+    host: process.env.MYSQL_HOST || 'localhost',
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD,
+    database: process.env.MYSQL_DATABASE || 'carlos',
+  })
+  : null;
+
+/**
+ * Removes the one eForm this run created. Idempotent, and keyed on the exact
+ * stamped name so it can never touch a library form it did not create.
+ */
+function cleanupProbeForm() {
+  if (!sql) {
+    console.log(`[note] MYSQL_PASSWORD is not set; leaving "${formName}" in the eForm library.`);
+    return;
+  }
+  sql.execute(`DELETE FROM eform WHERE form_name = ${sqlString(formName)}`);
+}
+
+// A `finally` does not run when the process is killed (issue #3600/#4408), so an
+// interrupted run removes its probe form here. Disposed last in the finally.
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupProbeForm();
+  } finally {
+    if (sql) sql.dispose();
+  }
+});
 
 // Deliberately shaped like a real eForm: a full HTML document with <meta>,
 // <style>, <script> and an onload handler. That is exactly the content CRS
@@ -204,7 +253,7 @@ async function libraryRow(page, name) {
 
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   try {
     // validateBaseUrl returns a URL object, not a string.
     if (config.baseUrl.protocol !== 'https:') {
@@ -612,6 +661,7 @@ async function libraryRow(page, name) {
 
     await context.close();
 
+    passed = true;
     console.log(
       `PASS eForm admin create/edit/delete round trip (fid ${fid}): edit persisted, `
       + 'delete removed the form and returned to the library'
@@ -623,6 +673,18 @@ async function libraryRow(page, name) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try {
+      await browser.close();
+    } finally {
+      try {
+        // Failing runs keep their form for diagnosis; passing runs purge it.
+        if (passed) cleanupProbeForm();
+      } catch (error) {
+        console.error(`[warn] Could not remove "${formName}": ${error.message}`);
+      } finally {
+        if (sql) sql.dispose();
+        signalHandlers.dispose();
+      }
+    }
   }
 })();
