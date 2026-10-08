@@ -9,7 +9,8 @@
 // as a health number and finds nobody, that ValidateSwipeCard renders the parsed card and its
 // Confirm writes the card's version and dates into the owned demographic row, that the swipe
 // popup refuses a malformed track client-side without a request, and that a malformed track
-// posted straight to ValidateSwipeCard is refused (4xx) rather than rendered. The other search
+// posted straight to ValidateSwipeCard is refused (400) without changing the record; missing,
+// oversized and nameless tracks are also refused, and a fresh valid swipe still works. The other search
 // modes are patient-search-modes'. Fixtures: the owned synthetic patient, given a synthetic
 // Luhn-valid HIN that no other row carries; the patient row is deleted by runWorkflow.
 const { randomInt } = require('node:crypto');
@@ -163,10 +164,25 @@ async function workflow(s) {
     // The server-side half of the popup's refusal above: a short (40-character) track
     // that verifyInput() never lets through. A full-length track with a bad HIN is
     // well formed, and Validate legitimately renders it with an "invalid" verdict.
-    const response = await s.context.request.get(endpoint, { params: { magneticStripe: malformed.slice(0, 40) } });
-    h.assert(response.status() >= 400 && response.status() < 500,
-      `A malformed track was not refused as a bad request (HTTP ${response.status()})`);
-    h.assert(!(await response.text()).includes(hin.slice(0, 5)), 'A refused track was echoed back');
+    const before = sql.rows(`SELECT hin,ver,eff_date,hc_renew_date,last_name,first_name
+      FROM demographic WHERE demographic_no=${patient}`);
+    for (const input of [malformed.slice(0, 40), undefined, '', stripe + 'xx', stripe.replace('/', ' ')]) {
+      const response = await s.context.request.get(endpoint,
+        { params: input === undefined ? {} : { magneticStripe: input } });
+      h.assert(response.status() === 400,
+        `A malformed track was not refused as a bad request (HTTP ${response.status()})`);
+      const body = await response.text();
+      h.assert(!body.includes(hin.slice(0, 5)) && !body.includes(marker), 'A refused track was echoed back');
+    }
+    h.assert(JSON.stringify(sql.rows(`SELECT hin,ver,eff_date,hc_renew_date,last_name,first_name
+      FROM demographic WHERE demographic_no=${patient}`)) === JSON.stringify(before),
+    'Refusing malformed tracks changed the patient record');
+    const retry = await s.popup(master, master.locator('#swipeButton input[type="button"]').first(), 'swipe-card-retry');
+    await retry.locator('input[name="magneticStripe"]').fill(stripe);
+    await ui.clickAndAwaitReload(retry, retry.getByRole('button', { name: 'Validate' }), { label: 'Validate after refusal' });
+    h.assert(await retry.locator('input[name="hin"]').inputValue() === hin,
+      'The swipe form was not usable after the bad requests');
+    await retry.close();
   });
 }
 

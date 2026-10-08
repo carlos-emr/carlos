@@ -185,6 +185,11 @@ override_dh_auto_install:
 	set -e; \
 	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
 	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
+	# Packaged JSPs change on upgrades, which restart Tomcat. Keep the shared
+	# WAR/devcontainer hot-reload defaults, and preserve application web.xml values.
+	test ! -e $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/tomcat-web.xml
+	install -m 0644 debian/assets/tomcat/tomcat-web.xml \
+	    $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/tomcat-web.xml
 	# Explicit package-only resource transform; operator properties are untouched.
 	# Reject an older prebuilt WAR that cannot consume the new defaults resource.
 	test -f $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/jdbc-defaults.properties

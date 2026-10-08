@@ -242,10 +242,10 @@
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
                 ${carlos:forHtml(demoName)}
             </span>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>

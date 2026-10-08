@@ -162,6 +162,40 @@ async function workflow(s) {
     h.assert(sql.value(ownedSuggestion) === '1:0' && existing() === before, 'A refused GET changed suggestions');
   });
 
+  await s.step('literal zero survives adding another suggestion, saving and moving to Inactive', async () => {
+    const zeroStart = sql.value('SELECT COALESCE(MAX(id),0) FROM tickler_text_suggest');
+    const extraText = `${marker} after zero`;
+    const owned = `id>${zeroStart} AND creator=${h.sqlString(provider)}
+      AND suggested_text IN ('0',${h.sqlString(extraText)})`;
+    s.cleanup(() => {
+      sql.execute(`DELETE FROM tickler_text_suggest WHERE ${owned}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler_text_suggest WHERE ${owned}`) === '0', 'Numeric-text fixture was not removed');
+    });
+    add = await openAdd();
+    let page = await openSuggestions(add);
+    for (const text of ['0', extraText]) {
+      await page.locator('#newTextSuggest').fill(text);
+      await page.locator('input[name="addNewTextSuggest"]').click();
+    }
+    await saveSuggestions(page, add);
+    await expectValue(sql, `SELECT COUNT(*) FROM tickler_text_suggest WHERE ${owned} AND active=1`, '2',
+      'Literal zero or its following suggestion was lost on save');
+    const zeroId = sql.value(`SELECT id FROM tickler_text_suggest WHERE ${owned} AND suggested_text='0'`);
+    h.assert(/^[1-9]\d*$/.test(zeroId), 'Literal zero did not receive a suggestion identity');
+    page = await openSuggestions(add);
+    await page.locator('select[name="activeText"]').selectOption(zeroId);
+    await page.locator('input[name="movetoInactive"]').click();
+    await saveSuggestions(page, add);
+    await expectValue(sql, `SELECT active FROM tickler_text_suggest WHERE id=${zeroId}`, '0',
+      'Literal zero was not moved to Inactive');
+    page = await openSuggestions(add);
+    h.assert(await page.locator(`select[name="inactiveText"] option[value="${zeroId}"]`).innerText() === '0',
+      'Reopened Inactive list lost literal zero');
+    h.assert(existing() === before, 'Numeric-text saves changed existing suggestions');
+    await page.close();
+    await add.close();
+  });
+
   const workflowLink = s.schedule.locator('a', { hasText: /^\s*WorkFlow\s*$/ });
   if (await workflowLink.count() === 0) {
     console.log('  SKIP workflow-tickler-suggested-text: WorkFlow list (WORKFLOW property is off; no top-bar entry)');

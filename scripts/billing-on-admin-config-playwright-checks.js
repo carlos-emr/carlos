@@ -369,9 +369,10 @@ async function workflow(s) {
       'The location was not deleted');
   });
 
-  let correction;
+  let correction, ownedBill;
   await s.step('correction ▸ service code Search lists exactly the owned codes by their marked descriptions', async () => {
     const owned = seedOwnedBill(s, { payProgram: 'HCP', status: 'O', code: codeA, fee: '12.34', date: billDate(), dx: dxA });
+    ownedBill = owned;
     const history = await openHistory(s);
     correction = await openCorrection(s, history, owned.headerId);
     h.assert(await correction.locator('input[name="servicecode0"]').inputValue() === codeA, 'The correction did not load the owned code');
@@ -389,7 +390,12 @@ async function workflow(s) {
   await s.step('legacy popup saves (dx/code description updates, code attach, form Add / bill type / Delete) work', async () => {
     const problems = [];
     const attempt = async (label, body) => {
-      try { await body(); } catch (error) { problems.push(`${label}: ${error.message.split('\n')[0]}`); }
+      try {
+        await body();
+        console.log(`  PASS billing-on-admin-config: ${label}`);
+      } catch (error) {
+        problems.push(`${label}: ${error.message.split('\n')[0]}`);
+      }
     };
     const posted = route => s.context.waitForEvent('response', { timeout: 20000,
       predicate: r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith(route) });
@@ -400,33 +406,62 @@ async function workflow(s) {
         await search.locator('form[name="codesearch"] input[name="codedesc"]').fill(token);
         await Promise.all([search.waitForNavigation(), search.locator('form[name="codesearch"] input[name="search1"]').click()]);
         h.assert(await search.locator('form[name="diagcode"] tbody tr').count() === 2, 'the search did not list exactly the two owned dx codes');
-        await search.locator(`form[name="diagcode"] input[name="${dxB}"]`).fill(`${dxDescB} edited`);
+        await search.locator(`form[name="diagcode"] input[name="desc_${dxB}"]`).fill(`${dxDescB} edited`);
         const [response] = await Promise.all([posted('/billing/CA/ON/BillingDigUpdate'),
           search.locator(`form[name="diagcode"] input[name="update"][value$=" ${dxB}"]`).click()]);
         h.assert(response.status() === 200, `BillingDigUpdate answered HTTP ${response.status()}`);
         await expectValue(sql, `SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxB)}`, `${dxDescB} edited`,
           'the description was not rewritten');
+        h.assert(sql.value(`SELECT description FROM diagnosticcode WHERE diagnostic_code=${h.sqlString(dxA)}`) === dxDescA,
+          'updating the diagnosis changed the other owned code');
+        h.assert(sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code IN (${h.sqlString(dxA)},${h.sqlString(dxB)})`) === '2',
+          'updating the diagnosis created another row');
+        await search.waitForLoadState('load');
+        h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'dx-search'), 'the diagnosis result raised a script error');
+        h.assert((await search.locator('h1').innerText()).includes('Successful'), 'the diagnosis result did not report success');
       } finally { await search.close().catch(() => {}); }
+      const reopened = await s.popup(correction, correction.locator('a[href="javascript:ScriptAttach()"]'), 'dx-reopen');
+      try {
+        await reopened.locator('form[name="codesearch"] input[name="codedesc"]').fill(token);
+        await Promise.all([reopened.waitForNavigation(), reopened.locator('form[name="codesearch"] input[name="search1"]').click()]);
+        h.assert(await reopened.locator(`form[name="diagcode"] input[name="desc_${dxB}"]`).inputValue() === `${dxDescB} edited`,
+          'reopening the diagnosis search did not show the saved description');
+        h.assert(await reopened.locator(`form[name="diagcode"] input[name="desc_${dxA}"]`).inputValue() === dxDescA,
+          'reopening the diagnosis search changed the other code description');
+      } finally { await reopened.close().catch(() => {}); }
     });
 
-    await attempt('correction ▸ code Search ▸ Confirm attaches the ticked code', async () => {
-      await correction.locator('input[name="servicecode0"]').fill(marker);
-      const search = await s.popup(correction, correction.locator('a[onclick="scScriptAttach(\'servicecode0\')"]'), 'code-attach');
-      try {
-        await search.locator(`#servicecode input[type="checkbox"][name="code_${codeA}"]`).check();
-        const closed = search.waitForEvent('close', { timeout: 10000 });
-        closed.catch(() => {});
-        await search.locator('#servicecode input[name="update"][value="Confirm"]').click();
-        await closed.catch(() => {});
-        h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'code-attach'), 'the attach page raised a script error');
-        h.assert(await correction.locator('input[name="servicecode0"]').inputValue() === codeA,
-          'the chosen code was not written back into the correction row');
-      } finally { await search.close().catch(() => {}); }
+    await attempt('correction ▸ code Search ▸ Confirm attaches only to the selected row without saving the bill', async () => {
+      const savedBill = () => JSON.stringify(sql.rows(`SELECT service_code, fee, ser_num, dx
+        FROM billing_on_item WHERE ch1_id=${ownedBill.headerId} ORDER BY id`));
+      const before = savedBill();
+      for (const index of [0, 1]) {
+        const target = `servicecode${index}`;
+        const other = `servicecode${1 - index}`;
+        await correction.locator(`input[name="${target}"]`).fill(marker);
+        await correction.locator(`input[name="${other}"]`).fill(codeB);
+        const search = await s.popup(correction, correction.locator(`a[onclick="scScriptAttach('${target}')"]`), 'code-attach');
+        try {
+          await search.locator(`#servicecode input[type="checkbox"][name="code_${codeA}"]`).check();
+          const closed = search.waitForEvent('close', { timeout: 10000 });
+          closed.catch(() => {});
+          await search.locator('#servicecode input[name="update"][value="Confirm"]').click();
+          await closed.catch(() => {});
+          h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'code-attach'), 'the attach page raised a script error');
+          h.assert(search.isClosed(), 'Confirm did not close the search popup');
+          h.assert(await correction.locator(`input[name="${target}"]`).inputValue() === codeA,
+            'the chosen code was not written back into the selected correction row');
+          h.assert(await correction.locator(`input[name="${other}"]`).inputValue() === codeB,
+            'the attachment changed a different correction row');
+          h.assert(savedBill() === before, 'attaching a code persisted the unsaved bill');
+        } finally { await search.close().catch(() => {}); }
+      }
     });
 
     await attempt('correction ▸ code Search ▸ update', async () => {
       await correction.locator('input[name="servicecode0"]').fill(marker);
       const search = await s.popup(correction, correction.locator('a[onclick="scScriptAttach(\'servicecode0\')"]'), 'code-search');
+      const searchUrl = search.url();
       try {
         await search.locator(`#servicecode input[type="text"][name="${codeB}"]`).fill(`${descB} edited`);
         const [response] = await Promise.all([posted('/billing/CA/ON/BillingCodeUpdate'),
@@ -438,6 +473,17 @@ async function workflow(s) {
           'another code was touched');
         await search.waitForLoadState('load');
         h.assert(s.recorder.pageErrors.every(entry => entry.label !== 'code-search'), 'the result page raised a script error');
+        await search.waitForURL(searchUrl, { timeout: 20000 });
+        await search.locator(`#servicecode input[type="text"][name="${codeB}"]`).waitFor({ state: 'visible' });
+        h.assert(await search.locator(`#servicecode input[type="text"][name="${codeB}"]`).inputValue() === `${descB} edited`,
+          'the returned search did not show the saved description');
+        h.assert(await correction.locator('input[name="servicecode0"]').inputValue() === marker,
+          'updating a code description discarded the unsaved bill edit');
+        await search.reload({ waitUntil: 'domcontentloaded' });
+        h.assert(await search.locator(`#servicecode input[name="codedesc_${codeB}"]`).inputValue() === `${descB} edited`,
+          'reloading the search did not read back the persisted description');
+        h.assert(sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code IN (${codes})`) === '2',
+          'updating the description created another service-code row');
       } finally { await search.close().catch(() => {}); }
     });
 

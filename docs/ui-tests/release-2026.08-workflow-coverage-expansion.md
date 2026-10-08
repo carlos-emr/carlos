@@ -235,6 +235,10 @@ own fixture. `scripts/xss-poison-helpers.test.js` pins these rules.
 
 ## Routes with no UI entry
 
+`report/GenerateSpreadsheet` was retired under #3965. The
+`patient-retired-spreadsheet` regression checks that authenticated GET and CSRF-valid
+POST requests return 404 without patient data or a download.
+
 Per the suite's rule a route with no link gets no check; each is a finding about the route.
 The checks' authors confirmed these by source search and by the absence of an opener on the
 live install:
@@ -242,7 +246,7 @@ live install:
 - **Reports:** `RunClinicalReport` / `RemoveClinicalReport` / `ViewClinicalExport`, the
   `report/ViewReportForm*` / `ViewReportFilter` / `ViewReportResult` designer chain,
   `report/ViewGenerateLetters` and the letters chain, `report/printLabDaySheetAction`,
-  `ViewReportecharthistory`, `ViewReportedblist`, `GenerateSpreadsheet`,
+  `ViewReportecharthistory`, `ViewReportedblist`,
   `ViewOscarReportDxReg`, `ViewSelectCDMReport`, `ViewCDMReport`, `ViewEditCodeDesc`,
   `oscarReport/reportByTemplate/ViewListTemplates`, `exportTemplateAction`.
 - **Patient sets and records:** `demographic/ViewAddDemoToPatientSet`,

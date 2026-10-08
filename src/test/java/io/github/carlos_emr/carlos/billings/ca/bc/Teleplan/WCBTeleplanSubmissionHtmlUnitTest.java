@@ -50,7 +50,7 @@ class WCBTeleplanSubmissionHtmlUnitTest {
                 .contains(SafeEncode.forHtmlContent("<script>alert(1)</script>,Jane"))
                 .contains(SafeEncode.forHtmlContent("<b>phn</b>"))
                 .contains(SafeEncode.forHtmlContent("<i>19950</i>"))
-                .contains("openBrWindow('adjustBill.jsp?billingmaster_no=0000042'")
+                .contains("openBrWindow('reprocessBill?billingmaster_no=0000042'")
                 .doesNotContain("<script>")
                 .doesNotContain("<b>")
                 .doesNotContain("<i>");
@@ -68,7 +68,7 @@ class WCBTeleplanSubmissionHtmlUnitTest {
 
         assertThat(html)
                 .startsWith("<tr bgcolor='red'>")
-                .contains("adjustBill.jsp?billingmaster_no=0000042")
+                .contains("reprocessBill?billingmaster_no=0000042")
                 .contains("ICD9 may only contain Numbers");
     }
 

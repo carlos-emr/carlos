@@ -4,7 +4,8 @@
 // User path: Schedule ▸ Administration ▸ Reports ▸ Age-Sex Report (regenerates the
 // reportagesex cache, then Create Report in the frame), PCN Catchment Report (paged),
 // Visit Report ▸ Manage Visit Report Providers (popup, DbManageProvider) ▸ Create Report,
-// and Provider Service Report ▸ Export (CSV download).
+// and Provider Service Report ▸ Export (CSV download), for one month and two inclusive months.
+// The CSV checks include the final month's first/last instants and exclude the adjacent month boundaries.
 // Every number asserted is the DELTA the owned fixture contributes, read before and after
 // seeding it, in a filter only the fixture can reach (a 1951/1952/1953 date): the owned patient
 // (age/sex bucket, rostered, outside the PCN catchment) plus a second owned patient inside the
@@ -18,11 +19,12 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
+const { parseCsv } = require('./lib/export-content-helpers');
+const { acquireMysqlWorkflowLock } = require('./lib/mysql-workflow-lock');
 
 const JOINED = '1951-03-07';
 const VISIT_DATE = '1952-02-14';
 const SERVICE_MONTH = '02/1953';
-const SERVICE_DAY = '1953-02-10';
 const AGE_SQL = (alias = 'd') => `FLOOR(DATEDIFF(CURRENT_DATE(), STR_TO_DATE(CONCAT(${alias}.year_of_birth,'-',`
   + `${alias}.month_of_birth,'-',${alias}.date_of_birth), '%Y-%m-%d')) / 365.25)`;
 const AGE_BUCKETS = [[0, 4], [5, 9], [10, 14], [15, 19], [20, 24], [25, 29], [30, 34], [35, 39], [40, 44],
@@ -50,6 +52,9 @@ async function tableCells(scope, selector) {
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
+  // Hold across shared snapshots, range checks, inserts, exports, and fixture restoration.
+  const releaseLock = await acquireMysqlWorkflowLock(s.config.mysql, 'report-age-sex-visit');
+  s.cleanup(releaseLock); // Registered first, therefore released after the workflow cleanup.
   const q = h.sqlString;
   const group = `PW${marker.slice(-8)}`;
   // The IS NULL flags ride along because mysql -B prints SQL NULL and the string
@@ -268,46 +273,131 @@ async function workflow(s) {
   // The owned month holds no other note (asserted), so the exported row must equal the fixture.
   const role = sql.value("SELECT role_no FROM secRole WHERE role_name='doctor'");
   h.assert(/^\d+$/.test(role), 'This install has no doctor role');
-  const monthNotes = `SELECT COUNT(*) FROM casemgmt_note WHERE observation_date >= '1953-02-01' AND observation_date < '1953-03-01'`;
-  h.assert(sql.value(monthNotes) === '0', 'Another note already occupies the Provider Service fixture month');
-  for (const [type, demographic] of [['face to face encounter with client', patient], ['face to face encounter with client', patient],
-    ['face to face encounter with client', insidePatient], ['telephone encounter with client', patient]]) {
+  const monthNotes = `SELECT COUNT(*) FROM casemgmt_note WHERE observation_date >= '1953-01-31' AND observation_date < '1953-04-02'`;
+  h.assert(sql.value(monthNotes) === '0', 'Another note already occupies the Provider Service fixture range and boundary days');
+  for (const [type, demographic, observed] of [
+    ['face to face encounter with client', patient, '1953-02-10 10:00:00'],
+    ['face to face encounter with client', patient, '1953-02-10 11:00:00'],
+    ['face to face encounter with client', insidePatient, '1953-02-10 12:00:00'],
+    ['telephone encounter with client', patient, '1953-02-10 13:00:00'],
+    ['face to face encounter with client', patient, '1953-03-01 00:00:00'],
+    ['telephone encounter with client', insidePatient, '1953-03-31 23:59:59'],
+    ['face to face encounter with client', insidePatient, '1953-04-01 00:00:00'],
+    ['telephone encounter with client', patient, '1953-01-31 23:59:59'],
+  ]) {
     const id = sql.value(`INSERT INTO casemgmt_note (update_date,observation_date,demographic_no,provider_no,note,signed,
         signing_provider_no,encounter_type,program_no,reporter_caisi_role,history,uuid,locked,archived)
-      VALUES (NOW(),${q(`${SERVICE_DAY} 10:00:00`)},${demographic},${q(provider)},${q(marker)},1,${q(provider)},${q(type)},'',
+      VALUES (NOW(),${q(observed)},${demographic},${q(provider)},${q(marker)},1,${q(provider)},${q(type)},'',
         ${q(role)},'',UUID(),'0',0); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), 'An encounter note fixture was not created');
     notes.push(id);
   }
 
-  // Last: the export form's month validation is where this report has failed (see the report).
-  await s.step('Provider Service Report exports a CSV whose owned-month row counts the owned encounters', async () => {
-    await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
-      { marker: '#psrForm' });
-    for (const field of ['#startDate', '#endDate']) {
-      await admin.locator(`#psrForm ${field}`).fill(SERVICE_MONTH);
-      // Click away, as a reader does, so the month picker closes before the next control.
-      await admin.locator('#psrForm h4').click();
+  async function closeMonthPicker(page, mobile) {
+    const heading = page.locator('#psrForm h4');
+    if (mobile) await heading.tap(); else await heading.click();
+    await page.locator('.flatpickr-calendar.open').waitFor({state: 'detached', timeout: 5000});
+  }
+  async function refusesInvalidMonths(page, mobile) {
+    const exports = [];
+    const record = request => {
+      if (new URL(request.url()).pathname.endsWith('/oscarReport/ViewProviderServiceReportExport')) exports.push(request.url());
+    };
+    page.on('request', record);
+    try {
+      for (const value of ['', '13/1953', '02/53', '02/0000', 'invalid']) {
+        for (const name of ['startDate', 'endDate']) {
+          await page.locator(`#${name}`).fill(value);
+          await closeMonthPicker(page, mobile);
+        }
+        await page.locator('#psrForm button[type="submit"]').click();
+        await page.locator('#startDateError').waitFor({state: 'visible'});
+        await page.locator('#endDateError').waitFor({state: 'visible'});
+        for (const name of ['startDate', 'endDate']) {
+          h.assert(await page.locator(`#${name}`).evaluate(input => !input.validity.valid),
+            `${name} accepted invalid month ${JSON.stringify(value)}`);
+        }
+        h.assert(exports.length === 0, `Invalid month ${JSON.stringify(value)} submitted a report`);
+      }
+    } finally {
+      page.off('request', record);
     }
-    await admin.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
-    h.assert(await admin.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
-    const outcome = await ui.clickDownloadsOrOpens(admin, admin.locator('#psrForm button[type="submit"]'),
-      { context: s.context, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
-    h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
-      'Provider Service Report Export did not download a provider_service_*.csv file');
-    const lines = fs.readFileSync(await outcome.download.path(), 'utf8').trim().split('\n');
-    h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
-      + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
-      + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
-    const rows = lines.map(line => line.split(','));
-    // face-to-face 3 notes / 2 patients, telephone 1 note / 1 patient, 2 unique patients overall.
-    for (const date of ['1953-02', '1953-02 to 1953-03']) {
-      const row = rows.find(cells => cells[1] === 'all programs' && cells[3] === date);
-      h.assert(row, `The Provider Service CSV has no all-programs row for ${date}`);
-      h.assert(row.slice(4).join(',') === '3,1,0,2,1,0,2',
-        `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give 3,1,0,2,1,0,2`);
-    }
-  });
+  }
+  const shellJQuery = await admin.evaluateHandle(() => window.jQuery);
+  for (const [mode, endMonth, expected] of [
+    ['dynamic', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+    ['dynamic', '03/1953', {'1953-02': '3,1,0,2,1,0,2', '1953-03': '1,1,0,1,1,0,2', '1953-02 to 1953-03': '4,2,0,2,2,0,2'}],
+    ['direct', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+    ['mobile', SERVICE_MONTH, {'1953-02': '3,1,0,2,1,0,2', '1953-02 to 1953-02': '3,1,0,2,1,0,2'}],
+  ]) {
+    await s.step(`Provider Service ${mode} CSV labels ${SERVICE_MONTH} through ${endMonth} inclusively and counts only that range`, async () => {
+      const mobileContext = mode === 'mobile' ? await s.context.browser().newContext({
+        storageState: await s.context.storageState(), ignoreHTTPSErrors: true,
+        userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36',
+        isMobile: true, hasTouch: true,
+      }) : null;
+      const reportContext = mobileContext || s.context;
+      const reportPage = mode === 'dynamic' ? admin : await reportContext.newPage();
+      try {
+        if (mode !== 'dynamic') {
+          h.wireStrictPage(reportPage, 'provider-service-direct', s.recorder);
+          await reportPage.goto(h.appUrl(s.config.baseUrl, '/oscarReport/ViewProviderServiceReportForm'), {waitUntil: 'load'});
+        } else if (await admin.locator('#psrForm').count() === 0) {
+          await ui.clickInjectsPanel(admin, await menu(admin, 'a[href$="/oscarReport/ViewProviderServiceReportForm"]'),
+            {marker: '#psrForm'});
+          h.assert(await admin.evaluate(original => window.jQuery === original, shellJQuery),
+            'The report form replaced the Administration jQuery instance');
+        }
+        for (const name of ['startDate', 'endDate']) {
+          h.assert(await reportPage.locator(`#${name}`).evaluate(input =>
+            input._flatpickr.config.disableMobile && !input._flatpickr.isMobile),
+          'The report replaced its month picker with an incompatible native date input');
+        }
+        if (endMonth === SERVICE_MONTH) await refusesInvalidMonths(reportPage, Boolean(mobileContext));
+        for (const [field, value] of [['#startDate', SERVICE_MONTH], ['#endDate', endMonth]]) {
+          await reportPage.locator(`#psrForm ${field}`).fill(value);
+          // Click away, as a reader does, so the month picker closes before the next control.
+          await closeMonthPicker(reportPage, Boolean(mobileContext));
+          const picked = await reportPage.locator(`#psrForm ${field}`).evaluate(input => {
+            const date = input._flatpickr.selectedDates[0];
+            return date && `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+          });
+          h.assert(picked === value, `The picker did not parse the typed month ${value}`);
+        }
+        await reportPage.locator('.flatpickr-calendar.open').waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+        h.assert(await reportPage.locator('.flatpickr-calendar.open').count() === 0, 'The month picker stayed open over the Export button');
+        const outcome = await ui.clickDownloadsOrOpens(reportPage, reportPage.locator('#psrForm button[type="submit"]'),
+          { context: reportContext, recorder: s.recorder, label: 'provider-service-export', timeout: 30000 });
+        h.assert(outcome.kind === 'download' && /^provider_service_.*\.csv$/.test(outcome.download.suggestedFilename()),
+          'Provider Service Report Export did not download a provider_service_*.csv file');
+        const endLabel = `${endMonth.slice(3)}-${endMonth.slice(0, 2)}`;
+        h.assert(outcome.download.suggestedFilename() === `provider_service_1953-02_${endLabel}.csv`,
+          'The download filename is not the safe normalized date range');
+        const csv = fs.readFileSync(await outcome.download.path(), 'utf8');
+        const lines = csv.split('\n');
+        h.assert(lines[0] === 'Agency Name,Program Name,Program Type,Date,total encounters face to face,total encounters by phone,'
+          + 'total encounters with out client,unique client encountered face to face,unique clients encountered by phone,'
+          + 'unique clients encountered with out client,total unique clients encountered', 'The Provider Service CSV header changed');
+        const rows = parseCsv(csv);
+        const clinicName = sql.value("SELECT IFNULL(clinic_name,'') FROM clinic LIMIT 1") || '';
+        h.assert(rows.slice(1).filter(row => row.length > 1).every(row => row[0] === (/^[=+\-@]/.test(clinicName.trimStart()) ? "'" + clinicName : clinicName)),
+          'The CSV agency differs from the configured clinic name');
+        const agencyRows = rows.filter(cells => cells[1] === 'all programs');
+        h.assert(JSON.stringify(agencyRows.map(cells => cells[3])) === JSON.stringify(Object.keys(expected)),
+          'The CSV month/summary labels differ from the requested inclusive range');
+        for (const [date, counts] of Object.entries(expected)) {
+          const row = agencyRows.find(cells => cells[3] === date);
+          h.assert(row, `The Provider Service CSV has no all-programs row for ${date}`);
+          h.assert(row.slice(4).join(',') === counts,
+            `Provider Service Report ${date} reads ${row.slice(4).join(',')}; the owned notes give ${counts}`);
+        }
+      } finally {
+        if (mode !== 'dynamic') await reportPage.close();
+        if (mobileContext) await mobileContext.close();
+      }
+    });
+  }
+  await shellJQuery.dispose();
 }
 
 if (require.main === module) runWorkflow('report-age-sex-visit', workflow, { openPatient: true, openMaster: false });

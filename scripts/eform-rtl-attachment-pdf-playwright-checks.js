@@ -46,6 +46,7 @@ const fs = require('fs');
 const zlib = require('zlib');
 const { spawnSync } = require('child_process');
 const { chromium } = require('playwright');
+const { settleOperations } = require('./graceful-signal-cancellation');
 const {
   assert,
   buildArtifactPath,
@@ -210,9 +211,12 @@ async function downloadPdf(page, locator, label, trigger = (target) => target.cl
     (response) => response.url().includes('/eform/addEForm') && response.request().method() === 'POST',
     { timeout: 120000 },
   );
-  await trigger(locator);
-  const response = await responsePromise;
-  const download = await downloadPromise;
+  // Settle the trigger and both waits together: awaiting one while another is pending lets a
+  // second timeout reject unhandled and kill the process before cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, download, response] = await settleOperations([
+    Promise.resolve().then(() => trigger(locator)), downloadPromise, responsePromise,
+  ]);
   try {
     // saveAs sits inside the try as well: if it rejects part-way, whatever it did write is
     // still removed below.

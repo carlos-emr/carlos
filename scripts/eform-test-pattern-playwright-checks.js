@@ -480,7 +480,6 @@ async function fillPattern(page, expected) {
   await page.locator('#test_pattern_only_one_alpha').click();
   await page.locator('#test_pattern_only_one_bravo').click();
   await page.locator('#test_pattern_button_element').click();
-  await page.locator('#subject').fill(expected.subject);
   await page.locator('#test_pattern_hidden_persisted').evaluate((element, value) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- value is generated inside this local regression test and passed as a Playwright argument, not interpolated into executable code
     element.value = value;
     element.dispatchEvent(new Event('input', { bubbles: true }));

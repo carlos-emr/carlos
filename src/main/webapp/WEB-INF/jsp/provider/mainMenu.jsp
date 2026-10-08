@@ -72,6 +72,11 @@
     Properties oscarVariables = CarlosProperties.getInstance();
     String prov = (oscarVariables.getProperty("billregion", "")).trim().toUpperCase();
     String resourcebaseurl = oscarVariables.getProperty("resource_base_url");
+    UserProperty savedHelpUrl = userPropertyDao.getProp("resource_baseurl");
+    if (savedHelpUrl != null && savedHelpUrl.getValue() != null && !savedHelpUrl.getValue().isBlank()) {
+        resourcebaseurl = savedHelpUrl.getValue();
+    }
+    pageContext.setAttribute("clinicHelpUrl", resourcebaseurl);
     String curUser_no = (String) session.getAttribute("user");
 
     String resourcehelpHtml = "";
@@ -323,9 +328,17 @@
 
                         </security:oscarSec>
                         <li id="helpLink">
-                            <%if (resourcehelpHtml == "") { %>
+                            <%if (resourcehelpHtml == null || resourcehelpHtml.isEmpty()) { %>
                             <a href="javascript:void(0)"
-                               onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:message key="global.help"/></a>
+                               data-help-url="${carlos:forHtmlAttribute(clinicHelpUrl)}"
+                               onclick="if (!this.dataset.helpUrl.trim()) return false;
+                                   try {
+                                   var helpUrl = new window.URL(this.dataset.helpUrl, window.location.href);
+                                   if (helpUrl.protocol === 'https:' || helpUrl.protocol === 'http:') {
+                                       popupPage(600,750,helpUrl.href);
+                                   }
+                                   } catch (invalidHelpUrl) { /* Invalid saved URLs cannot be opened. */ }
+                                   return false;"><fmt:message key="global.help"/></a>
                             <%} else {%>
                             <div id="help-link">
                                 <a href="javascript:void(0)"

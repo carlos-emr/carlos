@@ -33,10 +33,10 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
-import org.owasp.encoder.Encode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -109,10 +109,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
                     tmp = stripQtyRepeats(tmp);
 
-                    descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
-
-                    item.setTitle(descr);
-                    item.setLinkTitle(Encode.forHtml(tmp));
+                    item.setTitle(titleSpan(getClassColour(drug, now, month), descr));
+                    item.setLinkTitle(tmp);
 
                 } else {
                     String tmp = "";
@@ -121,9 +119,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
-                    item.setTitle(strTitle);
-                    item.setLinkTitle(Encode.forHtml(tmp));
+                    item.setTitle(titleSpan(getClassColour(drug, now, month), strTitle));
+                    item.setLinkTitle(tmp);
                 }
 
                 item.setURL("return false;");
@@ -132,6 +129,21 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    /**
+     * Builds a navbar item title: the colour span is markup, the stored drug text inside it is not.
+     *
+     * <p>LeftNavBarDisplay.jsp prints titles as built, so the drug name and outline (stored raw,
+     * #3952) are HTML-encoded here; the link title is passed raw because the JSP encodes it for its
+     * attribute, and encoding it here as well showed {@code CHILDREN&#39;S} in the tooltip.
+     *
+     * @param classColour the span's class attribute from {@link #getClassColour}
+     * @param storedText the drug text as stored, already cropped for display
+     * @return the title markup with {@code storedText} encoded
+     */
+    static String titleSpan(String classColour, String storedText) {
+        return "<span " + classColour + ">" + SafeEncode.forHtmlContent(storedText) + "</span>";
     }
 
     private static String stripQtyRepeats(String text) {

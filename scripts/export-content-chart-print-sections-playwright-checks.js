@@ -10,11 +10,11 @@
  *
  * Asserts (pdftotext): the active allergy prints with its reaction, severity and start date; the given prevention
  * prints with its date and the refused one is flagged "(Refused)"; the deleted prevention is absent; the current
- * medications print, the discontinued and the expired one do not. LAST (fails today): an ARCHIVED allergy (removed
- * from the chart) is not printed (CaseManagementPrint uses findAllergies, which includes archived rows, and the
- * printer filters nothing), and a custom-name medication prescribed twice with another drug in between is listed
- * once (RxPrescriptionData.getUniquePrescriptionsByPatient lets the last comparison decide).
- * Fixtures: the owned FAKE-PW patient with SQL-seeded allergies, preventions, one prescription row with five drugs and
+ * medications print, the discontinued and the expired one do not. Archived allergies never print, including when
+ * every allergy is archived; restoring an active allergy makes it printable again. Deselecting the Allergies icon
+ * omits that section. Identical custom and coded entries collapse even with another drug in between, while
+ * different regimens and dated entries remain visible. A newer archived copy must not hide its current sibling.
+ * Fixtures: the owned FAKE-PW patient with SQL-seeded allergies, preventions, one prescription row with drugs and
  * one signed note; cleanup deletes the patient's rows of each table and asserts it. Needs pdftotext.
  */
 const h = require('./lib/playwright-harness');
@@ -63,17 +63,26 @@ async function workflow(s) {
       (${patient},NOW(),'2022-05-06 00:00:00',${q(provider)},'Flu','0','1','0',NOW())`);
   const script = sql.value(`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,date_printed,textView,lastUpdateDate)
     VALUES(${q(provider)},${patient},CURDATE(),CURDATE(),'Synthetic prescription',NOW()); SELECT LAST_INSERT_ID()`);
-  const drug = (name, { archived = false, endOffset = 30 } = {}) => sql.execute(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,
-      BN,GCN_SEQNO,customName,takemin,takemax,freqcode,duration,durunit,quantity,\`repeat\`,special,archived,archived_reason,archived_date,
+  const drug = (name, { archived = false, endOffset = 30, startOffset = 60, gcn = 0, dose = 10 } = {}) => sql.execute(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,
+      BN,GCN_SEQNO,customName,dosage,unit,takemin,takemax,freqcode,duration,durunit,quantity,\`repeat\`,special,archived,archived_reason,archived_date,
       script_no,position,dispenseInternal,create_date,lastUpdateDate)
-    VALUES(${q(provider)},${patient},DATE_SUB(CURDATE(),INTERVAL 60 DAY),DATE_ADD(CURDATE(),INTERVAL ${endOffset} DAY),DATE_SUB(CURDATE(),INTERVAL 60 DAY),
-      ${q(name)},0,${q(name)},1,1,'OD','30','D','30',0,${q(`${name} 10 mg once daily`)},${archived ? 1 : 0},${archived ? "'discontinued'" : "''"},${archived ? 'NOW()' : 'NULL'},
+    VALUES(${q(provider)},${patient},DATE_SUB(CURDATE(),INTERVAL ${startOffset} DAY),DATE_ADD(CURDATE(),INTERVAL ${endOffset} DAY),DATE_SUB(CURDATE(),INTERVAL ${startOffset} DAY),
+      ${q(name)},${gcn},${q(name)},${q(String(dose))},'mg',1,1,'OD','30','D','30',0,${q(`${name} ${dose} mg once daily`)},${archived ? 1 : 0},${archived ? "'discontinued'" : "''"},${archived ? 'NOW()' : 'NULL'},
       ${script},0,0,NOW(),NOW())`);
   drug(`${marker}-X`);
   drug(`${marker}-Y`);
   drug(`${marker}-X`);
   drug(`${marker}-DISCONTINUED`, { archived: true });
   drug(`${marker}-EXPIRED`, { endOffset: -10 });
+  drug(`${marker}-CODED`, { gcn: 12345 });
+  drug(`${marker}-CODED`, { gcn: 12345 });
+  drug(`${marker}-CODED`, { gcn: 12345, dose: 20 });
+  drug(`${marker}-REGIMEN`);
+  drug(`${marker}-REGIMEN`, { dose: 20 });
+  drug(`${marker}-DATED`);
+  drug(`${marker}-DATED`, { startOffset: 30 });
+  drug(`${marker}-STATUS`);
+  drug(`${marker}-STATUS`, { archived: true });
 
   const chart = await s.chart();
   await chart.locator('#imgPrintEncounter').waitFor({ state: 'visible', timeout: 20000 });
@@ -116,12 +125,54 @@ async function workflow(s) {
     h.assert(!rx.includes('EXPIRED'), 'An expired medication is printed as current');
   });
 
-  await s.step('an allergy removed from the chart is not printed and a repeated medication is listed once', async () => {
-    const problems = [];
-    if (squashed(text).includes(squashed(names.archived))) problems.push('the archived (removed) allergy is printed in the Allergies section with no marker that it is inactive');
-    const times = squashed(text).split(squashed(`${marker}-X 10 mg once daily`)).length - 1;
-    if (times !== 1) problems.push(`the medication prescribed twice is listed ${times} times in the Rx history`);
-    h.assert(!problems.length, `The printed chart misstates the record: ${problems.join('; ')}`);
+  await s.step('an allergy removed from the chart is absent from the PDF', async () => {
+    h.assert(!squashed(text).includes(squashed(names.archived)),
+      'The archived (removed) allergy is printed in the Allergies section');
+    h.assert(sql.value(`SELECT archived FROM allergies WHERE demographic_no=${patient} AND DESCRIPTION=${q(names.archived)}`) === '1',
+      'Printing changed the archived allergy record');
+  });
+
+  await s.step('a chart with only archived allergies prints no allergy entries', async () => {
+    sql.execute(`UPDATE allergies SET archived=1 WHERE demographic_no=${patient}`);
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printAllergies']);
+    const { text: archivedText } = await print.pressPrint(chart, scratch);
+    h.assert(archivedText.includes('Patient Allergies'), 'The selected Allergies section is missing');
+    for (const name of Object.values(names)) h.assert(!squashed(archivedText).includes(squashed(name)),
+      'An archived allergy is printed in an otherwise empty allergy section');
+  });
+
+  await s.step('a restored active allergy appears on the next print without its archived sibling', async () => {
+    sql.execute(`UPDATE allergies SET archived=0 WHERE demographic_no=${patient} AND DESCRIPTION=${q(names.active)}`);
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printAllergies']);
+    const { text: restoredText } = await print.pressPrint(chart, scratch);
+    h.assert(squashed(restoredText).includes(squashed(names.active)), 'The restored active allergy is missing');
+    h.assert(!squashed(restoredText).includes(squashed(names.archived)), 'The archived sibling is printed');
+  });
+
+  await s.step('deselecting the Allergies icon omits the section and its active entries', async () => {
+    await print.openPrintDialog(chart);
+    await print.setFlags(chart, ['printRx', 'printPreventions']);
+    const { text: omittedText } = await print.pressPrint(chart, scratch);
+    h.assert(!omittedText.includes('Patient Allergies'), 'An unselected Allergies section is printed');
+    for (const name of Object.values(names)) h.assert(!squashed(omittedText).includes(squashed(name)),
+      'An allergy is printed when its section is unselected');
+    h.assert(omittedText.includes('Patient Rx History') && omittedText.includes('Patient Preventions History'),
+      'Deselecting Allergies also removed another selected section');
+  });
+
+  await s.step('equivalent medications collapse while clinically distinct entries remain visible', async () => {
+    const rx = squashed(section('Patient Rx History', 'Patient Preventions History'));
+    const count = value => rx.split(squashed(value)).length - 1;
+    const times = count(`${marker}-X 10 mg once daily`);
+    h.assert(times === 1, `The medication prescribed twice is listed ${times} times in the Rx history`);
+    for (const name of ['CODED', 'REGIMEN']) {
+      for (const dose of [10, 20]) h.assert(count(`${marker}-${name} ${dose} mg once daily`) === 1,
+        `The ${name} ${dose} mg regimen is missing or duplicated`);
+    }
+    h.assert(count(`${marker}-DATED 10 mg once daily`) === 2, 'Different dated prescriptions were collapsed');
+    h.assert(count(`${marker}-STATUS 10 mg once daily`) === 1, 'The newer archived copy hid the current prescription');
   });
 }
 

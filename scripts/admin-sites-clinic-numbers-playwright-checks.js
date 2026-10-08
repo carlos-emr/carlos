@@ -5,11 +5,10 @@
  * User path: Schedule ▸ Administration ▸ Billing ▸ Settings (admin/BillingSettings) and
  * Administration ▸ System Management ▸ Help Link Setting (admin/ResourceBaseUrl), then the Help
  * link on the day sheet and on the administration shell's own menu bar.
- * Asserts: the Ontario Billing Settings page states it has no options and its Save confirms; Help Link "Website" stores resource_baseurl and
- * the day sheet's Help opens it; "Details" replaces it with resource_helpHtml and the shell's Help
- * panel shows the text; GET with a save flag is refused 405 and stores nothing; finally the shell's
- * Help follows a saved Website link like the day sheet does, and the billing Save (checked by row
- * identity and value, asserted last) wrote no BC-only property or invoice preference row.
+ * Asserts: Ontario shows a non-mutating empty state with no Save control; an explicit POST,
+ * including a forged province field, leaves BC properties/preferences byte-exact. Help Link
+ * Website and Details retain their day-sheet and shell behavior; the shell opens the stored
+ * website URL and refuses executable or malformed URLs. GET save flags change no settings.
  * Fixtures: none created; the property / SystemPreferences rows these pages own are snapshotted
  * (byte-exact, with ids) before the first click and restored in cleanup. EXCLUSIVE=1: both are
  * clinic-wide settings. Satellite-sites Admin (multisites=off) and Manage Clinic NBR Codes
@@ -55,10 +54,9 @@ async function workflow(s) {
     'Billing/help settings were not restored to their snapshot');
   });
   // Row identities and exact values (not a count), so a save that inserts, deletes or rewrites any
-  // BC-only key -- even to another non-empty value -- changes the result. updateDate is included
-  // because the JSP's merge() restamps an existing preference row even when its value is unchanged.
+  // BC-only key -- even to another non-empty value -- changes the result.
   const storedBcValues = () => JSON.stringify([snapshotRows(sql, 'property', ['name', 'value', 'provider_no'], BC_PROPERTY_NAMES),
-    snapshotRows(sql, 'SystemPreferences', preferenceColumns, PREFERENCE_NAMES)]);
+    snapshotRows(sql, 'SystemPreferences', ['name', 'value', 'updateDate'], PREFERENCE_NAMES)]);
   const helpRows = name => sql.rows(`SELECT value FROM property WHERE name=${h.sqlString(name)}`).map(row => row[0]);
 
   // The day sheet's own URL (the post-login landing page) lets a second tab show the day sheet
@@ -68,6 +66,7 @@ async function workflow(s) {
     {context, recorder: s.recorder, label: 'settings-administration', timeout: TIMEOUT});
   let daySheet = isPopup ? s.schedule : null;
   async function openSection(link, path) {
+    await admin.waitForLoadState('load');
     await revealAuditLink(admin, link, TIMEOUT);
     await link.click();
     const deadline = Date.now() + TIMEOUT;
@@ -95,21 +94,29 @@ async function workflow(s) {
 
   await s.step('Billing ▸ Settings states the Ontario install has no billing options', async () => {
     const settings = await openSection(admin.locator('a.xlink[rel$="/admin/BillingSettings"]'), '/admin/BillingSettings');
-    await settings.getByText('No billing options to display.').waitFor({timeout: TIMEOUT});
+    await settings.getByText('Ontario billing has no settings on this page.').waitFor({timeout: TIMEOUT});
+    h.assert(await settings.locator('[name="saveBillingSettings"]').count() === 0, 'The empty Ontario page still offers Save');
+    h.assert(!(await settings.locator('body').innerText()).includes('OSCAR'), 'Billing Settings still uses the old product name');
     h.assert(await settings.locator('#bc_default_service_location, #default_billing_form, [name="auto_populate_refer"]').count() === 0,
       'BC-only billing settings are offered on the Ontario install');
   });
 
-  // KNOWN DEFECT, ASSERTED LAST: billingSettings.jsp saves every BC key and general setting
-  // from the (absent) form fields, persisting NULL rows or overwriting stored values with NULL.
-  // It is recorded here and asserted in the final step so the Help Link steps are still proven.
-  let billingSaveWrote = false;
-  await s.step('Billing Settings Save confirms the save', async () => {
+  await s.step('An explicit Ontario billing POST leaves every BC preference unchanged', async () => {
     const settings = admin.frames().find(f => new URL(f.url(), 'http://x').pathname.endsWith('/admin/BillingSettings'));
     const before = storedBcValues();
-    await submitInFrame(settings, settings.locator('input[name="saveBillingSettings"]'));
-    await settings.getByText('Settings Saved').waitFor({timeout: TIMEOUT});
-    billingSaveWrote = storedBcValues() !== before;
+    const token = await settings.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const response = await context.request.post(h.appUrl(s.config.baseUrl, '/admin/BillingSettings'), {
+      form: {dboperation: 'Save', 'CSRF-TOKEN': token, billregion: 'BC',
+        auto_populate_refer: 'true', bc_default_service_location: marker,
+        invoice_use_custom_clinic_info: 'on', invoice_custom_clinic_info: marker},
+      maxRedirects: 0,
+    });
+    h.assert(response.status() === 200, `Ontario billing POST answered HTTP ${response.status()}`);
+    const html = await response.text();
+    h.assert(html.includes('Ontario billing has no settings on this page.') && !html.includes('Settings Saved'),
+      'An unsupported billing save did not return the empty state without a success message');
+    await response.dispose();
+    h.assert(storedBcValues() === before, 'The Ontario POST rewrote BC settings or trusted the submitted province');
   });
 
   let help;
@@ -157,7 +164,7 @@ async function workflow(s) {
       'A GET with a save flag changed the stored settings');
   });
 
-  await s.step('the shell Help follows a saved Website link, and the Ontario billing Save wrote no BC-only row', async () => {
+  await s.step('the shell Help opens the saved Website link', async () => {
     help = await openSection(admin.getByRole('link', {name: 'Help Link Setting', exact: true, includeHidden: true}), '/admin/ResourceBaseUrl');
     await help.locator('input.helpOption[value="website"]').check();
     await websiteInput().fill(helpUrl);
@@ -165,15 +172,45 @@ async function workflow(s) {
     await expectValue(sql, "SELECT value FROM property WHERE name='resource_baseurl'", helpUrl, 'The Website link was not stored again');
     h.assert((await scheduleHelpTarget() || '').includes(`'${helpUrl}'`), 'The day sheet Help does not open the saved URL');
     await admin.reload({waitUntil: 'domcontentloaded'});
-    const shellHelp = await admin.locator('#helpLink a').first().getAttribute('onclick');
-    const problems = [];
-    if (!(shellHelp || '').includes(`'${helpUrl}'`)) {
-      problems.push('the administration shell Help ignores the saved Help Link and opens the carlos.properties resource_base_url');
+    const shellHelp = admin.locator('#helpLink a').first();
+    h.assert(await shellHelp.getAttribute('data-help-url') === helpUrl, 'The shell Help ignores the saved clinic URL');
+    await context.route('https://help.invalid/**', route => route.fulfill({status: 200, contentType: 'text/plain', body: 'Owned clinic help'}));
+    const adminUrl = admin.url();
+    const opened = await clickOpensPopupOrNavigates(admin, shellHelp,
+      {context, recorder: s.recorder, label: 'settings-clinic-help', timeout: TIMEOUT});
+    h.assert(opened.page.url() === helpUrl, 'The shell Help did not open the stored URL');
+    // popupPage reuses the named attachment window, which may be this Administration tab.
+    if (opened.isPopup) await opened.page.close();
+    else await admin.goto(adminUrl, {waitUntil: 'domcontentloaded'});
+  });
+  await s.step('A saved Help URL containing quote and markup characters stays literal', async () => {
+    const value = `${helpUrl}?q='"><img src=x onerror=window.__unexpectedClinicHelp=1>`;
+    // Exercise already-stored values so input filtering cannot mask an output-encoding bug.
+    h.assert(JSON.stringify(helpRows('resource_baseurl')) === JSON.stringify([helpUrl]), 'The owned Help URL is no longer stored');
+    sql.execute(`UPDATE property SET value=${h.sqlString(value)} WHERE name='resource_baseurl'`);
+    await admin.reload({waitUntil: 'domcontentloaded'});
+    const link = admin.locator('#helpLink a').first();
+    h.assert(await link.getAttribute('data-help-url') === value, 'Quote or markup characters escaped the Help URL attribute');
+    h.assert(await admin.evaluate(() => window.__unexpectedClinicHelp === undefined), 'Stored Help URL markup executed');
+    const adminUrl = admin.url();
+    const opened = await clickOpensPopupOrNavigates(admin, link,
+      {context, recorder: s.recorder, label: 'settings-literal-help', timeout: TIMEOUT});
+    h.assert(opened.page.url() === new URL(value).href, 'The encoded Help URL opened a different destination');
+    if (opened.isPopup) await opened.page.close();
+    else await admin.goto(adminUrl, {waitUntil: 'domcontentloaded'});
+  });
+
+  await s.step('The shell Help refuses executable and malformed stored URLs', async () => {
+    for (const value of ['javascript:window.__unexpectedClinicHelp=1', 'http://[']) {
+      h.assert(helpRows('resource_baseurl').length === 1, 'The owned Help URL row is missing or duplicated');
+      sql.execute(`UPDATE property SET value=${h.sqlString(value)} WHERE name='resource_baseurl'`);
+      await admin.reload({waitUntil: 'domcontentloaded'});
+      const pages = context.pages().length;
+      const adminUrl = admin.url();
+      await admin.locator('#helpLink a').first().click();
+      h.assert(context.pages().length === pages && admin.url() === adminUrl, 'An unsafe stored Help URL opened a popup or navigated the shell');
+      h.assert(await admin.evaluate(() => window.__unexpectedClinicHelp === undefined), 'An unsafe Help URL executed script');
     }
-    if (billingSaveWrote) {
-      problems.push('saving the Ontario Billing Settings page (no options shown) inserted or rewrote BC-only property / invoice SystemPreferences rows');
-    }
-    h.assert(!problems.length, problems.join('; '));
   });
 }
 
