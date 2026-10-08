@@ -83,6 +83,42 @@ file is retained as documentation of what was dropped and why.
 Migrations are also copied onto the WAR classpath at `db/migration` (a build `<resource>` in
 `pom.xml`) so the boot-time gate can read them.
 
+## Demo data and strict `sql_mode`
+
+The development database runs MariaDB's **default strict `sql_mode`**: the devcontainer `my.cnf` sets
+none. A value that does not fit its column (text for an `INT`, an over-long string, an invalid datetime)
+therefore aborts `populate_db.sh` with the offending table, column and row instead of being silently
+coerced. Issue #3151 is why: while `my.cnf` set `sql_mode = ""`, a demo snapshot whose column order
+differed from the Flyway baseline loaded "successfully" with patient names coerced to `0` in
+`demographic.genderId`.
+
+- **Regenerating `development.sql`.** `build-demo.sh` filters the snapshot by table name only; it does not
+  check column alignment. Export the source with `mysqldump --complete-insert` so every `INSERT` names its
+  columns and the source database's column order cannot shift values. The filter keeps only tables that
+  exist in the live (pruned) schema, so tables listed in `migration/pruned-tables.txt` are dropped. A
+  column-less `INSERT ... VALUES` is correct only while the snapshot's column order equals the baseline's.
+- **Checking a regenerated snapshot.**
+  - `node --test scripts/demo-seed-layouts.test.js` pins the column layouts and the intended values.
+  - `scripts/check-demo-data-strict-load.sh --self-test` (also `npm run test:demo-data-strict-load`)
+    builds the real devcontainer database image and asserts that `populate_db.sh` completes under strict
+    mode, the demo patients and the `carlosdoc` login are intact, and `gender`/`pref_name` are aligned. The
+    `--self-test` negative control shows the same one-row fault aborting a strict load but loading silently
+    under an empty `sql_mode`. It needs only Docker.
+  - `node --test scripts/devcontainer-strict-sql-mode.test.js` fails if anything in the devcontainer
+    puts `sql_mode` back. CI runs it with the other script tests.
+- **The Debian demo path is different.** `carlos-ctl demo-data` loads the additive artifact, built with
+  `INSERT IGNORE`. `IGNORE` turns every type error into a *warning* and stores the coerced value, even in
+  strict mode, so a strict server does not protect that path. `check-demo-data-strict-load.sh` therefore
+  loads the artifact into a Flyway-only schema and fails on any warning other than duplicate-key `1062`
+  (where the Flyway row is meant to win).
+- **Who else runs strict.** `container-images.yml` builds and starts the devcontainer database image, so a
+  strict violation anywhere in `populate_db.sh` now fails that job. `db-schema-verify.yml` mounts the same
+  `my.cnf`, so its `mariadb`-client steps now run against the strict default too (its Flyway steps already
+  connected through JDBC in strict mode, so they are unchanged). The Debian
+  package's `60-carlos-emr.cnf` deliberately still sets `sql_mode = ""` for existing OSCAR-lineage
+  deployments; enabling strictness there is a per-site decision (see `debian/carlos-emr.README.Debian`,
+  "MariaDB strictness") and is not changed by the development default.
+
 ## Where migrations run
 
 | Context | How | Notes |
