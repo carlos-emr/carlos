@@ -162,7 +162,7 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(queueDao, secObjectNameDao);
+        verifyNoInteractions(securityInfoManager, queueDao, secObjectNameDao);
     }
 
     @Test

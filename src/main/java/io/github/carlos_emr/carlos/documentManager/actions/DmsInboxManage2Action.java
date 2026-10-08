@@ -663,6 +663,16 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "dms_page";
     }
 
+    /**
+     * Creates a document queue and its {@code _queue.<id>} security object (Administration &gt; Add New Queue).
+     *
+     * <p>Order matters: the HTTP method is rejected first (405, {@code Allow: POST}) so no privilege lookup or
+     * write happens for GET/HEAD, then {@code _edoc} write is required, then the name is validated (400 when
+     * missing or blank). The security object is only created when the queue insert succeeded.
+     *
+     * @return {@link #NONE}; the JSON body {@code {"addNewQueue":true|false}} is written directly. A missing
+     *         write privilege throws {@link SecurityException}
+     */
     public String addNewQueue() {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -690,6 +700,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         return writeAddNewQueueResult(HttpServletResponse.SC_OK, success);
     }
 
+    /** Writes the {@code addNewQueue} JSON outcome with an explicit HTTP status and returns {@link #NONE}. */
     private String writeAddNewQueueResult(int status, boolean success) {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
