@@ -378,7 +378,7 @@ public class EmailCompose2Action extends ActionSupport {
      *   <li>emailAttachmentList (display copies carrying each file's current preview token)</li>
      *   <li>senderEmail, subjectEmail, message, emailPatientChartOption, demographicId, fdid, fid</li>
      *   <li>footerEmail (see {@link #resolveComposeFooter}); footerClinicChanged and
-     *       ownFootersReplaced when a clinic footer change affected the user's own footer</li>
+     *       clinicChangeKeptOwnFooter while the user has not answered a clinic footer change</li>
      *   <li>openEFormAfterEmail, deleteEFormAfterEmail, isEmailEncrypted,
      *       isEmailAttachmentEncrypted, isEmailAutoSend</li>
      * </ul>
@@ -444,7 +444,7 @@ public class EmailCompose2Action extends ActionSupport {
                 resolveComposeFooter(view.footerEmail(), emailFooterService.composeFooter(providerNo)));
         if (emailFooterService.clinicChangeNotice(providerNo) != null) {
             request.setAttribute("footerClinicChanged", true);
-            request.setAttribute("ownFootersReplaced", emailFooterService.ownFootersReplacedOnClinicChange());
+            request.setAttribute("clinicChangeKeptOwnFooter", emailFooterService.clinicChangeKeptOwnFooter(providerNo));
         }
         request.setAttribute("emailPatientChartOption", view.emailPatientChartOption());
         request.setAttribute(DEMOGRAPHIC_ID_KEY, context.demographicId());

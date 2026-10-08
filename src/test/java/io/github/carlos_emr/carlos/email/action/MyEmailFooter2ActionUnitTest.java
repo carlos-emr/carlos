@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.email.action;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
@@ -118,7 +119,7 @@ class MyEmailFooter2ActionUnitTest {
     void shouldExposeClinicDefault_whenUserFollowsIt() {
         allowEmailWrite();
         when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
-                new EmailFooterService.UserFooterSettings(null, "Riverside Clinic", "Dr A footer", true));
+                new EmailFooterService.UserFooterSettings(null, "Riverside Clinic", "Dr A footer", false));
 
         String result = new ViewMyEmailFooter2Action(securityInfoManager, emailFooterService).execute();
 
@@ -127,7 +128,7 @@ class MyEmailFooter2ActionUnitTest {
         assertThat(request.getAttribute("myFooter")).isEqualTo("Riverside Clinic");
         assertThat(request.getAttribute("clinicFooter")).isEqualTo("Riverside Clinic");
         assertThat(request.getAttribute("clinicChangeNotice")).isEqualTo("Dr A footer");
-        assertThat(request.getAttribute("ownFootersReplaced")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(false);
     }
 
     @Test
@@ -241,7 +242,8 @@ class MyEmailFooter2ActionUnitTest {
         request.addParameter(SaveMyEmailFooter2Action.ACTION_PARAM, "save");
         request.addParameter(SaveMyEmailFooter2Action.FOOTER_PARAM, tooLong);
 
-        String result = new SaveMyEmailFooter2Action(securityInfoManager, new EmailFooterService(dao)).execute();
+        String result = new SaveMyEmailFooter2Action(securityInfoManager,
+                new EmailFooterService(dao, mock(ProviderDao.class))).execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(request.getAttribute("myFooter")).isEqualTo(tooLong);
@@ -261,7 +263,7 @@ class MyEmailFooter2ActionUnitTest {
         doThrow(new ObjectOptimisticLockingFailureException("UserProperty", 7))
                 .when(emailFooterService).saveOwnFooter(PROVIDER, "Dr A new footer");
         when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
-                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, true));
+                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, false));
 
         assertThat(saveAction().execute()).isEqualTo(ActionSupport.INPUT);
 
@@ -280,7 +282,7 @@ class MyEmailFooter2ActionUnitTest {
         doThrow(new ObjectOptimisticLockingFailureException("UserProperty", 7))
                 .when(emailFooterService).useClinicDefault(PROVIDER);
         when(emailFooterService.settingsFor(PROVIDER)).thenReturn(
-                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, true));
+                new EmailFooterService.UserFooterSettings("Dr A footer", "Riverside Clinic", null, false));
 
         assertThat(saveAction().execute()).isEqualTo(ActionSupport.INPUT);
 

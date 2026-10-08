@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.email.admin;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
@@ -247,7 +248,8 @@ class SaveClinicEmailFooter2ActionUnitTest {
         request.addParameter(SaveClinicEmailFooter2Action.FOOTER_PARAM, tooLong);
         request.addParameter(SaveClinicEmailFooter2Action.FINGERPRINT_PARAM, SHOWN);
 
-        String result = new SaveClinicEmailFooter2Action(securityInfoManager, new EmailFooterService(dao)).execute();
+        String result = new SaveClinicEmailFooter2Action(securityInfoManager,
+                new EmailFooterService(dao, mock(ProviderDao.class))).execute();
 
         assertThat(result).isEqualTo(ActionSupport.INPUT);
         assertThat(request.getAttribute("clinicFooter")).isEqualTo(tooLong);

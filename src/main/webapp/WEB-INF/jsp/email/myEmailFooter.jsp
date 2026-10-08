@@ -7,7 +7,7 @@
   a clinic change replaced (or, with that rule switched off, kept) the user's own footer. Every
   change is a POST to email/saveMyEmailFooter; the provider comes from the session.
   Request attributes: myFooter, followsClinicDefault, clinicFooter, clinicChangeNotice,
-  ownFootersReplaced, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
+  clinicChangeKeptOwnFooter, myFooterTooLong, myFooterSaveConflict (set by ViewMyEmailFooter2Action and
   SaveMyEmailFooter2Action). The page needs _email write, as saving does.
   Request parameters: saved (true after a change).
   @since 2026-10-07
@@ -42,15 +42,15 @@
         <div class="alert alert-danger" role="alert" id="myFooterSaveConflict"><fmt:message key="email.footer.saveConflict"/></div>
     </c:if>
 
-    <%-- A clinic change affected this user's footer: show what they had and let them choose. --%>
+    <%-- The clinic changed its footer: show the footer this user had until then and let them choose. --%>
     <c:if test="${clinicChangeNotice != null}">
         <div class="alert alert-warning" role="alert" id="clinicChangeNotice">
             <c:choose>
-                <c:when test="${ownFootersReplaced}">
-                    <p class="mb-2"><fmt:message key="email.myFooter.noticeReplaced"/></p>
+                <c:when test="${clinicChangeKeptOwnFooter}">
+                    <p class="mb-2"><fmt:message key="email.myFooter.noticeKept"/></p>
                 </c:when>
                 <c:otherwise>
-                    <p class="mb-2"><fmt:message key="email.myFooter.noticeKept"/></p>
+                    <p class="mb-2"><fmt:message key="email.myFooter.noticeReplaced"/></p>
                 </c:otherwise>
             </c:choose>
             <c:choose>
@@ -63,17 +63,20 @@
             </c:choose>
             <form action="${ctx}/email/saveMyEmailFooter" method="post" class="d-flex flex-wrap gap-2">
                 <c:choose>
-                    <c:when test="${ownFootersReplaced}">
-                        <button type="submit" name="footerAction" value="restorePrevious" class="btn btn-sm btn-primary">
-                            <fmt:message key="email.myFooter.restorePrevious"/></button>
-                        <button type="submit" name="footerAction" value="keepCurrent" class="btn btn-sm btn-outline-secondary">
-                            <fmt:message key="email.myFooter.keepClinic"/></button>
-                    </c:when>
-                    <c:otherwise>
+                    <c:when test="${clinicChangeKeptOwnFooter}">
                         <button type="submit" name="footerAction" value="useClinicDefault" class="btn btn-sm btn-primary">
                             <fmt:message key="email.myFooter.useClinic"/></button>
                         <button type="submit" name="footerAction" value="keepCurrent" class="btn btn-sm btn-outline-secondary">
                             <fmt:message key="email.myFooter.keepMine"/></button>
+                    </c:when>
+                    <c:otherwise>
+                        <%-- With no previous footer (no clinic footer was set) there is nothing to put back. --%>
+                        <c:if test="${not empty clinicChangeNotice}">
+                            <button type="submit" name="footerAction" value="restorePrevious" class="btn btn-sm btn-primary">
+                                <fmt:message key="email.myFooter.restorePrevious"/></button>
+                        </c:if>
+                        <button type="submit" name="footerAction" value="keepCurrent" class="btn btn-sm btn-outline-secondary">
+                            <fmt:message key="email.myFooter.keepClinic"/></button>
                     </c:otherwise>
                 </c:choose>
             </form>
@@ -89,7 +92,8 @@
         </p>
         <label for="myFooter" class="form-label"><fmt:message key="email.myFooter.label"/></label>
         <textarea class="form-control" id="myFooter" name="myFooter" rows="4" maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>"
-                  aria-describedby="myFooterHelp"><carlos:encode value="${myFooter}"/></textarea>
+                  aria-describedby="myFooterEmptyHelp myFooterHelp"><carlos:encode value="${myFooter}"/></textarea>
+        <div id="myFooterEmptyHelp" class="form-text"><fmt:message key="email.myFooter.emptyUsesClinic"/></div>
         <div id="myFooterHelp" class="form-text"><fmt:message key="email.compose.footer.help"/></div>
         <div class="d-flex flex-wrap gap-2 mt-2">
             <button type="submit" name="footerAction" value="save" class="btn btn-primary">

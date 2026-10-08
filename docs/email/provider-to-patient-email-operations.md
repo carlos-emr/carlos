@@ -125,7 +125,8 @@ The compose screen fills in the footer from the first of these that applies:
    eForm can send `bodyEmail` for the message). A blank one counts as none.
 2. The user's own footer. Every user who can send patient email (`_email`
    write), doctor or front desk, can save one on **Preferences > My Email
-   Footer** (`email/myEmailFooter`). Saving it empty means "no footer".
+   Footer** (`email/myEmailFooter`). Saving it empty is not "no footer": it
+   removes the user's own footer, so the clinic footer applies.
 3. The clinic footer, set on **Administration > Emails > Configure Email**
    (`_admin` write).
 4. Nothing: the footer starts empty.
@@ -137,20 +138,27 @@ briefly on that path.
 
 ### When the clinic footer changes
 
-The rule is set in code by `EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE`.
-It is currently `true` (the maintainer's decision of 6 October 2026), and the
-Configure Email page words its explanation to match the setting.
+Every active user is told about a changed clinic footer (the maintainer's
+decision of 8 October 2026), not only those who had their own footer: a notice
+on the compose screen and on their footer page. The page shows the footer they
+had until then, their own or the previous clinic footer.
+
+Whether own footers are kept is set in code by
+`EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE`. It is currently
+`true` (the maintainer's decision of 6 October 2026), and the Configure Email
+page words its explanation to match the setting.
 
 - **`true` (current): own footers are replaced.** Saving a changed clinic footer
   replaces every user's own footer with it; saving it empty leaves everyone with
-  no footer. A user whose own footer was different (not the old or the new
-  clinic footer) sees a notice on the compose screen and on their footer page.
-  The page shows their previous footer and lets them put it back or keep the
-  clinic footer.
+  no footer. The notice lets each user put their previous footer back, as their
+  own, or keep the clinic footer. A user who had no footer before (no clinic
+  footer was set) can only keep the new one.
 - **`false`: own footers are kept.** Users who follow the clinic footer get the
-  new one; every user whose own footer differs from it sees the notice and can
-  switch to the clinic footer or keep their own.
+  new one; users with their own footer keep it, and the notice lets them switch
+  to the clinic footer.
 
+"Every active user" means every active provider record other than CARLOS's
+system providers; a provider without email rights never sees the notice.
 Either way, the notice stays until the user answers it or saves their footer,
 and the administrator is not asked to confirm. Saving the clinic footer without
 editing it changes nothing, and the page says so. If someone else changed it

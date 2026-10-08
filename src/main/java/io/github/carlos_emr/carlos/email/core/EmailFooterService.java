@@ -22,15 +22,23 @@
 package io.github.carlos_emr.carlos.email.core;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import jakarta.persistence.PersistenceException;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,10 +52,11 @@ import org.springframework.transaction.annotation.Transactional;
  * The clinic's default email footer and each user's own footer (follow-up to issue #3981).
  *
  * <p>Every user, doctor or front desk, has a footer: their own, if they saved one, otherwise the
- * clinic default. When an administrator changes the clinic default, users' own footers are
- * replaced by it ({@link #REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE}); each user whose own text was
- * different is told on their next email, not the administrator, and can put their old text
- * back.</p>
+ * clinic default. A blank own footer is not a choice of "no footer": saving one, or clearing the
+ * box, means the user follows the clinic default. When an administrator changes the clinic
+ * default, users' own footers are replaced by it ({@link #REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE}),
+ * and every active user is told on their next email, not the administrator, with the footer they
+ * had until then, which they can put back.</p>
  *
  * <p>All values live in the {@code property} table ({@link UserProperty}): the clinic default as a
  * row without a provider, users' footers and notices per provider. Its {@code value} column holds
@@ -75,8 +84,9 @@ public class EmailFooterService {
     /** The clinic default, a row with no provider. */
     static final String CLINIC_DEFAULT = "email_footer_clinic_default";
     /**
-     * Set on a user whose own footer differed from a new clinic default: their previous text, shown
-     * on their next email until they restore it, keep the default, or save their footer.
+     * Set on every active user when the clinic default changes: the footer they had until then
+     * (their own, or the previous clinic default), shown on their next email until they restore it,
+     * keep the new footer, or save their own.
      */
     static final String CLINIC_CHANGE_NOTICE = "email_footer_clinic_change";
 
@@ -84,6 +94,8 @@ public class EmailFooterService {
      * Maintainer decision (6 Oct 2026): "Clinic sets a default, then docs can edit it, but if admin
      * changes it it will update all doctors", and the doctors are warned on their next send, not the
      * admin. Set to false to keep users' own footers on a clinic change and only tell them.
+     * Maintainer decisions (8 Oct 2026): a blank own footer means the clinic default, never "no
+     * footer", and a clinic change tells every user, not only those who had their own footer.
      */
     static final boolean REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE = true;
 
@@ -91,16 +103,18 @@ public class EmailFooterService {
     private static final HibernateJpaDialect JPA_EXCEPTIONS = new HibernateJpaDialect();
 
     private final UserPropertyDAO userPropertyDao;
+    private final ProviderDao providerDao;
     private final boolean replaceOwnFooters;
 
     @Autowired
-    public EmailFooterService(UserPropertyDAO userPropertyDao) {
-        this(userPropertyDao, REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE);
+    public EmailFooterService(UserPropertyDAO userPropertyDao, ProviderDao providerDao) {
+        this(userPropertyDao, providerDao, REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE);
     }
 
     // Package-private so tests can cover both settings of the clinic-change rule.
-    EmailFooterService(UserPropertyDAO userPropertyDao, boolean replaceOwnFooters) {
+    EmailFooterService(UserPropertyDAO userPropertyDao, ProviderDao providerDao, boolean replaceOwnFooters) {
         this.userPropertyDao = userPropertyDao;
+        this.providerDao = providerDao;
         this.replaceOwnFooters = replaceOwnFooters;
     }
 
@@ -118,11 +132,12 @@ public class EmailFooterService {
      *
      * @param ownFooter the user's own footer, or null when they follow the clinic default
      * @param clinicDefault the clinic default, empty when none is set
-     * @param clinicChangeNotice the user's previous footer when a clinic change affected it, or null
-     * @param ownFootersReplaced whether a clinic change replaces own footers (the notice wording)
+     * @param clinicChangeNotice the footer the user had before a clinic change, or null
+     * @param keptOwnFooter whether the clinic change kept the user's own footer (the notice wording);
+     *        false when the user now uses the clinic footer
      */
     public record UserFooterSettings(String ownFooter, String clinicDefault, String clinicChangeNotice,
-            boolean ownFootersReplaced) {
+            boolean keptOwnFooter) {
     }
 
     /** What saving the clinic default did. */
@@ -139,7 +154,8 @@ public class EmailFooterService {
      * The outcome of saving the clinic default.
      *
      * @param outcome what the save did
-     * @param noticed how many own-footer rows differed from the new default and got (or kept) a notice
+     * @param noticed how many users got (or kept) a notice: every active user, and anyone else
+     *        whose own footer the change touched
      */
     public record ClinicDefaultSaved(ClinicDefaultOutcome outcome, int noticed) {
 
@@ -170,16 +186,17 @@ public class EmailFooterService {
     }
 
     /**
-     * The footer a user's compose screen opens with when the eForm supplies none: the user's own
-     * (even when they saved it empty, meaning no footer), otherwise the clinic default.
+     * The footer a user's compose screen opens with when the eForm supplies none: the user's own,
+     * otherwise the clinic default. A blank own footer (saved before a blank came to mean the
+     * clinic default) also gives the clinic default.
      *
      * @param providerNo the logged-in user, or null when there is none
      * @return the footer, or empty when the user has none and no clinic default is set
      */
     public Optional<String> composeFooter(String providerNo) {
-        UserProperty own = firstRow(providerNo, USER_FOOTER);
+        String own = ownFooter(providerNo);
         if (own != null) {
-            return Optional.of(nullToEmpty(own.getValue()));
+            return Optional.of(own);
         }
         String clinic = clinicDefault();
         return clinic.isEmpty() ? Optional.empty() : Optional.of(clinic);
@@ -187,7 +204,7 @@ public class EmailFooterService {
 
     /**
      * @param providerNo the logged-in user, or null when there is none
-     * @return the user's previous footer when a clinic change affected it, or null
+     * @return the footer the user had before a clinic change they have not yet answered, or null
      */
     public String clinicChangeNotice(String providerNo) {
         UserProperty notice = firstRow(providerNo, CLINIC_CHANGE_NOTICE);
@@ -200,17 +217,28 @@ public class EmailFooterService {
     }
 
     /**
+     * Which notice wording applies to the user: with the replace rule off, a user who still has their
+     * own footer was told it was kept; everyone else now uses the clinic footer.
+     *
+     * @param providerNo the logged-in user, or null when there is none
+     * @return whether the last clinic change kept the user's own footer
+     */
+    public boolean clinicChangeKeptOwnFooter(String providerNo) {
+        return !replaceOwnFooters && ownFooter(providerNo) != null;
+    }
+
+    /**
      * @param providerNo the logged-in user
      * @return what the user's footer page shows
      */
     public UserFooterSettings settingsFor(String providerNo) {
-        UserProperty own = firstRow(providerNo, USER_FOOTER);
-        return new UserFooterSettings(own == null ? null : nullToEmpty(own.getValue()), clinicDefault(),
-                clinicChangeNotice(providerNo), replaceOwnFooters);
+        return new UserFooterSettings(ownFooter(providerNo), clinicDefault(), clinicChangeNotice(providerNo),
+                clinicChangeKeptOwnFooter(providerNo));
     }
 
     /**
-     * Saves the user's own footer (empty means no footer) and clears any clinic-change notice.
+     * Saves the user's own footer and clears any clinic-change notice. A blank footer is not "no
+     * footer": it removes the user's own, so they follow the clinic default.
      *
      * @param providerNo the logged-in user
      * @param footer the footer as typed
@@ -220,7 +248,11 @@ public class EmailFooterService {
     public void saveOwnFooter(String providerNo, String footer) {
         String normalised = withinLimit(footer);
         translated(() -> {
-            writeRow(providerNo, USER_FOOTER, normalised);
+            if (normalised.isEmpty()) {
+                deleteRows(providerNo, USER_FOOTER);
+            } else {
+                writeRow(providerNo, USER_FOOTER, normalised);
+            }
             deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
             return null;
         });
@@ -241,7 +273,9 @@ public class EmailFooterService {
     }
 
     /**
-     * Makes the footer a clinic change replaced the user's own footer again.
+     * Makes the footer the user had before a clinic change their own footer. When they had none
+     * (no clinic default was set), there is nothing to put back and they keep following the clinic
+     * default.
      *
      * @param providerNo the logged-in user
      * @return false when there was no notice to restore from
@@ -253,7 +287,12 @@ public class EmailFooterService {
             if (notice == null) {
                 return false;
             }
-            writeRow(providerNo, USER_FOOTER, nullToEmpty(notice.getValue()));
+            String previous = normalise(notice.getValue());
+            if (previous.isEmpty()) {
+                deleteRows(providerNo, USER_FOOTER);
+            } else {
+                writeRow(providerNo, USER_FOOTER, previous);
+            }
             deleteRows(providerNo, CLINIC_CHANGE_NOTICE);
             return true;
         });
@@ -283,13 +322,11 @@ public class EmailFooterService {
      * second time. Saving a different text when the default has changed since the page was opened
      * saves nothing either, so the administrator can see the current footer first.</p>
      *
-     * <p>Otherwise, a user's own footer equal to the
-     * new default is removed, so the user follows the default from now on. With own footers
-     * replaced on a clinic change, every other own footer is removed too, and the user gets a
-     * notice holding their previous text, unless it was the old default word for word (they were
-     * following it in effect). With the rule switched off, own footers are kept and every user
-     * whose footer differs from the new default gets the notice. An own footer saved empty means
-     * "no footer", a choice of its own, so it always gets the notice.</p>
+     * <p>Otherwise, a user's own footer equal to the new default, or blank, is removed, so the
+     * user follows the default from now on. With own footers replaced on a clinic change, every
+     * other own footer is removed too; with the rule switched off, those are kept. Either way every
+     * active user, and anyone else whose own footer the change touched, gets a notice holding the
+     * footer they had until then: their own, or the previous clinic default.</p>
      *
      * @param footer the clinic default as typed; empty means no clinic default
      * @param shownFingerprint the {@link #fingerprint} of the footer the page showed
@@ -328,32 +365,51 @@ public class EmailFooterService {
         // Two first saves at the same moment can each add a row: keep the oldest only.
         clinicRows.stream().skip(1).forEach(userPropertyDao::delete);
 
-        int noticed = 0;
+        // Every active user is told, with the footer they had until now: the previous clinic
+        // default unless their own footer below says otherwise.
+        Map<String, String> previousFooters = new LinkedHashMap<>();
+        for (String providerNo : activeUsers()) {
+            previousFooters.put(providerNo, previous);
+        }
+        Set<String> ownInEffect = new HashSet<>();
         // Locked too: a user's own save waits for this one rather than losing to it unseen.
         for (UserProperty own : userPropertyDao.lockProviderProperties(USER_FOOTER)) {
             String text = normalise(own.getValue());
-            if (text.equals(normalised)) {
-                // Already the new default. An empty one ("no footer") stays the user's own
-                // choice, so a later clinic footer still reaches them with a notice.
-                if (!text.isEmpty()) {
-                    userPropertyDao.delete(own);
-                }
-                continue;
+            // Oldest first: a double submit's later row is not the footer in effect.
+            if (ownInEffect.add(own.getProviderNo())) {
+                previousFooters.put(own.getProviderNo(), text.isEmpty() ? previous : text);
             }
-            boolean followedOldDefault = !text.isEmpty() && text.equals(previous);
-            if (replaceOwnFooters) {
+            // Blank, or already the new default: the user follows the default from now on.
+            if (replaceOwnFooters || text.isEmpty() || text.equals(normalised)) {
                 userPropertyDao.delete(own);
-                if (followedOldDefault) {
-                    continue;
-                }
             }
-            // A notice from an earlier change keeps the text the user lost first.
-            if (firstRow(own.getProviderNo(), CLINIC_CHANGE_NOTICE) == null) {
-                userPropertyDao.saveProp(own.getProviderNo(), CLINIC_CHANGE_NOTICE, text);
-            }
-            noticed++;
         }
-        return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED, noticed);
+        // A notice from an earlier change keeps the footer the user had before that one.
+        Set<String> alreadyNoticed = providersWith(CLINIC_CHANGE_NOTICE, previousFooters.keySet());
+        previousFooters.forEach((providerNo, footer) -> {
+            if (!alreadyNoticed.contains(providerNo)) {
+                userPropertyDao.saveProp(providerNo, CLINIC_CHANGE_NOTICE, footer);
+            }
+        });
+        return new ClinicDefaultSaved(ClinicDefaultOutcome.CHANGED, previousFooters.size());
+    }
+
+    /**
+     * Provider numbers of active users, without CARLOS's own system providers. A provider without
+     * email rights gets a notice row too; only the email pages show it.
+     */
+    private List<String> activeUsers() {
+        return providerDao.getActiveProviders().stream().map(Provider::getProviderNo)
+                .filter(Objects::nonNull).toList();
+    }
+
+    /** @return which of these users have a row with this name */
+    private Set<String> providersWith(String name, Collection<String> providerNos) {
+        if (providerNos.isEmpty()) {
+            return Set.of();
+        }
+        return userPropertyDao.getAllProperties(name, new ArrayList<>(providerNos)).stream()
+                .map(UserProperty::getProviderNo).collect(Collectors.toSet());
     }
 
     /**
@@ -368,6 +424,13 @@ public class EmailFooterService {
             DataAccessException translated = JPA_EXCEPTIONS.translateExceptionIfPossible(e);
             throw translated != null ? translated : e;
         }
+    }
+
+    /** @return the user's own footer, or null when they follow the clinic default (no row, or blank) */
+    private String ownFooter(String providerNo) {
+        UserProperty own = firstRow(providerNo, USER_FOOTER);
+        String text = own == null ? "" : nullToEmpty(own.getValue());
+        return text.isBlank() ? null : text;
     }
 
     private UserProperty firstClinicRow() {

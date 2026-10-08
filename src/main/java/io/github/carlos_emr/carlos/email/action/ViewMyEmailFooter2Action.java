@@ -71,6 +71,6 @@ public final class ViewMyEmailFooter2Action extends ActionSupport {
         request.setAttribute("myFooter", followsClinicDefault ? settings.clinicDefault() : settings.ownFooter());
         request.setAttribute("clinicFooter", settings.clinicDefault());
         request.setAttribute("clinicChangeNotice", settings.clinicChangeNotice());
-        request.setAttribute("ownFootersReplaced", settings.ownFootersReplaced());
+        request.setAttribute("clinicChangeKeptOwnFooter", settings.keptOwnFooter());
     }
 }

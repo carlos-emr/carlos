@@ -5,7 +5,7 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  footerEmail, footerClinicChanged, ownFootersReplaced, emailAttachmentList, isEmailEncrypted,
+  footerEmail, footerClinicChanged, clinicChangeKeptOwnFooter, emailAttachmentList, isEmailEncrypted,
   isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
   footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
@@ -613,8 +613,8 @@
                         <c:if test="${footerClinicChanged}">
                             <div class="alert alert-warning" role="alert" id="footerClinicChanged">
                                 <c:choose>
-                                    <c:when test="${ownFootersReplaced}"><fmt:message key="email.compose.footer.clinicChanged"/></c:when>
-                                    <c:otherwise><fmt:message key="email.compose.footer.clinicChangedKept"/></c:otherwise>
+                                    <c:when test="${clinicChangeKeptOwnFooter}"><fmt:message key="email.compose.footer.clinicChangedKept"/></c:when>
+                                    <c:otherwise><fmt:message key="email.compose.footer.clinicChanged"/></c:otherwise>
                                 </c:choose>
                                 <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
                                    class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>

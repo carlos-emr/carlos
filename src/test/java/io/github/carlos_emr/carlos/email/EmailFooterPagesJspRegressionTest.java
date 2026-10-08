@@ -65,7 +65,9 @@ class EmailFooterPagesJspRegressionTest {
 
         assertThat(jsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("aria-describedby=\"myFooterHelp\"><carlos:encode value=\"${myFooter}\"/></textarea>")
+                .contains("aria-describedby=\"myFooterEmptyHelp myFooterHelp\"><carlos:encode value=\"${myFooter}\"/></textarea>")
+                // A blank footer means the clinic footer (maintainer decision, 8 Oct), and the page says so.
+                .contains("<div id=\"myFooterEmptyHelp\" class=\"form-text\"><fmt:message key=\"email.myFooter.emptyUsesClinic\"/></div>")
                 .contains("<carlos:encode value=\"${clinicChangeNotice}\"/>")
                 .contains("<carlos:encode value=\"${clinicFooter}\"/>")
                 .contains("maxlength=\"<%= EmailData.FOOTER_MAX_LENGTH %>\"")
@@ -79,6 +81,11 @@ class EmailFooterPagesJspRegressionTest {
         for (String footerAction : new String[] {"save", "useClinicDefault", "restorePrevious", "keepCurrent"}) {
             assertThat(jsp).contains("name=\"footerAction\" value=\"" + footerAction + "\"");
         }
+        // With no previous footer there is nothing to put back, so the button is not offered.
+        int restore = jsp.indexOf("value=\"restorePrevious\"");
+        int guard = jsp.lastIndexOf("<c:if test=\"${not empty clinicChangeNotice}\">", restore);
+        assertThat(guard).as("the restore button sits inside a non-empty-notice check").isPositive();
+        assertThat(jsp.indexOf("</c:if>", guard)).as("which closes after the button").isGreaterThan(restore);
     }
 
     @Test
