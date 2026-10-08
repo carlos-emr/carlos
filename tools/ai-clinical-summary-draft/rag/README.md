@@ -115,6 +115,10 @@ heavy python3 rag/updater_trial.py run --dev NHSSYN006:10 --prompt v3        # a
 heavy python3 rag/updater_trial.py run --patients NHSSYN001,NHSSYN002,NHSSYN003 --prompt v3
 heavy python3 rag/updater_trial.py run --patients NHSSYN001 --prompt v3 --reuse-from v3 --tag r2
 python3 rag/updater_trial.py score --prompt v3                                # offline
+# round 2: a separate, annotate-only chart hint, asked three times (hint_trial.py; see RESULTS.md)
+python3 rag/hint_trial.py run --dev NHSSYN006:10 --repeats 1 --reuse dev-reuse-NHSSYN006.json  # unlabelled
+python3 rag/hint_trial.py run                                                 # updater_labels_r2.json notes
+python3 rag/hint_trial.py score                    # offline: three-of-three, two-of-three and single ask
 
 # offline tests (no Ollama, no network)
 cd tools/ai-clinical-summary-draft && python3 -m unittest discover -s rag/tests -t .

@@ -1,4 +1,4 @@
-# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06, round 3 and the chart-updater trial 2026-10-07)
+# RAG retrieval trial: results (round 1 2026-10-05, round 2 2026-10-06, round 3 and the chart-updater trial 2026-10-07, chart-hint round 2 2026-10-08)
 
 Rounds 1 to 3: retrieval only, on FAKE NHS synthetic patients, with local Ollama
 embeddings. No text was generated and no hosted API was called. The chart-updater trial
@@ -6,6 +6,75 @@ embeddings. No text was generated and no hosted API was called. The chart-update
 review step. Full per-probe detail is in
 `target/rag/results/` (`<model>-<index folder>-<labels>-eval.json`, `recall-at-k.json`, and
 `report-<tag>.md` with every miss; round 1's own files are `<model>-eval.json` and `report.md`).
+
+## Chart updater + RAG trial, round 2: a separate chart hint (OpenRouter, 2026-10-08)
+
+**Question:** round 1's search found the right earlier passage, but the model's "already recorded /
+conflict / new" judgement was weak, it raised false conflicts on today's readings, and every review
+that saw the chart dropped a follow-up card. Does a separate, annotate-only hint step do better?
+
+**What changed (steps 2 to 5 of the 7 Oct proposal; code `hint_trial.py`, answer key
+`updater_labels_r2.json`, both committed before any labelled call):**
+- The hint runs **after** the normal review, on the cards it kept. It can only add a hint, so no card
+  can be dropped (0 were).
+- Cards from today's **observations or examination** are skipped by a heading rule, with no model.
+- Each other card gets **one small question** against its top 3 earlier passages: same, different, or
+  unrelated? The model explains in a few sentences, then answers on three plain lines (no JSON schema).
+  SAME or DIFFERENT must quote the passage exactly, or the answer is invalid.
+- Each question is asked **three times** (temperature 0.7). A hint is shown only when all three agree
+  on the status and the passage. Two looser settings are scored from the same saved answers.
+- The question was tuned only on the unlabelled NHSSYN006 note 10 (31 calls) and then frozen.
+
+**Notes:** five new FAKE NHS notes (NHSSYN004 n29, 005 n35, 007 n27, 008 n34, 009 n24), 79 labelled
+facts. NHSSYN009 could not run (see below), so the results cover **4 notes, 58 covered facts**.
+
+| 4 notes (cards kept 56; 9 skipped by rule; 47 asked) | 3 of 3 agree (shown) | 2 of 3 agree | single ask |
+|---|---|---|---|
+| Hints shown on labelled cards | 15 | 25 | 35 |
+| ... of which right | **15 (100%)** | 23 (92%) | 30 (86%) |
+| Repeated facts flagged (of 32) | 14 | 21 | 27 |
+| Real changes flagged as conflict (of 7) | 1 | 4 | 4 |
+| Facts with the right hint (of 58; no hint counts as "new") | 48 | 50 | 51 |
+| Cards dropped by the hint step | 0 | 0 | 0 |
+
+Per-fact "false conflict" counts are not shown because one long card can cover several facts; the
+per-card "right" row is the fair measure.
+
+**In plain words:**
+- **When all three answers agree, the hint was right every time** (15 of 15); none of the shown hints
+  was a wrong conflict or a wrong "already recorded". One more agreed hint sat on an unlabelled card.
+- **The price is fewer hints:** under half of the repeated facts (14 of 32) and only 1 of 7 real
+  changes (for example paracetamol now 14 days instead of 7, amoxicillin 50 mg written instead of
+  500 mg) got a hint. Changes are where hints matter most, and the model rarely agreed with itself
+  there: 26 of 47 cards got split answers.
+- **Two of three** is a middle ground: 23 of 25 right, 21 of 32 repeats and 4 of 7 changes flagged.
+- 18 of 141 answers were invalid, all because the quote did not match the passage exactly.
+- The heading rule skipped 9 cards; only one held labelled facts (today's examination), where "no
+  hint" is acceptable.
+- **Not comparable one-to-one with round 1** (different notes), but round 1's single combined review
+  was right on 21 of 34 facts, raised 5 to 7 false conflicts and dropped a follow-up card in every
+  chart-aware run.
+
+**A bug found in #4065's updater:** on NHSSYN009 n24 the selection step crashed twice with an
+`IndexError` in `chart_updates.preserve_preceding_context`. A model range can cover only a blank line;
+`independent_items` / `followup_items` then yield a blank piece, and `preserve_preceding_context`
+indexes `splitlines()[0]` of it. Offline, both `''` and `'\n'` reproduce it. In CARLOS this fails the
+whole document instead of skipping one empty range. The fix belongs in #4065 (skip blank evidence or
+items before widening). An earlier NHSSYN009 attempt also stopped on one over-long answer; such an
+answer now counts as invalid.
+
+**Calls and cost:** round 2 used 222 calls (31 development, 187 labelled, 4 on the failed NHSSYN009
+retries); the trial has used 249 of its 300. OpenRouter returned the cost for only 19 calls ($0.007);
+estimated from tokens, round 2 cost about **$0.07**. Search and embeddings stayed on this machine.
+
+**Recommendation:**
+1. If a chart hint is ever shown, use **three-of-three agreement** for "already in the chart" notes:
+   it was right every time here, never hides or merges a card, and costs about $0.001 a card.
+2. **Do not rely on it for changes** (doses, durations, stopped medicines). Those need rules: compare
+   a proposed medicine against the chart's medication list (drug, dose, frequency, duration), as in
+   step 1 and step 6 of the proposal.
+3. Fix the empty-range crash in #4065 first.
+4. Any further round needs a clinician to settle the unclear labels (marked "unclear" in the answer key).
 
 ## Chart updater + RAG trial (OpenRouter, 2026-10-07)
 

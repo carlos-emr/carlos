@@ -229,6 +229,16 @@ def agreed_hint(answers):
     return None if status == 'new' else status
 
 
+def majority_hint(answers):
+    """For comparison only, scored offline from the same answers: shown when at least two valid answers
+    agree on a status and passage."""
+    keys = [(a['status'], a['passage']) for a in answers if a['valid'] and a['status'] != 'new']
+    for key in set(keys):
+        if keys.count(key) >= 2:
+            return key[0]
+    return None
+
+
 def first_answer_hint(answers):
     """For comparison only: what a single ask would have shown."""
     if not answers or not answers[0]['valid'] or answers[0]['status'] == 'new':
@@ -296,10 +306,15 @@ def run_document(gateway, config, notes, doc, embed=None, repeats=REPEATS, reuse
 
 # ---------------------------------------------------------------- scoring (offline)
 
+MODES = {'shown': None, 'two_of_three': majority_hint, 'first_only': None}
+
+
 def shown(run, ref, mode='shown'):
     """The hint a clinician sees on a kept card: 'already_recorded', 'conflict' or None (nothing)."""
     hint = run['hints'].get(ref)
-    return hint[mode] if hint else None
+    if not hint:
+        return None
+    return MODES[mode](hint['answers']) if MODES.get(mode) else hint[mode]
 
 
 def score_run(doc_labels, run, mode='shown'):
@@ -343,7 +358,7 @@ def score_run(doc_labels, run, mode='shown'):
         result['answers_invalid'] += sum(not a['valid'] for a in hint['answers'])
         if len({(a['status'], a['passage']) for a in hint['answers']}) > 1:
             result['answers_split'] += 1
-        status = hint[mode]
+        status = shown(run, ref, mode)
         if status is None:
             continue
         result['hints_shown'] += 1
@@ -361,7 +376,7 @@ def score(labels, runs):
     """Per patient, for the agreed hint ('shown') and a single ask ('first_only'), plus totals."""
     by_patient = {doc['patient']: doc for doc in labels['documents']}
     result = {mode: {run['patient']: score_run(by_patient[run['patient']], run, mode) for run in runs}
-              for mode in ('shown', 'first_only')}
+              for mode in MODES}
     for mode, per_patient in result.items():
         total = {}
         for values in per_patient.values():

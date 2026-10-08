@@ -127,6 +127,11 @@ class AgreementTest(unittest.TestCase):
         unrelated = answer('UNRELATED')
         self.assertIsNone(trial.agreed_hint(self.parsed(unrelated, unrelated, unrelated)))
 
+    def test_two_of_three_needs_two_valid_matching_answers(self):
+        same = answer('SAME', 'P1', 'Amlodipine 5 mg OD')
+        self.assertEqual(trial.majority_hint(self.parsed(same, 'x', same)), 'already_recorded')
+        self.assertIsNone(trial.majority_hint(self.parsed(same, 'x', answer('UNRELATED'))))
+
     def test_first_answer_only_is_what_a_single_ask_would_show(self):
         conflict = answer('DIFFERENT', 'P1', 'Amlodipine 5 mg OD')
         self.assertEqual(trial.first_answer_hint(self.parsed(conflict, answer('UNRELATED'), 'x')), 'conflict')
