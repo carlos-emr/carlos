@@ -98,9 +98,10 @@ Sender accounts that authenticate (an SMTP password, or a provider API key such
 as SendGrid's) store that secret in `emailConfig.configDetails`. CARLOS encrypts
 it at rest with the application key `encryption.util.secret.key`, the same key
 fax credentials use. A plaintext row inserted by hand is encrypted the first
-time it is used to send. An unauthenticated `LOCAL` relay never uses a secret
-and is never affected; a secret left on a `LOCAL` row is reported once so it can
-be removed.
+time a send through it gets past the consent check, unless an old credential
+on the row cannot be read (see below). An unauthenticated `LOCAL` relay never
+uses a secret and is never affected; a secret left on a `LOCAL` row is reported
+once so it can be removed.
 
 **Where the key comes from.** A packaged (Debian) install gets its key from
 `carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.
@@ -160,12 +161,14 @@ WARN, so that warning appears at the default level; enforcement is then off.
    in the Tomcat user's home directory: a key there, such as one CARLOS
    generated, takes precedence. Do not generate or paste in a new one on a
    server that is already running.
-2. Send a non-PHI test message from each credentialed account. Each plaintext
-   row is encrypted on that first send.
+2. Send a non-PHI test message from each credentialed account, to a test
+   patient whose consent allows it. Each plaintext row is encrypted on that
+   first send; a send that consent blocks encrypts nothing.
 3. Optionally set `email.credentials.require_encryption_key=true` and restart.
    With Startup in place, the only sends this refuses are from an account
    whose credential stays plaintext because an old credential beside it cannot
-   be read (see the table above); clear or re-enter that old credential. Before
+   be read (see the table above); clear or re-enter that old credential (its
+   field in `emailConfig.configDetails`; no screen edits it). Before
    turning it on, look for "stays unencrypted" warnings from step 2: those
    accounts will be refused until their old credential is cleared. It is
    also a guard for deployments or tools that run CARLOS code without Startup,

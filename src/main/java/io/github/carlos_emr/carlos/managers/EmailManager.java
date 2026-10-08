@@ -265,7 +265,8 @@ public class EmailManager {
 
     /**
      * Sends an email as {@link #sendEmailWithResult(LoggedInInfo, EmailData)} does, with a gate that runs
-     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send.
+     * between the durable outbox write and dispatch. The gate does not run when consent blocks the send
+     * or the sender account's credentials are refused ({@code credentialKeyRefusal}).
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public EmailSendResult sendEmailWithResult(LoggedInInfo loggedInInfo, EmailData emailData,

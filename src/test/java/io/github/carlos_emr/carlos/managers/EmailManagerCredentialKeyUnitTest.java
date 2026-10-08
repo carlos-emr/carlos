@@ -15,6 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.managers;
 
@@ -55,6 +58,7 @@ import org.mockito.MockedConstruction;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -610,6 +614,31 @@ class EmailManagerCredentialKeyUnitTest extends CarlosUnitTestBase {
                 // CarlosUnitTestBase keeps LogAction statically mocked for every test.
                 logActionMock.verify(() -> LogAction.addLog(eq(loggedInInfo), eq("EmailManager.sendEmail.refusedCredentialKey"),
                         eq("Email"), eq("emailLogId=81&senderConfigId=12&reason=keyRequired"), eq("123"), eq("")));
+            }
+        }
+
+        @Test
+        @DisplayName("should clear a refused portal invitation's body and never run its dispatch gate")
+        void shouldClearInvitationBodyWithoutGate_whenCredentialKeyRefusesInvite() throws Exception {
+            removeKey();
+            requireKey(true);
+            EmailData invitation = emailData();
+            invitation.setTransactionType(EmailLog.TransactionType.PORTAL_INVITE);
+            invitation.setBody("Invitation code: live-code");
+            List<String> gateCalls = new ArrayList<>();
+
+            try (MockedConstruction<SMTPEmailSender> transports = mockConstruction(SMTPEmailSender.class)) {
+                EmailSendResult result = emailManager.sendEmailWithResult(loggedInInfo, invitation,
+                        emailLog -> gateCalls.add("gate"));
+
+                assertThat(result.getTransportOutcome()).isEqualTo(EmailSendResult.TransportOutcome.FAILED);
+                assertThat(gateCalls).isEmpty();
+                assertThat(transports.constructed()).isEmpty();
+                verify(emailLogDao).transitionEmailStatus(eq(81), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), eq(EmailManager.CREDENTIAL_KEY_REQUIRED_ERROR), any());
+                // The refusal returns after the outbox write, so EmailManager scrubs the never-activated
+                // code itself rather than relying on the caller's settle() or the eight-day sweep.
+                verify(emailLogDao).replaceBody(81, EmailLog.PORTAL_INVITE_BODY_FORGOTTEN);
             }
         }
 
