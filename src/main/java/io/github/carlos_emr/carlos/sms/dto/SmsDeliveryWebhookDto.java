@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.dto;
 
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.support.SmsProviderMetadataSanitizer;
@@ -39,6 +40,25 @@ public record SmsDeliveryWebhookDto(
         }
         clientReferenceId = blankToNull(clientReferenceId);
         providerMetadata = SmsProviderMetadataSanitizer.sanitize(providerMetadata);
+    }
+
+    /**
+     * This callback as CARLOS records it, carrying no wording of the provider's: a failure carries a CARLOS code and
+     * its fixed message (any other code becomes {@link SmsProviderErrorCode#REJECTED_OTHER}), and a sent or
+     * delivered report carries no error.
+     *
+     * @return the callback to record
+     */
+    public SmsDeliveryWebhookDto withCarlosErrorCode() {
+        if (status != SmsStatus.FAILED) {
+            return errorCode == null && errorMessage == null ? this
+                    : new SmsDeliveryWebhookDto(providerType, providerMessageId, status, eventAt, null, null,
+                            clientReferenceId, providerMetadata);
+        }
+        SmsProviderErrorCode code =
+                SmsProviderErrorCode.fromCode(errorCode).orElse(SmsProviderErrorCode.REJECTED_OTHER);
+        return new SmsDeliveryWebhookDto(providerType, providerMessageId, status, eventAt, code.name(), code.message(),
+                clientReferenceId, providerMetadata);
     }
 
     private static String blankToNull(String value) {

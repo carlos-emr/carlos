@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
@@ -58,6 +59,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -344,16 +346,28 @@ class SmsProviderSwapUnitTest {
     @Test
     @DisplayName("callbacks are checked and read by the new provider")
     void shouldCheckAndReadCallbacks_withNewProvider() {
-        SmsWebhookService webhooks = new SmsWebhookService(clients, transactions);
+        save(new SmsConfigUpdateDto(SmsProviderType.CLOUDLI, true, false, "613-555-0100", "callback-secret", false,
+                Map.of("api_user", "fake-user", "api_password", "fake-password"), null));
+        SmsWebhookService webhooks = new SmsWebhookService(clients, transactions, activeProvider, configService);
 
-        assertThat(webhooks.processDeliveryWebhook(SmsProviderType.CLOUDLI, "delivered:fake-1",
-                Map.of(FakeSecondProviderClient.TOKEN_HEADER, "wrong"), "callback-secret")).isEmpty();
-        assertThat(transactions.transactions()).as("an unchecked callback records nothing").isEmpty();
+        assertThat(webhooks.processDeliveryWebhook(SmsProviderType.CLOUDLI, delivered("fake-1", "wrong"))).isEmpty();
+        assertThat(webhooks.processInboundWebhook(SmsProviderType.CLOUDLI, delivered("fake-1", "callback-secret")))
+                .as("a kind the provider does not send").isEmpty();
+        assertThat(transactions.transactions()).as("a refused callback records nothing").isEmpty();
 
-        assertThat(webhooks.processDeliveryWebhook(SmsProviderType.CLOUDLI, "delivered:fake-1",
-                Map.of(FakeSecondProviderClient.TOKEN_HEADER, "callback-secret"), "callback-secret"))
+        assertThat(webhooks.processDeliveryWebhook(SmsProviderType.CLOUDLI, delivered("fake-1", "callback-secret")))
                 .get().extracting(SmsTransaction::getProviderType, SmsTransaction::getStatus)
                 .containsExactly(SmsProviderType.CLOUDLI, SmsStatus.DELIVERED);
+
+        save(settings(SmsProviderType.STUB, true, "", Map.of()));
+        assertThat(webhooks.processDeliveryWebhook(SmsProviderType.CLOUDLI, delivered("fake-2", "callback-secret")))
+                .as("the clinic has left the provider").isEmpty();
+    }
+
+    /** A delivery report sent as a GET with everything in the address, the way VoIP.ms sends incoming texts. */
+    private static SmsWebhookRequest delivered(String messageId, String token) {
+        return new SmsWebhookRequest("GET", Map.of("id", List.of(messageId), "status", List.of("delivered"),
+                "token", List.of(token)), Map.of(), "");
     }
 
     private SmsSendService sendService() {
@@ -413,10 +427,9 @@ class SmsProviderSwapUnitTest {
 
     /**
      * A second provider for tests only. It needs a user, a password and a sender number, allows 2 texts a minute,
-     * wants 10-digit numbers, and checks callbacks by a token header.
+     * wants 10-digit numbers, and sends delivery reports as a GET whose address carries the webhook secret.
      */
     private static final class FakeSecondProviderClient implements SmsProviderClient {
-        static final String TOKEN_HEADER = "X-Fake-Token";
         private final SmsProviderType providerType;
         private final List<String> sentTo = new ArrayList<>();
         private final List<SmsProviderSettings> settingsSeen = new ArrayList<>();
@@ -456,33 +469,40 @@ class SmsProviderSwapUnitTest {
             settingsSeen.add(settings);
             if (settings.credential("api_user").isEmpty() || settings.credential("api_password").isEmpty()
                     || settings.senderNumber().isEmpty()) {
-                return SmsProviderSendResultDto.failed("FAKE_NOT_CONFIGURED", "The fake provider is not set up.");
+                return SmsProviderSendResultDto.failed(SmsProviderErrorCode.NOT_CONFIGURED);
             }
             sentTo.add(command.recipientPhoneNumber().replaceFirst("^\\+1", ""));
             return SmsProviderSendResultDto.accepted("fake-" + clientReferenceId, SmsStatus.SENT);
         }
 
         @Override
-        public boolean validateCallback(String payload, Map<String, String> headers, String secret) {
-            if (secret == null || secret.isBlank() || payload == null || headers == null) {
+        public boolean validateCallback(SmsWebhookRequest request, String webhookSecret,
+                                        SmsProviderSettings settings) {
+            if (webhookSecret == null || webhookSecret.isBlank() || request == null) {
                 return false;
             }
-            String token = headers.get(TOKEN_HEADER);
-            return token != null && MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),
-                    secret.getBytes(StandardCharsets.UTF_8));
+            return request.queryParameter("token")
+                    .map(token -> MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8),
+                            webhookSecret.getBytes(StandardCharsets.UTF_8)))
+                    .orElse(false);
         }
 
         @Override
-        public Optional<SmsInboundWebhookDto> parseInboundWebhook(String payload, Map<String, String> headers) {
+        public Set<SmsCallbackKind> acceptedCallbacks() {
+            return Set.of(SmsCallbackKind.DELIVERY);
+        }
+
+        @Override
+        public Optional<SmsInboundWebhookDto> parseInboundWebhook(SmsWebhookRequest request) {
             return Optional.empty();
         }
 
         @Override
-        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(String payload, Map<String, String> headers) {
-            if (!payload.startsWith("delivered:")) {
+        public Optional<SmsDeliveryWebhookDto> parseDeliveryWebhook(SmsWebhookRequest request) {
+            if (request.queryParameter("status").filter("delivered"::equals).isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new SmsDeliveryWebhookDto(providerType, payload.substring("delivered:".length()),
+            return request.queryParameter("id").map(id -> new SmsDeliveryWebhookDto(providerType, id,
                     SmsStatus.DELIVERED, Instant.parse("2026-10-08T12:00:00Z"), null, null, Map.of()));
         }
     }

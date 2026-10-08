@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.sms.service;
 
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -43,10 +44,6 @@ public class SmsQueueProcessingService {
             "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_SCHEDULED";
     private static final String QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED_CODE =
             "QUEUE_STALE_STATUS_NOT_FOUND_RETRY_EXHAUSTED";
-    private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE =
-            "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
-    private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE =
-            "QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED";
     private static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED_CODE =
             "QUEUE_CONSENT_CHECK_FAILED_RETRY_SCHEDULED";
     private static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED_CODE =
@@ -55,10 +52,6 @@ public class SmsQueueProcessingService {
             "SMS consent could not be checked before sending; retry scheduled.";
     private static final String QUEUE_CONSENT_CHECK_FAILED_RETRY_EXHAUSTED_MESSAGE =
             "SMS consent could not be checked before sending and retry limit was reached; nothing was sent.";
-    private static final String QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE =
-            "SMS queued provider failure recorded; retry scheduled.";
-    private static final String QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE =
-            "SMS queued provider failure reached retry limit; no further retry scheduled.";
     private static final String QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_MESSAGE =
             "SMS stale send status lookup threw an exception; marked failed for manual review.";
     private static final String QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_MESSAGE =
@@ -278,13 +271,16 @@ public class SmsQueueProcessingService {
                     shouldContinue = false;
                 } else {
                     DispatchOutcome outcome = sendOnRecordedConsent(claimed, decision, settings);
-                    if (outcome == DispatchOutcome.SENT) {
+                    if (outcome == DispatchOutcome.SENT || outcome == DispatchOutcome.SENT_FAILED_FOR_EVERY_TEXT
+                            || outcome == DispatchOutcome.SENT_OUTCOME_UNKNOWN) {
                         processed++;
                     }
-                    // A write failure is unlikely to be about one row, and an unusable permit is handled like a
-                    // failed consent check: stop rather than work through the rest of the queue one row at a time.
-                    shouldContinue = outcome != DispatchOutcome.WRITE_FAILED
-                            && outcome != DispatchOutcome.CONSENT_UNUSABLE;
+                    // A write failure is unlikely to be about one row, an unusable permit is handled like a failed
+                    // consent check, a failure that affects every text (credentials, account, the provider itself)
+                    // would fail the next one too, and an unclear answer (a timeout) likely means the provider is in
+                    // trouble: stop rather than leave the rest of the batch in the same state.
+                    shouldContinue = outcome == DispatchOutcome.SENT
+                            || outcome == DispatchOutcome.ROW_CHANGED_UNDER_CLAIM;
                 }
             }
         }
@@ -329,7 +325,8 @@ public class SmsQueueProcessingService {
      * Sends a claimed row once its claim is renewed and its audit snapshot names the consent record this
      * dispatch relied on. The admission snapshot is usually still current and costs no write.
      *
-     * @return {@link DispatchOutcome#SENT} once the send was attempted; otherwise nothing was sent
+     * @return {@link DispatchOutcome#SENT}, {@link DispatchOutcome#SENT_FAILED_FOR_EVERY_TEXT} or
+     *         {@link DispatchOutcome#SENT_OUTCOME_UNKNOWN} once the send was attempted; otherwise nothing was sent
      */
     private DispatchOutcome sendOnRecordedConsent(SmsTransaction claimed, SmsConsentDecisionDto decision,
                                                   SmsProviderSettings settings) {
@@ -363,8 +360,13 @@ public class SmsQueueProcessingService {
             handBackAfterWriteFailure(recorded, e);
             return DispatchOutcome.WRITE_FAILED;
         }
-        processTransaction(recorded, settings);
-        return DispatchOutcome.SENT;
+        SmsProviderSendResultDto result = processTransaction(recorded, settings);
+        if (!result.accepted() && result.status() == SmsStatus.SENDING) {
+            return DispatchOutcome.SENT_OUTCOME_UNKNOWN;
+        }
+        boolean failedForEveryText = result.status() == SmsStatus.FAILED && SmsProviderErrorCode
+                .fromCode(result.errorCode()).map(SmsProviderErrorCode::affectsEveryText).orElse(false);
+        return failedForEveryText ? DispatchOutcome.SENT_FAILED_FOR_EVERY_TEXT : DispatchOutcome.SENT;
     }
 
     /**
@@ -409,6 +411,17 @@ public class SmsQueueProcessingService {
     private enum DispatchOutcome {
         /** The send was attempted and its result recorded; the row counts as processed. */
         SENT,
+        /**
+         * The send was attempted and failed in a way that affects every text (see
+         * {@link SmsProviderErrorCode#affectsEveryText()}); the row counts as processed, and draining stops for
+         * this run.
+         */
+        SENT_FAILED_FOR_EVERY_TEXT,
+        /**
+         * The send was attempted and its outcome is unknown (a timeout or unclear answer); the row counts as
+         * processed and waits for stale recovery, and draining stops for this run.
+         */
+        SENT_OUTCOME_UNKNOWN,
         /** The row changed or vanished under the claim: nothing sent, and the next row may be tried. */
         ROW_CHANGED_UNDER_CLAIM,
         /**
@@ -482,7 +495,7 @@ public class SmsQueueProcessingService {
     private void recoverStaleTransaction(SmsTransaction transaction, SmsProviderSettings settings) {
         SmsProviderMessageStatusDto status = lookupProviderStatus(transaction, settings);
         if (status.isFound()) {
-            transactionRecorder.markProviderResult(transaction, status.providerResult());
+            transactionRecorder.markProviderResult(transaction, status.providerResult().withCarlosErrorCode());
             return;
         }
 
@@ -491,15 +504,18 @@ public class SmsQueueProcessingService {
             return;
         }
 
-        transactionRecorder.markProviderResult(
-                transaction,
-                SmsProviderSendResultDto.failed(
-                        status.errorCode() == null ? QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_CODE : status.errorCode(),
-                        status.errorMessage() == null
-                                ? QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_MESSAGE
-                                : status.errorMessage()
-                )
-        );
+        // Only CARLOS's own codes and fixed messages are stored; a provider's answer may quote a phone number.
+        String code = status.errorCode();
+        String message;
+        if (QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_CODE.equals(code)) {
+            message = QUEUE_STALE_STATUS_LOOKUP_EXCEPTION_MESSAGE;
+        } else if (SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_CODE.equals(code)) {
+            message = SmsProviderMessageStatusDto.LOOKUP_UNSUPPORTED_MESSAGE;
+        } else {
+            code = QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_CODE;
+            message = QUEUE_STALE_STATUS_LOOKUP_UNAVAILABLE_MESSAGE;
+        }
+        transactionRecorder.markProviderResult(transaction, SmsProviderSendResultDto.failed(code, message));
     }
 
     private SmsProviderMessageStatusDto lookupProviderStatus(SmsTransaction transaction, SmsProviderSettings settings) {
@@ -539,7 +555,8 @@ public class SmsQueueProcessingService {
         );
     }
 
-    private void processTransaction(SmsTransaction transaction, SmsProviderSettings settings) {
+    /** @return the provider's answer as recorded */
+    private SmsProviderSendResultDto processTransaction(SmsTransaction transaction, SmsProviderSettings settings) {
         SmsProviderSendResultDto providerResult;
         try {
             SmsProviderClient providerClient = providerResolver.resolve(transaction.getProviderType());
@@ -547,35 +564,31 @@ public class SmsQueueProcessingService {
                     providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction), settings),
                     "SMS provider result is required");
         } catch (RuntimeException e) {
+            // Types and frames only: provider code handles the patient's number and the message text.
+            LOGGER.warn("SMS transaction {} send through provider {} failed with an error; its outcome is unknown and"
+                    + " this run's sending stops;{}", transaction.getId(), transaction.getProviderType(),
+                    LogSafe.exceptionTrace(e));
             providerResult = SmsProviderSendResultDto.uncertain(QUEUE_PROVIDER_EXCEPTION_CODE);
         }
+        providerResult = providerResult.withCarlosErrorCode();
 
         if (providerResult.accepted() || providerResult.status() == SmsStatus.SENDING) {
             transactionRecorder.markProviderResult(transaction, providerResult);
-            return;
+            return providerResult;
         }
 
-        if (!retryPolicy.canRetry(transaction)) {
-            transactionRecorder.markProviderResult(transaction, retryExhaustedResult());
-            return;
+        // The row keeps the provider's reason, as a CARLOS code; whether it will be retried shows in its status
+        // (QUEUED with a due time, or FAILED) and its attempt count. A permanent failure is never retried.
+        boolean permanent = SmsProviderErrorCode.fromCode(providerResult.errorCode())
+                .map(SmsProviderErrorCode::permanent).orElse(false);
+        if (permanent || !retryPolicy.canRetry(transaction)) {
+            transactionRecorder.markProviderResult(transaction, providerResult);
+            return providerResult;
         }
 
         Date nextAttemptAt = retryPolicy.nextAttemptAt(transaction, new Date());
-        transactionRecorder.markRetryScheduled(transaction, retryScheduledResult(), nextAttemptAt);
-    }
-
-    private SmsProviderSendResultDto retryScheduledResult() {
-        return SmsProviderSendResultDto.failed(
-                QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE,
-                QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED_MESSAGE
-        );
-    }
-
-    private SmsProviderSendResultDto retryExhaustedResult() {
-        return SmsProviderSendResultDto.failed(
-                QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_CODE,
-                QUEUE_PROVIDER_FAILURE_RETRY_EXHAUSTED_MESSAGE
-        );
+        transactionRecorder.markRetryScheduled(transaction, providerResult, nextAttemptAt);
+        return providerResult;
     }
 
     private String clientReferenceId(SmsTransaction transaction) {

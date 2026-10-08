@@ -170,6 +170,25 @@ public class SmsConfigService {
     }
 
     /**
+     * The webhook secret callbacks are checked against. It is CARLOS's own and is kept when the provider changes.
+     *
+     * @return the saved webhook secret, or empty while none is saved
+     * @throws SmsProviderNotReadyException when it cannot be decrypted
+     */
+    @Transactional(readOnly = true)
+    public Optional<String> webhookSecret() {
+        Optional<SmsConfig> stored = current().filter(SmsConfig::hasWebhookSecret);
+        if (stored.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(stored.get().getWebhookSecret());
+        } catch (IllegalStateException e) {
+            throw new SmsProviderNotReadyException("the stored SMS webhook secret cannot be decrypted", e);
+        }
+    }
+
+    /**
      * @param providerType the provider about to be used
      * @return whether it can send now ({@link #readyProviderSettings(SmsProviderType)}), so a text that could
      *         never be sent is refused before it is recorded

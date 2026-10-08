@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -188,8 +189,11 @@ public class SmsSendService {
             // as the queue worker hands it over.
             providerResult = Objects.requireNonNull(
                     providerClient.send(transaction.toSendCommand(), clientReferenceId(transaction), settings),
-                    "SMS provider result is required");
+                    "SMS provider result is required").withCarlosErrorCode();
         } catch (RuntimeException e) {
+            // Types and frames only: provider code handles the patient's number and the message text.
+            LOGGER.warn("SMS transaction {} send through provider {} failed with an error; its outcome is unknown;{}",
+                    transaction.getId(), providerType, LogSafe.exceptionTrace(e));
             providerResult = SmsProviderSendResultDto.uncertain(DIRECT_PROVIDER_EXCEPTION_CODE);
         }
         SmsTransaction recorded = transactionRecorder.markProviderResult(transaction, providerResult);
