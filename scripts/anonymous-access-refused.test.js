@@ -337,7 +337,14 @@ test('a pinned route the catalogue already reached is not probed twice', () => {
   const routes = withPinnedRoutes(catalogued, BASE);
   assert.equal(routes.length, PINNED_ROUTES.length);
   assert.equal(routes.filter((route) => route.url.includes('DisplayMessages')).length, 1);
-  assert.equal(routes[0], catalogued[0]);
+  assert.equal(routes[0].url, catalogued[0].url);
+  assert.equal(routes[0].text, catalogued[0].text);
+  assert.equal(routes[0].pinned, true, 'a catalogued copy of a pinned route must keep the pinned 404 rule');
+});
+
+test('a catalogued route that is not pinned is passed through unchanged', () => {
+  const catalogued = [{ url: `${BASE}/demographic/DemographicEdit?demographic_no=2`, text: 'Edit' }];
+  assert.equal(withPinnedRoutes(catalogued, BASE)[0], catalogued[0]);
 });
 
 test('every pinned route is a real struts mapping, so a 404 means the pin went stale', () => {

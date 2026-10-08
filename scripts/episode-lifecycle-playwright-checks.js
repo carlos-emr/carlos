@@ -6,7 +6,8 @@ const { SkipCheck, assert, sqlString, withExpectedDialogs } = require('./lib/pla
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 // EctDisplayEpisode2Action renders the chart's Episode module only when one of
-// the login's roles (or its provider number) holds a right on this object. The
+// the login's ACTIVE roles (LoginCheckLoginBean drops activeyn<>1 assignments
+// from the session role string) or its provider number holds a right on it. The
 // seeded `doctor` role holds `o` on it, so on a fresh install the module is
 // hidden and the first click below would time out on a menu that is not there:
 // a fixture gap reported as an application failure (issue #3682).
@@ -15,21 +16,26 @@ const EPISODE_OBJECT = '_newCasemgmt.episode';
 /**
  * True when any of these privilege strings satisfies the module's read check.
  *
- * Mirrors OscarRoleObjectPrivilege.checkPrivilege for its default right "r":
- * a stored value is a `|`-separated list, and x, r, u or w each grant read
- * (PRIVILEGE_HIERARCHY "ruw", with x as all). Anything else, `o` included,
- * grants nothing.
+ * Mirrors OscarRoleObjectPrivilege.checkRights for its default right "r": a
+ * stored value is a `|`-separated list; x, r, u and w each grant read
+ * (PRIVILEGE_HIERARCHY "ruw", with x as all), and so do the legacy
+ * "only" tokens or, ou, ow and ox, whose leading o is stripped before that
+ * comparison. A bare o, and anything else, grants nothing.
  */
 function episodeModuleGranted(privileges) {
-  return privileges.some((value) => String(value || '').split('|')
-    .some((right) => ['x', 'r', 'u', 'w'].includes(right.trim().toLowerCase())));
+  return privileges.some((value) => String(value || '').split('|').some((token) => {
+    let right = token.trim().toLowerCase();
+    if (right.length > 1 && right.startsWith('o')) right = right.slice(1);
+    return ['x', 'r', 'u', 'w'].includes(right);
+  }));
 }
 
 function requireEpisodeModule({ sql, provider }) {
   const privileges = sql.rows(`SELECT p.privilege FROM secObjPrivilege p
     WHERE p.objectName=${sqlString(EPISODE_OBJECT)}
       AND (p.roleUserGroup=${sqlString(provider)}
-        OR p.roleUserGroup IN (SELECT role_name FROM secUserRole WHERE provider_no=${sqlString(provider)}))`)
+        OR p.roleUserGroup IN (SELECT role_name FROM secUserRole
+          WHERE provider_no=${sqlString(provider)} AND activeyn=1))`)
     .map(([privilege]) => privilege);
   if (!episodeModuleGranted(privileges)) {
     throw new SkipCheck(`the test login holds no right on ${EPISODE_OBJECT}, so the chart hides its Episode `

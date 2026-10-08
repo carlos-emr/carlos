@@ -19,6 +19,13 @@ test('any read-satisfying right on any of the login roles shows the module', () 
   assert.equal(episodeModuleGranted(['d']), false);
 });
 
+test('legacy "only" tokens grant read the way checkRights strips their leading o', () => {
+  for (const token of ['or', 'ou', 'ow', 'ox', 'OR', '|or|']) {
+    assert.equal(episodeModuleGranted([token]), true, `token ${JSON.stringify(token)}`);
+  }
+  assert.equal(episodeModuleGranted(['od']), false);
+});
+
 test('a login without the grant SKIPs naming the object instead of timing out on a hidden menu', () => {
   const queries = [];
   const sql = { rows(query) { queries.push(query); return [['o']]; } };
@@ -29,6 +36,7 @@ test('a login without the grant SKIPs naming the object instead of timing out on
   });
   assert.match(queries[0], /objectName='_newCasemgmt\.episode'/);
   assert.match(queries[0], /provider_no='999998'/);
+  assert.match(queries[0], /activeyn=1/, 'an inactive role assignment does not reach the session role string');
 });
 
 test('a login with the grant runs the workflow', () => {

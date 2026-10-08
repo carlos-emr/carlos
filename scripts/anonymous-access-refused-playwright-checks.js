@@ -192,15 +192,23 @@ const PINNED_ROUTES = [
   'documentManager/ViewDocumentReport',
 ];
 
-/** The catalogued routes plus every pinned route the catalogue did not reach. */
+/**
+ * The catalogued routes plus every pinned route the catalogue did not reach.
+ *
+ * A catalogued route on a pinned path is marked pinned too, so its 404 fails
+ * the run the same way the generated entry's would.
+ */
 function withPinnedRoutes(routes, baseUrl) {
   const base = `${String(baseUrl).replace(/\/+$/, '')}/`;
-  const seen = new Set(routes.map((route) => new URL(route.url).pathname));
+  const pinnedPaths = new Set(PINNED_ROUTES.map((path) => new URL(path, base).pathname));
+  const marked = routes.map((route) => (pinnedPaths.has(new URL(route.url).pathname)
+    ? { ...route, pinned: true } : route));
+  const seen = new Set(marked.map((route) => new URL(route.url).pathname));
   const pinned = PINNED_ROUTES
     .map((path) => new URL(path, base).toString())
     .filter((url) => !seen.has(new URL(url).pathname))
     .map((url) => ({ url, text: 'pinned (#3682)', pinned: true }));
-  return [...routes, ...pinned];
+  return [...marked, ...pinned];
 }
 
 /** Catalogue what a clinician can reach, from the surfaces they work from. */
