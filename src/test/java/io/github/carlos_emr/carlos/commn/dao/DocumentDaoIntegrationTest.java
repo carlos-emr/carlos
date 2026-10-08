@@ -70,7 +70,9 @@ import static org.assertj.core.api.Assertions.*;
  *   <li>{@code findByDemographicAndFilename}: native SQL parameter order swapped (param 1 = demographicId, param 2 = filename, but query expects filename first)</li>
  * </ul>
  *
- * <p><strong>Not tested:</strong> {@code findConstultDocsDocsAndProvidersByModule}
+ * <p><strong>Not tested:</strong> {@code findDocuments}'s public listing ({@code includePublic})
+ * and {@code since} filter (only the private per-patient listing the note browser uses is
+ * covered), {@code findConstultDocsDocsAndProvidersByModule}
  * (requires HBM Provider entity access via {@code p.ProviderNo} HQL property),
  * {@code findCtlDocsAndDocsByModuleCreatorResponsibleAndDates} (has JPQL syntax bugs:
  * missing space before AND, uses {@code c.documentNo} instead of {@code c.id.documentNo}).</p>
@@ -1169,8 +1171,9 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
      * includeActive ({@code deleted} / {@code active}, neither for {@code all}), its doc-type view to
      * docType, and its sort select to an {@link EDocSort} (Content, Update = DATE, Observation).
      * The three documents carry the dates of {@code scripts/note-browser-controls-playwright-checks.js},
-     * so each sort gives a distinct order and this test and that browser check pin the same
-     * listing (issue #4368).
+     * so each sort gives a distinct order and this test pins the query results that browser check
+     * sees (issue #4368). {@code EDocUtil.listDocs} then applies its facility and program
+     * filtering, which this DAO test does not exercise.
      */
     @Nested
     @DisplayName("findDocuments")

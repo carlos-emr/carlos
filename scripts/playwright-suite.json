@@ -3545,7 +3545,7 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "fixtures": "Stores three owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) with fixed content, update and observation dates on the run's FAKE- patient, and saves one owned note; all removed and verified gone."
+      "fixtures": "Stores three owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) with fixed content, update and observation dates on the run's FAKE- patient, marks one of them deleted for the view-status step and restores it, and saves one owned note; all removed and verified gone."
     },
     {
       "name": "admin-messages",
