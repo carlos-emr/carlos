@@ -31,6 +31,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -105,7 +106,11 @@ public class BillingOnDiskService {
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
-            // Validate the complete selected group set before even the first solo disk is allocated.
+            // The lookup already normalized each member's group number (a short
+            // all-digit value is zero-padded). What is left to check, before even
+            // the first solo disk is allocated, is a value that cannot be made
+            // into an OHIP group number at all; that is reported per provider
+            // instead of letting "All Providers" commit other disks first.
             // Reuse this snapshot for generation so validation and writing see the same configuration.
             List<BillingProviderDto> groupProviders = prep.getCurGrpProvider();
             if (groupReport && groupProviders.stream().noneMatch(member -> provider.equals(member.getProviderNo()))) {
@@ -113,7 +118,7 @@ public class BillingOnDiskService {
             }
             List<String> invalidProviders = groupProviders.stream()
                     .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
-                    .filter(member -> !BillingDiskCreationService.isValidGroupNumber(member.getBillingGroupNo()))
+                    .filter(member -> !BillingGroupNumber.isWellFormed(member.getBillingGroupNo()))
                     .map(BillingProviderDto::getProviderNo)
                     .distinct()
                     .toList();
@@ -181,9 +186,10 @@ public class BillingOnDiskService {
         if (provider == null || "all".equals(provider)) return false;
         Provider p = providerDao.getProvider(provider);
         if (p == null) return false;
-        String groupNo = SxmlMisc.getXmlContent(p.getComments(),
-                "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
-        return groupNo != null && !groupNo.isEmpty() && !"0000".equals(groupNo);
+        // Same normalization as BillingOnLookupService, so "0", "000" and a
+        // blank all mean solo while "123" is the group 0123.
+        return !BillingGroupNumber.isSolo(SxmlMisc.getXmlContent(p.getComments(),
+                "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>"));
     }
 
     private static DateRange parseDateRange(String dateBegin, String dateEnd, String curDate) {
@@ -527,6 +533,6 @@ public class BillingOnDiskService {
     }
 
     private static boolean isSoloGroupNo(String groupNo) {
-        return groupNo == null || groupNo.isEmpty() || "0000".equals(groupNo);
+        return BillingGroupNumber.isSolo(groupNo);
     }
 }

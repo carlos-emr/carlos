@@ -132,8 +132,11 @@
 <c:if test="${not empty ohipInvalidGroupProviders}">
     <div class="alert alert-danger" role="alert" id="ohip-provider-validation">
         <strong>OHIP file not generated.</strong>
-        <p>Correct the billing group number for the following providers. The number must contain
-            exactly four digits; use 0000 for solo billing.</p>
+        <p>The billing group number stored for the following providers cannot be read as an
+            OHIP group number. It must be four letters or digits (0000 for solo billing); a
+            shorter all-digit value is padded with leading zeros automatically, so only a
+            value that cannot be normalized that way is reported here. Correct it in the
+            provider record (Administration &gt; Provider) and run the report again.</p>
         <ul>
             <c:forEach var="providerNo" items="${ohipInvalidGroupProviders}">
                 <li>Provider <carlos:encode value="${providerNo}" context="html"/></li>

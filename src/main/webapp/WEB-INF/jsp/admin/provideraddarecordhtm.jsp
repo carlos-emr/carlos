@@ -361,7 +361,8 @@
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
-                        <td><input type="text" name="xml_p_billinggroup_no"></td>
+                        <td><input type="text" name="xml_p_billinggroup_no" maxlength="4" pattern="[A-Za-z0-9]{4}"
+                                   title="OHIP group number: 4 letters or digits (0000 for solo billing)"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:

@@ -2,8 +2,12 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 
 /*
- * Issue #4277: reject malformed provider group numbers before allocating disks,
- * identify the affected provider, and generate distinct files after correction.
+ * Issue #4277: a provider's stored billing group number is normalized rather
+ * than gated. A short all-digit value (123) is read as the group 0123 and
+ * generates a disk whose file name, stored group and HEB batch header all
+ * carry 0123; a value that cannot be normalized (12345) is rejected before any
+ * disk is allocated, naming the provider, for a single selection and for All
+ * Providers alike; an unrelated invalid group does not block a valid provider.
  * Uses the standard browser/SQL harness on a disposable Ontario deployment.
  * Run as the only billing writer, with a small fixture database/output directory:
  * whole-table/file snapshots prove All Providers cannot mutate unrelated records.
@@ -22,8 +26,12 @@ const {
   login, newContext, readConfig, runCheck, sqlString,
 } = require('./lib/playwright-harness');
 const {
-  isoDate, createFixture, checkedDiskDirectory, cleanupResources, generateProviderDisk,
+  isoDate, createFixture, checkedDiskDirectory, cleanupResources, generateProviderDisk, unusedNumber,
 } = require('./billing-on-group-disk-zero-total-playwright-checks');
+
+// HEB record layout: "HEB" + version(3) + MOH office(1) + batch id(12) + 6 spaces,
+// then the 4-character group number at offset 25 and the provider number at 29.
+const HEB_GROUP_OFFSET = 25;
 
 function billingSnapshot(db, diskDir) {
   const rows = ['billing_on_diskname', 'billing_on_filename', 'billing_on_header',
@@ -37,6 +45,39 @@ function billingSnapshot(db, diskDir) {
         ? createHash('sha256').update(fs.readFileSync(file)).digest('hex') : 'non-regular'];
     });
   return JSON.stringify({ rows, files });
+}
+
+/** Generates for one provider and returns the disk row, downloaded bytes and billed state. */
+async function generateAndVerify(context, config, recorder, window, db, diskDir, member, groupNo) {
+  const page = await generateProviderDisk(context, config, recorder, window, member.providerNo);
+  assert(await page.locator('#ohip-provider-validation').count() === 0, `Provider ${member.providerNo} was rejected`);
+  const disks = db.rows('SELECT d.id, d.ohipfilename, d.groupno FROM billing_on_diskname d'
+    + ' JOIN billing_on_filename f ON f.disk_id=d.id'
+    + ` WHERE f.providerno=${sqlString(member.providerNo)} ORDER BY d.id DESC LIMIT 1`);
+  assert(disks.length === 1, 'Expected one generated disk for the selected provider');
+  const [diskId, filename, storedGroup] = disks[0];
+  assert(storedGroup === groupNo, `Disk stored group ${storedGroup}, expected ${groupNo}`);
+  assert(/^H[A-L]/.test(filename) && filename.slice(2, 6) === groupNo && /\.\d{3}$/.test(filename),
+    `Disk file name ${filename} does not carry the group ${groupNo}`);
+  const link = page.locator(`a[href*="filename=${encodeURIComponent(filename)}"]`).first();
+  assert(await link.count() === 1, 'Generated disk download is missing');
+  const response = await context.request.get(new URL(await link.getAttribute('href'), page.url()).toString());
+  assert(response.status() === 200, 'Generated OHIP file did not download');
+  const data = await response.body();
+  await response.dispose();
+  assert(data.equals(fs.readFileSync(path.join(diskDir, filename))), 'Download differs from generated file');
+  const records = data.toString('latin1').split(/[\r\n]+/);
+  const headers = records.filter(line => line.startsWith('HEB'));
+  assert(headers.length === 1 && headers[0].includes(member.ohipNo), 'Wrong provider in generated batch');
+  assert(headers[0].slice(HEB_GROUP_OFFSET, HEB_GROUP_OFFSET + 4) === groupNo,
+    `HEB header carries group "${headers[0].slice(HEB_GROUP_OFFSET, HEB_GROUP_OFFSET + 4)}", expected ${groupNo}`);
+  assert(records.filter(line => line.startsWith('HET')).length === member.itemCount, 'Wrong claim item count');
+  const [status, headerId] = db.rows(`SELECT status, header_id FROM billing_on_cheader1 WHERE id=${Number(member.headerId)}`)[0];
+  assert(status === 'B', 'Generated claim was not marked billed');
+  assert(db.value(`SELECT COUNT(*) FROM billing_on_header WHERE id=${Number(headerId)} AND disk_id=${Number(diskId)}`) === '1',
+    'Claim does not belong to its generated disk');
+  await page.close();
+  return filename;
 }
 
 async function main() {
@@ -60,61 +101,51 @@ async function main() {
         demographicNo: process.env.GROUP_DISK_DEMOGRAPHIC_NO || '',
         paidCode: process.env.GROUP_DISK_PAID_CODE || 'A007A', window, testUser: config.testUser,
       }, state);
-      state.cleanupGroupNumbers = [state.groupNo, ''];
+      // The short group whose zero-padded form must be unused by any provider or disk.
+      const shortGroup = unusedNumber(db, 3, '', candidate => candidate.startsWith('0') || db.value(
+        `SELECT (SELECT COUNT(*) FROM provider WHERE comments LIKE ${sqlString(`%<xml_p_billinggroup_no>0${candidate}<%`)})`
+        + ` + (SELECT COUNT(*) FROM billing_on_diskname WHERE groupno=${sqlString(`0${candidate}`)})`) !== '0');
+      const paddedGroup = `0${shortGroup}`;
+      const unnormalizable = `${state.groupNo}5`;
+      state.cleanupGroupNumbers = [state.groupNo, paddedGroup, ''];
       const { ZERO, PAID } = state.providers;
       const setGroup = group => db.execute(`UPDATE provider SET comments=${sqlString(
         `<xml_p_billinggroup_no>${group}</xml_p_billinggroup_no><xml_p_specialty_code>00</xml_p_specialty_code>`)}
         WHERE provider_no=${sqlString(ZERO.providerNo)} AND first_name=${sqlString(state.marker)}`);
-      setGroup('123');
-      const before = billingSnapshot(db, diskDir);
       browser = await launchBrowser(config);
       const context = await newContext(browser, config);
       await login(context, config, recorder);
+
+      // 1. A short all-digit group is normalized, not rejected: 123 bills as 0123 everywhere.
+      setGroup(shortGroup);
+      const filenames = [];
+      filenames.push(await generateAndVerify(context, config, recorder, window, db, diskDir, ZERO, paddedGroup));
+      assert(db.value(`SELECT COUNT(*) FROM billing_on_diskname WHERE groupno=''`) === '0',
+        'A normalized group must never be stored as the legacy empty group');
+      console.log(`  Short group ${shortGroup}: generated as ${paddedGroup} (disk name, stored group, HEB header)`);
+
+      // 2. A value that cannot be normalized is reported per provider before any write,
+      //    for the selected provider and for All Providers (PAID still has an unbilled claim).
+      setGroup(unnormalizable);
+      const before = billingSnapshot(db, diskDir);
       for (const selection of [ZERO.providerNo, 'all']) {
         const page = await generateProviderDisk(context, config, recorder, window, selection);
         const alert = page.locator('#ohip-provider-validation');
-        assert(await alert.count() === 1, 'Malformed group did not show provider-specific correction guidance');
+        assert(await alert.count() === 1, `Group ${unnormalizable} did not show provider-specific correction guidance`);
         const guidance = await alert.innerText();
-        assert(guidance.includes(ZERO.providerNo) && guidance.includes('exactly four digits')
+        assert(guidance.includes(ZERO.providerNo) && guidance.includes('four letters or digits')
           && guidance.includes('0000') && guidance.includes('No files were generated'),
         'Validation guidance must identify the provider, expected format, and unchanged billing state');
         assert(billingSnapshot(db, diskDir) === before, 'Rejected generation changed billing records or output files');
         await page.close();
       }
-      console.log('  Invalid selected provider and All Providers: actionable guidance; no billing or file mutations');
+      console.log(`  Group ${unnormalizable}: selected provider and All Providers rejected; no billing or file mutations`);
 
-      // A different valid provider is still billable while ZERO is invalid.
-      const filenames = [];
-      for (const member of [PAID, ZERO]) {
-        if (member === ZERO) setGroup(state.groupNo);
-        const page = await generateProviderDisk(context, config, recorder, window, member.providerNo);
-        assert(await page.locator('#ohip-provider-validation').count() === 0, 'Valid provider was rejected');
-        const disks = db.rows('SELECT d.id, d.ohipfilename FROM billing_on_diskname d'
-          + ' JOIN billing_on_filename f ON f.disk_id=d.id'
-          + ` WHERE d.groupno=${sqlString(state.groupNo)} AND f.providerno=${sqlString(member.providerNo)}`);
-        assert(disks.length === 1, 'Expected one generated disk for the selected provider');
-        const [diskId, filename] = disks[0];
-        filenames.push(filename);
-        const link = page.locator(`a[href*="filename=${encodeURIComponent(filename)}"]`).first();
-        assert(await link.count() === 1, 'Generated disk download is missing');
-        const response = await context.request.get(new URL(await link.getAttribute('href'), page.url()).toString());
-        assert(response.status() === 200, 'Generated OHIP file did not download');
-        const data = await response.body();
-        await response.dispose();
-        assert(data.equals(fs.readFileSync(path.join(diskDir, filename))), 'Download differs from generated file');
-        const records = data.toString('latin1').split(/[\r\n]+/);
-        assert(records.filter(line => line.startsWith('HEB')).length === 1
-          && records.some(line => line.startsWith('HEB') && line.includes(member.ohipNo)), 'Wrong provider in generated batch');
-        assert(records.filter(line => line.startsWith('HET')).length === member.itemCount, 'Wrong claim item count');
-        const [status, headerId] = db.rows(`SELECT status, header_id FROM billing_on_cheader1 WHERE id=${Number(member.headerId)}`)[0];
-        assert(status === 'B', 'Generated claim was not marked billed');
-        assert(db.value(`SELECT COUNT(*) FROM billing_on_header WHERE id=${Number(headerId)} AND disk_id=${Number(diskId)}`) === '1',
-          'Claim does not belong to its generated disk');
-        await page.close();
-      }
-      assert(new Set(filenames).size === 2, 'Successive group exports reused a filename');
+      // 3. A different valid provider is still billable while ZERO is invalid.
+      filenames.push(await generateAndVerify(context, config, recorder, window, db, diskDir, PAID, state.groupNo));
+      assert(new Set(filenames).size === 2, 'Group exports reused a filename');
       assertStrictPage(recorder);
-      console.log('  Valid provider unaffected by unrelated invalid group; correction succeeds; distinct downloads and billed claims verified');
+      console.log('  Valid provider unaffected by unrelated invalid group; distinct downloads and billed claims verified');
     },
     cleanup: () => cleanupResources(browser, db, state, diskDir),
   };

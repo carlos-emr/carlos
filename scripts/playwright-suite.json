@@ -292,7 +292,7 @@
         "GROUP_DISK_TEMPLATE_PROVIDER",
         "OHIP_DISK_DIR"
       ],
-      "notes": "Rejects invalid selected/all-provider groups without database or file mutations, identifies the provider, and downloads distinct valid batches after correction. Uses owned fixtures on a disposable Ontario deployment."
+      "notes": "A short all-digit provider group number (123) is normalized to 0123 for the disk name, batch counter and HEB header; an un-normalizable value (12345) is rejected for the selected provider and for All Providers without database or file mutations, naming the provider; an unrelated invalid group does not block a valid provider. Uses owned fixtures on a disposable Ontario deployment."
     },
     {
       "name": "billing-on-submit",

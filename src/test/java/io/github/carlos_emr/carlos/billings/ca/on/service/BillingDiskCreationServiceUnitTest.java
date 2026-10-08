@@ -248,15 +248,64 @@ class BillingDiskCreationServiceUnitTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"123, 0123", "12a4, 12A4", "' 1234 ', 1234"})
+    void shouldNormalizeGroupNumber_forFilenameBatchCounterAndStoredGroup(String groupNo, String normalized) {
+        // Issue #4277: the legacy fallback stored "" and named the file H<month>.001
+        // while looking the batch counter up by the raw value, so every disk of a
+        // malformed group was batch 1 and the second one collided on the unique
+        // filename. One normalized key must drive all three.
+        String monthCode = currentMonthCode();
+        when(diskLoader.getLatestGrpMonthCodeBatchNum(normalized))
+                .thenReturn(new String[]{monthCode, "1"});
+        when(claimPersister.addBillingDiskName(org.mockito.ArgumentMatchers.any(BillingDiskNameDto.class)))
+                .thenReturn(46);
+
+        int diskId = service.createNewGrpDiskName(
+                List.of("999998"), List.of("054321"), groupNo, "creator");
+
+        assertThat(diskId).isEqualTo(46);
+        ArgumentCaptor<BillingDiskNameDto> captor = ArgumentCaptor.forClass(BillingDiskNameDto.class);
+        verify(claimPersister).addBillingDiskName(captor.capture());
+        BillingDiskNameDto disk = captor.getValue();
+        assertThat(disk.getGroupno()).isEqualTo(normalized);
+        assertThat(disk.getBatchcount()).isEqualTo("2");
+        assertThat(disk.getOhipfilename()).isEqualTo("H" + monthCode + normalized + ".002");
+        assertThat(disk.getFilenames())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.DiskFilenameRow::htmlFilename)
+                .containsExactly("H" + monthCode + normalized + "_054321_002.html");
+        verify(diskLoader, org.mockito.Mockito.never()).getLatestGrpMonthCodeBatchNum(groupNo.equals(normalized) ? "-" : groupNo);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullAndEmptySource
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"123", "12345", "12A4", " 1234", "１２３４"})
-    void shouldRejectInvalidGroup_beforeAllocatingDisk(String groupNo) {
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"0000", "000", "12345", "12A", "１２３４", "12-34"})
+    void shouldRejectGroup_whenItCannotBeNormalizedToAnOhipGroupNumber(String groupNo) {
         assertThatThrownBy(() -> service.createNewGrpDiskName(
                 List.of("999998"), List.of("054321"), groupNo, "creator"))
-                .isInstanceOf(BillingValidationException.class)
-                .hasMessageContaining("group");
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException.class)
+                .hasMessageContaining("group")
+                .extracting(e -> ((io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException) e)
+                        .getProviderNumbers())
+                .isEqualTo(List.of("999998"));
 
         org.mockito.Mockito.verifyNoInteractions(claimPersister, diskLoader);
+    }
+
+    @Test
+    void shouldWriteNormalizedGroup_intoBatchHeader() {
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setProviderNo("999998");
+        provider.setOhipNo("054321");
+        provider.setSpecialtyCode("00");
+        provider.setBillingGroupNo("123");
+        when(claimPersister.addOneBatchHeaderRecord(org.mockito.ArgumentMatchers.any(BillingBatchHeaderDto.class)))
+                .thenReturn(7);
+
+        service.createBatchHeader(provider, "12", "4", "1", "creator");
+
+        ArgumentCaptor<BillingBatchHeaderDto> captor = ArgumentCaptor.forClass(BillingBatchHeaderDto.class);
+        verify(claimPersister).addOneBatchHeaderRecord(captor.capture());
+        assertThat(captor.getValue().getGroupNum()).isEqualTo("0123");
     }
 
     @Test

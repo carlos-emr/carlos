@@ -473,4 +473,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { shiftDays, isoDate, createFixture, removeFixture, removeOwnedFiles, checkedDiskDirectory, cleanupResources, generateProviderDisk };
+module.exports = { shiftDays, isoDate, createFixture, removeFixture, removeOwnedFiles, checkedDiskDirectory, cleanupResources, generateProviderDisk, unusedNumber };

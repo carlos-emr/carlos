@@ -442,7 +442,8 @@
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
                                    value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no") %>' context="htmlAttribute"/>"
-                                   datafld='xml_p_billinggroup_no'></td>
+                                   datafld='xml_p_billinggroup_no' maxlength="4" pattern="[A-Za-z0-9]{4}"
+                                   title="OHIP group number: 4 letters or digits (0000 for solo billing)"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:

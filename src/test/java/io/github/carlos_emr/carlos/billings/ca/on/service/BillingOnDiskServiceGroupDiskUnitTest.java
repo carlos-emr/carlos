@@ -305,7 +305,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         BillingProviderDto solo = provider("101");
         solo.setBillingGroupNo("0000");
         BillingProviderDto invalid = provider("102");
-        invalid.setBillingGroupNo("123");
+        invalid.setBillingGroupNo("12345");
         when(diskCreationService.getCurSoloProvider()).thenReturn(List.of(solo));
         givenGroupMembers(provider("103"), invalid);
 
@@ -321,10 +321,10 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRejectInvalidGroup_beforeWritingSelectedProvider() {
         BillingProviderDto invalid = provider("102");
-        invalid.setBillingGroupNo("123");
+        invalid.setBillingGroupNo("12345");
         givenGroupMembers(invalid);
         var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
-        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>123</xml_p_billinggroup_no>");
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>12345</xml_p_billinggroup_no>");
         when(providerDao.getProvider("102")).thenReturn(selected);
         var request = allProvidersRequest();
         request.setParameter("providers", "102");
@@ -358,7 +358,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldGenerateSelectedProvider_whenAnUnselectedGroupIsInvalid() {
         BillingProviderDto invalid = provider("102");
-        invalid.setBillingGroupNo("123");
+        invalid.setBillingGroupNo("12345");
         givenGroupMembers(provider("101"), invalid);
         var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
         when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>1234</xml_p_billinggroup_no>");
@@ -376,6 +376,54 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         verify(output).writeFile("selected-body");
         verify(transactionService).finalizeGeneratedDisks(
                 eq(List.of(member)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
+    @Test
+    void shouldTreatShortNumericGroup_asThatGroupZeroPadded() {
+        // The provider record says "123"; the lookup service hands the disk flow
+        // the normalized 0123 and the solo/group decision agrees with it.
+        BillingProviderDto member = provider("101");
+        member.setBillingGroupNo("0123");
+        givenGroupMembers(member);
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>123</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("101")).thenReturn(selected);
+        when(diskCreationService.createNewGrpDiskName(anyList(), anyList(), eq("0123"), eq(CURRENT_USER)))
+                .thenReturn(DISK_ID);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "101");
+        var writer = memberWriter("padded-body", BigDecimal.TEN, 1);
+        var output = mock(OhipClaimFileService.class);
+        when(claimFileFactory.getObject()).thenReturn(writer, output);
+
+        service.generateNewDisk(request);
+
+        verify(diskCreationService).createNewGrpDiskName(
+                List.of("101"), List.of("010100"), "0123", CURRENT_USER);
+        verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
+        verify(output).writeFile("padded-body");
+    }
+
+    @Test
+    void shouldTreatZeroOnlyGroup_asSoloBilling() {
+        // "000" normalizes to 0000: the provider bills solo, not as group "000".
+        var selected = mock(io.github.carlos_emr.carlos.commn.model.Provider.class);
+        when(selected.getComments()).thenReturn("<xml_p_billinggroup_no>000</xml_p_billinggroup_no>");
+        when(providerDao.getProvider("101")).thenReturn(selected);
+        BillingProviderDto solo = provider("101");
+        solo.setBillingGroupNo("0000");
+        when(diskCreationService.getProviderObj("101")).thenReturn(solo);
+        when(diskCreationService.createNewSoloDiskName("101", CURRENT_USER)).thenReturn(DISK_ID);
+        var soloWriter = memberWriter("solo-body", BigDecimal.TEN, 1);
+        when(claimFileFactory.getObject()).thenReturn(soloWriter);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "101");
+
+        service.generateNewDisk(request);
+
+        verify(diskCreationService).createNewSoloDiskName("101", CURRENT_USER);
+        verify(diskCreationService, never()).getCurGrpProvider();
+        verify(diskCreationService, never()).createNewGrpDiskName(anyList(), anyList(), anyString(), anyString());
     }
 
     private static OhipClaimFileService memberWriter(String body, BigDecimal total, int recordCount) {

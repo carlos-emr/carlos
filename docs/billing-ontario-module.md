@@ -24,7 +24,13 @@ claims for Ontario-resident patients. It implements:
   bills with sort/search.
 - **Disk creation + MOH submission** (the OHIP claim-file generators) —
   assemble batches, write the MOH HL7 / fixed-
-  width file format, track disk IDs.
+  width file format, track disk IDs. The provider's billing group number is
+  free text in `provider.comments`; every read goes through
+  `support/BillingGroupNumber.normalize` (trim, ASCII upper-case, zero-pad a
+  one-to-three-digit value, blank means `0000`) so the batch header, the disk
+  file name and the batch counter share one four-character key. A value that
+  still is not well formed is reported per provider by Generate OHIP File
+  before any disk is written (issue #4277).
 - **Remittance advice import** — pull MOH RA messages, settle headers,
   reconcile payments and rejects.
 - **Service-code admin** — manage the `billing_service` table, including the

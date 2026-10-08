@@ -14,14 +14,20 @@ package io.github.carlos_emr.carlos.billings.ca.on.validator;
 
 import java.util.List;
 
-/** Provider configuration rejected before an OHIP generation pass writes any disk. */
+/**
+ * Provider configuration rejected before an OHIP generation pass writes any disk:
+ * a stored billing group number that {@code BillingGroupNumber.normalize} could
+ * not turn into the four-character MOH form (for example five digits, or a
+ * letter mixed into a short value). Short all-digit values are padded, not
+ * rejected.
+ */
 public class InvalidBillingGroupException extends BillingValidationException {
     private static final long serialVersionUID = 1L;
 
     private final List<String> providerNumbers;
 
     public InvalidBillingGroupException(List<String> providerNumbers) {
-        super("Invalid billing group number: expected exactly four digits.");
+        super("Billing group number cannot be normalized to a four-character OHIP group number.");
         this.providerNumbers = List.copyOf(providerNumbers);
     }
 
