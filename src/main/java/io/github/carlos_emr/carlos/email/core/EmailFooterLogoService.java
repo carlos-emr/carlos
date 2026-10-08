@@ -25,10 +25,12 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -41,6 +43,7 @@ import javax.imageio.stream.ImageOutputStream;
 import io.github.carlos_emr.carlos.commn.dao.EmailFooterLogoDao;
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -106,6 +109,24 @@ public class EmailFooterLogoService {
 
     /** A picture ready to store: re-saved, measured and hashed. */
     record PreparedLogo(String contentType, byte[] bytes, int width, int height, String sha256) {
+
+        // Compared and printed by the picture's content, not the array's identity; never printed whole.
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof PreparedLogo other && contentType.equals(other.contentType) && width == other.width
+                    && height == other.height && sha256.equals(other.sha256) && Arrays.equals(bytes, other.bytes);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(contentType, width, height, sha256) + Arrays.hashCode(bytes);
+        }
+
+        @Override
+        public String toString() {
+            return "PreparedLogo[contentType=" + contentType + ", " + width + "x" + height + ", bytes=" + bytes.length
+                    + ", sha256=" + sha256 + "]";
+        }
     }
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -197,6 +218,8 @@ public class EmailFooterLogoService {
 
     // The byte limit is a parameter only so a test can show the copy's own check with a small
     // picture; everything else uses MAX_BYTES.
+    // FindSecBugs IMPROPER_UNICODE: the case fold is of an image format name the JDK's own reader reports, compared with fixed names; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case fold of a JDK image reader's format name, compared with fixed names; not a security or authorization decision")
     static PreparedLogo prepare(byte[] upload, int maxBytes) {
         if (upload == null || upload.length == 0) {
             throw new LogoRejectedException(Rejection.EMPTY);

@@ -115,10 +115,10 @@
         element.classList.toggle('d-none', !visible);
     }
 
-    // The footer's text without DOMPurify: parsed in a separate, inert document (nothing in it runs
-    // or loads) and only its text is read.
+    // The footer's text without DOMPurify: its tags dropped, nothing parsed as HTML. Callers put the
+    // result into textContent only (an entity such as &amp; then shows as written).
     function inertText(html) {
-        return new DOMParser().parseFromString(html || '', 'text/html').body.textContent.trim();
+        return String(html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
     function renderPreview(target, preview) {
@@ -290,7 +290,7 @@
 
         modal.addEventListener('show.bs.modal', function (event) {
             if (!previewLogo.getAttribute('src')) {
-                previewLogo.src = modal.getAttribute('data-logo-url');
+                previewLogo.src = modal.getAttribute('data-logo-url'); // codeql[js/xss-through-dom] -- an image address the server wrote (context path + fixed route); an img src is never run or read as HTML.
             }
             var opener = event.relatedTarget;
             target = opener ? document.getElementById(opener.getAttribute('data-footer-editor-target')) : null;

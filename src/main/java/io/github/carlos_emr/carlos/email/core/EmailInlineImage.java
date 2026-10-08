@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -38,6 +39,23 @@ public record EmailInlineImage(String contentId, String contentType, byte[] byte
         Objects.requireNonNull(contentId, "contentId");
         Objects.requireNonNull(contentType, "contentType");
         Objects.requireNonNull(bytes, "bytes");
+    }
+
+    // Compared and printed by the picture's content, not the array's identity; never printed whole.
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof EmailInlineImage other && contentId.equals(other.contentId)
+                && contentType.equals(other.contentType) && Arrays.equals(bytes, other.bytes);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * Objects.hash(contentId, contentType) + Arrays.hashCode(bytes);
+    }
+
+    @Override
+    public String toString() {
+        return "EmailInlineImage[contentId=" + contentId + ", contentType=" + contentType + ", bytes=" + bytes.length + "]";
     }
 
     /**
