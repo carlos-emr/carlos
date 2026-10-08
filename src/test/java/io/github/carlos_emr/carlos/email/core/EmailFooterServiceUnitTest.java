@@ -162,7 +162,7 @@ class EmailFooterServiceUnitTest {
         ownRows("101", EmailFooterService.USER_FOOTER, newer, older);
 
         assertThat(service.composeFooter("101")).contains("first");
-        service.saveOwnFooter("101", "Dr A footer");
+        service.saveOwnFooter("101", "Dr A footer", null);
 
         assertThat(older.getValue()).isEqualTo("Dr A footer");
         verify(dao).saveProp(older);
@@ -176,7 +176,7 @@ class EmailFooterServiceUnitTest {
         // does not count, and an editor's trailing break is dropped.
         String footer = "a<br>".repeat(EmailData.FOOTER_MAX_LENGTH / 2 - 1) + "<b>ab</b><br>";
 
-        service.saveOwnFooter("101", footer);
+        service.saveOwnFooter("101", footer, null);
 
         ArgumentCaptor<String> saved = ArgumentCaptor.forClass(String.class);
         verify(dao).saveProp(eq("101"), eq(EmailFooterService.USER_FOOTER), saved.capture());
@@ -252,7 +252,7 @@ class EmailFooterServiceUnitTest {
     @Test
     @DisplayName("should store a footer cleaned against the footer's allow-list")
     void shouldStoreCleanedFooter_whenFooterCarriesUnsafeMarkup() {
-        service.saveOwnFooter("101", "<b>Dr A</b><script>x()</script><a href=\"javascript:x()\">Book</a>");
+        service.saveOwnFooter("101", "<b>Dr A</b><script>x()</script><a href=\"javascript:x()\">Book</a>", null);
 
         verify(dao).saveProp("101", EmailFooterService.USER_FOOTER, "<b>Dr A</b><a>Book</a>");
     }
@@ -264,9 +264,9 @@ class EmailFooterServiceUnitTest {
         // Under 2,000 characters of text, but over the formatting limit.
         String tooMuchFormatting = "<b>x</b>".repeat(1_500);
 
-        assertThatThrownBy(() -> service.saveOwnFooter("101", tooLong))
+        assertThatThrownBy(() -> service.saveOwnFooter("101", tooLong, null))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
-        assertThatThrownBy(() -> service.saveOwnFooter("101", tooMuchFormatting))
+        assertThatThrownBy(() -> service.saveOwnFooter("101", tooMuchFormatting, null))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
         assertThatThrownBy(() -> service.saveClinicDefault(tooLong, EmailFooterService.fingerprint("")))
                 .isInstanceOf(EmailFooterService.FooterTooLongException.class);
@@ -463,7 +463,7 @@ class EmailFooterServiceUnitTest {
         doThrow(new ConstraintViolationException("Duplicate entry", duplicate, "PRIMARY"))
                 .when(dao).saveProp(own);
 
-        assertThatThrownBy(() -> service.saveOwnFooter("101", "Dr A new footer"))
+        assertThatThrownBy(() -> service.saveOwnFooter("101", "Dr A new footer", null))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .isNotInstanceOf(ConcurrencyFailureException.class);
     }
@@ -568,7 +568,7 @@ class EmailFooterServiceUnitTest {
         ownRows("101", U, own);
         ownRows("101", N, notice);
 
-        service.saveOwnFooter("101", "Dr A new footer");
+        service.saveOwnFooter("101", "Dr A new footer", null);
         service.useClinicDefault("101");
         service.restorePreviousFooter("101");
         service.dismissClinicChangeNotice("101");
@@ -611,7 +611,7 @@ class EmailFooterServiceUnitTest {
         ownRows("101", U, own);
         ownRows("101", N, notice);
 
-        service.saveOwnFooter("101", " <br>&nbsp;<div><br></div> ");
+        service.saveOwnFooter("101", " <br>&nbsp;<div><br></div> ", null);
 
         verify(dao).delete(own);
         verify(dao).delete(notice);
@@ -627,7 +627,7 @@ class EmailFooterServiceUnitTest {
         ownRows("101", EmailFooterService.USER_FOOTER, own);
         ownRows("101", EmailFooterService.CLINIC_CHANGE_NOTICE, notice);
 
-        service.saveOwnFooter("101", "Dr A new footer");
+        service.saveOwnFooter("101", "Dr A new footer", null);
         service.useClinicDefault("101");
         assertThat(service.dismissClinicChangeNotice("101")).isTrue();
         assertThat(service.dismissClinicChangeNotice("102")).isFalse();

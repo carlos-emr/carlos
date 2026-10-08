@@ -247,19 +247,8 @@ public class EmailFooterService {
      * Saves the user's own footer and clears any clinic-change notice. A blank footer is not "no
      * footer": it removes the user's own, so they follow the clinic default.
      *
-     * Not public: a page always saves through the checked overload, with the clinic footer it showed.
-     *
-     * @param providerNo the logged-in user
-     * @param footer the footer as typed
-     * @throws FooterTooLongException when the footer is over the limit; nothing is saved
-     */
-    void saveOwnFooter(String providerNo, String footer) {
-        saveOwnFooter(providerNo, footer, null);
-    }
-
-    /**
-     * As {@link #saveOwnFooter(String, String)}, from a page that showed the clinic footer whose
-     * {@link #fingerprint} is {@code clinicFooterShown}. Checked after the clinic footer's lock is
+     * <p>A page sends back the {@link #fingerprint} of the clinic footer it showed as
+     * {@code clinicFooterShown}. Checked after the clinic footer's lock is
      * taken, so a clinic change in progress has finished: if the clinic footer changed after the page
      * was opened, nothing is saved and the clinic-change notice stays, so a page opened earlier can
      * neither keep the old clinic text unnoticed nor erase the notice. Every clinic change changes the

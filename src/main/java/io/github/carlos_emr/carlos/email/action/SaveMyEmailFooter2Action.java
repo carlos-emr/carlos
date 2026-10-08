@@ -146,9 +146,11 @@ public final class SaveMyEmailFooter2Action extends ActionSupport {
                 }
                 audit(request, providerNo);
             }
-            // The buttons below do not check clinicFooterShown: each picks the clinic footer as it is
-            // now, or puts back the footer the notice holds, so a page opened before a clinic change
-            // cannot store old clinic text through them. Only "save" stores text the page showed.
+            // The buttons below do not check clinicFooterShown. "Use the clinic footer" and "Keep the
+            // clinic footer" pick the clinic footer as it is now. "Use my previous footer" puts back
+            // the footer the notice holds now: from a page opened before a later clinic change (its
+            // notice answered elsewhere meanwhile), that can be a footer the page did not show. Known
+            // gap, listed on the PR; only "save" checks the clinic footer the page showed.
             case "useClinicDefault" -> {
                 emailFooterService.useClinicDefault(providerNo);
                 audit(request, providerNo);

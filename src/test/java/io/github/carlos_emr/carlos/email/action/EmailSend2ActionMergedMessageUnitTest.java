@@ -776,6 +776,8 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
 
         MockHttpServletRequest request = sendForFooterSave("true", "<b>Dr A</b>", EmailStatus.SUCCESS);
 
+        // The save really was attempted, so the failure reported is the save's own.
+        verify(footers).saveOwnFooter("101", "<b>Dr A</b>", EmailFooterService.fingerprint("Riverside Clinic"));
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
         assertThat(request.getAttribute("footerSaveAsMineFailed")).isEqualTo(true);
         assertThat(request.getAttribute("footerSavedAsMine")).isNull();

@@ -837,11 +837,6 @@
                     </c:if>
                 </c:when>
                 <c:when test="${ isEmailDeliveryUnconfirmed }">
-                    <%-- The form below is hidden on this outcome: say here that a ticked box did nothing. --%>
-                    <c:if test="${footerSaveAsMineNotDone}">
-                        <div class="alert alert-info" role="status" id="footerSaveAsMineNotDoneUnconfirmed">
-                            <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
-                    </c:if>
                     <div class="alert alert-warning" role="alert" id="deliveryUnconfirmedWarning">
                         ${carlos:forHtml(emailComposeDeliveryUnconfirmed)}
                     </div>
@@ -865,6 +860,12 @@
                     </div>
                 </c:otherwise>
             </c:choose>
+            <%-- The form is hidden on these outcomes, so its own note would not show: say here that a
+                 ticked "Also make this my usual footer" did nothing. --%>
+            <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}">
+                <div class="alert alert-info" role="status" id="footerSaveAsMineNotDoneUnconfirmed">
+                    <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
+            </c:if>
             <%-- "Also make this my usual footer": done only once the email was accepted. Outside the
                  outcome branches, so it shows on every outcome that accepted the email (a portal
                  delivery still to resolve included). --%>
