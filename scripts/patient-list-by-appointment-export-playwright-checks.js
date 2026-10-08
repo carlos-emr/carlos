@@ -68,6 +68,7 @@
 
 const { chromium } = require('playwright');
 const fs = require('fs');
+const { settleOperations } = require('./graceful-signal-cancellation');
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const REQUIRED_FIXTURE_PROFILE = 'local-seed-obec-report-v1';
@@ -263,12 +264,14 @@ async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
     (response) => /\/patientlistbyappt(\?|$)/.test(response.url()),
     { timeout: 30000 },
   );
-  const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
+  // The download is optional, so its rejection is absorbed where it is created; the click and the
+  // response settle together so a failure in one cannot leave the other rejecting unhandled and
+  // killing the process before cleanup (#3607).
+  const downloadPromise = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
 
-  await page.locator('button[type="submit"]').first().click();
-
-  const exportResponse = await exportResponsePromise;
-  const download = await downloadPromise.catch(() => null);
+  const [exportResponse, download] = await settleOperations([
+    exportResponsePromise, downloadPromise, page.locator('button[type="submit"]').first().click(),
+  ]);
 
   // Chromium hands an attachment response to the download manager, so its body
   // is no longer readable through response.text() ("No resource with given

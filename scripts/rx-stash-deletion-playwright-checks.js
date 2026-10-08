@@ -8,6 +8,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openRx, stageCustomDrug, consumeExpectedConflict } = require('./rx-stash-patient-isolation-playwright-checks');
+const { settleOperations } = require('./graceful-signal-cancellation');
 
 /** Hold a real CSS opening transition until reset is acknowledged, independent of VM speed. */
 async function holdPreviewOpeningTransition(page) {
@@ -192,9 +193,9 @@ async function workflow(session) {
         const pending = original.waitForResponse(response => routePattern.test(response.url()));
         const alert = original.waitForEvent('dialog');
         release();
-        refusal = await pending;
+        // Settle both: awaiting the response alone leaves the dialog wait to reject unhandled (#3607).
+        [refusal] = await settleOperations([pending, alert]);
         h.assert(refusal.status() === 409, 'the delayed old deletion was accepted for the replacement draft');
-        await alert;
       });
       h.assert(dialogs.length === 1 && dialogs[0].text === await original.evaluate(() => jsMsg.removeRefused),
         'the stale deletion did not visibly report its refusal');
