@@ -501,7 +501,7 @@ class BillingOnRaServiceUnitTest {
     }
 
     @Test
-    void shouldStoreTwelveCharacterHin_withoutVersionCode_whenImportingH5Records() throws Exception {
+    void shouldStoreTwelveCharacterHinWithoutVersionCode_whenImportingH5Records() throws Exception {
         // OSCAR 19 contract (JdbcBillingRAImpl): radetail.hin is the H4 HIN field alone,
         // never HIN + version code, which overflows the varchar(12) column.
         org.mockito.Mockito.doAnswer(invocation -> {
