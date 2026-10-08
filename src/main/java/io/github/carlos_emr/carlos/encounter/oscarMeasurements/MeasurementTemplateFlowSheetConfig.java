@@ -1285,8 +1285,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             try {
                 // Create a deep copy of the base flowsheet via XML round-trip
                 MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(baseFlowsheet);
-                // Read before the customizations add item recommendations (#4433).
-                boolean keepFlowsheetRules = personalizedFlowsheet.runsOnlyFlowsheetRules();
 
                 // Apply each customization action in order
                 for (FlowSheetCustomization cust : list) {
@@ -1328,7 +1326,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                     }
                 }
                 // Recompile the Drools rule base after all customizations are applied
-                personalizedFlowsheet.loadCustomizedRuleBase(keepFlowsheetRules);
+                personalizedFlowsheet.loadCustomizedRuleBase();
                 return personalizedFlowsheet;
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
@@ -1726,36 +1724,35 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                 addAttributeifValueNotNull(item, "graphable", (String) h2.get("graphable"));
                 addAttributeifValueNotNull(item, "value_name", (String) h2.get("value_name"));
                 addAttributeifValueNotNull(item, "ds_rules", (String) h2.get("ds_rules"));
-                if (h2.get("measurement_type") != null) {
-                    log.debug("MEASUREMENT TYPE " + (String) h2.get("measurement_type"));
 
-                    // Serialize time-based recommendations into <rules> child element
-                    List<Recommendation> dsR = mFlowsheet.getDSElements((String) h2.get("measurement_type"));
-                    log.debug(h2.get("measurement_type") + " LIST DSR " + dsR);
-                    if (dsR != null) {
-                        Element rules = new Element("rules");
-                        for (Recommendation e : dsR) {
-                            log.debug("BEFORE ADDING ");
-                            rules.addContent(e.getFlowsheetXML());
-                            log.debug(rules);
-                        }
-                        item.addContent(rules);
+                // Rules are exported for prevention items as well as measurement items: processItems()
+                // attaches <rules> to both (Flu, PAP, MAM, ... on Diabetes, HIV and Periodic Health
+                // Visit), and customizeFlowSheet() rebuilds every customized copy from this export, so a
+                // measurement-only guard here silently dropped those reminders (#4433). Items are keyed
+                // by their measurement or prevention type, which is mstring.
+                // Serialize time-based recommendations into <rules> child element
+                List<Recommendation> dsR = mFlowsheet.getDSElements(mstring);
+                log.debug(mstring + " LIST DSR " + dsR);
+                if (dsR != null) {
+                    Element rules = new Element("rules");
+                    for (Recommendation e : dsR) {
+                        rules.addContent(e.getFlowsheetXML());
                     }
+                    item.addContent(rules);
+                }
 
-                    // Serialize value-based threshold rules into <ruleset> child element
-                    FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(mstring);  //TODO: MOVE THIS UP AND REPLACE THE CODE ABOVE
-                    List<TargetColour> targetColour = fsi.getTargetColour();
-                    log.debug("TARGET COLOURS" + targetColour);
+                // Serialize value-based threshold rules into <ruleset> child element
+                FlowSheetItem fsi = mFlowsheet.getFlowSheetItem(mstring);
+                List<TargetColour> targetColour = fsi.getTargetColour();
+                log.debug("TARGET COLOURS" + targetColour);
 
-                    if (targetColour != null) {
-                        Element ruleset = new Element("ruleset");
+                if (targetColour != null) {
+                    Element ruleset = new Element("ruleset");
 
-                        for (TargetColour t : targetColour) {
-                            ruleset.addContent(t.getFlowsheetXML());
-                        }
-                        item.addContent(ruleset);
+                    for (TargetColour t : targetColour) {
+                        ruleset.addContent(t.getFlowsheetXML());
                     }
-
+                    item.addContent(ruleset);
                 }
 
                 va.addContent(item);

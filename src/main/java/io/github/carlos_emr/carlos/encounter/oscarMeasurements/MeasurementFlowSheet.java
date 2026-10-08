@@ -828,6 +828,7 @@ public class MeasurementFlowSheet {
         // The named file replaces whatever ran before; if it does not load, run nothing rather than
         // stale rules, so getMessages reports the missing file.
         flowsheetRuleBase = null;
+        customizationRuleBase = null;
         ruleBase = null;
         rulesLoaded = false;
         try {
@@ -922,11 +923,13 @@ public class MeasurementFlowSheet {
      * file, the customization's recommendations run alongside the file instead. A base whose own
      * items carry recommendations keeps the parse-time behaviour.</p>
      *
-     * @param keepFlowsheetRules boolean the value of {@link #runsOnlyFlowsheetRules()} before the
-     *        customizations were applied
+     * <p>Customizations change only the items, never the compiled rules, so whether the copy runs
+     * only its file is still the base's answer when this runs.</p>
+     *
      * @see MeasurementTemplateFlowSheetConfig#getFlowSheet(String, java.util.List)
      */
-    void loadCustomizedRuleBase(boolean keepFlowsheetRules) {
+    void loadCustomizedRuleBase() {
+        boolean keepFlowsheetRules = runsOnlyFlowsheetRules();
         customizationRuleBase = null;
         loadRuleBase();
         if (keepFlowsheetRules && flowsheetRuleBase != null && ruleBase != flowsheetRuleBase) {

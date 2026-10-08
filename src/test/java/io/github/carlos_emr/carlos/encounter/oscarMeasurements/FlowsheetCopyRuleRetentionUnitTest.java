@@ -22,27 +22,45 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
+import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.ImportMeasurementTypes;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendation;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.XmlUtils;
 
+import java.io.InputStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jdom2.Element;
+import org.jdom2.filter.Filters;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.kie.api.KieBase;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
@@ -50,6 +68,7 @@ import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
@@ -76,6 +95,8 @@ import static org.mockito.Mockito.when;
 @Tag("drools")
 @Tag("measurement")
 class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
+
+    private static final String SHIPPED_FLOWSHEETS = "/oscar/encounter/oscarMeasurements/flowsheets/";
 
     private MeasurementTemplateFlowSheetConfig configuration;
     private MockedConstruction<ImportMeasurementTypes> importMeasurementTypes;
@@ -193,6 +214,31 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("no BP has been recorded");
         assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings())
                 .containsExactly("issue4433 item A1C rule");
+    }
+
+    @Test
+    @DisplayName("should keep the recommendations of prevention items on the copy made for a customization")
+    void shouldKeepPreventionItemRecommendations_whenCopyingForCustomization() throws Exception {
+        // diab2, hiv and the Periodic Health Visit put overdue-immunization and screening rules on
+        // prevention items; a copy that drops them loses those warnings for the customized patients.
+        MeasurementFlowSheet base = parse("<flowsheet name='issue4433'>"
+                + "<item prevention_type='Flu' display_name='Flu'><rules>"
+                + "<recommendation strength='warning' message='issue4433 Flu never given'>"
+                + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item>"
+                + "<item measurement_type='A1C' display_name='A1C'><rules>"
+                + "<recommendation strength='warning' message='issue4433 A1C never recorded'>"
+                + "<condition type='monthrange' param='' value='-1'/></recommendation></rules></item>"
+                + "</flowsheet>");
+
+        Element exported = configuration.getExportFlowsheet(base);
+        MeasurementFlowSheet copy = configuration.makeNewFlowsheet(base);
+
+        Element flu = exported.getChildren("item").stream()
+                .filter(e -> "Flu".equals(e.getAttributeValue("prevention_type"))).findFirst().orElseThrow();
+        assertThat(flu.getChild("rules")).as("the prevention item's rules are exported").isNotNull();
+        assertThat(copy.getMessages(new MeasurementInfo("1")).getWarnings())
+                .containsExactlyInAnyOrderElementsOf(base.getMessages(new MeasurementInfo("1")).getWarnings())
+                .contains("issue4433 Flu never given", "issue4433 A1C never recorded");
     }
 
     @Test
@@ -405,6 +451,136 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should list both the rules file's message and a customization's message for one measurement")
+    void shouldListFileAndCustomizationMessages_whenBothCoverOneMeasurement() throws Exception {
+        // A customization adds rules beside the file; it cannot switch a file rule off. The item's
+        // own tooltip shows the customization's message because those rules fire after the file's.
+        MeasurementFlowSheet base = parse(diabetesDefinition());
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+
+        MeasurementFlowSheet customized = spied.getFlowSheet("issue4433", List.of(
+                change(FlowSheetCustomization.UPDATE, "A1C", customWarning("A1C", "issue4433 custom A1C warning"))));
+
+        MeasurementInfo messages = customized.getMessages(new MeasurementInfo("1"));
+        assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings())
+                .as("fixture: diab.drl warns about an A1C that was never recorded")
+                .contains("no A1C values has been recorded");
+        assertThat(messages.getWarnings())
+                .contains("no A1C values has been recorded", "issue4433 custom A1C warning");
+        assertThat(messages.getWarning("A1C")).isEqualTo("issue4433 custom A1C warning");
+    }
+
+    @Test
+    @DisplayName("should keep the rules file running when a customization's recommendation does not compile")
+    void shouldKeepFlowsheetRules_whenCustomizationRulesFailToCompile() throws Exception {
+        MeasurementFlowSheet base = parse(diabetesDefinition());
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+        List<String> fileWarnings = base.getMessages(new MeasurementInfo("1")).getWarnings();
+
+        try (var _ = mockConstruction(RuleBaseCreator.class,
+                (creator, context) -> when(creator.getRuleBase(anyString(), anyList()))
+                        .thenThrow(new IllegalStateException("simulated customization compilation failure")))) {
+            MeasurementFlowSheet customized = spied.getFlowSheet("issue4433", List.of(
+                    change(FlowSheetCustomization.UPDATE, "WAIS", customWarning("WAIS", "issue4433 custom waist warning"))));
+
+            assertThat(customized.getMessages(new MeasurementInfo("1")).getWarnings())
+                    .as("a bad customization must not take the flowsheet's own rules with it")
+                    .isNotEmpty()
+                    .containsExactlyInAnyOrderElementsOf(fileWarnings);
+        }
+    }
+
+    @Test
+    @DisplayName("should run a customization's recommendations on a flowsheet whose rules file did not load")
+    void shouldRunCustomizationRules_whenBaseRulesFileDidNotLoad() throws Exception {
+        MeasurementFlowSheet base = parse("<flowsheet name='issue4433' ds_rules='issue4433-absent.drl'>"
+                + "<item measurement_type='WT' display_name='Weight'/></flowsheet>");
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+
+        MeasurementFlowSheet customized = spied.getFlowSheet("issue4433", List.of(
+                change(FlowSheetCustomization.UPDATE, "WT", customWarning("WT", "issue4433 custom weight warning"))));
+
+        assertThat(customized.getMessages(new MeasurementInfo("1")).getWarnings())
+                .containsExactly("issue4433 custom weight warning");
+    }
+
+    @Test
+    @DisplayName("should fire a clinician's own Health Tracker rule beside the empty tracker rules file")
+    void shouldFireAddedRule_whenHealthTrackerIsCustomized() throws Exception {
+        // The shipped Health Tracker has no items and an empty tracker.drl; every reminder it shows
+        // comes from items clinicians add, so losing those rules empties the tracker.
+        MeasurementFlowSheet base = parse(readShippedFlowsheet("healthTracker.xml"));
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        doReturn(base).when(spied).getFlowSheet("tracker");
+
+        MeasurementFlowSheet customized = spied.getFlowSheet("tracker", List.of(
+                change(FlowSheetCustomization.ADD, "", customWarning("WT", "issue4433 tracker weight warning"))));
+
+        assertThat(base.getMessages(new MeasurementInfo("1")).getWarnings()).isEmpty();
+        assertThat(customized.getVisibleMeasurementList()).containsExactly("WT");
+        assertThat(customized.getMessages(new MeasurementInfo("1")).getWarnings())
+                .containsExactly("issue4433 tracker weight warning");
+    }
+
+    @Test
+    @DisplayName("should report a customized flowsheet as not up to date to decision support when its rules warn")
+    void shouldReportNotUpToDate_whenCustomizedFlowsheetRulesWarn() throws Exception {
+        // Guidelines read flowsheet currency through DSDemographicAccess; a customized copy without
+        // its rules counted every customized patient as up to date.
+        MeasurementFlowSheet base = parse(diabetesDefinition());
+        MeasurementTemplateFlowSheetConfig spied = spy(configuration);
+        spied.flowsheets = new Hashtable<>();
+        doReturn(base).when(spied).getFlowSheet("issue4433");
+        doReturn(new ArrayList<>(List.of("issue4433"))).when(spied).getFlowsheetsFromDxCodes(any());
+        FlowSheetCustomizationDao customizations = mock(FlowSheetCustomizationDao.class);
+        when(customizations.getFlowSheetCustomizations("issue4433", "999998", 1))
+                .thenReturn(List.of(change(FlowSheetCustomization.DELETE, "BP")));
+        registerMock(FlowSheetCustomizationDao.class, customizations);
+        MeasurementTemplateFlowSheetConfig previousInstance = MeasurementTemplateFlowSheetConfig.measurementTemplateFlowSheetConfig;
+        MeasurementTemplateFlowSheetConfig.measurementTemplateFlowSheetConfig = spied;
+
+        try (var _ = mockConstruction(dxResearchBeanHandler.class);
+                var _ = mockConstruction(EctMeasurementsDataBeanHandler.class)) {
+            DSDemographicAccess access = new DSDemographicAccess(null, "1", "999998");
+
+            assertThat(access.flowsheetUptoDateAny("issue4433"))
+                    .as("diab.drl warns about the missing A1C, so the flowsheet is not up to date")
+                    .isFalse();
+        } finally {
+            MeasurementTemplateFlowSheetConfig.measurementTemplateFlowSheetConfig = previousInstance;
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("shippedFlowsheets")
+    @DisplayName("should export every rule a shipped flowsheet declares, so its customized copies keep them")
+    void shouldExportEveryDeclaredRule_forShippedFlowsheet(String resource) throws Exception {
+        String xml = readShippedFlowsheet(resource);
+        Element declared = XmlUtils.createSecureSAXBuilder().build(new StringReader(xml)).getRootElement();
+        MeasurementFlowSheet base = parse(xml);
+
+        Element exported = configuration.getExportFlowsheet(base);
+
+        assertThat(exported.getAttributeValue("ds_rules"))
+                .isEqualTo(StringUtils.trimToNull(declared.getAttributeValue("ds_rules")));
+        assertThat(itemRules(exported)).containsExactlyInAnyOrderEntriesOf(itemRules(declared));
+    }
+
+    static Stream<String> shippedFlowsheets() throws Exception {
+        Path directory = Path.of(FlowsheetCopyRuleRetentionUnitTest.class.getResource(SHIPPED_FLOWSHEETS).toURI());
+        try (Stream<Path> files = Files.list(directory)) {
+            return files.map(file -> file.getFileName().toString())
+                    .filter(name -> name.endsWith(".xml"))
+                    .sorted()
+                    .toList()
+                    .stream();
+        }
+    }
+
     private MeasurementFlowSheet parse(String xml) {
         MeasurementFlowSheet flowsheet = configuration.validateFlowsheet(xml);
         assertThat(flowsheet).as("fixture flowsheet must parse").isNotNull();
@@ -419,6 +595,40 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
                 + "<item measurement_type='BP' display_name='BP'/>"
                 + "<item measurement_type='WAIS' display_name='Waist'/>"
                 + "</flowsheet>";
+    }
+
+    private static String readShippedFlowsheet(String resource) throws Exception {
+        try (InputStream in = FlowsheetCopyRuleRetentionUnitTest.class.getResourceAsStream(SHIPPED_FLOWSHEETS + resource)) {
+            assertThat(in).as("shipped flowsheet %s", resource).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    /**
+     * Each item's recommendations and colour rules keyed by its measurement or prevention type, as
+     * the DRL they compile to. Compiling fills in a blank {@code param}, so the export spells some
+     * conditions differently from the shipped file; comparing the DRL compares what actually runs.
+     */
+    private static Map<String, List<String>> itemRules(Element flowsheet) {
+        Map<String, List<String>> rules = new HashMap<>();
+        for (Element item : flowsheet.getDescendants(Filters.element("item"))) {
+            String type = item.getAttributeValue("measurement_type", item.getAttributeValue("prevention_type"));
+            List<String> itemRules = new ArrayList<>();
+            Element recommendations = item.getChild("rules");
+            if (recommendations != null) {
+                for (Element recommendation : recommendations.getChildren("recommendation")) {
+                    itemRules.add(new Recommendation(recommendation, "rule", type).getRuleBaseElement());
+                }
+            }
+            Element colours = item.getChild("ruleset");
+            if (colours != null) {
+                for (Element colour : colours.getChildren("rule")) {
+                    itemRules.add(new TargetColour(colour).getRuleBaseElement("rule"));
+                }
+            }
+            rules.put(type, itemRules);
+        }
+        return rules;
     }
 
     private static FlowSheetCustomization change(String action, String measurement) {
