@@ -180,13 +180,15 @@
               for(TeleplanS00 result : teleplanS00Dao.search_taS00(Integer.parseInt(raNo), "S01", proNo)) {
              
                  account = result.getOfficeNo();
+                 // Only a numeric office number links to its claim.
+                 boolean officeNoLinked = result.getOfficeNo() != null && result.getOfficeNo().matches("\\d+");
 
           %>
         <c:set var="__enc_1"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="uriComponent"/></c:set>
         <tr>
-            <td width="5%" height="16"><a
-                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
-            </a>&nbsp;
+            <td width="5%" height="16"><% if (officeNoLinked) { %><a
+                    href="javascript: popupPage(700,750,'<%= request.getContextPath() %>/billing/CA/BC/reprocessBill?billingmaster_no=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>')"><% } %><carlos:encode value='<%= StringUtils.noNull(result.getOfficeNo()) %>' context="html"/>
+            <% if (officeNoLinked) { %></a><% } %>&nbsp;
             </td>
             <td width="5%" height="16"><carlos:encode value='<%= StringUtils.noNull(result.getPractitionerNo()) %>' context="html"/>&nbsp;
             </td>
