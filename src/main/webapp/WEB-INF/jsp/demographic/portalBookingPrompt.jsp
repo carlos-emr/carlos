@@ -35,15 +35,16 @@
     <h3>&nbsp;<fmt:message key="portal.booking.boxTitle"/>
         <button type="button" class="h3-pill" data-role="open" aria-haspopup="dialog" hidden><fmt:message key="portal.booking.manage"/></button></h3>
     <div class="portal-booking-summary">
-        <p data-role="summary" aria-live="polite"><fmt:message key="portal.booking.loading"/></p>
+        <p data-role="summary"><fmt:message key="portal.booking.loading"/></p>
         <p data-role="openCount" class="portal-booking-muted" hidden></p>
+        <p data-role="note" class="portal-booking-muted" hidden></p>
         <noscript><p><fmt:message key="portal.booking.noscript"/></p></noscript>
     </div>
     <dialog data-role="dialog" class="portal-booking-dialog" aria-labelledby="portalBookingTitle">
     <div class="portal-booking-dialog-header">
         <h2 id="portalBookingTitle"><fmt:message key="portal.booking.title"/></h2>
         <fmt:message key="portal.booking.close" var="portalBookingCloseLabel"/>
-        <button type="button" data-role="close" aria-label="${carlos:forHtmlAttribute(portalBookingCloseLabel)}">&times;</button>
+        <button type="button" class="portal-booking-dismiss" data-role="close" aria-label="${carlos:forHtmlAttribute(portalBookingCloseLabel)}">&times;</button>
     </div>
     <div class="portal-booking-dialog-body">
     <p data-role="status" role="status" aria-live="polite"><fmt:message key="portal.booking.loading"/></p>
@@ -63,7 +64,7 @@
                 <option value="lab_review"><fmt:message key="portal.booking.lab_review"/></option>
             </select>
         </label>
-        <button type="button" data-role="send" disabled><fmt:message key="portal.booking.send"/></button>
+        <button type="button" class="portal-booking-button" data-role="send" disabled><fmt:message key="portal.booking.send"/></button>
     </div>
     <% } %>
     <table class="portal-booking-history">
@@ -77,8 +78,8 @@
         <tbody data-role="prompts"></tbody>
     </table>
     <div class="portal-booking-dialog-footer">
-        <button type="button" data-role="refresh"><fmt:message key="portal.booking.refresh"/></button>
-        <button type="button" data-role="close"><fmt:message key="portal.booking.close"/></button>
+        <button type="button" class="portal-booking-button secondary" data-role="refresh"><fmt:message key="portal.booking.refresh"/></button>
+        <button type="button" class="portal-booking-button secondary" data-role="close"><fmt:message key="portal.booking.close"/></button>
     </div>
     </div>
     <div data-role="messages" hidden>
@@ -105,7 +106,6 @@
         <span data-message="notSent"><fmt:message key="portal.booking.notSent"/></span>
         <span data-message="storage"><fmt:message key="portal.booking.storage"/></span>
         <span data-message="empty"><fmt:message key="portal.booking.empty"/></span>
-        <span data-message="created"><fmt:message key="portal.booking.created"/></span>
         <span data-message="read"><fmt:message key="portal.booking.read"/></span>
         <span data-message="unread"><fmt:message key="portal.booking.unread"/></span>
         <span data-message="withdraw"><fmt:message key="portal.booking.withdraw"/></span>
@@ -124,7 +124,7 @@
         <span data-message="openCount"><fmt:message key="portal.booking.openCount"/></span>
     </div>
     <template data-role="withdraw-template">
-        <% if (portalMayWrite) { %><button type="button"><fmt:message key="portal.booking.withdraw"/></button><% } %>
+        <% if (portalMayWrite) { %><button type="button" class="portal-booking-button small"><fmt:message key="portal.booking.withdraw"/></button><% } %>
     </template>
     </dialog>
 </section>

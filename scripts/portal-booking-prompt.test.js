@@ -15,6 +15,8 @@ test('every booking label exists, with its own text, in all five catalogs', () =
     }));
     assert.equal(entries.length, Object.keys(map).length, 'duplicate booking catalog keys'); return map;
   });
+  // A dropped placeholder would silently lose the number in the box.
+  bundles.forEach((bundle, index) => assert.match(bundle['portal.booking.openCount'], /\{count\}/, locales[index]));
   for (const key of [...fragment.matchAll(/<fmt:message key="(portal\.booking\.[^"]+)"/g)].map(match => match[1])) {
     assert.ok(bundles[0][key], `missing English label ${key}`);
     // Each catalog carries its own translated text; none may be missing, blank or still English.
@@ -34,7 +36,12 @@ test('appointment binds the shared panel to the persisted patient and signals au
 });
 test('master record shows the same box, after Notes, for its action-resolved patient', () => {
   const source = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp'), 'utf8');
+  assert.ok(source.includes('id="notes"'), 'the Notes box is still there');
   assert.ok(source.indexOf('portalBookingPrompt.jsp') > source.indexOf('id="notes"'), 'the box follows Notes');
+  assert.equal(source.match(/portalBookingPrompt\.jsp/g).length, 1, 'one box on the record');
+  // The old panel at the foot of the edit form is gone, so the page never carries two boxes.
+  const editForm = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
+  assert.doesNotMatch(editForm, /portalBookingPrompt\.jsp/);
   assert.match(source, /jsp:include page="\/WEB-INF\/jsp\/demographic\/portalBookingPrompt\.jsp"/);
   assert.match(source, /name="portalBookingPatient" value="<%= demographic_no %>"/);
 });

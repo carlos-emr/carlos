@@ -125,7 +125,21 @@ async function main() {
     assert.equal(await page.locator('[data-role="dialog"]').evaluate(dialog => dialog.open), false);
     assert.equal(await page.evaluate(() => document.activeElement.dataset.role), 'open');
     await openDialog();
-    console.log('PASS box summary, open count, and closing the dialog');
+    assert.equal(await page.evaluate(() => !!document.activeElement.closest('[data-role="dialog"]')), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-role="dialog"]').evaluate(dialog => dialog.open), false);
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.role), 'open');
+    await openDialog();
+    console.log('PASS box summary, open count, focus into the dialog, and closing it by button or Escape');
+    // The box names the newest request, whatever the list order, and counts only open ones.
+    prompts = [{ ...prompt(5, 'withdrawn'), createdAt: '2026-09-20T12:00:00Z' },
+      { ...prompt(6, 'read'), appointmentType: 'lab_review', createdAt: '2026-10-05T12:00:00Z' },
+      { ...prompt(4, 'choice_pending'), createdAt: '2026-09-25T12:00:00Z' }];
+    await page.locator('[data-role="refresh"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-role="summary"]').textContent.includes('Lab review'));
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /^Last: Lab review · Routine · .+ · Read · Read$/);
+    assert.equal(await page.locator('[data-role="openCount"]').innerText(), 'Open requests: 2');
+    console.log('PASS box picks the newest of several requests and counts the open ones');
     prompts = [prompt(7, 'read')]; await page.locator('[data-role="refresh"]').click();
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Read'));
     assert.match(await page.locator('[data-role="prompts"]').innerText(), /Read/);
@@ -133,6 +147,7 @@ async function main() {
     loseCreate = true; await page.selectOption('[data-role="urgency"]', 'soon');
     await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     const first = calls.filter(call => call.method === 'create').at(-1);
+    assert.match(await page.locator('[data-role="note"]').innerText(), /could not be confirmed/);
     assert.equal(await page.locator('[data-role="urgency"]').isDisabled(), true);
     await page.reload(); await openDialog(); await waitReady(); assert.match(await send.innerText(), /same request/);
     await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed'));
@@ -149,12 +164,16 @@ async function main() {
     prompts = [prompt()]; loseWithdraw = true; await page.locator('[data-role="refresh"]').click();
     const withdraw = page.locator('[data-role="prompts"] button'); await withdraw.waitFor(); await withdraw.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('withdrawal could not'));
-    assert.equal(await withdraw.isDisabled(), true); await page.locator('[data-role="refresh"]').click();
+    assert.equal(await withdraw.isDisabled(), true);
+    assert.match(await page.locator('[data-role="note"]').innerText(), /withdrawal could not/);
+    await page.locator('[data-role="refresh"]').click();
     await page.waitForFunction(() => !document.querySelector('[data-role="prompts"] button'));
+    assert.equal(await page.locator('[data-role="note"]').isHidden(), true);
     console.log('PASS uncertain withdrawal requires refreshed status');
     active = false; await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('not active'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
-    console.log('PASS inactive account hides create');
+    assert.match(await page.locator('[data-role="note"]').innerText(), /not active/);
+    console.log('PASS inactive account hides create, and the box says so');
     active = true; outage = true; await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     console.log('PASS outage does not appear as inactive account');
@@ -243,7 +262,10 @@ async function main() {
     await page.reload(); await openDialog(); await waitReady();
     // The open dialog makes the form behind it inert: staff close it, edit the patient, reopen.
     await page.locator('.portal-booking-dialog-footer [data-role="close"]').click();
-    await page.fill('#keyword', 'Other patient'); await openDialog();
+    await page.fill('#keyword', 'Other patient');
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /Save and reopen/);
+    assert.equal(await page.locator('[data-role="openCount"]').isHidden(), true);
+    await openDialog();
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     assert.match(await status.innerText(), /Save and reopen/);
     assert.equal(calls.filter(call => call.method === 'create').length, before);
@@ -265,7 +287,7 @@ async function main() {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await openDialog(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 22 browser scenarios; no page errors');
+    console.log('PASS all 24 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
