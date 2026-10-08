@@ -31,6 +31,23 @@ claims for Ontario-resident patients. It implements:
   file name and the batch counter share one four-character key. A value that
   still is not well formed is reported per provider by Generate OHIP File
   before any disk is written (issue #4277).
+  **Provider eligibility is by design, not a fault:** generation only ever
+  considers *billable* providers (`ProviderDao.getBillableProviders`:
+  `status = '1'` and a non-empty `ohipNo`), both for "all providers" and
+  for a group disk's members. A provider who is inactive, or whose OHIP
+  number is blank, is never written to a claim file, and the claims billed
+  under that provider stay `O`/`W`/`I` and remain visible on the bill status
+  and simulation pages until the provider is reactivated or given an OHIP
+  number. Selecting such a provider explicitly is refused ("Selected
+  provider is not billable"); the "all providers" and group paths report
+  nothing because an ineligible provider is simply not in the set.
+  Regeneration of an existing disk is the one place the omission is
+  reported: a member who has since become ineligible is named in a
+  generation warning, and a disk with no eligible member left is refused
+  (`reportOmittedMembers`). This matches
+  OSCAR 19 and is the intended behaviour: billing under an inactive or
+  numberless provider would produce a file the MOH rejects. Do not
+  "fix" it by widening the provider query; reactivate the provider.
 - **Remittance advice import** — pull MOH RA messages, settle headers,
   reconcile payments and rejects.
 - **Service-code admin** — manage the `billing_service` table, including the
@@ -908,6 +925,20 @@ Things this module would benefit from but which are not yet done:
 - **JSP guardrail.** `scripts/lint/check-jsp-size.sh` fails CI on any JSP
   under `WEB-INF/jsp/billing/**` that exceeds the byte/scriptlet/getBean
   thresholds. Cheap insurance against the page-buffer workaround returning.
+- **Regeneration claim selection (issue #4475).** Regenerating a disk
+  selects every `B` claim for the provider dated on or before the disk and
+  narrows it by the claim ids found in the existing `.txt` file, instead of
+  selecting the claims whose `billing_on_cheader1.headerId` belongs to that
+  disk. A claim that was un-billed and re-billed on a later disk is re-emitted
+  by the older disk's regeneration and its batch link rewritten. OSCAR 19
+  parity; the fix is to select by batch header and keep the file intersection
+  as a warning-only cross-check.
+- **Privacy roles on generation (issue #4476).** The OHIP simulation page
+  filters "all providers" by `_team_billing_only`, `_team_access_privacy` and
+  `_site_access_privacy`; Generate OHIP File filters only its dropdown and
+  bills every billable provider when `all` is submitted. OSCAR 19 parity; the
+  fix is to pass the resolved provider set from the action into
+  `BillingOnDiskService`.
 
 ## 13 — Cross-references
 
