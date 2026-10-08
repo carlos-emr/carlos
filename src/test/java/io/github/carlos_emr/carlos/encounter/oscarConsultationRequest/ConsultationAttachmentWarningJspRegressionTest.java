@@ -108,6 +108,19 @@ class ConsultationAttachmentWarningJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should not list a provider with no number when a saved consult has none")
+    void shouldSkipInactiveProviderLookup_whenSavedProviderIsBlank() throws Exception {
+        String jsp = read("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
+
+        // rx.getProvider("") gave a Provider with a null number, and the provider list then threw a
+        // NullPointerException on getProviderNo().equalsIgnoreCase("-1"), so the consult would not open.
+        assertThat(jsp)
+                .contains("if (!isProviderActive && !StringUtils.isNullOrEmpty(consultUtil.providerNo)) {")
+                .contains("if (inactiveProvider != null && inactiveProvider.getProviderNo() != null) {")
+                .doesNotContain("if (!isProviderActive && consultUtil.providerNo != null) {");
+    }
+
+    @Test
     @DisplayName("should keep the confirmation page open while it shows an attachment warning")
     void shouldNotAutoClose_whenConfirmationShowsAttachmentWarning() throws Exception {
         String jsp = read(CONFIRM_JSP);
