@@ -147,7 +147,8 @@ Set these in the deployment's override properties, not in the committed `carlos.
 
 `V1.0.43` gives the `doctor` role `_portal.invite` (full). `_portal.account` (read) comes from
 `V1.0.41`, and `_portal.account.unlock` stays with `admin`. Sending also needs `_email` write and
-`_edoc` write.
+`_edoc` write. `V1.0.60` gives `_portal.booking_prompt` (full) to `admin`, `receptionist` and the
+doctor and nursing roles, leaving any row a clinic already set.
 
 - [ ] A staging user whose only role is `doctor` exists, to prove the default grants are enough.
 - [ ] Decide whether front-desk roles get `_portal.invite`. Without `_email` they can see and revoke

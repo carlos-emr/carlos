@@ -391,8 +391,13 @@ is optional; the action omits it until the staff UI has a server-verified provid
 accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
 turn that change into a retryable failure.
 
-This draft provides the Java API, permission mapping, and action contract. The staff controls on the
-appointment and master-record screens, their English catalog keys, and a separately approved
-security-object/default-role database seed remain required before #3849 is complete. No permission
-is granted by this code alone. Offered-slot selection, atomic appointment creation, the polling
-system principal, and decline/expiry ticklers belong to #3850.
+`V1.0.60` seeds `_portal.booking_prompt` and grants it (full) to `admin`, `receptionist`, `doctor`,
+`locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
+`_portal.booking_prompt` row keeps the clinic's own setting. Until the booking eligibility change
+(#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
+create one, because that role has no `_portal.account` read.
+
+This draft provides the Java API, permission mapping, action contract and default roles. The staff
+controls on the appointment and master-record screens and their English catalog keys remain required
+before #3849 is complete. Offered-slot selection, atomic appointment creation, the polling system
+principal, and decline/expiry ticklers belong to #3850.
