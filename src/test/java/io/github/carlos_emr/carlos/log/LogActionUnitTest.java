@@ -166,6 +166,23 @@ class LogActionUnitTest {
         verify(oscarLogDao).persist(any());
     }
 
+    @Test
+    @Tag("create")
+    void shouldNotLogAuditedData_whenPersistenceFails() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
+
+        try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
+            LogAction.addLog("999998", "read", "CME note", "501", "127.0.0.1", "101", NOTE_TEXT_WITH_PHI);
+
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("contentId=501"));
+            assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
+                    || event.getMessage().getFormattedMessage().contains("chest pain"));
+        }
+    }
+
     private static LoggedInInfo loggedInInfo() {
         LoggedInInfo info = mock(LoggedInInfo.class);
         Provider provider = mock(Provider.class);

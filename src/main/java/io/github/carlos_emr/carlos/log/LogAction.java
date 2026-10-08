@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -275,7 +276,11 @@ public class LogAction {
             getOscarLogDao().persist(oscarLog);
         } catch (Exception e) {
             logger.error("Error in logger.", e);
-            logger.error("Error logging entry : " + oscarLog);
+            // Not the entry itself: OscarLog.toString() is reflective and prints data, which carries the
+            // audited note text (e.g. CaseManagementNote.getAuditString()), and demographic_no.
+            logger.error("Audit entry not persisted: action={}, content={}, contentId={}",
+                    LogSafe.sanitize(oscarLog.getAction()), LogSafe.sanitize(oscarLog.getContent()),
+                    LogSafe.sanitize(oscarLog.getContentId()));
         }
     }
 
