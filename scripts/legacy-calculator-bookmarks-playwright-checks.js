@@ -73,12 +73,17 @@ async function workflow(s) {
       assert(await page.locator('#cFemale').isChecked(), 'the sex in the address did not prefill the form');
       assert(await page.locator('#riskInputRefused').count() === 0, 'a usable age was refused on load');
       assert(await page.locator('#bp6c3').innerText() !== '', 'the table was not computed on load');
+      // Refuse on the page that already shows an answer, so clearing it is proven.
+      await page.locator('#cAge').fill('82');
+      await page.locator('input.btn[value="Calculate"]').click();
+      assert(/does not apply to a patient aged 82/.test(await page.locator('#riskInputRefused').innerText()),
+        'an 82-year-old typed into a computed page was not refused');
+      assert(await page.locator('#bp6c3').innerText() === '', 'the previous figure was left on screen under the refusal');
       await page.goto(`${s.config.baseUrl}/encounter/calculators/riskcalc/index.html?sex=M&age=82`);
       const refused = await page.locator('#riskInputRefused').innerText();
-      assert(/age as a whole number from 30 to 75/.test(refused),
+      assert(/covers ages 30 to 75 years; it does not apply to a patient aged 82/.test(refused),
         `an 82-year-old must be refused by name on load, not answered for another age: ${JSON.stringify(refused)}`);
       assert(await page.locator('#cAge').inputValue() === '82', 'the refused age was rewritten');
-      assert(await page.locator('#bp6c3').innerText() === '', 'a figure was left on screen under the refusal');
     } finally {
       await page.close();
     }

@@ -47,6 +47,8 @@ function element(id) {
     getAttribute(name) { return name in attributes ? attributes[name] : null; },
     hasAttribute(name) { return name in attributes; },
     appendChild(child) { this.children.push(child); },
+    listeners: {},
+    addEventListener(type, listener) { this.listeners[type] = listener; },
   };
 }
 
@@ -112,7 +114,9 @@ test('parseRiskNumber accepts plain numbers inside the range and refuses everyth
   assert.equal(calc.parseRiskNumber('60', systolic), 60, 'the lower bound is inclusive');
   assert.equal(calc.parseRiskNumber('300', systolic), 300, 'the upper bound is inclusive');
   assert.equal(calc.parseRiskNumber('.9', calc.RISK_INPUTS.cHDL), 0.9);
-  for (const rejected of ['', '   ', 'abc', '140mmHg', '1,2', '-5', '+140', '1e2', '59', '301', 'NaN',
+  assert.equal(calc.parseRiskNumber('1.0345', calc.RISK_INPUTS.cHDL), 1.0345, 'any number of decimals is accepted');
+  assert.equal(calc.parseRiskNumber('24', calc.RISK_INPUTS.cCholesterol), 24, 'familial hypercholesterolaemia values are accepted');
+  for (const rejected of ['', '   ', '.', 'abc', '140mmHg', '1,2', '-5', '+140', '1e2', '59', '301', 'NaN',
     'Infinity', undefined, null]) {
     assert.equal(calc.parseRiskNumber(rejected, systolic), null, `${JSON.stringify(rejected)} must be refused`);
   }
@@ -130,7 +134,10 @@ test('the age is whole-number only and keeps the range the page used to clamp to
     assert.equal(calc.parseRiskNumber(rejected, age), null, `age ${JSON.stringify(rejected)} must be refused`);
   }
   // The refusal text is the shape the other calculators' checks already match.
-  assert.match(calc.riskInputMessage(age), /whole number from 30 to 75 years/);
+  assert.match(calc.riskInputMessage(age, ''), /whole number from 30 to 75 years/);
+  assert.match(calc.riskInputMessage(age, 'abc'), /whole number from 30 to 75 years/);
+  assert.match(calc.riskInputMessage(age, '82'), /does not apply to a patient aged 82\./);
+  assert.doesNotMatch(calc.riskInputMessage(age, '82'), /Enter/, 'a real age outside the table is not a typo to correct');
 });
 
 test('a valid Framingham entry computes and highlights the matching cell', () => {
@@ -151,11 +158,12 @@ test('a valid Framingham entry computes and highlights the matching cell', () =>
 for (const [field, value, pattern, why] of [
   ['cAge', '', /age as a whole number from 30 to 75/, 'blank age'],
   ['cAge', 'abc', /age as a whole number from 30 to 75/, 'non-numeric age'],
-  ['cAge', '80', /age as a whole number from 30 to 75/, 'age above the range (was clamped to 75)'],
-  ['cAge', '25', /age as a whole number from 30 to 75/, 'age below the range (was clamped to 30)'],
+  ['cAge', '80', /covers ages 30 to 75 years; it does not apply to a patient aged 80\./,
+    'age above the range (was clamped to 75)'],
+  ['cAge', '25', /does not apply to a patient aged 25\./, 'age below the range (was clamped to 30)'],
   ['cSystolic', '', /systolic blood pressure as a number from 60 to 300 mmHg/,
     'blank systolic (was the >=160 row)'],
-  ['cCholesterol', '1,2', /total cholesterol as a number from 1 to 20 mmol\/L/, 'comma decimal (was read as 1)'],
+  ['cCholesterol', '1,2', /total cholesterol as a number from 1 to 25 mmol\/L/, 'comma decimal (was read as 1)'],
   ['cHDL', '0', /HDL cholesterol as a number from 0.1 to 5 mmol\/L/, 'zero HDL (divided by zero)'],
   ['cHDL', 'x', /HDL cholesterol/, 'non-numeric HDL (was the highest column)'],
 ]) {
@@ -197,7 +205,7 @@ for (const [field, value, pattern, why] of [
   ['cSystolic', '', /systolic blood pressure/, 'blank systolic (threw and left the previous answer on screen)'],
   ['cALC', '', /A1C as a number from 3 to 20 %/, 'blank A1C'],
   ['cDuration', 'five', /duration of diabetes as a number from 0 to 54 years/, 'non-numeric duration'],
-  ['cDuration', '55', /duration of diabetes as a number from 0 to 54 years/,
+  ['cDuration', '55', /duration of diabetes as a number from 0 to 54 years \(it must be less than the patient's age\)/,
     'a duration as long as the patient has lived'],
 ]) {
   test(`UKPDS refuses ${why} and clears the previous answer`, () => {
@@ -215,7 +223,18 @@ test('the chart prefill sets sex and age and carries the patient to the other ca
   calc.PrefillFromChart();
   assert.equal(page.get('cFemale').checked, true);
   assert.equal(page.get('cAge').value, '62');
-  assert.equal(page.get('otherCalculator').href, 'diabetic.html?sex=F&age=62');
+  // The switch link carries what is in the form when clicked, not the chart's original values.
+  assert.equal(calc.OtherCalculatorHref('diabetic.html'), 'diabetic.html?sex=F&age=62');
+  const other = page.get('otherCalculator');
+  other.listeners.click();
+  assert.equal(other.href, 'diabetic.html?sex=F&age=62', 'clicking the switch link must rewrite it from the form');
+  page.get('cAge').value = '64';
+  page.get('cFemale').checked = false;
+  page.get('cMale').checked = true;
+  assert.equal(calc.OtherCalculatorHref('diabetic.html?sex=F&age=62'), 'diabetic.html?sex=M&age=64');
+  // Values are URL-encoded, so typed text cannot add parameters.
+  page.get('cAge').value = '6&x=1';
+  assert.equal(calc.OtherCalculatorHref('diabetic.html'), 'diabetic.html?sex=M&age=6%26x%3D1');
 });
 
 test('an age the chart supplies outside the range is refused by name, not answered for the default', () => {
@@ -223,7 +242,7 @@ test('an age the chart supplies outside the range is refused by name, not answer
   calc.PrefillFromChart();
   calc.UpdateNonDiabetic();
   assert.equal(page.get('cAge').value, '82');
-  assertRefused(page, /age as a whole number from 30 to 75/, 'cAge', 'chart age 82');
+  assertRefused(page, /covers ages 30 to 75 years; it does not apply to a patient aged 82\./, 'cAge', 'chart age 82');
 });
 
 test('without a chart query the page keeps its defaults', () => {

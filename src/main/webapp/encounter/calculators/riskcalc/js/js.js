@@ -25,7 +25,7 @@ var max_age = 75;
 var RISK_INPUTS = {
     cAge: {name: "the patient's age", whole: true, min: min_age, max: max_age, unit: "years"},
     cSystolic: {name: "the systolic blood pressure", min: 60, max: 300, unit: "mmHg"},
-    cCholesterol: {name: "the total cholesterol", min: 1, max: 20, unit: "mmol/L"},
+    cCholesterol: {name: "the total cholesterol", min: 1, max: 25, unit: "mmol/L"},
     cHDL: {name: "the HDL cholesterol", min: 0.1, max: 5, unit: "mmol/L"},
     cALC: {name: "the A1C", min: 3, max: 20, unit: "%"},
     // The upper bound is tightened to the age by readRiskInputs(): a duration
@@ -48,7 +48,7 @@ function parseRiskNumber(raw, rule) {
         return CarlosCalculatorAge.parseAge(raw, rule.min, rule.max);
     }
     var text = String(raw === undefined || raw === null ? "" : raw).trim();
-    if (!/^(?:[0-9]{1,3}(?:\.[0-9]{0,3})?|\.[0-9]{1,3})$/.test(text)) {
+    if (!/^(?:[0-9]{1,3}(?:\.[0-9]*)?|\.[0-9]+)$/.test(text)) {
         return null;
     }
     var value = parseFloat(text);
@@ -58,10 +58,22 @@ function parseRiskNumber(raw, rule) {
     return value;
 }
 
-/** The refusal shown for one box; states the accepted range so it can be corrected. */
-function riskInputMessage(rule) {
+/**
+ * The refusal shown for one box; states the accepted range so it can be
+ * corrected. An age that is a real age outside the table is not a typo, so it
+ * is told apart: asking for "a number from 30 to 75" there invites typing 75,
+ * which is the silent clamp this guard replaced, done by hand.
+ */
+function riskInputMessage(rule, raw) {
+    var text = String(raw === undefined || raw === null ? "" : raw).trim();
+    if (rule.whole && /^[0-9]{1,3}$/.test(text)) {
+        return "This calculator covers ages " + rule.min + " to " + rule.max
+            + " years; it does not apply to a patient aged " + parseInt(text, 10)
+            + ". Nothing has been calculated.";
+    }
     return "Enter " + rule.name + " as a " + (rule.whole ? "whole number" : "number")
         + " from " + rule.min + " to " + rule.max + " " + rule.unit
+        + (rule.belowAge ? " (it must be less than the patient's age)" : "")
         + ". Nothing has been calculated.";
 }
 
@@ -79,11 +91,12 @@ function readRiskInputs(ids) {
         var id = ids[j];
         var rule = RISK_INPUTS[id];
         if (id === "cDuration" && values.cAge !== undefined) {
-            rule = {name: rule.name, min: rule.min, max: Math.min(rule.max, values.cAge - 1), unit: rule.unit};
+            rule = {name: rule.name, min: rule.min, max: Math.min(rule.max, values.cAge - 1), unit: rule.unit,
+                belowAge: true};
         }
         var value = parseRiskNumber(document.getElementById(id).value, rule);
         if (value === null) {
-            RefuseRiskInput(id, riskInputMessage(rule));
+            RefuseRiskInput(id, riskInputMessage(rule, document.getElementById(id).value));
             return null;
         }
         values[id] = value;
@@ -139,11 +152,22 @@ function PrefillFromChart() {
     if (params.has("age")) {
         document.getElementById("cAge").value = params.get("age");
     }
-    // Switching between the Framingham and UKPDS pages keeps the patient.
+    // Switching between the Framingham and UKPDS pages keeps the patient as
+    // currently entered (a corrected age or sex, not the chart's original).
     var other = document.getElementById("otherCalculator");
-    if (other && window.location.search) {
-        other.href = other.getAttribute("href").split("?")[0] + window.location.search;
+    if (other) {
+        other.addEventListener("click", function () {
+            other.href = OtherCalculatorHref(other.getAttribute("href"));
+        });
     }
+}
+
+/** The other page's address carrying the sex and age now in the form. */
+function OtherCalculatorHref(href) {
+    var params = new URLSearchParams();
+    params.set("sex", document.getElementById("cFemale").checked ? "F" : "M");
+    params.set("age", String(document.getElementById("cAge").value).trim());
+    return String(href).split("?")[0] + "?" + params.toString();
 }
 
 function UpdateNonDiabetic() {
@@ -1034,7 +1058,7 @@ function WriteScriptDiabetic(age_at_diagnosis, sex, ethnicity, smoking, alc, sys
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
         RISK_INPUTS: RISK_INPUTS, parseRiskNumber: parseRiskNumber, riskInputMessage: riskInputMessage,
-        readRiskInputs: readRiskInputs, PrefillFromChart: PrefillFromChart,
+        readRiskInputs: readRiskInputs, PrefillFromChart: PrefillFromChart, OtherCalculatorHref: OtherCalculatorHref,
         UpdateNonDiabetic: UpdateNonDiabetic, UpdateDiabetic: UpdateDiabetic
     };
 }

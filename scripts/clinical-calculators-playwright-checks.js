@@ -176,15 +176,16 @@ const UKPDS_VALID_CELL = 'UKPDS_bp2c2h2';
 const FRAMINGHAM_REFUSALS = [
   { field: 'cAge', value: '', says: /age as a whole number from 30 to 75/, why: 'blank age' },
   { field: 'cAge', value: 'abc', says: /age as a whole number from 30 to 75/, why: 'non-numeric age' },
-  { field: 'cAge', value: '80', says: /age as a whole number from 30 to 75/, why: 'age above the range' },
+  { field: 'cAge', value: '80', says: /covers ages 30 to 75 years; it does not apply to a patient aged 80/,
+    why: 'age above the range (was clamped to 75)' },
   { field: 'cSystolic', value: '', says: /systolic blood pressure as a number from 60 to 300/, why: 'blank systolic' },
-  { field: 'cCholesterol', value: '1,2', says: /total cholesterol as a number from 1 to 20/, why: 'comma decimal' },
+  { field: 'cCholesterol', value: '1,2', says: /total cholesterol as a number from 1 to 25/, why: 'comma decimal' },
   { field: 'cHDL', value: '0', says: /HDL cholesterol as a number from 0\.1 to 5/, why: 'zero HDL' },
 ];
 const UKPDS_REFUSALS = [
   { field: 'cSystolic', value: 'abc', says: /systolic blood pressure/, why: 'non-numeric systolic (used to throw)' },
   { field: 'cALC', value: '', says: /A1C as a number from 3 to 20/, why: 'blank A1C' },
-  { field: 'cDuration', value: '55', says: /duration of diabetes as a number from 0 to 54/,
+  { field: 'cDuration', value: '55', says: /duration of diabetes as a number from 0 to 54 years \(it must be less than the patient's age\)/,
     why: 'a duration as long as the patient has lived' },
 ];
 
@@ -458,7 +459,8 @@ async function checkFraminghamUkpds(context, chartPage, recorder, timeout) {
       assert(onLoad.refused === '' && onLoad.filled === onLoad.total,
         `the chart's age ${age} is inside the table yet the page did not compute on load: ${onLoad.refused}`);
     } else {
-      assert(/age as a whole number from 30 to 75/.test(onLoad.refused) && onLoad.empty === onLoad.total,
+      assert(/age as a whole number from 30 to 75|covers ages 30 to 75/.test(onLoad.refused)
+        && onLoad.empty === onLoad.total,
         `the chart's age ${JSON.stringify(age)} is outside the table, so the page must refuse it on load, `
         + 'not answer for another age');
     }
