@@ -229,6 +229,7 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should decide what shows from the patient the page looked up, as the per-patient lookup does")
+    @SuppressWarnings("deprecation") // compares with the deprecated per-call display overload on purpose
     void shouldDecideDisplay_fromThePatientAlreadyLookedUp() throws Exception {
         PreventionDisplayConfig config = newDisplayConfig();
         Map<String, String> adults = Map.of("name", "Flu", "minAge", "18");

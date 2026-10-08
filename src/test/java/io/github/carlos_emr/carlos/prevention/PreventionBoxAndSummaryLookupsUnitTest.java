@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -111,7 +112,7 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
     private Object savedPreventionDao;
     private Object savedPreventionExtDao;
     private Object savedPartialDateDao;
-    private Object savedTypeList;
+    private ArrayList<HashMap<String, String>> savedTypeList;
     private MockedStatic<ServletActionContext> servletActionContext;
 
     @BeforeEach
@@ -131,16 +132,19 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
         savedPreventionDao = swapPreventionDataField("preventionDao", preventionDao);
         savedPreventionExtDao = swapPreventionDataField("preventionExtDao", preventionExtDao);
         savedPartialDateDao = swapPreventionDataField("partialDateDao", partialDateDao);
-        savedTypeList = swapTypeList(typeList());
+        savedTypeList = PreventionDisplayConfig.setPreventionsForTesting(typeList());
         // The box's action reads the request when it is created.
         request.setContextPath("/carlos");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
 
-        patient.setYearOfBirth("1980");
-        patient.setMonthOfBirth("03");
-        patient.setDateOfBirth("15");
+        // A FAKE woman aged 46 on whatever day the test runs, so the age rules below (PAP is
+        // 21-69) give the same answer every year. Her 46th birthday was yesterday: a day's margin.
+        LocalDate born = LocalDate.now().minusYears(46).minusDays(1);
+        patient.setYearOfBirth(String.valueOf(born.getYear()));
+        patient.setMonthOfBirth(String.format("%02d", born.getMonthValue()));
+        patient.setDateOfBirth(String.format("%02d", born.getDayOfMonth()));
         patient.setSex("F");
         when(demographicManager.getDemographic(user, PATIENT)).thenReturn(patient);
         when(demographicManager.getDemographic(user, Integer.valueOf(PATIENT_ID))).thenReturn(patient);
@@ -178,7 +182,7 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
             swapPreventionDataField("preventionDao", savedPreventionDao);
             swapPreventionDataField("preventionExtDao", savedPreventionExtDao);
             swapPreventionDataField("partialDateDao", savedPartialDateDao);
-            swapTypeList(savedTypeList);
+            PreventionDisplayConfig.setPreventionsForTesting(savedTypeList);
         }
     }
 
@@ -219,7 +223,9 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should refuse the box before reading any type when the user lacks patient read in general")
     void shouldRefuseBoxBeforeReadingTypes_whenGeneralPatientReadIsMissing() {
-        // Only the String lookup makes the general check; the decision-support input's lookup passes.
+        // A user with a grant for this patient but no _demographic read in general: the String
+        // lookup makes the general check and refuses, while the decision-support input's Integer
+        // lookup checks this patient only and passes. Without such a grant, that lookup refuses too.
         when(demographicManager.getDemographic(user, PATIENT)).thenThrow(new RuntimeException(DENIED));
         NavBarDisplayDAO box = new NavBarDisplayDAO();
 
@@ -349,18 +355,6 @@ class PreventionBoxAndSummaryLookupsUnitTest extends CarlosUnitTestBase {
         field.setAccessible(true);
         Object previous = field.get(null);
         field.set(null, value);
-        return previous;
-    }
-
-    /** Sets the singleton's type list directly, so the test never parses PreventionItems.xml. */
-    private static Object swapTypeList(Object value) throws Exception {
-        Field instanceField = PreventionDisplayConfig.class.getDeclaredField("preventionDisplayConfig");
-        instanceField.setAccessible(true);
-        Field listField = PreventionDisplayConfig.class.getDeclaredField("prevList");
-        listField.setAccessible(true);
-        Object config = instanceField.get(null);
-        Object previous = listField.get(config);
-        listField.set(config, value);
         return previous;
     }
 }

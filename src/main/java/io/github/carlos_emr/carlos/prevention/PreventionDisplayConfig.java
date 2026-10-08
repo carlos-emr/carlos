@@ -68,7 +68,8 @@ public class PreventionDisplayConfig {
 
     /**
      * The prevention list and its by-name index, published together so a reader never pairs a
-     * list from one load with an index from another. Replaced wholesale by loadPreventions().
+     * list from one load with an index from another. Replaced wholesale by loadPreventions(), or
+     * by setPreventionsForTesting() in this package's tests.
      */
     private record PreventionSnapshot(ArrayList<HashMap<String, String>> list,
                                       HashMap<String, HashMap<String, String>> byName) {
@@ -102,6 +103,32 @@ public class PreventionDisplayConfig {
             current = preventions;
         }
         return current;
+    }
+
+    /**
+     * Makes {@code types} the singleton's loaded prevention list, with its by-name index, without
+     * reading PreventionItems.xml or the vaccine catalogue, and returns the list it replaced
+     * ({@code null} when none was loaded). The list is kept as given, not copied; as in a real
+     * load, an entry with no name stays out of the index. {@code null} unloads the list, so the
+     * next read loads it again. For tests in this package only.
+     */
+    static ArrayList<HashMap<String, String>> setPreventionsForTesting(ArrayList<HashMap<String, String>> types) {
+        PreventionDisplayConfig config = preventionDisplayConfig;
+        synchronized (config.preventionLoadLock) {
+            PreventionSnapshot previous = config.preventions;
+            if (types == null) {
+                config.preventions = null;
+            } else {
+                HashMap<String, HashMap<String, String>> byName = new HashMap<>();
+                for (HashMap<String, String> type : types) {
+                    if (type.get("name") != null) {
+                        byName.put(type.get("name"), type);
+                    }
+                }
+                config.preventions = new PreventionSnapshot(types, byName);
+            }
+            return previous == null ? null : previous.list();
+        }
     }
 
     public ArrayList<HashMap<String, String>> getPreventions() {
@@ -344,6 +371,14 @@ public class PreventionDisplayConfig {
         return display;
     }
 
+    /**
+     * Whether a prevention type shows for the patient, looking the patient up on every call.
+     *
+     * @deprecated A loop over the prevention types should look the patient up once, through
+     *             {@link PreventionPageData}, and call {@link #display(Map, Demographic, int)}.
+     *             Nothing in CARLOS calls this any more.
+     */
+    @Deprecated
     public boolean display(LoggedInInfo loggedInInfo, Map<String, String> setHash, String Demographic_no, int numberOfPrevs) {
         DemographicData dData = new DemographicData();
         log.debug("demoage " + Demographic_no);
@@ -352,9 +387,11 @@ public class PreventionDisplayConfig {
     }
 
     /**
-     * Whether a prevention type shows for the patient, as
-     * {@link #display(LoggedInInfo, Map, String, int)} decides, for a patient the caller has
-     * already looked up through {@code DemographicManager}, which checks the caller's privileges.
+     * Whether a prevention type shows for the patient: not when the type is hidden and the
+     * patient has none of it; yes when the patient has at least {@code showIfMinRecordNum} of
+     * it; otherwise by its age range and sex, as {@link #getDisplay(Map, Demographic)} decides
+     * for a configuration set. The patient is one the caller has already looked up through
+     * {@code DemographicManager}, which checks the caller's privileges.
      * The prevention page (in its default view), the eChart's Preventions box and the REST
      * preventions summary call this once per type, passing the patient from their
      * {@link PreventionPageData}.
