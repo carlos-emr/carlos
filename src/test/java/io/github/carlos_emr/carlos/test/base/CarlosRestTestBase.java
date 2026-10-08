@@ -149,6 +149,17 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
     protected abstract Object getServiceBean();
 
     /**
+     * Extra JAX-RS providers for the test server only, such as the exception mappers production
+     * registers in {@code spring_ws.xml}. Empty by default, so an unmapped exception still escapes
+     * the client call the way it escapes CXF in production without a mapper.
+     *
+     * @return providers appended after the JSON/XML providers
+     */
+    protected List<Object> additionalServerProviders() {
+        return List.of();
+    }
+
+    /**
      * Returns the local transport address for the test server. Override to
      * customize (e.g., to avoid address conflicts in parallel tests).
      *
@@ -182,7 +193,9 @@ public abstract class CarlosRestTestBase extends CarlosUnitTestBase {
         sf.setBus(bus);
         sf.setAddress(getServiceAddress());
         sf.setServiceBean(getServiceBean());
-        sf.setProviders(createProviders());
+        List<Object> serverProviders = new ArrayList<>(createProviders());
+        serverProviders.addAll(additionalServerProviders());
+        sf.setProviders(serverProviders);
         sf.getInInterceptors().add(new TestAuthenticationInterceptor(mockServletRequest));
         sf.setTransportId(LocalTransportFactory.TRANSPORT_ID);
         server = sf.create();

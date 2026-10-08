@@ -205,6 +205,10 @@
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
+			<!-- A privilege refusal escaping a resource is HTTP 403, not the generic 500 error
+			     page (#2798). Keep in step with the OAuth surface in applicationContextREST.xml. -->
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
 		</jaxrs:providers>
 		
 	

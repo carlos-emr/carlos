@@ -195,6 +195,10 @@
         <jaxrs:providers>
             <ref bean="jaxb"/>
             <ref bean="jsonProvider"/>
+            <!-- A privilege refusal escaping a resource is HTTP 403, not the generic 500 error
+                 page (#2798). Keep in step with the session surface in spring_ws.xml. -->
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
         </jaxrs:providers>
 
         <jaxrs:extensionMappings>
