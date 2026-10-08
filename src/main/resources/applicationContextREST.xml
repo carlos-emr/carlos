@@ -182,7 +182,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
