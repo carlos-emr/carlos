@@ -78,6 +78,32 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`allergy-stale-amend-refused-playwright-checks.js` and
+`prevention-submit-once-playwright-checks.js` (issue #4410) were added on 2026-10-08. They were
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch (DrugRef
+from its pinned ref; carlos-ctl built from the `debian/carlos-ctl.pin` fallback commit and
+stamped 1.1.2 locally, because the 1.1.2 tag the `Depends` floor names was not yet published).
+The packages were installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Both new checks **PASS** through `:443`,
+and so do `concurrency-allergy-amend` and `double-submit-chart-adds`, the two #4410
+reproductions:
+
+- A stale amendment is answered 409, keeps the typed entries and shows the alert. Two
+  amendments raced at the same moment answered 302 and 409.
+- Every prevention mode stores one row. The slow-response re-click sends two POSTs and the
+  submission token stores one.
+- Every measurement mode now sends one POST. Before the fix, a dblclick sent two, and on the
+  first run that stored two readings.
+
+`allergy-injected-form-csrf`, `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+`allergy-rx-alert`, `prevention-add-data`, `prevention-lifecycle`, `prevention-brand-picker`,
+`echart-prevention-row-links`, `measurement-group-entry` and `csrf-runtime-forms` also pass.
+`audit-log-chart-modules` and `audit-log-vitals` still fail, and only on their #4172 items:
+prevention and vitals writes leave no audit row, and allergy/prescription rows carry clinical
+text or a `Drug` dump. Issue #4410 leaves those to #4172. Precompiled JSPs are not shipped, so
+a JSP hot-swapped into an installed webapp keeps serving the class Tomcat already compiled.
+Validate JSP changes from a rebuilt package, or delete that class and restart.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
