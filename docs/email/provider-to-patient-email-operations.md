@@ -78,10 +78,11 @@ Sender accounts that authenticate (an SMTP password, or a provider API key such
 as SendGrid's) store that secret in `emailConfig.configDetails`, encrypted at
 rest with the application key `encryption.util.secret.key`. The same key
 encrypts fax account passwords, the Teleplan password (BC), the SMS webhook
-secret and provider credentials (Administration > SMS), MFA secrets and
-digital signature images. Everything encrypted with it can only be decrypted
-with that exact key, so back the key up with the rest of the server's
-configuration and never replace it on a server that has been running.
+secret and provider credentials (Administration > SMS, once that page is
+installed), MFA secrets and digital signature images. Everything encrypted
+with it can only be decrypted with that exact key, so back the key up with the
+rest of the server's configuration and never replace it on a server that has
+been running.
 
 **Where the key comes from.** A packaged (Debian) install gets its key from
 `carlos-ctl init-config`, which writes it to `/etc/carlos-emr/carlos.properties`.

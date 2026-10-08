@@ -301,11 +301,12 @@ class EncryptedDataCountLoaderUnitTest {
         Result result = new EncryptedDataCountLoader(() -> connection).load();
 
         assertThat(result.complete()).isFalse();
-        assertThat(result.failures()).hasSize(6)
+        assertThat(result.failures()).hasSize(8)
                 .allSatisfy(failure -> assertThat(failure)
                         .contains("SQLState 42000, error 1142")
                         .doesNotContain(PLAINTEXT_SECRET));
-        assertThat(result.describeFailures()).contains("fax_config.passwd", "DigitalSignature.signatureImage");
+        assertThat(result.describeFailures())
+                .contains("fax_config.passwd", "sms_config.credentials", "DigitalSignature.signatureImage");
         verify(connection).setReadOnly(true);
         verify(connection).close();
     }
