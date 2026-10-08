@@ -395,31 +395,31 @@ function differences(states, objectName) {
 }
 
 /**
- * Differences that exist today and are waiting on a decision. Keyed by object; `diffs` is the
+ * Differences that exist today and are waiting on a decision (all logged as finding 193). Keyed by object; `diffs` is the
  * exact set pinned (anything beyond it fails), `reason` is the todo text.
  */
 const OPEN_DIFFERENCES = {
   '_newCasemgmt.episode': {
-    reason: 'maintainers to decide doctor Episodes privilege',
+    reason: 'finding 193: maintainers to decide doctor Episodes privilege',
     diffs: ['devcontainer|doctor|o/0->x/0'],
   },
   _episode: {
-    reason: 'maintainers to decide doctor Episodes privilege (same decision as _newCasemgmt.episode)',
+    reason: 'finding 193: maintainers to decide doctor Episodes privilege (same decision as _newCasemgmt.episode)',
     diffs: ['devcontainer|doctor|o/0->x/0'],
   },
   _eform: {
-    reason: 'development.sql gives doctor _eform x where Flyway gives w (the eForm delete split); '
+    reason: 'finding 193: development.sql gives doctor _eform x where Flyway gives w (the eForm delete split); '
       + 'authz-read-admin-objects asserts doctor holds _eform w; maintainers to decide which side moves',
     diffs: ['devcontainer|doctor|w/0->x/0'],
   },
   '_admin.flowsheet': {
-    reason: 'the devcontainer gives doctor no _admin.flowsheet where Flyway gives r; admin-role-management relies on the '
+    reason: 'finding 193: the devcontainer gives doctor no _admin.flowsheet where Flyway gives r; admin-role-management relies on the '
       + 'doctor holding it (the day-sheet Administration link) and development_privileges.sql restores only the admin row; '
       + 'maintainers to decide how the devcontainer gets it',
     diffs: ['devcontainer|doctor|r/0->absent'],
   },
   '_admin.fieldnote': {
-    reason: 'the devcontainer has no admin _admin.fieldnote row (Flyway V1.0.46 adds it); populate_db.sh does not re-apply '
+    reason: 'finding 193: the devcontainer has no admin _admin.fieldnote row (Flyway V1.0.46 adds it); populate_db.sh does not re-apply '
       + 'V1.0.46 after development.sql truncates secObjPrivilege and development_privileges.sql omits it; '
       + 'maintainers to decide how the devcontainer gets it',
     diffs: ['devcontainer|admin|x/0->absent'],
@@ -622,15 +622,26 @@ test('shouldFindOrphanedLinks_whenTargetRowsAreMissing', () => {
 });
 
 for (const [province, label] of [['on', 'Ontario'], ['bc', 'Bc']]) {
+  // NOT a todo, and the reason the two todos below can be trusted. A todo that passes looks exactly
+  // like a fix, so if a change to build-demo-additive.sh, demo-additive-exclude.txt or development.sql
+  // left the artifact with no link rows, or no tickler / document rows, "no orphans" would hold
+  // vacuously and the pin would quietly read as resolved. This test fails loudly in that case instead.
+  test(`shouldParseLinkRowsAndTargets_from${label}AdditiveArtifact`, { skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
+    const sql = additiveArtifact(province);
+    for (const [type, table] of [[LINK_TYPE.TICKLER, 'tickler'], [LINK_TYPE.DOCUMENT, 'document']]) {
+      const { links, present } = orphanedLinks(sql, type, table);
+      assert.ok(links > 0, `the ${label} additive artifact yielded no casemgmt_note_link rows of type ${type} (${table}); `
+        + 'the orphan check below would pass vacuously');
+      assert.ok(present > 0, `the ${label} additive artifact yielded no ${table} rows; the orphan check below would pass vacuously`);
+    }
+  });
+
   test(`shouldLinkNoNoteToMissingTickler_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.TICKLER, 'tickler');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'tickler'));
   });
 
-  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, {
-    todo: 'finding 143 (documents show the same defect; the log row names ticklers only)',
-    skip: !BASH_AVAILABLE && 'bash is not available',
-  }, () => {
+  test(`shouldLinkNoNoteToMissingDocument_in${label}AdditiveArtifact`, { todo: 'finding 143', skip: !BASH_AVAILABLE && 'bash is not available' }, () => {
     const result = orphanedLinks(additiveArtifact(province), LINK_TYPE.DOCUMENT, 'document');
     assert.ok(result.orphans.size === 0, describeOrphans(result, 'document'));
   });

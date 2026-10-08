@@ -124,9 +124,10 @@ class TestLockFailureHints(unittest.TestCase):
                        "works on a half-configured package")
     def test_each_failure_names_a_recovery_that_works_when_half_configured(self):
         # `dpkg --configure <pkg>` (what carlos-emr.postinst prints for the
-        # same state) or apt's --fix-broken both complete a package whose
-        # postinst failed.
-        usable = re.compile(r"dpkg --configure carlos-emr-drugref"
+        # same state), `dpkg --configure -a` (every pending package, the
+        # form dpkg itself suggests) and apt's --fix-broken all complete a
+        # package whose postinst failed.
+        usable = re.compile(r"dpkg --configure (?:carlos-emr-drugref|-a|--pending)\b"
                             r"|(?:apt|apt-get) (?:install -f|--fix-broken)")
         for body in _lock_failure_branches():
             self.assertRegex(body, usable)

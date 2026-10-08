@@ -332,8 +332,19 @@ function loadedRoutes() {
 
 test('shouldFindEveryAnchoredRoute_inTheExclusionFiles', () => {
   const rules = allRules();
-  // A parser that silently finds nothing would make the main check below vacuous.
-  assert.ok(rules.length >= 60, `expected the exclusion files to name 60+ routes, parsed ${rules.length}`);
+  // A parser that silently drops rules would make the main check below vacuous, so the parsed count is
+  // held to a second count that shares no code with the parser: physical lines that open a SecRule on
+  // the request path and name /carlos. A rule the parser skips, or one written in a shape it merges
+  // with its neighbour, shows up as a difference here.
+  const opensRouteRule = /^\s*SecRule\s+(?:REQUEST_URI|REQUEST_URI_RAW|REQUEST_FILENAME)\S*\s+"@\w+\s+\^?\/carlos\//;
+  for (const name of fs.readdirSync(WAF_DIR).filter((entry) => entry.endsWith('.conf')).sort()) {
+    const independent = fs.readFileSync(path.join(WAF_DIR, name), 'utf8').split('\n')
+      .filter((line) => !/^\s*#/.test(line) && opensRouteRule.test(line)).length;
+    const parsed = rules.filter((rule) => rule.file === name).length;
+    assert.equal(parsed, independent, `${name}: the parser found ${parsed} /carlos route rules but ${independent} lines open one`);
+  }
+  // And a floor just under today's 105, so that both counts collapsing to nothing cannot pass.
+  assert.ok(rules.length >= 100, `expected the exclusion files to hold 100+ route rules (105 today), parsed ${rules.length}`);
   const routes = new Set(rules.map((rule) => rule.route));
   for (const known of ['CaseManagementEntry', 'eform/addEForm', 'rx/writeScript', 'ws/rs/eform/(?:[0-9]+/)?json']) {
     assert.ok(routes.has(known), `the parser did not find the known route "${known}"`);
