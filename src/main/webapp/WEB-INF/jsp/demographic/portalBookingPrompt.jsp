@@ -24,14 +24,29 @@
 %>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/portalBookingPrompt.css">
-<section class="portal-booking" data-portal-booking
+<%-- Its own box, like the record's Notes: the last request and how many are open, and a button
+     that opens the controls in a dialog. --%>
+<section class="portal-booking demographicSection" data-portal-booking
          data-endpoint="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/demographic/portalBookingPrompt"
          data-patient="<%= portalPatient %>"
          data-patient-input="<%= "#demographic_no".equals(request.getParameter("portalBookingPatientInput")) ? "#demographic_no" : "" %>"
          data-actor="<carlos:encode value='<%= portalSession.getLoggedInProviderNo() %>' context="htmlAttribute"/>">
-    <h2><fmt:message key="portal.booking.title"/></h2>
+    <h3>&nbsp;<fmt:message key="portal.booking.boxTitle"/>
+        <button type="button" class="h3-pill" data-role="open" aria-haspopup="dialog" hidden><fmt:message key="portal.booking.manage"/></button></h3>
+    <div class="portal-booking-summary">
+        <p data-role="summary"><fmt:message key="portal.booking.loading"/></p>
+        <p data-role="openCount" class="portal-booking-muted" hidden></p>
+        <p data-role="note" class="portal-booking-note" hidden></p>
+        <noscript><p><fmt:message key="portal.booking.noscript"/></p></noscript>
+    </div>
+    <dialog data-role="dialog" class="portal-booking-dialog" aria-labelledby="portalBookingTitle">
+    <div class="portal-booking-dialog-header">
+        <h2 id="portalBookingTitle"><fmt:message key="portal.booking.title"/></h2>
+        <fmt:message key="portal.booking.close" var="portalBookingCloseLabel"/>
+        <button type="button" class="portal-booking-dismiss" data-role="close" aria-label="${carlos:forHtmlAttribute(portalBookingCloseLabel)}">&times;</button>
+    </div>
+    <div class="portal-booking-dialog-body">
     <p data-role="status" role="status" aria-live="polite"><fmt:message key="portal.booking.loading"/></p>
-    <noscript><fmt:message key="portal.booking.noscript"/></noscript>
     <% if (portalMayCreate) { %>
     <div data-role="create" hidden>
         <label><fmt:message key="portal.booking.urgency"/>
@@ -48,11 +63,24 @@
                 <option value="lab_review"><fmt:message key="portal.booking.lab_review"/></option>
             </select>
         </label>
-        <button type="button" data-role="send" disabled><fmt:message key="portal.booking.send"/></button>
+        <button type="button" class="portal-booking-button" data-role="send" disabled><fmt:message key="portal.booking.send"/></button>
     </div>
     <% } %>
-    <button type="button" data-role="refresh"><fmt:message key="portal.booking.refresh"/></button>
-    <ul data-role="prompts"></ul>
+    <table class="portal-booking-history">
+        <thead><tr>
+            <th scope="col"><fmt:message key="portal.booking.request"/></th>
+            <th scope="col"><fmt:message key="portal.booking.urgency"/></th>
+            <th scope="col"><fmt:message key="portal.booking.status"/></th>
+            <th scope="col"><fmt:message key="portal.booking.created"/></th>
+            <th scope="col"><span class="portal-booking-visually-hidden"><fmt:message key="portal.booking.withdraw"/></span></th>
+        </tr></thead>
+        <tbody data-role="prompts"></tbody>
+    </table>
+    <div class="portal-booking-dialog-footer">
+        <button type="button" class="portal-booking-button secondary" data-role="refresh"><fmt:message key="portal.booking.refresh"/></button>
+        <button type="button" class="portal-booking-button secondary" data-role="close"><fmt:message key="portal.booking.close"/></button>
+    </div>
+    </div>
     <div data-role="messages" hidden>
         <span data-message="ready"><fmt:message key="portal.booking.ready"/></span>
         <span data-message="patientChanged"><fmt:message key="portal.booking.patientChanged"/></span>
@@ -77,7 +105,6 @@
         <span data-message="notSent"><fmt:message key="portal.booking.notSent"/></span>
         <span data-message="storage"><fmt:message key="portal.booking.storage"/></span>
         <span data-message="empty"><fmt:message key="portal.booking.empty"/></span>
-        <span data-message="created"><fmt:message key="portal.booking.created"/></span>
         <span data-message="read"><fmt:message key="portal.booking.read"/></span>
         <span data-message="unread"><fmt:message key="portal.booking.unread"/></span>
         <span data-message="withdraw"><fmt:message key="portal.booking.withdraw"/></span>
@@ -92,9 +119,12 @@
         <span data-message="state.withdrawn"><fmt:message key="portal.booking.state.withdrawn"/></span>
         <span data-message="state.expired"><fmt:message key="portal.booking.state.expired"/></span>
         <span data-message="noscript"><fmt:message key="portal.booking.noscript"/></span>
+        <span data-message="last"><fmt:message key="portal.booking.last"/></span>
+        <span data-message="openCount"><fmt:message key="portal.booking.openCount"/></span>
     </div>
     <template data-role="withdraw-template">
-        <% if (portalMayWrite) { %><button type="button"><fmt:message key="portal.booking.withdraw"/></button><% } %>
+        <% if (portalMayWrite) { %><button type="button" class="portal-booking-button small"><fmt:message key="portal.booking.withdraw"/></button><% } %>
     </template>
+    </dialog>
 </section>
 <script defer src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/portalBookingPrompt.js"></script>

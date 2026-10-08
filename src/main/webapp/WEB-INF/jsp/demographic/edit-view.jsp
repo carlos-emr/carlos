@@ -666,6 +666,7 @@
                                                                                 <c:if test="${ not empty patientConsent.optout}">
                                                                                     <li>
                                                                                         <c:if test="${ patientConsent.consentType.active }">
+                          			<%-- Admin-entered text, spliced in as bare script before. nhpup sets innerHTML, so encode for HTML, then for a JS string in an attribute. --%>
                           			<span class="popup label"
                                           onmouseover="nhpup.popup('${carlos:forJavaScriptAttribute(carlos:forHtmlContent(patientConsent.consentType.description))}',{'width':350} );">
 										${carlos:forHtml(patientConsent.consentType.name)}
@@ -679,7 +680,7 @@
 
                                                                                                 <c:otherwise>
                                                                                                     <span class="info"
-                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"><fmt:param value="${carlos:forHtml(patientConsent.consentDate)}"/></fmt:message></span>
+                                                                                                          style="color:green;"><fmt:message key="demographic.demographiceditdemographic.consentStatusConsented"><fmt:param value="${carlos:forHtml(patientConsent.consentDate)}"/></fmt:message><c:if test="${ not patientConsent.explicit }"> (<fmt:message key="demographic.demographiceditdemographic.consentImplied"/>)</c:if></span>
                                                                                                 </c:otherwise>
                                                                                             </c:choose>
 
@@ -1295,6 +1296,11 @@
 
                                                                 <carlos:encode value='<%= notes %>' context="html"/>&nbsp;
                                                             </div>
+
+                                                            <%-- Portal booking requests (#3849): their own box, after Notes. --%>
+                                                            <jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+                                                                <jsp:param name="portalBookingPatient" value="<%= demographic_no %>"/>
+                                                            </jsp:include>
 
                                                                 <%-- TOGGLED OFF PROGRAM ADMISSIONS --%>
                                                             <oscar:oscarPropertiesCheck

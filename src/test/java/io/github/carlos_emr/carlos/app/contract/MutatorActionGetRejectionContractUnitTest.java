@@ -165,6 +165,9 @@ class MutatorActionGetRejectionContractUnitTest {
             // --- admin ---
             Arguments.of("io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
                     "_admin", "w"),
+            // Replaces the whole National Vaccine Catalogue on every POST.
+            Arguments.of("io.github.carlos_emr.carlos.prevention.web.UpdateVaccineCatalogue2Action",
+                    "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action",
                     "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action",
@@ -252,8 +255,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.decision.gate.SaveAntenatalRiskConfig2Action",
                     "_form", "w"),
             // --- patient portal ---
-            // Revokes portal invitations against the external portal service; create and resend
-            // answer 503 until durable delivery is wired, but the routes remain mutators.
+            // Invites, resends, revokes, and resolves unfinished invitation deliveries against the
+            // external portal service; every route sends a mutation to the portal or its email.
             // Unconditional: reading the invite list belongs to a separate read action, so every
             // route on this class mutates and the method check runs before authorization.
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action",
@@ -377,6 +380,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
         "io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action",
+        // The patient portal staff page: GET only, it renders the page and changes nothing.
+        "io.github.carlos_emr.carlos.integration.patientportal.web.PortalManage2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentWrite2Action",
@@ -479,7 +484,10 @@ class MutatorActionGetRejectionContractUnitTest {
         // facility slice: FacilityManager2Action is the first gated mutator there; the facility
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional
         // mutator). The sibling PMmodule/FacilityManager action is not gated on POST yet.
-        "io.github.carlos_emr.carlos.facility.FacilityManager2Action"
+        "io.github.carlos_emr.carlos.facility.FacilityManager2Action",
+        // prevention slice: UpdateVaccineCatalogue2Action (National Vaccine Catalogue install) is
+        // the only gated mutator; the prevention package is not in IN_SCOPE_PACKAGE_PREFIXES.
+        "io.github.carlos_emr.carlos.prevention.web.UpdateVaccineCatalogue2Action"
     );
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")

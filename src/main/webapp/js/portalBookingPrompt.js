@@ -38,6 +38,10 @@
         let eligible = false;
         let storageReady = false;
         let mayWithdraw = false;
+        // For the box on the page: the last confirmed list, and what it must say beside it.
+        let shownPrompts = null;
+        let accountInactive = false;
+        let withdrawFailed = false;
         const patientInput = root.dataset.patientInput ? document.querySelector(root.dataset.patientInput) : null;
         const patientNameInput = patientInput ? document.getElementById('keyword') : null;
         const originalPatientName = patientNameInput ? patientNameInput.value : '';
@@ -66,6 +70,7 @@
             role('prompts').hidden = !matches;
             role('refresh').disabled = busy || !matches;
             if (!matches) { status('patientChanged'); }
+            updateBox(matches);
             if (!create) { return; }
             create.hidden = !eligible || !matches;
             if (pending) {
@@ -121,28 +126,82 @@
             && ['routine', 'soon', 'as_soon_as_possible'].includes(prompt.urgency)
             && ['follow_up', 'annual_exam', 'lab_review'].includes(prompt.appointmentType)
             && ['sent', 'read', 'choice_pending', 'booked', 'declined_all', 'withdrawn', 'expired'].includes(prompt.state);
+        const OPEN_STATES = ['sent', 'read', 'choice_pending'];
+        function promptDate(prompt, options) {
+            const date = new Date(prompt.createdAt);
+            return Number.isNaN(date.getTime()) ? '' : date.toLocaleString(undefined, options);
+        }
+        const DATE_AND_TIME = { dateStyle: 'medium', timeStyle: 'short' };
+        const DATE_ONLY = { dateStyle: 'medium' };
+        function promptState(prompt) {
+            // A request in the read state says "Read" once, not "Read · Read".
+            if (prompt.state === 'read') { return message('state.read'); }
+            return message('state.' + prompt.state) + ' · ' + message(prompt.readAt ? 'read' : 'unread');
+        }
+        function cell(text) {
+            const node = document.createElement('td'); node.textContent = text; return node;
+        }
+        // The box on the page: the newest request and how many are still open.
+        function summarize(prompts) {
+            const summary = role('summary');
+            const openCount = role('openCount');
+            if (!prompts.length) {
+                summary.textContent = message('empty');
+                openCount.hidden = true;
+                return;
+            }
+            const last = prompts.reduce((newest, prompt) =>
+                (Date.parse(prompt.createdAt) || 0) > (Date.parse(newest.createdAt) || 0) ? prompt : newest);
+            const type = document.createElement('b');
+            type.textContent = message(last.appointmentType);
+            summary.replaceChildren(message('last') + ' ', type, ' · ' + [message(last.urgency),
+                promptDate(last, DATE_ONLY), promptState(last)].filter(Boolean).join(' · '));
+            openCount.textContent = message('openCount')
+                .replace('{count}', String(prompts.filter(prompt => OPEN_STATES.includes(prompt.state)).length));
+            openCount.hidden = false;
+        }
+        // The box never shows one patient's requests under another: after a patient change on the
+        // appointment it says so, as the dialog does. Otherwise it also says what the dialog would:
+        // a send still unconfirmed, a failed withdrawal, an inactive account, or no session storage.
+        function updateBox(matches) {
+            const note = role('note');
+            if (!matches) {
+                role('summary').textContent = message('patientChanged');
+                role('openCount').hidden = true;
+                note.hidden = true;
+                return;
+            }
+            if (shownPrompts) { summarize(shownPrompts); }
+            const noteKey = pending ? 'uncertain' : withdrawFailed ? 'withdrawFailed'
+                : accountInactive ? 'inactive' : storageReady ? null : 'storage';
+            note.textContent = noteKey ? message(noteKey) : '';
+            note.hidden = !noteKey;
+        }
         function render(prompts) {
             role('prompts').replaceChildren();
+            shownPrompts = prompts;
+            summarize(prompts);
             if (!prompts.length) {
-                const item = document.createElement('li'); item.textContent = message('empty');
-                role('prompts').append(item);
+                const row = document.createElement('tr');
+                const empty = cell(message('empty')); empty.colSpan = 5;
+                row.append(empty);
+                role('prompts').append(row);
             }
             for (const prompt of prompts) {
-                const item = document.createElement('li');
-                const date = new Date(prompt.createdAt);
-                item.textContent = message(prompt.appointmentType) + ' | ' + message(prompt.urgency)
-                    + ' | ' + message('state.' + prompt.state) + ' | '
-                    + message(prompt.readAt ? 'read' : 'unread') + ' | ' + message('created')
-                    + ' ' + (Number.isNaN(date.getTime()) ? '' : date.toLocaleString());
+                const row = document.createElement('tr');
+                row.append(cell(message(prompt.appointmentType)), cell(message(prompt.urgency)),
+                    cell(promptState(prompt)), cell(promptDate(prompt, DATE_AND_TIME)));
+                const actions = document.createElement('td');
                 if (mayWithdraw && prompt.state !== 'withdrawn') {
                     const template = role('withdraw-template').content.querySelector('button');
                     if (template) {
                         const button = template.cloneNode(true);
                         button.addEventListener('click', () => withdraw(prompt.id));
-                        item.append(button);
+                        actions.append(button);
                     }
                 }
-                role('prompts').append(item);
+                row.append(actions);
+                role('prompts').append(row);
             }
         }
         async function refresh(lead) {
@@ -157,8 +216,10 @@
                 }
                 eligible = body.mayCreate && body.accountActive === true;
                 mayWithdraw = body.mayWithdraw;
+                accountInactive = body.mayCreate && !eligible;
+                withdrawFailed = false;
                 render(body.prompts);
-                const inactive = body.mayCreate && !eligible ? 'inactive' : null;
+                const inactive = accountInactive ? 'inactive' : null;
                 if (pending) {
                     // The unconfirmed request stays in view, with the reason it cannot be retried now.
                     status(lead, 'uncertain', inactive);
@@ -167,8 +228,10 @@
                     status(lead, inactive || (lead ? null : storageReady ? 'ready' : 'storage'));
                 }
             } catch (_) {
-                eligible = false; mayWithdraw = false;
+                eligible = false; mayWithdraw = false; accountInactive = false; shownPrompts = null;
                 role('prompts').replaceChildren();
+                role('summary').textContent = message('unavailable');
+                role('openCount').hidden = true;
                 status(lead || (pending ? 'uncertain' : null), 'unavailable');
             } finally {
                 busy = false; role('refresh').disabled = false; update();
@@ -224,7 +287,7 @@
                     throw new Error('invalid withdrawal');
                 }
                 confirmed = true;
-            } catch (_) { status('withdrawFailed'); }
+            } catch (_) { withdrawFailed = true; status('withdrawFailed'); }
             finally { busy = false; update(); }
             if (confirmed) { await refresh('withdrawn'); }
             // A failed withdrawal stays disabled until staff refresh the confirmed status.
@@ -240,6 +303,19 @@
             patientNameInput.addEventListener('change', markPatientEdited);
         }
         role('refresh').addEventListener('click', () => refresh());
+        // The controls live in a dialog opened from the box; without script the box says so.
+        const dialog = role('dialog');
+        const open = role('open');
+        open.hidden = false;
+        open.addEventListener('click', () => {
+            if (typeof dialog.showModal === 'function') { dialog.showModal(); }
+            else { dialog.setAttribute('open', ''); }
+        });
+        root.querySelectorAll('[data-role="close"]').forEach(button => button.addEventListener('click', () => {
+            if (typeof dialog.close === 'function') { dialog.close(); } else { dialog.removeAttribute('open'); open.focus(); }
+        }));
+        // Escape closes a modal dialog without a click; either way, focus goes back to the box.
+        dialog.addEventListener('close', () => open.focus());
         update(); refresh();
     }
     function init() { document.querySelectorAll('[data-portal-booking]').forEach(mount); }

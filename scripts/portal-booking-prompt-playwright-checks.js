@@ -21,7 +21,9 @@ function markup(appointment, readOnly = false, lateCsrf = false, rejectCsrf = fa
     html = html.replace(/<% if \(portalMayCreate\) \{ %>[\s\S]*?<% } %>/, '')
       .replace(/<% if \(portalMayWrite\) \{ %>[\s\S]*?<% } %>/, '');
   }
-  html = html.replace(/<fmt:message key="([^"]+)"\/>/g, (_, key) => escape(labels[key]))
+  html = html.replace(/<fmt:message key="([^"]+)" var="[^"]+"\/>/g, '')
+    .replace(/\$\{carlos:forHtmlAttribute\(portalBookingCloseLabel\)\}/, escape(labels['portal.booking.close']))
+    .replace(/<fmt:message key="([^"]+)"\/>/g, (_, key) => escape(labels[key]))
     .replace(/data-actor="[^\n]*"/, 'data-actor="999998"')
     .replace(/data-patient="[^"]*"/, 'data-patient="123"')
     .replace(/data-patient-input="[^\n]*"/, `data-patient-input="${appointment ? '#demographic_no' : ''}"`)
@@ -99,7 +101,16 @@ async function main() {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   const status = page.locator('[data-role="status"]');
   const send = page.locator('[data-role="send"]');
-  const waitReady = () => send.waitFor({ state: 'visible' }).then(() => page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled));
+  // The controls are in a dialog opened from the box; every check works with it open, so a hidden
+  // control is hidden by the panel's own rules, not because the dialog is shut.
+  const openDialog = async () => {
+    await page.locator('[data-role="open"]').waitFor({ state: 'visible' });
+    if (!(await page.locator('[data-role="dialog"]').evaluate(dialog => dialog.open))) {
+      await page.locator('[data-role="open"]').click();
+    }
+  };
+  const waitReady = () => openDialog().then(() => send.waitFor({ state: 'visible' }))
+    .then(() => page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled));
   try {
     await page.goto(url + '/master'); await waitReady();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -107,6 +118,28 @@ async function main() {
     assert.equal(notifications, 1); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     assert.match(await page.locator('[data-role="prompts"]').innerText(), /Unread/);
     console.log('PASS active master control, CSRF, confirmation and mobile layout');
+    // The box on the page sums the requests up; closing the dialog returns to its button.
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /^Last: Follow-up · Routine · .+ · Sent · Unread$/);
+    assert.equal(await page.locator('[data-role="openCount"]').innerText(), 'Open requests: 1');
+    await page.locator('.portal-booking-dialog-footer [data-role="close"]').click();
+    assert.equal(await page.locator('[data-role="dialog"]').evaluate(dialog => dialog.open), false);
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.role), 'open');
+    await openDialog();
+    assert.equal(await page.evaluate(() => !!document.activeElement.closest('[data-role="dialog"]')), true);
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('[data-role="dialog"]').evaluate(dialog => dialog.open), false);
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.role), 'open');
+    await openDialog();
+    console.log('PASS box summary, open count, focus into the dialog, and closing it by button or Escape');
+    // The box names the newest request, whatever the list order, and counts only open ones.
+    prompts = [{ ...prompt(5, 'withdrawn'), createdAt: '2026-09-20T12:00:00Z' },
+      { ...prompt(6, 'read'), appointmentType: 'lab_review', createdAt: '2026-10-05T12:00:00Z' },
+      { ...prompt(4, 'choice_pending'), createdAt: '2026-09-25T12:00:00Z' }];
+    await page.locator('[data-role="refresh"]').click();
+    await page.waitForFunction(() => document.querySelector('[data-role="summary"]').textContent.includes('Lab review'));
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /^Last: Lab review · Routine · .+ · Read$/);
+    assert.equal(await page.locator('[data-role="openCount"]').innerText(), 'Open requests: 2');
+    console.log('PASS box picks the newest of several requests and counts the open ones');
     prompts = [prompt(7, 'read')]; await page.locator('[data-role="refresh"]').click();
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Read'));
     assert.match(await page.locator('[data-role="prompts"]').innerText(), /Read/);
@@ -114,8 +147,9 @@ async function main() {
     loseCreate = true; await page.selectOption('[data-role="urgency"]', 'soon');
     await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     const first = calls.filter(call => call.method === 'create').at(-1);
+    assert.match(await page.locator('[data-role="note"]').innerText(), /could not be confirmed/);
     assert.equal(await page.locator('[data-role="urgency"]').isDisabled(), true);
-    await page.reload(); await waitReady(); assert.match(await send.innerText(), /same request/);
+    await page.reload(); await openDialog(); await waitReady(); assert.match(await send.innerText(), /same request/);
     await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('confirmed'));
     const retry = calls.filter(call => call.method === 'create').at(-1);
     assert.equal(retry.operationId, first.operationId); assert.equal(retry.urgency, 'soon'); assert.equal(notifications, 2);
@@ -145,45 +179,49 @@ async function main() {
     prompts = [prompt()]; loseWithdraw = true; await page.locator('[data-role="refresh"]').click();
     const withdraw = page.locator('[data-role="prompts"] button'); await withdraw.waitFor(); await withdraw.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('withdrawal could not'));
-    assert.equal(await withdraw.isDisabled(), true); await page.locator('[data-role="refresh"]').click();
+    assert.equal(await withdraw.isDisabled(), true);
+    assert.match(await page.locator('[data-role="note"]').innerText(), /withdrawal could not/);
+    await page.locator('[data-role="refresh"]').click();
     await page.waitForFunction(() => !document.querySelector('[data-role="prompts"] button'));
+    assert.equal(await page.locator('[data-role="note"]').isHidden(), true);
     console.log('PASS uncertain withdrawal requires refreshed status');
-    active = false; await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('not active'));
+    active = false; await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('not active'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
-    console.log('PASS inactive account hides create');
-    active = true; outage = true; await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
+    assert.match(await page.locator('[data-role="note"]').innerText(), /not active/);
+    console.log('PASS inactive account hides create, and the box says so');
+    active = true; outage = true; await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     console.log('PASS outage does not appear as inactive account');
-    outage = false; malformed = true; await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
+    outage = false; malformed = true; await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be checked'));
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true); malformed = false;
     console.log('PASS missing eligibility fails closed');
-    loseCreate = true; await page.reload(); await waitReady(); await send.click();
+    loseCreate = true; await page.reload(); await openDialog(); await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
-    active = false; await page.reload();
+    active = false; await page.reload(); await openDialog();
     await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
       return text.includes('could not be confirmed') && text.includes('not active'); });
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     console.log('PASS unconfirmed request with an inactive account shows both');
-    active = true; outage = true; await page.reload();
+    active = true; outage = true; await page.reload(); await openDialog();
     await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
       return text.includes('could not be confirmed') && text.includes('could not be checked'); });
     console.log('PASS unconfirmed request during an outage shows both');
-    outage = false; const notified = notifications; await page.reload(); await waitReady();
+    outage = false; const notified = notifications; await page.reload(); await openDialog(); await waitReady();
     assert.match(await send.innerText(), /same request/); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(notifications, notified); assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     console.log('PASS unconfirmed request retried once the portal is back, no second notice');
-    await page.reload(); await waitReady(); refuseCreate = true; active = false; await send.click();
+    await page.reload(); await openDialog(); await waitReady(); refuseCreate = true; active = false; await send.click();
     await page.waitForFunction(() => { const text = document.querySelector('[data-role="status"]').textContent;
       return text.includes('was not sent') && text.includes('not active'); });
     assert.equal(await page.evaluate(() => sessionStorage.length), 0);
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     refuseCreate = false; active = true;
     console.log('PASS a refused first attempt drops its retry identity and says it was not sent');
-    loseCreate = true; await page.reload(); await waitReady(); await send.click();
+    loseCreate = true; await page.reload(); await openDialog(); await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     const unconfirmed = calls.filter(call => call.method === 'create').at(-1).operationId;
-    await page.reload(); await waitReady();
+    await page.reload(); await openDialog(); await waitReady();
     refuseCreate = true; await send.click();
     await page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled
       && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
@@ -197,7 +235,7 @@ async function main() {
     const stranded = '0f8d2c1e-5b7a-4c3d-9e1f-2a3b4c5d6e7f';
     await page.evaluate(id => sessionStorage.setItem('portal.booking.pending:999998:123',
       JSON.stringify({ operationId: id, urgency: 'routine', appointmentType: 'follow_up' })), stranded);
-    await page.reload(); await waitReady(); refuseCreate = true; await send.click();
+    await page.reload(); await openDialog(); await waitReady(); refuseCreate = true; await send.click();
     await page.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled
       && document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
     assert.doesNotMatch(await status.innerText(), /was not sent/);
@@ -206,18 +244,19 @@ async function main() {
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     assert.equal(calls.filter(call => call.method === 'create').at(-1).operationId, stranded);
     console.log('PASS a stored entry from an interrupted page is kept when its retry is refused');
-    await page.goto(url + '/master-late-csrf');
+    await page.goto(url + '/master-late-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     await waitReady(); await send.click();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
     console.log('PASS waits for the page CSRF bootstrap on first load');
-    await page.goto(url + '/master-reject-csrf');
+    await page.goto(url + '/master-reject-csrf'); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('shown below'));
     console.log('PASS a failed CSRF bootstrap falls back to a token already on the page');
     const plain = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const plainPage = await plain.newPage(); plainPage.on('pageerror', error => errors.push(error.message));
     await plainPage.addInitScript(() => { delete Crypto.prototype.randomUUID; });
     await plainPage.goto(url + '/master');
+    await plainPage.locator('[data-role="open"]').click();
     await plainPage.locator('[data-role="send"]').waitFor({ state: 'visible' });
     await plainPage.waitForFunction(() => !document.querySelector('[data-role="send"]').disabled);
     await plainPage.locator('[data-role="send"]').click();
@@ -225,7 +264,7 @@ async function main() {
     assert.match(calls.filter(call => call.method === 'create').at(-1).operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     await plain.close();
     console.log('PASS operation IDs without randomUUID (plain HTTP) are random version-4 UUIDs');
-    readOnly = true; prompts = [prompt()]; await page.reload();
+    readOnly = true; prompts = [prompt()]; await page.reload(); await openDialog();
     await page.waitForFunction(() => document.querySelector('[data-role="prompts"]').textContent.includes('Unread'));
     assert.equal(await send.count(), 0); assert.equal(await page.locator('[data-role="prompts"] button').count(), 0); readOnly = false;
     console.log('PASS read-only fixture shows history with no mutations');
@@ -235,29 +274,35 @@ async function main() {
     await send.click(); assert.match(await status.innerText(), /Save and reopen/);
     assert.equal(calls.filter(call => call.method === 'create').length, before);
     console.log('PASS programmatic patient switch blocks mutation without native events');
-    await page.reload(); await waitReady(); await page.fill('#keyword', 'Other patient');
+    await page.reload(); await openDialog(); await waitReady();
+    // The open dialog makes the form behind it inert: staff close it, edit the patient, reopen.
+    await page.locator('.portal-booking-dialog-footer [data-role="close"]').click();
+    await page.fill('#keyword', 'Other patient');
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /Save and reopen/);
+    assert.equal(await page.locator('[data-role="openCount"]').isHidden(), true);
+    await openDialog();
     assert.equal(await page.locator('[data-role="create"]').isHidden(), true);
     assert.match(await status.innerText(), /Save and reopen/);
     assert.equal(calls.filter(call => call.method === 'create').length, before);
     console.log('PASS unresolved free-text patient edit disables controls');
-    await page.reload(); await waitReady();
+    await page.reload(); await openDialog(); await waitReady();
     await page.evaluate(() => { document.getElementById('keyword').value = 'Autocomplete preview'; });
     await send.click(); assert.match(await status.innerText(), /Save and reopen/);
     assert.equal(calls.filter(call => call.method === 'create').length, before);
     console.log('PASS autocomplete name preview blocks stale-patient mutation');
-    await page.reload(); await waitReady();
+    await page.reload(); await openDialog(); await waitReady();
     await page.evaluate(() => { sessionStorage.setItem('portal.booking.pending:999998:123',
       JSON.stringify({ operationId: 'x', urgency: 'routine', appointmentType: 'follow_up' })); });
-    await page.reload(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('cannot retain'));
+    await page.reload(); await openDialog(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('cannot retain'));
     assert.equal(await send.isDisabled(), true);
     assert.doesNotMatch(await status.innerText(), /could not be confirmed/);
     console.log('PASS corrupt pending storage refuses fresh identity');
     assert.deepEqual(errors, []);
     if (process.env.PORTAL_BOOKING_SCREENSHOT) {
-      await page.evaluate(() => sessionStorage.clear()); await page.reload(); await waitReady();
+      await page.evaluate(() => sessionStorage.clear()); await page.reload(); await openDialog(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 23 browser scenarios; no page errors');
+    console.log('PASS all 25 browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

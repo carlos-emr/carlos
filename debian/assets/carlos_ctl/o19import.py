@@ -2522,6 +2522,8 @@ def import_report(ctx, progress: Dict, parity_ok: Sequence[str],
                         "content-migration", body))
     for title, key in (("surrogate ids reassigned on merge", "idmap"),
                        ("dangling foreign keys in the source", "fk"),
+                       ("consent records (one live record per "
+                        "patient and consent type)", "consent"),
                        ("dropped-column capture notes", "shadow")):
         found = _ledger_lines(progress, key)
         if found:
