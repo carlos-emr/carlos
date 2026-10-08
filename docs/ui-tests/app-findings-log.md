@@ -355,8 +355,8 @@ filed defects still live in public copies of the fixed pages.
 
 Rows 131 to 134 were reproduced on `carlos-emr 2026.09.0~snapshot26` built from `release/2026.08`
 and installed into an Ubuntu 26.04 container behind the packaged nginx + ModSecurity front door.
-Each was confirmed fixed both on that install upgraded in place and on a fresh install of the
-#3446 build (see
+Each was confirmed fixed both on that install upgraded in place and on a fresh install
+of the #3446 build (see
 [deb-install-validation.md](deb-install-validation.md#oauth-rest-surfaces-validation-2026-10-08)).
 Rows 132 to 134 were hidden behind row 131: nothing could reach them while the servers were unpublished.
 `oauth-rest-surfaces-playwright-checks.js` fails on rows 131, 133 and 134.
