@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.utils.AuthUtils;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.logging.HibernateSessionAssertions;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.CarlosProperties;
 import jakarta.persistence.EntityManager;
@@ -126,12 +127,12 @@ class HL7HandlerStorageFailureIntegrationTest extends CarlosTestBase {
 
         FileUploadCheck.StoreOutcome outcome;
         try (LogCapture handlerLog = LogCapture.forLogger(HL7Handler.class);
-             LogCapture hibernateAssertions = LogCapture.forLogger("org.hibernate.AssertionFailure")) {
+             LogCapture hibernateCore = HibernateSessionAssertions.capture()) {
             outcome = FileUploadCheck.storeSavedFileIfNew(saved, documentDir.toFile(), "hl7-probe-4436", "999998",
                     checksumId -> new HL7Handler().parse(AuthUtils.initLoginContext(), "synthetic",
                             saved.getPath(), checksumId, "127.0.0.1") != null);
 
-            assertThat(hibernateAssertions.events())
+            assertThat(HibernateSessionAssertions.in(hibernateCore))
                     .as("no Hibernate HHH000099 assertion may replace the real failure").isEmpty();
             assertThat(handlerLog.events())
                     .filteredOn(event -> event.getLevel() == Level.ERROR)

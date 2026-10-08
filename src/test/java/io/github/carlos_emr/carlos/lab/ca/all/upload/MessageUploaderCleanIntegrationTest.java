@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.logging.HibernateSessionAssertions;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -171,32 +172,34 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldReturnNormally_whenTransactionWasDoomedByRejectedInsert() {
-        try (LogCapture hibernateAssertions = LogCapture.forLogger("org.hibernate.AssertionFailure")) {
-            assertThatCode(this::rejectInsertThenClean)
-                    .as("clean must not throw out of a handler's catch block").doesNotThrowAnyException();
+        try (LogCapture hibernateCore = HibernateSessionAssertions.capture()) {
+            tx.executeWithoutResult(status -> {
+                Hl7TextMessage message = persistMessage();
+                // A value longer than the column is rejected by the database like the trigger in the
+                // lab-upload-rollback probe: IDENTITY ids make persist insert immediately, so it throws here.
+                assertThatThrownBy(() -> infos.persist(infoFor(message, "x".repeat(400))))
+                        .as("the insert the database rejects")
+                        .isInstanceOf(RuntimeException.class);
 
-            assertThat(hibernateAssertions.events())
-                    .as("clean must not run a query that makes Hibernate log HHH000099 at ERROR").isEmpty();
+                // What every handler's catch block does next.
+                assertThatCode(() -> MessageUploader.clean(CHECKSUM))
+                        .as("clean must not throw out of a handler's catch block").doesNotThrowAnyException();
+                assertThat(HibernateSessionAssertions.in(hibernateCore))
+                        .as("clean must not run a query that makes Hibernate log HHH000099 at ERROR").isEmpty();
+
+                // Control: the session really is unusable, and this capture does see Hibernate's assertion,
+                // so the check above cannot pass because the capture listens on the wrong logger.
+                assertThatThrownBy(() -> em.createQuery("select count(m) from Hl7TextMessage m", Long.class)
+                        .getSingleResult()).as("a query in the failed session").isInstanceOf(RuntimeException.class);
+                assertThat(HibernateSessionAssertions.in(hibernateCore))
+                        .as("the capture records HHH000099 when a query does run in the failed session").isNotEmpty();
+
+                status.setRollbackOnly();
+            });
         }
 
         assertThat(countMessages()).as("the doomed transaction rolled back").isZero();
         assertThat(countRecycledMessages() + countRecycledInfos()).as("nothing was recycled by a skipped clean").isZero();
-    }
-
-    private void rejectInsertThenClean() {
-        tx.executeWithoutResult(status -> {
-            Hl7TextMessage message = persistMessage();
-            // A value longer than the column is rejected by the database like the trigger in the
-            // lab-upload-rollback probe: IDENTITY ids make persist insert immediately, so it throws here.
-            assertThatThrownBy(() -> infos.persist(infoFor(message, "x".repeat(400))))
-                    .as("the insert the database rejects")
-                    .isInstanceOf(RuntimeException.class);
-
-            // What every handler's catch block does next.
-            MessageUploader.clean(CHECKSUM);
-
-            status.setRollbackOnly();
-        });
     }
 
     @Test
