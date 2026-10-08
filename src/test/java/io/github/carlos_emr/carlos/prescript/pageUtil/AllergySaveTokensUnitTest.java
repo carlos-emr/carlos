@@ -17,6 +17,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpSession;
 
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("AllergySaveTokens Unit Tests")
@@ -36,10 +43,23 @@ class AllergySaveTokensUnitTest {
     }
 
     @Test
-    void shouldReportInProgress_whenClaimedTwiceConcurrently() {
+    void shouldReportInProgress_whenClaimedTwiceConcurrently() throws Exception {
         MockHttpSession session = new MockHttpSession();
-        AllergySaveTokens.claim(session, TOKEN, FP);
-        assertThat(AllergySaveTokens.claim(session, TOKEN, FP)).isEqualTo(AllergySaveTokens.Claim.IN_PROGRESS);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<AllergySaveTokens.Claim> racer = () -> {
+                start.await();
+                return AllergySaveTokens.claim(session, TOKEN, FP);
+            };
+            Future<AllergySaveTokens.Claim> first = executor.submit(racer);
+            Future<AllergySaveTokens.Claim> second = executor.submit(racer);
+            start.countDown();
+            assertThat(List.of(first.get(), second.get())).containsExactlyInAnyOrder(
+                    AllergySaveTokens.Claim.CLAIMED, AllergySaveTokens.Claim.IN_PROGRESS);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test
