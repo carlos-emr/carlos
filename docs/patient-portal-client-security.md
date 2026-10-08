@@ -395,7 +395,8 @@ turn that change into a retryable failure.
 `locum`, `psychiatrist`, `nurse`, `Nurse Manager`, `RN` and `RPN`. A role that already has a
 `_portal.booking_prompt` row keeps the clinic's own setting. Until the booking eligibility change
 (#4136) replaces the `_portal.account` check, `receptionist` can list and withdraw prompts but not
-create one, because that role has no `_portal.account` read.
+create one, because that role has no `_portal.account` read. Every request also needs `_demographic`
+read, which the baseline does not give `admin`, so a user whose only role is `admin` is refused.
 
 This draft provides the Java API, permission mapping, action contract and default roles. The staff
 controls on the appointment and master-record screens and their English catalog keys remain required
