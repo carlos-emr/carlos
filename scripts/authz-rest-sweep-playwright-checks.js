@@ -22,6 +22,10 @@
  * The last two refuse by throwing rather than with a ForbiddenException; the REST surfaces map
  * both exception types to 403, so they must not end in the generic HTTP 500 error page.
  *
+ * The OAuth surface (/ws/services) registers the same services and the same 403 mappers. The
+ * receptionist authorizes an out-of-band OAuth 1.0a token through the consent page, and its signed
+ * calls must be refused there exactly as its session calls are on /ws/rs.
+ *
  * Logins: the full-privilege test login is the control; throwaway `receptionist` (holds
  * _demographic, lacks _eChart/_admin/_appDefinition/templates/_rx/_eform) and `doctor` (chart,
  * templates, _rx and _eform; lacks _admin/_appDefinition) logins come from lib/authz-read-fixture.js. A refusal only counts
@@ -30,16 +34,19 @@
  *
  * Fixtures: the workflow's owned FAKE- patient, two throwaway logins, a patient-level |o| lock on
  * _eChart$<patient> for the doctor login, one encounter template and one consent type named after
- * the run marker (the consent type is created through the API by the control login). Cleanup
+ * the run marker (the consent type is created through the API by the control login), and one
+ * out-of-band OAuth ServiceClient with the tokens and nonces issued to it. Cleanup
  * removes every owned row and asserts it. The template endpoints are called the way the encounter
  * client calls them (explicit paging, an existing template name): without paging or with an
  * unknown name they fail with HTTP 500 for every caller, which says nothing about authorization.
  * Environment: the common contract (BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
  */
+const crypto = require('crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
+const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
 
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 const PRINT_OPTIONS = JSON.stringify({ printType: 'all', cpp: true, selectedList: [] });
@@ -54,7 +61,19 @@ async function rest(context, config, method, route, body) {
     options.headers['Content-Type'] = 'application/json';
     options.data = JSON.stringify(body);
   }
-  const response = await context.request.fetch(h.appUrl(config.baseUrl, `/ws/rs/${route}`), options);
+  return readResult(await context.request.fetch(h.appUrl(config.baseUrl, `/ws/rs/${route}`), options));
+}
+
+/** One signed OAuth 1.0a GET on /ws/services from a cookie-less request context. */
+async function signedRest(request, config, credentials, route) {
+  const url = h.appUrl(config.baseUrl, `/ws/services/${route}`);
+  return readResult(await request.fetch(url, {
+    method: 'GET', maxRedirects: 0, timeout: 60000, failOnStatusCode: false,
+    headers: { Accept: 'application/json', Authorization: oauthHeader({ method: 'GET', url, ...credentials }) },
+  }));
+}
+
+async function readResult(response) {
   const bytes = await response.body();
   const text = bytes.toString('utf8');
   let json = null;
@@ -79,6 +98,22 @@ async function workflow(s) {
     sql.execute(`DELETE FROM consentType WHERE name=${h.sqlString(consentName)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM consentType WHERE name=${h.sqlString(consentName)}`) === '0',
       'The owned consent type was not removed');
+  });
+  // Registered after the login fixture, so it runs first: the tokens name the receptionist.
+  const oauthClient = {
+    consumerKey: crypto.randomBytes(12).toString('hex'),
+    consumerSecret: crypto.randomBytes(12).toString('hex'),
+  };
+  s.cleanup(() => {
+    const key = h.sqlString(oauthClient.consumerKey);
+    const owned = `(SELECT id FROM ServiceClient WHERE clientKey=${key})`;
+    sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId IN ${owned};
+      DELETE FROM ServiceRequestToken WHERE clientId IN ${owned};
+      DELETE FROM ServiceOAuthNonce WHERE consumerKey=${key};
+      DELETE FROM ServiceClient WHERE clientKey=${key}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE clientKey=${key})
+        + (SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${key})`) === '0',
+    'The OAuth client fixture or its nonces were not removed');
   });
   const templateName = `${marker}-tpl`;
   s.cleanup(() => {
@@ -196,6 +231,72 @@ async function workflow(s) {
     h.assert(!wrong.length, `Expected an application 403: ${wrong.join('; ')}`);
   });
 
+  await s.step('on /ws/services the receptionist\'s signed OAuth token is refused (403) the same endpoints', async () => {
+    // uri='oob': the verifier is shown on the consent page instead of redirected.
+    h.insertId(sql, `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
+        VALUES(${h.sqlString(`${marker}-oauth`)},${h.sqlString(oauthClient.consumerKey)},
+        ${h.sqlString(oauthClient.consumerSecret)},'oob',3600)`, 'ServiceClient');
+    const anonymous = await h.newContext(s.context.browser(), config);
+    try {
+      const api = anonymous.request;
+      const form = async response => Object.fromEntries(new URLSearchParams((await response.text()).trim()));
+      const initiateUrl = h.appUrl(config.baseUrl, `/ws/oauth/initiate?scope=${pct('provider.read')}`);
+      let response = await api.post(initiateUrl, {
+        failOnStatusCode: false,
+        headers: { Authorization: oauthHeader({ method: 'POST', url: initiateUrl, ...oauthClient, extra: { oauth_callback: 'oob' } }) },
+      });
+      h.assert(response.status() === 200, `Signed POST /ws/oauth/initiate answered HTTP ${response.status()}`);
+      const requestToken = await form(response);
+      h.assert(requestToken.oauth_token && requestToken.oauth_token_secret, '/ws/oauth/initiate returned no request token');
+
+      // The receptionist approves the request token in its own browser session.
+      const consent = await contexts.receptionist.newPage();
+      let verifier;
+      try {
+        const page = await consent.goto(
+          h.appUrl(config.baseUrl, `/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
+        h.assert(page && page.status() === 200, `The receptionist's consent page answered HTTP ${page && page.status()}`);
+        const [approval] = await Promise.all([
+          consent.waitForResponse(resp => resp.request().method() === 'POST'
+            && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
+          consent.locator('#scopeForm button[type="submit"]').click(),
+        ]);
+        h.assert(approval.status() === 200, `Approving the request token answered HTTP ${approval.status()}`);
+        verifier = (await form(approval)).oauth_verifier;
+        h.assert(verifier, 'Approving the request token showed no oauth_verifier');
+      } finally {
+        await consent.close();
+      }
+
+      const tokenUrl = h.appUrl(config.baseUrl, '/ws/oauth/token');
+      response = await api.post(tokenUrl, {
+        failOnStatusCode: false,
+        headers: {
+          Authorization: oauthHeader({
+            method: 'POST', url: tokenUrl, ...oauthClient, token: requestToken.oauth_token,
+            tokenSecret: requestToken.oauth_token_secret, extra: { oauth_verifier: verifier },
+          }),
+        },
+      });
+      h.assert(response.status() === 200, `Signed POST /ws/oauth/token answered HTTP ${response.status()}`);
+      const accessToken = await form(response);
+      const credentials = { ...oauthClient, token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret };
+
+      // Control: the token authenticates, as the receptionist.
+      const info = await signedRest(api, config, credentials, 'oauth/info');
+      h.assert(info.status === 200 && String(info.json?.login) === String(logins.receptionist.providerNo),
+        `${describe('receptionist (OAuth)', 'GET', 'oauth/info', info)}; expected its own provider number`);
+      const wrong = [];
+      for (const route of ['app/getApps/', `recordUX/${patient}/getAllergies`, ...THROWING_GUARDS]) {
+        const result = await signedRest(api, config, credentials, route);
+        if (!(result.status === 403 && result.fromApp)) wrong.push(describe('receptionist (OAuth)', 'GET', route, result));
+      }
+      h.assert(!wrong.length, `Expected an application 403 on /ws/services: ${wrong.join('; ')}`);
+    } finally {
+      await anonymous.close();
+    }
+  });
+
   await s.step('the doctor reads the chart, templates, pharmacies and eForms but is refused (403) the admin-only endpoints', async () => {
     const wrong = [];
     const print = await call('doctor', 'GET', `recordUX/${patient}/print?printOps=${encodeURIComponent(PRINT_OPTIONS)}`);
@@ -230,4 +331,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('authz-rest-sweep', workflow, { openMaster: false });
-module.exports = { workflow, rest };
+module.exports = { workflow, rest, signedRest };
