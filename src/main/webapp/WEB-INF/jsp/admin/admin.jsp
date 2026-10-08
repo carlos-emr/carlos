@@ -719,8 +719,6 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages?providerNo=<%=curProvider_no%>");return false;'><fmt:message key="admin.admin.messages"/></a></li>
-                        <li><a href="#"
                                onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
                     </security:oscarSec>
@@ -805,6 +803,7 @@
                         Report Manager (HRM) Status</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/ViewUpdateDrugref');return false;"><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+                    <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/prevention/ViewVaccineCatalogue');return false;"><fmt:message key="admin.admin.UpdateVaccineCatalogue"/></a></li>
                 </ul>
             </div>
         </security:oscarSec>

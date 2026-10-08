@@ -307,6 +307,10 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
+     * An email whose delivery another workflow owns is never composed here: an unresolved
+     * portal password email goes to {@code /email/portalDelivery}, and a patient portal
+     * invitation to the patient's {@code /demographic/portalManage} page.
+     *
      * Email data including the footer, encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
@@ -344,7 +348,20 @@ public class ManageEmails2Action extends ActionSupport {
         /*
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
-        EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        EmailLog emailLog;
+        try {
+            emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        } catch (EmailComposeManager.PortalInviteEmailException portalInvite) {
+            // An invitation is never reopened: its code must not reach this window. The patient's portal
+            // page, which checks its own privileges, resolves the delivery and resends with a new code.
+            try {
+                response.sendRedirect(request.getContextPath() + "/demographic/portalManage?demographicNo="
+                        + portalInvite.demographicNo());
+            } catch (IOException redirectFailure) {
+                throw new UncheckedIOException(redirectFailure);
+            }
+            return NONE;
+        }
         // Recovery has one owner, which also handles its authorization and portal errors, and
         // shows its own "still sending" state for a fresh email.
         if (emailLog != null && emailLog.isPortalDeliveryUnresolved()) {

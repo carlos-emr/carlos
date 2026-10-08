@@ -19,6 +19,8 @@
 #   /etc/carlos-emr/backup.env                  holds RESTIC_PASSWORD, without
 #                                               which every backup ever written
 #                                               is permanently unreadable
+#   /etc/carlos-emr/archive-keyring             the keys that decrypt archived
+#                                               patient email (#3448)
 #   /var/log/carlos-emr                         access and WAF audit logs, which
 #                                               a site may be obliged to retain
 #
@@ -267,6 +269,7 @@ NOTICE
         kept_or_empty "${STATE}/CarlosDocument" "patient documents"
         kept_or_empty "${STATE}/heapdumps" "JVM heap dumps — treat as PHI"
         kept_or_empty /var/log/carlos-emr "access and WAF audit logs"
+        kept_or_empty "${CONF_DIR}/archive-keyring" "the keys that decrypt archived patient email"
         cat >&2 <<'NOTICE'
   kept: /var/backups/carlos-emr              (backups and the restic repository)
   kept: /etc/carlos-emr/carlos.properties    (holds encryption.util.secret.key —
@@ -333,6 +336,10 @@ or do it by hand:
      archive-only clinical records, o19_import the clinic's whole OSCAR 19
      database. \`carlos-ctl destroy-data\` drops both for you)
   sudo shred -u /etc/carlos-emr/carlos.properties /etc/carlos-emr/backup.env
+  sudo find /etc/carlos-emr/archive-keyring -type f -exec shred -u {} +
+    (the archive keyring and any leftover hidden .archive-keyring-*.tmp file;
+     find runs as root, where a glob typed in your own shell could not see
+     inside the 0700 directory)
   sudo rm -rf /var/lib/carlos-emr /var/backups/carlos-emr /var/log/carlos-emr
     (/var/lib/carlos-emr includes the o19-import workspace and its CSV export
      of the archive-only records — hand those to the clinic first)
