@@ -76,7 +76,7 @@ public class ViewGenReport2Action extends ActionSupport {
         }
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped =
-                service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+                service.generateReport(loggedInInfo, request, OhipReportGenerationService.Mode.SOLO_REPORT);
         // Surface per-provider rollbacks to the success page so the
         // operator can re-run for the named providers; without this the
         // page renders as if every selected provider's report shipped.

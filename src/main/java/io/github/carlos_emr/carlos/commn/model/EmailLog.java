@@ -47,6 +47,10 @@ import java.util.List;
 @Table(name = "emailLog")
 public class EmailLog extends AbstractModel<Integer> implements Comparable<EmailLog> {
 
+    /** Body retained after a portal invitation send finishes; the activation code is discarded. */
+    public static final String PORTAL_INVITE_BODY_FORGOTTEN =
+            "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
+
     /**
      * Enumeration of possible email delivery statuses.
      * Used for tracking the lifecycle and delivery state of email communications.
@@ -141,7 +145,12 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
         /** Email generated from a tickler or reminder notification */
         TICKLER,
         /** Direct email communication not tied to a specific transaction type */
-        DIRECT
+        DIRECT,
+        /**
+         * A patient portal invitation sent by the invite delivery workflow. Deliberately absent from
+         * {@code EmailData.parseTransactionType}, so a compose request cannot claim to be an invitation.
+         */
+        PORTAL_INVITE
     }
 
     @Id

@@ -336,6 +336,8 @@ docker logs carlos-mariadb-dev | grep "ready for connections"
 
 **Important:** Volume removal destroys ALL database data. This forces recreation from the SQL initialization files but loses any test data you may have added during development.
 
+**Outbound email archive keyring after a rebuild (#3448).** Emails you send in development are archived encrypted, with keys CARLOS keeps in `/root/carlos-outbound-email-archive.keyring`. A container rebuild wipes that file and the document store (`/var/lib/CarlosDocument`), but this database volume keeps the archive rows. CARLOS then refuses to start with an ERROR saying the keyring is missing. Either copy the keyring out before rebuilding and put it back afterwards, or, if you don't need the old archived dev emails, add `email.archive.keyring.acknowledge_loss=true` to `/root/carlos.properties` for one start and remove it again (see "Encryption at rest" in `docs/outbound-email-archive.md`). Removing the database volume also clears the refusal.
+
 ### **Recent Database Configuration Updates:**
 Several important fixes have been applied to ensure stable database initialization:
 

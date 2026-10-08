@@ -327,6 +327,19 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     /**
+     * Restarts the stale-send clock of a claimed row just before its provider call, so stale recovery measures
+     * from the send rather than from the claim. The attempt count is unchanged: this is the same attempt.
+     */
+    public void renewSendingClaim(Date attemptAt) {
+        Date safeAttemptAt = copyOf(attemptAt);
+        if (safeAttemptAt == null) {
+            safeAttemptAt = new Date();
+        }
+        lastAttemptAt = safeAttemptAt;
+        touch();
+    }
+
+    /**
      * Tags the row with the worker-run claim token for traceability. Set after {@link #markSending}
      * or {@link #markStaleRecoveryStarted} when a worker claims the row.
      */

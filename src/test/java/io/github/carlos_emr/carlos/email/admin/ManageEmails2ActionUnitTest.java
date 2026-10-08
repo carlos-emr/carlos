@@ -405,6 +405,25 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
+    @DisplayName("should send a portal invitation to the patient's portal page instead of the resend composer")
+    void shouldRedirectToPortalPage_whenEmailIsAPortalInvitation() {
+        // Both Manage Emails and the chart-note email viewer open this route; neither may show the
+        // invitation, and neither should end on an error page.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42))
+                .thenThrow(new EmailComposeManager.PortalInviteEmailException(123));
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/demographic/portalManage?demographicNo=123");
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
+    }
+
+    @Test
     @DisplayName("should not warn when resending an email already recorded as failed")
     void shouldNotWarn_whenResendingFailedEmail() {
         // The whole point of PENDING is that it is distinguishable from FAILED. A genuinely failed

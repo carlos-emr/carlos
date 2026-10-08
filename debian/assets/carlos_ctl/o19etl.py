@@ -405,6 +405,14 @@ def idmap_table(parent: str) -> str:
     return "{0}__idmap".format(parent)
 
 
+#: The slot a curated `value_exprs` expression leaves for the archive
+#: schema when it reads a helper table the ETL builds there (the manifest
+#: is generated once and cannot know the schema's name). Filled by
+#: `source_expr` with str.replace, never str.format: the expression is
+#: SQL, and any other brace in it must stay what it is.
+ARCHIVE_SLOT = "{archive}"
+
+
 def source_expr(table_entry: dict, target_col: str,
                 repaired: Optional[set] = None,
                 archive_schema: Optional[str] = None,
@@ -416,10 +424,25 @@ def source_expr(table_entry: dict, target_col: str,
     the map does not know (the reference was already dangling in O19)
     becomes NULL on a nullable target — never the raw value, which on the
     target may denote an unrelated CARLOS SEED row of the same id — and
-    keeps the raw value only where the column is NOT NULL (reported)."""
+    keeps the raw value only where the column is NOT NULL (reported).
+
+    A curated expression that reads an archive helper (`ARCHIVE_SLOT`)
+    gets the schema filled in. WITHOUT an archive schema it is `NULL`:
+    the callers that pass none run before the table loop, when no helper
+    exists yet, so the value is not knowable there and SQL has a word
+    for that. Those callers only READ, and each skips such a column
+    (`archive_slot_columns`) rather than measure a NULL that is not the
+    value. A statement that WRITES must never get it: `copy_statement`
+    and `merge_statement` refuse to be built without the schema
+    (`refuse_write_without_archive`)."""
     ve = table_entry.get("value_exprs", {})
     if target_col in ve:
-        return ve[target_col]
+        expr = ve[target_col]
+        if ARCHIVE_SLOT not in expr:
+            return expr
+        if not archive_schema:
+            return "NULL"
+        return expr.replace(ARCHIVE_SLOT, ident(archive_schema))
     src = table_entry.get("renames", {}).get(target_col, target_col)
     # `ident`, not a bare backtick slot. Requirement B routes DUMP-SUPPLIED
     # column names through `renames` (with_archived_columns), so this is
@@ -438,6 +461,29 @@ def source_expr(table_entry: dict, target_col: str,
         expr = lookup if nullable else "IFNULL({0}, {1})".format(
             lookup, expr)
     return expr
+
+
+def archive_slot_columns(entry: dict) -> List[str]:
+    """The entry's columns whose curated expression reads an archive
+    helper, and so has no value until the helper is built."""
+    ve = entry.get("value_exprs", {})
+    return [c for c in entry.get("cols", [])
+            if ARCHIVE_SLOT in ve.get(c, "")]
+
+
+def refuse_write_without_archive(table: str, entry: dict,
+                                 archive_schema: Optional[str]) -> None:
+    """A write built without the archive schema would store NULL -- or
+    whatever NULL falls to -- where a helper holds the value. Raised,
+    not reported: it is a fault in the caller, never in a dump."""
+    if archive_schema:
+        return
+    cols = archive_slot_columns(entry)
+    if cols:
+        raise ValueError(
+            "{0}: column(s) {1} are read from an archive helper table; "
+            "the statement that writes them cannot be built without the "
+            "archive schema".format(table, ", ".join(cols)))
 
 
 #: The literal a NULL falls to on a NOT NULL target, BY TARGET TYPE.
@@ -643,6 +689,12 @@ def not_null_coercion_count_sql(table: str, entry: dict, src_schema: str,
             continue          # copied verbatim into a column of the
         if (info.get("type") or "").lower() == "enum":
             continue          # the enum CASE already owns this column
+        if c in archive_slot_columns(entry):
+            # read from an archive helper this run has not built yet
+            # (see below), and never NULL once it has: the helper holds
+            # a value for every source row, and what it changed is
+            # counted by its own report lines (consent_live_count_sql)
+            continue
         # archive_schema is deliberately NOT passed: this count runs
         # BEFORE the table loop, and a merge parent's `__idmap` does not
         # exist until its own table is processed -- built with the
@@ -727,6 +779,8 @@ def enum_fallback_count_sql(table: str, entry: dict, src_schema: str,
         values = enum_values(info["column_type"])
         if not values:
             continue
+        if c in archive_slot_columns(entry):
+            continue          # no helper yet: this runs before the loop
         expr = source_expr(entry, c, repaired, archive_schema)
         # a NULL source value on a NOT NULL target falls back as well
         null_clause = ("" if info["nullable"]
@@ -755,6 +809,7 @@ def copy_statement(table: str, entry: dict, src_schema: str,
     before the copy and refused, never silently truncated. `window`
     restricts it to one id range for a chunked table; `repaired` names
     the columns whose double-encoded text this run rewrites."""
+    refuse_write_without_archive(table, entry, archive_schema)
     cols = entry["cols"]
     archived = entry.get("archived_cols") or {}
     supplied = primitive_supplied_columns(entry, dst_cols)
@@ -844,6 +899,7 @@ def merge_statement(table: str, entry: dict, src_schema: str,
     twin n rather than collapsing both onto the first. The same script
     checks that every source id ends up mapped, across four seed/staging
     shapes; removing the surplus-twin fallback breaks three of them."""
+    refuse_write_without_archive(table, entry, archive_schema)
     surrogate = entry.get("surrogate_pk")
     archived = entry.get("archived_cols") or {}
     cols = [c for c in entry["cols"] if c != surrogate]
@@ -1233,6 +1289,215 @@ def idmap_changed_count_sql(table: str, archive_schema: str) -> str:
             .format(archive_schema, idmap_table(table)))
 
 
+CONSENT_TABLE = "Consent"
+
+#: The application's rule for the ONE consent record that decides, as an
+#: ORDER BY (ConsentRecords.DECIDING_FIRST, #3845): any opt-out; then a
+#: record the patient confirmed directly over an implied one, even a
+#: newer one; then the latest edit, an undated record counting as the
+#: oldest; then the higher id. The import must keep the record the
+#: application would have chosen, so this is that rule and not a
+#: judgement of its own.
+CONSENT_LIVE_ORDER = ("`optout` DESC, `explicit` DESC, "
+                      "(`edit_date` IS NULL), `edit_date` DESC, `id` DESC")
+
+
+def consent_live_table() -> str:
+    """Name of the archive-schema helper holding, for every staged
+    Consent row, the `deleted` flag the copy stores for it."""
+    return CONSENT_TABLE + "__live"
+
+
+def consent_live_ranked(entry: dict) -> bool:
+    """Whether this manifest entry's copy reads `deleted` from the
+    helper. False for a manifest generated before the ruling existed
+    (no `deleted` in cols, no expression). etl_precheck_problems refuses
+    such an entry before the first write: copied without the rule, a
+    consent deleted in OSCAR 19 arrives live and one with no recorded
+    decision arrives as an opt-in."""
+    expr = entry.get("value_exprs", {}).get("deleted", "")
+    return ("deleted" in entry.get("cols", [])
+            and ident(consent_live_table()) in expr)
+
+
+#: Why the import stored something other than what the clinic's row
+#: held -- the words V1.0.57 writes to `Consent_migration_audit`, so one
+#: vocabulary describes a row whichever of the two changed it. A row
+#: that is both carries both, comma-separated in this order.
+CONSENT_NULL_FLAG = "null_flag"
+CONSENT_DUPLICATE = "duplicate_retired"
+
+
+def consent_source_col(src_cols: Dict[str, dict], name: str
+                       ) -> Optional[str]:
+    """`s.<column>` in the DUMP's own spelling (MySQL folds the case of
+    a column name), or None when this dump has no such column."""
+    real = [c for c in src_cols if c.lower() == name.lower()]
+    return "s.{0}".format(ident(real[0])) if real else None
+
+
+def consent_source_live(src_cols: Dict[str, dict],
+                        decided: bool = True) -> str:
+    """Predicate over the staging alias `s`: the row is live in the
+    clinic's data. A NULL `deleted` never matched the application's
+    live-row queries, so it is not live here either; a dump whose
+    Consent has no `deleted` column at all predates soft deletion and
+    every row in it is live. `decided` also requires a recorded
+    decision: a live row with a NULL optout reads as neither answer and
+    is retired rather than ranked."""
+    deleted = consent_source_col(src_cols, "deleted")
+    parts = ["{0} <=> 0".format(deleted)] if deleted else []
+    if decided:
+        parts.append("s.`optout` IS NOT NULL")
+    return "({0})".format(" AND ".join(parts) or "1 = 1")
+
+
+def consent_live_statements(entry: dict, src_schema: str,
+                            archive_schema: str,
+                            dst_cols: Dict[str, dict],
+                            src_cols: Dict[str, dict]) -> List[str]:
+    """Build `<archive>.Consent__live`: one row per staged Consent row,
+    `deleted` being what the copy stores.
+
+    CARLOS allows one live row per patient and consent type
+    (uq_consent_live_type). Among the clinic's live rows for one pair
+    the first by `CONSENT_LIVE_ORDER` stays live and the others are
+    retired -- marked, never dropped. Rows already deleted stay deleted
+    and are not ranked; rows missing the patient or the type are not
+    grouped, because the key does not constrain them either.
+
+    Ranked on the expressions the copy STORES, not on the raw columns:
+    two OSCAR 19 consent types can merge onto one CARLOS type, and the
+    key sees the mapped id. A zero edit date is stored as NULL, which
+    is how it comes to count as undated.
+
+    It is also the record of what the import changed. `prior_explicit`,
+    `prior_optout` and `prior_deleted` are the three flags as the
+    clinic's row held them (NULL where it held NULL, and where this
+    dump has no such column), and `reason` says why the stored row
+    differs: `null_flag`, `duplicate_retired`, both, or NULL when the
+    flags arrived as they were. What a person recorded can always be
+    told from what the import filled in.
+
+    A table rather than an expression in the copy, because P7 rebuilds
+    the copy's expressions inside a WHERE and a window function cannot
+    appear there."""
+    def stored(col: str, absent: str) -> str:
+        if col not in entry["cols"]:
+            return absent     # not in this dump: the target's default
+        return written_expr(entry, col, dst_cols, None, archive_schema)
+
+    flags = [consent_source_col(src_cols, c)
+             for c in ("explicit", "optout", "deleted")]
+    null_flag = " OR ".join("{0} IS NULL".format(f) for f in flags if f)
+    name = consent_live_table()
+
+    def build(scratch: str) -> List[str]:
+        return [
+            "CREATE TABLE `{0}`.`{1}` (`id` INT NOT NULL PRIMARY KEY, "
+            "`deleted` TINYINT(1) NOT NULL, `prior_explicit` TINYINT(1) "
+            "NULL, `prior_optout` TINYINT(1) NULL, `prior_deleted` "
+            "TINYINT(1) NULL, `reason` VARCHAR(32) NULL)".format(
+                archive_schema, scratch),
+            "INSERT INTO `{0}`.`{1}` (`id`, `deleted`, `prior_explicit`, "
+            "`prior_optout`, `prior_deleted`, `reason`) SELECT `id`, "
+            "CASE WHEN `live` = 0 OR `surplus` = 1 THEN 1 ELSE 0 END, "
+            "`prior_explicit`, `prior_optout`, `prior_deleted`, "
+            "CASE WHEN `null_flag` = 1 AND `surplus` = 1 THEN '{12},{13}' "
+            "WHEN `null_flag` = 1 THEN '{12}' WHEN `surplus` = 1 THEN "
+            "'{13}' END FROM (SELECT *, (`live` = 1 AND `demographic_no` "
+            "IS NOT NULL AND `consent_type_id` IS NOT NULL AND `rn` > 1) "
+            "AS `surplus` FROM (SELECT *, ROW_NUMBER() OVER (PARTITION "
+            "BY `live`, `demographic_no`, `consent_type_id` ORDER BY "
+            "{2}) AS `rn` FROM (SELECT {3} AS `id`, {4} AS `live`, {5} "
+            "AS `demographic_no`, {6} AS `consent_type_id`, {7} AS "
+            "`optout`, {8} AS `explicit`, {9} AS `edit_date`, {14} AS "
+            "`prior_explicit`, {15} AS `prior_optout`, {16} AS "
+            "`prior_deleted`, ({17}) AS `null_flag` FROM "
+            "`{10}`.`{11}` s) k) numbered) ranked".format(
+                archive_schema, scratch, CONSENT_LIVE_ORDER,
+                source_expr(entry, "id"),
+                consent_source_live(src_cols),
+                stored("demographic_no", "NULL"),
+                stored("consent_type_id", "NULL"),
+                stored("optout", "1"), stored("explicit", "0"),
+                stored("edit_date", "NULL"),
+                src_schema, CONSENT_TABLE,
+                CONSENT_NULL_FLAG, CONSENT_DUPLICATE,
+                flags[0] or "NULL", flags[1] or "NULL",
+                flags[2] or "NULL", null_flag or "0"),
+        ]
+    return rebuild_statements(archive_schema, name, build)
+
+
+def consent_live_coverage_sql(src_schema: str, archive_schema: str) -> str:
+    """Counts the staged Consent rows the helper has no row for, plus
+    the helper rows that answer to no staged row. Anything but 0 means
+    the helper does not describe the dump the copy is about to read
+    (`id` is the helper's primary key, so there is never more than
+    one)."""
+    return ("SELECT (SELECT COUNT(*) FROM `{0}`.`{1}` s WHERE NOT EXISTS "
+            "(SELECT 1 FROM `{2}`.`{3}` r WHERE r.`id` = s.`id`)) + "
+            "(SELECT COUNT(*) FROM `{2}`.`{3}` r WHERE NOT EXISTS "
+            "(SELECT 1 FROM `{0}`.`{1}` s WHERE s.`id` = r.`id`))".format(
+                src_schema, CONSENT_TABLE, archive_schema,
+                consent_live_table()))
+
+
+def consent_live_count_sql(src_schema: str, archive_schema: str,
+                           src_cols: Dict[str, dict]
+                           ) -> List[Tuple[str, str]]:
+    """(what, COUNT-sql) for everything the import stores differently
+    from the clinic's row, and for the rows that stay deleted. Counts
+    only -- a consent row names a patient. "changed" is every row the
+    helper records a reason for, whichever flag it was.
+
+    The three that read `deleted` are absent for a dump that has no
+    such column: there is nothing they could count."""
+    table = "`{0}`.`{1}` s".format(src_schema, CONSENT_TABLE)
+    out = [
+        ("duplicate",
+         "SELECT COUNT(*) FROM {0} JOIN `{1}`.`{2}` r ON "
+         "r.`id` = s.`id` WHERE r.`deleted` = 1 AND {3}".format(
+             table, archive_schema, consent_live_table(),
+             consent_source_live(src_cols))),
+        ("undecided",
+         "SELECT COUNT(*) FROM {0} WHERE s.`optout` IS NULL "
+         "AND {1}".format(
+             table, consent_source_live(src_cols, decided=False))),
+    ]
+    out.append(
+        ("changed",
+         "SELECT COUNT(*) FROM `{0}`.`{1}` WHERE `reason` IS NOT "
+         "NULL".format(archive_schema, consent_live_table())))
+    deleted = consent_source_col(src_cols, "deleted")
+    if deleted:
+        out += [
+            ("null_deleted",
+             "SELECT COUNT(*) FROM {0} WHERE {1} IS NULL".format(
+                 table, deleted)),
+            ("not_live_undecided",
+             "SELECT COUNT(*) FROM {0} WHERE s.`optout` IS NULL AND "
+             "NOT ({1} <=> 0)".format(table, deleted)),
+            ("legacy_deleted",
+             "SELECT COUNT(*) FROM {0} WHERE {1} <> 0".format(
+                 table, deleted)),
+        ]
+    return out
+
+
+def consent_live_duplicates_sql(dst_schema: str) -> str:
+    """Counts the (patient, consent type) pairs holding MORE than one
+    live row on the target. The unique key would refuse them, but the
+    copy runs under UNIQUE_CHECKS=0 and the server may then skip the
+    check, so the import asks instead of assuming."""
+    return ("SELECT COUNT(*) FROM (SELECT 1 FROM `{0}`.`{1}` WHERE "
+            "`deleted` = 0 AND `demographic_no` IS NOT NULL AND "
+            "`consent_type_id` IS NOT NULL GROUP BY `demographic_no`, "
+            "`consent_type_id` HAVING COUNT(*) > 1) pairs"
+            .format(dst_schema, CONSENT_TABLE))
+
+
 def window_delete_statement(table: str, entry: dict, dst_schema: str,
                             window: Tuple[int, int]) -> str:
     """Clear one PK window on the target before re-copying it: a resumed
@@ -1299,7 +1564,7 @@ REBUILD_OLD = "__old"
 #: table names, and `oversized_preserved_names` bounds the ones a dump
 #: brings.
 SHADOW_SUFFIXES = ("", "__dropped", "__unknown_cols", "__idmap",
-                   "__preseed")
+                   "__preseed", "__live")
 
 
 def rebuild_statements(archive_schema: str, final: str,
@@ -2055,6 +2320,8 @@ def overlength_precheck_sql(table: str, entry: dict, src_schema: str,
         s = src_col(src_cols, entry.get("renames", {}).get(c, c))
         if not d or not s:
             continue
+        if c in archive_slot_columns(entry):
+            continue          # no helper yet: this runs before the loop
         expr = source_expr(entry, c, repaired, archive_schema)
         if d["type"] in BYTE_CAPACITY_TYPES:
             cap = d.get("octet_len") or d["char_len"]
@@ -2467,6 +2734,20 @@ def etl_precheck_problems(ctx, plain, query, src_schema: str,
     src, arch = src_schema, arch_schema
     problems = []
     problems.extend(unknown_manifest_classes(o19map_schema.TABLES))
+    # only a ranked COPY applies the rule: a merge never builds the
+    # helper, so a Consent entry of any other shape is refused too
+    consent = effective.get(CONSENT_TABLE)
+    if consent and not (consent["class"] == "copy"
+                        and consent_live_ranked(consent)):
+        problems.append(
+            "{0}: the manifest's entry does not carry the one-live-record "
+            "rule (a copy reading `deleted` from {1}.{2}). Imported "
+            "without it, a consent deleted in OSCAR 19 would arrive live "
+            "and one with no recorded decision as an opt-in. The manifest "
+            "this package ships carries the rule, so this one was "
+            "replaced or regenerated from an older overlay: put back the "
+            "shipped manifest".format(
+                CONSENT_TABLE, arch, consent_live_table()))
     if admin_user == o19map_schema.SEED_USER_NAME:
         problems.append("--admin-user must not be the seeded login '{0}'"
                         .format(admin_user))
@@ -2725,6 +3006,7 @@ class EtlRun(object):
         self.archived_col_lines = kept.setdefault("archived_cols", [])
         self.twin_exempt_lines = kept.setdefault("twin_exempt", [])
         self.shadow_notes = kept.setdefault("shadow", [])
+        self.consent_lines = kept.setdefault("consent", [])
 
 
 def etl_absent_table(run: 'EtlRun', table: str, cls: str) -> None:
@@ -3057,6 +3339,90 @@ def etl_copy_table(run: 'EtlRun', table: str, entry: dict, tstate: dict,
     counts["copy"] += 1
 
 
+def etl_consent_live(run: 'EtlRun', entry: dict, tstate: dict,
+                     dcols: Dict[str, dict]) -> None:
+    """Decide which Consent rows arrive live, before the copy reads the
+    answer (consent_live_statements).
+
+    Rebuilt whenever the copy has not been confirmed: a resumed run may
+    be reading a restaged dump or a rebuilt id map, and the helper is
+    derived from both. Once the copy is done it is left alone -- P7
+    verifies the stored values against the helper THAT RAN."""
+    from .util import die
+    if tstate.get("done"):
+        return
+    query, src, arch = run.query, run.src, run.arch
+    src_cols = run.src_info[CONSENT_TABLE]
+    for sql in consent_live_statements(entry, src, arch, dcols, src_cols):
+        query(sql)
+    adrift = int(query(consent_live_coverage_sql(src, arch))[0][0])
+    if adrift:
+        # the copy would store such a row retired (its lookup falls to
+        # 1), which is safe and still not what the clinic held
+        die("{0}: the helper table {1}.{2} does not hold exactly one "
+            "row for every staged row ({3} row(s) differ). Nothing was "
+            "copied for this table. The staged dump must not change "
+            "during an import: restore the pre-import snapshot and "
+            "start over.".format(CONSENT_TABLE, arch,
+                                 consent_live_table(), adrift))
+    counted = dict(
+        (what, int(query(sql)[0][0]))
+        for what, sql in consent_live_count_sql(src, arch, src_cols))
+    lines = [
+        ("duplicate",
+         "{0}: {1} live row(s) retired (deleted = 1) because the "
+         "patient holds another live record of the same consent "
+         "type; the record kept is the one CARLOS reads as deciding"),
+        ("undecided",
+         "{0}: {1} live row(s) with no recorded decision (optout "
+         "NULL) retired (deleted = 1) and stored as opt-outs"),
+        ("null_deleted",
+         "{0}: {1} row(s) with no deleted flag (deleted NULL) stored "
+         "as deleted, as CARLOS's own migration stores them: CARLOS "
+         "reads only deleted = 0 as live"),
+        ("not_live_undecided",
+         "{0}: {1} row(s) that were not live and had no recorded "
+         "decision (optout NULL) have optout stored as 1; they are "
+         "stored as deleted"),
+        ("legacy_deleted",
+         "{0}: {1} row(s) deleted in OSCAR 19 stay deleted. This is a "
+         "change: earlier versions of this import brought them in "
+         "live"),
+    ]
+    # replaced, not appended: a resumed run counts again
+    del run.consent_lines[:]
+    for what, line in lines:
+        if counted.get(what):
+            run.consent_lines.append(
+                line.format(CONSENT_TABLE, counted[what]))
+    # "changed" (every row the helper gave a reason) has no line of its
+    # own: it is what the pointer promises, and it also covers a NULL
+    # `explicit` filled as implied, which no line above counts. A row
+    # that only stays deleted has no reason and is not a change.
+    if counted.get("changed"):
+        run.consent_lines.append(
+            "{0}: what each changed row held before, and why it was "
+            "changed, is kept in {1}.{2} (prior_explicit, prior_optout, "
+            "prior_deleted, reason)".format(
+                CONSENT_TABLE, arch, consent_live_table()))
+    save_progress(run.state_dir, run.progress)
+
+
+def etl_consent_check(run: 'EtlRun') -> None:
+    """Refuse to go on if the target holds two live Consent rows for
+    one patient and consent type (consent_live_duplicates_sql)."""
+    from .util import die
+    n = int(run.query(consent_live_duplicates_sql(run.dst))[0][0])
+    if n:
+        die("{0}: {1} patient/consent-type pair(s) hold more than one "
+            "live row after the copy. CARLOS allows one "
+            "(uq_consent_live_type), and reads an arbitrary one where "
+            "there are more. Nothing was repaired: this is a defect in "
+            "the import, not in the clinic's data -- restore the "
+            "pre-import snapshot and report it."
+            .format(CONSENT_TABLE, n))
+
+
 def etl_post_copy(run: 'EtlRun', table: str, entry: dict, base_entry: dict,
                   tstate: dict, dcols: Dict[str, dict]) -> None:
     """What every copied or merged table owes the operator afterwards:
@@ -3327,6 +3693,12 @@ def report_etl_findings(run: 'EtlRun') -> None:
     if fk_lines:
         report("dangling foreign keys in the source:\n  "
                + "\n  ".join(fk_lines))
+    if run.consent_lines:
+        report("consent records: each patient holds one live record "
+               "per consent type (no row is dropped; a retired row "
+               "keeps its values except `deleted`, and a flag the dump "
+               "left NULL is filled):\n  "
+               + "\n  ".join(run.consent_lines))
     token_tables = [t for t in getattr(o19map_schema, "CREDENTIAL_TABLES",
                                        ()) if t in src_info]
     if token_tables:
@@ -3543,7 +3915,12 @@ def run_etl(ctx, make_password_hash: Callable[[], Tuple[str, str, str]]):
         if cls == "merge":
             etl_merge_table(run, table, entry, tstate, dcols, repaired)
         else:
+            ranked = table == CONSENT_TABLE and consent_live_ranked(entry)
+            if ranked:
+                etl_consent_live(run, entry, tstate, dcols)
             etl_copy_table(run, table, entry, tstate, dcols, repaired)
+            if ranked:
+                etl_consent_check(run)
         etl_post_copy(run, table, entry, base_entry, tstate, dcols)
     # persisted for the validation report, which is written by a later
     # phase and cannot re-derive them: the ledger's marks make the second
