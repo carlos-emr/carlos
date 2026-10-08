@@ -168,7 +168,7 @@ MDS.index.btnSearch"/>"
 
                             <td align="right" valign="top">
                                                      <c:set var="__enc_2"><carlos:encode value='<%= StringUtils.noNull(providerNo) %>' context="uriComponent"/></c:set>
-           <a href="javascript:parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>');"
+           <a href="#" onclick="parent.reportWindow('${pageContext.servletContext.contextPath}/oscarMDS/ForwardingRules?providerNo=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>'); return false;"
                                    style="color: #FFFFFF;">Forwarding Rules</a>
                                 <a href="javascript:popupStart(800,1000,'${pageContext.servletContext.contextPath}/lab/CA/ALL/ViewInsideLabUpload')"
                                    style="color: #FFFFFF; "><fmt:message key="admin.admin.hl7LabUpload"/></a>

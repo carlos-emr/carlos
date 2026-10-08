@@ -242,7 +242,7 @@ t type="button" value="Link To Lab Req" onClick="popupStart(360, 680, 'linkToLab
                                                                     <a href="javascript:window.close()"> <% } else { // we were called from lab module %>
                                                                         <a
                                                                                                                                                                 <c:set var="__enc_3"><carlos:encode value='<%= StringUtils.noNull(request.getParameter("segmentID")) %>' context="uriComponent"/></c:set>
-href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=BCP&segmentID=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow')">
+href="#" onclick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=BCP&segmentID=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(lab.pName, StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'searchPatientWindow'); return false;">
                                                                             <% } %> <carlos:encode value='<%= lab.pName %>' context="html"/>
                                                                         </a></div>
                                                             </td>

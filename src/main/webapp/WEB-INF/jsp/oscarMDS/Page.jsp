@@ -337,7 +337,7 @@
                             <%
                             } else {
                             %>
-                            <a href="javascript:parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true')"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
+                            <a href="#" onclick="parent.reportWindow('<%=request.getContextPath()%>/lab/CA/ALL/ViewLabDisplay?inWindow=true&segmentID=<carlos:encode value='<%= segmentID %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= providerNo %>' context="uriComponent"/>&searchProviderNo=<carlos:encode value='<%= searchProviderNo %>' context="uriComponent"/>&status=<carlos:encode value='<%= status %>' context="uriComponent"/>&showLatest=true'); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <%
                                 }

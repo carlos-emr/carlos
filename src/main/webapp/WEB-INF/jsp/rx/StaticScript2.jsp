@@ -308,7 +308,7 @@
                                             <%
 							if (drug.customName==null)
 									{
-						%> <a href="javascript:ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>');">Info</a> <%
+						%> <a href="#" onclick="ShowDrugInfo('<carlos:encode value='<%= drug.genericName %>' context="javaScriptAttribute"/>'); return false;">Info</a> <%
 							}
 						%>
                         </td>
