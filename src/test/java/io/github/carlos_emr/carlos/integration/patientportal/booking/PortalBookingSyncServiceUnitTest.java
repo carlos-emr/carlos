@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 
 /** The polling job answers every pick once, undoes bookings the portal will never show, and retries safely (#3850). */
 @Tag("unit")
@@ -68,9 +67,8 @@ class PortalBookingSyncServiceUnitTest {
     private final ProviderDao providers = mock(ProviderDao.class);
     private final SecurityDao logins = mock(SecurityDao.class);
     private final PatientPortalService portal = mock(PatientPortalService.class);
-    @SuppressWarnings("unchecked")
     private final PortalBookingSyncService sync = new PortalBookingSyncService(bookings, offers, providers, logins,
-            mock(ObjectProvider.class));
+            () -> portal);
 
     private void outcome(PortalBookingChoiceService.Outcome outcome, PortalBookingOffer offer) {
         when(bookings.book(CHOICE, "-9", SETTINGS)).thenReturn(new PortalBookingChoiceService.Result(outcome, offer));
@@ -81,6 +79,33 @@ class PortalBookingSyncServiceUnitTest {
         outcome(PortalBookingChoiceService.Outcome.BOOKED, new PortalBookingOffer());
         assertThat(sync.answer(portal, CHOICE, SYNC, SETTINGS)).isTrue();
         verify(portal).recordBookingChoiceResult(7, 11, true, List.of(), SYNC);
+        verify(bookings).confirm(CHOICE);
+    }
+
+    @Test
+    void shouldAnswerLaterPicks_whenOnePickKeepsFailing() {
+        var stuck = new PatientPortalBookingChoiceDto(7, 10, 123, "slot-x", Instant.parse("2026-10-08T14:00:00Z"));
+        Provider provider = new Provider();
+        provider.setFirstName("Booking");
+        provider.setLastName("Portal");
+        when(providers.getProvider("-9")).thenReturn(provider);
+        when(logins.findByProviderNo("-9")).thenReturn(List.of());
+        when(portal.listPendingBookingChoices(eq(100), any()))
+                .thenReturn(new PatientPortalBookingChoiceDto.Page(List.of(stuck, CHOICE), false));
+        when(bookings.book(eq(stuck), any(), any())).thenThrow(new IllegalStateException("database refused"));
+        when(bookings.book(eq(CHOICE), any(), any())).thenReturn(
+                new PortalBookingChoiceService.Result(PortalBookingChoiceService.Outcome.BOOKED, new PortalBookingOffer()));
+        try (var configured = org.mockito.Mockito.mockStatic(
+                io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings.class)) {
+            configured.when(io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings::isConfigured)
+                    .thenReturn(true);
+            assertThat(sync.runOnce(SETTINGS)).isEqualTo(1);
+            // A portal outage stops the run instead: the picks wait there for the next one.
+            when(portal.listPendingBookingChoices(eq(100), any())).thenThrow(
+                    PatientPortalException.ofTransportFailure("/x", new IOException("down")));
+            assertThatThrownBy(() -> sync.runOnce(SETTINGS)).isInstanceOf(PatientPortalException.class);
+        }
+        verify(portal).recordBookingChoiceResult(eq(7L), eq(11L), eq(true), any(), any());
     }
 
     @Test

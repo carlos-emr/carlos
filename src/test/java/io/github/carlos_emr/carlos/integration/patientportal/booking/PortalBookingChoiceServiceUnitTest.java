@@ -125,7 +125,32 @@ class PortalBookingChoiceServiceUnitTest {
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.BOOKED);
         assertThat(offer.getChoiceId()).isEqualTo(11L);
         assertThat(offer.getAppointmentNo()).isEqualTo(55);
+        // The other times stay open until the portal confirms the booking.
+        verify(offers, never()).closeOthers(org.mockito.ArgumentMatchers.anyLong(), any(), any());
+    }
+
+    @Test
+    void shouldCloseTheOtherTimes_onlyOnceThePortalConfirms() {
+        offer.setStatus(PortalBookingOffer.BOOKED);
+        offer.setChoiceId(11L);
+        service.confirm(CHOICE);
+        assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CONFIRMED);
         verify(offers).closeOthers(eq(7L), eq("slot-a"), any());
+        // A confirmed booking is reported again as booked, and is never undone.
+        assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
+                .isEqualTo(PortalBookingChoiceService.Outcome.ALREADY_BOOKED);
+        assertThat(service.undo("slot-a", 11, "-9")).isFalse();
+    }
+
+    @Test
+    void shouldShortenTheName_toTheScheduleColumn() {
+        io.github.carlos_emr.carlos.commn.model.Demographic patient = mock(io.github.carlos_emr.carlos.commn.model.Demographic.class);
+        when(patient.getFormattedName()).thenReturn("FAKE-" + "Ä".repeat(60));
+        when(demographics.getDemographicById(123)).thenReturn(patient);
+        service.book(CHOICE, "-9", SETTINGS);
+        ArgumentCaptor<Appointment> saved = ArgumentCaptor.forClass(Appointment.class);
+        verify(appointments).persist(saved.capture());
+        assertThat(saved.getValue().getName().codePointCount(0, saved.getValue().getName().length())).isEqualTo(50);
     }
 
     @Test

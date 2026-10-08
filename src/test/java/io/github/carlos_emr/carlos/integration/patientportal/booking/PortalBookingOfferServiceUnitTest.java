@@ -58,7 +58,41 @@ class PortalBookingOfferServiceUnitTest {
 
     private final PortalBookingOfferDao offers = mock(PortalBookingOfferDao.class);
     private final PortalOfferedSlotLoader loader = mock(PortalOfferedSlotLoader.class);
-    private final PortalBookingOfferService service = new PortalBookingOfferService(offers, loader, CLOCK);
+    private final io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao providers =
+            mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+    private final PortalBookingOfferService service = new PortalBookingOfferService(offers, loader, providers, CLOCK);
+
+    @org.junit.jupiter.api.BeforeEach
+    void activeProvider() {
+        io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setStatus("1");
+        when(providers.getProvider("101")).thenReturn(provider);
+    }
+
+    @Test
+    void shouldRefuse_whenTheProviderIsUnknownOrInactive() {
+        when(offers.findByOperation("operation-1")).thenReturn(List.of());
+        assertThatThrownBy(() -> service.offer("operation-1", 123, "999", FROM, FROM, 4, "999998", SETTINGS))
+                .isInstanceOf(IllegalArgumentException.class);
+        io.github.carlos_emr.carlos.commn.model.Provider gone = new io.github.carlos_emr.carlos.commn.model.Provider();
+        gone.setStatus("0");
+        when(providers.getProvider("102")).thenReturn(gone);
+        assertThatThrownBy(() -> service.offer("operation-1", 123, "102", FROM, FROM, 4, "999998", SETTINGS))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(loader, never()).load(any(), any(), any(), anyInt(), anySet(), any(), any());
+    }
+
+    @Test
+    void shouldKeepReplacementsInsideAYear_forARefusedTimeFarAhead() {
+        PortalBookingOffer refused = stored("slot-a", 123, 19, 9);
+        refused.setStartTime(Date.from(ZonedDateTime.of(2027, 10, 1, 9, 0, 0, 0, ZONE).toInstant()));
+        when(offers.findReplacements(7, 11)).thenReturn(List.of());
+        when(offers.findOpenForPrompt(eq(7L), any())).thenReturn(List.of());
+        service.replacementsFor(refused, 11, SETTINGS);
+        ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
+        verify(loader).load(eq("101"), any(), to.capture(), eq(3), anySet(), eq(SETTINGS), any());
+        assertThat(to.getValue()).isEqualTo(LocalDate.of(2026, 10, 8).plusDays(PortalBookingOfferService.MAX_DAYS_AHEAD));
+    }
 
     private static PortalOfferedSlotLoader.OpenTime time(int day, int hour) {
         return new PortalOfferedSlotLoader.OpenTime("101", ZonedDateTime.of(2026, 10, day, hour, 0, 0, 0, ZONE), 15, 'B');

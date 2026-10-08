@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -38,6 +39,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Deque;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,7 +113,11 @@ public class PortalOfferedSlotLoader {
         return List.copyOf(picked);
     }
 
-    /** True when the time is still bookable under the same rule it was offered under. */
+    /**
+     * True when the time is still bookable: on a bookable code for its whole length, free, and not
+     * started. The lead time applies only when offering; a patient may still pick an offered time
+     * inside it.
+     */
     public boolean isOpen(String providerNo, ZonedDateTime start, int durationMinutes,
             PortalBookingSettings settings, ZonedDateTime now) {
         if (!start.isAfter(now)) {
@@ -132,6 +138,7 @@ public class PortalOfferedSlotLoader {
             return List.of();
         }
         int slotMinutes = schedule.getTimeSlotDurationMin();
+        Map<Character, Integer> durations = new HashMap<>();
         List<Appointment> booked = appointmentDao.findByProviderAndDayandNotStatus(
                 providerNo, Date.from(day.atStartOfDay(zone).toInstant()), CANCELLED);
         List<OpenTime> open = new ArrayList<>();
@@ -141,7 +148,7 @@ public class PortalOfferedSlotLoader {
                 continue;
             }
             ZonedDateTime start = slot.getKey().toInstant().atZone(zone);
-            int duration = durationOf(code, slotMinutes);
+            int duration = durations.computeIfAbsent(code, unknown -> durationOf(unknown, slotMinutes));
             if (coveredByCodes(schedule, start, duration, slotMinutes, codes, zone)
                     && booked.stream().noneMatch(appointment -> overlaps(appointment, start, duration, zone))) {
                 open.add(new OpenTime(providerNo, start, duration, code));
@@ -187,9 +194,15 @@ public class PortalOfferedSlotLoader {
         return bookedStart.isBefore(end) && start.isBefore(bookedEnd);
     }
 
-    /** An appointment's TIME column, read as a clock time in the server's zone like the schedule. */
-    private static LocalTime timeOf(Date time, ZoneId zone) {
-        return time.toInstant().atZone(zone).toLocalTime().withSecond(0).withNano(0);
+    /**
+     * An appointment's TIME column as a clock time. Hibernate loads it as {@link java.sql.Time},
+     * whose {@code toInstant()} always throws; any other {@link Date} is read in the server's zone,
+     * like the schedule.
+     */
+    static LocalTime timeOf(Date time, ZoneId zone) {
+        LocalTime clock = time instanceof java.sql.Time sqlTime ? sqlTime.toLocalTime()
+                : Instant.ofEpochMilli(time.getTime()).atZone(zone).toLocalTime();
+        return clock.withSecond(0).withNano(0);
     }
 
     /** Morning and afternoon times taken in turn, so a day's offers are not all in one half. */

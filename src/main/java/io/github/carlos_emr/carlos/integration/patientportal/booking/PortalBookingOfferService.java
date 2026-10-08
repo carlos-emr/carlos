@@ -21,7 +21,9 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.booking;
 
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.PortalBookingOffer;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalOfferedSlot;
 import java.security.SecureRandom;
 import java.time.Clock;
@@ -34,6 +36,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,19 +52,27 @@ public class PortalBookingOfferService {
     static final int MAX_REPLACEMENTS = 3;
     /** How far past the refused time replacements may be. */
     static final int REPLACEMENT_WINDOW_DAYS = 14;
+    /** The portal refuses a time more than 366 days ahead; stay a day inside it. */
+    public static final int MAX_DAYS_AHEAD = 365;
+    /** {@code provider.status} of a provider who is still working. */
+    private static final String ACTIVE = "1";
 
     private final PortalBookingOfferDao offers;
     private final PortalOfferedSlotLoader loader;
+    private final ProviderDao providers;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
-    public PortalBookingOfferService(PortalBookingOfferDao offers, PortalOfferedSlotLoader loader) {
-        this(offers, loader, Clock.systemDefaultZone());
+    @Autowired
+    public PortalBookingOfferService(PortalBookingOfferDao offers, PortalOfferedSlotLoader loader, ProviderDao providers) {
+        this(offers, loader, providers, Clock.systemDefaultZone());
     }
 
-    PortalBookingOfferService(PortalBookingOfferDao offers, PortalOfferedSlotLoader loader, Clock clock) {
+    PortalBookingOfferService(PortalBookingOfferDao offers, PortalOfferedSlotLoader loader, ProviderDao providers,
+            Clock clock) {
         this.offers = offers;
         this.loader = loader;
+        this.providers = providers;
         this.clock = clock;
     }
 
@@ -69,7 +80,8 @@ public class PortalBookingOfferService {
      * Times to send with a new prompt. A retried operation gets exactly the times it was first
      * given, because the portal refuses a retry whose times differ; otherwise fresh open times.
      *
-     * @throws IllegalArgumentException when the operation was already used for another patient
+     * @throws IllegalArgumentException when the operation was already used for another patient, or
+     *     the provider is unknown or no longer active
      */
     @Transactional
     public List<PatientPortalOfferedSlot> offer(String operationId, int demographicNo, String providerNo,
@@ -80,6 +92,10 @@ public class PortalBookingOfferService {
                 throw new IllegalArgumentException("booking operation belongs to another patient");
             }
             return existing.stream().map(offer -> toSlot(offer, settings)).toList();
+        }
+        Provider provider = providers.getProvider(providerNo);
+        if (provider == null || !ACTIVE.equals(provider.getStatus())) {
+            throw new IllegalArgumentException("offered times provider is not an active provider");
         }
         ZonedDateTime now = ZonedDateTime.now(clock);
         int wanted = Math.min(count, PatientPortalOfferedSlot.MAX_PER_PROMPT);
@@ -128,6 +144,10 @@ public class PortalBookingOfferService {
         exclude.add(refusedStart);
         LocalDate from = now.toLocalDate();
         LocalDate to = refusedStart.toLocalDate().plusDays(REPLACEMENT_WINDOW_DAYS);
+        LocalDate last = from.plusDays(MAX_DAYS_AHEAD);
+        if (to.isAfter(last)) {
+            to = last;
+        }
         List<PatientPortalOfferedSlot> slots = new ArrayList<>();
         for (var time : loader.load(refused.getProviderNo(), from, to, room, exclude, settings, now)) {
             slots.add(toSlot(record(time, refused.getOperationId(), refused.getPromptId(),

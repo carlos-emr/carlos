@@ -22,9 +22,11 @@ A time is offered when:
 Times are spread across days and across mornings and afternoons. Staff choose the provider whose
 schedule to offer from and a window (`offerAfterDays`, `offerWithinDays`, default the next 14 days)
 and how many times (`offerCount`, 1 to 8, default 4) when they create the prompt
-(`PortalBookingPrompt2Action`, `method=create`, `offerFrom=<provider number>`). This needs the
-booking prompt and portal account permissions plus schedule read (`_appointment`). With no open time
-in the window the prompt is not sent and staff are told to choose another window.
+(`PortalBookingPrompt2Action`, `method=create`, `offerFrom=<provider number>`, an active provider).
+This needs the booking prompt and portal account permissions plus schedule write (`_appointment`),
+because the patient's pick becomes a booking. Times stay within 365 days (the portal refuses more than
+366). With no open time in the window the prompt is not sent and staff are told to choose another
+window. A visit longer than one template slot can be offered at each slot it may start at.
 
 ## Settings (CARLOS properties)
 
@@ -53,18 +55,31 @@ says which provider and time a `slot_id` stands for, and what became of it.
 
 The job lists pending picks, then for each:
 
-- **Still open:** in one transaction, lock the provider's row first, check the time again, insert the
-  appointment (booking source `PORTAL`, status `t`, reason "Booked by patient via portal", creator
-  "patient portal"), mark the offer booked and close the prompt's other offers; then report `booked`.
+- **Still open:** in one transaction, lock the provider's row first, check the time again (the lead
+  time applies only when offering), insert the appointment (booking source `PORTAL`, status `t`,
+  reason "Booked by patient via portal", creator "patient portal") and mark the offer `booked`; then
+  report `booked`. Once the portal records it the offer is `confirmed` and the prompt's other times
+  are closed (the portal drops them too); until then they stay open, in case the portal refuses it.
 - **Gone:** report `slot_unavailable` with up to 3 fresh times near the refused one (never more than 8
   on offer in all).
 - **Not a time CARLOS offered this patient:** report `slot_unavailable` and book nothing.
 
 Every step is safe to repeat. If the job stops between booking and reporting, the pick is listed again
-and the same booking is reported again, never made twice. If the portal answers `409` "booking choice
-expired" or "booking choice was withdrawn", the portal will never show the pick as booked, so CARLOS
-cancels the appointment it made. Bookings are never made first and cancelled on a clash
-(`removeIfDoubleBooked` is not used).
+and the same booking is reported again, never made twice. A pick that keeps failing for another reason
+is left for a later run without holding up the others; a portal outage stops the run. If the portal
+answers `409` "booking choice expired" or "booking choice was withdrawn", the portal will never show the
+pick as booked, so CARLOS cancels the appointment it made. Bookings are never made first and cancelled
+on a clash (`removeIfDoubleBooked` is not used).
+
+Known limits:
+
+- If that cancellation fails, the portal will not list the pick again: CARLOS writes
+  `PortalBooking.undoFailed` with the appointment number to the audit log for staff.
+- If reporting keeps failing until the time starts, the portal closes the pick unanswered and the
+  appointment stays `booked` (not `confirmed`) in `portal_booking_offer`. Finding these needs the
+  portal's prompt states, which the sync permission cannot read yet (#4480).
+- On a daylight-saving change day the schedule's slot times follow `ScheduleManager`, which counts
+  minutes from midnight.
 
 Cancelling or moving a portal-booked appointment stays a phone call (#4471). Ticklers for prompts the
 patient declined or let expire are a follow-up (#4480): they need a new portal sync endpoint.

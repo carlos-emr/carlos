@@ -84,11 +84,19 @@ class PortalOfferedSlotLoaderUnitTest {
                 .thenReturn(schedule);
     }
 
+    /** As Hibernate loads them: TIME columns arrive as java.sql.Time, whose toInstant() throws. */
     private static Appointment booked(LocalDate day, String start, String end) {
         Appointment appointment = new Appointment();
-        appointment.setStartTime(Date.from(day.atTime(LocalTime.parse(start)).atZone(ZONE).toInstant()));
-        appointment.setEndTime(Date.from(day.atTime(LocalTime.parse(end)).atZone(ZONE).toInstant()));
+        appointment.setStartTime(java.sql.Time.valueOf(LocalTime.parse(start)));
+        appointment.setEndTime(java.sql.Time.valueOf(LocalTime.parse(end)));
         return appointment;
+    }
+
+    @Test
+    void shouldReadTimeColumns_asLoadedByHibernate() {
+        assertThat(PortalOfferedSlotLoader.timeOf(java.sql.Time.valueOf("09:15:00"), ZONE)).isEqualTo(LocalTime.of(9, 15));
+        assertThat(PortalOfferedSlotLoader.timeOf(Date.from(MONDAY.atTime(14, 30).atZone(ZONE).toInstant()), ZONE))
+                .isEqualTo(LocalTime.of(14, 30));
     }
 
     private List<String> starts(List<PortalOfferedSlotLoader.OpenTime> times) {

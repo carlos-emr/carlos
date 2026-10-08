@@ -41,7 +41,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.ObjectProvider;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -65,12 +67,21 @@ public class PortalBookingSyncService {
     private final PortalBookingOfferService offers;
     private final ProviderDao providers;
     private final SecurityDao logins;
-    private final ObjectProvider<PatientPortalService> portal;
+    private final Supplier<PatientPortalService> portal;
     private ScheduledExecutorService executor;
 
+    /**
+     * The portal client is looked up only when a run needs it, the way the staff actions do: its
+     * bean is not an injection candidate, and it fails on purpose while the portal is misconfigured.
+     */
+    @Autowired
     public PortalBookingSyncService(PortalBookingChoiceService bookings, PortalBookingOfferService offers,
-            ProviderDao providers, SecurityDao logins,
-            ObjectProvider<PatientPortalService> portal) {
+            ProviderDao providers, SecurityDao logins) {
+        this(bookings, offers, providers, logins, () -> SpringUtils.getBean(PatientPortalService.class));
+    }
+
+    PortalBookingSyncService(PortalBookingChoiceService bookings, PortalBookingOfferService offers,
+            ProviderDao providers, SecurityDao logins, Supplier<PatientPortalService> portal) {
         this.bookings = bookings;
         this.offers = offers;
         this.providers = providers;
@@ -117,13 +128,24 @@ public class PortalBookingSyncService {
             return 0;
         }
         PatientPortalStaffContext staff = syncIdentity(settings.syncProviderNo());
-        PatientPortalService client = portal.getObject();
+        PatientPortalService client = portal.get();
         int answered = 0;
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
             var choices = client.listPendingBookingChoices(PatientPortalService.MAX_BOOKING_CHOICES_PER_POLL, staff);
             for (PatientPortalBookingChoiceDto choice : choices.items()) {
-                if (answer(client, choice, staff, settings)) {
-                    answered++;
+                try {
+                    if (answer(client, choice, staff, settings)) {
+                        answered++;
+                    }
+                } catch (PatientPortalException failure) {
+                    if (failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE) {
+                        throw failure;
+                    }
+                    // One pick the portal keeps refusing must not hold up every later patient.
+                    LOGGER.warn("Portal booking pick left for a later run; kind={}", failure.kind());
+                } catch (RuntimeException failure) {
+                    LOGGER.warn("Portal booking pick left for a later run; exceptionClass={}",
+                            failure.getClass().getSimpleName());
                 }
             }
             if (!choices.hasMore()) {
@@ -149,6 +171,9 @@ public class PortalBookingSyncService {
         }
         try {
             client.recordBookingChoiceResult(choice.promptId(), choice.choiceId(), booked, replacements, staff);
+            if (booked) {
+                bookings.confirm(choice);
+            }
             return true;
         } catch (PatientPortalException failure) {
             String detail = failure.detail();
@@ -156,7 +181,7 @@ public class PortalBookingSyncService {
                     || PatientPortalService.CHOICE_EXPIRED_DETAIL.equals(detail)) {
                 if (booked) {
                     // The portal will never show this pick as booked: take the appointment back off the schedule.
-                    bookings.undo(choice.slotId(), choice.choiceId(), staff.providerId());
+                    undoOrFlag(result.offer(), choice, staff.providerId());
                 }
                 return true;
             }
@@ -166,6 +191,21 @@ public class PortalBookingSyncService {
                 return true;
             }
             throw failure;
+        }
+    }
+
+    /**
+     * The portal will not list this pick again, so a failed undo cannot be retried here: record the
+     * appointment in the audit log for staff, rather than leave a booking the patient was told failed.
+     */
+    private void undoOrFlag(io.github.carlos_emr.carlos.commn.model.PortalBookingOffer offer,
+            PatientPortalBookingChoiceDto choice, String systemProviderNo) {
+        try {
+            bookings.undo(choice.slotId(), choice.choiceId(), systemProviderNo);
+        } catch (RuntimeException failure) {
+            LOGGER.error("Portal booking could not be undone; see the audit log entry PortalBooking.undoFailed");
+            io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.undoFailed",
+                    "appointment", offer == null ? "" : String.valueOf(offer.getAppointmentNo()), null);
         }
     }
 

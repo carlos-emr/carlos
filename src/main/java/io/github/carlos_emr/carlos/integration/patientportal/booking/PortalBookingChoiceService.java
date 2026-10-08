@@ -32,6 +32,7 @@ import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -51,6 +52,8 @@ public class PortalBookingChoiceService {
     static final String CREATOR = "patient portal";
     private static final String NEW_APPOINTMENT_STATUS = "t";
     private static final String CANCELLED = "C";
+    /** {@code appointment.name} is VARCHAR(50); a longer name would fail the insert in strict mode. */
+    private static final int MAX_APPOINTMENT_NAME = 50;
 
     /** What became of a pick. */
     public enum Outcome {
@@ -73,6 +76,7 @@ public class PortalBookingChoiceService {
     private final TransactionTemplate transactions;
     private final Clock clock;
 
+    @Autowired
     public PortalBookingChoiceService(PortalBookingOfferDao offers, PortalOfferedSlotLoader loader,
             OscarAppointmentDao appointments, DemographicDao demographics,
             PlatformTransactionManager transactionManager) {
@@ -108,7 +112,7 @@ public class PortalBookingChoiceService {
             if (offer == null || !providerNo.equals(offer.getProviderNo())) {
                 return new Result(Outcome.UNKNOWN, offer);
             }
-            if (PortalBookingOffer.BOOKED.equals(offer.getStatus())) {
+            if (booked(offer)) {
                 return new Result(Objects.equals(offer.getChoiceId(), choice.choiceId())
                         ? Outcome.ALREADY_BOOKED : Outcome.UNAVAILABLE, offer);
             }
@@ -130,11 +134,33 @@ public class PortalBookingChoiceService {
             offer.setPromptId(choice.promptId());
             offer.setAppointmentNo(appointment.getId());
             offer.setUpdatedAt(Date.from(now.toInstant()));
-            offers.closeOthers(choice.promptId(), offer.getSlotId(), Date.from(now.toInstant()));
+            // The prompt's other times stay open until the portal confirms: if it refuses this
+            // booking, the patient can still pick one of them.
             LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.book", "appointment",
                     String.valueOf(appointment.getId()), null);
             return new Result(Outcome.BOOKED, offer);
         });
+    }
+
+    /**
+     * The portal recorded the booking: close the prompt's other times, which it has dropped too.
+     */
+    public void confirm(PatientPortalBookingChoiceDto choice) {
+        transactions.executeWithoutResult(status -> {
+            PortalBookingOffer offer = offers.findForUpdate(choice.slotId());
+            if (offer != null && PortalBookingOffer.BOOKED.equals(offer.getStatus())
+                    && Objects.equals(offer.getChoiceId(), choice.choiceId())) {
+                Date now = Date.from(clock.instant());
+                offer.setStatus(PortalBookingOffer.CONFIRMED);
+                offer.setUpdatedAt(now);
+                offers.closeOthers(choice.promptId(), offer.getSlotId(), now);
+            }
+        });
+    }
+
+    private static boolean booked(PortalBookingOffer offer) {
+        return PortalBookingOffer.BOOKED.equals(offer.getStatus())
+                || PortalBookingOffer.CONFIRMED.equals(offer.getStatus());
     }
 
     /**
@@ -188,7 +214,10 @@ public class PortalBookingChoiceService {
         appointment.setEndTime(Date.from(start.plusMinutes(offer.getDurationMinutes() - 1L).toInstant()));
         appointment.setDemographicNo(offer.getDemographicNo());
         Demographic patient = demographics.getDemographicById(offer.getDemographicNo());
-        appointment.setName(patient == null ? "" : patient.getFormattedName());
+        String name = patient == null || patient.getFormattedName() == null ? "" : patient.getFormattedName();
+        int characters = name.codePointCount(0, name.length());
+        appointment.setName(characters > MAX_APPOINTMENT_NAME
+                ? name.substring(0, name.offsetByCodePoints(0, MAX_APPOINTMENT_NAME)) : name);
         appointment.setReason(REASON);
         appointment.setNotes("");
         appointment.setStatus(NEW_APPOINTMENT_STATUS);

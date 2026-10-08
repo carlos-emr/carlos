@@ -40,8 +40,10 @@ public class PortalBookingOffer extends AbstractModel<String> {
 
     /** Sent to the portal and still open. */
     public static final String OFFERED = "offered";
-    /** Booked as an appointment for the patient's pick. */
+    /** Booked as an appointment for the patient's pick; the portal has not yet confirmed it. */
     public static final String BOOKED = "booked";
+    /** Booked, and the portal recorded the booking: the patient has been told. */
+    public static final String CONFIRMED = "confirmed";
     /** Picked, but gone by the time CARLOS tried to book it; the portal was told. */
     public static final String UNAVAILABLE = "unavailable";
     /** No longer bookable for another reason (its booking was undone, or the prompt ended). */

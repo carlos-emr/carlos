@@ -124,7 +124,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
                 .thenReturn(List.of(SLOT));
         execute();
         assertThat(response.getStatus()).isEqualTo(201);
-        verify(security).hasPrivilege(any(), eq(PortalBookingPrompt2Action.OBJECT_APPOINTMENT), eq(SecurityInfoManager.READ), eq("123"));
+        verify(security).hasPrivilege(any(), eq(PortalBookingPrompt2Action.OBJECT_APPOINTMENT), eq(SecurityInfoManager.WRITE), eq("123"));
         ArgumentCaptor<PatientPortalBookingPromptRequest> sent = ArgumentCaptor.forClass(PatientPortalBookingPromptRequest.class);
         verify(portal).createBookingPrompt(eq(123), sent.capture(), same(staff));
         assertThat(sent.getValue().offeredSlots()).containsExactly(SLOT);
