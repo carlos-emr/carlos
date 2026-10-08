@@ -180,8 +180,8 @@ class BillingOnPaymentViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         ArgumentCaptor<Date> from = ArgumentCaptor.forClass(Date.class);
         ArgumentCaptor<Date> to = ArgumentCaptor.forClass(Date.class);
         verify(raDetailDao).getRaDetailByDate(from.capture(), to.capture(), any());
-        assertThat(new java.sql.Date(from.getValue().getTime()).toLocalDate().toString()).isEqualTo("2026-10-01");
-        assertThat(new java.sql.Date(to.getValue().getTime()).toLocalDate().toString()).isEqualTo("2026-10-31");
+        assertThat(new java.sql.Date(from.getValue().getTime()).toLocalDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 1));
+        assertThat(new java.sql.Date(to.getValue().getTime()).toLocalDate()).isEqualTo(java.time.LocalDate.of(2026, 10, 31));
     }
 
     @Test
