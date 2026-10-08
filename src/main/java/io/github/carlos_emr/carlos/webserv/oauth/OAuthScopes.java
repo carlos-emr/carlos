@@ -54,11 +54,11 @@ import java.util.Set;
  * enforcement rather than reachable by every token. {@code OAuthScopesServiceMapUnitTest} fails the build
  * when a published service's root is in neither map.
  *
- * <p>Whether to enforce at all is {@link OAuthScopeEnforcement}'s decision (on by default since #4419); this
- * class only computes what scope a request requires. Two further decisions do not depend on the mode:
- * {@link #isAlwaysBlocked} names endpoints no OAuth client may call at all, and
- * {@link #isLegacyRestrictedAllowed} names the few a legacy integration may call when an operator has turned
- * scopes off but kept the default restricted legacy access.
+ * <p>Whether to enforce at all is {@link OAuthScopeEnforcement}'s decision (off unless an operator turns it
+ * on); this class only computes what scope a request requires. Two further decisions do not depend on the
+ * mode: {@link #isAlwaysBlocked} names endpoints no OAuth client may call at all, and
+ * {@link #isLegacyRestrictedAllowed} names the few a legacy integration may call in the default, restricted
+ * legacy access.
  *
  * <p>All methods are pure functions of their arguments; this type holds no request state and is safe to
  * call from any thread.

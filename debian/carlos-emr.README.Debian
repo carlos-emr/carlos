@@ -779,27 +779,31 @@ Grants on the old `oscar` schema are left behind by the rename (harmless —
 db-users grants on the new name during the same configure); drop them by hand
 if you want a tidy grant table.
 
-OAuth integrations (/ws/oauth, /ws/services): OAuth 1.0a scopes are enforced
-by default. An integration must request known <domain>.read / <domain>.write
-scopes at /ws/oauth/initiate (400 invalid_scope otherwise), and each
-/ws/services call needs the scope its endpoint requires (403
-insufficient_scope otherwise). Tokens issued before the upgrade keep the
-scopes they were granted; one granted nothing useful has to be re-authorized.
-Both settings below are server-wide: they apply to every OAuth client at
-once, and there is no per-client exception. If one integration cannot
-request scopes, turning enforcement off changes what every other
-integration may call too. To turn it off, set
-oauth.scope.enforcement.enabled=false in /etc/carlos-emr/carlos.properties
-and restart. By default that admits every client only the legacy
-integration endpoints (create, update and read a patient, attach a
-document); adding oauth.scope.legacy.access=full admits every client
-everything its approving provider can do. The consent page warns providers
-either way. In every mode a few endpoints stay closed to all OAuth clients
-(403 blocked_endpoint): the scheduled-job service, the account-rights
-lookups, patient record merges, provider settings writes and the
-recently-viewed lists. The front door rate-limits /ws/services and
-/ws/oauth/authorize per client address (carlos_wsapi in
-conf.d/carlos-emr-limits.conf; excess answers 429).
+OAuth integrations (/ws/oauth, /ws/services): by default an approved
+third-party app gets the restricted legacy access: the scopes it requests
+are recorded but not checked, and it may call only the legacy integration
+endpoints (create, update and read a patient, attach a document); anything
+else answers 403 restricted_endpoint. That is what the legacy
+patient-engagement integration needs and nothing more. Two settings in
+/etc/carlos-emr/carlos.properties change it, and both are server-wide (they
+apply to every OAuth client at once; there is no per-client exception):
+  oauth.scope.enforcement.enabled=true   scopes are enforced: an app must
+      request known <domain>.read / <domain>.write scopes at
+      /ws/oauth/initiate (400 invalid_scope otherwise) and each /ws/services
+      call needs the scope its endpoint requires (403 insufficient_scope
+      otherwise). Tokens already issued keep the scopes they were granted;
+      one granted none has to be re-authorized.
+  oauth.scope.legacy.access=full          while enforcement is not on, an
+      approved app may call everything its approving provider can.
+Restart after a change (sudo carlos-ctl restart). The consent page tells
+providers which mode is in force. In every mode a few endpoints stay closed
+to all OAuth clients (403 blocked_endpoint): the scheduled-job service, the
+account-rights lookups, patient record merges, provider settings writes and
+the recently-viewed lists. The first upgrade to this release resets either
+setting to the default once if it was set otherwise (see the postinst);
+after that the values stay as the operator sets them. The front door
+rate-limits /ws/services and /ws/oauth/authorize per client address
+(carlos_wsapi in conf.d/carlos-emr-limits.conf; excess answers 429).
 
 
 9. Log retention   (DECIDE THIS)

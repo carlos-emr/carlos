@@ -271,23 +271,21 @@
                         URL: <carlos:encode value='${oauthData.applicationURI}' context="html"/>.
                     </h5>
                     <c:if test="${not oauthData.scopesEnforced and oauthData.legacyRestricted}">
-                        <%-- oauth.scope.enforcement.enabled=false with the default legacy access (#4419):
-                             the scopes below are recorded on the token but not checked; the application is
-                             held to the legacy integration endpoints instead. --%>
+                        <%-- The default access mode (#4419): the scopes below are recorded on the token but
+                             not checked; the application is held to the legacy integration endpoints
+                             instead. --%>
                         <div class="alert alert-warning" role="alert" id="legacyRestrictedWarning">
-                            OAuth scope enforcement is turned off on this server. The permissions listed
-                            below are not checked. If you authorize this application, it is limited to the
-                            legacy integration operations: creating, updating and reading patient records
-                            and attaching documents to them.
+                            This server does not check the permissions listed below. If you authorize this
+                            application, it is limited to the legacy integration operations: creating,
+                            updating and reading patient records and attaching documents to them.
                         </div>
                     </c:if>
                     <c:if test="${not oauthData.scopesEnforced and not oauthData.legacyRestricted}">
-                        <%-- oauth.scope.enforcement.enabled=false and oauth.scope.legacy.access=full:
-                             approving grants the provider's full access. --%>
+                        <%-- oauth.scope.legacy.access=full: approving grants the provider's full access. --%>
                         <div class="alert alert-warning" role="alert" id="fullAccessWarning">
-                            OAuth scope enforcement is turned off on this server. If you authorize this
-                            application, it can read and change everything your account can, not only
-                            the permissions listed below.
+                            This server does not check the permissions listed below and gives applications
+                            full access. If you authorize this application, it can read and change
+                            everything your account can, not only the permissions listed below.
                         </div>
                     </c:if>
                     <h5>Permissions requested:</h5>

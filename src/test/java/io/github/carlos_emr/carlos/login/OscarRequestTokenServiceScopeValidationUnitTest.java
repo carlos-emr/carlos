@@ -144,19 +144,18 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
     }
 
     @Test
-    @DisplayName("should reject an empty scope request when the flag is absent")
-    void shouldReject_whenNoScopeRequestedAndFlagAbsent() {
-        // #4419: an absent property means enforced, so an empty grant is refused.
+    @DisplayName("should accept an empty scope request when the flag is absent")
+    void shouldAccept_whenNoScopeRequestedAndFlagAbsent() {
+        // The default is the restricted legacy access, where scopes are not consulted: a legacy
+        // integration that sends no scope still gets a request token.
         CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         OscarRequestTokenService service = serviceFor(null, dataProvider);
 
-        OAuth1Exception thrown = catchThrowableOfType(
-                () -> service.initiatePost(new MockHttpServletRequest()), OAuth1Exception.class);
+        Response response = service.initiatePost(new MockHttpServletRequest());
 
-        assertThat(thrown).isNotNull();
-        assertThat(thrown.getHttpCode()).isEqualTo(400);
-        verify(dataProvider, never()).createRequestToken(any());
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(dataProvider).createRequestToken(any());
     }
 
     @Test

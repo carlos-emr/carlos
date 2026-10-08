@@ -27,26 +27,34 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * The single reading of the {@code oauth.scope.enforcement.enabled} switch (issues #3083, #4419).
+ * The single reading of the OAuth access-mode switches: {@code oauth.scope.enforcement.enabled} and
+ * {@code oauth.scope.legacy.access} (issues #3083, #4419).
  *
- * <p>Scope enforcement is <b>on unless an operator explicitly turns it off</b>. The switch shipped
- * default-off with #3083, which was harmless while the OAuth JAX-RS servers were never published. #4415
- * published {@code /ws/oauth} and {@code /ws/services} on every packaged install, and an app a provider
- * approved for one listed scope could then call every read and write that provider can. So an absent or
- * blank value now means enabled, and only a recognised "off" value ({@code false}, {@code no},
- * {@code off}) disables it. Any other value, including a typo, keeps enforcement on.
+ * <p>The default, with neither property set, is {@link Mode#LEGACY_RESTRICTED}: scopes are not checked and
+ * an OAuth client may call only the legacy integration endpoints ({@link OAuthScopes#isLegacyRestrictedAllowed}),
+ * which is what the legacy patient-engagement integration needs and nothing more. An operator turns scope
+ * enforcement on with {@code oauth.scope.enforcement.enabled=true} ({@link Mode#SCOPED}: each call needs the
+ * scope its endpoint requires), or widens legacy access with {@code oauth.scope.legacy.access=full}
+ * ({@link Mode#LEGACY_FULL}: everything the approving provider can do). Only those exact values change the
+ * mode; an absent, blank or unrecognised value leaves the default. In every mode the endpoints in
+ * {@link OAuthScopes#isAlwaysBlocked} stay closed.
+ *
+ * <p>Both properties are server-wide: they apply to every OAuth client at once.
  *
  * <p>The three readers ({@code OscarRequestTokenService} at {@code /initiate}, {@code OAuthInterceptor} on
  * every {@code /ws/services} call, and the consent page) must agree, which is why they all ask here.
  */
 public final class OAuthScopeEnforcement {
 
-    /** The carlos.properties key. Absent or blank means enabled. */
+    /**
+     * The carlos.properties key that turns scope enforcement on. Only {@code true}, {@code yes} or
+     * {@code on} (case-insensitive) enable it; absent, blank or anything else means the legacy modes.
+     */
     public static final String PROPERTY = "oauth.scope.enforcement.enabled";
 
     /**
-     * What an OAuth client may call once {@link #PROPERTY} is off: {@code restricted} (the default) admits
-     * only the legacy integration endpoints ({@link OAuthScopes#isLegacyRestrictedAllowed}); {@code full}
+     * What an OAuth client may call while {@link #PROPERTY} is not on: {@code restricted} (the default)
+     * admits only the legacy integration endpoints ({@link OAuthScopes#isLegacyRestrictedAllowed}); {@code full}
      * admits everything the provider can do, less {@link OAuthScopes#isAlwaysBlocked}. Ignored while
      * enforcement is on.
      */
@@ -54,9 +62,9 @@ public final class OAuthScopeEnforcement {
 
     /** The three ways {@code /ws/services} can gate an OAuth client. */
     public enum Mode {
-        /** Each call needs the scope its endpoint requires: the default. */
+        /** Each call needs the scope its endpoint requires ({@code oauth.scope.enforcement.enabled=true}). */
         SCOPED,
-        /** Scopes are not checked; only the legacy integration endpoints may be called. */
+        /** Scopes are not checked; only the legacy integration endpoints may be called. The default. */
         LEGACY_RESTRICTED,
         /** Scopes are not checked; every endpoint except the always-blocked ones may be called. */
         LEGACY_FULL
@@ -69,54 +77,51 @@ public final class OAuthScopeEnforcement {
     }
 
     /**
-     * Whether OAuth 1.0a scopes are enforced.
+     * Whether OAuth 1.0a scopes are enforced, i.e. whether {@link #mode()} is {@link Mode#SCOPED}.
      *
-     * <p>A configuration read failure leaves enforcement <em>on</em>. Failing open would hand every token
-     * its provider's full API access, which is the defect this switch exists to prevent; failing closed
-     * costs an integrator a 403 until the configuration is readable.
-     *
-     * @return {@code false} only when the property is explicitly set to {@code false}, {@code no} or
-     *         {@code off} (case-insensitive); {@code true} otherwise
+     * @return {@code true} only when the property is explicitly {@code true}, {@code yes} or {@code on}
      */
     public static boolean isEnabled() {
         return mode() == Mode.SCOPED;
     }
 
     /**
-     * The gating mode in force. Enforcement off plus an absent, blank, unrecognised or {@code restricted}
-     * {@link #LEGACY_ACCESS_PROPERTY} is {@link Mode#LEGACY_RESTRICTED}; only an explicit {@code full}
-     * widens it. A configuration read failure is {@link Mode#SCOPED}, for the reason given on
-     * {@link #isEnabled()}.
+     * The gating mode in force. {@link Mode#SCOPED} only for an explicit on value of {@link #PROPERTY};
+     * otherwise {@link Mode#LEGACY_FULL} only for an explicit {@code full} {@link #LEGACY_ACCESS_PROPERTY},
+     * and {@link Mode#LEGACY_RESTRICTED} for everything else, including both properties absent.
+     *
+     * <p>A configuration read failure is {@link Mode#LEGACY_RESTRICTED}: the smallest surface of the three,
+     * so a broken configuration can never widen what a token may call.
      *
      * @return the mode; never {@code null}
      */
     public static Mode mode() {
         try {
             CarlosProperties properties = CarlosProperties.getInstance();
-            if (!isExplicitlyDisabled(properties.getProperty(PROPERTY))) {
+            if (isExplicitlyEnabled(properties.getProperty(PROPERTY))) {
                 return Mode.SCOPED;
             }
             return isFullLegacyAccess(properties.getProperty(LEGACY_ACCESS_PROPERTY))
                     ? Mode.LEGACY_FULL : Mode.LEGACY_RESTRICTED;
         } catch (RuntimeException e) {
-            logger.warn("Could not read {}; enforcing OAuth scopes", PROPERTY, e);
-            return Mode.SCOPED;
+            logger.warn("Could not read {}; limiting OAuth clients to the legacy integration endpoints", PROPERTY, e);
+            return Mode.LEGACY_RESTRICTED;
         }
     }
 
-    /** Package-private for the unit test: only the one recognised value opens full legacy access. */
-    static boolean isFullLegacyAccess(String value) {
-        return value != null && OAuthScopes.asciiLowerCase(value.trim()).equals("full");
-    }
-
-    /** Package-private for the unit test: the value-to-decision rule without the singleton. */
-    static boolean isExplicitlyDisabled(String value) {
+    /** Package-private for the unit test: only the three recognised on values enable enforcement. */
+    static boolean isExplicitlyEnabled(String value) {
         if (value == null) {
             return false;
         }
         // ASCII-only fold, shared with OAuthScopes: the values are ASCII tokens, and a
         // locale-sensitive fold adds nothing while tripping the IMPROPER_UNICODE scanner.
         String v = OAuthScopes.asciiLowerCase(value.trim());
-        return v.equals("false") || v.equals("no") || v.equals("off");
+        return v.equals("true") || v.equals("yes") || v.equals("on");
+    }
+
+    /** Package-private for the unit test: only the one recognised value opens full legacy access. */
+    static boolean isFullLegacyAccess(String value) {
+        return value != null && OAuthScopes.asciiLowerCase(value.trim()).equals("full");
     }
 }

@@ -192,16 +192,19 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should enforce scopes with HTTP 403 when the flag is absent")
+    @DisplayName("should limit a client to the legacy endpoints with HTTP 403 when both properties are absent")
     void shouldRaiseFault_withHttp403WhenFlagAbsent() {
-        // #4419: enforcement is on by default; an absent property must not reopen full access.
+        // The default is the restricted legacy access: an absent property must not reopen full access,
+        // and a scope the token holds does not open an endpoint outside the legacy list.
         CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
-        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        CarlosProperties.getInstance().remove(LEGACY_ACCESS_PROPERTY);
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("schedule.read"));
 
         Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(scheduleReadRequest()), Fault.class);
 
         assertThat(fault).isNotNull();
         assertThat(fault.getStatusCode()).isEqualTo(403);
+        assertThat(fault.getCause()).hasMessage("restricted_endpoint");
     }
 
     @Test

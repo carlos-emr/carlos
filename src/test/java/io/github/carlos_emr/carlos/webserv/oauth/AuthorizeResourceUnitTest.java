@@ -42,10 +42,10 @@ import static org.mockito.Mockito.when;
 class AuthorizeResourceUnitTest {
 
     @ParameterizedTest
-    @CsvSource(value = {"NULL,true", "true,true", "false,false"}, nullValues = "NULL")
+    @CsvSource(value = {"NULL,false", "true,true", "false,false"}, nullValues = "NULL")
     @DisplayName("should tell the consent page whether the listed scopes are enforced")
     void shouldFlagScopeEnforcement_whenShowingConsent(String flag, boolean expectedEnforced) throws Exception {
-        // #4419: with enforcement off the page warns that approval grants full access.
+        // #4419: the page says what limits the app; the restricted legacy access is the default.
         CarlosProperties props = CarlosProperties.getInstance();
         String previous = props.getProperty(OAuthScopeEnforcement.PROPERTY, null);
         try {

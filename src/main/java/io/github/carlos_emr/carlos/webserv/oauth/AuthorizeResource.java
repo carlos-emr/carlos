@@ -99,8 +99,8 @@ public class AuthorizeResource {
                 ? java.util.Collections.emptyList()
                 : rt.getScopes().stream().map(OAuth1Permission::getPermission).collect(Collectors.toList());
         od.setPermissions(scopes);
-        // With enforcement off the listed scopes limit nothing; the page must say what does (#4419):
-        // the legacy endpoint list, or nothing at all.
+        // Without enforcement the listed scopes limit nothing; the page must say what does (#4419):
+        // the legacy endpoint list (the default), or nothing at all.
         OAuthScopeEnforcement.Mode mode = OAuthScopeEnforcement.mode();
         od.setScopesEnforced(mode == OAuthScopeEnforcement.Mode.SCOPED);
         od.setLegacyRestricted(mode == OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);

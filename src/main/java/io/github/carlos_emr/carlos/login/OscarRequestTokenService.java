@@ -136,7 +136,7 @@ public class OscarRequestTokenService {
 
         // OAuth1ParamParser leaves query and Authorization-header values percent-encoded (it only maps
         // '+' to a space), so "demographic.read%20provider.read" would read as one unknown scope and,
-        // with enforcement on by default (#4419), refuse every multi-scope request. Scopes are plain ASCII
+        // under enforcement (#4419), refuse every multi-scope request. Scopes are plain ASCII
         // tokens, so one percent-decode is safe whichever source the value came from.
         // OAuthScopes.parseScopeString decodes once and drops empty tokens, so stray whitespace is not
         // rejected as an unknown scope; the interceptor reads stored scopes with the same helper.
@@ -160,8 +160,8 @@ public class OscarRequestTokenService {
      * <p>When scope enforcement is enabled, a request token may only be issued for known
      * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
      * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
-     * being persisted onto a token. Enforcement is on unless an operator turns it off
-     * ({@link OAuthScopeEnforcement}, #4419); when it is off this is a no-op.
+     * being persisted onto a token. Enforcement is off unless an operator turns it on
+     * ({@link OAuthScopeEnforcement}, #4419); while it is off this is a no-op.
      *
      * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
      *                         is outside the vocabulary

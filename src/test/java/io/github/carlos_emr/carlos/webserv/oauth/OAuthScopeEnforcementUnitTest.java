@@ -34,11 +34,11 @@ import io.github.carlos_emr.CarlosProperties;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the default of {@code oauth.scope.enforcement.enabled} (#4419): enforcement is on unless an
- * operator explicitly turns it off, so an install whose properties never mention the switch, which was
- * every packaged install when #4415 published {@code /ws/services}, enforces scopes.
+ * Pins the OAuth access-mode switches: with neither property set, which is every packaged install when
+ * #4415 published {@code /ws/services}, a client gets the restricted legacy access; only an explicit on
+ * value enforces scopes and only an explicit {@code full} widens legacy access.
  */
-@DisplayName("OAuthScopeEnforcement default-on switch")
+@DisplayName("OAuthScopeEnforcement mode switches")
 @Tag("unit")
 @Tag("security")
 class OAuthScopeEnforcementUnitTest {
@@ -67,49 +67,56 @@ class OAuthScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should enforce when the property is absent")
-    void shouldEnforce_whenPropertyAbsent() {
+    @DisplayName("should limit clients to the legacy integration endpoints when both properties are absent")
+    void shouldRestrictLegacyAccess_whenBothPropertiesAbsent() {
         CarlosProperties.getInstance().remove(OAuthScopeEnforcement.PROPERTY);
+        CarlosProperties.getInstance().remove(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY);
 
-        assertThat(OAuthScopeEnforcement.isEnabled()).isTrue();
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"", "  ", "true", "TRUE", "yes", "on", "1", "flase", "disabled"})
-    @DisplayName("should enforce for any value that is not an explicit off value")
-    void shouldEnforce_forValueThatIsNotExplicitlyOff(String value) {
-        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, value);
-
-        assertThat(OAuthScopeEnforcement.isEnabled()).isTrue();
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"false", "FALSE", " False ", "no", "NO", "off", "Off"})
-    @DisplayName("should not enforce for an explicit off value")
-    void shouldNotEnforce_forExplicitOffValue(String value) {
-        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, value);
-
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);
         assertThat(OAuthScopeEnforcement.isEnabled()).isFalse();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "TRUE", " True ", "yes", "YES", "on", "On"})
+    @DisplayName("should enforce scopes only for an explicit on value")
+    void shouldEnforce_forExplicitOnValue(String value) {
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, value);
+
+        assertThat(OAuthScopeEnforcement.isEnabled()).isTrue();
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.SCOPED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "  ", "false", "no", "off", "1", "ture", "enabled", "scoped"})
+    @DisplayName("should not enforce for any value that is not an explicit on value")
+    void shouldNotEnforce_forValueThatIsNotExplicitlyOn(String value) {
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, value);
+        CarlosProperties.getInstance().remove(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY);
+
+        assertThat(OAuthScopeEnforcement.isEnabled()).isFalse();
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);
+    }
+
     @Test
-    @DisplayName("should ship enforcement enabled in the bundled carlos.properties")
-    void shouldShipEnabled_inBundledProperties() throws Exception {
+    @DisplayName("should ship the restricted legacy default in the bundled carlos.properties")
+    void shouldShipRestrictedLegacyDefault_inBundledProperties() throws Exception {
         java.util.Properties bundled = new java.util.Properties();
         try (java.io.InputStream in = getClass().getResourceAsStream("/carlos.properties")) {
             assertThat(in).isNotNull();
             bundled.load(in);
         }
 
-        assertThat(OAuthScopeEnforcement.isExplicitlyDisabled(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)))
+        assertThat(OAuthScopeEnforcement.isExplicitlyEnabled(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)))
                 .isFalse();
-        assertThat(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)).isEqualTo("true");
+        assertThat(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)).isEqualTo("false");
+        assertThat(OAuthScopeEnforcement.isFullLegacyAccess(bundled.getProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY)))
+                .isFalse();
     }
 
     @Test
     @DisplayName("should run scoped whatever the legacy access value while enforcement is on")
     void shouldBeScoped_whenEnforcementOnRegardlessOfLegacyAccess() {
-        CarlosProperties.getInstance().remove(OAuthScopeEnforcement.PROPERTY);
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, "true");
         CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, "full");
 
         assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.SCOPED);

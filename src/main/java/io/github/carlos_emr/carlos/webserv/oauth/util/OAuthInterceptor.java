@@ -221,7 +221,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 throw new OAuth1Exception(401, "unknown_provider");
             }
 
-            // 5a) Enforce the granted OAuth scopes (issues #3083, #4419). No-op only when an operator
+            // 5a) Gate the call by the OAuth access mode (issues #3083, #4419): the always-blocked list,
+            //     then the legacy allowlist or the granted scopes. Opens fully only when an operator
             //     turned enforcement off or the endpoint is explicitly scope-exempt. Done before attaching
             //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
             enforceScope(req, accessToken, consumerKey);
@@ -417,8 +418,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * <p>First refuses the endpoints closed to every OAuth client ({@link OAuthScopes#isAlwaysBlocked}, 403
      * {@code blocked_endpoint}), in every mode. Then, by {@link OAuthScopeEnforcement#mode()}: legacy full
      * access admits the call; legacy restricted access admits only the legacy integration endpoints
-     * ({@link OAuthScopes#isLegacyRestrictedAllowed}, else 403 {@code restricted_endpoint}); scoped access, the
-     * default since #4419, admits a scope-exempt endpoint ({@link OAuthScopes#requiredScope} returns
+     * ({@link OAuthScopes#isLegacyRestrictedAllowed}, else 403 {@code restricted_endpoint}); scoped access
+     * admits a scope-exempt endpoint ({@link OAuthScopes#requiredScope} returns
      * {@link OAuthScopes#NO_SCOPE_REQUIRED}) or one the token's scopes cover. An endpoint the scope map does not know requires
      * {@link OAuthScopes#UNMAPPED_ENDPOINT}, which no token satisfies. When a scope is required and the token's
      * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
@@ -465,8 +466,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     }
 
     /**
-     * A token approved while enforcement was off (before #4419) may carry no scopes at all, and every call
-     * it makes is now refused. Tell the operator once per client, since the integrator only sees a 403.
+     * A token approved while enforcement was off may carry no scopes at all, and under enforcement every
+     * call it makes is refused. Tell the operator once per client, since the integrator only sees a 403.
      */
     private void warnScopelessTokenOnce(String consumerKey) {
         String key = safeConsumerKey(consumerKey);
@@ -474,9 +475,9 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             return;
         }
         logger.warn("OAuth client {} presented an access token with no granted scopes; every /ws/services call "
-                + "it makes is refused with 403 insufficient_scope since scope enforcement became the default "
-                + "(#4419). Have the integrator re-authorize with the scopes it needs, or set {}=false to "
-                + "restore full-access tokens.", key, OAuthScopeEnforcement.PROPERTY);
+                + "it makes is refused with 403 insufficient_scope while scope enforcement is on. Have the "
+                + "integrator re-authorize with the scopes it needs, or set {}=false to return to the legacy "
+                + "access modes.", key, OAuthScopeEnforcement.PROPERTY);
     }
 
     /**

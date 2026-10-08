@@ -40,16 +40,18 @@
  *   4. Neither surface takes the other's credential. A logged-in browser session
  *      alone is refused by /ws/services, and a signed access token alone by /ws/rs
  *      (401, no patient data).
- *   3a. Scopes are enforced by default (#4419). /initiate refuses a request with no
- *      scope or an unknown one (400 invalid_scope). The token, granted
- *      demographic.read, is refused (403 insufficient_scope) a read in another domain
- *      and a write in its own (DELETE of a demographic that does not exist, so a
- *      regression answers 404, never deletes). The consent page shows no
- *      "enforcement is off" warning. With EXPECT_OAUTH_MODE=legacy-restricted or
- *      legacy-full (the server's oauth.scope.enforcement.enabled=false, with
- *      oauth.scope.legacy.access unset or full), /initiate accepts a request with no
- *      scope, the consent page shows the matching warning, and the same probes
- *      answer 403 restricted_endpoint, or go through to the service, instead.
+ *   3a. The access mode (#4419). By default (EXPECT_OAUTH_MODE=legacy-restricted)
+ *      /initiate accepts a request with no scope, the consent page says the
+ *      permissions are not checked, and the scopeless token is refused
+ *      (403 restricted_endpoint) a read in another domain and a write outside the
+ *      legacy list (DELETE of a demographic that does not exist, so a regression
+ *      answers 404, never deletes). With EXPECT_OAUTH_MODE=scoped (the server's
+ *      oauth.scope.enforcement.enabled=true) /initiate refuses a request with no
+ *      scope or an unknown one (400 invalid_scope), the token granted
+ *      demographic.read is refused the same probes as insufficient_scope, and the
+ *      consent page shows no warning. With legacy-full (oauth.scope.legacy.access=
+ *      full) the same probes go through to the service and the full-access
+ *      warning is shown.
  *   3b. In every mode the always-blocked endpoints answer 403 blocked_endpoint, and
  *      the legacy integration calls (PUT /demographics, POST
  *      /document/saveDocumentToDemographic, GET /demographics/{id}) reach their
@@ -86,8 +88,9 @@
  * Optional environment (the common contract is in lib/playwright-harness.js):
  *   OAUTH_DEMOGRAPHIC_NO=1   demographic to read through both surfaces. Default:
  *                            the lowest-numbered one with a patient status date.
- *   EXPECT_OAUTH_MODE=scoped the mode the server is configured for: scoped (the
- *                            default), legacy-restricted or legacy-full. The check
+ *   EXPECT_OAUTH_MODE=legacy-restricted
+ *                            the mode the server is configured for: legacy-restricted
+ *                            (the shipped default), scoped or legacy-full. The check
  *                            fails if the server behaves as another mode.
  */
 const crypto = require('crypto');
@@ -110,7 +113,7 @@ const REQUESTED_SCOPES = 'demographic.read provider.read';
 // What the legacy integration needs under enforcement (OAuthScopes' legacy allowlist, scoped).
 const LEGACY_INTEGRATION_SCOPES = 'demographic.write document.write';
 const OAUTH_MODES = ['scoped', 'legacy-restricted', 'legacy-full'];
-const OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
+const OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'legacy-restricted';
 assert(OAUTH_MODES.includes(OAUTH_MODE), `EXPECT_OAUTH_MODE must be one of ${OAUTH_MODES.join(', ')}`);
 const SCOPED = OAUTH_MODE === 'scoped';
 
@@ -303,9 +306,9 @@ async function main(state = {}) {
   await expectStatus(r, 401, 'GET /ws/services/demographics/{id} with an unknown access token');
   await noPatientData(r, 'an OAuth call with an unknown access token');
 
-  // 2. Handshake. Scope enforcement is on by default (#4419): /initiate refuses a request
-  // token with no scope or an unknown one before it persists anything. In a legacy mode it
-  // accepts a request with no scope, as the legacy integration sends.
+  // 2. Handshake. Under enforcement (#4419) /initiate refuses a request token with no scope
+  // or an unknown one before it persists anything. In a legacy mode, the default, it accepts a
+  // request with no scope, as the legacy integration sends.
   if (SCOPED) {
     for (const [label, query] of [['no scope', ''], ['an unknown scope', `?scope=${pct('everything.write')}`]]) {
       const refusedUrl = app(`/ws/oauth/initiate${query}`);

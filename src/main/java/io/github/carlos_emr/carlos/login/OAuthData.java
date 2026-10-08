@@ -11,7 +11,7 @@ public class OAuthData {
   private String authenticityToken;
   private String oauthToken;
   private List<String> permissions = Collections.emptyList();
-  /** Whether the listed permissions limit the app; false when an operator turned scope enforcement off (#4419). */
+  /** Whether the listed permissions limit the app; true only when an operator turned scope enforcement on (#4419). */
   private boolean scopesEnforced = true;
   /** With enforcement off: true when the app is held to the legacy integration endpoints, false when it gets full access. */
   private boolean legacyRestricted = true;
