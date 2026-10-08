@@ -281,5 +281,13 @@ test('the note browser re-opens its GET-only gate with GET and keeps Print from 
     assert.doesNotMatch(take(name), /DisplayDoc\.submit\(\)/, `${name} must not POST the form to ViewNoteBrowser`);
     assert.match(take(name), /reloadNoteBrowser\(\)/);
   }
-  assert.match(source, /onclick="PrintEncounter\(\); return false;"/, 'Print must not submit the DisplayDoc form');
+  // Issue #4368: Print is a type="button" control, so it cannot submit DisplayDoc to the GET-only
+  // gate even when PrintEncounter() throws; no submit control may remain in that form.
+  const form = source.slice(source.indexOf('<form name="DisplayDoc"'), source.indexOf('</form>'));
+  assert.match(form, /<button type="button" id="imgPrintEncounter"\s+onclick="PrintEncounter\(\);"/,
+    'Print must be a type="button" control that only opens the print popup');
+  assert.doesNotMatch(form, /<input\b[^>]*\btype\s*=\s*['"]?(?:image|submit)\b/i, 'DisplayDoc must carry no submit input');
+  for (const button of form.match(/<button\b[^>]*>/gi) || []) {
+    assert.match(button, /\btype="button"/, `every DisplayDoc <button> must be type="button": ${button}`);
+  }
 });
