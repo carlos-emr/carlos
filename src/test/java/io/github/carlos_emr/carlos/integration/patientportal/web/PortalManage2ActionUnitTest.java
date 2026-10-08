@@ -29,13 +29,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.pageUtil.PatientNavModel;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntFunction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -228,6 +234,63 @@ class PortalManage2ActionUnitTest {
         new PortalManage2Action(security, compose).execute();
         assertThat(request.getAttribute("portalCanSetAccess")).isEqualTo(false);
         assertThat(request.getAttribute("portalCanUnlock")).isEqualTo(true);
+    }
+
+    @Test
+    @DisplayName("should give the page the record's navigation for the patient it shows")
+    void shouldGiveRecordNavigation_whenPatientIsFound() {
+        grant("_portal.account", SecurityInfoManager.READ);
+        Demographic patient = new Demographic();
+        PatientNavModel model = mock(PatientNavModel.class);
+        List<Integer> looked = new ArrayList<>();
+
+        try (MockedStatic<PatientNavModel> nav = mockStatic(PatientNavModel.class)) {
+            nav.when(() -> PatientNavModel.forRequest(request, patient, PatientNavModel.Page.PORTAL)).thenReturn(model);
+
+            assertThat(withPatient(no -> { looked.add(no); return patient; }).execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        assertThat(looked).containsExactly(123);
+        assertThat(request.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE)).isSameAs(model);
+    }
+
+    @Test
+    @DisplayName("should keep the page's short list of links when the patient is not found")
+    void shouldLeaveNavigationOut_whenPatientIsNotFound() {
+        grant("_portal.account", SecurityInfoManager.READ);
+
+        try (MockedStatic<PatientNavModel> nav = mockStatic(PatientNavModel.class)) {
+            assertThat(withPatient(no -> null).execute()).isEqualTo(ActionSupport.SUCCESS);
+            nav.verify(() -> PatientNavModel.forRequest(any(), any(), any()), never());
+        }
+
+        assertThat(request.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should still render the page when the navigation cannot be built")
+    void shouldRenderPage_whenNavigationFails() {
+        grant("_portal.invite", SecurityInfoManager.READ);
+
+        assertThat(withPatient(no -> { throw new IllegalStateException("database down"); }).execute())
+                .isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE)).isNull();
+        assertThat(request.getAttribute(PortalManage2Action.DEMOGRAPHIC_ATTRIBUTE)).isEqualTo(123);
+    }
+
+    @Test
+    @DisplayName("should not look the patient up for a caller the page refuses")
+    void shouldNotLookUpPatient_whenCallerIsRefused() {
+        List<Integer> looked = new ArrayList<>();
+
+        assertThatThrownBy(() -> withPatient(no -> { looked.add(no); return new Demographic(); }).execute())
+                .isInstanceOf(SecurityException.class);
+        assertThat(looked).isEmpty();
+    }
+
+    private PortalManage2Action withPatient(IntFunction<Demographic> lookup) {
+        return new PortalManage2Action(security, compose, lookup);
     }
 
     @Test

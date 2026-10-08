@@ -120,24 +120,23 @@
             <td><a href="${carlos:forHtmlAttribute(nav.ticklerUrl)}" data-nav-popup="page"
                    data-popup-height="700" data-popup-width="1000"><fmt:message key="global.tickler"/></a></td>
         </tr>
-        <%-- Patient portal (issue #3854): only while the portal is switched on and the user can read
-             invitations or accounts; the page's gate and JSON routes re-check both. --%>
-        <c:if test="${nav.portalSwitchedOn}">
-            <security:oscarSec roleName="${nav.roleName}" objectName="_portal.invite,_portal.account" rights="r">
+        <%-- Patient portal (issue #3854): a link only while the portal is switched on and the user can read
+             invitations or accounts; the page's gate and JSON routes re-check both. On the portal page
+             itself (which its own action already allowed) it marks the current page, switched on or not. --%>
+        <c:choose>
+            <c:when test="${nav.onPortalPage}">
                 <tr>
-                    <td>
-                        <c:choose>
-                            <c:when test="${nav.onPortalPage}">
-                                <span class="patient-nav__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span>
-                            </c:when>
-                            <c:otherwise>
-                                <a href="${carlos:forHtmlAttribute(nav.portalUrl)}"><fmt:message key="demographic.portal.link"/></a>
-                            </c:otherwise>
-                        </c:choose>
-                    </td>
+                    <td><span class="patient-nav__current" aria-current="page"><fmt:message key="demographic.portal.link"/></span></td>
                 </tr>
-            </security:oscarSec>
-        </c:if>
+            </c:when>
+            <c:when test="${nav.portalSwitchedOn}">
+                <security:oscarSec roleName="${nav.roleName}" objectName="_portal.invite,_portal.account" rights="r">
+                    <tr>
+                        <td><a href="${carlos:forHtmlAttribute(nav.portalUrl)}"><fmt:message key="demographic.portal.link"/></a></td>
+                    </tr>
+                </security:oscarSec>
+            </c:when>
+        </c:choose>
         <c:if test="${nav.arFormsShown}">
             <tr>
                 <td><a href="${carlos:forHtmlAttribute(nav.getArFormUrl('AR1'))}" data-nav-popup="page"
