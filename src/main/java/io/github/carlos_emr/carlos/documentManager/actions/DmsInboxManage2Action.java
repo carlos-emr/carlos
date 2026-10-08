@@ -110,6 +110,9 @@ public class DmsInboxManage2Action extends ActionSupport {
         // This mutation has its own write authorization and typed outcome, including for callers
         // without read permission. Dispatch it before the legacy read-only view gate.
         if ("updateDocStatusInQueue".equals(request.getParameter("method"))) return updateDocStatusInQueue();
+        // addNewQueue inserts a queue and its _queue.<id> security object. It must be a POST (CSRFGuard
+        // does not validate GET) and needs write access, so it also runs before the read-only gate (#4428).
+        if ("addNewQueue".equals(request.getParameter("method"))) return addNewQueue();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -122,8 +125,6 @@ public class DmsInboxManage2Action extends ActionSupport {
             return prepareForIndexPage();
         } else if ("prepareForContentPage".equals(mtd)) {
             return prepareForContentPage();
-        } else if ("addNewQueue".equals(mtd)) {
-            return addNewQueue();
         } else if ("isDocumentLinkedToDemographic".equals(mtd)) {
             return isDocumentLinkedToDemographic();
         } else if ("isLabLinkedToDemographic".equals(mtd)) {
@@ -663,28 +664,44 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String addNewQueue() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return writeAddNewQueueResult(HttpServletResponse.SC_METHOD_NOT_ALLOWED, false);
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        String qn = request.getParameter("newQueueName");
+        qn = qn == null ? "" : qn.trim();
+        if (qn.isEmpty()) {
+            return writeAddNewQueueResult(HttpServletResponse.SC_BAD_REQUEST, false);
+        }
         boolean success = false;
         try {
-            String qn = request.getParameter("newQueueName");
-            qn = qn.trim();
-            if (qn != null && qn.length() > 0) {
-                QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-                success = queueDao.addNewQueue(qn);
+            QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
+            success = queueDao.addNewQueue(qn);
+            if (success) {
                 addQueueSecObjectName(qn, queueDao.getLastId());
             }
         } catch (Exception e) {
             logger.error("Error", e);
         }
+        return writeAddNewQueueResult(HttpServletResponse.SC_OK, success);
+    }
 
+    private String writeAddNewQueueResult(int status, boolean success) {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
         HashMap<String, Boolean> hm = new HashMap<String, Boolean>();
         hm.put("addNewQueue", success);
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (java.io.IOException ioe) {
             logger.error("Error", ioe);
         }
-        return null;
+        return NONE;
     }
 
     public String isDocumentLinkedToDemographic() {
