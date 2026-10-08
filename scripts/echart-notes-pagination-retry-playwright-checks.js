@@ -136,7 +136,7 @@ async function workflow(s) {
       const entry = recorder.consoleIssues[i];
       // Chrome's "Failed to load resource: the server responded with a status of NNN" line
       // carries the URL in its location, not in its text.
-      if (new RegExp(`status of ${status} \\(`).test(entry.text) && /CaseManagementView/.test((entry.location && entry.location.url) || '')) {
+      if (entry.text.includes(`status of ${status} (`) && /CaseManagementView/.test((entry.location && entry.location.url) || '')) {
         recorder.consoleIssues.splice(i, 1);
       }
     }

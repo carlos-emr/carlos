@@ -304,6 +304,48 @@ test('a failed Load All can be tried again and the poll can still page', () => {
   assert.equal(s.requests.length, 3, 'after a full load the poll does not re-request the inserted notes');
 });
 
+test('a superseded load that rendered first cannot make the newer load\'s failure look like a success', () => {
+  const s = chartWithFirstPage();
+  s.pollTick();
+  const stale = s.requests[1];
+  // A save reload starts a fresh initial load while the page-in is still pending.
+  s.context.notesLoadFirstPage();
+  const fresh = s.requests[2];
+
+  // The older response lands first: its fragment script writes its count, then its
+  // completion is skipped as superseded.
+  s.succeed(stale, 20);
+  // The newer load then fails.
+  s.fail(fresh);
+
+  assert.equal(s.context.notesFailedLoads, 1, 'the failure is counted, not read as the stale batch');
+  assert.equal(s.indicator.visible, true);
+  assert.equal(s.context.notesOffset, -20, 'rolled back so the next request asks for the first page again');
+});
+
+test('Retry after a failed Load All asks for the whole chart again and parks the offset', () => {
+  const s = chartWithFirstPage();
+  s.context.notesLoadAll();
+  s.fail(s.requests[1]);
+  assert.equal(s.context.notesOffset, 0);
+
+  s.context.notesRetryLoad();
+  assert.equal(s.requests[2].offset, 20);
+  assert.ok(s.requests[2].numToReturn >= 1000000, 'retried as a Load All, not as one page');
+  s.succeed(s.requests[2], 25);
+  assert.equal(s.indicator.visible, false);
+  s.pollTick();
+  assert.equal(s.requests.length, 3, 'the poll does not re-request the notes the full load inserted');
+
+  // A later ordinary failure is retried as one page again.
+  s.context.notesLoadFirstPage();
+  s.succeed(s.requests[3], 20);
+  s.pollTick();
+  s.fail(s.requests[4]);
+  s.context.notesRetryLoad();
+  assert.equal(s.requests[5].numToReturn, 20);
+});
+
 test('a superseded load that failed leaves the newer render\'s state alone', () => {
   const s = chartWithFirstPage();
   s.pollTick();

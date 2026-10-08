@@ -534,6 +534,9 @@
      */
     var notesFailedLoads = 0;
     const NOTES_MAX_FAILED_LOADS = 3;
+    // True while the batch that failed was a Load All, so the Retry link asks for the
+    // whole chart again rather than for one page of it.
+    var notesFailedLoadAll = false;
 
     /**
      * Stops the 1s poll that loads older notes when the user is at the top of the chart.
@@ -573,6 +576,7 @@
     function notesLoadFirstPage() {
         notesOffset = 0;
         notesFailedLoads = 0;
+        notesFailedLoadAll = false;
         notesRetrieveOk = false;
         notesShowLoadFailure(false);
         notesLoader(0, notesIncrement, demographicNo);
@@ -613,9 +617,15 @@
         }
         notesFailedLoads = 0;
         notesShowLoadFailure(false);
+        startNotesScrollCheck();
+        if (notesFailedLoadAll) {
+            // A failed Load All is retried as a Load All: everything that is left, and the
+            // offset parked past MAXNOTES afterwards so the poll cannot re-request it.
+            notesLoadAll();
+            return;
+        }
         notesOffset += notesIncrement;
         notesRetrieveOk = false;
-        startNotesScrollCheck();
         notesLoader(notesOffset, notesIncrement, demographicNo);
     }
 
@@ -771,7 +781,10 @@
                         // Superseded by a later load — its response owns the shared state
                         // below. Without this an initial load that failed would stop the
                         // poll the second chart render just armed, and no older note could
-                        // ever be paged in again.
+                        // ever be paged in again. The count this response's fragment script
+                        // just wrote is discarded too: left in place, a newer load that then
+                        // fails would read it as its own rendered batch.
+                        notesLastBatchSize = -1;
                         return;
                     }
                     // CarlosAjax.updater inserts the fragment and runs its scripts before
@@ -787,6 +800,7 @@
                         // NOTES_MAX_FAILED_LOADS fetches in a row have rendered nothing, so a
                         // persistent error cannot turn it into a request a second.
                         notesFailedLoads++;
+                        notesFailedLoadAll = numToReturn >= MAXNOTES;
                         notesOffset = offset - notesIncrement;
                         notesRetrieveOk = notesFailedLoads < NOTES_MAX_FAILED_LOADS;
                         if (!notesRetrieveOk) {
@@ -796,6 +810,7 @@
                         return;
                     }
                     notesFailedLoads = 0;
+                    notesFailedLoadAll = false;
                     notesShowLoadFailure(false);
                     // An empty batch means the chart is fully loaded: stop the poll
                     // instead of requesting ever-higher offsets.
