@@ -51,10 +51,9 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import jakarta.persistence.EntityTransaction;
-import org.springframework.orm.jpa.EntityManagerHolder;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.ResourceHolderSupport;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -691,63 +690,48 @@ public final class MessageUploader {
     /**
      * Makes the calling thread's Spring transaction unable to commit, without throwing.
      *
-     * <p>Marks what {@link #isEnclosingTransactionRollbackOnly()} reads: the JPA {@code EntityTransaction},
-     * which {@code JpaTransactionManager} consults at commit, and the Spring holders bound to it.</p>
+     * <p>Joins the transaction as a participant and marks that participant rollback-only, which is what a
+     * failing participating {@code @Transactional} method does: the transaction manager then marks the
+     * transaction itself, and a participant's completion neither commits nor rolls anything back.</p>
      *
-     * @return {@code true} if a transaction was marked; {@code false} if none could be, so the caller must
-     *         propagate its failure instead
+     * @return {@code true} if the transaction was marked; {@code false} if it could not be, so the caller
+     *         must propagate its failure instead
      */
     private static boolean markEnclosingTransactionRollbackOnly() {
-        boolean marked = false;
         try {
-            for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
-                if (resource instanceof EntityManagerHolder entityManagers) {
-                    EntityTransaction jpaTransaction = entityManagers.getEntityManager().getTransaction();
-                    if (jpaTransaction.isActive()) {
-                        jpaTransaction.setRollbackOnly();
-                        marked = true;
-                    }
-                }
-                if (resource instanceof ResourceHolderSupport holder) {
-                    holder.setRollbackOnly();
-                }
-            }
+            joinEnclosingTransaction().executeWithoutResult(TransactionStatus::setRollbackOnly);
+            return true;
         } catch (RuntimeException unmarkable) {
             logger.warn("Could not mark the transaction rollback-only: {}", LogSafe.exceptionTrace(unmarkable));
             return false;
         }
-        return marked;
     }
 
     /**
      * Reports whether the calling thread's Spring transaction exists and can no longer commit.
      *
-     * <p>A failed insert leaves two marks, both read here: Hibernate's own, on the JPA
-     * {@code EntityTransaction}, and Spring's, on the bound connection holder when the failure passed
-     * through a transactional DAO. Spring's {@code EntityManagerHolder} flag is not set by a
-     * participating failure, so it cannot be the only one read. Never throws: if the state cannot be
-     * read, the transaction is treated as usable and {@link #clean(int)} attempts the cleanup.</p>
+     * <p>Asks the transaction manager, as a participant, whether the transaction is rollback-only: the
+     * same question it asks at commit, so it sees Hibernate's own mark after a failed insert as well as
+     * one left by a failing transactional DAO. Never throws: if the state cannot be read, the transaction
+     * is treated as usable and {@link #clean(int)} attempts the cleanup.</p>
      */
     private static boolean isEnclosingTransactionRollbackOnly() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
             return false;
         }
         try {
-            for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
-                if (resource instanceof ResourceHolderSupport holder && holder.isRollbackOnly()) {
-                    return true;
-                }
-                if (resource instanceof EntityManagerHolder entityManagers) {
-                    EntityTransaction jpaTransaction = entityManagers.getEntityManager().getTransaction();
-                    if (jpaTransaction.isActive() && jpaTransaction.getRollbackOnly()) {
-                        return true;
-                    }
-                }
-            }
+            return Boolean.TRUE.equals(joinEnclosingTransaction().execute(TransactionStatus::isRollbackOnly));
         } catch (RuntimeException unreadable) {
             logger.debug("Could not read the transaction's rollback state: {}", LogSafe.exceptionTrace(unreadable));
+            return false;
         }
-        return false;
+    }
+
+    /** A template that only joins the calling thread's transaction; it throws if there is none to join. */
+    private static TransactionTemplate joinEnclosingTransaction() {
+        TransactionTemplate template = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_MANDATORY);
+        return template;
     }
 
     private static void removeStoredRows(int fileId) {
