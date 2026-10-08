@@ -222,6 +222,7 @@ public class AddPrevention2Action extends ActionSupport {
         // record is validated: once an edit or delete has saved, its original record is gone and a
         // repeat must still read as the saved no-op it is, not as a request for a missing record.
         PreventionSubmissionGuard.Claim claim = null;
+        boolean staleSubmission = false;
         String submissionToken = request.getParameter(PreventionSubmissionGuard.PARAMETER);
         if (submissionToken != null) {
             PreventionSubmissionGuard.Attempt attempt = PreventionSubmissionGuard.attempt(request.getSession(),
@@ -237,9 +238,9 @@ public class AddPrevention2Action extends ActionSupport {
                 case IN_PROGRESS -> {
                     return refuseSubmission("oscarprevention.addpreventiondata.submitInProgress");
                 }
-                default -> {
-                    return refuseSubmission("oscarprevention.addpreventiondata.submitStale");
-                }
+                // Not this form's token. Malformed or foreign input still gets its 400 from
+                // validation below; a request that is otherwise valid is refused as stale.
+                default -> staleSubmission = true;
             }
         }
 
@@ -249,6 +250,9 @@ public class AddPrevention2Action extends ActionSupport {
             closeClaim(claim);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
+        }
+        if (staleSubmission) {
+            return refuseSubmission("oscarprevention.addpreventiondata.submitStale");
         }
 
         Integer preventionId;

@@ -225,6 +225,18 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldKeepTheValidationStatus_whenATamperedRequestCarriesTheFormToken() throws Exception {
+        issueToken(null);
+        mockRequest.setParameter("demographic_no", "43");
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        data.verify(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any()), never());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldRefuseWithoutWriting_whenTheTokenWasIssuedForAnotherRecord() throws Exception {
         issueToken("100");
 
