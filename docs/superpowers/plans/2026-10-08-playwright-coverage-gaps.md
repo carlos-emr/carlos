@@ -6,6 +6,8 @@
 
 **Architecture:** Each gap becomes a `*-playwright-checks.js` script built on the shared harness (`runWorkflow`, owned FAKE- fixtures, marker cleanup). It also gets a manifest entry and an npm alias. Each check is validated live on the packaged Ubuntu 26.04 install that `scripts/deb-docker-validation.sh` brings up (Ontario or BC). Harness gaps come first, because later tasks rely on them: known-failure bookkeeping, residue audit and configuration profiles. No application code changes. A check that exposes a defect fails, and the defect goes into `docs/ui-tests/app-findings-log.md`.
 
+**Approved scope (2026-10-08):** Phases 0, 1, 3, 4 and 5. Phase 2 (British Columbia, Tasks 18–27) and every BC step elsewhere are excluded; they are tracked in #4439. Validation runs on the Ontario container only.
+
 **Tech Stack:** Node 22, Playwright (Chromium at `/opt/pw-browsers`), `node:test` meta-tests, Bash, MariaDB 11.8, the `carlos-emr` / `carlos-emr-drugref` / `carlos-ctl` Debian packages.
 
 **Spec:** The gap inventory in §1 below. It was built on 2026-10-08 from five read-only mapping reviews: cross-cutting; chart and clinical; documents, labs, Rx, scheduling and forms; billing and reports; admin, integrations, provider and login. Each review measured the 1,079 Struts routes and the 414 untouched ones against the manifest. The five reports, which give each gap's path, routes and fixtures, are in the appendix `docs/superpowers/plans/2026-10-08-playwright-coverage-gaps-reviews.md`. Background: `docs/ui-tests/playwright-coverage-plan-2026.08.md` (§5 sequencing, §6 deliberate exclusions) and `docs/ui-tests/release-2026.08-workflow-coverage-expansion.md`.
@@ -180,7 +182,7 @@ Task 1 confirms each one and logs it. The first six are confirmed in source at t
 **Files:** Modify `docs/ui-tests/app-findings-log.md` with a new subsection, "Found by the 2026.08 coverage mapping".
 
 - [ ] Re-read the source for each §2 row. For rows marked "Review code reading", confirm at the cited lines or drop the row; never log an unconfirmed defect.
-- [ ] Probe 182, 183, 184 and 187 live, on the ON container for 182 and 183 and on the BC container for 184 and 187. Use a throwaway scratch script in the scratchpad, not a committed check. Record the observed status or row change.
+- [ ] Probe 182, 183 and 186 live on the ON container. Use a throwaway scratch script in the scratchpad, not a committed check. Record the observed status or row change. The BC rows (184, 185, 187 and the BC code-reading items) are out of scope: they are tracked in #4439 and are not logged here.
 - [ ] Add rows 182 and up with evidence ("Live: …" or "Source: …") and status `open`.
 - [ ] Run `node --test scripts/app-findings-log.test.js`; expect PASS. Commit with `docs: log findings 182–N from the coverage mapping`.
 
@@ -649,7 +651,7 @@ Registering these classes in `MutatorActionGetRejectionContractUnitTest` belongs
 ### Task 40: Runner `--profile`
 
 **Files:** Create `scripts/lib/property-profiles.js`:
-- `PROFILES`: `address-lock` (`login_lock=false`), `no-pin` (`mfa.legacy.pin.enable=false`), `multisite` (`multisites=on`, `rma_enabled=true`), `caisi-admin` (`caisi=on`, `caisi.search.workflow=false`), `legacy-contacts` (`NEW_CONTACTS_UI=false`), `legacy-teleplan` (`NEW_BC_TELEPLAN=no`) and `private-consent` (`privateConsentEnabled=true`, with the fixture program in `privateConsentPrograms`). The `multisite` profile also sets `moh_file_management_enabled=true`.
+- `PROFILES`: `address-lock` (`login_lock=false`), `no-pin` (`mfa.legacy.pin.enable=false`), `multisite` (`multisites=on`, `rma_enabled=true`), `caisi-admin` (`caisi=on`, `caisi.search.workflow=false`), `legacy-contacts` (`NEW_CONTACTS_UI=false`) and `private-consent` (`privateConsentEnabled=true`, with the fixture program in `privateConsentPrograms`). The `multisite` profile also sets `moh_file_management_enabled=true`.
 - `applyProfile(name)` writes `/etc/carlos-emr/carlos.properties`, restarts `carlos-emr.service` and waits for `/status`.
 - `restoreProfile()` restores the snapshot.
 
@@ -676,20 +678,15 @@ Modify `scripts/run-playwright-suite.js` to add `--profile`, so only checks whos
 - [ ] S2. **Expected:** PASS, or findings.
 - [ ] S3, S4.
 
-### Task 43: Legacy contacts and legacy Teleplan profiles
+### Task 43: Legacy contacts profile
 
-**Files:** Create `scripts/demographic-relations-legacy-playwright-checks.js` (profile `legacy-contacts`) and `scripts/billing-bc-remittance-playwright-checks.js` (profile `legacy-teleplan`, BC).
+**Files:** Create `scripts/demographic-relations-legacy-playwright-checks.js` (profile `legacy-contacts`). The BC remittance check is out of scope (#4439).
 - [ ] S1, relations:
   - A `relationships` row with the relation, both flags and the creator.
   - It shows on both patients.
   - Delete removes it or flags it.
   - A GET passes `assertRefused`.
-- [ ] S1, remittance. Upload a synthetic remittance with S21, an S01 paid line, an S00 refusal with an explanatory code, and S22:
-  - The `teleplanS21`, `S00`, `S01` and `S22` rows are written.
-  - The paid claim is settled with its amount, and the refused claim is flagged.
-  - Settle BG flips an over/under-paid claim, and GET with settle parameters gets 405.
-  - MSP Reconciliation opens.
-- [ ] S2. **Expected:** relations PASS; remittance FAILs at Reconciliation (cand.).
+- [ ] S2. **Expected:** PASS, or findings.
 - [ ] S3, S4.
 
 ### Task 44: CAISI admin profile
@@ -737,7 +734,7 @@ Modify `scripts/run-playwright-suite.js` to add `--profile`, so only checks whos
 - Create `scripts/accessibility-smoke-playwright-checks.js`, which is report-only and adds the `axe-core` dev dependency.
 - Create `scripts/i18n-locale-walk-playwright-checks.js`, which runs the page-health engine under fr, es, pl and pt_BR and reports `???key???`.
 
-- [ ] S2. **Expected:** the hit-test FAILs on BC master record (finding 146); accessibility reports findings without failing; the i18n walk reports missing keys.
+- [ ] S2, on the ON container. **Expected:** the hit-test passes on Ontario (finding 146 is BC-only, #4439); accessibility reports findings without failing; the i18n walk reports missing keys.
 - [ ] S3, S4.
 
 ### Task 48: Signal-safe cleanup for the remaining 57 checks
@@ -787,7 +784,7 @@ Twenty-odd planned items from `playwright-coverage-plan-2026.08.md` landed under
 | 1: P1 Ontario | 7–17 | 4 L, 7 M | ON | 7, 10, 13, 15 (9 pins); 11, 12, 14, 16 possibly |
 | 2: BC | 18–27 | 3 L, 7 M | BC | 18, 19, 20, 21, 22, 23, 25, 26 (BPMH) |
 | 3: P2 Ontario | 28–39 | 2 L, 10 M | ON | 29, 33, 39 (14 pins) |
-| 4: profiles | 40–44 | 1 L, 4 M | ON and BC | 41, 43 (remittance), 44 (CAISI client) |
-| 5: P3 and hardening | 45–48 | 2 L, 2 M | ON and BC | 46 (Pregnancy), 47 (BC hit-test) |
+| 4: profiles | 40–44 | 1 L, 4 M | ON | 41, 44 (CAISI client) |
+| 5: P3 and hardening | 45–48 | 2 L, 2 M | ON | 46 (Pregnancy) |
 
 Each phase ends with a full `--tier core` run on its container. The residue audit must be clean and every failure must be `known-fail`. The phase's commits go to the branch, and the user reviews the PR before the next phase starts.
