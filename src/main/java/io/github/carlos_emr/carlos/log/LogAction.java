@@ -173,6 +173,26 @@ public class LogAction {
     }
 
     /**
+     * Copies {@code demographicNo} onto the audit row when it is a number. A value that does not
+     * parse is dropped and only its length is logged: callers have passed free text (a note body)
+     * in this slot, and echoing it, as {@code NumberFormatException}'s message does, would write
+     * PHI into the application log. The audit row is still written, without a patient.
+     */
+    private static void setDemographicIdIfNumeric(OscarLog logEntry, String demographicNo) {
+        String trimmed = StringUtils.trimToNull(demographicNo);
+        if (trimmed == null) {
+            return;
+        }
+        try {
+            logEntry.setDemographicId(Integer.parseInt(trimmed));
+        } catch (NumberFormatException e) {
+            // Deliberately not passing e: its message is the unparsable input.
+            logger.error("Audit log demographicNo is not a number (length {}); the audit row is saved without a patient",
+                    trimmed.length());
+        }
+    }
+
+    /**
      * Best-effort audit: queues the entry for asynchronous persistence and never throws. If the
      * executor is saturated it persists synchronously, but a persistence failure is only logged
      * (see {@link #addLogSynchronous(OscarLog)}). Use {@link #addLogStrict} where serving data
@@ -208,12 +228,7 @@ public class LogAction {
         logEntry.setContentId(contentId);
         logEntry.setIp(loggedInInfo.getIp());
 
-        try {
-            demographicNo = StringUtils.trimToNull(demographicNo);
-            if (demographicNo != null) logEntry.setDemographicId(Integer.parseInt(demographicNo));
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
-        }
+        setDemographicIdIfNumeric(logEntry, demographicNo);
         logEntry.setData(data);
         return logEntry;
     }
@@ -230,12 +245,7 @@ public class LogAction {
         oscarLog.setContentId(contentId);
         oscarLog.setIp(ip);
 
-        try {
-            demographicNo = StringUtils.trimToNull(demographicNo);
-            if (demographicNo != null) oscarLog.setDemographicId(Integer.parseInt(demographicNo));
-        } catch (Exception e) {
-            logger.error("Unexpected error", e);
-        }
+        setDemographicIdIfNumeric(oscarLog, demographicNo);
 
         oscarLog.setData(data);
 
