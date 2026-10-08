@@ -79,6 +79,17 @@ test('serverLogFromEnvironment is not configured without a source and reads noth
   assert.equal(reader.since(null), '');
 });
 
+test('serverLogFromEnvironment rejects a journal unit that is not a unit name', () => {
+  for (const bad of ['--output=json', '-n', 'carlos-emr; id', 'a b', '']) {
+    if (bad === '') {
+      assert.equal(serverLogFromEnvironment({ LAB_UPLOAD_JOURNAL_UNIT: bad }).configured, false);
+      continue;
+    }
+    assert.throws(() => serverLogFromEnvironment({ LAB_UPLOAD_JOURNAL_UNIT: bad }), /LAB_UPLOAD_JOURNAL_UNIT/);
+  }
+  assert.equal(serverLogFromEnvironment({ LAB_UPLOAD_JOURNAL_UNIT: 'carlos-emr@host.service' }).configured, true);
+});
+
 test('serverLogFromEnvironment reads only what a log file gained after the mark', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-log-test-'));
   try {
@@ -95,6 +106,64 @@ test('serverLogFromEnvironment reads only what a log file gained after the mark'
     // A log rotated or truncated below the mark is read from its start rather than skipped.
     fs.writeFileSync(file, '2026-10-08 12:00:00,000 ERROR new.Logger (New.java:1) - after rotation\n');
     assert.match(reader.since(mark), /after rotation/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('serverLogFromEnvironment reads a replaced log from its start even when it outgrew the mark', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-log-test-'));
+  try {
+    const file = path.join(dir, 'catalina.out');
+    fs.writeFileSync(file, '2026-10-08 10:00:00,000 ERROR old.Logger (Old.java:1) - before the check\n');
+    const reader = serverLogFromEnvironment({ LAB_UPLOAD_SERVER_LOG: file });
+    const mark = reader.mark();
+
+    // Rotation by rename: a new file takes the name and is already larger than the mark when read.
+    const replacement = path.join(dir, 'catalina.out.new');
+    fs.writeFileSync(replacement, `${AFTER_FIX}${AFTER_FIX}`);
+    fs.renameSync(replacement, file);
+
+    const events = splitLogEvents(reader.since(mark));
+    assert.equal(events.length, 6, 'the whole replacement log, not the part past the old offset');
+    assert.deepEqual(storageFailureLogProblems(reader.since(mark), PROBE), []);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('serverLogFromEnvironment reads a truncated log from its start even after it regrew past the mark', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-log-test-'));
+  try {
+    const file = path.join(dir, 'catalina.out');
+    fs.writeFileSync(file, '2026-10-08 10:00:00,000 ERROR old.Logger (Old.java:1) - before the check\n');
+    const reader = serverLogFromEnvironment({ LAB_UPLOAD_SERVER_LOG: file });
+    const mark = reader.mark();
+
+    // copytruncate-style rotation: the same file is emptied and written again beyond its old length.
+    fs.writeFileSync(file, `${AFTER_FIX}${AFTER_FIX}`);
+
+    assert.equal(splitLogEvents(reader.since(mark)).length, 6);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('serverLogFromEnvironment keeps reading after the mark when the same log only grew', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'server-log-test-'));
+  try {
+    const file = path.join(dir, 'catalina.out');
+    fs.writeFileSync(file, '');
+    const reader = serverLogFromEnvironment({ LAB_UPLOAD_SERVER_LOG: file });
+    const emptyMark = reader.mark();
+    fs.appendFileSync(file, AFTER_FIX);
+    assert.equal(splitLogEvents(reader.since(emptyMark)).length, 3, 'a mark taken on an empty log');
+
+    const mark = reader.mark();
+    fs.appendFileSync(file, BEFORE_FIX);
+    const later = splitLogEvents(reader.since(mark));
+    assert.equal(later.length, 4);
+    assert.ok(later.every((event) => !event.text.includes('Not cleaning up')), 'nothing from before the mark');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

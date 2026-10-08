@@ -41,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -109,9 +110,8 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
 
     private void purge() {
         tx.executeWithoutResult(status -> {
-            em.createQuery("delete from Hl7TextInfo i where i.labNumber in "
-                    + "(select m.id from Hl7TextMessage m where m.fileUploadCheckId = :checksum)")
-                    .setParameter("checksum", CHECKSUM).executeUpdate();
+            em.createQuery("delete from Hl7TextInfo i where i.lastName = :name")
+                    .setParameter("name", SYNTHETIC_LAST_NAME).executeUpdate();
             em.createQuery("delete from Hl7TextMessage m where m.fileUploadCheckId = :checksum")
                     .setParameter("checksum", CHECKSUM).executeUpdate();
             em.createQuery("delete from RecycleBin r where r.providerNo = '0' and "
@@ -146,11 +146,12 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
                 .setParameter("checksum", CHECKSUM).getSingleResult());
     }
 
+    // By the synthetic last name, not through the message: clean() deletes the message, and a count that
+    // joins through it would read zero even when clean left the info row behind.
     private long countInfos() {
         return tx.execute(status -> em.createQuery(
-                "select count(i) from Hl7TextInfo i where i.labNumber in "
-                        + "(select m.id from Hl7TextMessage m where m.fileUploadCheckId = :checksum)", Long.class)
-                .setParameter("checksum", CHECKSUM).getSingleResult());
+                "select count(i) from Hl7TextInfo i where i.lastName = :name", Long.class)
+                .setParameter("name", SYNTHETIC_LAST_NAME).getSingleResult());
     }
 
     private long countRecycled(String table, String marker) {
@@ -228,7 +229,7 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldLogWarningAndReturn_whenCleanupItselfFails() throws Exception {
+    void shouldDoomTransactionAndReturn_whenCleanupItselfFails() throws Exception {
         Field dao = MessageUploader.class.getDeclaredField("hl7TextMessageDao");
         dao.setAccessible(true);
         Hl7TextMessageDao failing = mock(Hl7TextMessageDao.class);
@@ -236,9 +237,17 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
         dao.set(null, failing);
 
         try (LogCapture uploaderLog = LogCapture.forLogger(MessageUploader.class)) {
-            // A failing best-effort cleanup must not replace the failure that sent the handler here.
-            assertThatCode(() -> tx.executeWithoutResult(status -> MessageUploader.clean(CHECKSUM)))
-                    .doesNotThrowAnyException();
+            // IHAPOIHandler returns its per-message failure string after clean, and the caller commits
+            // whatever the transaction holds. A failed cleanup must therefore doom the transaction, or
+            // the half-removed rows and the checksum would be committed.
+            assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
+                infos.persist(infoFor(persistMessage(), "F"));
+
+                assertThatCode(() -> MessageUploader.clean(CHECKSUM))
+                        .as("clean must not replace the failure that sent the handler here").doesNotThrowAnyException();
+
+                assertThat(status.isRollbackOnly()).as("a failed cleanup dooms the transaction").isTrue();
+            })).as("the doomed transaction cannot commit").isInstanceOf(UnexpectedRollbackException.class);
 
             assertThat(uploaderLog.events())
                     .filteredOn(event -> event.getLevel() == Level.WARN)
@@ -250,5 +259,8 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
                         assertThat(event.getThrown()).as("no throwable that could carry row content").isNull();
                     });
         }
+
+        assertThat(countMessages()).as("nothing the upload stored was committed").isZero();
+        assertThat(countInfos()).isZero();
     }
 }

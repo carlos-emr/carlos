@@ -126,6 +126,10 @@ function serverLogFromEnvironment(env = process.env) {
   const unit = env.LAB_UPLOAD_JOURNAL_UNIT;
   const file = env.LAB_UPLOAD_SERVER_LOG;
   if (unit) {
+    // The value reaches journalctl's command line, so accept only what a systemd unit name can be.
+    if (!/^[A-Za-z0-9][A-Za-z0-9:_.@-]*$/.test(unit)) {
+      throw new Error('LAB_UPLOAD_JOURNAL_UNIT must be a systemd unit name such as carlos-emr');
+    }
     return {
       configured: true,
       source: `journal unit ${unit}`,
@@ -137,7 +141,7 @@ function serverLogFromEnvironment(env = process.env) {
     return {
       configured: true,
       source: `log file ${file}`,
-      mark: () => ({ size: fs.statSync(file).size }),
+      mark: () => fileMark(file),
       since: (mark) => fileSince(file, mark),
     };
   }
@@ -161,18 +165,46 @@ function journalSince(unit, mark) {
   return journal(unit, mark && mark.cursor ? [`--after-cursor=${mark.cursor}`] : []);
 }
 
-function fileSince(file, mark) {
-  const size = fs.statSync(file).size;
-  // A log that shrank was rotated or truncated; read it from the start.
-  const start = mark && mark.size <= size ? mark.size : 0;
+// How much of the log's last bytes a mark remembers, to tell the same file from a replacement.
+const TAIL_BYTES = 256;
+
+function readRange(file, start, end) {
+  const buffer = Buffer.alloc(Math.max(0, end - start));
+  if (buffer.length === 0) return buffer;
   const fd = fs.openSync(file, 'r');
   try {
-    const buffer = Buffer.alloc(size - start);
     fs.readSync(fd, buffer, 0, buffer.length, start);
-    return buffer.toString('utf8');
   } finally {
     fs.closeSync(fd);
   }
+  return buffer;
+}
+
+/** Records where the log ends and enough to recognize it later: its identity and its last bytes. */
+function fileMark(file) {
+  const stat = fs.statSync(file);
+  return {
+    dev: stat.dev,
+    ino: stat.ino,
+    size: stat.size,
+    tail: readRange(file, Math.max(0, stat.size - TAIL_BYTES), stat.size),
+  };
+}
+
+/**
+ * Reads what the log gained after the mark. A size comparison alone cannot tell a log that only grew
+ * from one that was rotated and then outgrew the old offset, so the offset is trusted only when it is
+ * still the same file (device and inode), it is not shorter, and the bytes before the offset are the ones
+ * the mark saw. Otherwise the log was replaced or truncated, and all of it came after the mark.
+ */
+function fileSince(file, mark) {
+  const stat = fs.statSync(file);
+  const sameLog = Boolean(mark)
+    && stat.dev === mark.dev
+    && stat.ino === mark.ino
+    && stat.size >= mark.size
+    && readRange(file, mark.size - mark.tail.length, mark.size).equals(mark.tail);
+  return readRange(file, sameLog ? mark.size : 0, stat.size).toString('utf8');
 }
 
 module.exports = { splitLogEvents, storageFailureLogProblems, serverLogFromEnvironment, verifyStorageFailureLog };

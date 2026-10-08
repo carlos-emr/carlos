@@ -654,8 +654,11 @@ public final class MessageUploader {
      *
      * <p>A transaction that is still healthy is cleaned as before, because {@code IHAPOIHandler}
      * returns a per-message failure string, which the caller commits, and relies on this to undo its
-     * rows first; so is a call with no transaction at all. The cleanup is best effort and never throws:
-     * a failure is logged at WARN so it cannot replace the failure that brought the caller here.</p>
+     * rows first; so is a call with no transaction at all. A failing cleanup is logged at WARN rather
+     * than thrown, so it cannot replace the failure that brought the caller here. It does mark the
+     * enclosing transaction rollback-only, because a half-finished cleanup that the caller then commits
+     * would leave some rows removed and others stored; only if the transaction cannot be marked is the
+     * failure rethrown, so that it still rolls back.</p>
      *
      * @param fileId the id of the {@code fileUploadCheck} row that the failed upload's rows reference
      */
@@ -669,7 +672,41 @@ public final class MessageUploader {
         } catch (RuntimeException cleanupFailure) {
             // exceptionTrace, like the upload actions: a persistence failure's nested causes can carry row content.
             logger.warn("Could not clean up the rows of lab upload {}: {}", fileId, LogSafe.exceptionTrace(cleanupFailure));
+            if (TransactionSynchronizationManager.isActualTransactionActive() && !markEnclosingTransactionRollbackOnly()) {
+                throw cleanupFailure;
+            }
         }
+    }
+
+    /**
+     * Makes the calling thread's Spring transaction unable to commit, without throwing.
+     *
+     * <p>Marks what {@link #isEnclosingTransactionRollbackOnly()} reads: the JPA {@code EntityTransaction},
+     * which {@code JpaTransactionManager} consults at commit, and the Spring holders bound to it.</p>
+     *
+     * @return {@code true} if a transaction was marked; {@code false} if none could be, so the caller must
+     *         propagate its failure instead
+     */
+    private static boolean markEnclosingTransactionRollbackOnly() {
+        boolean marked = false;
+        try {
+            for (Object resource : TransactionSynchronizationManager.getResourceMap().values()) {
+                if (resource instanceof EntityManagerHolder entityManagers) {
+                    EntityTransaction jpaTransaction = entityManagers.getEntityManager().getTransaction();
+                    if (jpaTransaction.isActive()) {
+                        jpaTransaction.setRollbackOnly();
+                        marked = true;
+                    }
+                }
+                if (resource instanceof ResourceHolderSupport holder) {
+                    holder.setRollbackOnly();
+                }
+            }
+        } catch (RuntimeException unmarkable) {
+            logger.warn("Could not mark the transaction rollback-only: {}", LogSafe.exceptionTrace(unmarkable));
+            return false;
+        }
+        return marked;
     }
 
     /**
