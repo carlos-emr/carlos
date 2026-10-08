@@ -184,46 +184,62 @@ test('a form rendered without a status region gets one, announced as an alert', 
     assert.match(page.inserted[0].textContent, /Allergy NOT saved/);
 });
 
-test('the submit hook takes over only the allergy form, and only when the browser can save in page', () => {
+function formListeners(page) {
+    page.form.listeners = [];
+    page.form.addEventListener = (type, listener, capture) => page.form.listeners.push({ type, listener, capture });
+}
+
+function submitEvent(target, page, defaultPrevented = false) {
+    return {
+        target, currentTarget: target, defaultPrevented, submitter: page.submitButton, prevented: false,
+        preventDefault() { this.prevented = true; this.defaultPrevented = true; },
+    };
+}
+
+test('the save is bound on the allergy form itself, from a capture-phase document listener', () => {
     const page = fakePage({ fetchImpl: () => new Promise(() => {}) });
+    formListeners(page);
     const dialog = dialogModule.create(page.win);
     dialog.install();
     dialog.install();
-    const submitListeners = page.listeners.filter((entry) => entry.type === 'submit');
-    assert.equal(submitListeners.length, 1, 'installing twice must not double-submit');
-    assert.equal(submitListeners[0].capture, false,
-        'bubble phase, after CSRFGuard\'s capture-phase hook has put the current token in the form');
-    const onSubmit = submitListeners[0].listener;
-    const event = (target, defaultPrevented = false) => ({
-        target, defaultPrevented, submitter: page.submitButton, prevented: false,
-        preventDefault() { this.prevented = true; },
-    });
+    const documentListeners = page.listeners.filter((entry) => entry.type === 'submit');
+    assert.equal(documentListeners.length, 1, 'installing twice must not double-bind');
+    // The injected form sits inside the allergy search form, and Blink stops a nested form's submit
+    // event at the enclosing form: only capture is guaranteed to reach the document.
+    assert.equal(documentListeners[0].capture, true);
+    const bind = documentListeners[0].listener;
 
-    const other = event(fakeElement({ id: 'searchAllergy2' }));
-    onSubmit(other);
-    assert.equal(other.prevented, false);
+    bind(submitEvent(fakeElement({ id: 'searchAllergy2', addEventListener: () => assert.fail('only the allergy form is bound') }), page));
+    bind(submitEvent(page.form, page));
+    bind(submitEvent(page.form, page));
+    assert.equal(page.form.listeners.length, 1, 'each form element is bound once');
+    assert.equal(page.form.listeners[0].capture, false,
+        'target phase: after CSRFGuard\'s capture-phase hook has put the current token in the form');
+    assert.equal(page.fetchCalls.length, 0, 'binding alone sends nothing');
 
-    const cancelled = event(page.form, true);
+    const onSubmit = page.form.listeners[0].listener;
+    const cancelled = submitEvent(page.form, page, true);
     onSubmit(cancelled);
-    assert.equal(cancelled.prevented, false);
-    assert.equal(page.fetchCalls.length, 0);
+    assert.equal(page.fetchCalls.length, 0, 'a submission another handler cancelled is left alone');
 
-    const allergy = event(page.form);
+    const allergy = submitEvent(page.form, page);
     onSubmit(allergy);
     assert.equal(allergy.prevented, true);
     assert.equal(page.fetchCalls.length, 1);
 });
 
-test('without fetch the allergy form posts the classic way, as before', () => {
+test('without fetch the allergy form is not taken over and posts the classic way, as before', () => {
     const page = fakePage({ fetchImpl: () => assert.fail('fetch must not be called') });
+    formListeners(page);
     delete page.win.fetch;
     const dialog = dialogModule.create(page.win);
     dialog.install();
-    const onSubmit = page.listeners.find((entry) => entry.type === 'submit').listener;
-    const allergy = { target: page.form, defaultPrevented: false, prevented: false, preventDefault() { this.prevented = true; } };
+    const bind = page.listeners.find((entry) => entry.type === 'submit').listener;
+    const allergy = submitEvent(page.form, page);
 
-    onSubmit(allergy);
+    bind(allergy);
 
+    assert.equal(page.form.listeners.length, 0);
     assert.equal(allergy.prevented, false);
 });
 

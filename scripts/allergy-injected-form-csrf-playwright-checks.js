@@ -25,10 +25,11 @@
  *   7. With a second owned patient open in another tab, patient A's form pointed at patient B is
  *      refused and writes nothing to either; the untouched form still writes to A only.
  *   8. Direct posts without a token or with a forged one are refused (403) and write nothing.
- *   9. A form left open after logout fails closed: the dialogue reports it and nothing is written.
+ *   9. A form left open after the session ends (a server-side logout) fails closed: the dialogue
+ *      reports it, keeps the entries, and nothing is written.
  *
  * Fixtures: two owned FAKE-PW patients (the workflow's own, and a second inserted here); cleanup
- * deletes every allergies row of both and both patients. Local disposable database only.
+ * deletes every allergies row of both and both patients. The last step ends the test session. Local disposable database only.
  *
  * Environment: BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, CHROME_PATH, MYSQL_HOST/USER/PASSWORD/
  * DATABASE (docs/ui-tests/deb-install-validation.md section 6). Optional: ALLERGY_SEARCH_TERM
@@ -44,6 +45,8 @@ const searchTerm = process.env.ALLERGY_SEARCH_TERM || 'amoxicillin';
 h.assert(/^[A-Za-z][A-Za-z -]{2,40}$/.test(searchTerm), 'ALLERGY_SEARCH_TERM must be a plain allergen name');
 
 const isPath = (route) => (response) => new URL(response.url()).pathname.endsWith(route);
+// rx-patient-context.js adds ?demographicNo= to the page's AJAX URLs, so match routes by path.
+const routePath = (route) => (url) => url.pathname.endsWith(route);
 const isPost = (route) => (response) => response.request().method() === 'POST' && isPath(route)(response);
 
 async function openAllergyPageFromRx(s, page, patient) {
@@ -158,7 +161,7 @@ async function workflow(s) {
       delete headers['csrf-token'];
       return route.continue({ headers });
     };
-    await page.route('**/rx/addReaction2', stripHeaderToken, { times: 1 });
+    await page.route(routePath('/rx/addReaction2'), stripHeaderToken, { times: 1 });
     const mark = failureMark(recorder);
     const [refused] = await Promise.all([page.waitForResponse(isPost('/rx/addReaction2')), page.locator('input[value="Penicillin"]').click()]);
     h.assert(refused.status() === 403, `A tokenless dialogue request answered HTTP ${refused.status()}, not 403`);
@@ -186,7 +189,7 @@ async function workflow(s) {
       body.delete('CSRF-TOKEN');
       return route.continue({ postData: body.toString() });
     };
-    await page.route('**/rx/addAllergy2', stripBodyToken, { times: 1 });
+    await page.route(routePath('/rx/addAllergy2'), stripBodyToken, { times: 1 });
     const mark = failureMark(recorder);
     const [refused] = await Promise.all([page.waitForResponse(isPost('/rx/addAllergy2')),
       form.locator('input[type="submit"][value="Add Allergy"]').click()]);
@@ -273,17 +276,23 @@ async function workflow(s) {
     h.assert(sql.value(rows(` AND reaction=${h.sqlString(`${marker} forged`)}`)) === '0', 'A forged post wrote an allergy');
   });
 
-  await s.step('a form left open after logout fails closed and writes nothing', async () => {
+  await s.step('a form left open after the session ends fails closed and writes nothing', async () => {
+    // The session ends on the server while the form is open, the way a timeout or a logout from
+    // elsewhere ends it. The heartbeat is held at "valid" for the rest of the run: this step is about
+    // what the server does with the stale form, and LogoutBroadcastFilter's heartbeat or a logout
+    // page's broadcast would otherwise replace the page before the form could be submitted.
+    await context.route(routePath('/status/SessionHeartbeat'),
+      route => route.fulfill({ status: 200, contentType: 'application/json', body: '{"valid":true}' }));
     await page.locator('#searchString').fill(`OUT ${marker.slice(-8)}`.toUpperCase());
     await h.withExpectedDialogs(page, () => loadReactionForm(page, () => page.locator('input[value="Custom Allergy"]').click()));
     const form = page.locator('#RxAddAllergyForm');
     await form.locator('#reactionDescription').fill(`${marker} stale`);
     await form.locator('[name="nonDrug"]').selectOption('on');
-    const logout = await context.newPage();
-    h.relabelStrictPage(logout, 'logout');
-    await h.gotoApp(logout, s.config.baseUrl, '/logout');
-    await logout.close();
-    await page.bringToFront();
+    // Logout2Action is POST-only; logout.jsp posts to it the same way.
+    const logout = await context.request.post(h.appUrl(s.config.baseUrl, '/logout'), { maxRedirects: 0 });
+    h.assert([302, 303].includes(logout.status()), `Logging out answered HTTP ${logout.status()}`);
+    const probe = await context.request.get(h.appUrl(s.config.baseUrl, `/rx/showAllergy?demographicNo=${patient}`), { maxRedirects: 0 });
+    h.assert(probe.status() !== 200, 'The session survived the logout');
     const mark = failureMark(recorder);
     const [answer] = await Promise.all([page.waitForResponse(isPost('/rx/addAllergy2')),
       form.locator('input[type="submit"][value="Add Allergy"]').click()]);
@@ -293,7 +302,7 @@ async function workflow(s) {
       'The stale form was not reported as unsaved');
     h.assert(await form.locator('#reactionDescription').inputValue() === `${marker} stale`, 'The stale form lost its entries');
     if (answer.status() >= 400) consumeExpectedFailure(recorder, mark, { status: answer.status(), path: /\/rx\/addAllergy2$/ });
-    h.assert(sql.value(rows(` AND reaction=${h.sqlString(`${marker} stale`)}`)) === '0', 'A form submitted after logout wrote an allergy');
+    h.assert(sql.value(rows(` AND reaction=${h.sqlString(`${marker} stale`)}`)) === '0', 'A form submitted after the session ended wrote an allergy');
   });
 }
 

@@ -298,18 +298,45 @@
         }
 
         /**
-         * Bubble-phase submit handler on the document, so it also covers a form injected after
-         * load. It runs after the button's onclick validation (which cancels an invalid submit
-         * before any submit event) and after CSRFGuard's capture-phase hook has put the current
-         * token in the form.
+         * The save, as a listener on the form itself. At the target it runs after CSRFGuard's
+         * capture-phase hook on the document has put the current token in the form and after any
+         * handler of the form's own, so a submission one of them cancelled is left alone. The
+         * button's onclick validation (doSubmit) runs earlier still: an invalid form fires no
+         * submit event at all.
          */
         function onSubmit(event) {
-            var form = event.target;
-            if (!form || form.id !== FORM_ID || event.defaultPrevented || !canSaveInPage()) {
+            var form = event.currentTarget || event.target;
+            if (event.defaultPrevented || !canSaveInPage()) {
                 return;
             }
             event.preventDefault();
             save(form, event.submitter || null);
+        }
+
+        var boundForms = typeof WeakSet === 'function' ? new WeakSet() : null;
+
+        /**
+         * Capture-phase submit listener on the document that binds onSubmit to the allergy form the
+         * first time that form is submitted. It cannot simply listen on the document: the injected
+         * dialogue sits inside the allergy page's search form, and Blink stops a nested form's
+         * submit event at the enclosing form, so it never bubbles to the document. Capture still
+         * reaches the target, and a listener added to the form here is invoked when the dispatch
+         * gets there. Each injection is a new form element, bound once.
+         */
+        function bindOnSubmit(event) {
+            var form = event.target;
+            if (!form || form.id !== FORM_ID || !canSaveInPage()) {
+                return;
+            }
+            if (boundForms ? boundForms.has(form) : form.getAttribute('data-allergy-save-bound') === 'true') {
+                return;
+            }
+            if (boundForms) {
+                boundForms.add(form);
+            } else {
+                form.setAttribute('data-allergy-save-bound', 'true');
+            }
+            form.addEventListener('submit', onSubmit, false);
         }
 
         function install() {
@@ -317,7 +344,7 @@
                 return;
             }
             doc.carlosAllergyDialogInstalled = true;
-            doc.addEventListener('submit', onSubmit, false);
+            doc.addEventListener('submit', bindOnSubmit, true);
         }
 
         /**
