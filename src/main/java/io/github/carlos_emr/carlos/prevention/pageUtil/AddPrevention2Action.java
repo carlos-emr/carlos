@@ -59,6 +59,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionSubmissionGuard;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * @author Jay Gallagher
@@ -83,6 +86,9 @@ public class AddPrevention2Action extends ActionSupport {
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
+
+    /** How long a repeated submission waits for the first one's save to finish. */
+    static final long REPEAT_WAIT_MILLIS = 20_000;
 
     public AddPrevention2Action() {
     }
@@ -217,27 +223,68 @@ public class AddPrevention2Action extends ActionSupport {
             return NONE;
         }
 
+        // One rendered form saves once (issue #4410): a double click, double Enter or slow-response
+        // re-click repeats the same token, and the repeat is answered from the first save's outcome.
+        // Posts without a token (the Rh-injection forms) are handled as before.
+        PreventionSubmissionGuard.Claim claim = null;
+        String submissionToken = request.getParameter(PreventionSubmissionGuard.PARAMETER);
+        if (submissionToken != null) {
+            PreventionSubmissionGuard.Attempt attempt = PreventionSubmissionGuard.attempt(request.getSession(),
+                    submissionToken, demographic_no, id, REPEAT_WAIT_MILLIS);
+            switch (attempt.verdict()) {
+                case PROCEED -> claim = attempt.claim();
+                // The first submission of this form saved: close the popup as that save would have.
+                case ALREADY_SAVED -> {
+                    return SUCCESS;
+                }
+                case IN_PROGRESS -> {
+                    return refuseSubmission("oscarprevention.addpreventiondata.submitInProgress");
+                }
+                default -> {
+                    return refuseSubmission("oscarprevention.addpreventiondata.submitStale");
+                }
+            }
+        }
+
         Integer preventionId;
         try {
-            if (id == null) {
-                preventionId = PreventionData.insertPreventionData(sessionUser, demographic_no, prevDate,
-                        providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId, null);
-            } else if (delete != null) {
-                PreventionData.deletePreventionData(id, demographic_no);
-                preventionId = Integer.valueOf(id);
+            final String recordId = id;
+            final String refusedFlag = refused;
+            final String neverWarnFlag = neverWarn;
+            final PreventionSubmissionGuard.Claim reservation = claim;
+            java.util.function.Supplier<Integer> save = () -> {
+                if (recordId == null) {
+                    return PreventionData.insertPreventionData(sessionUser, demographic_no, prevDate,
+                            providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId, null);
+                } else if (delete != null) {
+                    PreventionData.deletePreventionData(recordId, demographic_no);
+                    return Integer.valueOf(recordId);
+                }
+                addHashtoArray(extraData, recordId, "previousId");
+                return PreventionData.updatetPreventionData(recordId, sessionUser, demographic_no, prevDate,
+                        providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId);
+            };
+            if (reservation == null) {
+                preventionId = save.get();
             } else {
-                addHashtoArray(extraData, id, "previousId");
-                preventionId = PreventionData.updatetPreventionData(id, sessionUser, demographic_no, prevDate,
-                        providerNo, providerName, preventionType, refused, nextDate, neverWarn, extraData, snomedId);
+                // One outer transaction (PreventionData's own templates join it), so the claim
+                // learns whether the write committed or rolled back.
+                preventionId = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                        .execute(status -> {
+                            reservation.storageStarted();
+                            return save.get();
+                        });
             }
             if (preventionId == null || preventionId <= 0) {
                 throw new IllegalStateException("Prevention was not persisted");
             }
         } catch (IllegalArgumentException invalidInput) {
+            closeClaim(claim);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             request.setAttribute("errors", List.of("Check the prevention date, next date, and patient record before saving."));
             return "form";
         } catch (RuntimeException saveFailure) {
+            closeClaim(claim);
             MiscUtils.getLogger().error("Unable to save prevention", saveFailure);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             request.setAttribute("errors", List.of("Unable to save the prevention. No changes were saved. Please try again."));
@@ -245,7 +292,13 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         PreventionManager prvMgr = SpringUtils.getBean(PreventionManager.class);
-        prvMgr.removePrevention(demographic_no);
+        try {
+            prvMgr.removePrevention(demographic_no);
+        } finally {
+            // Released only after the cached chart summary is cleared, so a waiting repeat that
+            // closes the popup refreshes the opener with the new record in it.
+            closeClaim(claim);
+        }
 
         if (submitToDhir) {
             CVCImmunization imm = cvcImmunizationDao.findBySnomedConceptId(snomedId);
@@ -284,6 +337,32 @@ public class AddPrevention2Action extends ActionSupport {
         return SUCCESS;
     }
 
+
+    /** Releases or settles a submission claim; a no-op for a post that carried no token. */
+    private static void closeClaim(PreventionSubmissionGuard.Claim claim) {
+        if (claim != null) {
+            claim.close();
+        }
+    }
+
+    /**
+     * Answers a repeated or stale submission with 409 and a fixed, localized plain-text message.
+     * Nothing was written by this request.
+     */
+    // FindSecBugs XSS_SERVLET: only fixed resource-bundle messages, served as non-sniffable plain text.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only constant-key localized messages; UTF-8 text/plain and nosniff; no request values are written")
+    private String refuseSubmission(String messageKey) {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        response.setContentType("text/plain;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        try {
+            response.getWriter().print(java.util.ResourceBundle.getBundle("oscarResources", request.getLocale()).getString(messageKey));
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        return NONE;
+    }
 
     private List<String> validate(String preventionType, String demographic_no, String id) {
         List<String> result = new ArrayList<String>();

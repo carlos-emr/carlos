@@ -5624,7 +5624,22 @@
       "timeoutSec": 720,
       "env": [],
       "fixtures": "Owns the synthetic patient; deletes its allergies, preventions (+ext), measurements (+deleted) and any chart notes/locks the popups left and asserts none remain.",
-      "notes": "Fails at its final assertion on 2026.08 (measurement and POST-replay steps pass): Add Allergy (AddReaction2.jsp:329) and Prevention Save (AddPreventionData.jsp:735) each create two rows on a slow re-click and intermittently on two back-to-back clicks or double Enter; measurement group Submit stores one row even though two requests are sent."
+      "notes": "Allergy, prevention and measurement adds each store exactly one record on dblclick, two back-to-back clicks, double Enter and a slow-response re-click. Prevention Save is guarded by a per-rendering submission token (issue #4410, PreventionSubmissionGuard); before it, a slow re-click stored two preventions."
+    },
+    {
+      "name": "prevention-submit-once",
+      "script": "scripts/prevention-submit-once-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owns the synthetic patient; deletes its preventions (+ext) and any chart notes the popups left and asserts none remain.",
+      "notes": "Issue #4410 item 2: the prevention form carries a one-time submission token; a double click stores one prevention, a later intentional add of the same immunization is stored, a replay of the saved form stores nothing and answers the close page, and a token used for another record is refused with 409."
     },
     {
       "name": "double-submit-demographic-add",
@@ -7687,7 +7702,22 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One owned allergy seeded by SQL for the owned FAKE- patient; cleanup deletes every allergies row of that patient and asserts none remain. Session B takes the chart lock over with the explicit same-login confirm (accepted and counted). Two sessions of the shared test login.",
-      "notes": "Fails at the last step: two active allergies with the same description and different severities after both sessions amend the same allergy (RxAddAllergy2Action.java:127 checks ownership only, not that the allergy is still active; archiving the already-archived original is a no-op, :195)."
+      "notes": "Session B's stale amendment is refused with HTTP 409 and the chart keeps exactly one active version (issue #4410: RxAddAllergy2Action refuses an amendment of an allergy that is no longer active, and archives the original with a conditional update in the same transaction as the replacement). Before the fix it added a second active allergy with the same description and a different severity."
+    },
+    {
+      "name": "allergy-stale-amend-refused",
+      "script": "scripts/allergy-stale-amend-refused-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Two owned allergies seeded by SQL for the owned FAKE- patient; two windows of the one test login. Cleanup deletes every allergies row of that patient and asserts none remain.",
+      "notes": "Issue #4410 item 1: a stale amendment (the allergy was amended in another window first) is answered 409, the dialogue keeps the typed reaction and severity and tells the clinician to review the current allergies, and nothing is stored; two amendments of one allergy saved at the same moment store exactly one."
     },
     {
       "name": "concurrency-rx-discontinue",

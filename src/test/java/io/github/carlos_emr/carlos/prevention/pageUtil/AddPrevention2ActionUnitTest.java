@@ -4,6 +4,9 @@ package io.github.carlos_emr.carlos.prevention.pageUtil;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionSubmissionGuard;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.provider.model.PreventionManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import java.util.HashMap;
@@ -124,6 +127,75 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
                 any(), any(), any(), any(), any(), any())).thenReturn(-1);
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
         assertThat(mockResponse.getStatus()).isEqualTo(500);
+        verifyNoInteractions(manager);
+    }
+
+    // The submission tests run outside the base class's test transaction, as the action does in
+    // production: its save then commits or rolls back on its own and the claim sees the outcome
+    // (PreventionData itself is mocked and writes nothing). Inside the test transaction the outcome
+    // is unknown and the claim, correctly, never frees the token.
+    private String issueToken(String record) {
+        String token = PreventionSubmissionGuard.issue(mockRequest.getSession(), "42", record);
+        mockRequest.setParameter(PreventionSubmissionGuard.PARAMETER, token);
+        return token;
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldSaveOnce_whenTheSameRenderedFormIsSubmittedTwice() throws Exception {
+        issueToken(null);
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(100);
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        // The repeat closes the popup as the first save did, and writes nothing.
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+
+        data.verify(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any()), times(1));
+        verify(manager, times(1)).removePrevention("42");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldLetTheRepeatSave_whenTheFirstSaveRolledBack() throws Exception {
+        issueToken(null);
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalStateException("synthetic failure"))
+                .thenReturn(100);
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+
+        data.verify(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any()), times(2));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldDeleteOnce_whenTheDeleteIsSubmittedTwice() throws Exception {
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "true");
+        issueToken("100");
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+
+        data.verify(() -> PreventionData.deletePreventionData("100", "42"), times(1));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldRefuseWithoutWriting_whenTheTokenWasIssuedForAnotherRecord() throws Exception {
+        issueToken("100");
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(409);
+        assertThat(mockResponse.getContentType()).startsWith("text/plain");
+        assertThat(mockResponse.getContentAsString()).contains("Nothing was saved");
+        data.verify(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any()), never());
         verifyNoInteractions(manager);
     }
 
