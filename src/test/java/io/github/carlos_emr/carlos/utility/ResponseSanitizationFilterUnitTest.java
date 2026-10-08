@@ -576,23 +576,21 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should log an abort before commit at WARN and rethrow it without a sanitized page")
-        void shouldLogAtWarnAndRethrow_whenClientAbortsBeforeCommit() throws Exception {
+        @DisplayName("should log an abort before commit at WARN and answer the sanitized 500 without rethrowing")
+        void shouldLogAtWarnAndSanitize_whenClientAbortsBeforeCommit() throws Exception {
             // e.g. a slow upload body timing out: Tomcat reports the read failure as a ClientAbortException.
+            // Rethrowing would make StandardWrapperValve log it at ERROR.
             MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/upload");
             MockHttpServletResponse response = new MockHttpServletResponse();
-            org.apache.catalina.connector.ClientAbortException abort =
-                    new org.apache.catalina.connector.ClientAbortException("read timed out");
             FilterChain chain = (req, res) -> {
-                throw abort;
+                throw new org.apache.catalina.connector.ClientAbortException("read timed out");
             };
 
             try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
-                Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
-                        () -> filter.doFilter(request, response, chain));
+                filter.doFilter(request, response, chain);
 
-                assertThat(thrown).isSameAs(abort);
-                assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+                assertThat(response.getStatus()).isEqualTo(500);
+                assertThat(response.getContentAsString()).contains("Reference ID:").doesNotContain("read timed out");
                 assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
                 assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.WARN)
                         .singleElement()
@@ -602,24 +600,20 @@ class ResponseSanitizationFilterUnitTest {
         }
 
         @Test
-        @DisplayName("should log a client abort once at DEBUG and rethrow it without a sanitized page")
-        void shouldLogAtDebugAndRethrow_whenClientAborts() throws Exception {
+        @DisplayName("should log a committed client abort once at DEBUG and not rethrow it")
+        void shouldLogAtDebugAndReturn_whenClientAbortsAfterCommit() throws Exception {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/js/app.js");
             MockHttpServletResponse response = new MockHttpServletResponse();
             response.setCommitted(true);
-            org.apache.catalina.connector.ClientAbortException abort =
-                    new org.apache.catalina.connector.ClientAbortException("Broken pipe");
             FilterChain chain = (req, res) -> {
-                throw new ServletException(abort);
+                throw new ServletException(new org.apache.catalina.connector.ClientAbortException("Broken pipe"));
             };
 
             try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
-                Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
-                        () -> filter.doFilter(request, response, chain));
+                filter.doFilter(request, response, chain);
 
-                assertThat(thrown).isInstanceOf(ServletException.class).hasCause(abort);
                 assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
-                assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+                assertThat(capture.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
                 assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.DEBUG)
                         .singleElement()
                         .satisfies(event -> assertThat(event.getMessage().getFormattedMessage())

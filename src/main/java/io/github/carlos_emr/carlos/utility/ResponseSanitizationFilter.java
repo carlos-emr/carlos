@@ -333,20 +333,28 @@ public class ResponseSanitizationFilter implements Filter {
             chain.doFilter(request, wrapper);
         } catch (IOException | ServletException | RuntimeException e) {
             if (ClientAbort.isClientAbort(e)) {
-                // The browser closed the page or cancelled a download (#4438). Nothing failed on the
-                // server and the connection cannot take a sanitized page, so log once at DEBUG (this is
-                // the outermost filter; DbConnectionFilter stays silent) and let the container close it.
-                // Before the response is committed this can also be a read-side abort, such as a
-                // slow request body timing out; keep that visible at WARN. No sanitized page is
-                // attempted either way: the connection cannot reliably take one, and the container's
-                // error dispatch still passes through this filter.
+                // The browser closed the page or cancelled a download (#4438). Nothing failed on the server.
+                // Handled here and NOT rethrown: Tomcat 11's StandardWrapperValve logs any IOException or
+                // ServletException that escapes the filter chain at ERROR, which would only move the noise
+                // from this filter to the container log. This is the outermost filter, and
+                // DbConnectionFilter rethrows aborts to it without logging, so this is the one log line.
                 String abortedUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
                 if (httpResponse.isCommitted()) {
                     LOGGER.debug("Client aborted the response [uri={}]", abortedUri);
-                } else {
-                    LOGGER.warn("Client aborted before the response was committed [uri={}]", abortedUri);
+                    return;
                 }
-                throw e;
+                // Not yet committed: possibly a read-side abort, such as a slow request body timing out,
+                // with the client still connected. Keep it visible at WARN and answer with the sanitized
+                // 500 if the connection can still take it.
+                String correlationId = generateCorrelationId();
+                LOGGER.warn("Client aborted before the response was committed [uri={} correlationId={}]",
+                        abortedUri, correlationId);
+                try {
+                    sendSanitizedError(httpResponse, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, correlationId);
+                } catch (IOException | RuntimeException unwritable) {
+                    LOGGER.debug("Could not send the sanitized error after a client abort [uri={}]", abortedUri);
+                }
+                return;
             }
             // An exception escaped the entire filter chain.
             // Always log for operational visibility and auditability, even when the response
@@ -458,12 +466,16 @@ public class ResponseSanitizationFilter implements Filter {
      */
     private static void logSanitizedBody(String what, int status, HttpServletRequest request,
                                          String correlationId, String reason) {
-        String format = what + " [status={} uri={} correlationId={} reason={}]";
-        String uri = LogSafe.sanitizeUri(request.getRequestURI());
+        logByStatus(status, what + " [status={} uri={} correlationId={} reason={}]",
+                status, LogSafe.sanitizeUri(request.getRequestURI()), correlationId, reason);
+    }
+
+    /** ERROR for a 5xx, WARN for a 4xx: the level rule of {@link #logSanitizedBody}, for every replacement path. */
+    private static void logByStatus(int status, String format, Object... args) {
         if (status >= 500) {
-            LOGGER.error(format, status, uri, correlationId, reason);
+            LOGGER.error(format, args);
         } else {
-            LOGGER.warn(format, status, uri, correlationId, reason);
+            LOGGER.warn(format, args);
         }
     }
 
@@ -1457,7 +1469,7 @@ public class ResponseSanitizationFilter implements Filter {
             int status = realResponse.getStatus();
             if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Large output-stream error response exceeded sanitization capture limit; "
+                logByStatus(status, "Large output-stream error response exceeded sanitization capture limit; "
                                 + "replacing body to avoid leaking stack traces [status={} correlationId={}]",
                         status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);
@@ -1628,7 +1640,7 @@ public class ResponseSanitizationFilter implements Filter {
             String capturedPrefix = buffer.toString();
             if (status >= 400) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Large error response exceeded sanitization capture limit; replacing body "
+                logByStatus(status, "Large error response exceeded sanitization capture limit; replacing body "
                                 + "to avoid leaking late stack traces [status={} correlationId={}]",
                         status, correlationId);
                 sendSanitizedError(realResponse, status, correlationId);

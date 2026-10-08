@@ -95,7 +95,8 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
         } catch (Exception e) {
             if (ClientAbort.isClientAbort(e)) {
                 // The browser went away mid-response (#4438). Not a server error: rethrow it unwrapped
-                // and unlogged. ResponseSanitizationFilter, outermost in web.xml, logs it once at DEBUG.
+                // and unlogged. ResponseSanitizationFilter, outermost in web.xml, handles it and logs it
+                // once (DEBUG after commit, WARN before).
                 if (e instanceof IOException ioe) {
                     throw ioe;
                 }

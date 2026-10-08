@@ -34,6 +34,7 @@ import org.apache.cxf.Bus;
 import org.apache.cxf.BusFactory;
 import org.apache.cxf.endpoint.Server;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
+import org.apache.cxf.jaxrs.client.JAXRSClientFactoryBean;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
@@ -47,9 +48,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 
 /**
  * What an anonymous {@code /ws/services} caller receives (#4438).
@@ -65,7 +70,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("OAuthInterceptor rejection body on /ws/services")
 @Tag("unit")
 @Tag("security")
-class OAuthInterceptorFaultResponseUnitTest {
+class OAuthInterceptorFaultResponseUnitTest extends CarlosUnitTestBase {
 
     /** A data resource the interceptor must never let an anonymous call reach. */
     @Path("/probe")
@@ -97,6 +102,8 @@ class OAuthInterceptorFaultResponseUnitTest {
             assertThat(body).isEqualTo("authentication_required");
             assertThat(body).doesNotContain("Exception").doesNotContain("reached");
         }
+        // The refusal still reaches the audit trail (LogAction is mocked by CarlosUnitTestBase).
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(OscarLog.class)));
     }
 
     private WebClient clientFor(String address, List<Object> providers) {
@@ -121,7 +128,12 @@ class OAuthInterceptorFaultResponseUnitTest {
         sf.setTransportId(LocalTransportFactory.TRANSPORT_ID);
         servers.add(sf.create());
 
-        WebClient client = WebClient.create(address);
+        // Bound to the server's Bus: WebClient.create(address) could pick up another thread-default Bus
+        // whose local-transport registry does not hold this server.
+        JAXRSClientFactoryBean clientFactory = new JAXRSClientFactoryBean();
+        clientFactory.setBus(bus);
+        clientFactory.setAddress(address);
+        WebClient client = clientFactory.createWebClient();
         WebClient.getConfig(client).getRequestContext().put(LocalConduit.DIRECT_DISPATCH, true);
         return client;
     }
