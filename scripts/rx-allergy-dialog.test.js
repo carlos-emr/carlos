@@ -139,7 +139,7 @@ test('a refused save keeps the dialogue, says NOT saved, and re-enables a retry 
     assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
     assert.deepEqual(page.assigned, [], 'a refused save must not leave the patient\'s page');
     assert.match(page.statusRegion.textContent, /^Allergy NOT saved: the server refused the request \(HTTP 403\)/);
-    assert.match(page.statusRegion.textContent, /Your entries are still in the form below\./);
+    assert.match(page.statusRegion.textContent, /Your entries are still in this form\./);
     assert.equal(page.statusRegion.style.display, 'block');
     assert.equal(page.submitButton.disabled, false);
     assert.equal(page.submitButton.focused, 1, 'keyboard focus returns to Add Allergy for the retry');

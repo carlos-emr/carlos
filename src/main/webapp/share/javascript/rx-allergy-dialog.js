@@ -140,7 +140,7 @@
      */
     function saveFailureMessage(status) {
         var code = Number(status) || 0;
-        var kept = ' Your entries are still in the form below.';
+        var kept = ' Your entries are still in this form.';
         if (code >= 400 && code < 500) {
             return 'Allergy NOT saved: ' + describeStatus(code) + '.' + kept
                 + ' Press "Add Allergy" to try again; if it is refused again, copy your entries,'
