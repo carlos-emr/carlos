@@ -102,6 +102,21 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("create")
+        @DisplayName("should write the legacy uid column explicitly so a strict database accepts the row")
+        void shouldWriteLegacyUid_whenPharmacyIsPersisted() {
+            PharmacyInfo info = createPharmacy("Uid Pharmacy", "Ottawa", '1');
+            entityManager.flush();
+
+            // pharmacyInfo.uid is NOT NULL with no default in MariaDB. A strict sql_mode refuses an insert that
+            // omits it (issue #3151: Add Pharmacy failed with error 1364). The query also fails if the column is
+            // not mapped at all, since the test schema is generated from the entities.
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isZero();
+        }
+
+        @Test
         @Tag("read")
         @DisplayName("should find pharmacy by ID")
         void shouldFindPharmacy_whenValidIdProvided() {

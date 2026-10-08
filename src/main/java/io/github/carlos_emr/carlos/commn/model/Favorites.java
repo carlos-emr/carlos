@@ -109,6 +109,14 @@ public class Favorites extends AbstractModel<Integer> {
 
     private String unitName;
 
+    /**
+     * favorites.dispenseInternal is NOT NULL with no database default, and {@link Favorite} (the entity the Rx
+     * favourite editor writes through) already maps it. Without this mapping an insert through this entity, such as
+     * CopyFavorites2Action's, omitted the column: a permissive sql_mode silently stored 0 (and lost the source
+     * favourite's flag), and a strict sql_mode rejected the row (error 1364).
+     */
+    private boolean dispenseInternal = false;
+
     public Integer getId() {
         return id;
     }
@@ -317,5 +325,12 @@ public class Favorites extends AbstractModel<Integer> {
         this.unitName = unitName;
     }
 
+    public boolean isDispenseInternal() {
+        return dispenseInternal;
+    }
+
+    public void setDispenseInternal(boolean dispenseInternal) {
+        this.dispenseInternal = dispenseInternal;
+    }
 
 }
