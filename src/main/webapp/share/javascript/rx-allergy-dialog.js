@@ -52,6 +52,10 @@
  * both. When fetch, FormData or URLSearchParams is unavailable the form is left to post the
  * classic way, exactly as before.
  *
+ * The alerts are localized: WEB-INF/jsp/rx/allergyDialog.jspf renders the rx.allergyDialog.*
+ * bundle entries into window.CarlosAllergyDialogMessages, and any message missing there falls
+ * back to the built-in English below.
+ *
  * Loaded by ShowAllergies2.jsp (the AJAX-injected dialogue) and AddReaction2.jsp (the standalone
  * page reached from ChooseAllergy2.jsp). Exposed as window.CarlosAllergyDialog in a browser and as
  * a CommonJS module for scripts/rx-allergy-dialog.test.js.
@@ -65,14 +69,37 @@
     var SAVE_STATUS_CLASS = 'allergySaveStatus';
     var SAVING_ATTRIBUTE = 'data-allergy-saving';
 
-    /** What each allergy-page AJAX route was doing, in the words the alert uses. */
+    /**
+     * The built-in English messages: the fallback for any message the page did not localize.
+     * Kept identical to the rx.allergyDialog.* entries of oscarResources_en.properties, which
+     * allergyDialog.jspf renders into window.CarlosAllergyDialogMessages in the page's locale
+     * (scripts/rx-allergy-dialog.test.js checks both, and every locale file). "{0}" is the HTTP
+     * status in a reason, and the reason in a sentence.
+     */
+    var DEFAULT_MESSAGES = {
+        msgReasonUnreachable: 'the server could not be reached',
+        msgReasonUnexpectedPage: 'the server answered with an unexpected page; your session may have ended',
+        msgReasonRefused: 'the server refused the request (HTTP {0}); your session may have ended',
+        msgReasonHttpStatus: 'the server answered HTTP {0}',
+        msgOpenFormFailed: 'The allergy details form could not be opened: {0}. Nothing was saved.',
+        msgInactivateFailed: 'The allergy could not be inactivated: {0}. Reload this page to check the'
+            + ' allergy\u2019s current status before trying again.',
+        msgSearchFailed: 'The allergy search did not complete: {0}. Nothing was saved.',
+        msgRequestFailed: 'The allergy request did not complete: {0}. Reload this page before trying again.',
+        msgRequestFailedReload: 'The allergy request did not complete. Reload this page before trying again.',
+        msgSaveRefused: 'Allergy NOT saved: {0}. Your entries are still in this form. Press "Add Allergy"'
+            + ' to try again; if it is refused again, copy your entries, reload this page (logging in'
+            + ' again if asked) and re-enter them.',
+        msgSaveUnconfirmed: 'The allergy save could not be confirmed: {0}. Your entries are still in this'
+            + ' form. It may or may not have been recorded. Check the patient\u2019s allergy list in'
+            + ' another window before pressing "Add Allergy" again, so it is not recorded twice.'
+    };
+
+    /** Which message reports a failure of each allergy-page AJAX route. */
     var REQUESTS = [
-        {route: '/rx/addReaction2', action: 'The allergy details form could not be opened',
-            outcome: 'Nothing was saved.'},
-        {route: '/rx/deleteAllergy2', action: 'The allergy could not be inactivated',
-            outcome: 'Reload this page to check the allergy\'s current status before trying again.'},
-        {route: '/rx/searchAllergy2', action: 'The allergy search did not complete',
-            outcome: 'Nothing was saved.'}
+        {route: '/rx/addReaction2', message: 'msgOpenFormFailed'},
+        {route: '/rx/deleteAllergy2', message: 'msgInactivateFailed'},
+        {route: '/rx/searchAllergy2', message: 'msgSearchFailed'}
     ];
 
     /** The URL without its query string or fragment; routes are matched on the path alone. */
@@ -89,22 +116,39 @@
     }
 
     /**
+     * The message called name: the page's localized one when it supplied a usable one, else the
+     * built-in English. A missing bundle key renders as "???key???" and is not usable.
+     */
+    function message(messages, name) {
+        var localized = messages && messages[name];
+        if (typeof localized === 'string' && localized.length > 0 && localized.indexOf('???') !== 0) {
+            return localized;
+        }
+        return DEFAULT_MESSAGES[name];
+    }
+
+    /** template with every "{0}" replaced by value, taken as plain text. */
+    function format(template, value) {
+        return String(template).split('{0}').join(String(value));
+    }
+
+    /**
      * Why a request failed, as a short clause. status 0 means no HTTP answer at all; a 2xx means
      * the server answered with a page this dialogue cannot use (in practice the login page after
      * the session ended).
      */
-    function describeStatus(status) {
+    function describeStatus(status, messages) {
         var code = Number(status) || 0;
         if (code === 0) {
-            return 'the server could not be reached';
+            return message(messages, 'msgReasonUnreachable');
         }
         if (code >= 200 && code < 300) {
-            return 'the server answered with an unexpected page; your session may have ended';
+            return message(messages, 'msgReasonUnexpectedPage');
         }
         if (code === 401 || code === 403) {
-            return 'the server refused the request (HTTP ' + code + '); your session may have ended';
+            return format(message(messages, 'msgReasonRefused'), code);
         }
-        return 'the server answered HTTP ' + code;
+        return format(message(messages, 'msgReasonHttpStatus'), code);
     }
 
     /**
@@ -112,19 +156,18 @@
      *
      * @param {string} url the request URL (only its path is read)
      * @param {number} status the HTTP status, 0 for no answer, or 200 for an unusable answer
+     * @param {Object} [messages] the page's localized messages; English where absent
      * @returns {string} a sentence that names the failed step and what it means for the chart
      */
-    function requestFailureMessage(url, status) {
-        var request = null;
+    function requestFailureMessage(url, status, messages) {
+        var name = 'msgRequestFailed';
         for (var i = 0; i < REQUESTS.length; i++) {
             if (routeEndsWith(url, REQUESTS[i].route)) {
-                request = REQUESTS[i];
+                name = REQUESTS[i].message;
                 break;
             }
         }
-        var action = request ? request.action : 'The allergy request did not complete';
-        var outcome = request ? request.outcome : 'Reload this page before trying again.';
-        return action + ': ' + describeStatus(status) + '. ' + outcome;
+        return format(message(messages, name), describeStatus(status, messages));
     }
 
     /**
@@ -136,19 +179,13 @@
      * so the clinician is told to check the list before adding it again.
      *
      * @param {number} status the HTTP status, 0 for no answer, or 200 when the answer was not the list
+     * @param {Object} [messages] the page's localized messages; English where absent
      * @returns {string} the message shown in the dialogue
      */
-    function saveFailureMessage(status) {
+    function saveFailureMessage(status, messages) {
         var code = Number(status) || 0;
-        var kept = ' Your entries are still in this form.';
-        if (code >= 400 && code < 500) {
-            return 'Allergy NOT saved: ' + describeStatus(code) + '.' + kept
-                + ' Press "Add Allergy" to try again; if it is refused again, copy your entries,'
-                + ' reload this page (logging in again if asked) and re-enter them.';
-        }
-        return 'The allergy save could not be confirmed: ' + describeStatus(code) + '.' + kept
-            + ' It may or may not have been recorded. Check the patient\'s allergy list in another'
-            + ' window before pressing "Add Allergy" again, so it is not recorded twice.';
+        var name = code >= 400 && code < 500 ? 'msgSaveRefused' : 'msgSaveUnconfirmed';
+        return format(message(messages, name), describeStatus(code, messages));
     }
 
     /**
@@ -239,7 +276,7 @@
         /** Ends a save that was not confirmed: re-enables the form and says why, keeping every value. */
         function fail(form, submitter, status) {
             setBusy(form, false);
-            showMessage(saveStatusRegion(form), saveFailureMessage(status));
+            showMessage(saveStatusRegion(form), saveFailureMessage(status, win.CarlosAllergyDialogMessages));
             // The button was disabled while the request was out, which drops keyboard focus to the
             // page. Put it back so a keyboard user can retry with Enter.
             if (submitter && typeof submitter.focus === 'function') {
@@ -378,7 +415,7 @@
                 region.id = 'allergyRequestStatus';
                 doc.body.insertBefore(region, doc.body.firstChild);
             }
-            showMessage(region, requestFailureMessage(url, status));
+            showMessage(region, requestFailureMessage(url, status, win.CarlosAllergyDialogMessages));
         }
 
         /** Hides the page's request-failure alert once a later request has rendered. */
@@ -397,7 +434,8 @@
     var api = {
         create: create,
         requestFailureMessage: requestFailureMessage,
-        saveFailureMessage: saveFailureMessage
+        saveFailureMessage: saveFailureMessage,
+        DEFAULT_MESSAGES: DEFAULT_MESSAGES
     };
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = api;

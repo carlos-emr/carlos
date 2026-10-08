@@ -61,6 +61,7 @@
         <%-- Standalone page only: when this form is injected into the allergy page, that page loads
              the same script, since nothing from this head survives the injection (#3355, #3488). --%>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <title><fmt:message key="AddReaction.title"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 

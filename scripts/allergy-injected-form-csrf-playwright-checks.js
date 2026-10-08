@@ -25,8 +25,9 @@
  *   6. A double click on Add Allergy records the allergy once.
  *   7. With a second owned patient open in another tab, patient A's form pointed at patient B is
  *      refused and writes nothing to either; the untouched form still writes to A only.
- *   8. Direct posts without a token or with a forged one are refused (403) and write nothing.
- *   9. A form left open after the session ends (a server-side logout) fails closed: the dialogue
+ *   8. A French (fr-CA) browser gets the alerts from oscarResources_fr.
+ *   9. Direct posts without a token or with a forged one are refused (403) and write nothing.
+ *  10. A form left open after the session ends (a server-side logout) fails closed: the dialogue
  *      reports it, keeps the entries, and nothing is written.
  *
  * Fixtures: two owned FAKE-PW patients (the workflow's own, and a second inserted here); cleanup
@@ -316,6 +317,36 @@ async function workflow(s) {
     await expectValue(sql, rows(` AND reaction=${h.sqlString(`${marker} cross`)}`), '1', 'Patient A\'s own form did not save to A');
     h.assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${other}`) === '0', 'Patient B gained an allergy');
     await tabB.close();
+  });
+
+  await s.step('the alerts follow the page\'s locale (a French browser gets French messages)', async () => {
+    // JSTL picks the bundle from Accept-Language here, so a fr-CA browser renders oscarResources_fr.
+    const frContext = await h.newContext(context.browser(), s.config, { locale: 'fr-CA' });
+    frContext.setDefaultTimeout(20000);
+    frContext.on('page', p => h.wireStrictPage(p, 'allergies-fr', recorder));
+    try {
+      await h.login(frContext, s.config, recorder, { label: 'login-fr' });
+      const fr = await frContext.newPage();
+      await openAllergyPageFromRx(s, fr, patient);
+      const published = await fr.evaluate(() => (window.CarlosAllergyDialogMessages || {}).msgSaveRefused || '');
+      h.assert(published.startsWith('Allergie NON enregistr\u00e9e'), 'The French allergy page did not publish French dialogue messages');
+      const stripHeaderToken = route => {
+        const headers = { ...route.request().headers() };
+        delete headers['csrf-token'];
+        return route.continue({ headers });
+      };
+      await fr.route(routePath('/rx/addReaction2'), stripHeaderToken, { times: 1 });
+      const mark = failureMark(recorder);
+      const [refused] = await Promise.all([fr.waitForResponse(isPost('/rx/addReaction2')), fr.locator('input[value="Penicillin"]').click()]);
+      h.assert(refused.status() === 403, `A tokenless dialogue request answered HTTP ${refused.status()}, not 403`);
+      const alert = fr.locator('#allergyRequestStatus[role="alert"]');
+      await alert.waitFor({ state: 'visible' });
+      h.assert(/^Le formulaire de d\u00e9tails de l\u2019allergie n\u2019a pas pu s\u2019ouvrir : le serveur a refus\u00e9 la demande \(HTTP 403\)/
+        .test(await alert.innerText()), 'The refused dialogue request was not explained in French');
+      consumeExpectedFailure(recorder, mark, { status: 403, path: /\/rx\/addReaction2$/ });
+    } finally {
+      await frContext.close();
+    }
   });
 
   await s.step('direct posts without a token or with a forged one are refused and write nothing', async () => {

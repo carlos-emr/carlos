@@ -109,6 +109,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= patient == null ? "" : String.valueOf(patient.getDemographicNo()) %>"></script>
         <%-- Shows failed dialogue requests and saves in the page, keeping the entered values (#3355, #3488). --%>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-allergy-dialog.js"></script>
+        <%@ include file="allergyDialog.jspf" %>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/allergies.css">
         <style type="text/css">
@@ -385,7 +386,8 @@
                 if (window.CarlosAllergyDialog) {
                     CarlosAllergyDialog.reportRequestFailure(path, status);
                 } else {
-                    alert("The allergy request did not complete. Reload this page before trying again.");
+                    alert((window.CarlosAllergyDialogMessages || {}).msgRequestFailedReload
+                        || "The allergy request did not complete. Reload this page before trying again.");
                 }
             }
 

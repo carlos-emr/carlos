@@ -115,7 +115,7 @@ class RxAllergyCsrfJspRegressionTest {
     }
 
     @Test
-    @DisplayName("both allergy pages should load the dialogue failure handler")
+    @DisplayName("both allergy pages should load the dialogue failure handler and its localized messages")
     void shouldLoadDialogueFailureHandler_whenAllergyPagesAreRendered() throws IOException {
         String dialogScript = "/share/javascript/rx-allergy-dialog.js";
         Document showAllergies = Jsoup.parse(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8));
@@ -128,6 +128,10 @@ class RxAllergyCsrfJspRegressionTest {
         assertThat(showAllergies.select("#allergyRequestStatus"))
                 .singleElement()
                 .satisfies(region -> assertThat(region.attr("role")).isEqualTo("alert"));
+        // ...and both publish the handler's messages in the page's locale.
+        String messagesInclude = "<%@ include file=\"allergyDialog.jspf\" %>";
+        assertThat(Files.readString(SHOW_ALLERGIES_JSP, StandardCharsets.UTF_8)).contains(messagesInclude);
+        assertThat(readAddReactionJsp()).contains(messagesInclude);
     }
 
     @Test

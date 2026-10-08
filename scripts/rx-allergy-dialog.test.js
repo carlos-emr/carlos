@@ -351,3 +351,58 @@ test('a usable answer is rendered and clears an earlier failure; a failed inacti
     calls.ajax[1].success('<td class="Step1Text" data-target=".Step1Text"></td>');
     assert.equal(calls.reloads, 1);
 });
+
+// Localization: the page's messages win, the built-in English covers anything missing, and the
+// script, allergyDialog.jspf and every oscarResources bundle agree on the message set.
+test('page-supplied messages are used, with {0} filled in, and English covers any that are missing', () => {
+    const french = {
+        msgReasonRefused: 'le serveur a refusé la demande (HTTP {0})',
+        msgSaveRefused: 'Allergie NON enregistrée : {0}.',
+        msgOpenFormFailed: '???rx.allergyDialog.msgOpenFormFailed???',
+    };
+    assert.equal(dialogModule.saveFailureMessage(403, french), 'Allergie NON enregistrée : le serveur a refusé la demande (HTTP 403).');
+    assert.equal(dialogModule.requestFailureMessage('/carlos/rx/addReaction2', 403, french),
+        'The allergy details form could not be opened: le serveur a refusé la demande (HTTP 403). Nothing was saved.',
+        'a missing bundle key (???key???) must fall back to English, not be shown');
+
+    const page = fakePage({ fetchImpl: (url) => Promise.resolve(response(403, url)) });
+    page.win.CarlosAllergyDialogMessages = french;
+    return dialogModule.create(page.win).save(page.form, page.submitButton).then(() => {
+        assert.equal(page.statusRegion.textContent, 'Allergie NON enregistrée : le serveur a refusé la demande (HTTP 403).');
+    });
+});
+
+function readBundle(locale) {
+    const text = fs.readFileSync(path.join(__dirname, `../src/main/resources/oscarResources_${locale}.properties`), 'utf8');
+    const entries = {};
+    for (const line of text.split(/\r?\n/)) {
+        const match = line.match(/^rx\.allergyDialog\.(\w+)=(.*)$/);
+        if (match) {
+            entries[match[1]] = match[2].replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+        }
+    }
+    return entries;
+}
+
+test('the script, allergyDialog.jspf and every locale bundle carry the same messages', () => {
+    const names = Object.keys(dialogModule.DEFAULT_MESSAGES).sort();
+    const jspf = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/rx/allergyDialog.jspf'), 'utf8');
+    const fetched = [...jspf.matchAll(/<fmt:message key="rx\.allergyDialog\.(\w+)" var="rxAllergy(\w+)"\/>/g)];
+    assert.deepEqual(fetched.map(([, key]) => key).sort(), names, 'allergyDialog.jspf fetches a different message set');
+    for (const [, key, variable] of fetched) {
+        assert.equal(`msg${variable.replace(/^Msg/, '')}`, key, `${key} is read into the wrong variable`);
+        assert.ok(jspf.includes(`${key}: '\${carlos:forJavaScript(rxAllergy${variable})}'`),
+            `${key} is not published JavaScript-encoded under its own name`);
+    }
+
+    const english = readBundle('en');
+    assert.deepEqual(english, dialogModule.DEFAULT_MESSAGES, 'the built-in English drifted from oscarResources_en.properties');
+    for (const locale of ['es', 'fr', 'pl', 'pt_BR']) {
+        const bundle = readBundle(locale);
+        assert.deepEqual(Object.keys(bundle).sort(), names, `oscarResources_${locale} has a different message set`);
+        for (const name of names) {
+            assert.equal(bundle[name].includes('{0}'), english[name].includes('{0}'), `${locale} ${name} lost or gained its {0}`);
+            assert.notEqual(bundle[name], english[name], `${locale} ${name} is untranslated`);
+        }
+    }
+});
