@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.integration.patientportal.web;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.demographic.pageUtil.PatientNavModel;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -30,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.function.IntFunction;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -58,14 +62,23 @@ public final class PortalManage2Action extends ActionSupport {
 
     private final transient SecurityInfoManager securityInfoManager;
     private final transient EmailComposeManager emailComposeManager;
+    /** The patient for the record's navigation; null leaves the page with its own short list of links. */
+    private final transient IntFunction<Demographic> patientLookup;
 
     public PortalManage2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailComposeManager.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailComposeManager.class),
+                demographicNo -> SpringUtils.getBean(DemographicDao.class).getDemographic(String.valueOf(demographicNo)));
     }
 
     PortalManage2Action(SecurityInfoManager securityInfoManager, EmailComposeManager emailComposeManager) {
+        this(securityInfoManager, emailComposeManager, demographicNo -> null);
+    }
+
+    PortalManage2Action(SecurityInfoManager securityInfoManager, EmailComposeManager emailComposeManager,
+            IntFunction<Demographic> patientLookup) {
         this.securityInfoManager = securityInfoManager;
         this.emailComposeManager = emailComposeManager;
+        this.patientLookup = patientLookup;
     }
 
     @Override
@@ -110,7 +123,26 @@ public final class PortalManage2Action extends ActionSupport {
                 && allowed(session, PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.WRITE, demographicNo));
         request.setAttribute("portalCanUnlock", switchedOn && allowed(session,
                 PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK, SecurityInfoManager.WRITE, demographicNo));
+        addPatientNavigation(request, demographicNo);
         return SUCCESS;
+    }
+
+    /**
+     * Gives the page the master record's navigation, only after the patient access and portal read
+     * checks above have passed. Each link keeps the record's privilege check and its target page's
+     * own, so the navigation shows nothing this user could not open from the record. The links are a
+     * convenience, so a failed lookup leaves the page with its own short list instead of failing it.
+     */
+    private void addPatientNavigation(HttpServletRequest request, int demographicNo) {
+        try {
+            Demographic patient = patientLookup.apply(demographicNo);
+            if (patient != null) {
+                request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                        PatientNavModel.forRequest(request, patient, PatientNavModel.Page.PORTAL));
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Portal page could not build the patient's navigation: {}", e.getClass().getSimpleName());
+        }
     }
 
     /**

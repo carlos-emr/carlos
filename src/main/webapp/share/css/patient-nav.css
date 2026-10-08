@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+/* The patient's navigation (WEB-INF/jsp/demographic/patient-nav.jsp): the master record's sidebar
+   look (demographic/demographiceditdemographic.css, section 3), on any page that shows it. On the
+   record those rules already apply with the same values. */
+
+.patient-nav table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Section headers are hidden on the record (Appointment, Billing, Clinical Modules, Resources). */
+.patient-nav .Header {
+    display: none !important;
+}
+
+.patient-nav td {
+    padding: 0;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    font-size: 12px;
+}
+
+.patient-nav a,
+.patient-nav .patient-nav__current {
+    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    display: block;
+    padding: 8px 12px;
+    color: #fff;
+    background-color: var(--carlos-primary, #337ab7);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.patient-nav a:hover {
+    background-color: #2b689c;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    color: #fff;
+    text-decoration: none;
+}
+
+.patient-nav a:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -4px;
+}
+
+/* The page this navigation is on (the portal page marks its own link). */
+.patient-nav .patient-nav__current {
+    border-left: 4px solid #fff;
+    padding-left: 8px;
+    background-color: #2b689c;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+}
+
+/* BC billing: the eligibility answer, under its link, white on the navigation's darker blue (the record
+   makes all text in its left column white). */
+.patient-nav .patient-nav__eligibility {
+    width: 350px;
+    max-width: 100%;
+    padding: 4px 8px;
+    background-color: #2b689c;
+    background-color: color-mix(in srgb, var(--carlos-primary, #337ab7) 85%, black);
+    color: #fff;
+}
