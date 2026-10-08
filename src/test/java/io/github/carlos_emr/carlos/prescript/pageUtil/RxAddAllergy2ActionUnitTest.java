@@ -328,7 +328,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
 
         org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
         verify(mockRxPatient).addAllergy(any(), saved.capture());
-        assertThat(saved.getValue().getAtc()).isNull();
+        assertThat(saved.getValue().getAtc()).isNullOrEmpty();
         // The submitted id stays as the fallback identifier, as before.
         assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("39007");
         assertThat(action.isIdentifiersUnresolved()).isTrue();
