@@ -118,7 +118,7 @@ class HL7HandlerStorageFailureIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldLogRejectedInsertAsError_andLeaveNothingStored_whenDatabaseRejectsLabRows() throws Exception {
+    void shouldLogRejectedInsertAsError_whenDatabaseRejectsLabRows() throws Exception {
         File saved = Files.writeString(documentDir.resolve("LabUpload.hl7-probe-4436"),
                 labWithOversizedLastName(), StandardCharsets.UTF_8).toFile();
         long messagesBefore = count("Hl7TextMessage");
