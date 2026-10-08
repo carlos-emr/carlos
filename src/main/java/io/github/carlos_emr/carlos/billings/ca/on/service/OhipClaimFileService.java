@@ -658,6 +658,10 @@ public class OhipClaimFileService {
      * letter, as before, changed the name), then anything but A-Z and digits
      * is dropped, as OSCAR's {@code \\W} strip intended.
      */
+    // FindSecBugs IMPROPER_UNICODE: NFD decomposition here is a deliberate transliteration of accented
+    // letters for the ASCII-only MOH file; the result is then restricted to [A-Z0-9], so no
+    // normalization-dependent comparison or authorization decision is made. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "deliberate accent transliteration for the ASCII-only MOH claim file; output restricted to [A-Z0-9]; not a security or authorization decision")
     static String mohName(String name) {
         if (name == null) return "";
         String decomposed = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
