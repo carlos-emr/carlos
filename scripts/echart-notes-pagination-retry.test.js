@@ -66,7 +66,14 @@ function setup() {
   const timers = { started: 0, cleared: 0, handle: null };
   const indicator = { visible: false, show() { this.visible = true; }, hide() { this.visible = false; } };
   const throbber = { visible: false, show() { this.visible = true; }, hide() { this.visible = false; } };
-  const container = { id: 'encMainDiv', firstElementChild: null, contains() { return false; } };
+  const container = {
+    id: 'encMainDiv',
+    children: [],
+    get firstChild() { return this.children[0] || null; },
+    get firstElementChild() { return this.children[0] || null; },
+    contains(node) { return this.children.includes(node); },
+    removeChild(node) { this.children.splice(this.children.indexOf(node), 1); },
+  };
   const wrapper = {
     id: 'encMainDivWrapper',
     scrollTop: 0,
@@ -110,16 +117,46 @@ function setup() {
   });
   vm.runInContext(CODE, context);
 
-  /** The server rendered `notes` notes: scripts ran, then onComplete. */
+  let serial = 0;
+  /**
+   * A node in the pane. It reports no client rects, so the scroll-anchor code (covered by
+   * echart-notes-scroll-restore.test.js) skips it as it would a display:none note.
+   */
+  function node(id, note) {
+    const element = {
+      id, note,
+      getClientRects() { return []; },
+      get nextElementSibling() { return container.children[container.children.indexOf(element) + 1] || null; },
+    };
+    return element;
+  }
+  /** What CarlosAjax.updater does with a 2xx body: insert it at the top of the container. */
+  function insertAtTop(nodes) {
+    container.children = nodes.concat(container.children);
+  }
+
+  /** The server rendered `notes` notes: onSuccess, the insert, the fragment scripts, then onComplete. */
   function succeed(request, notes) {
     request.options.onSuccess();
+    const batch = [];
+    for (let i = 0; i < notes; i += 1) batch.push(node(`note${serial++}`, true));
+    insertAtTop(batch);
     context.notesLastBatchSize = notes;
     request.options.onComplete();
   }
 
-  /** Nothing rendered: an error page, a CSRF rejection, a login redirect, a dropped connection. */
+  /** Nothing rendered: a non-2xx (error page, CSRF rejection, 401), or a dropped connection. */
   function fail(request) {
     request.options.onComplete();
+  }
+
+  /** A 2xx that was not the fragment (expired.jsp, domain-error.jsp): inserted, but no scripts ran. */
+  function failWithPage(request) {
+    request.options.onSuccess();
+    const page = node(`page${serial++}`, false);
+    insertAtTop([page]);
+    request.options.onComplete();
+    return page;
   }
 
   /** One tick of the scroll poll with the reader at the top of a scrollable pane. */
@@ -130,7 +167,7 @@ function setup() {
 
   const pollArmed = () => timers.handle !== null;
 
-  return { context, requests, timers, indicator, throbber, wrapper, succeed, fail, pollTick, pollArmed };
+  return { context, requests, timers, indicator, throbber, wrapper, container, succeed, fail, failWithPage, pollTick, pollArmed };
 }
 
 /** A chart that rendered its first page and armed the poll, as ChartNotes.jsp does on load. */
@@ -302,6 +339,38 @@ test('a failed Load All can be tried again and the poll can still page', () => {
   assert.equal(s.indicator.visible, false);
   s.pollTick();
   assert.equal(s.requests.length, 3, 'after a full load the poll does not re-request the inserted notes');
+});
+
+test('a 200 page that is not the fragment is taken back out of the pane and counts as a failure', () => {
+  // expired.jsp and domain-error.jsp answer 200; CarlosAjax.updater has already inserted them
+  // above the notes by the time the loader learns no fragment script ran.
+  const s = chartWithFirstPage();
+  const notesBefore = s.container.children.slice();
+  s.pollTick();
+  const page = s.failWithPage(s.requests[1]);
+
+  assert.ok(!s.container.contains(page), 'the session-expired page is not left above the notes');
+  assert.deepEqual(s.container.children, notesBefore, 'the notes already shown are untouched');
+  assert.equal(s.context.notesFailedLoads, 1);
+  assert.equal(s.indicator.visible, true);
+  assert.equal(s.context.notesOffset, 0, 'rolled back so the batch is asked for again');
+  assert.ok(s.pollArmed());
+});
+
+test('a 200 page that is not the fragment on an empty pane leaves the pane empty', () => {
+  const s = setup();
+  s.context.notesLoadFirstPage();
+  s.failWithPage(s.requests[0]);
+
+  assert.deepEqual(s.container.children, []);
+  assert.equal(s.indicator.visible, true);
+});
+
+test('a rendered batch stays in the pane', () => {
+  const s = chartWithFirstPage();
+  s.pollTick();
+  s.succeed(s.requests[1], 3);
+  assert.equal(s.container.children.length, 23);
 });
 
 test('a superseded load that rendered first cannot make the newer load\'s failure look like a success', () => {

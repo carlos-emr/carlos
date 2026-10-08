@@ -603,6 +603,29 @@
     }
 
     /**
+     * Removes what a 2xx response that was not the notes fragment left at the top of the
+     * pane: expired.jsp ("Your session has expired") and domain-error.jsp ("Access Denied")
+     * answer 200, so CarlosAjax.updater inserts them above the notes as if they were a
+     * batch. The fragment's scripts never ran for such a response, so the loader knows it
+     * rendered nothing; the indicator and its Retry link are what the clinician sees.
+     *
+     * The insert is 'top', so everything ahead of the child that was first before the insert
+     * is the response's. A container that was empty before keeps nothing; a container the
+     * first child is no longer in (replaced by a reload) is left alone.
+     *
+     * @param {HTMLElement} notesContainer - The #encMainDiv the response went into
+     * @param {?Node} firstChildBefore - Its first child before the insert, null when empty
+     */
+    function notesDiscardUnrenderedResponse(notesContainer, firstChildBefore) {
+        if (!notesContainer || (firstChildBefore && !notesContainer.contains(firstChildBefore))) {
+            return;
+        }
+        while (notesContainer.firstChild && notesContainer.firstChild !== firstChildBefore) {
+            notesContainer.removeChild(notesContainer.firstChild);
+        }
+    }
+
+    /**
      * The indicator's Retry link: asks for the batch that failed again, right now, without
      * waiting for a scroll, and re-arms the poll the failure cap may have cleared.
      *
@@ -755,6 +778,8 @@
         }
         var notesContainer = $("encMainDiv");
         var scrollAnchor = null;
+        var inserted = false;          // a 2xx response was inserted above the notes
+        var firstChildBefore = null;   // what was on top before it
         // Success only: with a plain container CarlosAjax.updater also inserts a non-2xx
         // body, so a Tomcat error page or the CSRF rejection text would land at the top of
         // the chart as if it were a note. A failed fetch renders nothing; the indicator
@@ -771,6 +796,8 @@
                     if (offset > 0) {
                         scrollAnchor = notesCaptureScrollAnchor(notesContainer);
                     }
+                    inserted = true;
+                    firstChildBefore = notesContainer ? notesContainer.firstChild : null;
                 },
                 onComplete: function () {
                     notesLoadsInFlight--;
@@ -793,12 +820,18 @@
                     if (notesLastBatchSize < 0) {
                         // Nothing rendered: the response never ran ChartNotesAjax.jsp's
                         // scripts (error page, CSRF rejection, login redirect, dropped
-                        // connection). Not the end of the chart. Roll the offset back to
+                        // connection). A 200 that was not the fragment (expired.jsp,
+                        // domain-error.jsp) has already been inserted above the notes by
+                        // the updater; take it back out. Not the end of the chart. Roll
+                        // the offset back to
                         // what it was before this fetch so the next scroll-to-top (or the
                         // Retry link) asks for this batch again; a failed Load All comes
                         // back from past MAXNOTES the same way. The poll stays armed until
                         // NOTES_MAX_FAILED_LOADS fetches in a row have rendered nothing, so a
                         // persistent error cannot turn it into a request a second.
+                        if (inserted) {
+                            notesDiscardUnrenderedResponse(notesContainer, firstChildBefore);
+                        }
                         notesFailedLoads++;
                         notesFailedLoadAll = numToReturn >= MAXNOTES;
                         notesOffset = offset - notesIncrement;

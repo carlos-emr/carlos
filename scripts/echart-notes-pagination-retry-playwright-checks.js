@@ -18,6 +18,8 @@
  *      pane, rolls the offset back and leaves the scroll poll armed;
  *   2. the next scroll to the top asks for the SAME batch again and, once it renders, the indicator
  *      hides and paging continues until all 45 notes are present exactly once, in date order;
+ *   2b. a 200 page that is not the fragment (what expired.jsp and domain-error.jsp answer) is taken
+ *      back out of the pane, counts as a failed fetch, and paging goes on to all 45;
  *   3. a persistent error (every pagination request answered 500) is retried only
  *      NOTES_MAX_FAILED_LOADS (3) times, after which the poll stops: no request a second, the error
  *      page is never inserted at the top of the chart, and the indicator stays up;
@@ -146,6 +148,8 @@ async function workflow(s) {
   // What UnauthenticatedRejectionResolver answers an AJAX caller whose session has expired.
   const SESSION_EXPIRED = JSON.stringify({error: 'unauthenticated', message: 'Session expired, sign in again'});
   const ERROR_PAGE = '<!DOCTYPE html><html><body><h1>HTTP Status 500 - Internal Server Error</h1><p>CARLOS Error: injected by the check</p></body></html>';
+  // What CaseManagementView answers, with status 200, when the session has lost its role.
+  const EXPIRED_PAGE = '<!DOCTYPE html><html><head><title>Session Expired</title></head><body><h3>Your session has expired. Please login</h3></body></html>';
 
   let chart = await s.chart();
   await s.step('the first render shows exactly the 20 newest notes', () => firstPage(chart));
@@ -198,6 +202,33 @@ async function workflow(s) {
     h.assert(!state.indicator, 'The indicator is still showing after a successful retry');
     h.assert(state.failed === 0, 'The failure streak was not reset by the successful retry');
     h.assert(!state.pollArmed, 'The poll kept running after the server reported the chart fully loaded');
+    await chart.unroute(NOTES_ROUTE);
+  });
+
+  await s.step('a 200 page that is not the fragment is taken back out of the pane and paging goes on', async () => {
+    await chart.close();
+    chart = await s.chart();
+    await firstPage(chart);
+    let faked = false;
+    await chart.route(NOTES_ROUTE, async route => {
+      const page = paginationParams(route.request());
+      if (!page) return route.continue();
+      if (!faked && page.offset === PAGE) {
+        faked = true;
+        return route.fulfill({status: 200, contentType: 'text/html', body: EXPIRED_PAGE});
+      }
+      return route.continue();
+    });
+    await indicatorShown(chart);
+    const state = await paneState(chart);
+    h.assert(!state.paneText.includes('session has expired'), 'The 200 "session expired" page was left above the notes');
+    h.assert(JSON.stringify(await shown(chart)) === JSON.stringify(descending(PAGE, 1)), 'The first page of notes was disturbed by the 200 page');
+    h.assert(state.failed === 1 && state.offset === 0 && state.pollArmed, `A 200 non-fragment page was not treated as a failed fetch (failed=${state.failed}, offset=${state.offset}, poll=${state.pollArmed})`);
+    await allLoaded(chart);
+    const notes = await shown(chart);
+    h.assert(JSON.stringify(notes) === JSON.stringify(descending(TOTAL, 1)),
+      `After the retry the pane should list NOTE45 down to NOTE01 once each, it lists ${notes.length} notes`);
+    h.assert(!(await paneState(chart)).paneText.includes('session has expired'), 'The "session expired" text reappeared in the pane');
     await chart.unroute(NOTES_ROUTE);
   });
 

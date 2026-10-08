@@ -2073,6 +2073,13 @@ With `notesLoadFirstPage()` hot-swapped into the installed webapp (JS and fragme
 then `carlos-ctl restart`), the check's added seventh step, which pages to 40, saves a
 note through `#saveImg` and pages again, finds all 45 once each: **PASS** 7/7.
 
+A 200 response that is not the fragment (`expired.jsp`, `domain-error.jsp`) used to be
+inserted above the notes by the updater and stay there. The loader now records the
+pane's first child before the insert and, when no fragment script ran, removes what was
+inserted ahead of it. The check gained a step that answers one page fetch with a 200
+"Your session has expired" page: the text does not remain in the pane, the fetch counts
+as a failure with the indicator up, and paging continues to all 45 (**PASS**).
+
 The pinned carlos-ctl 1.1.1 suite ran against the branch under Python 3.14
 (`CARLOS_SRC`): 249 tests OK; `debian/assets/tests` (45) and the o19 manifest tests
 also passed. The full `mvn test` on the branch in the same `ubuntu:26.04` JDK 25
