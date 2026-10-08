@@ -399,8 +399,8 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should admit the Cortico calls to a scopeless token under restricted legacy access")
-    void shouldAdmitCorticoCalls_underRestrictedLegacyAccess() {
+    @DisplayName("should admit the legacy integration calls to a scopeless token under restricted legacy access")
+    void shouldAdmitLegacyIntegrationCalls_underRestrictedLegacyAccess() {
         legacyMode("restricted");
         OAuthInterceptor interceptor = interceptorWith(accessToken(null));
         String[][] calls = {
@@ -419,8 +419,8 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should refuse everything outside the Cortico calls under restricted legacy access, scopes or not")
-    void shouldRaiseFault_withHttp403OutsideCorticoCallsUnderRestrictedLegacyAccess() {
+    @DisplayName("should refuse everything outside the legacy integration calls under restricted legacy access, scopes or not")
+    void shouldRaiseFault_withHttp403OutsideLegacyCallsUnderRestrictedLegacyAccess() {
         legacyMode("restricted");
         // Scopes are not consulted in this mode: a tickler.write grant does not open tickler.
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.write demographic.write"));

@@ -51,7 +51,7 @@
  *      scope, the consent page shows the matching warning, and the same probes
  *      answer 403 restricted_endpoint, or go through to the service, instead.
  *   3b. In every mode the always-blocked endpoints answer 403 blocked_endpoint, and
- *      the Cortico REST calls (PUT /demographics, POST
+ *      the legacy integration calls (PUT /demographics, POST
  *      /document/saveDocumentToDemographic, GET /demographics/{id}) reach their
  *      service: with an empty body the first two answer the service's own 400, so
  *      nothing is created. Under enforcement that takes a second token granted
@@ -107,8 +107,8 @@ const ABSENT_DEMOGRAPHIC_NO = 2147483646;
 // Scopes the signed calls below need. Enforcement is on by default (#4419), so the token is
 // limited to these; /ws/services/oauth/info is scope-exempt.
 const REQUESTED_SCOPES = 'demographic.read provider.read';
-// What the Cortico integration needs under enforcement (OAuthScopes' legacy allowlist, scoped).
-const CORTICO_SCOPES = 'demographic.write document.write';
+// What the legacy integration needs under enforcement (OAuthScopes' legacy allowlist, scoped).
+const LEGACY_INTEGRATION_SCOPES = 'demographic.write document.write';
 const OAUTH_MODES = ['scoped', 'legacy-restricted', 'legacy-full'];
 const OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
 assert(OAUTH_MODES.includes(OAUTH_MODE), `EXPECT_OAUTH_MODE must be one of ${OAUTH_MODES.join(', ')}`);
@@ -305,7 +305,7 @@ async function main(state = {}) {
 
   // 2. Handshake. Scope enforcement is on by default (#4419): /initiate refuses a request
   // token with no scope or an unknown one before it persists anything. In a legacy mode it
-  // accepts a request with no scope, as the Cortico integration sends.
+  // accepts a request with no scope, as the legacy integration sends.
   if (SCOPED) {
     for (const [label, query] of [['no scope', ''], ['an unknown scope', `?scope=${pct('everything.write')}`]]) {
       const refusedUrl = app(`/ws/oauth/initiate${query}`);
@@ -408,7 +408,7 @@ async function main(state = {}) {
     return accessToken;
   };
 
-  // In the legacy modes the token is requested the way the Cortico integration does: no scope.
+  // In the legacy modes the token is requested the way the legacy integration does: no scope.
   const accessToken = await authorize(SCOPED ? REQUESTED_SCOPES : '', { probeExchange: true });
 
   // 3. Signed calls on the OAuth-guarded data API.
@@ -430,7 +430,7 @@ async function main(state = {}) {
     '/ws/services/demographics/{id} returned a different record than the one requested');
 
   // 3a. Under enforcement the token holds demographic.read and provider.read only (#4419); in
-  // legacy-restricted mode it holds nothing and may call only the Cortico endpoints; in
+  // legacy-restricted mode it holds nothing and may call only the legacy integration endpoints; in
   // legacy-full mode it may call anything the provider can.
   const refusedAs = async (response, reason, label) => {
     await expectStatus(response, 403, label);
@@ -463,32 +463,32 @@ async function main(state = {}) {
     r = await anon.get(blockedUrl, { headers: { ...json, Authorization: signedGet(blockedUrl) } });
     await refusedAs(r, 'blocked_endpoint', `signed GET ${route} (${OAUTH_MODE})`);
   }
-  // The Cortico REST calls reach their service. An empty JSON body is refused by the service itself
+  // The legacy integration calls reach their service. An empty JSON body is refused by the service itself
   // (400: a demographicNo, or a title and file, is required), so nothing is created; the status
   // proves the call got past the OAuth gate. Under enforcement the first token's demographic.read
-  // cannot, and a second token granted what Cortico needs can.
-  const corticoCalls = [
+  // cannot, and a second token granted what the legacy integration needs can.
+  const legacyCalls = [
     ['PUT', app('/ws/services/demographics/'), 'PUT /ws/services/demographics/'],
     ['POST', app('/ws/services/document/saveDocumentToDemographic/'), 'POST /ws/services/document/saveDocumentToDemographic/'],
   ];
-  const corticoCall = async (method, url, token) => anon.fetch(url, {
+  const legacyCall = async (method, url, token) => anon.fetch(url, {
     method,
     headers: { ...json, 'Content-Type': 'application/json', Authorization: signed(method, url, token) },
     data: '{}',
   });
   if (SCOPED) {
-    for (const [method, url, label] of corticoCalls) {
-      await refusedAs(await corticoCall(method, url, accessToken), 'insufficient_scope',
+    for (const [method, url, label] of legacyCalls) {
+      await refusedAs(await legacyCall(method, url, accessToken), 'insufficient_scope',
         `${label} with only demographic.read`);
     }
   }
-  const corticoToken = SCOPED ? await authorize(CORTICO_SCOPES) : accessToken;
-  for (const [method, url, label] of corticoCalls) {
-    await expectStatus(await corticoCall(method, url, corticoToken), 400,
-      `${label} with an empty body${SCOPED ? ' and the Cortico scopes' : ` (${OAUTH_MODE})`}`);
+  const legacyToken = SCOPED ? await authorize(LEGACY_INTEGRATION_SCOPES) : accessToken;
+  for (const [method, url, label] of legacyCalls) {
+    await expectStatus(await legacyCall(method, url, legacyToken), 400,
+      `${label} with an empty body${SCOPED ? ' and the legacy integration scopes' : ` (${OAUTH_MODE})`}`);
   }
-  r = await anon.get(demoUrl, { headers: { ...json, Authorization: signed('GET', demoUrl, corticoToken) } });
-  await expectStatus(r, 200, `GET /ws/services/demographics/{id}${SCOPED ? ' with the Cortico scopes' : ''}`);
+  r = await anon.get(demoUrl, { headers: { ...json, Authorization: signed('GET', demoUrl, legacyToken) } });
+  await expectStatus(r, 200, `GET /ws/services/demographics/{id}${SCOPED ? ' with the legacy integration scopes' : ''}`);
 
   r = await anon.get(infoUrl, { headers: { ...json, Authorization: infoAuthorization } });
   await expectStatus(r, 401, 'a replayed signed request (same nonce)');

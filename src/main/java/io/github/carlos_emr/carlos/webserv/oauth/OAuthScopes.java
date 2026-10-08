@@ -231,7 +231,7 @@ public final class OAuthScopes {
 
     /**
      * The only {@code /ws/services} endpoints an OAuth client may call in
-     * {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED}: the REST calls the Cortico patient-engagement
+     * {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED}: the REST calls a legacy patient-engagement
      * integration makes (its remaining calls are SOAP, which OAuth does not gate). Scopes are not consulted
      * in that mode, so this list is the whole grant: create a patient, update a patient, read one patient
      * by number, and attach a document to a patient. Anything else answers 403 {@code restricted_endpoint}.

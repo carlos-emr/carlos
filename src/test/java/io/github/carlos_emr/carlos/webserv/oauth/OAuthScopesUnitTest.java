@@ -435,25 +435,25 @@ class OAuthScopesUnitTest {
     }
 
     /**
-     * The REST calls the Cortico integration makes (its endpoint sheet; the rest of its calls are SOAP).
+     * The REST calls the legacy patient-engagement integration makes (the rest of its calls are SOAP).
      * They must work in legacy-restricted mode with no scopes, must never be always-blocked, and must work
      * under enforcement with the two scopes they need.
      */
-    private static final List<String[]> CORTICO_REST_CALLS = List.of(
+    private static final List<String[]> LEGACY_INTEGRATION_CALLS = List.of(
             new String[] {"POST", "/services/demographics/"},
             new String[] {"PUT", "/services/demographics/"},
             new String[] {"GET", "/services/demographics/12345"},
             new String[] {"POST", "/services/document/saveDocumentToDemographic/"});
-    private static final List<String> CORTICO_SCOPES = List.of("demographic.write", "document.write");
+    private static final List<String> LEGACY_INTEGRATION_SCOPES = List.of("demographic.write", "document.write");
 
     @Nested
     @DisplayName("isLegacyRestrictedAllowed(method, servicePath)")
     class IsLegacyRestrictedAllowed {
 
         @Test
-        @DisplayName("should admit every Cortico REST call with no scopes at all")
-        void shouldAdmitCorticoCalls_withoutScopes() {
-            for (String[] call : CORTICO_REST_CALLS) {
+        @DisplayName("should admit every legacy integration call with no scopes at all")
+        void shouldAdmitLegacyIntegrationCalls_withoutScopes() {
+            for (String[] call : LEGACY_INTEGRATION_CALLS) {
                 assertThat(OAuthScopes.isLegacyRestrictedAllowed(call[0], call[1], false))
                         .as("%s %s", call[0], call[1]).isTrue();
                 assertThat(OAuthScopes.isAlwaysBlocked(call[0], call[1], false))
@@ -462,11 +462,11 @@ class OAuthScopesUnitTest {
         }
 
         @Test
-        @DisplayName("should satisfy every Cortico REST call under enforcement with demographic.write and document.write")
-        void shouldSatisfyCorticoCalls_withTheirScopes() {
-            for (String[] call : CORTICO_REST_CALLS) {
+        @DisplayName("should satisfy every legacy integration call under enforcement with demographic.write and document.write")
+        void shouldSatisfyLegacyIntegrationCalls_withTheirScopes() {
+            for (String[] call : LEGACY_INTEGRATION_CALLS) {
                 String required = OAuthScopes.requiredScope(call[0], call[1], false);
-                assertThat(OAuthScopes.isSatisfiedBy(required, CORTICO_SCOPES))
+                assertThat(OAuthScopes.isSatisfiedBy(required, LEGACY_INTEGRATION_SCOPES))
                         .as("%s %s needs %s", call[0], call[1], required).isTrue();
             }
             assertThat(OAuthScopes.isKnownScope("demographic.write")).isTrue();
@@ -475,7 +475,7 @@ class OAuthScopesUnitTest {
 
         @Test
         @DisplayName("should admit the extension-mapped and case-varied spellings CXF routes the same way")
-        void shouldAdmitCorticoCalls_inRoutedSpellings() {
+        void shouldAdmitLegacyIntegrationCalls_inRoutedSpellings() {
             assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/12345.json", false)).isTrue();
             assertThat(OAuthScopes.isLegacyRestrictedAllowed("post", "/services/Demographics", false)).isTrue();
             assertThat(OAuthScopes.isLegacyRestrictedAllowed("POST", "/services/document/saveDocumentToDemographic.json", false)).isTrue();

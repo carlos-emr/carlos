@@ -788,8 +788,7 @@ scopes they were granted; one granted nothing useful has to be re-authorized.
 To turn enforcement off for an integration that cannot request scopes, set
 oauth.scope.enforcement.enabled=false in /etc/carlos-emr/carlos.properties
 and restart. By default that admits only the legacy integration endpoints
-(the Cortico REST calls: create, update and read a patient, attach a
-document); add oauth.scope.legacy.access=full to admit everything the
+(create, update and read a patient, attach a document); add oauth.scope.legacy.access=full to admit everything the
 approving provider can do. The consent page warns providers either way. In
 every mode a few endpoints stay closed to all OAuth clients (403
 blocked_endpoint): the scheduled-job service, the account-rights lookups,
