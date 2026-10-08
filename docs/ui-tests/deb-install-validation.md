@@ -2392,10 +2392,10 @@ The British Columbia window passed with 6 known signatures.
 
 **Code review.** The 80 production commits in `main..release/2026.08` were read in seven
 domain groups against the code as released, each finding traced in the source and, where
-cheap, reproduced on the BC install. It found findings 148 to 170: four medium-severity
-defects the delta made reachable or introduced in clinical and security paths (148 and 149,
-markup from stored data rendered as HTML; 151, prescription lists showing every dated copy;
-152, measurements saved with tomorrow's date in the evening), three more medium ones (150,
-OAuth scopes unenforced on the newly published API; 153, a BC bill's provider blanked on
-save; 154, Dashboard tickler dates refused) and sixteen low ones. `xss-poison-note-history`
-covers 148 and fails as it should.
+cheap, reproduced on the BC install. It found findings 148 to 170, eight of medium
+severity: 148 and 149 (stored data rendered as HTML in the note revision popup and the lab
+Row Display tooltips), 150 (OAuth scopes unenforced on the newly published API), 151
+(prescription lists showing every dated copy), 152 (measurements saved with tomorrow's date
+in the evening), 153 (a BC bill's provider blanked on save), 154 (Dashboard tickler dates
+refused) and 168 (a failure after an eForm is stored reported as a duplicate submission).
+The other fifteen are low. `xss-poison-note-history` covers 148 and fails as it should.
