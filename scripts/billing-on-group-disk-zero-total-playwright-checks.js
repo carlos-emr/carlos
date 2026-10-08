@@ -447,7 +447,11 @@ async function main() {
       + ` WHERE d.groupno=${sqlString(state.groupNo)} AND f.providerno=${sqlString(EMPTY.providerNo)}`
       + ` AND d.id<>${ZERO.diskId}`);
     assert(emptyDisks.length === 1, 'Expected one empty-provider allocation');
-    assert(!fs.existsSync(path.join(diskDir, emptyDisks[0][0])), 'Empty provider produced an OHIP file');
+    // OSCAR 19 contract: the listed disk has a download even when no member had a
+    // claim item; the file carries no batch (no HEB/HET records) and nothing is billed.
+    const emptyFile = path.join(diskDir, emptyDisks[0][0]);
+    assert(fs.existsSync(emptyFile), 'Empty provider disk has no OHIP file to download');
+    assert(!/HE[BHRTE]/.test(fs.readFileSync(emptyFile, 'latin1')), 'Empty provider OHIP file carries batch records');
 
     assertStrictPage(recorder);
     console.log('  Overlapping export/regeneration refused without mutation; ZERO and PAID exported separately; NULL fields accepted; ZERO regenerated; EMPTY omitted');
