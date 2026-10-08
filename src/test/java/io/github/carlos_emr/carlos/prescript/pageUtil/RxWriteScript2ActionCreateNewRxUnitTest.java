@@ -147,7 +147,8 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         patientDataMock = mockStatic(RxPatientData.class);
         patientDataMock.when(() -> RxPatientData.getPatient(any(LoggedInInfo.class), anyInt())).thenReturn(patient);
         interactionDataMock = mockStatic(RxInteractionData.class);
-        interactionDataMock.when(RxInteractionData::getInstance).thenReturn(mock(RxInteractionData.class));
+        RxInteractionData interactions = mock(RxInteractionData.class);
+        interactionDataMock.when(RxInteractionData::getInstance).thenReturn(interactions);
 
         bean = new RxSessionBean();
         bean.setDemographicNo(DEMOGRAPHIC_NO);
