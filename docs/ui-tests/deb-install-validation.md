@@ -929,6 +929,7 @@ Notes on the contract:
   | `RX_FAX_FIXTURE_LOCKED` | Another Rx fax check holds the fixture lock on this database (or the `mysql` client could not connect). Run the checks one after another. |
   | `RX_FAX_FIXTURE_VALUE` | A pharmacy fax holds something other than digits, letters, spaces and `.()+-` (at most 32). The check refuses to rewrite a value it could not restore; nothing was changed. |
   | `RX_FAX_FIXTURE_CHANGED` | A pharmacy fax changed between the snapshot and the rewrite; the edit was kept and the run stopped. |
+  | `RX_FAX_FIXTURE_SEEDED`, `_NOT_LOCKED` | A programming error in a check: it staged the fixture twice without restoring, or before taking the lock. Nothing further was written. |
   | `RX_FAX_FIXTURE_JOURNAL` | A crash journal is malformed. Nothing is replayed from it; inspect it, repair the pharmacies it names if needed, then remove it by hand. |
   | `RX_FAX_FIXTURE_JOURNAL_DIR` | The journal directory is group- or world-writable or owned by another user. Fix its ownership and mode (`chmod 700`) rather than deleting it or switching `RX_FAX_JOURNAL_DIR`: journals already in it would no longer be replayed. |
   | `RX_FAX_FIXTURE_DATABASE` | The server's identity (`@@hostname`, `@@port`, `DATABASE()`) could not be read, so the journal key is unknown. Check the `MYSQL_*` settings. |

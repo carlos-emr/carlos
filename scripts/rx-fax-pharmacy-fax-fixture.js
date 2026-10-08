@@ -256,6 +256,9 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
    */
   function seed() {
     if (!releaseLock) throw fixtureError('NOT_LOCKED', 'take the Rx fax pharmacy fixture lock before seeding');
+    // A second seed over rows still staged would journal those 555 values as the "originals",
+    // replacing the snapshot a crash would need. restore() must settle the first one.
+    if (seeded.length || journalFile) throw fixtureError('SEEDED', 'restore the Rx fax pharmacy fixture before seeding it again');
     const rows = readLinkedPharmacies();
     if (rows.length) writeJournal(rows);
     let written = 0;

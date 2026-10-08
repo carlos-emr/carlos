@@ -59,7 +59,11 @@ async function acquireMysqlWorkflowLock(config, name) {
   }
   // The client read its option file at startup and is connected, so the cleartext password file is
   // no longer needed. Remove it now: a caller that exits from a signal handler never reaches stop().
-  fs.rmSync(directory, {recursive: true, force: true});
+  // Best effort: a failure here must not reject with the lock still held and no release function
+  // returned; stop() removes the directory again on release.
+  try {
+    fs.rmSync(directory, {recursive: true, force: true});
+  } catch (error) { /* retried by stop() */ }
   let released = false;
   return async () => {
     if (released) return;

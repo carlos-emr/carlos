@@ -150,6 +150,26 @@ for (const value of ["416'4000305", '416\\4000305', 'fax é', 'x'.repeat(33)]) {
   });
 }
 
+test('a second seed is refused until restore() has settled the first', async (t) => {
+  const { fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
+  const db = demoDatabase();
+  const before = faxes(db);
+  const dir = journalDir(t);
+  const run = fixture(db, dir);
+  await run.lock();
+  db.afterSnapshot = (state) => { state.pharmacies.get('7').fax = '9055550199'; };
+  assert.throws(() => run.seed(), /changed while the fixture was being staged/);
+  const journal = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), 'utf8');
+  assert.throws(() => run.seed(), (e) => fixtureErrorTag(e) === ' (RX_FAX_FIXTURE_SEEDED)');
+  assert.equal(fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), 'utf8'), journal, 'the first snapshot is kept');
+  run.restore();
+  db.pharmacies.get('7').fax = null;
+  assert.deepEqual(faxes(db), before);
+  assert.deepEqual(run.seed(), { active: 5, seeded: 5 });
+  run.restore();
+  assert.deepEqual(faxes(db), before);
+});
+
 test('a value changed between snapshot and rewrite stops the run without overwriting the edit', async (t) => {
   const db = demoDatabase();
   db.afterSnapshot = (state) => { state.pharmacies.get('7').fax = '9055550199'; };
