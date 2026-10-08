@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -148,7 +149,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
         AllergySaveTokens.Claim claim = AllergySaveTokens.claim(session, saveToken, fingerprint);
         if (claim == AllergySaveTokens.Claim.ALREADY_SAVED) {
             demographicNo = patient.getDemographicNo();
-            return SUCCESS;
+            return succeed(patient.getDemographicNo());
         }
         if (claim == AllergySaveTokens.Claim.IN_PROGRESS || claim == AllergySaveTokens.Claim.PAYLOAD_MISMATCH) {
             // A mismatch means an earlier attempt with this token may already have been saved with
@@ -161,7 +162,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
             if (claim == AllergySaveTokens.Claim.RESUME_ARCHIVE) {
                 archiveOriginal(patient, archiveId);
                 AllergySaveTokens.markSaved(session, saveToken);
-                return SUCCESS;
+                return succeed(patient.getDemographicNo());
             }
             return saveAllergy(patient, id, name, type, description, startDate, ageOfOnset,
                     severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
@@ -238,7 +239,32 @@ public final class RxAddAllergy2Action extends ActionSupport {
         archiveOriginal(patient, archiveId);
         AllergySaveTokens.markSaved(request.getSession(), saveToken);
 
-        return SUCCESS;
+        return succeed(patient.getDemographicNo());
+    }
+
+    /**
+     * Ends a successful save. A browser form post gets the usual redirect to the allergy list; the
+     * dialogue's own XHR/fetch save (#3488) gets a small JSON body naming that page instead, so it
+     * navigates once without first downloading and discarding the whole allergy page.
+     */
+    private String succeed(int patientDemographicNo) {
+        demographicNo = patientDemographicNo;
+        if (!RequestNegotiation.isAjax(request)) {
+            return SUCCESS;
+        }
+        try {
+            response.setStatus(HttpServletResponse.SC_OK);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write("{\"saved\":true,\"redirect\":\""
+                    + request.getContextPath().replace("\\", "\\\\").replace("\"", "\\\"")
+                    + "/rx/showAllergy?demographicNo=" + patientDemographicNo + "\"}");
+        } catch (IOException e) {
+            // The allergy is already saved; the client treats an unreadable reply as "not saved"
+            // and its retry is answered idempotently by the save token.
+            MiscUtils.getLogger().warn("Could not write the allergy save acknowledgement", e);
+        }
+        return NONE;
     }
 
     /** Archives the allergy whose ownership was checked before its replacement was added. */

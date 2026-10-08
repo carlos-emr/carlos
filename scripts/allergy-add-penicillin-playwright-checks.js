@@ -208,7 +208,9 @@ async function fillStartDate(page, form, value) {
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
     assert(saveResponse.status() < 400, `addAllergy2 returned HTTP ${saveResponse.status()}`);
-    await page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 });
+    // The dialogue saves in place and navigates after the acknowledgement, so the URL already matches:
+    // wait for the dialogue itself to go away.
+    await form.waitFor({ state: 'detached', timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(page, 'allergy page after add');
     assert((await page.locator('body').innerText()).includes('PENICILLINS'), 'allergy list did not show PENICILLINS after adding it');
@@ -271,7 +273,7 @@ async function fillStartDate(page, form, value) {
       amendForm.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
     assert(amendResponse.status() < 400, `addAllergy2 (amend) returned HTTP ${amendResponse.status()}`);
-    await page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 });
+    await amendForm.waitFor({ state: 'detached', timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(page, 'allergy page after amend');
 

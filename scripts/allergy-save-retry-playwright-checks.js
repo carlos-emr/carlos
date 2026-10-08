@@ -206,10 +206,13 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
     await form.locator('input[type="submit"][value="Add Allergy"]').click();
     await assertValuesKept(page, form, reactionA, 'A (aborted)');
     assert(countRows(reactionA) === 0, 'A: a row exists although the save never reached the server');
+    // The page already sits on /rx/showAllergy, so waiting for the URL would return at once and
+    // count rows before the retry's POST completes: wait for the save, then for the dialogue to go.
     await Promise.all([
-      page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 }),
+      page.waitForResponse((response) => response.request().method() === 'POST' && isSave(response.url()), { timeout: 30000 }),
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
+    await form.waitFor({ state: 'detached', timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     assert(countRows(reactionA) === 1, `A: retry persisted ${countRows(reactionA)} rows, expected exactly 1`);
     await page.unroute(isSave);
@@ -231,10 +234,13 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
     await form.locator('input[type="submit"][value="Add Allergy"]').click();
     await assertValuesKept(page, form, reactionB, 'B (lost response)');
     assert(countRows(reactionB) === 1, 'B: first attempt should have persisted one row server-side');
+    // The page already sits on /rx/showAllergy, so waiting for the URL would return at once and
+    // count rows before the retry's POST completes: wait for the save, then for the dialogue to go.
     await Promise.all([
-      page.waitForURL(/\/rx\/showAllergy/, { timeout: 30000 }),
+      page.waitForResponse((response) => response.request().method() === 'POST' && isSave(response.url()), { timeout: 30000 }),
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
+    await form.waitFor({ state: 'detached', timeout: 30000 });
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     assert(countRows(reactionB) === 1, `B: retry produced ${countRows(reactionB)} rows, expected exactly 1 (duplicate)`);
 

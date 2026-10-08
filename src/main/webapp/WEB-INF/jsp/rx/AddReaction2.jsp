@@ -215,6 +215,7 @@
                                         return;
                                     }
                                     var saving = false;
+                                    var navigating = false;
 
                                     function showFailure(detail, message) {
                                         var box = document.getElementById("allergySaveError");
@@ -248,11 +249,21 @@
                                             headers: headers,
                                             body: body
                                         }).then(function (response) {
-                                            // Success is the redirect back to the allergy list. Anything else
-                                            // (4xx/5xx, a login page after a timeout) means nothing was saved.
-                                            if (response.ok && response.redirected && /\/rx\/showAllergy/.test(response.url)) {
-                                                window.location.assign(response.url);
-                                                return;
+                                            // Success is a JSON acknowledgement from the save action. A 4xx/5xx,
+                                            // or an HTML page (a login redirect after a timeout), means nothing
+                                            // was saved.
+                                            var type = response.headers.get("Content-Type") || "";
+                                            if (response.ok && type.indexOf("application/json") === 0) {
+                                                return response.json().then(function (result) {
+                                                    var target = result && result.redirect;
+                                                    if (result && result.saved === true && typeof target === "string"
+                                                        && target.indexOf("<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/rx/showAllergy") === 0) {
+                                                        navigating = true;
+                                                        window.location.assign(target);
+                                                    } else {
+                                                        showFailure("unexpected server reply");
+                                                    }
+                                                });
                                             }
                                             if (response.status === 409) {
                                                 showFailure("", "CHECK BEFORE RETRYING \u2014 an earlier attempt with different entries "
@@ -265,9 +276,13 @@
                                         }).catch(function () {
                                             showFailure("the server could not be reached");
                                         }).finally(function () {
-                                            saving = false;
-                                            if (button) {
-                                                button.disabled = false;
+                                            // After a successful save the page is navigating away: stay locked so
+                                            // a second click cannot start another save.
+                                            if (!navigating) {
+                                                saving = false;
+                                                if (button) {
+                                                    button.disabled = false;
+                                                }
                                             }
                                         });
                                     });

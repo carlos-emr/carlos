@@ -109,9 +109,10 @@ class RxAllergyCsrfJspRegressionTest {
         assertThat(form.selectFirst("#allergySaveError")).as("in-dialogue failure banner").isNotNull();
         String jsp = readAddReactionJsp();
         assertThat(jsp).contains("addEventListener(\"submit\"").contains("event.preventDefault()");
-        // The dialogue must never be navigated away from on failure: only the redirect to the
-        // allergy list counts as success.
-        assertThat(jsp).contains("response.redirected && /\\/rx\\/showAllergy/");
+        // The dialogue must never be navigated away from on failure: only the save action's JSON
+        // acknowledgement counts as success, and it names the allergy list as the next page.
+        assertThat(jsp).contains("application/json").contains("result.saved === true")
+                .contains("/rx/showAllergy");
     }
 
     private static Element addAllergyForm() throws IOException {
