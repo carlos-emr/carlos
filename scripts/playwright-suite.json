@@ -7239,8 +7239,12 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient and one note saved through the chart; cleanup deletes the note rows and the audit rows scoped to the patient or the note id and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the read path held': the E-Chart rev link (CaseManagementEntry method=notehistory) and the E-Chart Print icon (method=print, a full-chart PDF) write no audit row, and the manager-layer rows about the patient carry no demographic_no."
+      "fixtures": "Owned synthetic patient and one note saved through the chart, read back through the rev link and the Note Search history URL; cleanup deletes the note rows and the audit rows scoped to the patient or the note id and asserts them gone.",
+      "notes": "Expected to FAIL at the step 'the read/CME note row of the Note Search history view names the patient (demographic_no)' (finding 141): CaseManagementEntry method=history (the History icon of Note Search and the Case Management view) hands LogAction the note's audit string where it expects the demographic number, so its read/CME note row has no demographic_no and the note text goes to the application log (deb-server-log-phi-scan.sh reports it as log.LogAction). The step before it opens that view for the saved note and proves the row exists and names the note, so a missing row or page fails there, as failed-elsewhere. Behind that pin the check's LAST step 'every expectation of the read path held' still fails, on three audit gaps with no finding of their own: the E-Chart rev link (method=notehistory, #4307) and the Print icon (method=print, a full-chart PDF) write no audit row, and the manager-layer rows about the patient (PatientConsentManager.getAllConsentsByDemographic, DemographicManager.getMergedDemographics) carry no demographic_no. That step is not reached while 141 stands, so the day 141 is fixed this run turns failed-elsewhere until those three are logged and pinned.",
+      "expectedFailure": {
+        "finding": 141,
+        "step": "the read/CME note row of the Note Search history view names the patient (demographic_no)"
+      }
     },
     {
       "name": "audit-log-chart-note",
@@ -8546,6 +8550,32 @@
         "step": "OscarDownload (OBEC key) refuses a stored-document file to a login that holds no _edoc"
       },
       "fixtures": "Four throwaway logins (doctor, nurse, receptionist and the admin role alone; own provider rows, lib/authz-read-fixture.js) and FAKE marker files written into server directories the application serves from: the EDT inbox (ONEDT_INBOX), DOCUMENT_DIR (an OBEC-named file, a stored-document-named file and a nested file in a marker sub-directory), the OHIP claim disk (OHIP_DISK_DIR / HOME_DIR) and, where the installed properties give the service a readable one, backup_path and LOGGING_PATH (never overwriting: a file that already exists fails the seed, and a file is removed only while it still holds the bytes the run wrote). Cleanup removes every file and sub-directory it created and asserts them gone, then the logins; the residue audit does not diff files, so list the directories after a run. A crash between the seed and the cleanup leaves marker files in those directories. It writes into directories every document and billing check shares, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). It never changes a property and never restarts the service."
+    },
+    {
+      "name": "phi-in-error-pages",
+      "script": "scripts/phi-in-error-pages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "PHI_FIXTURE_HIN",
+        "PHI_ERROR_PAGES_SHOW_CONTEXT",
+        "CARLOS_LOG_JOURNAL_UNIT"
+      ],
+      "fixtures": "The workflow's owned synthetic patient, updated with a synthetic 10-digit HIN (drawn at random and checked unused, or PHI_FIXTURE_HIN), a FAKE- first name, address and e-mail; one er_clerk login (no sec objects) and one doctor login locked out of the patient (|o| on _demographic$N and _eChart$N); one throwaway demographic row inserted and deleted inside a control step. Cleanup removes the logins, the audit rows about the patient and the patient, and asserts them gone. The probes write nothing (a step compares the patient's rows before and after).",
+      "notes": "For each of ten route families (demographic, chart, Rx, lab, document, tickler, billing, eForm, messenger, administration) and the REST surface, sends 400, 403, 404 and 405 requests that carry the patient's HIN, FAKE- name and demographic_no in the path, query, form body and Referer (50 requests), and asserts no response body contains the HIN (plain, NNNN-NNN-NNN or NNNN NNN NNN), the FAKE- names, address or e-mail, or the demographic_no as a number of its own. 400: the family's own validation refusing a value, the HIN or name sent as the bad value; 403: a login with no sec objects, a doctor locked out of the patient, or, where the family's Struts package turns a refusal into a 500 (eForm and messenger; finding 199), a POST without a CSRF token; 404: an unmapped action name and a missing resource; 405: a GET to a mutator route. Every cell must be answered by the application (its X-Permitted-Cross-Domain-Policies header, errorpage.jsp or the securityError page): a front-door page is reported in a NOTE and never counted, and a cell the application did not answer fails the coverage step. REST has no 400 probe (the routes tried answer 404 or 500 to bad input) and says so in its coverage line. Controls: the full login's Master Record and REST answers do carry the HIN, name and demographic_no, and the REST 404 for a just-deleted demographic_no does repeat it, so the detector is shown to see both a page and an echo in an error body. On a Debian install (CARLOS_LOG_JOURNAL_UNIT set, as suite-env.sh does) it ends by running scripts/deb-server-log-phi-scan.sh --only-given over its own window for this run's HIN, names, address and e-mail; without the variable the body steps still run and, if they pass, the check ends as a SKIP saying the log was not read (never a pass about a log it could not see). Expected to FAIL at the step 'the server log holds none of this run HIN, FAKE- names, address or e-mail' (finding 204): Struts' Dispatcher logs every unmapped-action request, query string included, at WARN, so the ten NoSuch...Action probes put the HIN, the name and the demographic_no in the journal; every response body is clean. The scan step before it proves the journal was read (it fails there, as failed-elsewhere, if it could not run).",
+      "expectedFailure": {
+        "finding": 204,
+        "step": "the server log holds none of this run HIN, FAKE- names, address or e-mail"
+      }
     }
   ]
 }

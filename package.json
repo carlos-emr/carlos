@@ -205,6 +205,7 @@
     "test:csrf-xhr-token-playwright": "node scripts/csrf-xhr-token-playwright-checks.js",
     "test:csrf-negative-matrix-playwright": "node scripts/csrf-negative-matrix-playwright-checks.js",
     "test:direct-response-contract-playwright": "node scripts/direct-response-contract-playwright-checks.js",
+    "test:phi-in-error-pages-playwright": "node scripts/phi-in-error-pages-playwright-checks.js",
     "test:registry-ichppc-lifecycle-playwright": "node scripts/registry-ichppc-lifecycle-playwright-checks.js",
     "test:about-licence-playwright": "node scripts/about-licence-playwright-checks.js",
     "test:legacy-calculator-bookmarks-playwright": "node scripts/legacy-calculator-bookmarks-playwright-checks.js",

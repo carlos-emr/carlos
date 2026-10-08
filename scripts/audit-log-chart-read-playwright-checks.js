@@ -5,7 +5,9 @@
  *
  * User path: Schedule > Search > Master Record; Master Record > E-Chart; E-Chart > type a note > Save
  * > the note's "rev" link (Note Revision History popup); E-Chart > the Print icon (#imgPrintEncounter)
- * > "Print All Notes" > Print (the browser downloads the chart PDF).
+ * > "Print All Notes" > Print (the browser downloads the chart PDF); Note Search > a note's History icon
+ * (CaseManagementEntry method=history, the older revision view that Note Search and the Case Management
+ * view open as a popup).
  *
  * Asserts the `log` table after each action, scoped to the owned patient: opening the Master Record
  * writes exactly one read/demographic row and opening the E-Chart exactly one read/eChart row, each
@@ -15,6 +17,11 @@
  * patient in demographic_no); and no row of the read path carries the note text. The check runs
  * every step and reports every violated expectation in its LAST step, so the steps that pass prove
  * what works before the defect is named.
+ *
+ * The Note Search history view is judged on its own, before that last step, because it is pinned to a
+ * logged defect (finding 141: LogAction takes the note's audit string for the demographic number, so
+ * the read/CME note row has no demographic_no and the note text goes to the application log). Its
+ * request is made in one step and the assertion that the row names the patient stands alone in the next.
  *
  * Fixtures: the harness's owned synthetic patient and one note saved through the chart. Cleanup
  * deletes the note rows and the audit rows scoped to the patient or to the note id and asserts them gone.
@@ -125,6 +132,33 @@ async function workflow(s) {
     expect(!unkeyed.length, `Rows about the patient with no demographic_no column: ${unkeyed.join('; ')}`);
     const anonymous = [...new Set(rows.filter(r => !r.provider).map(label))];
     expect(!anonymous.length, `Rows with no provider: ${anonymous.join('; ')}`);
+  });
+
+  // Note Search and the Case Management view open this URL from a note's History icon (search.jsp,
+  // CaseManagementView.jsp); it is the older of the two revision views, and the one that audits.
+  let historyRows = [];
+  await s.step('the Note Search history view (CaseManagementEntry method=history) opens for the saved note and writes a read/CME note audit row', async () => {
+    h.assert(noteId, 'The note saved by the revision-history step is missing');
+    const before = probe.mark();
+    const page = await s.context.newPage();
+    await page.goto(h.appUrl(s.config.baseUrl, `/CaseManagementEntry?method=history&from=casemgmt&noteId=${noteId}`
+      + `&demographicNo=${patient}&providerNo=${provider}`), { waitUntil: 'domcontentloaded' });
+    await page.locator('b', { hasText: 'Archived Note Update History' }).waitFor();
+    await page.locator('textarea[name="caseNote_history"]').waitFor();
+    await page.close();
+    const rows = await probe.waitFor(all => all.some(r => r.action === 'read' && r.content === 'CME note'),
+      'the Note Search history view', { after: before });
+    historyRows = mine(rows).filter(r => r.action === 'read' && r.content === 'CME note');
+    h.assert(historyRows.length === 1, `Opening the Note Search history view wrote ${historyRows.length} read/CME note rows by this provider, expected 1`);
+    h.assert(historyRows[0].contentId === String(noteId), 'The read/CME note row of the history view does not name the note read');
+  });
+
+  // Finding 141. Only this assertion belongs here: the row exists and names the note (the step above), and the
+  // defect is that LogAction parsed the note's audit string as the demographic number, so the column is empty.
+  await s.step('the read/CME note row of the Note Search history view names the patient (demographic_no)', async () => {
+    h.assert(historyRows.length === 1, 'The history view audit row was not collected');
+    h.assert(historyRows[0].demographic === String(patient),
+      'The read/CME note row written by CaseManagementEntry method=history carries no demographic_no, so the read cannot be found from the patient');
   });
 
   await s.step('every expectation of the read path held', async () => {

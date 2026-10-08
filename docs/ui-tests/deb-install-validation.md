@@ -1345,6 +1345,39 @@ match a signature in `scripts/fixtures/server-log-signatures-2026.08.txt` (the
 unexplained on that run stay unexplained. Never add a baseline entry to make an
 audit pass: an unexplained ERROR is a finding first.
 
+### Server-log PHI scan
+
+The audit reads only ERROR, FATAL and SEVERE events and never prints message text, so
+patient data written at INFO, WARN or DEBUG is invisible to it (findings 141 and 144
+were caught by luck). `scripts/deb-server-log-phi-scan.sh` looks for the data the suite
+plants, at every level, over the same window:
+
+```bash
+scripts/deb-server-log-phi-scan.sh --since "$SUITE_START" \
+    --hin "$PHI_FIXTURE_HIN" --marker 'a-short-unique-token'
+```
+
+It searches the `carlos-emr` journal (all priorities) and Tomcat's `catalina.*.log` for
+the harness markers (`FAKE-PW<hex>` and the throwaway logins `FAKEPW<hex>`, built in),
+for each `--hin` (also as `NNNN NNN NNN` and `NNNN-NNN-NNN`; or
+`$CARLOS_LOG_PHI_SCAN_HINS`) and for each `--marker` (or `$CARLOS_LOG_PHI_SCAN_MARKERS`).
+`--only-given` drops the built-in prefixes, for a check that scans just its own fixture
+(`phi-in-error-pages` does this over its own window).
+
+It prints the source, level, logger or class, the needle class (`marker` or `hin`) and
+two counts per hit, never the needle or the line, and exits 1 on any match, 2 if it read
+no log line at all. A matching stack-trace line is attributed to the event above it, so
+the logger named is the one that logged the exception. Not scanned: the nginx and
+ModSecurity logs (the WAF audit log keeps blocked bodies by design) and Tomcat's access
+log (path only, no query string).
+
+It finds only what a check planted, and the HIN is chosen by the check: pass the same
+value to the check (`PHI_FIXTURE_HIN`, 10 digits) and to `--hin`. A defect that logs only
+short text, such as finding 144 (an instruction shorter than six characters), needs a
+check that types a unique short token and a `--marker` for it (4 characters or more); the
+Rx favourite flow logs `null` there, not the instruction, so the scan reports nothing for
+144 today. Findings 141 (`log.LogAction`) and 204 (`dispatcher.Dispatcher`) are reported.
+
 ## 7. Exercise the upgrade path
 
 Re-installing the same (or a newer) package pair over the live install is the
