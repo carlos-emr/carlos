@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.login.EncryptedDataCountLoader.Kind;
 import io.github.carlos_emr.carlos.login.EncryptedDataCountLoader.Result;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -107,6 +108,9 @@ class EncryptedDataCountLoaderUnitTest {
             database.insertFaxConfig(2, "", encryptText(PLAINTEXT_SECRET));
             database.insertProperty(1, "teleplan_password", encryptText(PLAINTEXT_SECRET));
             database.insertSecurity(1, "synthetic-user-1", encryptText("JBSWY3DPEHPK3PXP"));
+            // The SMS settings row with both its webhook secret and a credential encrypted is one record.
+            database.insertSmsConfig(1, encryptText(PLAINTEXT_SECRET),
+                    "{\"auth_token\":\"" + encryptText(PLAINTEXT_SECRET) + "\"}");
             database.insertDigitalSignature(1, encryptBytes(EncryptedDataTestDatabase.plaintextPng()));
 
             Result result = database.loader().load();
@@ -116,11 +120,13 @@ class EncryptedDataCountLoaderUnitTest {
                     Kind.EMAIL_CREDENTIALS, 2,
                     Kind.FAX_CREDENTIALS, 2,
                     Kind.TELEPLAN_CREDENTIALS, 1,
+                    Kind.SMS_CREDENTIALS, 1,
                     Kind.MFA_SECRETS, 1,
                     Kind.DIGITAL_SIGNATURES, 1));
-            assertThat(result.total()).isEqualTo(7);
+            assertThat(result.total()).isEqualTo(8);
             assertThat(result.describeCounts()).isEqualTo("email sender accounts: 2, fax accounts: 2,"
-                    + " Teleplan passwords: 1, users with an MFA secret: 1, stored digital signature images: 1");
+                    + " Teleplan passwords: 1, SMS settings: 1, users with an MFA secret: 1,"
+                    + " stored digital signature images: 1");
         }
     }
 
@@ -145,6 +151,12 @@ class EncryptedDataCountLoaderUnitTest {
             database.insertProperty(2, "some_other_setting", encryptText(PLAINTEXT_SECRET));
             database.insertSecurity(1, "synthetic-user-1", null);
             database.insertSecurity(2, "synthetic-user-2", "JBSWY3DPEHPK3PXP");
+            // SMS settings with no secret, a marker too short to be ciphertext, plaintext credential
+            // values, and a credentials value that is not a JSON object.
+            database.insertSmsConfig(1, null, null);
+            database.insertSmsConfig(2, "{ENC}QUJDRA==", "{\"account_sid\":\"" + PLAINTEXT_SECRET + "\"}");
+            database.insertSmsConfig(3, PLAINTEXT_SECRET, "{\"note\":\"{ENC}\"}");
+            database.insertSmsConfig(4, "", encryptText(PLAINTEXT_SECRET));
             // Too short to be ciphertext (less than an IV plus a GCM tag).
             database.insertDigitalSignature(3, new byte[]{1, 2, 3, 4, 5});
 
@@ -199,16 +211,54 @@ class EncryptedDataCountLoaderUnitTest {
     }
 
     @Test
+    @DisplayName("should count the SMS settings row from its webhook secret or any encrypted credential value")
+    void shouldCountSmsSettings_whenWebhookSecretOrAnyCredentialIsEncrypted() throws Exception {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withAllTables()) {
+            // Credential field names depend on the SMS provider, so any field counts.
+            database.insertSmsConfig(1, null, "{\"account_sid\":\"AC-synthetic\",\"api_secret\":\""
+                    + encryptText(PLAINTEXT_SECRET) + "\"}");
+            database.insertSmsConfig(2, encryptText(PLAINTEXT_SECRET), null);
+
+            Result result = database.loader().load();
+
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counts()).containsExactly(Map.entry(Kind.SMS_CREDENTIALS, 2));
+            assertThat(result.describeCounts()).isEqualTo("SMS settings: 2");
+        }
+    }
+
+    @Test
+    @DisplayName("should count nothing for SMS settings on a schema from before the SMS settings page")
+    void shouldCountNothing_whenSchemaPredatesSmsSettings() throws Exception {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withTablesBeforeSmsSettings();
+             LogCapture capture = LogCapture.forLogger(EncryptedDataCountLoader.class)) {
+            database.insertFaxConfig(1, "", "");
+
+            Result result = database.loader().load();
+
+            assertThat(result.complete()).isTrue();
+            assertThat(result.total()).isZero();
+            assertThat(infoMessages(capture)).containsExactly("Encryption key check: not in this schema, counted"
+                    + " as empty: sms_config.webhook_secret, sms_config.credentials");
+        }
+    }
+
+    @Test
     @DisplayName("should treat a table this schema lacks as empty and still count the others")
     void shouldTolerateMissingTable_whenOtherTablesHoldCiphertext() throws Exception {
         // No property, security or DigitalSignature tables, as on a partial or older schema.
-        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withEmailConfig().withFaxConfig()) {
+        try (EncryptedDataTestDatabase database = new EncryptedDataTestDatabase().withEmailConfig().withFaxConfig();
+             LogCapture capture = LogCapture.forLogger(EncryptedDataCountLoader.class)) {
             database.insertFaxConfig(1, encryptText(PLAINTEXT_SECRET), "");
 
             Result result = database.loader().load();
 
             assertThat(result.complete()).isTrue();
             assertThat(result.counts()).containsExactly(Map.entry(Kind.FAX_CREDENTIALS, 1));
+            // One INFO line names every absent place, so a wrong, empty schema is visible in the log.
+            assertThat(infoMessages(capture)).containsExactly("Encryption key check: not in this schema, counted"
+                    + " as empty: property.value (teleplan_password), sms_config.webhook_secret,"
+                    + " sms_config.credentials, security.mfaSecret, DigitalSignature.signatureImage");
         }
     }
 
@@ -308,11 +358,18 @@ class EncryptedDataCountLoaderUnitTest {
 
             database.loader().load();
 
-            // The absent tables are reported at DEBUG by location only.
+            // The absent tables are reported at INFO by location only.
             assertThat(capture.messages()).isNotEmpty()
                     .allSatisfy(message -> assertThat(message)
                             .doesNotContain(ciphertext, PLAINTEXT_SECRET, EncryptedDataTestDatabase.SYNTHETIC_KEY,
                                     EncryptedDataTestDatabase.DB_PASSWORD, "{ENC}"));
         }
+    }
+
+    private static List<String> infoMessages(LogCapture capture) {
+        return capture.events().stream()
+                .filter(event -> event.getLevel() == Level.INFO)
+                .map(event -> event.getMessage().getFormattedMessage())
+                .toList();
     }
 }

@@ -61,6 +61,9 @@ import java.util.StringJoiner;
  *   <li>{@code fax_config.passwd} and {@code fax_config.faxPasswd} ({@code FaxConfig}).</li>
  *   <li>{@code property.value} where {@code name = 'teleplan_password'} ({@code TeleplanUserPassDAO}).
  *       The table is common to every province; only BC installs have the row.</li>
+ *   <li>{@code sms_config.webhook_secret} and every value in the {@code sms_config.credentials} JSON
+ *       ({@code SmsConfig}, Administration &gt; SMS). The table arrives with the SMS settings
+ *       page; until then it is absent and counts as empty.</li>
  *   <li>{@code security.mfaSecret} ({@code MfaManagerImpl}).</li>
  *   <li>{@code DigitalSignature.signatureImage} ({@code DigitalSignatureManagerImpl}).</li>
  * </ul>
@@ -73,8 +76,10 @@ import java.util.StringJoiner;
  * distinguished. Only byte lengths are fetched; image contents are not loaded or decoded.</p>
  *
  * <p>A table or column that this schema does not have (an empty schema before Flyway runs, an older
- * or partial schema) counts as holding nothing. Any other failure is reported in the result, never swallowed,
- * so the caller can refuse to start rather than guess.</p>
+ * or partial schema) counts as holding nothing; one INFO line names every such place, so a
+ * {@code db_name} that points at the wrong, empty schema is visible rather than looking like a
+ * fresh install. Any other failure is reported in the result, never swallowed, so the caller can
+ * refuse to start rather than guess.</p>
  *
  * <p><strong>Security:</strong> no stored value, credential, JSON or ciphertext is logged or put in
  * a failure description. Failures are described by SQLState, vendor error code and exception class
@@ -102,6 +107,8 @@ final class EncryptedDataCountLoader {
                 "re-enter each fax account's password in Administration > Faxes > Configure Fax"),
         TELEPLAN_CREDENTIALS("Teleplan passwords",
                 "re-enter the Teleplan password"),
+        SMS_CREDENTIALS("SMS settings",
+                "re-enter the SMS webhook secret and provider credentials in Administration > SMS"),
         MFA_SECRETS("users with an MFA secret",
                 "reset MFA for each of those users, who cannot log in until it is reset"),
         DIGITAL_SIGNATURES("stored digital signature images",
@@ -227,6 +234,15 @@ final class EncryptedDataCountLoader {
                     "SELECT id, value FROM property WHERE name = ? AND value LIKE ?",
                     List.of("teleplan_password", STARTS_WITH_MARKER), // NOSONAR java:S2068 - property name, not a credential
                     row -> EncryptionUtils.isWellFormedCiphertext(row.getString(2))),
+            new Probe(Kind.SMS_CREDENTIALS, "sms_config.webhook_secret",
+                    "SELECT id, webhook_secret FROM sms_config WHERE webhook_secret LIKE ?",
+                    List.of(STARTS_WITH_MARKER),
+                    row -> EncryptionUtils.isWellFormedCiphertext(row.getString(2))),
+            // SmsConfig encrypts every credential value, under field names that depend on the provider.
+            new Probe(Kind.SMS_CREDENTIALS, "sms_config.credentials",
+                    "SELECT id, credentials FROM sms_config WHERE credentials LIKE ?",
+                    List.of("%{ENC}%"),
+                    row -> smsCredentialsHoldCiphertext(row.getString(2))),
             new Probe(Kind.MFA_SECRETS, "security.mfaSecret",
                     "SELECT security_no, mfaSecret FROM security WHERE mfaSecret LIKE ?",
                     List.of(STARTS_WITH_MARKER),
@@ -272,13 +288,20 @@ final class EncryptedDataCountLoader {
 
         Map<Kind, Set<Long>> found = new EnumMap<>(Kind.class);
         List<String> failures = new ArrayList<>();
+        List<String> absent = new ArrayList<>();
         try {
             markReadOnly(connection);
             for (Probe probe : PROBES) {
-                runProbe(connection, probe, found, failures);
+                runProbe(connection, probe, found, failures, absent);
             }
         } finally {
             closeQuietly(connection);
+        }
+        if (!absent.isEmpty()) {
+            // INFO, not DEBUG: on a schema with none of these tables (a wrong db_name, say), this line is
+            // what tells it apart from a fresh install. Fixed table and column names only.
+            logger.info("Encryption key check: not in this schema, counted as empty: {}",
+                    String.join(", ", absent));
         }
 
         Map<Kind, Integer> counts = new EnumMap<>(Kind.class);
@@ -292,7 +315,7 @@ final class EncryptedDataCountLoader {
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "SQL is one of the fixed PROBES constants; values are bound parameters")
     private static void runProbe(Connection connection, Probe probe, Map<Kind, Set<Long>> found,
-                                 List<String> failures) {
+                                 List<String> failures, List<String> absent) {
         Set<Long> ids = found.computeIfAbsent(probe.kind(), kind -> new HashSet<>());
         try (PreparedStatement statement = connection.prepareStatement(probe.sql())) {
             statement.setQueryTimeout(30);
@@ -310,8 +333,7 @@ final class EncryptedDataCountLoader {
             if (e.getSQLState() != null && ABSENT_OBJECT_STATES.contains(e.getSQLState())) {
                 // Not in this schema (e.g. an older one without DigitalSignature): nothing is stored
                 // there for a missing key to orphan.
-                logger.debug("Encryption key check: {} is not in this schema; counted as empty",
-                        probe.location());
+                absent.add(probe.location());
                 return;
             }
             failures.add(probe.location() + " (" + describe(e) + ")");
@@ -323,28 +345,57 @@ final class EncryptedDataCountLoader {
     /**
      * True when a {@code configDetails} value holds ciphertext in a credential field. A value that
      * is not a JSON object is not counted: no sender can read a credential out of it with any key.
-     * The parser's message can quote the value, so it is dropped, never logged.
      */
     private static boolean emailConfigHoldsCiphertext(String configDetails) {
-        if (configDetails == null || configDetails.isBlank()) {
-            return false;
-        }
-        JsonNode root;
-        try {
-            root = OBJECT_MAPPER.readTree(configDetails);
-        } catch (Exception e) {
-            return false;
-        }
-        if (root == null || !root.isObject()) {
+        JsonNode root = jsonObject(configDetails);
+        if (root == null) {
             return false;
         }
         for (String field : EmailConfigSecrets.secretFieldNames()) {
-            JsonNode value = root.get(field);
-            if (value != null && value.isValueNode() && EncryptionUtils.isWellFormedCiphertext(value.asText())) {
+            if (holdsCiphertext(root.get(field))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * True when an {@code sms_config.credentials} value holds ciphertext in any field. Unlike email,
+     * every value there is a credential, under names that depend on the provider, so no field list
+     * is needed. A value that is not a JSON object is not counted, as for email.
+     */
+    private static boolean smsCredentialsHoldCiphertext(String credentials) {
+        JsonNode root = jsonObject(credentials);
+        if (root == null) {
+            return false;
+        }
+        for (JsonNode value : root) {
+            if (holdsCiphertext(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The parsed JSON object, or null when the value is blank or not a JSON object. The parser's
+     * message can quote the value, so it is dropped, never logged.
+     */
+    private static JsonNode jsonObject(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        JsonNode root;
+        try {
+            root = OBJECT_MAPPER.readTree(json);
+        } catch (Exception e) {
+            return null;
+        }
+        return root != null && root.isObject() ? root : null;
+    }
+
+    private static boolean holdsCiphertext(JsonNode value) {
+        return value != null && value.isValueNode() && EncryptionUtils.isWellFormedCiphertext(value.asText());
     }
 
     /** Connector/J connect timeout for the startup check, in milliseconds. */

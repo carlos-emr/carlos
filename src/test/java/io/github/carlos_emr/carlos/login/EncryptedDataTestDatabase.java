@@ -85,6 +85,11 @@ final class EncryptedDataTestDatabase implements AutoCloseable {
 
     /** Creates every table the check reads, with the production column names. */
     EncryptedDataTestDatabase withAllTables() throws SQLException {
+        return withTablesBeforeSmsSettings().withSmsConfig();
+    }
+
+    /** Every table the check reads except {@code sms_config}, which arrives with the SMS settings page. */
+    EncryptedDataTestDatabase withTablesBeforeSmsSettings() throws SQLException {
         return withEmailConfig().withFaxConfig().withProperty().withSecurity().withDigitalSignature();
     }
 
@@ -123,6 +128,13 @@ final class EncryptedDataTestDatabase implements AutoCloseable {
         return this;
     }
 
+    EncryptedDataTestDatabase withSmsConfig() throws SQLException {
+        // The production table is limited to one row (id 1); the check counts per row either way.
+        execute("CREATE TABLE sms_config (id INT PRIMARY KEY, provider_type VARCHAR(16) NOT NULL,"
+                + " webhook_secret VARCHAR(512), credentials TEXT)");
+        return this;
+    }
+
     void insertEmailConfig(int id, String configDetails) throws SQLException {
         update("INSERT INTO emailConfig (id, active, configDetails) VALUES (?, TRUE, ?)", id, configDetails);
     }
@@ -139,6 +151,11 @@ final class EncryptedDataTestDatabase implements AutoCloseable {
     void insertSecurity(int id, String userName, String mfaSecret) throws SQLException {
         update("INSERT INTO security (security_no, user_name, usingMfa, mfaSecret) VALUES (?, ?, TRUE, ?)",
                 id, userName, mfaSecret);
+    }
+
+    void insertSmsConfig(int id, String webhookSecret, String credentials) throws SQLException {
+        update("INSERT INTO sms_config (id, provider_type, webhook_secret, credentials) VALUES (?, 'STUB', ?, ?)",
+                id, webhookSecret, credentials);
     }
 
     void insertDigitalSignature(int id, byte[] image) throws SQLException {

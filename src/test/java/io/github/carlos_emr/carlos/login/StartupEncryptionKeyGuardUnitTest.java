@@ -159,6 +159,23 @@ class StartupEncryptionKeyGuardUnitTest {
         assertThat(savedPropertiesFile()).exists();
     }
 
+    @Test
+    @DisplayName("should generate a key on a fresh install whose schema predates the SMS settings table")
+    void shouldGenerateKey_whenSchemaHasNoSmsSettingsTable() throws Exception {
+        database.withTablesBeforeSmsSettings();
+        database.insertFaxConfig(1, "", "");
+        loseKey();
+
+        try (StartupLogs logs = new StartupLogs()) {
+            new Startup().contextInitialized(newStartupEvent());
+
+            assertThat(props.getProperty(KEY)).isNotBlank();
+            assertThat(savedPropertiesFile()).exists();
+            assertThat(logs.startupMessages()).contains("New Secret Key generated...");
+            assertThat(logs.errors()).isEmpty();
+        }
+    }
+
     @ParameterizedTest(name = "{0}")
     @EnumSource(Kind.class)
     @DisplayName("should refuse to start when one kind of encrypted data exists and the key is missing")
@@ -212,9 +229,10 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThatThrownBy(() -> startup.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class);
 
-            assertThat(logs.errors()).containsExactly(KEY + " is missing or blank, but 5 items in the database"
+            assertThat(logs.errors()).containsExactly(KEY + " is missing or blank, but 6 items in the database"
                     + " may be encrypted with the original key (email sender accounts: 1, fax accounts: 1,"
-                    + " Teleplan passwords: 1, users with an MFA secret: 1, stored digital signature images: 1)."
+                    + " Teleplan passwords: 1, SMS settings: 1, users with an MFA secret: 1,"
+                    + " stored digital signature images: 1)."
                     + " Refusing to start: a new key cannot decrypt data encrypted with the original key."
                     + " Fix: restore the original " + KEY + " from backup into the properties file, then restart."
                     + " Only if the original key is lost for good: set " + ACK + "=true and restart."
@@ -222,6 +240,7 @@ class StartupEncryptionKeyGuardUnitTest {
                     + " (re-enter the SMTP password or API key of each email sender account;"
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
+                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
                     + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected).");
             logs.assertNoSecretMaterial(secretMaterial);
@@ -245,12 +264,14 @@ class StartupEncryptionKeyGuardUnitTest {
             assertThat(generated).isNotBlank().isNotEqualTo(EncryptedDataTestDatabase.SYNTHETIC_KEY);
             assertThat(Files.readString(savedPropertiesFile())).contains(KEY + "=" + generated);
             assertThat(logs.errors()).containsExactly(ACK + " is set: generated a new " + KEY
-                    + " over 5 possibly encrypted items (email sender accounts: 1, fax accounts: 1,"
-                    + " Teleplan passwords: 1, users with an MFA secret: 1, stored digital signature images: 1)."
+                    + " over 6 possibly encrypted items (email sender accounts: 1, fax accounts: 1,"
+                    + " Teleplan passwords: 1, SMS settings: 1, users with an MFA secret: 1,"
+                    + " stored digital signature images: 1)."
                     + " Any data encrypted with the old key is now unreadable."
                     + " Now: re-enter the SMTP password or API key of each email sender account;"
                     + " re-enter each fax account's password in Administration > Faxes > Configure Fax;"
                     + " re-enter the Teleplan password;"
+                    + " re-enter the SMS webhook secret and provider credentials in Administration > SMS;"
                     + " reset MFA for each of those users, who cannot log in until it is reset;"
                     + " signature images encrypted with the old key cannot be recovered; legacy plaintext images are unaffected."
                     + " Then remove " + ACK + " from the properties file.");
@@ -485,6 +506,7 @@ class StartupEncryptionKeyGuardUnitTest {
             case EMAIL_CREDENTIALS -> database.insertEmailConfig(1, "{\"password\":\"" + ciphertext + "\"}");
             case FAX_CREDENTIALS -> database.insertFaxConfig(1, "", ciphertext);
             case TELEPLAN_CREDENTIALS -> database.insertProperty(1, "teleplan_password", ciphertext);
+            case SMS_CREDENTIALS -> database.insertSmsConfig(1, ciphertext, null);
             case MFA_SECRETS -> database.insertSecurity(1, "synthetic-user-1", ciphertext);
             case DIGITAL_SIGNATURES -> {
                 byte[] image = encryptBytes(EncryptedDataTestDatabase.plaintextPng());

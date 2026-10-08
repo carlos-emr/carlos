@@ -77,7 +77,8 @@ patient communications.
 Sender accounts that authenticate (an SMTP password, or a provider API key such
 as SendGrid's) store that secret in `emailConfig.configDetails`, encrypted at
 rest with the application key `encryption.util.secret.key`. The same key
-encrypts fax account passwords, the Teleplan password (BC), MFA secrets and
+encrypts fax account passwords, the Teleplan password (BC), the SMS webhook
+secret and provider credentials (Administration > SMS), MFA secrets and
 digital signature images. Everything encrypted with it can only be decrypted
 with that exact key, so back the key up with the rest of the server's
 configuration and never replace it on a server that has been running.
@@ -119,6 +120,8 @@ encryption.util.secret.key.acknowledge_loss=true and restart. ...
    - re-enter the password or API key of every email sender account, and the
      password of every fax account;
    - re-enter the Teleplan password (BC);
+   - re-enter the SMS webhook secret and provider credentials in
+     Administration > SMS;
    - reset MFA on each affected user's security record; those users cannot log
      in until it is reset (if every administrator is affected, one
      administrator's `security.mfaSecret` has to be cleared in the database
