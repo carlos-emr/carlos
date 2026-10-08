@@ -28,6 +28,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
 
+import io.github.carlos_emr.carlos.demographic.pageUtil.ConsentNotSavedNotice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -75,8 +76,11 @@ public final class WLAdd2WaitingList2Action extends ActionSupport {
 
         WLWaitingListUtil.add2WaitingList(listId, waitingListNote, demographicNo, onListSince);
 
-        response.sendRedirect(request.getContextPath()
-                + "/demographic/DemographicEdit?demographic_no=" + Encode.forUriComponent(demographicNo));
+        // A chart save that reaches the chart by way of the waiting list hands on the consent types
+        // whose consent change it refused; the value is validated before it is added.
+        response.sendRedirect(ConsentNotSavedNotice.appendTo(request.getContextPath()
+                + "/demographic/DemographicEdit?demographic_no=" + Encode.forUriComponent(demographicNo),
+                request.getParameter(ConsentNotSavedNotice.PARAMETER)));
         return NONE;
     }
 

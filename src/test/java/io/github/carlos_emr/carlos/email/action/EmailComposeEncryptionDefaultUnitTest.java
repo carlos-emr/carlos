@@ -24,6 +24,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -77,7 +78,11 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        // Preparation checks read access to the patient before generating anything.
+        when(securityInfoManager.hasPrivilege(any(), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
@@ -110,7 +115,8 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
             EmailCompose2Action action = new EmailCompose2Action();
-            assertThat(action.prepareComposeEFormMailer()).isEqualTo("compose");
+            assertThat(action.prepareComposeEFormMailer()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(EmailComposeViewTestSupport.renderPreparedView(response)).isEqualTo("compose");
         }
 
         return request;

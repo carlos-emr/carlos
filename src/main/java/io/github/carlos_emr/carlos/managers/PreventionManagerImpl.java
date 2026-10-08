@@ -71,7 +71,6 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     private SecurityInfoManager securityInfoManager;
     private static final String HIDE_PREVENTION_ITEM = "hide_prevention_item";
 
-    private ArrayList<String> preventionTypeList = new ArrayList<String>();
 
     private Set<String> listMatches;
 
@@ -121,12 +120,13 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
 
     @Override
     public ArrayList<String> getPreventionTypeList() {
-        if (preventionTypeList.isEmpty()) {
-            PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
-            for (HashMap<String, String> prevTypeHash : pdc.getPreventions()) {
-                if (prevTypeHash != null && StringUtils.filled(prevTypeHash.get("name"))) {
-                    preventionTypeList.add(prevTypeHash.get("name").trim());
-                }
+        // Derived on every call rather than cached here: PreventionDisplayConfig owns the cache
+        // and is rebuilt when a vaccine catalogue update adds new generic prevention types.
+        ArrayList<String> preventionTypeList = new ArrayList<String>();
+        PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
+        for (HashMap<String, String> prevTypeHash : pdc.getPreventions()) {
+            if (prevTypeHash != null && StringUtils.filled(prevTypeHash.get("name"))) {
+                preventionTypeList.add(prevTypeHash.get("name").trim());
             }
         }
         return preventionTypeList;
