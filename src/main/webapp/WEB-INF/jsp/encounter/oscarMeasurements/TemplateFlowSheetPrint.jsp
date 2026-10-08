@@ -818,7 +818,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/ViewAddPreventionData?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
-                                title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]">
+                                title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]">
                             Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
                             <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
                             <%if (comb) {%>

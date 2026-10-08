@@ -397,4 +397,35 @@ class SafeEncodeUnitTest {
             }
         }
     }
+
+    @Nested
+    @DisplayName("forTooltipText (boxover payload)")
+    class TooltipText {
+
+        @Test
+        @DisplayName("should return empty string when value is null")
+        void shouldReturnEmptyString_whenValueIsNull() {
+            assertThat(SafeEncode.forTooltipText(null)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should leave stored markup inert after the attribute is decoded")
+        void shouldLeaveMarkupInert_afterAttributeDecoding() {
+            String payload = "<img src=x onerror=alert(1)>\"'&";
+            String encoded = SafeEncode.forTooltipText(payload);
+
+            // The attribute layer must hide every delimiter from the HTML parser...
+            assertThat(encoded).doesNotContain("<", ">", "\"", "'");
+            // ...and one decode (what the browser does to the attribute) must still be HTML-encoded text.
+            assertThat(org.owasp.encoder.Encode.forHtmlContent(payload))
+                    .isEqualTo(htmlAttributeDecode(encoded));
+            assertThat(htmlAttributeDecode(encoded)).doesNotContain("<", ">");
+        }
+
+        private String htmlAttributeDecode(String s) {
+            return s.replace("&#34;", "\"").replace("&#39;", "'").replace("&lt;", "<")
+                    .replace("&gt;", ">").replace("&#43;", "+").replace("&#61;", "=")
+                    .replace("&#96;", "`").replace("&amp;", "&");
+        }
+    }
 }
