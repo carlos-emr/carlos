@@ -137,7 +137,7 @@ async function main() {
       { ...prompt(4, 'choice_pending'), createdAt: '2026-09-25T12:00:00Z' }];
     await page.locator('[data-role="refresh"]').click();
     await page.waitForFunction(() => document.querySelector('[data-role="summary"]').textContent.includes('Lab review'));
-    assert.match(await page.locator('[data-role="summary"]').innerText(), /^Last: Lab review · Routine · .+ · Read · Read$/);
+    assert.match(await page.locator('[data-role="summary"]').innerText(), /^Last: Lab review · Routine · .+ · Read$/);
     assert.equal(await page.locator('[data-role="openCount"]').innerText(), 'Open requests: 2');
     console.log('PASS box picks the newest of several requests and counts the open ones');
     prompts = [prompt(7, 'read')]; await page.locator('[data-role="refresh"]').click();

@@ -37,7 +37,7 @@
     <div class="portal-booking-summary">
         <p data-role="summary"><fmt:message key="portal.booking.loading"/></p>
         <p data-role="openCount" class="portal-booking-muted" hidden></p>
-        <p data-role="note" class="portal-booking-muted" hidden></p>
+        <p data-role="note" class="portal-booking-note" hidden></p>
         <noscript><p><fmt:message key="portal.booking.noscript"/></p></noscript>
     </div>
     <dialog data-role="dialog" class="portal-booking-dialog" aria-labelledby="portalBookingTitle">

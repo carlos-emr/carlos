@@ -134,6 +134,8 @@
         const DATE_AND_TIME = { dateStyle: 'medium', timeStyle: 'short' };
         const DATE_ONLY = { dateStyle: 'medium' };
         function promptState(prompt) {
+            // A request in the read state says "Read" once, not "Read · Read".
+            if (prompt.state === 'read') { return message('state.read'); }
             return message('state.' + prompt.state) + ' · ' + message(prompt.readAt ? 'read' : 'unread');
         }
         function cell(text) {

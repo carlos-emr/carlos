@@ -41,6 +41,11 @@
 .portal-booking-muted {
     color: #666;
 }
+/* What the dialog would say if it were open: an unconfirmed send, a failed withdrawal, and so on. */
+.portal-booking-summary p.portal-booking-note {
+    background-color: #fff3cd;
+    color: #664d03;
+}
 .portal-booking [hidden] { display: none !important; }
 
 /* The dialog with the controls. */
