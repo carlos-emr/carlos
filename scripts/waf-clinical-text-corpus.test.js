@@ -301,23 +301,84 @@ test('shouldUnhookAttackRfiOnLetter_whenTheRichTextLetterIsSaved', { todo: 'find
   assert.ok(familiesUnhooked('eform/addEForm', 'Letter').has('attack-rfi'));
 });
 
+/**
+ * What finding 210 still lacks: the families the corpus trips on ARGS:customName (931100 attack-rfi and 932110 attack-rce)
+ * that no rule unhooks on `rx/WriteScript`, the route the page posts the rename to. 1107 covers `rx/writeScript` (a different
+ * route: the match is case-sensitive), and unhooking only one family still leaves the other to refuse the name.
+ */
+function missingForCustomName(options) {
+  const families = familiesUnhooked('rx/WriteScript', 'customName', options);
+  return ['attack-rfi', 'attack-rce'].filter((family) => !families.has(family));
+}
+
+/**
+ * What finding 211 still lacks: for each of the three boxes Save Only posts (`drugName_<n>`, `instructions_<n>`,
+ * `comment_<n>`, the id changes per card), the families the corpus trips (930100/930110 attack-lfi, 931100 attack-rfi,
+ * 932100/932110/932130 attack-rce, 933100 attack-injection-php) that nothing unhooks on `rx/WriteScript`.
+ */
+function missingForSaveOnlyBoxes(options) {
+  const missing = [];
+  for (const box of ['drugName_', 'instructions_', 'comment_']) {
+    const families = familiesUnhooked('rx/WriteScript', `${box}288452`, options);
+    for (const family of ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php']) {
+      if (!families.has(family)) missing.push(`ARGS:${box}<n> still inspected for ${family}`);
+    }
+  }
+  return missing;
+}
+
 test('shouldUnhookCustomNameOnTheRoutePageWritesTo_whenACustomDrugIsRenamed', { todo: 'finding 210' }, () => {
-  // The page posts saveCustomName's customName to rx/WriteScript; 1107 unhooks it on rx/writeScript only. The corpus trips
-  // 931100 (attack-rfi) and 932110 (attack-rce) there, so both families have to go, on the route the page posts to.
-  const families = familiesUnhooked('rx/WriteScript', 'customName');
-  assert.ok(families.has('attack-rfi'), '931100 (attack-rfi) on ARGS:customName');
-  assert.ok(families.has('attack-rce'), '932110 (attack-rce) on ARGS:customName');
+  assert.deepEqual(missingForCustomName(), []);
 });
 
 test('shouldUnhookTheSaveOnlyBoxes_whenAPrescriptionHoldsProse', { todo: 'finding 211' }, () => {
-  // Save Only posts every card's boxes as drugName_<n>, instructions_<n> and comment_<n> to rx/WriteScript. The corpus trips
-  // 930100/930110 (attack-lfi), 931100 (attack-rfi), 932100/932110/932130 (attack-rce) and 933100 (attack-injection-php).
-  for (const box of ['drugName_', 'instructions_', 'comment_']) {
-    const families = familiesUnhooked('rx/WriteScript', `${box}288452`);
-    for (const family of ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php']) {
-      assert.ok(families.has(family), `ARGS:${box}<n> still inspected for ${family}`);
-    }
-  }
+  assert.deepEqual(missingForSaveOnlyBoxes(), []);
+});
+
+// The two todo tests above must not start passing on anything short of the fix: a comment, one family, the lower-case
+// route, a literal box name or a single box is not enough, and the full set of rules is. They run against a synthetic
+// conf, so they are real tests and not todos.
+function confWith(ctls, route = 'rx/WriteScript') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'waf-fix-'));
+  const conf = path.join(dir, 'before.conf');
+  fs.writeFileSync(conf, [
+    `# a comment that mentions customName, drugName_, instructions_ and comment_ unhooks nothing`,
+    `SecRule REQUEST_URI "@rx ^/carlos/${route}(?:[;?]|$)" \\`,
+    '    "id:9001,phase:1,pass,nolog,chain"',
+    '    SecRule REQUEST_METHOD "@streq POST" \\',
+    `        "t:none,\\`,
+    `        ${ctls.join(',\\\n        ')}"`,
+    '',
+  ].join('\n'));
+  return { rules: exemptArguments(conf), exemptions: [] };
+}
+
+test('shouldNotCallFinding210Fixed_untilBothScoringFamiliesAreUnhookedOnTheUpperCaseRoute', () => {
+  const rfi = 'ctl:ruleRemoveTargetByTag=attack-rfi;ARGS:customName';
+  const rce = 'ctl:ruleRemoveTargetByTag=attack-rce;ARGS:customName';
+  assert.deepEqual(missingForCustomName({ rules: new Map(), exemptions: [] }), ['attack-rfi', 'attack-rce'], 'nothing unhooked');
+  assert.deepEqual(missingForCustomName(confWith([rfi])), ['attack-rce'], 'attack-rfi alone leaves 932110');
+  assert.deepEqual(missingForCustomName(confWith([rce])), ['attack-rfi'], 'attack-rce alone leaves 931100');
+  assert.deepEqual(missingForCustomName(confWith([rfi, rce], 'rx/writeScript')), ['attack-rfi', 'attack-rce'], 'the lower-case route is the other route');
+  assert.deepEqual(missingForCustomName(confWith([rfi, rce.replace('customName', 'name')])), ['attack-rce'], 'another argument is not customName');
+  assert.deepEqual(missingForCustomName(confWith([rfi, rce])), [], 'both families, on the route the page posts to');
+  assert.deepEqual(missingForCustomName(confWith(['ctl:ruleRemoveTargetById=931100;ARGS:customName', 'ctl:ruleRemoveTargetById=932110;ARGS:customName'])), [],
+    'an exemption by rule id counts for its family');
+});
+
+test('shouldNotCallFinding211Fixed_untilEveryBoxIsUnhookedForEveryScoringFamily', () => {
+  const families = ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php'];
+  const all = (box) => families.map((family) => `ctl:ruleRemoveTargetByTag=${family};ARGS:${box}`);
+  const pattern = (box) => `/^${box}_[0-9]+$/`;
+  assert.equal(missingForSaveOnlyBoxes({ rules: new Map(), exemptions: [] }).length, 12, 'nothing unhooked: 3 boxes x 4 families');
+  assert.equal(missingForSaveOnlyBoxes(confWith(all('instructions_'))).length, 12, 'a literal prefix is not the box, whose name carries the card id');
+  assert.equal(missingForSaveOnlyBoxes(confWith(all(pattern('instructions')))).length, 8, 'one box of three');
+  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box)).slice(0, 3)))).length, 3, 'three families of four');
+  assert.equal(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box))), 'rx/writeScript')).length, 12, 'the lower-case route is the other route');
+  assert.deepEqual(missingForSaveOnlyBoxes(confWith(['drugName', 'instructions', 'comment'].flatMap((box) => all(pattern(box))))), []);
+  assert.deepEqual(missingForSaveOnlyBoxes(confWith(all('/^(?:drugName|instructions|comment)_[0-9]+$/'))), [], 'one pattern for the three boxes');
+  assert.deepEqual(missingForSaveOnlyBoxes({ rules: new Map(), exemptions: families.map((tag) => ({ tag, arg: '/^(?:drugName|instructions|comment)_[0-9]+$/' })) }), [],
+    'an AFTER-CRS pattern, which applies on every route');
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -385,7 +446,30 @@ test('shouldPinEachOpenFindingToItsOwnRowsCorpusStep_andLeaveTheMainEntryUnpinne
     assert.notEqual(entry.expectedFailure.step, controlStepLabel(row), `${entry.name}: the control step is never pinned`);
     const finding = new RegExp(`^\\| ${entry.expectedFailure.finding} \\|.*\\| (open|issue-filed|needs-live-check) \\|$`, 'm');
     assert.match(FINDINGS, finding, `${entry.name}: finding ${entry.expectedFailure.finding} must be in the log and not fixed`);
+    // The log row has to cite every entry that is pinned to it, so a reader of the finding finds each row that measures it.
+    const [logRow] = FINDINGS.match(new RegExp(`^\\| ${entry.expectedFailure.finding} \\|.*$`, 'm'));
+    assert.ok(logRow.includes(`\`${entry.name}\``), `${entry.name}: finding ${entry.expectedFailure.finding} does not cite the entry pinned to it`);
   }
+});
+
+test('shouldSayWhatEachRowProves_withoutClaimingASaveForARowThatWritesNothing', () => {
+  // The tickler search term goes out and nothing is stored; the Rx rename goes to a session stash; the invoice display only
+  // shows. Each is "accepted". The tickler list answer is judged on the message coming back ("echoed"); the rest store.
+  for (const key of ['tickler-list', 'rx-custom-drug-name', 'billing-on-display']) assert.equal(outcomeOf(key), 'accepted', key);
+  assert.equal(outcomeOf('tickler-list-response'), 'echoed');
+  for (const key of ['tickler-add', 'tickler-edit', 'rx-custom-drug-save', 'rx-update-script', 'chart-note', 'eform-letter']) assert.equal(outcomeOf(key), 'stored', key);
+  for (const key of ROW_ORDER) {
+    const { verb, tail } = OUTCOMES[outcomeOf(key)];
+    if (outcomeOf(key) !== 'stored') assert.ok(!/lands exactly|saves through/.test(`${verb}${tail}`), `${key}: a row that stores nothing must not say it saved`);
+  }
+});
+
+test('shouldReadTheRealServerHeader_forEveryReplayedAndTypedRow', () => {
+  // The per-request front-door assertion reads the response's Server header; a row that returned a hard-coded
+  // 'nginx' made it vacuous for the Rx rows (they reached the page through the proxy or not, the assertion said yes).
+  const source = fs.readFileSync(path.join(__dirname, 'waf-clinical-text-corpus-playwright-checks.js'), 'utf8');
+  assert.ok(!/server\s*:\s*['"]nginx['"]/i.test(source), 'no response header may be written by the check itself');
+  assert.match(source, /headers: \(\) => answer\.headers/, 'the Rx rows hand back the page\'s own response headers');
 });
 
 test('shouldSkipInTheMainEntryExactlyTheRowsThatArePinned', () => {
