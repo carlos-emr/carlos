@@ -5819,7 +5819,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "The owned FAKE- patient; one marker-named custom drug with quotes and an accent and, when DrugRef offers it, one catalogue product with an apostrophe are saved through Save And Print and reprinted; cleanup removes the patient's drugs, prescription and prescription signature rows and asserts them gone.",
+      "fixtures": "The owned FAKE- patient; one marker-named custom drug with quotes and an accent and, when DrugRef offers it, one catalogue product with an apostrophe are saved through Save And Print, reprinted and read back from the E-Chart Medications panel; cleanup removes the patient's drugs, prescription and prescription signature rows and asserts them gone.",
       "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {

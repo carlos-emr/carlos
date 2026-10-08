@@ -8,7 +8,7 @@
  * Custom Drug (confirm) ▸ the staged card (its "F" Add to Favorites link) ▸ drug search ▸ pick a
  * DrugRef product whose name has an apostrophe ▸ Instructions ▸ Save And Print (the print window,
  * rx/viewScript, and its ViewPreview2 preview) ▸ the Rx page's drug profile ▸ Reprint ▸ the saved
- * script's row.
+ * script's row ▸ the patient's E-Chart Medications panel (its item text and tooltip).
  * Asserts: a custom drug named with an apostrophe, a double-quote pair and an accent is staged,
  * offered to Add to Favorites, stored in drugs.customName and drugs.special, listed in the drug
  * profile, and shown on the print preview and on the reprint preview exactly as typed: no backslash
@@ -218,6 +218,25 @@ async function workflow(s) {
     h.assert(!mangled(shown), 'The reprinted preview shows a backslash before a quote or a replacement character');
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${patient}`) === '1',
       'Reprinting wrote another prescription');
+  });
+
+  await s.step('the E-Chart Medications panel shows each saved name encoded once, in its text and its tooltip', async () => {
+    // EctDisplayRx2Action builds the item; LeftNavBarDisplay.jsp encodes the tooltip itself, so a
+    // second encoding in the action showed &#39; in place of the apostrophe.
+    const chart = await s.chart();
+    const names = cards.map(card => squash(card.name));
+    const linksNaming = () => chart.locator('a.links').evaluateAll(anchors => anchors
+      .map(anchor => ({ title: anchor.getAttribute('title') || '', text: anchor.textContent || '' })));
+    await chart.waitForFunction(wanted => wanted.every(name => [...document.querySelectorAll('a.links')]
+      .some(anchor => (anchor.getAttribute('title') || '').replace(/\s+/g, ' ').includes(name))), names, { timeout: 30000 })
+      .catch(() => {});
+    const links = await linksNaming();
+    for (const card of cards) {
+      const item = links.find(link => squash(link.title).includes(squash(card.name)));
+      h.assert(item, `The Medications panel has no item titled with "${card.name}"`);
+      h.assert(!/&#\d+;|&(amp|quot|lt|gt|apos);/.test(item.title + item.text) && !mangled(item.title + item.text),
+        `The Medications panel shows "${card.name}" escaped: title "${item.title}", text "${squash(item.text)}"`);
+    }
   });
 }
 
