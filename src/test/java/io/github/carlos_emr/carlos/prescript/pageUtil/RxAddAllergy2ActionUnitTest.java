@@ -17,6 +17,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.MockedConstruction;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -47,6 +49,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -268,6 +271,67 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
                 any(String.class), any(String.class), eq("123"), any(String.class)));
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
+    }
+
+    @ParameterizedTest(name = "type {0}")
+    @ValueSource(strings = {"8", "10", "11", "12", "14"})
+    @DisplayName("should not look up DrugRef identifiers for non-brand allergens")
+    void shouldSkipIdentifierLookup_forNonBrandAllergenTypes(String type) throws Exception {
+        mockRequest.setParameter("type", type);
+        mockRequest.setParameter("ID", "39007");
+        mockRequest.setParameter("name", "PENICILLINS");
+
+        try (MockedConstruction<RxDrugData> drugData = mockConstruction(RxDrugData.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(drugData.constructed()).isEmpty();
+        }
+        assertThat(action.isIdentifiersUnresolved()).isFalse();
+        verify(mockRxPatient).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should store the ATC code and DIN when a brand allergen resolves")
+    void shouldStoreIdentifiers_whenBrandAllergenResolves() throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", "100");
+        mockRequest.setParameter("name", "AMOXIL");
+        RxDrugData.DrugMonograph monograph = mock(RxDrugData.DrugMonograph.class);
+        monograph.regionalIdentifier = "00012345";
+        when(monograph.getAtc()).thenReturn("J01CA04");
+
+        try (MockedConstruction<RxDrugData> ignored = mockConstruction(RxDrugData.class,
+                (m, c) -> when(m.getDrug("100")).thenReturn(monograph))) {
+            action.execute();
+        }
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getAtc()).isEqualTo("J01CA04");
+        assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("00012345");
+        assertThat(action.isIdentifiersUnresolved()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should still save the allergy but flag it when a brand allergen cannot be resolved")
+    void shouldSaveAndFlagAllergy_whenBrandLookupFails() throws Exception {
+        mockRequest.setParameter("type", "13");
+        mockRequest.setParameter("ID", "39007");
+        mockRequest.setParameter("name", "AMOXIL");
+
+        try (MockedConstruction<RxDrugData> ignored = mockConstruction(RxDrugData.class,
+                (m, c) -> when(m.getDrug("39007")).thenThrow(new java.util.NoSuchElementException("none")))) {
+            String result = action.execute();
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getAtc()).isNull();
+        // The submitted id stays as the fallback identifier, as before.
+        assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("39007");
+        assertThat(action.isIdentifiersUnresolved()).isTrue();
     }
 
     @Test
