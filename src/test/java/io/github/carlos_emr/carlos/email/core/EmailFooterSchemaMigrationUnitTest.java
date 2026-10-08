@@ -37,10 +37,10 @@ class EmailFooterSchemaMigrationUnitTest {
     private static final Path COMMON_MIGRATIONS = Path.of("database", "mysql", "migration", "common");
 
     @Test
-    @DisplayName("should add the footer column, widen property.value and add the logo table, once")
+    @DisplayName("should add the footer column, widen property.value, add the logo table and the property index, once")
     void shouldApplyFooterSchema_whenMigrationAppliedTwice() throws Exception {
         List<String> statements = statements(footerMigration());
-        assertThat(statements).hasSize(3);
+        assertThat(statements).hasSize(4);
 
         try (var connection = DriverManager.getConnection(
                 "jdbc:h2:mem:email_footer_migration;MODE=MySQL;NON_KEYWORDS=VALUE");
@@ -80,6 +80,16 @@ class EmailFooterSchemaMigrationUnitTest {
             try (var rows = statement.executeQuery("SELECT COUNT(*) FROM emailFooterLogo")) {
                 assertThat(rows.next()).isTrue();
                 assertThat(rows.getInt(1)).isZero();
+            }
+
+            // The lookup index on (name, provider_no), added once however often the file runs.
+            try (var rows = statement.executeQuery("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.INDEX_COLUMNS "
+                    + "WHERE UPPER(INDEX_NAME) = 'IDX_PROPERTY_NAME_PROVIDER' ORDER BY ORDINAL_POSITION")) {
+                List<String> indexed = new ArrayList<>();
+                while (rows.next()) {
+                    indexed.add(rows.getString(1).toLowerCase(Locale.ROOT));
+                }
+                assertThat(indexed).containsExactly("name", "provider_no");
             }
         }
     }

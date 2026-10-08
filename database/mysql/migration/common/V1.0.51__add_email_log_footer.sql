@@ -36,3 +36,9 @@ CREATE TABLE IF NOT EXISTS emailFooterLogo (
   removedBy VARCHAR(6) DEFAULT NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- property is read by name, and by name and provider: the clinic
+-- footer and each user's own footer (#4374). An ordinary index;
+-- MariaDB builds it without blocking reads or writes.
+CREATE INDEX IF NOT EXISTS idx_property_name_provider
+    ON property (name, provider_no);
