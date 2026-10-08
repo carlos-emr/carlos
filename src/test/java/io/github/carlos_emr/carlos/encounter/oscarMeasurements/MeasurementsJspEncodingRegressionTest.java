@@ -76,6 +76,9 @@ class MeasurementsJspEncodingRegressionTest extends io.github.carlos_emr.carlos.
         int failure = jsp.indexOf(".catch(error => {", fetch);
 
         assertThat(check).isPositive();
+        assertThat(fetch).isGreaterThan(check);
+        assertThat(errors).isGreaterThan(fetch);
+        assertThat(failure).isGreaterThan(fetch);
         // The guard is the first thing check() does, and the save is marked out before it is sent.
         assertThat(jsp.substring(check, check + 120)).contains("if (measurementSaveInFlight) {");
         assertThat(jsp.lastIndexOf("setMeasurementSaving(true);", fetch)).isGreaterThan(check);
