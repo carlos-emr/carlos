@@ -59,41 +59,56 @@ if [ -n "$(ls -A "${WORKSPACE}" 2>/dev/null)" ]; then
 fi
 
 HOLDER=""
+# The holder child touches READY only once IT holds the lock: a busy lock alone
+# could be some other run's, and this script must never act on that.
+READY="$(mktemp -u)"
+LEDGER_CREATED=0
+remove_ledger() {
+    # only a ledger this script wrote, under a lock it held: the empty
+    # workspace itself is the package's, and anything else is a real import's
+    if [ "${LEDGER_CREATED}" = 1 ]; then
+        rm -f "${LEDGER}"
+        LEDGER_CREATED=0
+    fi
+}
 release() {
     if [ -n "${HOLDER}" ]; then
         kill "${HOLDER}" 2>/dev/null || true
         wait "${HOLDER}" 2>/dev/null || true
         HOLDER=""
     fi
+    rm -f "${READY}"
 }
 cleanup() {
+    remove_ledger
     release
-    # only what this script wrote: the empty workspace itself is the package's
-    rm -f "${LEDGER}"
 }
 trap cleanup EXIT
 
 wait_held() {
     local _
     for _ in $(seq 1 100); do
-        if ! flock -n "${LOCK}" true 2>/dev/null; then return 0; fi
+        [ -e "${READY}" ] && return 0
+        kill -0 "${HOLDER}" 2>/dev/null || break
         sleep 0.1
     done
-    return 1
+    echo "could not take ${LOCK} for the test (is another run holding it?)" >&2
+    exit 2
 }
 
 hold_as_configure() {
-    ( exec 9>"${LOCK}"; flock 9; exec sleep 600 ) &
+    ( exec 9>"${LOCK}"; flock -n 9 || exit 1; : > "${READY}"; exec sleep 600 ) &
     HOLDER=$!
     wait_held
 }
 
 hold_as_import() {
-    python3 - "${LOCK}" "${WORKSPACE}" <<'PY' &
+    python3 - "${LOCK}" "${WORKSPACE}" "${READY}" <<'PY' &
 import sys, time
 sys.path.insert(0, "/usr/lib/carlos-ctl")
 from carlos_ctl import o19import
 o19import.take_db_ownership_lock(sys.argv[1], sys.argv[2])
+open(sys.argv[3], "x").close()
 time.sleep(600)
 PY
     HOLDER=$!
@@ -130,10 +145,15 @@ release
 
 echo "=== 3. configure against an import holding the lock ==="
 systemctl stop carlos-emr
+hold_as_import
 install -d -m 0700 "${WORKSPACE}"
+if [ -n "$(ls -A "${WORKSPACE}")" ]; then
+    echo "${WORKSPACE} filled while the lock was being taken; refusing to continue" >&2
+    exit 2
+fi
+LEDGER_CREATED=1
 printf '%s\n' '{"phases": {"check-pristine": {"status": "done"}, "backup": {"status": "done"}}}' > "${LEDGER}"
 check "the guard reports the fabricated import" bash -c '! /usr/lib/carlos-emr/carlos-emr-o19-guard 2>/dev/null'
-hold_as_import
 rm -f "${MARKER}"
 started=$(date +%s)
 out="$(dpkg-reconfigure -f noninteractive carlos-emr 2>&1)" || true
@@ -153,8 +173,8 @@ else
 fi
 
 echo "=== 4. the import ends; provisioning resumes ==="
+remove_ledger
 release
-rm -f "${LEDGER}"
 check "carlos-emr-drugref configure succeeds" dpkg-reconfigure -f noninteractive carlos-emr-drugref
 check "carlos-emr configure succeeds" dpkg-reconfigure -f noninteractive carlos-emr
 check "no unfinished install is recorded" test ! -e "${MARKER}"
