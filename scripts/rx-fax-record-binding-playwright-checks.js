@@ -85,7 +85,7 @@ const path = require('path');
 const pdf = require('./lib/export-content-helpers');
 const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
-const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const {
   appUrl,
@@ -97,6 +97,8 @@ const {
 } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';

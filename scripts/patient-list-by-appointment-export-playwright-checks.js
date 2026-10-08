@@ -75,7 +75,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const { settleOperations } = require('./graceful-signal-cancellation');
-const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const {
   EXIT_SKIP, NO_PLAYWRIGHT_SIGNAL_HANDLING, SkipCheck, createSqlRunner, installCleanupSignalHandlers,
 } = require('./lib/playwright-harness');
@@ -114,6 +114,8 @@ function validateBaseUrl(rawBaseUrl) {
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
 const chromePath = process.env.CHROME_PATH || '';
 const loopbackTarget = isLoopbackHost(baseUrl.hostname);
 const fixturePlan = planPatientListFixture(process.env);

@@ -589,6 +589,22 @@ checks that failed on a fresh install instead; they now behave as follows.
 | `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
 | `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
 
+Validated on 2026-10-08 against `release/2026.08` at `9784de27`: 2026.09.0~snapshot26
+debs (`dpkg-buildpackage` in `ubuntu:26.04`, carlos-ctl 1.1.2 built from the pin's
+fallback commit) installed with the section 3 preseed into a privileged `ubuntu:26.04`
+systemd container, `carlos-ctl check` all OK, section 6 environment, fixtures c and d
+**not** staged. On the unmodified tree `eform-rtl-print-pdf` (with
+`RTL_TEMPLATE_NAME=MissedAppointment.rtl`), `o19-migrated-smoke` and
+`patient-list-by-appointment-export` failed exactly as #4412 reported. With this change:
+`eform-rtl-print-pdf` 26/26 PASS on the seeded template, SKIP (26/26) with the unstaged
+name, 26/26 PASS once fixture c was staged, and FAIL (23/24, no timeout) with
+`clinic_letter.rtl` removed; `patient-list-by-appointment-export` PASS self-seeding and
+left no rows, PASS read-only on hand-inserted fixture d with the profile, SKIP in seed
+mode with fixture d present and without `MYSQL_*`, and on SIGTERM after seeding removed
+its rows and exited 143; `o19-migrated-smoke` SKIP. `rx-fax-record-binding` passed 3 of 3
+runs on the unmodified tree and 3 of 3 on this change: the `[login] pageerror` was fixed
+by #4407.
+
 Restart once after loading so nothing serves from a pre-load cache:
 
 ```bash

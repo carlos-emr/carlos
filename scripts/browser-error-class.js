@@ -28,19 +28,26 @@ const ID_SEGMENT = /^(?:\d+|[0-9a-f-]{16,})$/i;
  * replaced by ":id" -- a file path keeps its basename, and anything outside a
  * plain path alphabet is dropped. Null when the frame is not a usable location.
  */
-function parseFrame(line) {
+function parseFrame(line, app) {
   const match = FRAME.exec(line);
   if (!match) return null;
   const [, fn, where, row, column] = match;
   let location;
   let kind;
   if (/^https?:\/\//.test(where)) {
+    // A page frame counts only on the application under test: same origin, under
+    // its context path. Text a page error's message carried into the stack would
+    // have to spell out that exact origin to pass, and without a base URL no page
+    // frame is trusted at all.
+    let url;
     try {
-      location = new URL(where).pathname.split(';')[0]
-        .split('/').map((segment) => (ID_SEGMENT.test(segment) ? ':id' : segment)).join('/');
+      url = new URL(where);
     } catch (error) {
       return null;
     }
+    if (!app || url.origin !== app.origin || !`${url.pathname}/`.startsWith(app.path)) return null;
+    location = url.pathname.split(';')[0]
+      .split('/').map((segment) => (ID_SEGMENT.test(segment) ? ':id' : segment)).join('/');
     kind = 'page';
   } else if (where.startsWith('node:') || where.includes('/node_modules/')) {
     return { kind: 'internal' };
@@ -60,24 +67,41 @@ function parseFrame(line) {
   return { kind, text: `${name}(${location}:${row}:${column})` };
 }
 
+function appScope(baseUrl) {
+  if (!baseUrl) return null;
+  try {
+    const url = new URL(String(baseUrl));
+    return { origin: url.origin, path: `${url.pathname.replace(/\/+$/, '')}/` };
+  } catch (error) {
+    return null;
+  }
+}
+
 /**
  * Where an error was thrown, as " at fn (path:line:col)", or '' when no frame
  * qualifies. Issue #4412: a finding reading only "Error" could not be told
  * apart from any other failure. The message is never reported. Only lines
  * shaped like frames are parsed, and Playwright repeats a page error's extra
- * message lines inside its stack, so a frame is trusted only when it is an
- * http(s) script location (path only, ids redacted) or a real file under
- * scripts/. Preference: the page script that threw (a page error), else the
- * browser check's own line (a Playwright wait or assertion), else the first
- * shared helper.
+ * message lines inside its stack, so a frame is trusted only when it is a
+ * script of the application at `options.baseUrl` (path only, ids redacted) or
+ * a real file under scripts/. Preference: the page script that threw (a page
+ * error), else the browser check's own line (a Playwright wait or assertion),
+ * else the first shared helper.
  */
-function errorSourceLocation(error) {
+function errorSourceLocation(error, options = {}) {
+  const app = appScope(options.baseUrl);
   const stack = typeof error?.stack === 'string' ? error.stack : '';
-  const frames = stack.split('\n').map(parseFrame).filter((frame) => frame && frame.kind !== 'internal');
+  const frames = stack.split('\n').map((line) => parseFrame(line, app))
+    .filter((frame) => frame && frame.kind !== 'internal');
   const chosen = frames.find((frame) => frame.kind === 'page')
     || frames.find((frame) => frame.kind === 'check')
     || frames[0];
   return chosen ? ` at ${chosen.text}` : '';
 }
 
-module.exports = { browserErrorClass, errorSourceLocation };
+/** errorSourceLocation bound to one check's BASE_URL, so call sites pass only the error. */
+function createErrorSourceLocator(baseUrl) {
+  return (error) => errorSourceLocation(error, { baseUrl });
+}
+
+module.exports = { browserErrorClass, createErrorSourceLocator, errorSourceLocation };

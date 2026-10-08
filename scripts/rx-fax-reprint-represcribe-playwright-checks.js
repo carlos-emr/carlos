@@ -88,7 +88,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, validateMysqlHost } = require('./lib/playwright-harness');
-const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 
@@ -107,6 +107,8 @@ const LOCAL_BASE_URL_HOSTS = new Set([
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';

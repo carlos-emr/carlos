@@ -333,7 +333,7 @@ function credentialsAbsent(file) {
     fs.statSync(file);
     return false;
   } catch (error) {
-    return error.code === 'ENOENT' || error.code === 'ENOTDIR';
+    return error.code === 'ENOENT';
   }
 }
 

@@ -64,6 +64,8 @@ test('fax workflow failure phases use fixed labels without browser or database c
   }
 });
 
+const APP = { baseUrl: 'http://127.0.0.1:8080/carlos' };
+
 test('errorSourceLocation names the throwing page script without query string, session id or record ids', () => {
   const { errorSourceLocation } = require('./browser-error-class');
   // The shape Playwright hands a pageerror listener: message is the first line only.
@@ -72,27 +74,33 @@ test('errorSourceLocation names the throwing page script without query string, s
     '    at setComment (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp;jsessionid=ABC123?scriptId=45&demographicNo=1:812:31)',
     '    at onload (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:1:1)',
   ].join('\n') };
-  const location = errorSourceLocation(pageError);
+  const location = errorSourceLocation(pageError, APP);
   assert.equal(location, ' at setComment (/carlos/oscarRx/ViewScript2.jsp:812:31)');
   assert.doesNotMatch(location, /demographicNo|scriptId|jsessionid|ABC123/);
-  const restPath = { stack: 'Error: x\n    at render (https://127.0.0.1/carlos/ws/rs/demographics/12345/notes/0f8fad5b-d9cb-469f-a165-70867728950e:3:4)' };
-  assert.equal(errorSourceLocation(restPath), ' at render (/carlos/ws/rs/demographics/:id/notes/:id:3:4)');
+  const restPath = { stack: 'Error: x\n    at render (http://127.0.0.1:8080/carlos/ws/rs/demographics/12345/notes/0f8fad5b-d9cb-469f-a165-70867728950e:3:4)' };
+  assert.equal(errorSourceLocation(restPath, APP), ' at render (/carlos/ws/rs/demographics/:id/notes/:id:3:4)');
 });
 
-test('errorSourceLocation ignores frame-shaped text a page error message carried into its stack', () => {
-  const { errorSourceLocation } = require('./browser-error-class');
+test('errorSourceLocation trusts page frames only on the application under test', () => {
+  const { errorSourceLocation, createErrorSourceLocator } = require('./browser-error-class');
   // Playwright keeps only the first message line in .message and repeats the rest in .stack,
-  // so a multi-line message can put a "frame" ahead of the real ones.
+  // so a multi-line message can put "frames" ahead of the real ones.
   const injected = { name: 'Error', message: 'FAKE-Smith line1', stack: [
     'Error: FAKE-Smith line1',
     '    at Smith (Jane-1970.js:1:1)',
-    '    at new FAKE (http://127.0.0.1/carlos/x.jsp?name=FAKE/Smith:1:2)',
+    '    at Smith (https://evil.example/carlos/FAKE-Smith.js:1:1)',
+    '    at Smith (http://127.0.0.1:8080/other/FAKE-Smith.js:1:1)',
+    '    at Smith (http://127.0.0.1:8080/carlosx/FAKE-Smith.js:1:1)',
     '    at boom (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:2:36)',
   ].join('\n') };
-  // The non-URL "frame" names no real file and is dropped; "new FAKE" is not an identifier, and
-  // the query string is gone, so only the path of the first real page frame survives.
-  assert.equal(errorSourceLocation(injected), ' at (/carlos/x.jsp:1:2)');
-  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at Smith (Jane-1970.js:1:1)' }), '');
+  // Another origin, another context path, a prefix-sharing path and a non-file "frame" are all
+  // dropped; only the application's own script survives.
+  assert.equal(errorSourceLocation(injected, APP), ' at boom (/carlos/oscarRx/ViewScript2.jsp:2:36)');
+  assert.equal(createErrorSourceLocator('http://127.0.0.1:8080/carlos/')(injected), ' at boom (/carlos/oscarRx/ViewScript2.jsp:2:36)');
+  // With no base URL no page frame is trusted.
+  assert.equal(errorSourceLocation(injected), '');
+  // A function name with spaces cannot drag the query string into the location.
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at new FAKE (http://127.0.0.1:8080/carlos/x.jsp?name=FAKE/Smith:1:2)' }, APP), ' at (/carlos/x.jsp:1:2)');
 });
 
 test('errorSourceLocation reaches the check\'s own frame past Node internals, node_modules and helpers', () => {
@@ -109,22 +117,32 @@ test('errorSourceLocation reaches the check\'s own frame past Node internals, no
     '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)',
     `    at async runChecks (${path.join(__dirname, 'rx-fax-record-binding-playwright-checks.js')}:800:5)`,
   ].join('\n') };
-  assert.equal(errorSourceLocation(timeout), ' at runChecks (rx-fax-record-binding-playwright-checks.js:800:5)');
+  assert.equal(errorSourceLocation(timeout, APP), ' at runChecks (rx-fax-record-binding-playwright-checks.js:800:5)');
   assert.equal(browserErrorClass(timeout), 'TimeoutError');
   // With no check frame, the first real helper frame is still better than nothing.
   const helperOnly = { stack: `Error: x\n    at run (${path.join(__dirname, 'lib', 'playwright-harness.js')}:309:23)` };
   assert.equal(errorSourceLocation(helperOnly), ' at run (playwright-harness.js:309:23)');
+  // Text shaped like a frame that names no real file under scripts/ is not a location.
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at Smith (Jane-1970.js:1:1)' }), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (/etc/passwd:1:1)' }), '');
 });
 
 test('errorSourceLocation returns nothing rather than an unsafe or missing location', () => {
   const { errorSourceLocation } = require('./browser-error-class');
-  assert.equal(errorSourceLocation(null), '');
-  assert.equal(errorSourceLocation({ stack: 42 }), '');
-  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at eval (eval at <anonymous> (FAKE Patient.js:1:1))' }), '');
-  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (blob:http://127.0.0.1/0f8fad5b:1:1)' }), '');
-  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (/etc/passwd:1:1)' }), '', 'files outside scripts/ are not locations');
+  assert.equal(errorSourceLocation(null, APP), '');
+  assert.equal(errorSourceLocation({ stack: 42 }, APP), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at eval (eval at <anonymous> (FAKE Patient.js:1:1))' }, APP), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (blob:http://127.0.0.1:8080/0f8fad5b:1:1)' }, APP), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at f (http://127.0.0.1:8080/carlos/x.js:1:1)' }, { baseUrl: 'not a url' }), '');
   // An anonymous frame keeps its location but no function name.
-  assert.equal(errorSourceLocation({ stack: 'Error\n    at http://127.0.0.1:8080/carlos/js/app.js?v=1:3:4' }), ' at (/carlos/js/app.js:3:4)');
+  assert.equal(errorSourceLocation({ stack: 'Error\n    at http://127.0.0.1:8080/carlos/js/app.js?v=1:3:4' }, APP), ' at (/carlos/js/app.js:3:4)');
   // A function name outside the identifier alphabet is dropped, the location kept.
-  assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (http://127.0.0.1/carlos/js/a.js:9:9)' }), ' at (/carlos/js/a.js:9:9)');
+  assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (http://127.0.0.1:8080/carlos/js/a.js:9:9)' }, APP), ' at (/carlos/js/a.js:9:9)');
+});
+
+test('every check that reports a source location binds it to its own BASE_URL', () => {
+  for (const name of ['rx-fax-record-binding', 'rx-fax-signature-stamp', 'rx-fax-reprint-represcribe', 'patient-list-by-appointment-export']) {
+    const source = fs.readFileSync(path.join(__dirname, `${name}-playwright-checks.js`), 'utf8');
+    assert.match(source, /const errorSourceLocation = createErrorSourceLocator\(baseUrl\.href\);/, name);
+  }
 });

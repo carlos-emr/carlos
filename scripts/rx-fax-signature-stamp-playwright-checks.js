@@ -92,12 +92,14 @@ const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require(
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const { validateMysqlHost } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';

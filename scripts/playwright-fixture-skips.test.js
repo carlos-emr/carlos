@@ -57,6 +57,19 @@ test('o19-migrated-smoke still FAILS on a credentials file that exists but is in
   }
 });
 
+test('o19-migrated-smoke FAILS, not SKIPs, when the state path runs through a regular file (ENOTDIR)', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-o19-notdir-'));
+  try {
+    const notADirectory = path.join(root, 'o19-import');
+    fs.writeFileSync(notADirectory, 'a misconfigured O19_STATE_DIR\n');
+    const result = runScript('o19-migrated-smoke-playwright-checks.js', { O19_STATE_DIR: notADirectory, MYSQL_HOST: 'localhost' });
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /^SKIP/m);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('patient-list export SKIPs naming both fixture routes when it has neither', () => {
   const result = runScript('patient-list-by-appointment-export-playwright-checks.js', {});
   assert.equal(result.status, 2, result.stdout + result.stderr);
