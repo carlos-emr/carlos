@@ -14,6 +14,9 @@
     "tiers       smoke      the CI tier: fast, no fixtures beyond the demo dataset.",
     "            core       needs a running deployment and the demo database.",
     "            extended   needs a fixture or a runtime the standard pass lacks.",
+    "            live-external needs a live third-party account and spends real transmissions",
+    "                       (the scripts/e2e/fax SRFax loopback set). Only ever a manual entry:",
+    "                       it runs when named with --only, never from any tier.",
     "            standalone needs no Tomcat, no database and no login at all.",
     "            front-door only meaningful through the packaged nginx + ModSecurity",
     "                       front door, where a WAF exists to false-positive on",
@@ -8212,6 +8215,90 @@
         "JASPER_CLASS_DIR"
       ],
       "notes": "Isolated installed-package check. Creates one owned cold JSP, verifies effective production settings and no on-access recompilation, then removes source/generated files. Caller must restart Tomcat afterward to release the in-memory probe wrapper."
+    },
+    {
+      "name": "fax-backbone-loopback",
+      "script": "scripts/e2e/fax/backbone-loopback.js",
+      "tiers": [
+        "live-external"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "SRFAX_ACCESS_ID",
+        "SRFAX_PASS",
+        "SRFAX_USER",
+        "SRFAX_FAX_NUMBER",
+        "SRFAX_LOOPBACK_DIAL",
+        "MARIADB",
+        "CARLOS_DB_NAME",
+        "CARLOS_DOCUMENT_DIR",
+        "STAGE_AS"
+      ],
+      "notes": "live-external: needs a live SRFax account (SRFAX_ACCESS_ID is the numeric account number, never the login email) already configured under Administration > Faxes > Configure Fax, and sends a real fax to that account's own number (SRFAX_FAX_NUMBER), which costs fax pages. Export SRFAX_LIVE=true when you run it; the script does not read that variable itself (only fax-configure does), so naming it with --only is the only guard. Never part of a tier, default or CI run. Waits up to about 12 minutes for the SRFax round trip (2.5 to send, 10 for the inbound copy). Reads and writes MariaDB through the MARIADB launcher (default 'mariadb' as root over the unix socket), not MYSQL_*. See scripts/e2e/fax/README.md.",
+      "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Injects a WAITING outbound faxes row, stages e2e-backbone-loopback.pdf in the document directory, and leaves both plus the imported inbound fax, its document and its UNCLAIMED routing row behind; it does not clean up."
+    },
+    {
+      "name": "fax-inbox-lifecycle",
+      "script": "scripts/e2e/fax/inbox-lifecycle.js",
+      "tiers": [
+        "live-external"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MARIADB",
+        "CARLOS_DB_NAME"
+      ],
+      "notes": "live-external: step 2 of the manual SRFax loopback set. It makes no SRFax call itself, but it files the UNCLAIMED inbound fax that a live SRFax account delivered during a fax-backbone-loopback run (run SRFAX_LIVE=true for that run; this script does not read the variable), so it has nothing to drive on an install that never received one. Posts documentUpdateAjax and fileLabAjax through an authenticated page and asserts each ctl_document, casemgmt_note and providerLabRouting transition in MariaDB through the MARIADB launcher, not MYSQL_*. See scripts/e2e/fax/README.md.",
+      "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest) and at least one UNCLAIMED inbound 'Received Fax' document. Links that document to the patient, routes it to the login's provider, files it, and leaves the chart note and routing rows behind; it does not clean up."
+    },
+    {
+      "name": "fax-dedup-no-reimport",
+      "script": "scripts/e2e/fax/dedup-no-reimport.js",
+      "tiers": [
+        "live-external"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DEDUP_WAIT_MS",
+        "MARIADB",
+        "CARLOS_DB_NAME"
+      ],
+      "notes": "live-external: step 3 of the manual SRFax loopback set. It sends nothing and needs no SRFax password, but it asserts on the inbound faxes a live SRFax account delivered (run SRFAX_LIVE=true fax-backbone-loopback first; this script does not read the variable) and then watches the faxes table for DEDUP_WAIT_MS (default 150000, minimum 130000, more than two 60-second scheduler polls) while the real fax scheduler runs. It reads MariaDB through the MARIADB launcher, not MYSQL_*. See scripts/e2e/fax/README.md.",
+      "fixtures": "Read-only. Needs at least one inbound faxes row (direction IN); it takes the account number from fax_config.faxNumber when one is set and otherwise from the newest inbound row's faxline. Writes nothing."
+    },
+    {
+      "name": "fax-prescription-drugref",
+      "script": "scripts/e2e/fax/prescription-drugref.js",
+      "tiers": [
+        "live-external"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "MARIADB",
+        "CARLOS_DB_NAME"
+      ],
+      "notes": "live-external: grouped with the manual SRFax loopback set (scripts/e2e/fax/README.md step 4) but, unlike the others, it contacts no SRFax account and sends no fax. It runs rx/searchDrug three times (amoxicillin, a nonsense term, metformin) to prove the DrugRef2 lookup behind prescribing answers, so it needs the carlos-emr-drugref service and its dataset, not SRFax credentials or SRFAX_LIVE. It reads one demographic through the MARIADB launcher, not MYSQL_*.",
+      "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Writes nothing."
     }
   ]
 }
