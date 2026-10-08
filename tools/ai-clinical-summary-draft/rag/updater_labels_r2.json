@@ -1,0 +1,115 @@
+{
+  "about": "Round-2 hand labels for the chart-updater + RAG trial, written on 2026-10-08 BEFORE any model call. Same schema and status rules as updater_labels.json (round 1). Labels drafted by a labelling agent from the synthetic notes alone and reviewed once; no clinician review.",
+  "destinations_note": "A proposal's destination is its 'destination', or 'Tickler' for kind tickler.",
+  "documents": [
+    {
+      "patient": "NHSSYN004", "note": 29, "date": "2026-01-05",
+      "why_chosen": "Discharge-day ward round after a 4-day stay: diagnosis, post-op status, wound/mobility status lines repeating n024-n028, discharge, two medicines; co-amoxiclav goes back to 5 days after n028's 7-day course (conflict) and paracetamol 'QDS PRN' repeats n020/n025/n028 'every 6 hours PRN'.",
+      "facts": [
+        {"id": "pc-abdo-pain", "cues": ["Abdominal pain"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n002, n005 presenting complaint; n013-n028 ward rounds"},
+        {"id": "acute-appendicitis", "cues": ["1. Acute Appendicitis"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n004 US, n005-n007 impression acute appendicitis; n011 operative diagnosis"},
+        {"id": "post-lap-appendectomy", "cues": ["Post-laparoscopic appendectomy"], "dest": ["MedHistory"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n011 laparoscopic appendectomy 01/01/26; n020, n028 post-op recovery"},
+        {"id": "wounds-healing", "cues": ["Surgical wounds clean and healing well", "Surgical wounds clean, dry, and healing well"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n025, n028 surgical wound clean and healing well"},
+        {"id": "no-infection-dehiscence", "cues": ["No signs of infection or edhiscence", "No signs of infection or dehiscence"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n025 no signs of infection or dehiscence; n028 no signs of infection"},
+        {"id": "mobilising-independently", "cues": ["-Mobilizing independently", "mobiliizng independently"], "dest": ["Concerns", "SocHistory", "RiskFactors"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n020, n024, n028 mobilising independently"},
+        {"id": "feeling-well", "cues": ["Patient reports feeling well", "No overnight concerns"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "minor status line"},
+        {"id": "no-investigations", "cues": ["No imaging or other investigations performed", "None pending."], "dest": ["Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line"},
+        {"id": "obs-today", "cues": ["HR: 78", "BP: 124/82"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "exam-today", "cues": ["Abdomen soft and non-tender", "No palpable masses"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-today", "cues": ["Pt to be discharged later today", "Initiate discharge process"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new", "already_recorded"], "chart": "n028 planned: clear for discharge tomorrow if no overnight issues (now happening)"},
+        {"id": "paracetamol-qds-prn", "cues": ["paracetamol 1g QDS PRN"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n020, n025, n028 paracetamol 1 g PO every 6 hours PRN (QDS PRN is the same; n012/n013/n024 regular)"},
+        {"id": "co-amoxiclav-5d", "cues": ["625mg TDS for 5 days", "co-amoxicla v 625mg"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict", "already_recorded"], "chart": "n028 7-day course of co-amoxiclav 625 mg TDS (now 5 days again, as in n019/n020)"}
+      ]
+    },
+    {
+      "patient": "NHSSYN005", "note": 35, "date": "2026-01-09",
+      "why_chosen": "Discharge-day ward round, the richest late note: diagnosis, sodium, mobility aid, discharge advice, adaptive tools, community care and a new neurology follow-up; paracetamol 500 mg QDS PRN is now a 14-day course vs n031's 7-day course (conflict) while most other facts repeat n030-n034.",
+      "facts": [
+        {"id": "pc-confusion-fall", "cues": ["Acute confusion after minor fall"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001-n006 presenting complaint; n007-n031 ward rounds"},
+        {"id": "subdural-hygroma", "cues": ["1. Subdural Hygroma"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n005 CT head subdural hygroma, no MLS; n007-n031"},
+        {"id": "neuro-stable", "cues": ["Neurological status stable with no new symptoms"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n017, n031 stable neurological status"},
+        {"id": "hyponatraemia", "cues": ["Mild hyponatremia (serum sodium: 132-133 mmol/L)", "Sodium levels have improved"], "dest": ["Concerns", "MedHistory"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n006, n013, n022, n026, n028 Na 132 mmol/L; n017, n019 Na 133 mmol/L"},
+        {"id": "oral-sodium", "cues": ["addressed with oral sodium supplementation"], "dest": ["Medications", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "optional": true, "chart": "n013, n017, n022 NaCl 1 g TID; n019, n026 600 mg TDS; n028 oral sodium supplementation (no dose here)"},
+        {"id": "no-headache-confusion", "cues": ["reports no headaches, confusion, or dizziness"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n031 no symptoms of headache, dizziness, or confusion"},
+        {"id": "mobility-improved", "cues": ["Significant improvement in mobility with walking aid", "Able to navigate stairs and perform transfers independently"], "dest": ["Concerns", "SocHistory", "RiskFactors"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n031 mobility significantly improved with physio; n032 stairs and transfers without assistance"},
+        {"id": "walking-stick", "cues": ["mobility with walking stick", "Amulating safely with walking stick"], "dest": ["Concerns", "SocHistory", "RiskFactors"], "status": "new", "accept": ["new", "conflict"], "chart": "unclear: earlier aids were Zimmer frame (n011) and rollator (n023, n027); n031 mobilising independently"},
+        {"id": "obs-today", "cues": ["HR: 78", "BP: 128/78"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "exam-today", "cues": ["Cranial nerves II-XII intact, no focal neuro deficits", "No signs of dehydration or fluid overload"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-today", "cues": ["Discharge today", "Finalize discharge summary"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new", "already_recorded"], "chart": "n021, n026, n031 discharge planned/anticipated for 09/01/26 (now happening)"},
+        {"id": "fall-prevention-advice", "cues": ["advice on fall prevention"], "dest": ["Reminders", "RiskFactors", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n012 education on fall prevention; n032 guidance re fall prevention"},
+        {"id": "avoid-anticoagulants", "cues": ["avoidance of anticoagulants unless prescribed"], "dest": ["Reminders", "RiskFactors"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "paracetamol-14d", "cues": ["paracetamol 500mg, 1-2 tablets PO QDS PRN", "PRN for mild headaches for 14 days"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict", "already_recorded"], "chart": "n031 paracetamol 500 mg PRN, 7-day course; n030 500 mg 1-2 tablets every 4-6 h PRN, max 8/24 h (now QDS PRN for 14 days)"},
+        {"id": "neuro-opd-2w", "cues": ["follow-up appointment in neurology OPD in 2 weeks"], "dest": ["Tickler"], "status": "new", "accept": ["new"], "chart": "not before (n030/n031 GP and community physio follow-up only)"},
+        {"id": "adaptive-tools", "cues": ["long-handled reacher, non-slip mat, and shower chair"], "dest": ["Reminders", "SocHistory"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n034 OT provided long-handled reacher, non-slip mat and shower chair"},
+        {"id": "community-care", "cues": ["community care team visits are arranged"], "dest": ["Reminders", "SocHistory", "Tickler"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n033 daily community care team visits finalised"},
+        {"id": "safety-net-advice", "cues": ["seek medical attention if experiencing severe headache"], "dest": ["Reminders"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n030 contact hospital for worsening symptoms such as severe headache or confusion"}
+      ]
+    },
+    {
+      "patient": "NHSSYN007", "note": 27, "date": "2026-01-08",
+      "why_chosen": "Last ward round before discharge: sepsis now called resolved, CRP 12, oral amoxicillin written as 50 mg TDS vs 500 mg TID/TDS in n024/n026 (real dose conflict, probably a typo), GP follow-up and home-exercise advice repeating n025/n026.",
+      "facts": [
+        {"id": "pc-fatigue", "cues": ["Fatigue"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001, n005-n024 presenting complaint fatigue"},
+        {"id": "sepsis-pneumonia", "cues": ["1. Sepsis secondary to pneumonia"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n003 ED dx sepsis secondary to pneumonia; n005-n024"},
+        {"id": "sepsis-resolved", "cues": ["Resolved sepsis"], "dest": ["MedHistory", "Concerns"], "status": "conflict", "accept": ["conflict", "new"], "chart": "n005-n024 sepsis secondary to pneumonia active/improving (now called resolved)"},
+        {"id": "crp-12", "cues": ["CRP 12 mg/L", "Inflammatory markers normalized"], "dest": ["Concerns"], "status": "conflict", "accept": ["conflict", "new"], "chart": "n024 CRP 30 mg/L (serial fall 220 -> 12; a new reading)"},
+        {"id": "afebrile-48h", "cues": ["Afebrile for 48 hours"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n024 afebrile for 48 hours"},
+        {"id": "mobilising-independently", "cues": ["-Mobilizing independently", "mobilising independently"], "dest": ["Concerns", "SocHistory", "RiskFactors"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n023 ambulating independently; n022, n025 walking without assistance"},
+        {"id": "better-no-sob", "cues": ["no further SOB", "feeling significantly better"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n023, n024 feeling significantly better, no SOB"},
+        {"id": "no-new-investigations", "cues": ["No new imaging or other investigations ordered today"], "dest": ["Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line"},
+        {"id": "obs-today", "cues": ["HR: 78", "BP: 128/76"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "exam-today", "cues": ["Good air entry bilaterally, no added sounds"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination (n024 still had minimal RLL crackles)"},
+        {"id": "stop-iv-coamoxiclav", "cues": ["Stop IV co-amoxiclav"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded", "conflict"], "chart": "unclear: n024 stop IV antibiotics; n013 step down IV co-amoxiclav to oral; n006 IV co-amoxiclav 1.2 g TDS started"},
+        {"id": "amoxicillin-50mg", "cues": ["oral amoxicillin 50 mg TDS for 5 days"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict"], "chart": "n024 oral amoxicillin 500 mg TID for 5 days; n026 amox 500 mg TDS (50 mg here, likely a typo; flagging it is the point)"},
+        {"id": "discharge-tomorrow", "cues": ["fit for d/c tomorrow morning"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new", "already_recorded"], "chart": "n024 (same day) plan for discharge tomorrow if clinically stable"},
+        {"id": "gp-followup-1w", "cues": ["foollow-up with GP within one week"], "dest": ["Tickler"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n026 GP to follow up in 1/52; n024 discharge summary for GP follow-up"},
+        {"id": "home-exercises", "cues": ["deep breathing exercises and gentle mobilisation at home"], "dest": ["Reminders", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n025 continue gentle mobilisation and breathing exercises at home; n012 deep breathing advice"}
+      ]
+    },
+    {
+      "patient": "NHSSYN008", "note": 34, "date": "2026-01-08",
+      "why_chosen": "Discharge-day ward round with four medicines (rivaroxaban, warfarin, enoxaparin, paracetamol), PH clinic follow-up and repeated results (INR 1.2, eGFR 65, NT-proBNP 450); the anticoagulant changed from apixaban 5 mg BD (n026) and the oxygen target is now >94% vs >92% (n007/n013/n017).",
+      "facts": [
+        {"id": "pc-breathlessness", "cues": ["Progressive breathlessness"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001-n030 presenting complaint"},
+        {"id": "cteph-confirmed", "cues": ["Chronic Thromboembolic Pulmonary Hypertension (CTEPH)", "Confirmed via CT pulmonary angiogram"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n013 CTPA segmental perfusion defects; n017, n022 confirmed CTEPH"},
+        {"id": "oxygen-target-94", "cues": ["Ongoing oxygen dependency to maintain SpO2 > 94%"], "dest": ["Concerns", "Medications"], "status": "conflict", "accept": ["conflict", "already_recorded"], "chart": "n007, n013, n017 oxygen 2 L/min to keep SpO2 >92% (target now >94%; today's SpO2 96% on room air)"},
+        {"id": "egfr-65", "cues": ["Stable renal function", "eGFR 65 mL/min"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n030 eGFR 65 (n017 eGFR 62)"},
+        {"id": "inr-1-2", "cues": ["INR 1.2"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n030 INR 1.2"},
+        {"id": "improved-mobility-sob", "cues": ["Improved mobility and reduceed breathlessness", "no SOB at rest"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n026 feeling improved with less SOB; n030 improved mobility"},
+        {"id": "nt-probnp-450", "cues": ["NT-proBNP level reduced to 450 pg/mL"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n026 NT-proBNP 450 pg/mL (down from 700); n017, n022 BNP 450"},
+        {"id": "no-new-imaging", "cues": ["No new imaging or ECG performed"], "dest": ["Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line"},
+        {"id": "obs-today", "cues": ["HR: 78", "SpO2: 96% on room air"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "exam-today", "cues": ["No peripheral oedema, JVP not raised", "no crackles or wheeze heard"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-today", "cues": ["Discharge home today"], "dest": ["Concerns", "Reminders"], "status": "new", "accept": ["new", "already_recorded"], "chart": "n030 confirm readiness for discharge tomorrow (now happening)"},
+        {"id": "rivaroxaban-20-od", "cues": ["rivaroxaban 20 mg OD for anticoagulation"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict", "already_recorded"], "chart": "unclear: n026 continue apixaban 5 mg BD (switched); n030 'clinically stable on rivaroxaban therapy' with no dose"},
+        {"id": "paracetamol-prn", "cues": ["paracetamol 1 g QDS PRN for musculoskeletal discomfort"], "dest": ["Medications"], "status": "new", "accept": ["new"], "chart": "not before"},
+        {"id": "ph-clinic-2w", "cues": ["pulmonary HTN clinic in 2 weeks"], "dest": ["Tickler"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n030 OP follow-up at the pulmonary HTN clinic in two weeks; n025 PH clinic follow-up arranged"},
+        {"id": "warfarin-5-od", "cues": ["Initiate warfarin 5 mg OD"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n032 warfarin regimen with bridging until INR therapeutic (dose not stated before)"},
+        {"id": "enoxaparin-bridging", "cues": ["enoxaparin 40 mg SC OD", "until INR is therapeutic"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n032 bridging with enoxaparin 40 mg OD until INR therapeutic"},
+        {"id": "anticoag-advice", "cues": ["contact details for anticoagulatoin advice"], "dest": ["Reminders"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor (n023 GP to arrange anticoagulation monitoring)"}
+      ]
+    },
+    {
+      "patient": "NHSSYN009", "note": 24, "date": "2026-01-09",
+      "why_chosen": "Final ward round with five medicine/plan items; co-amoxiclav is now a 7-day course vs 5 days in n017/n018/n022 and the discharge date moved from n022's 09/01 morning; CRP/WBC, co-codamol, stopping ibuprofen and the 2-week follow-up repeat earlier notes; dalteparin is new.",
+      "facts": [
+        {"id": "end-stage-oa", "cues": ["End-stage OA of the right shoulder", "End-stage osteoarthritis of the right shoulder"], "dest": ["MedHistory", "Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n001 end-stage OA right shoulder; n006-n022"},
+        {"id": "post-tsr", "cues": ["following total right shoulder replacement"], "dest": ["MedHistory"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n008 total right shoulder replacement 06/01/26; n010-n022 post-op"},
+        {"id": "crp-wbc", "cues": ["CRP elevated at 65 mg/L", "WBC elevated at 11.5"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n017, n018, n022 CRP 65 mg/L, WBC 11.5 x10^9/L"},
+        {"id": "swelling-healing", "cues": ["Mild swelling of surgical site consistent with healing", "Mild swelling of R shoulder"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n013, n017 mild swelling, no signs of infection"},
+        {"id": "pain-manageable", "cues": ["pain is manageable with current medication"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n018 mild discomfort controlled with analgesia; n022 mild discomfort"},
+        {"id": "no-new-imaging", "cues": ["No new imaging studies performed"], "dest": ["Concerns"], "status": "new", "accept": ["new", "already_recorded"], "optional": true, "chart": "minor status line"},
+        {"id": "obs-today", "cues": ["HR: 78", "BP: 132/80"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's observations"},
+        {"id": "wound-clean", "cues": ["Wound clean, no erythema or discharge"], "dest": ["Concerns"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n018, n022 wound clean, no erythema or discharge"},
+        {"id": "exam-today", "cues": ["Chest clear bilaterally with equal air entry"], "dest": ["Concerns"], "status": "new", "accept": ["new"], "optional": true, "chart": "today's examination"},
+        {"id": "discharge-tomorrow", "cues": ["Discharge tomorrow", "readiness for d/c tomorrow"], "dest": ["Concerns", "Reminders"], "status": "conflict", "accept": ["conflict", "new", "already_recorded"], "chart": "unclear: n022 discharge planned for 2026-01-09 morning; this note (09/01) says tomorrow, i.e. moved a day"},
+        {"id": "co-amoxiclav-7d", "cues": ["7-day course of co-amoxiclav 500/125 mg TID"], "dest": ["Medications"], "status": "conflict", "accept": ["conflict", "already_recorded"], "chart": "n017, n018, n022 co-amoxiclav 625 mg (= 500/125) TDS for 5 days (now 7 days)"},
+        {"id": "co-codamol", "cues": ["co-codamol 30/500 mg tablets for pain management at home"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded"], "chart": "n010 co-codamol 30/500 mg every 6 hours PRN (n009 two tablets every six hours PRN)"},
+        {"id": "dalteparin-7d", "cues": ["dalteparin 5,000 units SC OM for 7 days"], "dest": ["Medications"], "status": "new", "accept": ["new", "conflict"], "chart": "not before; inpatient thromboprophylaxis was enoxaparin 40 mg SC OD (n002, n004, n005)"},
+        {"id": "stop-ibuprofen", "cues": ["Discontinue ibuprofen to minimize GI irritation"], "dest": ["Medications"], "status": "already_recorded", "accept": ["already_recorded", "conflict"], "chart": "n022 discontinue ibuprofen (GI irritation); n003-n005 stopped pre-op; n001 ibuprofen 400 mg TDS; n021 still lists ibuprofen"},
+        {"id": "op-followup-2w", "cues": ["Arrange OP follow-up ij 2 weeks"], "dest": ["Tickler"], "status": "already_recorded", "accept": ["already_recorded", "conflict"], "chart": "n023 OPD follow-up two weeks post-discharge (n022 said fracture clinic in 6 weeks)"},
+        {"id": "home-physio-plan", "cues": ["Ensure physio plan for home is provided"], "dest": ["Reminders"], "status": "already_recorded", "accept": ["already_recorded", "new"], "chart": "n008 discharge with home exercise programme; n019, n021 home exercise programme"}
+      ]
+    }
+  ]
+}
