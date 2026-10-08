@@ -175,11 +175,13 @@ class LogActionUnitTest {
         LogAction.setExecutorServiceForTesting(new RejectingExecutorService());
 
         try (LogCapture capture = LogCapture.forLogger(LogAction.class)) {
-            LogAction.addLog("999998", "read", "CME note", "501", "127.0.0.1", "101", NOTE_TEXT_WITH_PHI);
+            LogAction.addLog("999998", "read", "Jane Roe 4034-chart", "chest-pain-501", "127.0.0.1", "101", NOTE_TEXT_WITH_PHI);
 
-            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("contentId=501"));
+            assertThat(capture.events()).anyMatch(event -> event.getMessage().getFormattedMessage().contains("action=read"));
             assertThat(capture.events()).noneMatch(event -> event.getMessage().getFormattedMessage().contains("Jane Roe")
-                    || event.getMessage().getFormattedMessage().contains("chest pain"));
+                    || event.getMessage().getFormattedMessage().contains("chest pain")
+                    || event.getMessage().getFormattedMessage().contains("chest-pain-501")
+                    || event.getMessage().getFormattedMessage().contains("101"));
         }
     }
 

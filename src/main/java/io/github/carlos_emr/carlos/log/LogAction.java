@@ -277,10 +277,9 @@ public class LogAction {
         } catch (Exception e) {
             logger.error("Error in logger.", e);
             // Not the entry itself: OscarLog.toString() is reflective and prints data, which carries the
-            // audited note text (e.g. CaseManagementNote.getAuditString()), and demographic_no.
-            logger.error("Audit entry not persisted: action={}, content={}, contentId={}",
-                    LogSafe.sanitize(oscarLog.getAction()), LogSafe.sanitize(oscarLog.getContent()),
-                    LogSafe.sanitize(oscarLog.getContentId()));
+            // audited note text (e.g. CaseManagementNote.getAuditString()), and demographic_no. Nor its
+            // content or contentId: callers pass free text and patient identifiers in those slots.
+            logger.error("Audit entry not persisted: action={}", LogSafe.sanitize(oscarLog.getAction()));
         }
     }
 
