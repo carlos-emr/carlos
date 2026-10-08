@@ -344,7 +344,6 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             OscarKeyDao oscarKeyDao = (OscarKeyDao) SpringUtils.getBean(OscarKeyDao.class);
             OscarKey oscarKey = oscarKeyDao.find("oscar");
-            logger.info("oscar key: " + oscarKey);
 
             privateKey = Base64.decodeBase64(oscarKey.getPrivateKey());
             PKCS8EncodedKeySpec privKeySpec = new PKCS8EncodedKeySpec(privateKey);

@@ -99,6 +99,18 @@ class ManageEmailsJspEncodingRegressionTest {
                 .doesNotContain("alert(resendWarning.value)");
     }
 
+    @Test
+    void shouldSendPortalInvitations_toThePatientsPortalPage() throws Exception {
+        String resultsJsp = Files.readString(resolveProjectPath(EMAIL_STATUS_RESULTS_JSP_PATH));
+
+        // The copy-and-resend button would only reach a refusal: an invitation's code is never reopened.
+        assertThat(resultsJsp)
+                .contains("/demographic/portalManage?demographicNo=${carlos:forUriComponent("
+                        + "emailStatusResult.portalInviteDemographicNo)}")
+                .contains("<c:if test=\"${empty emailStatusResult.portalInviteDemographicNo and "
+                        + "(emailStatusResult.status ne 'PENDING' or emailStatusResult.resolvable)}\">");
+    }
+
     /**
      * Resolves a project-relative path from the Maven {@code basedir} property or
      * current working directory, walking parent directories for IDE and CLI runs.
