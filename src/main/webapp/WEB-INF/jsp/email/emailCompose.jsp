@@ -82,7 +82,13 @@
     <fmt:message key="email.compose.btn.addAdditionalParameters" var="emailComposeAddAdditionalParameters"/>
     <fmt:message key="email.compose.btn.send" var="emailComposeSend"/>
     <fmt:message key="email.compose.btn.cancel" var="emailComposeCancel"/>
-    <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing"/>
+    <%-- One number for the auto-close after a send: the timer at the end of this page and the
+         message that announces it, so the two cannot drift apart again. A number, not the text "8":
+         the Polish message picks its word for "seconds" by the number and fails on text. --%>
+    <c:set var="windowCloseSeconds" value="${8}"/>
+    <fmt:message key="email.compose.msg.windowClosing" var="emailComposeWindowClosing">
+        <fmt:param value="${windowCloseSeconds}"/>
+    </fmt:message>
     <fmt:message key="email.compose.btn.close" var="emailComposeClose"/>
     <fmt:message key="email.compose.msg.subjectRequired" var="emailComposeSubjectRequired"/>
     <fmt:message key="email.compose.msg.messageRequired" var="emailComposeMessageRequired"/>
@@ -856,7 +862,7 @@
                     && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.
-                setTimeout(() => window.close(), 8000);
+                setTimeout(() => window.close(), ${windowCloseSeconds * 1000});
             }
             return;
         }
