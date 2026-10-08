@@ -50,6 +50,11 @@
  *
  * Environment (beyond the common contract in lib/playwright-harness.js):
  *   LAB_UPLOAD_DOCUMENT_STORE  the server's DOCUMENT_DIR, mounted or local.
+ *   LAB_UPLOAD_JOURNAL_UNIT    optional: the systemd unit whose journal holds the server log
+ *                              (`carlos-emr` on a package install). With it, or LAB_UPLOAD_SERVER_LOG,
+ *                              the failure step also asserts the log names the database's own error
+ *                              at ERROR and shows no Hibernate HHH000099 (#4436). See lib/server-log.js.
+ *   LAB_UPLOAD_SERVER_LOG      optional: a console log file, such as the devcontainer's catalina.out.
  */
 
 const crypto = require('node:crypto');
@@ -57,6 +62,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 const { syntheticCmlLab, openUploader } = require('./lab-upload-playwright-checks');
 
 /** Encrypts and signs a lab the way the legacy sender protocol does. */
@@ -213,8 +219,13 @@ async function workflow(session) {
           END IF;
         END//
         DELIMITER ;`);
+      const serverLog = serverLogFromEnvironment();
+      const logMark = serverLog.mark();
       const status = await postSigned(session, popup, sealed, service);
       h.assert(status === 500, `A failed signed upload answered HTTP ${status}; a sender must be told to retry`);
+      // #4436: the rejected insert must surface as the database's own error, not as Hibernate's HHH000099.
+      await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
+        databaseMessage: 'Synthetic signed upload failure probe', assert: h.assert });
       h.assert(sql.value(`SELECT
           (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownChecksum})
         + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
