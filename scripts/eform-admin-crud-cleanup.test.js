@@ -20,9 +20,10 @@ test('cleanup deletes by the exact stamped form name, never by pattern', () => {
   assert.doesNotMatch(statements[0], /\bLIKE\b/i, 'a pattern could remove a shared library form');
 });
 
-test('the probe name carries the per-run stamp', () => {
+test('the probe name carries a collision-resistant per-run stamp', () => {
   assert.match(source, /const formName = `Playwright Admin CRUD \$\{stamp\}`/);
-  assert.match(source, /const stamp = Date\.now\(\)/);
+  assert.match(source, /const stamp = `\$\{Date\.now\(\)\}-\$\{require\('node:crypto'\)\.randomBytes\(4\)\.toString\('hex'\)\}`/,
+    'the stamp needs a random suffix so same-millisecond runs cannot share a name');
 });
 
 test('a passing run purges the form before PASS, so a failed cleanup fails the run', () => {

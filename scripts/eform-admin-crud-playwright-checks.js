@@ -88,7 +88,9 @@ const config = {
   screenshotDir: process.env.EFORM_SCREENSHOT_DIR || '/tmp',
 };
 
-const stamp = Date.now();
+// Epoch plus a random suffix: the cleanup deletes by exact name, so two runs that
+// start in the same millisecond must not share a name (and delete each other's probe).
+const stamp = `${Date.now()}-${require('node:crypto').randomBytes(4).toString('hex')}`;
 const formName = `Playwright Admin CRUD ${stamp}`;
 let restoredForm = false;
 
