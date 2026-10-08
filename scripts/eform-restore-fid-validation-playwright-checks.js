@@ -43,9 +43,16 @@ const {
   wirePage,
 } = require('./eform-local-playwright-utils');
 
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const config = {
-  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  baseUrl,
+  // Certificate errors are ignorable only against a loopback target (the packaged install's
+  // self-signed certificate); never unconditionally (issue #3598).
+  ignoreHTTPSErrors: ['127.0.0.1', 'localhost', '[::1]'].includes(baseUrl.hostname),
   chromePath: process.env.CHROME_PATH || '',
+  testUser: process.env.TEST_USER || 'carlosdoc',
+  testPassword: process.env.TEST_PASSWORD || 'carlos2026',
+  testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.EFORM_SCREENSHOT_DIR || '/tmp',
 };
 
@@ -57,7 +64,7 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const recorder = createRecorder();
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1400, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors, viewport: { width: 1400, height: 900 } });
     const loginPage = await login(context, config, recorder);
     await loginPage.close();
 
@@ -84,7 +91,7 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
       });
       // A manual redirect surfaces as an opaque-redirect response with status 0.
       return response.type === 'opaqueredirect' ? 302 : response.status;
-    }, { url: `${config.baseUrl.href}eform/restoreEForm`, fid, csrf: token });
+    }, { url: `${config.baseUrl.href.replace(/\/+$/, "")}/eform/restoreEForm`, fid, csrf: token });
 
     for (const bad of [...MALFORMED_FIDS.map((f) => decodeURIComponent(f)), null]) {
       const status = await restoreStatus(bad);
