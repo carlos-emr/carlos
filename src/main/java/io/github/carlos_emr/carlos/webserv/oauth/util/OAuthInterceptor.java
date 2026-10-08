@@ -123,11 +123,6 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     private FailureAuditBudget failureAuditBudget = new FailureAuditBudget(System::currentTimeMillis);
 
     /**
-     * A separate budget, keyed by consumer key, for failures that name a registered client but fail its
-     * signature or timestamp check. Kept apart from {@link #failureAuditBudget} so an anonymous flood that
-     * exhausts the server-wide budget cannot also hide attempts against a real client's credentials.
-     */
-    /**
      * Consumer keys already warned about holding a token with no granted scopes, so the operator WARN is
      * written once per client rather than once per call. Size-bounded; an evicted key may warn again.
      */
@@ -135,6 +130,11 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             .maximumSize(1_000)
             .build();
 
+    /**
+     * A separate budget, keyed by consumer key, for failures that name a registered client but fail its
+     * signature or timestamp check. Kept apart from {@link #failureAuditBudget} so an anonymous flood that
+     * exhausts the server-wide budget cannot also hide attempts against a real client's credentials.
+     */
     private FailureAuditBudget knownClientFailureAuditBudget = new FailureAuditBudget(System::currentTimeMillis);
 
     @Override

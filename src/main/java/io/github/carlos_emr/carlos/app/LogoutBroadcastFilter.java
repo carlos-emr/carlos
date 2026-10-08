@@ -250,10 +250,12 @@ public class LogoutBroadcastFilter implements Filter {
                 // The browser went away before the script could be appended (#4438): not a server fault.
                 logger.debug("Skipping logout broadcast script injection because the client aborted: uri={}",
                         safeRequestUri);
-            } else {
-                logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
-                        safeRequestUri, e);
+                // Nothing more can reach a client that has gone; do not flush the buffered body to it again.
+                delegatingResponse.discardDeferredContentLength();
+                return;
             }
+            logger.error("Skipping logout broadcast script injection because the script could not be written: uri={}",
+                    safeRequestUri, e);
             delegatingResponse.discardDeferredContentLength();
             delegatingResponse.flushDelegatingWriter();
             return;
