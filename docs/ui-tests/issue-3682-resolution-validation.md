@@ -5,6 +5,61 @@ This follow-up addresses the remaining application and test findings from
 [test expansion](release-2026.08-workflow-validation.md) is historical evidence;
 the focused PRs below carry the follow-up fixes. No PR is merged by this validation.
 
+## Final installed-package validation (2026-10-08)
+
+Every PR listed below has since merged, #3694 included: its signature migration landed as
+`common/V1.0.52__enforce_provider_signature_identity.sql`, so the `V1.0.23.1` collision noted
+in the next paragraph no longer applies. This pass validates the combined result.
+
+**Build and install.** `release/2026.08` at `17c363e3` was packaged with `dpkg-buildpackage`
+in an `ubuntu:26.04` container: `carlos-emr` and `carlos-emr-drugref` 2026.09.0~snapshot26,
+DrugRef from its pin, plus `carlos-ctl` 1.1.1 from its pin. The packages were installed with
+the runbook's preseed (Ontario, self-signed TLS, demo data, secure seed-admin reset) into a
+systemd `ubuntu:26.04` container. Install completed and `carlos-ctl check` reported every
+line OK, including WAF blocking, live DrugRef and 43 successful Flyway migrations (`1.0.52`
+among them). The mandatory first-login reset ran first, and every check went through `:443`
+with `EXPECT_FRONT_DOOR=true`.
+
+**3682 findings re-checked on the installed package.** These checks passed:
+`anonymous-access-refused`, `demographic-labels`, `demographic-label-content`,
+`export-content-patient-labels`, `demographic-relations-pdf-labels`, `inboxhub-filters`,
+`scratchpad-workflow`, `surface-audit:scratch-surface`, `contact-editor`,
+`provider-preferences`, `gap-provider-preferences-save-all`, `provider-signature-contact`,
+`clinical-calculators`, `echart-navbar-modules`, `lot-number-search`, `measurement-history`,
+`prevention-lifecycle`, `admin-report-validation`, `surface-audit:preferences-surface`,
+`surface-audit:inbox-surface`, `page-health-master-record`, `page-health-echart-navbar`,
+`page-health-preferences-referrals`, both `page-health-admin-panel` halves, and
+`admin-index-links`. That sweep opened 107 Administration items and skipped 2 by policy;
+Age-Sex, Visit, Overnight, the patient list and lot search were all clean. The three
+originally reported anonymous routes answer 302 to `/logoutPage`, and `/favicon.ico`
+answers 302 to the application icon.
+
+**Failures and what they were.**
+
+| Check | Cause | Resolution in this PR |
+|---|---|---|
+| `get-reject-contact-directory` | **Application defect.** A GET replay of `demographic/Contact?method=saveContact` answered 200 and renamed the owned directory contact. | Every remaining `Contact2Action` write is POST-only. `saveProContact`, which wrote with no privilege check at all, now requires `_demographic` write access, like `saveContact`. The check now also saves a professional contact through the UI and replays that save. Rebuilt package: both saves answer 405 to GET/HEAD and the rows are unchanged. The six writers with no UI caller are tracked in #4402. |
+| `contact-lifecycle` | Test defect. #3985 renamed the search-result pick button from `demographic_no` to `pick_demographic`; the check still used the old name. | Locator updated, plus a Node contract test that ties the locator to the JSP. All seven steps pass. |
+| `episode-lifecycle` | Fixture gap plus two stale locators. The demo `doctor` role holds `o` on `_newCasemgmt.episode`, so the module is hidden and the check timed out. With a temporary grant, the check then clicked the centre of a title that the start date overlaps, and an `<h3>` whose handler moved onto its link in `1c3d1433`. | The check now SKIPs and names the missing grant. It clicks the visible start of the title and the heading link. With the grant (fixture documented in the runbook, restored to `o` afterwards) all five steps pass. |
+| `master-record-tabs` | One `net::ERR_ABORTED` on Client Lab Label, during a concurrent debugging run. | Not reproduced in five isolated runs. `demographic-labels`, which validates that PDF's bytes strictly, passes. Not claimed as a fix. |
+
+`anonymous-access-refused` now pins `messenger/DisplayMessages`, `encounter/IncomingConsultation`
+and `documentManager/ViewDocumentReport`, so they are probed even when the catalogue does not
+reach them. A pinned route that answers 404 fails the run.
+
+**Rebuilt-package retest.** After the fix, the package was rebuilt from the branch. The installed
+`Contact2Action.class` hash matched the build, and `carlos-ctl check` passed. On it,
+`get-reject-contact-directory`, `contact-lifecycle`, `contact-editor`,
+`provider-signature-contact`, `anonymous-access-refused`, `master-record-tabs` and
+`demographic-labels` all pass. `episode-lifecycle` SKIPs without the grant and passes with it.
+The doctor role's episode privileges were verified restored to `o,o`.
+
+**Automated tests.** `Contact2ActionUnitTest` has 71 cases, including 16 GET/HEAD dispatch cases
+and the denied `saveProContact` POST. The new denied-POST case failed before the fix with an NPE,
+because no privilege check existed. Together with `MutatorActionGetRejectionContractUnitTest`,
+`DemographicContactCreatorUnitTest` and the contact DAO integration tests, that is 156 tests,
+all passing. The Node script suite has 2,817 tests: 2,813 pass, 4 skip, none fail.
+
 **Status after the 2026-09-24 release merge.** #3684–#3691, #3699 and DrugRef
 [#14](https://github.com/carlos-emr/drugref2026/pull/14) are merged, so this branch
 now carries every application fix its workflows exercise except #3694. #3694 is
