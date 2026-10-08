@@ -8318,6 +8318,21 @@
         "step": "A's reloaded navbar, measurement history and plot show only A's rows"
       },
       "fixtures": "Owned patient B (the run's FAKE-PW marker as last name) and one WT measurement each for A and B; the chart opens leave note locks. Every row written is removed by key and asserted gone: measurements, archived measurements, Dx, preventions, notes, CPP, eChart and note locks. No clinic-wide state is changed."
+    },
+    {
+      "name": "echart-note-draft-recovery",
+      "script": "scripts/echart-note-draft-recovery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "An unsaved E-Chart note survives leaving the chart. Typing autosaves exactly one casemgmt_tmpsave row (the autosave POST is awaited, no fixed sleep); Exit's window.confirm, dismissed, keeps the window, the text and the draft, and accepted closes the window and leaves exactly one draft; a second provider (throwaway login) opening the same chart gets an editor without the draft, a page without its text and leaves the first provider's row untouched; reopening restores the text; a window killed with no Exit, beforeunload or lock release (context closed with the page's release flag cleared, as echart-lock-lifecycle does, because context.close() alone still sends the unload beacon) leaves a stale note lock, and a new login is asked to continue, takes the lock over and gets the extended draft back; Save then writes the unsigned casemgmt_note and removes the draft. Passes on 2026.08 (no known defect). The window closes this check causes make Chromium report the unload beacon as an aborted ping; exactly those entries are excused, the beacon being proven delivered by the lock rows going away.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name) and a throwaway provider login (lib/throwaway-login-fixture.js) with a copy of the test provider's program_provider and provider_default_program rows so the same chart opens for it. The saved note, its link/extension rows, both providers' drafts, every note lock of the patient, eChart and the throwaway are removed by key and asserted gone. No clinic-wide state is changed."
     }
   ]
 }
