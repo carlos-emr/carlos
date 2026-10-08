@@ -8356,6 +8356,9 @@
     {
       "name": "legacy-lab-display",
       "script": "scripts/legacy-lab-display-playwright-checks.js",
+      "envSet": {
+        "LEGACY_LAB_TYPE": "cml"
+      },
       "tiers": [
         "core"
       ],
@@ -8363,14 +8366,58 @@
       "provinces": [
         "ON"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 240,
       "env": [],
-      "notes": "The legacy lab types an OSCAR 19 import carries: CML, MDS and PathNet (BCP). Each lab is seeded by SQL for an owned FAKE patient, routed to the test provider, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Per type: Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged), Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment) and Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). All display and acknowledge steps run before any forward step, in the order CML, PathNet, MDS. The PathNet steps need the legacy BC tables (hl7_*, created by the BC migrations only), so on an Ontario schema they are skipped with a SKIP line and the CML and MDS steps still run. Fails on 2026.08 at the first MDS step, \"MDS display shows the lab's values and its patient\": the MDS page throws on every lab (finding 194). CML display and acknowledge pass before it. The harness stops at the first failing step, so the Forward steps, which pin finding 184 (the picker has no Submit, the form lookup uses another name, the form posts plain id lists where ReportReassign reads JSON), are not reached in this run; run with the MDS and PathNet labs left out, the check fails at \"CML forward routes the lab to the chosen provider\" with the picker offering no submit control, and the PathNet page fails at its display step (finding 195, BC tables only). Run on Ontario only; the PathNet steps have never run on a BC install (issue #4439), so provinces stays Ontario until Task 27 corrects it from a real BC run.",
+      "notes": "The old CML lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Fails on 2026.08 at \"CML forward routes the lab to the chosen provider\": CML display and acknowledge pass, then the provider picker has no control that sends the chosen provider back to the lab page (finding 184: SelectProvider.jsp has no Submit, the picker looks its opener's form up under another name, and the form posts plain id lists where ReportReassign reads JSON). Run on Ontario only.",
+      "expectedFailure": {
+        "finding": 184,
+        "step": "CML forward routes the lab to the chosen provider"
+      },
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one CML lab seeded by SQL under a random 10-digit number verified unoccupied (labReportInformation / labPatientPhysicianInfo / labTestResults, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+    },
+    {
+      "name": "legacy-lab-display-mds",
+      "script": "scripts/legacy-lab-display-playwright-checks.js",
+      "envSet": {
+        "LEGACY_LAB_TYPE": "mds"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "The old MDS lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. Fails on 2026.08 at \"MDS display shows the lab's values and its patient\": the MDS page throws on every lab (finding 194: invalid HQL in MdsMSHDaoImpl.findMdsSementDataById, then a NullPointerException in SegmentDisplay.jsp), so the acknowledge and forward steps are not reached. Acknowledge itself works (status A and the comment were written when the toolbar was driven by hand). The MDS result-row and acknowledged-state expectations are written from the source and not yet confirmed against a rendering page. Run on Ontario only.",
       "expectedFailure": {
         "finding": 194,
         "step": "MDS display shows the lab's values and its patient"
       },
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one CML lab, one MDS lab and, only where the legacy BC tables exist, one PathNet lab seeded by SQL under random 10-digit numbers verified unoccupied (labPatientPhysicianInfo / labReportInformation / labTestResults, mdsMSH / mdsPID / mdsPV1 / mdsZFR / mdsZLB / mdsZRG / mdsZMN / mdsOBR / mdsOBX, hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving each lab header still carries the run's marker, together with providerLabRoutingLock rows and the audit rows the pages wrote for the owned lab numbers, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one MDS lab seeded by SQL under a random 10-digit number verified unoccupied (mdsMSH / mdsPID / mdsPV1 / mdsZFR / mdsZLB / mdsZRG / mdsZMN / mdsOBR / mdsOBX, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+    },
+    {
+      "name": "legacy-lab-display-pathnet",
+      "script": "scripts/legacy-lab-display-playwright-checks.js",
+      "envSet": {
+        "LEGACY_LAB_TYPE": "pathnet"
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "The PathNet (BCP) lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. The hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx / hl7_link tables exist only on a schema the BC migrations built, so on an Ontario install the check ends SKIP (h.SkipCheck from the preflight, before anything is written), never PASS. On a schema that has them it would fail at \"PathNet display shows the lab's values and its patient\": PathnetLabTest.populateLab reads message 0 and the page shows an empty report (finding 195); that is what the expectedFailure pins, and it has been seen only on the Ontario container with the BC tables created temporarily, never on a BC install (issue #4439). provinces is all, as for pathnet-status, because the check skips itself where it cannot run.",
+      "expectedFailure": {
+        "finding": 195,
+        "step": "PathNet display shows the lab's values and its patient"
+      },
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one PathNet lab seeded by SQL under a random 10-digit number verified unoccupied (hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
     }
   ]
 }

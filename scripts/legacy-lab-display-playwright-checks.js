@@ -22,9 +22,17 @@
  * page. The URL is the one DemographicLab.jsp builds (demographicId, segmentID, providerNo,
  * searchProviderNo, status).
  *
- * STEP ORDER. Every display and acknowledge step comes first, then the forwards: the harness stops at the
- * first failing step, so a forward right after each type's acknowledge would hide every later type. The
- * types run CML, PathNet, MDS: what works runs first, so a run that stops has said as much as it can.
+ * ONE SCRIPT, THREE CHECKS. The harness stops at the first failing step and the manifest holds one
+ * expectedFailure per check, so a broken page of one vendor would hide the defects of the others. The
+ * script therefore runs ONE lab type per run, selected by LEGACY_LAB_TYPE (the manifest sets it with
+ * envSet, as surface-audit does; each entry has its own npm alias):
+ *   cml      legacy-lab-display          expectedFailure finding 184, at the CML forward step.
+ *   mds      legacy-lab-display-mds      expectedFailure finding 194, at the MDS display step.
+ *   pathnet  legacy-lab-display-pathnet  ends SKIP (never PASS) when the legacy BC tables are absent; on
+ *                                        a BC install it would fail at its display step (finding 195).
+ * Unset, the type is cml. Any other value is an error.
+ *
+ * STEPS, in order, for the one type of the run: seed; Display; Acknowledge; Forward.
  *   Display      the page-specific form is there; no error page; the patient's name, birth date and health
  *                number as the lab carries them; the result row (test name, result, flag, range, units);
  *                the link to the OWNED patient (the Msg button renders only when the routing resolved a
@@ -39,28 +47,28 @@
  *                is asserted on its own, so the failure says which one stands.
  *
  * KNOWN DEFECTS (docs/ui-tests/app-findings-log.md):
- *   194  MDS display throws on every lab. MdsMSHDaoImpl.findMdsSementDataById builds invalid HQL and binds
- *        the wrong parameter, MDSSegmentData swallows the exception, and SegmentDisplay.jsp dereferences
- *        the providers object that was never set. The manifest's expectedFailure, at the "MDS display" step.
  *   184  Forward from these pages cannot be completed: SelectProvider.jsp has no Submit button, the
  *        picker looks its opener's form up under another name, and the form carries plain id lists where
- *        ReportReassign2Action reads JSON. Reached only once 194 is fixed, because the harness stops at the
- *        first failure; the Forward steps assert each stage separately.
- *   195  PathNet display shows an empty report (PathnetLabTest.populateLab reads message 0). The PathNet
- *        steps need the legacy BC tables, so they run only where those exist.
+ *        ReportReassign2Action reads JSON. The cml run reaches Forward and fails there.
+ *   194  MDS display throws on every lab. MdsMSHDaoImpl.findMdsSementDataById builds invalid HQL and binds
+ *        the wrong parameter, MDSSegmentData swallows the exception, and SegmentDisplay.jsp dereferences
+ *        the providers object that was never set. The mds run fails at its display step, so its Forward
+ *        step is not reached until that is fixed.
+ *   195  PathNet display shows an empty report (PathnetLabTest.populateLab reads message 0). The pathnet
+ *        run needs the legacy BC tables.
  *
- * PATHNET. hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx are created by the BC migrations
- * only. An Ontario install has no table for a BCP lab to live in, so the PathNet steps are skipped there
- * with a SKIP line that says why; the CML and MDS steps still run, so the check never passes vacuously.
- * No BC install was used (BC work is out of scope, issue #4439).
+ * PATHNET. hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx / hl7_link are created by the BC
+ * migrations only. An Ontario install has no table for a BCP lab to live in, so the pathnet run ends
+ * SKIP there (h.SkipCheck from the preflight, before anything is written): it is recorded as a skip,
+ * never as a pass. No BC install was used (BC work is out of scope, issue #4439).
  *
  * NOT ASSERTED, on purpose: the top E-Chart button of the CML and PathNet pages renders a missing-key
  * label (finding 196) and CML's version chain throws a ClassCastException on every view (finding 197).
- * Asserting them here would make this check fail earlier than the defects it pins.
+ * Asserting them here would make these checks fail earlier than the defects they pin.
  *
- * Fixtures: the owned FAKE- patient (runWorkflow, no master record opened); one MDS, one CML and (BC
- * schema only) one PathNet lab seeded by SQL with synthetic names and a synthetic HIN, under random
- * 10-digit numbers verified unoccupied, each routed to the test provider as New and linked to the patient;
+ * Fixtures: the owned FAKE- patient (runWorkflow, no master record opened); one lab of the run's type
+ * seeded by SQL with synthetic names and a synthetic HIN, under a random 10-digit number verified
+ * unoccupied, routed to the test provider as New and linked to the patient;
  * and a throwaway provider login that is the Forward recipient. Cleanup removes exactly those rows by key,
  * after proving the lab header still carries this run's marker, and asserts them gone: the lab tables,
  * patientLabRouting, providerLabRouting, providerLabRoutingLock and the audit rows the pages wrote for the
@@ -73,7 +81,6 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { throwawayLoginFixture, bundleMessage } = require('./lib/throwaway-login-fixture');
 
-const NAME = 'legacy-lab-display';
 const TIMEOUT = 30000;
 const q = h.sqlString;
 
@@ -101,7 +108,22 @@ const STEP = Object.freeze({
   }),
 });
 
-const PATHNET_TABLES = ['hl7_message', 'hl7_msh', 'hl7_pid', 'hl7_orc', 'hl7_obr', 'hl7_obx'];
+/** The lab type each LEGACY_LAB_TYPE value runs, and the manifest name the run reports under. */
+const MODES = Object.freeze({
+  cml: Object.freeze({ type: 'CML', name: 'legacy-lab-display' }),
+  mds: Object.freeze({ type: 'MDS', name: 'legacy-lab-display-mds' }),
+  pathnet: Object.freeze({ type: 'BCP', name: 'legacy-lab-display-pathnet' }),
+});
+
+/** The run's mode from LEGACY_LAB_TYPE (cml when unset); anything unknown is an error, not a default. */
+function modeFrom(value) {
+  const key = (value === undefined || value === '') ? 'cml' : String(value).trim().toLowerCase();
+  h.assert(Object.prototype.hasOwnProperty.call(MODES, key),
+    `LEGACY_LAB_TYPE must be one of ${Object.keys(MODES).join(', ')}; got "${value}"`);
+  return MODES[key];
+}
+
+const PATHNET_TABLES = ['hl7_message', 'hl7_msh', 'hl7_pid', 'hl7_orc', 'hl7_obr', 'hl7_obx', 'hl7_link'];
 const MDS_TABLES = ['mdsMSH', 'mdsPID', 'mdsPV1', 'mdsZFR', 'mdsZLB', 'mdsZMN', 'mdsZRG', 'mdsOBR', 'mdsOBX', 'mdsNTE', 'mdsZMC'];
 
 /** True when every named table exists in the connected schema. */
@@ -133,122 +155,128 @@ const counts = (id, tables) => tables.map(([table, column]) => `(SELECT COUNT(*)
 const routingCounts = (id) => counts(id, [['patientLabRouting', 'lab_no'], ['providerLabRouting', 'lab_no'], ['providerLabRoutingLock', 'lab_no']]);
 
 /**
- * The lab descriptors. Each carries its seed, what its display must show, and how to remove it.
+ * The lab descriptor for one type. It carries its seed, what its display must show, and how to remove it.
  * `headerSql` counts the one row that carries the run's marker: ownership is proven from it before a delete.
  * `rows` is the expression counting every row the lab owns in its own tables.
  */
-function describeLabs({ sql, marker, hex, patient, provider, withPathnet }) {
+function describeLab({ sql, marker, hex, patient, provider, type }) {
   const taken = new Set();
   const first8 = hex.slice(0, 8);
   const last8 = hex.slice(8, 16);
 
-  const mdsTables = MDS_TABLES.map((table) => [table, 'segmentID']);
-  const mdsId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, mdsTables)].join('+')}`);
-  const mds = {
-    key: 'MDS', title: 'MDS', anchor: 'legacy-lab-mds', id: mdsId, labType: 'MDS',
-    displayPath: `/oscarMDS/ViewSegmentDisplay?demographicId=${patient}&segmentID=${mdsId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
-    forwardPath: '/oscarMDS/Forward',
-    // MdsPID.patientName "marker^Workflow" renders "marker, Workflow"; the birth date as dd-MMM-yyyy; the page
-    // drops the health number's first character, which it treats as a prefix.
-    patient: { name: `${marker}, Workflow`, dob: '02-Jan-1980', hin: 'FAKE00000' },
-    result: { name: `${marker} Glucose`, cells: ['7.7', 'HI', '3.5-5.0', 'mmol/L'] },
-    headerSql: `SELECT COUNT(*) FROM mdsMSH WHERE segmentID=${mdsId} AND sendingApp=${q(marker)}`,
-    rows: counts(mdsId, mdsTables).join('+'),
-    deleteSql: MDS_TABLES.map((table) => `DELETE FROM ${table} WHERE segmentID=${mdsId}`),
-    seed() {
-      // messageConID is "<client>-<accession>"; the marker itself has a hyphen, so it goes in sendingApp.
-      sql.execute(`INSERT INTO mdsMSH(segmentID,sendingApp,dateTime,type,messageConID,processingID,versionID,acceptAckType,appAckType,demographic_no)
-        VALUES(${mdsId},${q(marker)},NOW(),'ORU^R01',${q(`C${first8}-A${first8}`)},'P','2.3','AL','NE',${patient})`);
-      sql.execute(`INSERT INTO mdsPID(segmentID,intPatientID,altPatientID,patientName,dOB,sex,homePhone,healthNumber)
-          VALUES(${mdsId},'FAKEPID','FAKEALT',${q(`${marker}^Workflow`)},'19800102','F','555-0100','XFAKE00000');
-        INSERT INTO mdsPV1(segmentID,patientClass,patientLocation,refDoctor,conDoctor,admDoctor,vNumber,accStatus,admDateTime)
-          VALUES(${mdsId},'O','FAKELOC','000000^FakeRef^Alex^^^Dr','','','V1','A','20260101');
-        INSERT INTO mdsZFR(segmentID,reportForm,reportFormStatus,testingLab,medicalDirector,editFlag,abnormalFlag)
-          VALUES(${mdsId},'1','1','FK','FAKEDIR','','');
-        INSERT INTO mdsZLB(segmentID,labID,labIDVersion,labAddress,primaryLab,primaryLabVersion,MDSLU,MDSLV)
-          VALUES(${mdsId},'FK','1','FAKE ADDR','FK','1','a','b');
-        INSERT INTO mdsZRG(segmentID,reportSequence,reportGroupID,reportGroupVersion,reportFlags,reportGroupDesc,MDSIndex,reportGroupHeading)
-          VALUES(${mdsId},'1','FKGRP','1','','FAKE CHEMISTRY','1','');
-        INSERT INTO mdsZMN(segmentID,resultMnemonic,resultMnemonicVersion,reportName,units,cumulativeSequence,referenceRange,resultCode,reportForm,reportGroup,reportGroupVersion)
-          VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','1','1');
-        INSERT INTO mdsOBR(segmentID,obrID,placerOrderNo,universalServiceID,observationDateTime,specimenRecDateTime,fillerFieldOne,quantityTiming)
-          VALUES(${mdsId},1,'FAKEORD','FAKE^SVC','20260101080000','20260101080000','','R');
-        INSERT INTO mdsOBX(segmentID,obxID,valueType,observationIden,observationSubID,observationValue,abnormalFlags,observationResultStatus,producersID,associatedOBR)
-          VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1)`);
+  const builders = {
+    MDS() {
+      const mdsTables = MDS_TABLES.map((table) => [table, 'segmentID']);
+      const mdsId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, mdsTables)].join('+')}`);
+      const lab = {
+        key: 'MDS', title: 'MDS', anchor: 'legacy-lab-mds', id: mdsId, labType: 'MDS',
+        displayPath: `/oscarMDS/ViewSegmentDisplay?demographicId=${patient}&segmentID=${mdsId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
+        forwardPath: '/oscarMDS/Forward',
+        // MdsPID.patientName "marker^Workflow" renders "marker, Workflow"; the birth date as dd-MMM-yyyy; the page
+        // drops the health number's first character, which it treats as a prefix.
+        patient: { name: `${marker}, Workflow`, dob: '02-Jan-1980', hin: 'FAKE00000' },
+        result: { name: `${marker} Glucose`, cells: ['7.7', 'HI', '3.5-5.0', 'mmol/L'] },
+        headerSql: `SELECT COUNT(*) FROM mdsMSH WHERE segmentID=${mdsId} AND sendingApp=${q(marker)}`,
+        rows: counts(mdsId, mdsTables).join('+'),
+        deleteSql: MDS_TABLES.map((table) => `DELETE FROM ${table} WHERE segmentID=${mdsId}`),
+        seed() {
+          // messageConID is "<client>-<accession>"; the marker itself has a hyphen, so it goes in sendingApp.
+          sql.execute(`INSERT INTO mdsMSH(segmentID,sendingApp,dateTime,type,messageConID,processingID,versionID,acceptAckType,appAckType,demographic_no)
+            VALUES(${mdsId},${q(marker)},NOW(),'ORU^R01',${q(`C${first8}-A${first8}`)},'P','2.3','AL','NE',${patient})`);
+          sql.execute(`INSERT INTO mdsPID(segmentID,intPatientID,altPatientID,patientName,dOB,sex,homePhone,healthNumber)
+              VALUES(${mdsId},'FAKEPID','FAKEALT',${q(`${marker}^Workflow`)},'19800102','F','555-0100','XFAKE00000');
+            INSERT INTO mdsPV1(segmentID,patientClass,patientLocation,refDoctor,conDoctor,admDoctor,vNumber,accStatus,admDateTime)
+              VALUES(${mdsId},'O','FAKELOC','000000^FakeRef^Alex^^^Dr','','','V1','A','20260101');
+            INSERT INTO mdsZFR(segmentID,reportForm,reportFormStatus,testingLab,medicalDirector,editFlag,abnormalFlag)
+              VALUES(${mdsId},'1','1','FK','FAKEDIR','','');
+            INSERT INTO mdsZLB(segmentID,labID,labIDVersion,labAddress,primaryLab,primaryLabVersion,MDSLU,MDSLV)
+              VALUES(${mdsId},'FK','1','FAKE ADDR','FK','1','a','b');
+            INSERT INTO mdsZRG(segmentID,reportSequence,reportGroupID,reportGroupVersion,reportFlags,reportGroupDesc,MDSIndex,reportGroupHeading)
+              VALUES(${mdsId},'1','FKGRP','1','','FAKE CHEMISTRY','1','');
+            INSERT INTO mdsZMN(segmentID,resultMnemonic,resultMnemonicVersion,reportName,units,cumulativeSequence,referenceRange,resultCode,reportForm,reportGroup,reportGroupVersion)
+              VALUES(${mdsId},'FKGLU','1',${q(`${marker} Glucose`)},'mmol/L','1','3.5-5.0','FKGLU','1','1','1');
+            INSERT INTO mdsOBR(segmentID,obrID,placerOrderNo,universalServiceID,observationDateTime,specimenRecDateTime,fillerFieldOne,quantityTiming)
+              VALUES(${mdsId},1,'FAKEORD','FAKE^SVC','20260101080000','20260101080000','','R');
+            INSERT INTO mdsOBX(segmentID,obxID,valueType,observationIden,observationSubID,observationValue,abnormalFlags,observationResultStatus,producersID,associatedOBR)
+              VALUES(${mdsId},1,'NM','XFKGLU^Glucose','FKGLU','7.7','HI','F','FK^Fake',1)`);
+        },
+      };
+      return lab;
+    },
+    CML() {
+      const cmlTables = [['labPatientPhysicianInfo', 'id'], ['labTestResults', 'labPatientPhysicianInfo_id']];
+      const cmlLink = (id) => `(SELECT COUNT(*) FROM labRequestReportLink WHERE report_table='labPatientPhysicianInfo' AND report_id=${id})`;
+      const cmlId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, cmlTables), cmlLink(id)].join('+')}`);
+      const cmlInfoId = freeId(sql, taken, (id) => `SELECT ${counts(id, [['labReportInformation', 'id']]).join('+')}`);
+      const lab = {
+        key: 'CML', title: 'CML', anchor: 'legacy-lab-cml', id: cmlId, labType: 'CML',
+        displayPath: `/lab/CA/ON/ViewCMLDisplay?demographicId=${patient}&segmentID=${cmlId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
+        forwardPath: '/lab/CA/ON/Forward',
+        // CMLDisplay.jsp prints the lab's own name, birth date and health number verbatim.
+        patient: { name: `${marker}, Workflow`, dob: '19800102', hin: '0000000000' },
+        result: { name: `${marker} Sodium`, cells: ['150', 'A', '135 - 145', 'mmol/L'] },
+        headerSql: `SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE id=${cmlId} AND patient_last_name=${q(marker)}`,
+        rows: [...counts(cmlId, cmlTables), cmlLink(cmlId), ...counts(cmlInfoId, [['labReportInformation', 'id']])].join('+'),
+        deleteSql: [`DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id=${cmlId}`,
+          `DELETE FROM labRequestReportLink WHERE report_table='labPatientPhysicianInfo' AND report_id=${cmlId}`,
+          `DELETE FROM labPatientPhysicianInfo WHERE id=${cmlId}`, `DELETE FROM labReportInformation WHERE id=${cmlInfoId}`],
+        seed() {
+          sql.execute(`INSERT INTO labReportInformation(id,location_id,print_date,print_time,total_BType,total_CType,total_DType)
+            VALUES(${cmlInfoId},'70','20260101','08:00','1','1','0')`);
+          sql.execute(`INSERT INTO labPatientPhysicianInfo(id,labReportInfo_id,accession_num,physician_account_num,service_date,patient_first_name,
+              patient_last_name,patient_sex,patient_health_num,patient_dob,lab_status,doc_num,doc_name,doc_addr1,doc_addr2,doc_addr3,doc_postal,
+              doc_route,comment1,comment2,patient_phone,doc_phone,collection_date,lastUpdateDate)
+            VALUES(${cmlId},${cmlInfoId},${q(`CA${last8}`)},'FAKEACCT','20260101','Workflow',${q(marker)},'F','0000000000','19800102','F','000000',
+              'Fake Doctor','','','','','','','','555-0100','555-0101','01 JAN 26',NOW());
+            INSERT INTO labTestResults(labPatientPhysicianInfo_id,line_type,title,notUsed1,notUsed2,test_name,abn,minimum,maximum,units,result,
+              description,location_id,last)
+            VALUES(${cmlId},'C','FAKE CHEM','','',${q(`${marker} Sodium`)},'A','135','145','mmol/L','150','','70','Y')`);
+        },
+      };
+      return lab;
+    },
+    BCP() {
+      const pathTables = [['hl7_message', 'message_id'], ['hl7_msh', 'message_id'], ['hl7_pid', 'pid_id'], ['hl7_pid', 'message_id'],
+        ['hl7_orc', 'pid_id'], ['hl7_obr', 'pid_id'], ['hl7_obx', 'obr_id'], ['hl7_link', 'pid_id']];
+      const pathId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, pathTables)].join('+')}`);
+      const lab = {
+        key: 'BCP', title: 'PathNet', anchor: 'legacy-lab-bcp', id: pathId, labType: 'BCP',
+        displayPath: `/lab/CA/BC/ViewLabDisplay?demographicId=${patient}&segmentID=${pathId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
+        forwardPath: '/lab/CA/BC/Forward',
+        // removeCarat turns "marker^Workflow" into "marker Workflow"; the birth date prints as yyyy-MM-dd.
+        patient: { name: `${marker} Workflow`, dob: '1980-01-02', hin: 'FAKE-PATHNET' },
+        result: { name: `${marker} Glucose`, cells: ['7.7', 'H', '3.5-5.0', 'mmol/L'] },
+        headerSql: `SELECT COUNT(*) FROM hl7_message WHERE message_id=${pathId} AND notes=${q(marker)}`,
+        rows: counts(pathId, pathTables).join('+'),
+        deleteSql: [`DELETE FROM hl7_obx WHERE obr_id=${pathId}`, `DELETE FROM hl7_obr WHERE pid_id=${pathId}`,
+          `DELETE FROM hl7_orc WHERE pid_id=${pathId}`, `DELETE FROM hl7_link WHERE pid_id=${pathId}`,
+          `DELETE FROM hl7_pid WHERE pid_id=${pathId} AND message_id=${pathId}`, `DELETE FROM hl7_msh WHERE message_id=${pathId}`,
+          `DELETE FROM hl7_message WHERE message_id=${pathId} AND notes=${q(marker)}`],
+        seed() {
+          // The legacy projections join pid_id to message_id, so all of this lab's rows share the one number.
+          sql.execute(`INSERT INTO hl7_message(message_id,date_time,notes) VALUES(${pathId},NOW(),${q(marker)})`);
+          sql.execute(`INSERT INTO hl7_msh(message_id,seperator,encoding_characters,sending_facility,date_time_of_message,message_type,
+              message_control_id,processing_id,version_id)
+            VALUES(${pathId},'|','^~\\\\&','FAKE FACILITY',NOW(),'ORU','FAKECTRL','P','2.3');
+            INSERT INTO hl7_pid(pid_id,message_id,external_id,internal_id,patient_name,date_of_birth,sex,home_number)
+            VALUES(${pathId},${pathId},'FAKE-PATHNET','FAKEINT',${q(`${marker}^Workflow`)},'1980-01-02','F','555-0100');
+            INSERT INTO hl7_orc(orc_id,pid_id,order_control,filler_order_number,ordering_provider)
+            VALUES(${pathId},${pathId},'RE',${q(`P${last8}-1-1`)},${q(`000000^${marker}^Doc`)});
+            INSERT INTO hl7_obr(obr_id,pid_id,set_id,placer_order_number,filler_order_number,universal_service_id,priority,requested_date_time,
+              observation_date_time,specimen_received_date_time,ordering_provider,results_report_status_change,diagnostic_service_sect_id,
+              result_status,result_copies_to,note)
+            VALUES(${pathId},${pathId},'1','FAKEPLC',${q(`P${last8}-1-1`)},'FKSVC^Fake Service','R',NOW(),NOW(),NOW(),
+              ${q(`000000^${marker}^Doc`)},NOW(),'CHEM','F','','');
+            INSERT INTO hl7_obx(obx_id,obr_id,set_id,value_type,observation_identifier,observation_sub_id,observation_results,units,
+              reference_range,abnormal_flags,observation_result_status,observation_date_time,note)
+            VALUES(${pathId},${pathId},'1','NM',${q(`FKGLU^${marker} Glucose`)},'1','7.7','mmol/L','3.5-5.0','H','F',NOW(),'')`);
+        },
+      };
+      return lab;
     },
   };
-
-  const cmlTables = [['labPatientPhysicianInfo', 'id'], ['labTestResults', 'labPatientPhysicianInfo_id']];
-  const cmlLink = (id) => `(SELECT COUNT(*) FROM labRequestReportLink WHERE report_table='labPatientPhysicianInfo' AND report_id=${id})`;
-  const cmlId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, cmlTables), cmlLink(id)].join('+')}`);
-  const cmlInfoId = freeId(sql, taken, (id) => `SELECT ${counts(id, [['labReportInformation', 'id']]).join('+')}`);
-  const cml = {
-    key: 'CML', title: 'CML', anchor: 'legacy-lab-cml', id: cmlId, labType: 'CML',
-    displayPath: `/lab/CA/ON/ViewCMLDisplay?demographicId=${patient}&segmentID=${cmlId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
-    forwardPath: '/lab/CA/ON/Forward',
-    // CMLDisplay.jsp prints the lab's own name, birth date and health number verbatim.
-    patient: { name: `${marker}, Workflow`, dob: '19800102', hin: '0000000000' },
-    result: { name: `${marker} Sodium`, cells: ['150', 'A', '135 - 145', 'mmol/L'] },
-    headerSql: `SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE id=${cmlId} AND patient_last_name=${q(marker)}`,
-    rows: [...counts(cmlId, cmlTables), cmlLink(cmlId), ...counts(cmlInfoId, [['labReportInformation', 'id']])].join('+'),
-    deleteSql: [`DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id=${cmlId}`,
-      `DELETE FROM labRequestReportLink WHERE report_table='labPatientPhysicianInfo' AND report_id=${cmlId}`,
-      `DELETE FROM labPatientPhysicianInfo WHERE id=${cmlId}`, `DELETE FROM labReportInformation WHERE id=${cmlInfoId}`],
-    seed() {
-      sql.execute(`INSERT INTO labReportInformation(id,location_id,print_date,print_time,total_BType,total_CType,total_DType)
-        VALUES(${cmlInfoId},'70','20260101','08:00','1','1','0')`);
-      sql.execute(`INSERT INTO labPatientPhysicianInfo(id,labReportInfo_id,accession_num,physician_account_num,service_date,patient_first_name,
-          patient_last_name,patient_sex,patient_health_num,patient_dob,lab_status,doc_num,doc_name,doc_addr1,doc_addr2,doc_addr3,doc_postal,
-          doc_route,comment1,comment2,patient_phone,doc_phone,collection_date,lastUpdateDate)
-        VALUES(${cmlId},${cmlInfoId},${q(`CA${last8}`)},'FAKEACCT','20260101','Workflow',${q(marker)},'F','0000000000','19800102','F','000000',
-          'Fake Doctor','','','','','','','','555-0100','555-0101','01 JAN 26',NOW());
-        INSERT INTO labTestResults(labPatientPhysicianInfo_id,line_type,title,notUsed1,notUsed2,test_name,abn,minimum,maximum,units,result,
-          description,location_id,last)
-        VALUES(${cmlId},'C','FAKE CHEM','','',${q(`${marker} Sodium`)},'A','135','145','mmol/L','150','','70','Y')`);
-    },
-  };
-
-  const labs = [cml];
-  if (withPathnet) {
-    const pathTables = [['hl7_message', 'message_id'], ['hl7_msh', 'message_id'], ['hl7_pid', 'pid_id'], ['hl7_pid', 'message_id'],
-      ['hl7_orc', 'pid_id'], ['hl7_obr', 'pid_id'], ['hl7_obx', 'obr_id'], ['hl7_link', 'pid_id']];
-    const pathId = freeId(sql, taken, (id) => `SELECT ${[...routingCounts(id), ...counts(id, pathTables)].join('+')}`);
-    labs.push({
-      key: 'BCP', title: 'PathNet', anchor: 'legacy-lab-bcp', id: pathId, labType: 'BCP',
-      displayPath: `/lab/CA/BC/ViewLabDisplay?demographicId=${patient}&segmentID=${pathId}&providerNo=${provider}&searchProviderNo=${provider}&status=N`,
-      forwardPath: '/lab/CA/BC/Forward',
-      // removeCarat turns "marker^Workflow" into "marker Workflow"; the birth date prints as yyyy-MM-dd.
-      patient: { name: `${marker} Workflow`, dob: '1980-01-02', hin: 'FAKE-PATHNET' },
-      result: { name: `${marker} Glucose`, cells: ['7.7', 'H', '3.5-5.0', 'mmol/L'] },
-      headerSql: `SELECT COUNT(*) FROM hl7_message WHERE message_id=${pathId} AND notes=${q(marker)}`,
-      rows: counts(pathId, pathTables).join('+'),
-      deleteSql: [`DELETE FROM hl7_obx WHERE obr_id=${pathId}`, `DELETE FROM hl7_obr WHERE pid_id=${pathId}`,
-        `DELETE FROM hl7_orc WHERE pid_id=${pathId}`, `DELETE FROM hl7_link WHERE pid_id=${pathId}`,
-        `DELETE FROM hl7_pid WHERE pid_id=${pathId} AND message_id=${pathId}`, `DELETE FROM hl7_msh WHERE message_id=${pathId}`,
-        `DELETE FROM hl7_message WHERE message_id=${pathId} AND notes=${q(marker)}`],
-      seed() {
-        // The legacy projections join pid_id to message_id, so all of this lab's rows share the one number.
-        sql.execute(`INSERT INTO hl7_message(message_id,date_time,notes) VALUES(${pathId},NOW(),${q(marker)})`);
-        sql.execute(`INSERT INTO hl7_msh(message_id,seperator,encoding_characters,sending_facility,date_time_of_message,message_type,
-            message_control_id,processing_id,version_id)
-          VALUES(${pathId},'|','^~\\\\&','FAKE FACILITY',NOW(),'ORU','FAKECTRL','P','2.3');
-          INSERT INTO hl7_pid(pid_id,message_id,external_id,internal_id,patient_name,date_of_birth,sex,home_number)
-          VALUES(${pathId},${pathId},'FAKE-PATHNET','FAKEINT',${q(`${marker}^Workflow`)},'1980-01-02','F','555-0100');
-          INSERT INTO hl7_orc(orc_id,pid_id,order_control,filler_order_number,ordering_provider)
-          VALUES(${pathId},${pathId},'RE',${q(`P${last8}-1-1`)},${q(`000000^${marker}^Doc`)});
-          INSERT INTO hl7_obr(obr_id,pid_id,set_id,placer_order_number,filler_order_number,universal_service_id,priority,requested_date_time,
-            observation_date_time,specimen_received_date_time,ordering_provider,results_report_status_change,diagnostic_service_sect_id,
-            result_status,result_copies_to,note)
-          VALUES(${pathId},${pathId},'1','FAKEPLC',${q(`P${last8}-1-1`)},'FKSVC^Fake Service','R',NOW(),NOW(),NOW(),
-            ${q(`000000^${marker}^Doc`)},NOW(),'CHEM','F','','');
-          INSERT INTO hl7_obx(obx_id,obr_id,set_id,value_type,observation_identifier,observation_sub_id,observation_results,units,
-            reference_range,abnormal_flags,observation_result_status,observation_date_time,note)
-          VALUES(${pathId},${pathId},'1','NM',${q(`FKGLU^${marker} Glucose`)},'1','7.7','mmol/L','3.5-5.0','H','F',NOW(),'')`);
-      },
-    });
-  }
-  labs.push(mds);
-  return labs;
+  h.assert(builders[type], `No lab builder for type ${type}`);
+  return builders[type]();
 }
 
 /**
@@ -276,17 +304,26 @@ function removeLab({ sql, lab, patient, provider }) {
   h.assert(sql.value(`SELECT ${routing}+${lab.rows}+${audit}`) === '0', `The owned ${lab.title} lab fixture was not removed`);
 }
 
-async function workflow(s) {
+/**
+ * The pathnet run needs the legacy BC tables. Without them there is nowhere for a BCP lab to live, so the
+ * run ends SKIP (never PASS) before the browser starts and before anything is written.
+ */
+async function preflight({ sql }, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
+  if (mode.type !== 'BCP') return;
+  const absent = PATHNET_TABLES.filter((table) => !tablesExist(sql, [table]));
+  if (absent.length) {
+    throw new h.SkipCheck(`PathNet (BCP) labs need the legacy BC tables, which this schema lacks (${absent.join(', ')}); `
+      + 'they are created by the BC migrations only');
+  }
+}
+
+async function workflow(s, mode = modeFrom(process.env.LEGACY_LAB_TYPE)) {
   const { sql, config, recorder, marker, patient, provider } = s;
+  const NAME = mode.name;
   const hex = marker.slice('FAKE-PW'.length);
   h.assert(/^[0-9a-f]{16}$/.test(hex), 'The run marker is not in the FAKE-PW<hex> form this check relies on');
-  const withPathnet = tablesExist(sql, PATHNET_TABLES);
-  if (!withPathnet) {
-    console.log(`  SKIP ${NAME}: the PathNet (BCP) steps are not run: the legacy BC tables ${PATHNET_TABLES.join(', ')} are absent`
-      + ' from this schema, so a PathNet lab has nowhere to live. The CML and MDS steps run.');
-  }
   const recipient = throwawayLoginFixture({ sql, marker, provider, testUser: config.testUser });
-  const labs = describeLabs({ sql, marker, hex, patient, provider, withPathnet });
+  const labs = [describeLab({ sql, marker, hex, patient, provider, type: mode.type })];
   const promptText = bundleMessage('oscarMDS.segmentDisplay.msgComment', 'Please enter a comment (max. 255 characters)');
   const recipientSearch = `${marker}, Throwaway`;
   const commentOf = (lab) => `${marker} ${lab.key} acknowledged`;
@@ -411,7 +448,7 @@ async function workflow(s) {
     await openList();
   });
 
-  // ---- Phase 1: display and acknowledge, every type, before any forward -------------------------------------------
+  // ---- Display and acknowledge --------------------------------------------------------------------------------------
   for (const lab of labs) {
     await s.step(STEP[lab.key].display, async () => {
       excuseAbandonedLoads();
@@ -464,7 +501,7 @@ async function workflow(s) {
     });
   }
 
-  // ---- Phase 2: forward, every type ---------------------------------------------------------------------------------
+  // ---- Forward ------------------------------------------------------------------------------------------------------
   for (const lab of labs) {
     await s.step(STEP[lab.key].forward, async () => {
       excuseAbandonedLoads();
@@ -513,5 +550,8 @@ async function workflow(s) {
   }
 }
 
-if (require.main === module) runWorkflow(NAME, workflow, { openMaster: false });
-module.exports = { workflow, STEP };
+if (require.main === module) {
+  const mode = modeFrom(process.env.LEGACY_LAB_TYPE);
+  runWorkflow(mode.name, (s) => workflow(s, mode), { openMaster: false, preflight: (context) => preflight(context, mode) });
+}
+module.exports = { workflow, preflight, modeFrom, MODES, STEP };
