@@ -83,14 +83,24 @@ async function workflow(s) {
     h.assert(/^[0-9a-f-]{36}$/.test(firstToken), 'The prevention form rendered no submission token');
     await fillEditor(editor, '2026-02-03', `${marker}-double`);
     firstBody = await formBody(editor);
-    const closePages = [];
-    editor.on('response', r => { if (SAVE_PATH.test(new URL(r.url()).pathname)) closePages.push(r.status()); });
-    await editor.locator('input[type="submit"][name="action"]').first().dblclick({ noWaitAfter: true }).catch(() => {});
+    const saves = [];
+    editor.on('response', r => {
+      if (r.request().method() === 'POST' && SAVE_PATH.test(new URL(r.url()).pathname)) saves.push(r.status());
+    });
+    const closed = editor.waitForEvent('close', { timeout: 30000 });
+    try {
+      await editor.locator('input[type="submit"][name="action"]').first().dblclick({ noWaitAfter: true, timeout: 8000 });
+    } catch (error) {
+      // Only the popup closing or navigating under the second click is expected; anything else fails.
+      if (!/closed|detached|destroyed|navigat|Target page/i.test(error.message)) throw error;
+    }
+    await closed;
     const count = await settledCount(sql, onDate('2026-02-03'), { min: 1 });
     h.assert(count === 1, `A double click on Save stored ${count} preventions`);
-    h.assert(closePages.length === 0 || closePages.every(status => status === 200),
-      `A Save answered ${closePages.join(', ')} instead of the close page`);
-    await closeAll([editor, list]);
+    h.assert(saves.length >= 1 && saves.every(status => status === 200),
+      `Save answered ${saves.length ? saves.join(', ') : 'nothing the editor received'} instead of the close page`);
+    console.log(`    (${saves.length} Save response(s) reached the editor, which closed itself)`);
+    await closeAll([list]);
   });
 
   await s.step('a later, intentional add of the same immunization gets a new token and is stored', async () => {

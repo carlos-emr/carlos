@@ -187,6 +187,44 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldAnswerRepeatAsSaved_whenTheEditedRecordIsAlreadyReplaced() throws Exception {
+        mockRequest.setParameter("id", "100");
+        issueToken("100");
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any())).thenReturn(101);
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        // The first save replaced record 100, so it no longer validates; the repeat must not ask.
+        data.when(() -> PreventionData.requirePreventionInChart(100, 42))
+                .thenThrow(new IllegalArgumentException("record already replaced"));
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+
+        data.verify(() -> PreventionData.updatetPreventionData(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any()), times(1));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldFreeTheToken_whenTheRequestFailsValidation() throws Exception {
+        mockRequest.setParameter("id", "100");
+        issueToken("100");
+        data.when(() -> PreventionData.requirePreventionInChart(100, 42))
+                .thenThrow(new IllegalArgumentException("not in this chart yet"))
+                .thenAnswer(invocation -> null);
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any())).thenReturn(101);
+
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        // Nothing was written, so the same form may be submitted again and is saved.
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+
+        data.verify(() -> PreventionData.updatetPreventionData(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any()), times(1));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldRefuseWithoutWriting_whenTheTokenWasIssuedForAnotherRecord() throws Exception {
         issueToken("100");
 

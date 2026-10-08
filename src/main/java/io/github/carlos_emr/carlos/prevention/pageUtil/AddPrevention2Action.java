@@ -216,16 +216,11 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
 
-        //let's do some validation
-        List<String> valid = validate(preventionType, demographic_no, id);
-        if (valid != null && valid.size() > 0) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-
         // One rendered form saves once (issue #4410): a double click, double Enter or slow-response
         // re-click repeats the same token, and the repeat is answered from the first save's outcome.
-        // Posts without a token (the Rh-injection forms) are handled as before.
+        // Posts without a token (the Rh-injection forms) are handled as before. Claimed before the
+        // record is validated: once an edit or delete has saved, its original record is gone and a
+        // repeat must still read as the saved no-op it is, not as a request for a missing record.
         PreventionSubmissionGuard.Claim claim = null;
         String submissionToken = request.getParameter(PreventionSubmissionGuard.PARAMETER);
         if (submissionToken != null) {
@@ -233,9 +228,11 @@ public class AddPrevention2Action extends ActionSupport {
                     submissionToken, demographic_no, id, REPEAT_WAIT_MILLIS);
             switch (attempt.verdict()) {
                 case PROCEED -> claim = attempt.claim();
-                // The first submission of this form saved: close the popup as that save would have.
+                // The first submission of this form saved: end as that save would have, the DHIR
+                // review of a repeated "Save & Submit" included, without writing again.
                 case ALREADY_SAVED -> {
-                    return SUCCESS;
+                    return attempt.savedId() == null ? SUCCESS
+                            : dhirResult(submitToDhir, snomedId, demographic_no, given, attempt.savedId());
                 }
                 case IN_PROGRESS -> {
                     return refuseSubmission("oscarprevention.addpreventiondata.submitInProgress");
@@ -244,6 +241,14 @@ public class AddPrevention2Action extends ActionSupport {
                     return refuseSubmission("oscarprevention.addpreventiondata.submitStale");
                 }
             }
+        }
+
+        //let's do some validation
+        List<String> valid = validate(preventionType, demographic_no, id);
+        if (valid != null && valid.size() > 0) {
+            closeClaim(claim);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         Integer preventionId;
@@ -291,6 +296,9 @@ public class AddPrevention2Action extends ActionSupport {
             return "form";
         }
 
+        if (claim != null) {
+            claim.saved(preventionId);
+        }
         PreventionManager prvMgr = SpringUtils.getBean(PreventionManager.class);
         try {
             prvMgr.removePrevention(demographic_no);
@@ -300,6 +308,16 @@ public class AddPrevention2Action extends ActionSupport {
             closeClaim(claim);
         }
 
+        return dhirResult(submitToDhir, snomedId, demographic_no, given, preventionId);
+    }
+
+
+    /**
+     * The result after prevention {@code preventionId} was saved: the DHIR review page for a
+     * "Save &amp; Submit" of a given immunization the patient consented to share, else the page
+     * that closes the popup.
+     */
+    private String dhirResult(boolean submitToDhir, String snomedId, String demographic_no, String given, Integer preventionId) {
         if (submitToDhir) {
             CVCImmunization imm = cvcImmunizationDao.findBySnomedConceptId(snomedId);
             Consent ispaConsent = consentDao.findByDemographicAndConsentType(Integer.parseInt(demographic_no), "dhir_ispa_consent");
@@ -332,11 +350,8 @@ public class AddPrevention2Action extends ActionSupport {
                 }
             }
         }
-
-
         return SUCCESS;
     }
-
 
     /** Releases or settles a submission claim; a no-op for a post that carried no token. */
     private static void closeClaim(PreventionSubmissionGuard.Claim claim) {

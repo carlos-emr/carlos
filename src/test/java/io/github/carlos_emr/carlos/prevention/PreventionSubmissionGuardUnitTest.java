@@ -12,7 +12,12 @@
  */
 package io.github.carlos_emr.carlos.prevention;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import io.github.carlos_emr.carlos.prevention.PreventionSubmissionGuard.Attempt;
@@ -176,5 +181,49 @@ class PreventionSubmissionGuardUnitTest {
 
         assertThat(PreventionSubmissionGuard.attempt(session, saving, "42", null, 0).verdict())
                 .isEqualTo(Verdict.IN_PROGRESS);
+    }
+
+    @Test
+    void shouldReportTheSavedRecord_toARepeatOfACommittedSave() {
+        String token = PreventionSubmissionGuard.issue(session, "42", null);
+        Claim claim = PreventionSubmissionGuard.attempt(session, token, "42", null, 0).claim();
+        storeAndComplete(claim, TransactionSynchronization.STATUS_COMMITTED);
+        claim.saved(100);
+        claim.close();
+
+        assertThat(PreventionSubmissionGuard.attempt(session, token, "42", null, 0).savedId()).isEqualTo(100);
+    }
+
+    @Test
+    void shouldLetExactlyOneOfManySimultaneousSubmissionsClaimTheToken() throws Exception {
+        String token = PreventionSubmissionGuard.issue(session, "42", null);
+        int requests = 8;
+        CyclicBarrier claimBoundary = new CyclicBarrier(requests);
+        // One thread per request: the common pool may have fewer threads than the barrier needs.
+        ExecutorService threads = Executors.newFixedThreadPool(requests);
+        List<CompletableFuture<Verdict>> verdicts = new ArrayList<>();
+        for (int i = 0; i < requests; i++) {
+            verdicts.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    claimBoundary.await(5, TimeUnit.SECONDS);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+                // No wait: whoever does not claim sees the first save in flight.
+                return PreventionSubmissionGuard.attempt(session, token, "42", null, 0).verdict();
+            }, threads));
+        }
+
+        List<Verdict> outcomes = new ArrayList<>();
+        try {
+            for (CompletableFuture<Verdict> verdict : verdicts) {
+                outcomes.add(verdict.get(10, TimeUnit.SECONDS));
+            }
+        } finally {
+            threads.shutdownNow();
+        }
+
+        assertThat(outcomes).filteredOn(v -> v == Verdict.PROCEED).hasSize(1);
+        assertThat(outcomes).filteredOn(v -> v == Verdict.IN_PROGRESS).hasSize(requests - 1);
     }
 }

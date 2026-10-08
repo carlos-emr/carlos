@@ -64,7 +64,8 @@ public final class PreventionSubmissionGuard {
 
     private enum State { ISSUED, SAVING, SAVED }
 
-    private record Entry(String patient, String record, State state) implements Serializable { }
+    /** {@code savedId} is the prevention the first submission saved, once it is {@code SAVED}. */
+    private record Entry(String patient, String record, State state, Integer savedId) implements Serializable { }
 
     private record Pending(LinkedHashMap<String, Entry> entries) implements Serializable { }
 
@@ -85,8 +86,14 @@ public final class PreventionSubmissionGuard {
      *
      * @param verdict how to handle the submission
      * @param claim the reservation, non-null only for {@link Verdict#PROCEED}
+     * @param savedId for {@link Verdict#ALREADY_SAVED}, the prevention the first submission saved
+     *        when it reported one (null when its outcome was not confirmed)
      */
-    public record Attempt(Verdict verdict, Claim claim) { }
+    public record Attempt(Verdict verdict, Claim claim, Integer savedId) {
+        Attempt(Verdict verdict, Claim claim) {
+            this(verdict, claim, null);
+        }
+    }
 
     private PreventionSubmissionGuard() { }
 
@@ -102,7 +109,7 @@ public final class PreventionSubmissionGuard {
         String token = UUID.randomUUID().toString();
         synchronized (WebUtils.getSessionMutex(session)) {
             LinkedHashMap<String, Entry> entries = copyEntries(session);
-            putBounded(entries, token, new Entry(String.valueOf(patient), normalize(record), State.ISSUED));
+            putBounded(entries, token, new Entry(String.valueOf(patient), normalize(record), State.ISSUED, null));
             session.setAttribute(SESSION_KEY, new Pending(entries));
         }
         return token;
@@ -134,12 +141,12 @@ public final class PreventionSubmissionGuard {
                 }
                 switch (entry.state()) {
                     case ISSUED -> {
-                        entries.put(token, new Entry(entry.patient(), entry.record(), State.SAVING));
+                        entries.put(token, new Entry(entry.patient(), entry.record(), State.SAVING, null));
                         session.setAttribute(SESSION_KEY, new Pending(entries));
                         return new Attempt(Verdict.PROCEED, new Claim(session, token, entry));
                     }
                     case SAVED -> {
-                        return new Attempt(Verdict.ALREADY_SAVED, null);
+                        return new Attempt(Verdict.ALREADY_SAVED, null, entry.savedId());
                     }
                     default -> {
                         // SAVING: the first submission is still writing; poll until it settles.
@@ -199,6 +206,7 @@ public final class PreventionSubmissionGuard {
         private final Entry issued;
         private boolean closed;
         private volatile int completion = -1;
+        private Integer savedId;
 
         private Claim(HttpSession session, String token, Entry issued) {
             this.session = session;
@@ -219,6 +227,16 @@ public final class PreventionSubmissionGuard {
             }
         }
 
+        /**
+         * Records the prevention this submission saved, so a repeat of the form can continue to
+         * the same record (the DHIR review of a repeated "Save &amp; Submit").
+         *
+         * @param preventionId the saved prevention's id
+         */
+        public synchronized void saved(Integer preventionId) {
+            this.savedId = preventionId;
+        }
+
         /** Whether the transaction outcome proves that this attempt wrote nothing. */
         public boolean canRetry() {
             return completion == -1 || completion == TransactionSynchronization.STATUS_ROLLED_BACK;
@@ -228,10 +246,11 @@ public final class PreventionSubmissionGuard {
         public synchronized void close() {
             if (closed) return;
             closed = true;
-            State outcome = canRetry() ? State.ISSUED : State.SAVED;
+            boolean retry = canRetry();
+            State outcome = retry ? State.ISSUED : State.SAVED;
             synchronized (WebUtils.getSessionMutex(session)) {
                 LinkedHashMap<String, Entry> entries = copyEntries(session);
-                putBounded(entries, token, new Entry(issued.patient(), issued.record(), outcome));
+                putBounded(entries, token, new Entry(issued.patient(), issued.record(), outcome, retry ? null : savedId));
                 session.setAttribute(SESSION_KEY, new Pending(entries));
             }
         }
