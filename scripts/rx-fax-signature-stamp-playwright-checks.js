@@ -99,7 +99,7 @@ const { validateMysqlHost } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 // Page frames are trusted only on this application (see browser-error-class.js).
-const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';

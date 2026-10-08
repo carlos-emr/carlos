@@ -140,9 +140,18 @@ test('errorSourceLocation returns nothing rather than an unsafe or missing locat
   assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (http://127.0.0.1:8080/carlos/js/a.js:9:9)' }, APP), ' at (/carlos/js/a.js:9:9)');
 });
 
-test('every check that reports a source location binds it to its own BASE_URL', () => {
+test('every check that reports a source location binds it to its own validated BASE_URL', () => {
+  const { createErrorSourceLocator } = require('./browser-error-class');
+  const pageError = { stack: 'TypeError: x\n    at setComment (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:5:6)' };
   for (const name of ['rx-fax-record-binding', 'rx-fax-signature-stamp', 'rx-fax-reprint-represcribe', 'patient-list-by-appointment-export']) {
     const source = fs.readFileSync(path.join(__dirname, `${name}-playwright-checks.js`), 'utf8');
-    assert.match(source, /const errorSourceLocation = createErrorSourceLocator\(baseUrl\.href\);/, name);
+    // baseUrl itself, never baseUrl.href: one check's validateBaseUrl returns a string, whose
+    // .href is undefined, and an undefined base rejects every page frame.
+    assert.match(source, /const errorSourceLocation = createErrorSourceLocator\(baseUrl\);/, name);
   }
+  // The two shapes the checks' validators return: a URL object, and the origin+path string.
+  const expected = ' at setComment (/carlos/oscarRx/ViewScript2.jsp:5:6)';
+  assert.equal(createErrorSourceLocator(new URL('http://127.0.0.1:8080/carlos'))(pageError), expected);
+  assert.equal(createErrorSourceLocator('http://127.0.0.1:8080/carlos')(pageError), expected);
+  assert.equal(createErrorSourceLocator(undefined)(pageError), '', 'no base URL trusts no page frame');
 });

@@ -115,7 +115,7 @@ function validateBaseUrl(rawBaseUrl) {
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 // Page frames are trusted only on this application (see browser-error-class.js).
-const errorSourceLocation = createErrorSourceLocator(baseUrl.href);
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const chromePath = process.env.CHROME_PATH || '';
 const loopbackTarget = isLoopbackHost(baseUrl.hostname);
 const fixturePlan = planPatientListFixture(process.env);
