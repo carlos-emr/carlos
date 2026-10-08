@@ -41,6 +41,10 @@
  * or driven end to end, including building and starting Tomcat, by
  *   scripts/migration/o19/rehearsal/ui-smoke.sh
  *
+ * On a deployment that never ran an import (no break-glass credentials file at
+ * O19_ADMIN_CREDENTIALS) it prints SKIP with the reason and exits 2, so a suite
+ * run on a fresh package install reports a missing fixture, not a failure.
+ *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
@@ -58,6 +62,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { EXIT_SKIP } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -653,6 +658,22 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 // --- checks ----------------------------------------------------------------
 
 (async () => {
+  // No break-glass credentials file means this deployment never ran
+  // `carlos-ctl import-o19`: a fresh package install or the devcontainer.
+  // There is nothing migrated to smoke, so report SKIP (exit 2, #3313) and
+  // name the missing fixture instead of failing the suite (#4412). Checked
+  // before anything is written -- no MySQL defaults file, no browser, no
+  // restore points. A credentials file that exists but is unreadable or
+  // incomplete still fails in readAdminCredentials(): that is a broken
+  // import, not an absent one.
+  if (!fs.existsSync(credentialsPath)) {
+    console.log(`SKIP o19-migrated-smoke -- no break-glass credentials at ${credentialsPath}: `
+      + 'this check needs a database produced by carlos-ctl import-o19 (see '
+      + 'docs/ui-tests/deb-install-validation.md, "Checks that need their own fixture"). '
+      + 'Set O19_STATE_DIR or O19_ADMIN_CREDENTIALS to point at an import.');
+    process.exitCode = EXIT_SKIP;
+    return;
+  }
   assertLocalDatabaseTarget();
   mysqlDefaults = createMysqlDefaultsFile();
   const credentials = readAdminCredentials();

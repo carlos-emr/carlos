@@ -29,15 +29,21 @@
  *      (PrintSaveButton, also hidden by the toolbar) prints the iframe and submits through the CSP
  *      timer shim;
  *   6. the Preventions sidebar button loads through eform/rtlPreventions.do (unmapped before);
- *   7. optionally, a clinic .rtl template (RTL_TEMPLATE_NAME) loads into the editor unsandboxed and
- *      stays editable (any template other than blank.rtl used to be served with a sandbox CSP).
+ *   7. a clinic .rtl template loads into the editor unsandboxed and stays editable (any template
+ *      other than blank.rtl used to be served with a sandbox CSP). By default the check uses
+ *      clinic_letter.rtl, which EFormAssetDeployer seeds into the eForm images directory on every
+ *      install, so this step needs no fixture (#4412). RTL_TEMPLATE_NAME names a different one,
+ *      e.g. a clinic-uploaded template (deb-install-validation.md fixture c); if that template is
+ *      not installed the check still runs every other step and then reports SKIP (exit 2) naming
+ *      the missing fixture, rather than failing on a template dropdown it was never given.
  *
  * Every page is checked for uncaught JS errors and severe console errors; the only tolerated one is
  * the documented stamps.js 404 on stock installs.
  *
  * Environment: BASE_URL (default http://127.0.0.1:8080/carlos), TEST_USER/TEST_PASSWORD/TEST_PIN,
  * RTL_DEMOGRAPHIC_NO (default 1), RTL_FORM_NAME (default "Rich Text Letter"), RTL_TEMPLATE_NAME
- * (optional, e.g. MissedAppointment.rtl), RTL_SCREENSHOT_DIR (default /tmp), CHROME_PATH (optional).
+ * (default clinic_letter.rtl; e.g. MissedAppointment.rtl), RTL_SCREENSHOT_DIR (default /tmp),
+ * CHROME_PATH (optional).
  */
 
 const fs = require('fs');
@@ -59,6 +65,10 @@ const {
   wirePage,
 } = require('./eform-local-playwright-utils');
 
+// A non-blank starter template EFormAssetDeployer seeds on every install (see its ASSETS list), so
+// the template step has something to load on a fresh package install with no fixture staged.
+const SEEDED_TEMPLATE_NAME = 'clinic_letter.rtl';
+
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
   chromePath: process.env.CHROME_PATH || '',
@@ -68,7 +78,10 @@ const config = {
   demographicNo: process.env.RTL_DEMOGRAPHIC_NO || '1',
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
-  templateName: process.env.RTL_TEMPLATE_NAME || '',
+  templateName: process.env.RTL_TEMPLATE_NAME || SEEDED_TEMPLATE_NAME,
+  // Only an operator-named template can be a missing fixture; the seeded default being absent is a
+  // deployment defect and fails like any other step.
+  templateIsFixture: Boolean(process.env.RTL_TEMPLATE_NAME),
 };
 
 const LETTER_TEXT = 'Dear Dr. Smith, the patient reports "chest pain" & <cough>. Playwright RTL check.';
@@ -195,6 +208,7 @@ async function savedFdid(page) {
 (async () => {
   const recorder = createRecorder();
   const results = [];
+  let missingTemplate = '';
   const step = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`); };
   const browser = await chromium.launch(getLaunchOptions(config.chromePath));
   const printLog = [];
@@ -328,11 +342,24 @@ async function savedFdid(page) {
     step('"Submit & Print" submits through the string-timer shim and saves', /^\d+$/.test(fdidAfterFormPrint) && fdidAfterFormPrint !== fdidAfterPrint, `fdid ${fdidAfterFormPrint}`);
     await page.close();
 
-    // ---------- 6. Optional: a clinic .rtl template loads unsandboxed and stays editable ----------
-    if (config.templateName) {
-      page = await openNewLetter(context, recorder, fid, 'rtl-template');
-      const option = page.locator(`#template option[value="${config.templateName}"]`);
-      step(`template dropdown offers ${config.templateName}`, (await option.count()) === 1, '');
+    // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
+    page = await openNewLetter(context, recorder, fid, 'rtl-template');
+    const option = page.locator(`#template option[value="${config.templateName}"]`);
+    const offered = (await option.count()) === 1;
+    if (!offered && config.templateIsFixture) {
+      // The operator named a template this install does not have: a missing fixture, not a defect.
+      // Waiting on selectOption() here was the 30 s TimeoutError #4412 reported.
+      missingTemplate = config.templateName;
+      console.log(`[skip] RTL_TEMPLATE_NAME=${config.templateName} is not in the template dropdown; `
+        + 'stage it in the eForm images directory (deb-install-validation.md fixture c) or unset '
+        + `RTL_TEMPLATE_NAME to use the seeded ${SEEDED_TEMPLATE_NAME}`);
+      await page.close();
+    } else if (!offered) {
+      // The seeded default is missing: EFormAssetDeployer did not run or the directory was emptied.
+      step(`template dropdown offers ${config.templateName}`, false, 'seeded by EFormAssetDeployer on every install');
+      await page.close();
+    } else {
+      step(`template dropdown offers ${config.templateName}`, true, '');
       const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(config.templateName)}`) || r.url().includes(`imagefile=${config.templateName}`), { timeout: 30000 });
       await page.locator('#template').selectOption(config.templateName);
       const tr = await templateResponse;
@@ -347,8 +374,6 @@ async function savedFdid(page) {
       });
       step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
       await page.close();
-    } else {
-      console.log('[skip] RTL_TEMPLATE_NAME not set: clinic template check skipped');
     }
 
     // ---------- 7. No JS failures anywhere ----------
@@ -366,5 +391,12 @@ async function savedFdid(page) {
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
+  if (!failed.length && missingTemplate) {
+    // Exit 2 is the suite's SKIP (#3313): every step that could run passed, but the one the
+    // operator asked for had no fixture to run against, so this is not a clean PASS either.
+    console.log(`SKIP eform-rtl-print-pdf -- RTL_TEMPLATE_NAME=${missingTemplate} is not installed `
+      + '(deb-install-validation.md fixture c); every other step passed');
+    process.exit(2);
+  }
   process.exit(failed.length ? 1 : 0);
 })();

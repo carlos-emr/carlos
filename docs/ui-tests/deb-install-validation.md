@@ -509,18 +509,26 @@ lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/consult_sig_999998.png'
 
-# c) A clinic Rich Text Letter template, so eform-rtl-print-pdf-playwright-checks.js
-#    (RTL_TEMPLATE_NAME=MissedAppointment.rtl) can prove clinic .rtl templates load
-#    into the editor unsandboxed. The repo ships one.
+# c) OPTIONAL. eform-rtl-print-pdf-playwright-checks.js proves a clinic .rtl
+#    template loads into the editor unsandboxed using clinic_letter.rtl, which the
+#    application seeds into the eForm image directory on every install, so it needs
+#    no fixture. Stage a clinic-UPLOADED template only to cover that case too, and
+#    then export RTL_TEMPLATE_NAME=MissedAppointment.rtl (section 6). With the
+#    variable set and the file absent the check SKIPs (exit 2) naming this fixture.
+#    The repo ships one.
 lxc file push release/Document/carlos/eform/images/MissedAppointment.rtl \
   carlos-test/var/lib/carlos-emr/CarlosDocument/carlos/eform/images/
 lxc exec carlos-test -- bash -c \
   'chown carlos:carlos /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
    chmod 0640          /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl'
 
-# d) The three LOCAL_SEED_OBEC_REPORT appointments that
-#    patient-list-by-appointment-export-playwright-checks.js documents as its
-#    operator-provisioned fixture contract (see that script's header):
+# d) OPTIONAL. The three LOCAL_SEED_OBEC_REPORT appointments that
+#    patient-list-by-appointment-export-playwright-checks.js asserts on. With the
+#    section 6 MYSQL_* variables the check inserts and removes them itself; insert
+#    them by hand only for a run without database access, and then export
+#    PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 so the check uses
+#    these rows read-only (see that script's header). Do not do both: the
+#    self-seeding run SKIPs when it finds rows already in its date window.
 lxc exec carlos-test -- mariadb -u root carlos -e "
 INSERT INTO appointment (provider_no, appointment_date, start_time, end_time,
     name, demographic_no, notes, reason, location, resources, type, style,
@@ -564,6 +572,21 @@ The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
 `carlos-emr.service` may write (gpg writes its trust database and lock files
 there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
 suite; the check runs as root and decrypts the `.pgp` download with it.
+
+### Checks that need their own fixture
+
+A check that cannot run for want of a fixture reports **SKIP** (exit 2, #3313)
+with the reason on its own output, and the suite runner repeats the check's
+`fixtures` note from `scripts/playwright-suite.json` in its summary table, so a
+missing fixture never reads as a broken application. Issue #4412 found four
+checks that failed on a fresh install instead; they now behave as follows.
+
+| Check | What it needs | On a fresh install with the section 6 environment |
+|---|---|---|
+| `eform-rtl-print-pdf` | Nothing: its template step uses `clinic_letter.rtl`, which the application seeds on every install. `RTL_TEMPLATE_NAME` names a clinic-uploaded template instead (fixture c). | Runs. With `RTL_TEMPLATE_NAME` set and that file not staged, every other step still runs, then SKIP naming fixture c. |
+| `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
+| `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`, no query string or message), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
+| `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
 
 Restart once after loading so nothing serves from a pre-load cache:
 
@@ -668,7 +691,8 @@ export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1
 export CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+# patient-list-by-appointment-export seeds its own appointments through MYSQL_*; set
+# PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1 only if fixture d was inserted by hand.
 # Ontario 3rd-Party / Bonus-Codes bill entry (billing-on-third-party-playwright-checks.js).
 # Read-only: it opens the Ontario bill form for this appointment and switches the bill
 # type, but never submits a bill, so it seeds nothing and cleans nothing up. It asserts
@@ -677,8 +701,9 @@ export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
 # missing, so a status-only assertion would pass on a re-broken page.
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
-# Rich Text Letter print/PDF check (fixture c above); omit to skip only its template step.
-export RTL_TEMPLATE_NAME=MissedAppointment.rtl
+# Rich Text Letter print/PDF check. Its template step uses the seeded clinic_letter.rtl;
+# name a clinic-uploaded template only after staging it (optional fixture c above):
+# export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 # Rx signature-stamp fax check (rx-fax-signature-stamp-playwright-checks.js). It writes and then
 # deletes its own prescription (and every other row it creates: drugs, DigitalSignature, faxes,
 # FaxClientLog, fax_config), so it needs no fixture script id. It cannot remove FILES: each run

@@ -88,7 +88,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, validateMysqlHost } = require('./lib/playwright-harness');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, errorSourceLocation } = require('./browser-error-class');
 const { stageRxFaxAccount, cleanupRxFaxAccount } = require('./rx-fax-account-fixture');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 
@@ -298,7 +298,7 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (e) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(e)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(e)}${errorSourceLocation(e)}` });
   }
 }
 
@@ -311,7 +311,7 @@ async function releaseFixtureLock() {
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (e) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}${fixtureErrorTag(e)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(e)}${fixtureErrorTag(e)}${errorSourceLocation(e)}` });
     }
   };
   let scripts = [];
@@ -361,7 +361,7 @@ function safeUrl(rawUrl) {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', (dialog) => {
     // Only the custom-drug confirm() is expected, and only while the flag is set. Any other
@@ -784,6 +784,6 @@ async function runChecks(context) {
   }
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
-  console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
+  console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
   process.exit(1);
 });

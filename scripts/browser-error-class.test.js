@@ -63,3 +63,39 @@ test('fax workflow failure phases use fixed labels without browser or database c
     assert.ok(source.includes('${checkPhase}: ${browserErrorClass(error)}'));
   }
 });
+
+test('errorSourceLocation names the throwing script without its query string or session id', () => {
+  const { errorSourceLocation } = require('./browser-error-class');
+  const pageError = new TypeError('FAKE-Patient secret');
+  pageError.stack = [
+    "TypeError: Cannot read properties of null (reading 'value') for FAKE-Patient",
+    '    at setComment (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp;jsessionid=ABC123?scriptId=45&demographicNo=1:812:31)',
+    '    at onload (http://127.0.0.1:8080/carlos/oscarRx/ViewScript2.jsp?demographicNo=1:1:1)',
+  ].join('\n');
+  const location = errorSourceLocation(pageError);
+  assert.equal(location, ' at setComment (/carlos/oscarRx/ViewScript2.jsp:812:31)');
+  assert.doesNotMatch(location, /demographicNo|scriptId|jsessionid|ABC123|FAKE|Cannot read/);
+});
+
+test('errorSourceLocation skips Node internals and node_modules to reach the check\'s own frame', () => {
+  const { errorSourceLocation } = require('./browser-error-class');
+  const timeout = { name: 'TimeoutError', stack: [
+    'TimeoutError: locator.click: Timeout 30000ms exceeded.',
+    '    at ProtocolError (/repo/node_modules/playwright-core/lib/client/connection.js:1:2)',
+    '    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)',
+    '    at async runChecks (/home/user/carlos/scripts/rx-fax-record-binding-playwright-checks.js:800:5)',
+  ].join('\n') };
+  assert.equal(errorSourceLocation(timeout), ' at runChecks (rx-fax-record-binding-playwright-checks.js:800:5)');
+  assert.equal(browserErrorClass(timeout), 'TimeoutError');
+});
+
+test('errorSourceLocation returns nothing rather than an unsafe or missing location', () => {
+  const { errorSourceLocation } = require('./browser-error-class');
+  assert.equal(errorSourceLocation(null), '');
+  assert.equal(errorSourceLocation({ stack: 42 }), '');
+  assert.equal(errorSourceLocation({ stack: 'Error: x\n    at eval (eval at <anonymous> (FAKE Patient.js:1:1))' }), '');
+  // An anonymous frame keeps its location but no function name.
+  assert.equal(errorSourceLocation({ stack: 'Error\n    at http://127.0.0.1:8080/carlos/js/app.js?v=1:3:4' }), ' at (/carlos/js/app.js:3:4)');
+  // A function name outside the identifier alphabet is dropped, the location kept.
+  assert.equal(errorSourceLocation({ stack: 'Error\n    at Object.<anonymous> (/x/scripts/check.js:9:9)' }), ' at (check.js:9:9)');
+});
