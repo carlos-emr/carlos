@@ -64,8 +64,9 @@ description).
 added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
 `release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1 from its tag)
 and installed fresh into an Ubuntu 26.04 container with the demo dataset
-(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Result: **PASS** 10/10 steps through
-`:443`, three runs in a row. `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Result: **PASS** 11/11 steps through
+`:443`, three runs in a row. One step uses a fr-CA browser. A probe with es-ES, pl-PL, pt-BR and
+en-CA browsers showed each one rendering the dialogue alerts from its own `oscarResources` bundle. `allergy-add-penicillin`, `allergy-custom-lifecycle`,
 `allergy-rx-alert`, `csrf-runtime-forms` and `csrf-xhr-token` also passed. In
 `double-submit-chart-adds` all five Add Allergy modes passed; its prevention slow-resubmit
 mode recorded two preventions, which this change does not touch. Against the unfixed release
