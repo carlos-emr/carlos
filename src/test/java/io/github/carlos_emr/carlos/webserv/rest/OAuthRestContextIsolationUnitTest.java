@@ -53,7 +53,7 @@ import org.w3c.dom.NodeList;
  * in one Spring root context.
  *
  * <p>Issue #3446 made {@code OscarSpringContextLoader} load the OAuth file on every deployment, after
- * {@code spring_ws.xml}. Spring allows bean-definition overriding, so any bean id the two files
+ * {@code applicationContext.xml} and the {@code spring_ws.xml} it imports. Spring allows bean-definition overriding, so any bean id the two files
  * shared was silently replaced by the OAuth file's definition. Before the fix the OAuth file declared
  * {@code jaxb}, {@code jacksonObjectMapper} and {@code jsonProvider} again, and loading it switched the
  * session surface's JSON dates from epoch milliseconds to {@code yyyy-MM-dd} strings. A deployed
@@ -66,6 +66,8 @@ import org.w3c.dom.NodeList;
 @Tag("rest")
 class OAuthRestContextIsolationUnitTest {
 
+    /** The core context OscarSpringContextLoader reads first; it imports spring_ws.xml. */
+    private static final String ROOT_CONFIG = "applicationContext.xml";
     private static final String SESSION_CONFIG = "spring_ws.xml";
     private static final String OAUTH_CONFIG = "applicationContextREST.xml";
 
@@ -80,20 +82,25 @@ class OAuthRestContextIsolationUnitTest {
             "org.springframework.beans.factory.config.MethodInvokingFactoryBean");
 
     @Test
-    @DisplayName("should register the OAuth context after the session context without overriding any bean")
-    void shouldNotOverrideSessionBeans_whenOAuthContextLoadsAfterSessionContext() {
+    @DisplayName("should register the OAuth context after the root context without overriding any bean")
+    void shouldNotOverrideRootBeans_whenOAuthContextLoadsAfterRootContext() {
         DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
         XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(factory);
-        // Same order as the deployed root context: applicationContext.xml imports spring_ws.xml,
-        // and OscarSpringContextLoader reads applicationContextREST.xml next. Only definitions
-        // are registered; nothing is instantiated, so no database or servlet container is needed.
-        reader.loadBeanDefinitions(new ClassPathResource(SESSION_CONFIG));
+        // Same order as the deployed root context: OscarSpringContextLoader reads
+        // applicationContext.xml (which imports spring_jpa.xml, spring_managers.xml and
+        // spring_ws.xml, with their component scans) and then applicationContextREST.xml.
+        // Only definitions are registered; nothing is instantiated, so no database or
+        // servlet container is needed. The root file itself keeps production's rule.
+        reader.loadBeanDefinitions(new ClassPathResource(ROOT_CONFIG));
+        assertThat(factory.containsBeanDefinition(SESSION_JSON_PROVIDER))
+                .as("%s must bring in spring_ws.xml's beans for this check to mean anything", ROOT_CONFIG)
+                .isTrue();
 
         factory.setAllowBeanDefinitionOverriding(false);
         assertThatCode(() -> reader.loadBeanDefinitions(new ClassPathResource(OAUTH_CONFIG)))
-                .as("%s must not redefine a bean that %s (or a file it imports) already defines: "
-                        + "the later definition would silently replace the session /ws/rs bean",
-                        OAUTH_CONFIG, SESSION_CONFIG)
+                .as("%s must not redefine a bean the root context already defines: the later "
+                        + "definition would silently replace it, as it once replaced the session "
+                        + "/ws/rs JSON mapper", OAUTH_CONFIG)
                 .doesNotThrowAnyException();
     }
 
