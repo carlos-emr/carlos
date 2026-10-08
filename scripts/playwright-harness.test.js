@@ -962,13 +962,15 @@ test('shouldFailAssertRefused_whenANamedStatusLacksTheHeaderOrWasNotNamed', asyn
   }), (error) => /WAF refusal/.test(error.message) && /COUNT\(\*\) was 2 before the request and 3 after/.test(error.message));
 });
 
-test('shouldRefuseAssertRefused_whenANamedStatusIsNotA4xx', async () => {
+test('shouldRefuseAssertRefused_whenANamedStatusIsOutsideTheAllowList', async () => {
+  // A 404 is a mistyped route and a 400 a malformed probe: neither may ever be declared a refusal.
   const { s } = sessionCounting(2);
-  for (const alsoRefusedBy of [[200], [302], [500], ['415'], 415]) {
+  for (const alsoRefusedBy of [[404], [400], [401], [200], [302], [500], [415, 404], ['415'], 415]) {
     await assert.rejects(harness.assertRefused(s, {
-      response: apiResponse({ status: 200, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy,
-    }), /alsoRefusedBy names 4xx statuses only/, JSON.stringify(alsoRefusedBy));
+      response: apiResponse({ status: 404, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy,
+    }), /alsoRefusedBy names only 409, 415, 422/, JSON.stringify(alsoRefusedBy));
   }
+  assert.deepEqual([...harness.ALSO_REFUSED_STATUSES], [409, 415, 422]);
 });
 
 test('shouldNameEveryProblem_whenWafPageAndRowCountChanged', async () => {

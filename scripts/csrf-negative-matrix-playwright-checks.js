@@ -24,13 +24,16 @@
  * uses POST /ws/rs/tickler/add, which eForms built with the eForm Generator's tickler option call
  * from the browser with the session cookie (eformGenerator.jsp, the generated `$.ajax` with
  * contentType application/json). It asserts the session cookie is SameSite=Lax (or Strict); that
- * the JSON call from a page of the session writes one tickler (control: the endpoint and the
- * session work, and no token is needed); and that the same body sent as text/plain, as
- * application/x-www-form-urlencoded and as multipart/form-data -- the three types a cross-site
- * form can send without a preflight -- writes nothing: the application's 415 (alsoRefusedBy) or,
- * for text/plain behind the packaged front door, the WAF's 403, which is reported as the front
- * door's refusal because CARLOS is never reached (the form-encoded and multipart probes still
- * have to reach CARLOS and be refused by it).
+ * the body sent with the session cookie as application/json and NO CSRF material at all (no
+ * CSRF-TOKEN header or parameter, no X-Requested-With: sent by the API client, not by a page whose
+ * CSRFGuard script would stamp a token on the XHR) writes one tickler -- the control that the
+ * endpoint and the session work and that no token is needed, so the content type is the only
+ * difference from the probes; and that the same body sent as application/x-www-form-urlencoded and
+ * as multipart/form-data writes nothing, refused by the application with 415 (alsoRefusedBy).
+ * text/plain, the third type a cross-site form can send without a preflight, is sent too: behind
+ * the packaged front door the WAF answers it before CARLOS is reached, so it is printed as a NOTE
+ * (application not reached) and only its unchanged rows are asserted; without the front door it
+ * must be the application's 415 like the others.
  *
  * Fixtures: the owned FAKE patient (runWorkflow), an owned eForm template, owned appointments,
  * and every row each family writes, marker-keyed (`<marker>-<family>-<tag>` text or the owned
@@ -95,7 +98,7 @@ async function workflow(s) {
       'Owned REST ticklers were not removed');
   });
 
-  await s.step('a session-cookie /ws/rs mutation sent as text/plain, form-encoded or multipart is refused, where JSON from the page writes', async () => {
+  await s.step('a session-cookie /ws/rs mutation sent form-encoded or multipart (and text/plain) is refused, where the same body as JSON with no token writes', async () => {
     const session = (await s.context.cookies(config.baseUrl.toString())).find((cookie) => cookie.name === 'JSESSIONID');
     h.assert(session, 'The session has no JSESSIONID cookie');
     h.assert(['Lax', 'Strict'].includes(session.sameSite), `The session cookie is SameSite=${session.sameSite}, not Lax or Strict`);
@@ -104,18 +107,18 @@ async function workflow(s) {
     const body = (tag) => JSON.stringify({ demographicNo: patient, message: prefix + tag, taskAssignedTo: provider,
       serviceDate: F.futureDate(30), priority: 'Normal' });
 
-    // Control: the call as the generated eForm makes it, from a page of the session (jQuery $.ajax, JSON).
-    const chart = await s.chart();
+    // Control: the generated eForm's request (application/json), sent with the session cookie and no
+    // CSRF material, so the probes below differ from it in their content type alone.
     const before = R.count(sql, 'tickler', restWhere('JS'));
-    const answered = await chart.evaluate(({ target, data }) => new Promise((resolve) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the URL comes from appUrl over the validated base URL and the body is the check's own marker JSON
-      if (!window.jQuery) { resolve({ status: 0 }); return; }
-      window.jQuery.ajax({ type: 'POST', url: target, dataType: 'json', contentType: 'application/json', data,
-        success: (result, text, xhr) => resolve({ status: xhr.status }), error: (xhr) => resolve({ status: xhr.status }) });
-    }), { target: url, data: body('JS') });
-    h.assert(answered.status === 200, `Control: the JSON call from the chart answered HTTP ${answered.status}`);
-    await R.expectCount(sql, 'tickler', restWhere('JS'), before + 1, 'Control: the JSON call from the chart did not write its tickler');
+    const control = await s.context.request.fetch(url, {
+      method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, data: body('JS'),
+      maxRedirects: 0, failOnStatusCode: false,
+    });
+    h.assert(control.status() === 200, `Control: the tokenless JSON call answered HTTP ${control.status()}`);
+    await R.expectCount(sql, 'tickler', restWhere('JS'), before + 1, 'Control: the tokenless JSON call did not write its tickler');
 
     const outcomes = [];
+    const notes = [];
     for (const [tag, type, send] of [
       ['TP', 'text/plain', { headers: { 'content-type': 'text/plain' }, data: body('TP') }],
       ['FE', 'application/x-www-form-urlencoded', { headers: { 'content-type': 'application/x-www-form-urlencoded' }, data: body('FE') }],
@@ -125,10 +128,10 @@ async function workflow(s) {
       const response = await s.context.request.fetch(url, { method: 'POST', maxRedirects: 0, failOnStatusCode: false, ...send });
       const text = await response.text().catch(() => '');
       if (tag === 'TP' && config.expectFrontDoor && h.isWafPage(response.status(), text)) {
-        // The front door's CRS rejects a text/plain body before CARLOS sees it: a refusal, but not
-        // the application's, so it is reported as the front door's and the rows are still compared.
+        // The front door's CRS rejects a text/plain body before CARLOS sees it. That is not the
+        // application's refusal and is not counted among them; only the unchanged rows are asserted.
         h.assert(String(R.count(sql, 'tickler', restWhere(tag))) === rows, `${type} to ${REST_TICKLER} changed tickler`);
-        outcomes.push(`${type} -> refused by the WAF front door with HTTP 403, CARLOS not reached; tickler unchanged`);
+        notes.push(`${type} -> application not reached (WAF front door, HTTP 403); tickler unchanged`);
         continue;
       }
       const verdict = await h.assertRefused(s, {
@@ -137,7 +140,9 @@ async function workflow(s) {
       });
       outcomes.push(`${type} -> ${verdict.evidence}; tickler unchanged (${verdict.rows})`);
     }
-    console.log(`  probe ${NAME}: session cookie SameSite=${session.sameSite}; JSON from the page -> HTTP 200, wrote; ${outcomes.join('; ')}`);
+    h.assert(outcomes.length >= 2, 'Fewer than two content types reached the application, so its own refusal was not shown');
+    console.log(`  probe ${NAME}: session cookie SameSite=${session.sameSite}; tokenless JSON -> HTTP 200, wrote; refused by the application: ${outcomes.join('; ')}`);
+    for (const note of notes) console.log(`  NOTE ${NAME}: ${note}`);
   });
 }
 

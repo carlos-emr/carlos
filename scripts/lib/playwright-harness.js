@@ -1156,6 +1156,13 @@ function markFailedStep(error, label) {
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 
 /**
+ * The statuses a caller may add to assertRefused's refusals (alsoRefusedBy), each a deliberate answer
+ * to the request's content rather than to its address: 409 (a conflicting or replayed submission),
+ * 415 (a content type the resource does not consume) and 422 (an entity it will not process).
+ */
+const ALSO_REFUSED_STATUSES = Object.freeze([409, 415, 422]);
+
+/**
  * The front door's block page: nginx + ModSecurity answer 403 to text the application would have
  * accepted (the check's own fixture text can trip CRS rules). It says nothing about the route.
  */
@@ -1279,13 +1286,15 @@ function judgeRefusal({ status, headers, body }, alsoRefusedBy = []) {
  * the request in the message. `alsoRefusedBy` (optional, default none) names further HTTP statuses
  * that are THIS request's deliberate refusal, such as 415 from a JAX-RS resource that @Consumes JSON
  * when the probe sends another content type; one of them counts only when it carries the
- * application header, and only 4xx statuses can be named. Returns { status, evidence, rows }.
+ * application header. Only ALSO_REFUSED_STATUSES can be named: a 404 (a mistyped route) or a 400 says
+ * nothing about the defence under test, so it can never be declared a refusal. Returns
+ * { status, evidence, rows }.
  */
 async function assertRefused(s, {
   response, table, where, before, label = 'the request', alsoRefusedBy = [],
 } = {}) {
-  assert(Array.isArray(alsoRefusedBy) && alsoRefusedBy.every(status => Number.isInteger(status) && status >= 400 && status < 500),
-    'assertRefused: alsoRefusedBy names 4xx statuses only');
+  assert(Array.isArray(alsoRefusedBy) && alsoRefusedBy.every(status => ALSO_REFUSED_STATUSES.includes(status)),
+    `assertRefused: alsoRefusedBy names only ${ALSO_REFUSED_STATUSES.join(', ')}`);
   assert(s && s.sql && typeof s.sql.value === 'function', 'assertRefused needs the workflow session (s.sql.value)');
   assert(before !== undefined && before !== null && String(before).trim() !== '',
     'assertRefused needs the COUNT(*) taken before the request (before)');
@@ -1397,6 +1406,7 @@ module.exports = {
   appUrl,
   assert,
   APPLICATION_HEADER,
+  ALSO_REFUSED_STATUSES,
   assertNoPageErrors,
   assertNotErrorPage,
   assertRefused,

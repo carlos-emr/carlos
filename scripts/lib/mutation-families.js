@@ -441,8 +441,9 @@ function chartNoteSave(s) {
  * but WHAT it saves is the session's stash of staged cards, so a replay that is meant to write
  * stages a fresh custom drug in the same Rx window first and points the captured form at that
  * card (its random id renamed in every field, and the card's name set to the tag). A replay
- * that is meant to be refused is sent exactly as captured: the privilege check runs before the
- * stash is read (RxWriteScript2Action.execute, checkPrivilege then resolveForWrite).
+ * that is meant to be refused is sent as captured with only the card's name set to the tag: the
+ * privilege check runs before the stash is read (RxWriteScript2Action.execute, checkPrivilege then
+ * resolveForWrite), and the owned count covers every drug the family's window could save.
  */
 function rxSave(s) {
   const prefix = `${s.marker}-RX-`;
@@ -473,7 +474,10 @@ function rxSave(s) {
   }
   return {
     key: 'rx-save', label: 'Rx Save Only (rx/WriteScript updateSaveAllDrugs)', route: /\/rx\/WriteScript$/, kind: 'create',
-    table: 'drugs', where: (tag) => `demographic_no=${s.patient} AND customName=${q(prefix + tag)}`,
+    // Every drug the family's Rx window can save carries the prefix (each card is named for its
+    // tag), so a replay that wrote ANY of them -- the tagged one, or a card still in a stash --
+    // moves this count; `tag` only names the replay in messages.
+    table: 'drugs', where: () => `demographic_no=${s.patient} AND customName LIKE ${q(`${prefix}%`)}`,
     cleanup() {
       const drugs = drugIds();
       drugs.forEach(id => assertId(id, 'An owned drug'));
@@ -501,7 +505,13 @@ function rxSave(s) {
         () => rx.locator('#saveOnlyButton').click());
     },
     async aim(captured, tag, { write } = {}) {
-      if (!write) return { overrides: {} };
+      if (!write) {
+        // Refused replays go as captured, with the card renamed to the tag so the request names a
+        // drug that is not already in the table.
+        const name = `drugName_${this.card}`;
+        h.assert(captured.body.has(name), 'The captured Rx save does not carry the staged card it saved');
+        return { overrides: { [name]: prefix + tag } };
+      }
       const card = await stage(prefix + tag);
       const overrides = {};
       for (const name of new Set(captured.body.keys())) {
