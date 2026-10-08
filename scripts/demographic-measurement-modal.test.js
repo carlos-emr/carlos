@@ -11,7 +11,7 @@ const source = jsp.slice(jsp.indexOf('<script>') + '<script>'.length, jsp.lastIn
   .replace(/<fmt:message key=["']([^"']+)["']\s*\/>/g, '$1')
   .replaceAll('<%=request.getContextPath()%>', '/carlos');
 
-function setup(history = null, saveResult = {success:true}) {
+function setup(history = null, saveResult = {success:true}, DateImpl = Date) {
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.value = ''; this.classList = { add() {}, remove() {} }; }
     appendChild(child) { this.children.push(child); return child; }
@@ -37,7 +37,7 @@ function setup(history = null, saveResult = {success:true}) {
       options.success(options.url.includes('saveMeasurement') ? saveResult : (history || {'-1':'No Results Found'}));
     }
   }};
-  const context = vm.createContext({ document, jQuery, setTimeout() {}, requestAnimationFrame: callback => callback() });
+  const context = vm.createContext({ document, jQuery, Date: DateImpl, setTimeout() {}, requestAnimationFrame: callback => callback() });
   vm.runInContext(source, context);
   context.displayDemographicMeasurements('weight', 'WT', '17', '2026-01-01', '42');
   document.getElementById('currentMeasurementValue').value = '3.75';
@@ -139,4 +139,24 @@ test('keyboard navigation after selecting history does not save a duplicate', ()
   assert.equal(f.target.value, '4.1');
   assert.equal(f.requests.length, 1, 'Tab must not turn an unchanged import into a new measurement');
   closed(f);
+});
+
+test('observation date defaults to the local date in the evening west of UTC (issue #4421)', () => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = 'America/Vancouver';
+  try {
+    const RealDate = Date;
+    // 2026-03-10 19:30 PDT is already 2026-03-11 in UTC.
+    const evening = new RealDate('2026-03-11T02:30:00Z').getTime();
+    class EveningDate extends RealDate {
+      constructor(...args) { super(...(args.length ? args : [evening])); }
+    }
+    const f = setup({12:{dateObserved:evening, dataField:'3.6', measuringInstruction:'in kg'}}, {success:true}, EveningDate);
+    f.body.find(element => element.tag === 'a').listeners.click({preventDefault() {}});
+    assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, '2026-03-10');
+    f.context.displayDemographicMeasurements('weight', 'WT', '17', '2026-01-01', '42');
+    assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, '2026-03-10');
+  } finally {
+    if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
+  }
 });

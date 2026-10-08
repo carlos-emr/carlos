@@ -120,6 +120,15 @@
     let existingMeasurementUsed = false;
 
     /**
+     * Formats a Date as yyyy-MM-dd in the browser's local time zone. toISOString() is UTC and
+     * yields tomorrow's date in the evening for clinics west of UTC (issue #4421).
+     */
+    function formatLocalIsoDate(date) {
+        const pad = value => String(value).padStart(2, '0');
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
+
+    /**
      * This function will retrieve specific demographic measurement data and display it in a modal for the user to select and import into the desired form field
      *
      * @param elementId - The ID of the input element on the form that the measurement value will be inserted into
@@ -172,7 +181,7 @@
                 let obsDateInput = document.createElement('input');
                 obsDateInput.type = 'date';
                 obsDateInput.id = 'currentMeasurementObservationDate';
-                obsDateInput.value = new Date().toISOString().slice(0, 10);
+                obsDateInput.value = formatLocalIsoDate(new Date());
                 inputDiv.appendChild(obsDateInput);
 
                 bodyContent.appendChild(inputDiv);
@@ -216,7 +225,7 @@
                             ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
-                        let obsDate = hasObservationDate ? dateObserved.toISOString().slice(0, 10) : '';
+                        let obsDate = hasObservationDate ? formatLocalIsoDate(dateObserved) : '';
 
                         // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
                         // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
