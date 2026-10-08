@@ -2654,7 +2654,11 @@ class TestManifestDrivenGeneration(unittest.TestCase):
             if entry["class"] != "copy":
                 continue
             dst = {c: col() for c in entry["cols"]}
-            sql = o19etl.copy_statement(table, entry, "src", "dst", dst)
+            # With an archive schema, as the ETL always builds the copy: an
+            # entry that reads a helper table (Consent) refuses to build
+            # the writing statement without one.
+            sql = o19etl.copy_statement(table, entry, "src", "dst", dst,
+                                        archive_schema="arch")
             self.assertTrue(sql.startswith(
                 "INSERT INTO `dst`.`{0}`".format(table)))
             # exactly one SELECT keyword (columns like SELECT_OPTION_ID
@@ -2969,6 +2973,275 @@ class TestArchiveSchemaCollation(unittest.TestCase):
         self.assertIn("archive_schema_statements(", src)
         self.assertIn("schema_collation(plain, dst)", src)
         self.assertNotIn('plain("CREATE DATABASE IF NOT EXISTS', src)
+
+
+class TestConsentLiveHelper(unittest.TestCase):
+
+    """The helper that decides which Consent rows arrive live (#3845).
+
+    The rows it produces are asserted in test_consent_live_replay; this
+    pins the text a replay cannot: the rule as written, the schema the
+    curated expression is pointed at, and which staged column is read."""
+
+    #: ConsentRecords.DECIDING_FIRST, as SQL
+    RULE = ("`optout` DESC, `explicit` DESC, (`edit_date` IS NULL), "
+            "`edit_date` DESC, `id` DESC")
+    LOOKUP = ("IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r "
+              "WHERE r.`id` = s.`id`), 1)")
+    ENTRY = {"class": "copy",
+             "cols": ["id", "demographic_no", "consent_type_id",
+                      "explicit", "optout", "edit_date", "deleted"],
+             "fk_remap": {"consent_type_id": "consentType"},
+             "value_exprs": {"optout": "IFNULL(s.`optout`, 1)",
+                             "deleted": LOOKUP}}
+    DST = {"id": col("int", nullable=False),
+           "demographic_no": col("int"), "consent_type_id": col("int"),
+           "explicit": col("tinyint", nullable=False, primitive=True),
+           "optout": col("tinyint", nullable=False, primitive=True),
+           "edit_date": col("datetime"),
+           "deleted": col("tinyint", nullable=False, primitive=True)}
+
+    def statements(self, src_cols=("id", "optout", "explicit",
+                                    "deleted")):
+        return o19etl.consent_live_statements(
+            self.ENTRY, "src", "arch", self.DST,
+            {c: {} for c in src_cols})
+
+    def insert(self, **kw):
+        return [s for s in self.statements(**kw)
+                if s.startswith("INSERT INTO")][0]
+
+    def test_the_order_is_the_applications_rule(self):
+        self.assertEqual(o19etl.CONSENT_LIVE_ORDER, self.RULE)
+        self.assertEqual(
+            re.findall(r"ORDER BY (.*?)\) AS `rn`", self.insert()),
+            [self.RULE])
+
+    def test_the_rows_are_grouped_on_what_the_copy_stores(self):
+        sql = self.insert()
+        self.assertIn("PARTITION BY `live`, `demographic_no`, "
+                      "`consent_type_id` ORDER BY", sql)
+        self.assertIn(
+            "(SELECT m.new_id FROM `arch`.`consentType__idmap` m WHERE "
+            "m.old_id = s.`consent_type_id`) AS `consent_type_id`", sql)
+        self.assertIn("IFNULL(IFNULL(s.`optout`, 1), 0) AS `optout`", sql)
+        self.assertIn("IFNULL(s.`explicit`, 0) AS `explicit`", sql)
+        self.assertIn("NULLIF(s.`edit_date`, '0000-00-00 00:00:00') AS "
+                      "`edit_date`", sql)
+
+    def test_it_is_built_aside_and_swapped(self):
+        stmts = self.statements()
+        self.assertIn("CREATE TABLE `arch`.`Consent__live__new` ", stmts[2])
+        self.assertTrue(self.insert().startswith(
+            "INSERT INTO `arch`.`Consent__live__new` (`id`, `deleted`, "))
+        self.assertIn(
+            "RENAME TABLE `arch`.`Consent__live` TO "
+            "`arch`.`Consent__live__old`, `arch`.`Consent__live__new` TO "
+            "`arch`.`Consent__live`", stmts)
+        self.assertIn("__live", o19etl.SHADOW_SUFFIXES)
+
+    def test_the_staged_schema_is_only_read(self):
+        for sql in self.statements():
+            self.assertNotRegex(
+                sql, r"(INTO|TABLE|UPDATE|FROM) `src`\.(?!`Consent` s\))",
+                sql)
+            if "`src`" in sql:
+                self.assertTrue(sql.startswith("INSERT INTO `arch`."), sql)
+
+    def test_the_dumps_deleted_column_is_read_when_it_has_one(self):
+        self.assertIn("(s.`deleted` <=> 0 AND s.`optout` IS NOT NULL) AS "
+                      "`live`", self.insert())
+
+    def test_the_column_is_matched_whatever_its_case(self):
+        self.assertIn(
+            "(s.`Deleted` <=> 0 AND s.`optout` IS NOT NULL) AS `live`",
+            self.insert(src_cols=("id", "optout", "Deleted")))
+
+    def test_a_dump_without_deleted_treats_every_row_as_live(self):
+        sql = self.insert(src_cols=("id", "optout"))
+        self.assertIn("(s.`optout` IS NOT NULL) AS `live`", sql)
+        self.assertNotIn("eleted` <=>", sql)
+        counts = o19etl.consent_live_count_sql(
+            "src", "arch", {"id": {}, "optout": {}})
+        self.assertEqual([what for what, _sql in counts],
+                         ["duplicate", "undecided", "changed"])
+        for _what, count in counts:
+            self.assertNotIn("s.`deleted`", count)
+
+    def test_changed_counts_every_row_the_helper_gave_a_reason(self):
+        # the pointer to the helper hangs on it, NULL `explicit` included
+        counts = dict(o19etl.consent_live_count_sql(
+            "src", "arch", {"id": {}, "optout": {}}))
+        self.assertEqual(
+            counts["changed"],
+            "SELECT COUNT(*) FROM `arch`.`Consent__live` WHERE `reason` "
+            "IS NOT NULL")
+
+    def test_the_counts_read_the_dumps_deleted_column_when_it_has_one(
+            self):
+        counts = dict(o19etl.consent_live_count_sql(
+            "src", "arch", {"id": {}, "deleted": {}}))
+        self.assertEqual(
+            counts["duplicate"],
+            "SELECT COUNT(*) FROM `src`.`Consent` s JOIN "
+            "`arch`.`Consent__live` r ON r.`id` = s.`id` WHERE "
+            "r.`deleted` = 1 AND (s.`deleted` <=> 0 AND s.`optout` IS "
+            "NOT NULL)")
+        self.assertEqual(
+            counts["undecided"],
+            "SELECT COUNT(*) FROM `src`.`Consent` s WHERE s.`optout` IS "
+            "NULL AND (s.`deleted` <=> 0)")
+        self.assertEqual(
+            counts["null_deleted"],
+            "SELECT COUNT(*) FROM `src`.`Consent` s WHERE s.`deleted` IS "
+            "NULL")
+        self.assertEqual(
+            counts["not_live_undecided"],
+            "SELECT COUNT(*) FROM `src`.`Consent` s WHERE s.`optout` IS "
+            "NULL AND NOT (s.`deleted` <=> 0)")
+        self.assertEqual(
+            counts["legacy_deleted"],
+            "SELECT COUNT(*) FROM `src`.`Consent` s WHERE s.`deleted` "
+            "<> 0")
+
+    def test_the_archive_slot_is_filled_when_a_schema_is_given(self):
+        self.assertEqual(
+            o19etl.source_expr(self.ENTRY, "deleted",
+                               archive_schema="arch"),
+            "IFNULL((SELECT r.`deleted` FROM `arch`.`Consent__live` r "
+            "WHERE r.`id` = s.`id`), 1)")
+        sql = o19etl.copy_statement("Consent", self.ENTRY, "src", "dst",
+                                    self.DST, archive_schema="arch")
+        self.assertNotIn("{", sql)
+        # a row the helper does not know arrives retired: the inner
+        # fallback decides, the sanitizer's outer one never applies
+        self.assertEqual(
+            selected_expr(sql, "deleted"),
+            "IFNULL(IFNULL((SELECT r.`deleted` FROM "
+            "`arch`.`Consent__live` r WHERE r.`id` = s.`id`), 1), 0)")
+
+    def test_the_slot_is_replaced_not_formatted(self):
+        # the expression is SQL: a brace that is not the slot stays
+        entry = {"cols": ["v"], "value_exprs": {
+            "v": "CONCAT('{0}', (SELECT 1 FROM {archive}.`t`), '{}')"}}
+        self.assertEqual(
+            o19etl.source_expr(entry, "v", archive_schema="arch"),
+            "CONCAT('{0}', (SELECT 1 FROM `arch`.`t`), '{}')")
+
+    def test_without_an_archive_schema_the_value_is_unknown(self):
+        # valid SQL naming no table: the callers that pass no schema run
+        # before the helper exists, and only read
+        self.assertEqual(o19etl.source_expr(self.ENTRY, "deleted"), "NULL")
+
+    def test_a_write_is_never_built_without_the_archive_schema(self):
+        # ... and a write that got that NULL would store it
+        with self.assertRaisesRegex(ValueError, "Consent: .*deleted"):
+            o19etl.copy_statement("Consent", self.ENTRY, "src", "dst",
+                                  self.DST)
+        merge = dict(self.ENTRY, **{"class": "merge",
+                                    "merge_keys": ["demographic_no"]})
+        with self.assertRaisesRegex(ValueError, "deleted"):
+            o19etl.merge_statement("Consent", merge, "src", "dst",
+                                   self.DST)
+
+    def test_an_entry_without_the_slot_still_builds_without_it(self):
+        entry = dict(self.ENTRY, cols=["id", "optout"],
+                     value_exprs={"optout": "IFNULL(s.`optout`, 1)"})
+        self.assertIn("IFNULL(s.`optout`, 1)", o19etl.copy_statement(
+            "Consent", entry, "src", "dst", self.DST))
+
+    def test_the_pre_loop_counts_skip_a_helper_column(self):
+        # they run before any helper exists; with the schema they would
+        # name a table that is not there, without it measure a NULL
+        entry = {"class": "copy", "cols": ["id", "e", "t"],
+                 "value_exprs": {
+                     "e": "(SELECT r.`e` FROM {archive}.`h` r)",
+                     "t": "(SELECT r.`t` FROM {archive}.`h` r)"}}
+        dst = {"id": col("int"),
+               "e": col("enum", column_type="enum('a','b')"),
+               "t": col("text", char_len=65535)}
+        src = {"id": col("int"), "e": col("varchar", char_len=9),
+               "t": col("text", char_len=65535)}
+        for schema in (None, "arch"):
+            self.assertEqual(o19etl.enum_fallback_count_sql(
+                "x", entry, "src", dst, None, schema), [])
+            self.assertEqual(o19etl.overlength_precheck_sql(
+                "x", entry, "src", dst, src, None, schema), [])
+        # the control: the same columns without the slot ARE measured
+        plain = dict(entry, value_exprs={})
+        self.assertEqual(len(o19etl.enum_fallback_count_sql(
+            "x", plain, "src", dst)), 1)
+        self.assertEqual(len(o19etl.overlength_precheck_sql(
+            "x", plain, "src", dst, src)), 1)
+
+    def test_the_helper_records_what_each_row_held(self):
+        create = self.statements()[2]
+        self.assertEqual(
+            create,
+            "CREATE TABLE `arch`.`Consent__live__new` (`id` INT NOT NULL "
+            "PRIMARY KEY, `deleted` TINYINT(1) NOT NULL, `prior_explicit` "
+            "TINYINT(1) NULL, `prior_optout` TINYINT(1) NULL, "
+            "`prior_deleted` TINYINT(1) NULL, `reason` VARCHAR(32) NULL)")
+        sql = self.insert()
+        self.assertIn("s.`explicit` AS `prior_explicit`, s.`optout` AS "
+                      "`prior_optout`, s.`deleted` AS `prior_deleted`, "
+                      "(s.`explicit` IS NULL OR s.`optout` IS NULL OR "
+                      "s.`deleted` IS NULL) AS `null_flag`", sql)
+        self.assertIn("THEN 'null_flag,duplicate_retired' WHEN "
+                      "`null_flag` = 1 THEN 'null_flag' WHEN `surplus` = "
+                      "1 THEN 'duplicate_retired' END", sql)
+
+    def test_a_column_the_dump_lacks_is_recorded_as_null(self):
+        sql = self.insert(src_cols=("id", "optout"))
+        self.assertIn("NULL AS `prior_explicit`, s.`optout` AS "
+                      "`prior_optout`, NULL AS `prior_deleted`, "
+                      "(s.`optout` IS NULL) AS `null_flag`", sql)
+
+    def test_the_coverage_check_reads_both_directions(self):
+        self.assertEqual(
+            o19etl.consent_live_coverage_sql("src", "arch"),
+            "SELECT (SELECT COUNT(*) FROM `src`.`Consent` s WHERE NOT "
+            "EXISTS (SELECT 1 FROM `arch`.`Consent__live` r WHERE "
+            "r.`id` = s.`id`)) + (SELECT COUNT(*) FROM "
+            "`arch`.`Consent__live` r WHERE NOT EXISTS (SELECT 1 FROM "
+            "`src`.`Consent` s WHERE s.`id` = r.`id`))")
+
+    def test_an_expression_without_the_slot_is_returned_as_it_is(self):
+        for schema in (None, "arch"):
+            self.assertEqual(
+                o19etl.source_expr(self.ENTRY, "optout",
+                                   archive_schema=schema),
+                "IFNULL(s.`optout`, 1)")
+
+    def test_the_helper_value_is_not_counted_as_a_null_coercion(self):
+        # that count runs before the table loop, without an archive
+        # schema: `NULL IS NULL` would report every Consent row
+        counted = [c for c, _sql in o19etl.not_null_coercion_count_sql(
+            "Consent", self.ENTRY, "src", self.DST, None, "arch")]
+        self.assertNotIn("deleted", counted)
+        self.assertIn("explicit", counted)
+
+    def test_no_window_function_reaches_a_value_expression(self):
+        # P7 rebuilds these inside a WHERE, where one is an error
+        sql = o19etl.copy_value_mismatch_sql(
+            "Consent", self.ENTRY, "src", "dst", self.DST, ["id"], None,
+            "arch")
+        self.assertNotIn(" OVER ", sql)
+        self.assertIn("d.`deleted` <=> IFNULL(IFNULL((SELECT r.`deleted` "
+                      "FROM `arch`.`Consent__live` r WHERE r.`id` = "
+                      "s.`id`), 1), 0)", sql)
+
+    def test_the_duplicate_check_reads_live_grouped_rows_on_the_target(
+            self):
+        self.assertEqual(
+            o19etl.consent_live_duplicates_sql("dst"),
+            "SELECT COUNT(*) FROM (SELECT 1 FROM `dst`.`Consent` WHERE "
+            "`deleted` = 0 AND `demographic_no` IS NOT NULL AND "
+            "`consent_type_id` IS NOT NULL GROUP BY `demographic_no`, "
+            "`consent_type_id` HAVING COUNT(*) > 1) pairs")
+
+    def test_consent_is_still_value_checked(self):
+        self.assertNotIn("Consent", o19etl.POST_ETL_REWRITTEN)
 
 
 if __name__ == "__main__":
