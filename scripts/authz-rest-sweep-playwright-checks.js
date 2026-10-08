@@ -16,16 +16,24 @@
  *   recordUX/{demo}/getAllergies         GET   _eChart r, patient-scoped (fullSummary shortcut)
  *   recordUX/searchTemplates, /template  POST  _newCasemgmt.templates r
  *   status/checkIfAuthed                 GET   any authenticated caller; answers with its own provider
+ *   pharmacies/                          GET   _rx r            (refused with AccessDeniedException)
+ *   forms/allEForms                      GET   _eform r         (refused with SecurityException)
+ *
+ * The last two refuse by throwing rather than with a ForbiddenException; the REST surfaces map
+ * both exception types to 403, so they must not end in the generic HTTP 500 error page.
  *
  * Logins: the full-privilege test login is the control; throwaway `receptionist` (holds
- * _demographic, lacks _eChart/_admin/_appDefinition/templates) and `doctor` (chart and templates,
- * lacks _admin/_appDefinition) logins come from lib/authz-read-fixture.js. A refusal only counts
+ * _demographic, lacks _eChart/_admin/_appDefinition/templates/_rx/_eform) and `doctor` (chart,
+ * templates, _rx and _eform; lacks _admin/_appDefinition) logins come from lib/authz-read-fixture.js. A refusal only counts
  * when it is HTTP 403 written by the application (its own response header), so a WAF block or the
  * generic 500 error page cannot pass for an authorization decision.
  *
  * Fixtures: the workflow's owned FAKE- patient, two throwaway logins, a patient-level |o| lock on
- * _eChart$<patient> for the doctor login, and one consent type named after the run marker that
- * the control login creates through the API. Cleanup removes every owned row and asserts it.
+ * _eChart$<patient> for the doctor login, one encounter template and one consent type named after
+ * the run marker (the consent type is created through the API by the control login). Cleanup
+ * removes every owned row and asserts it. The template endpoints are called the way the encounter
+ * client calls them (explicit paging, an existing template name): without paging or with an
+ * unknown name they fail with HTTP 500 for every caller, which says nothing about authorization.
  * Environment: the common contract (BASE_URL, TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*).
  */
 const h = require('./lib/playwright-harness');
@@ -72,6 +80,22 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM consentType WHERE name=${h.sqlString(consentName)}`) === '0',
       'The owned consent type was not removed');
   });
+  const templateName = `${marker}-tpl`;
+  s.cleanup(() => {
+    sql.execute(`DELETE FROM encountertemplate WHERE encountertemplate_name=${h.sqlString(templateName)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM encountertemplate WHERE encountertemplate_name=${h.sqlString(templateName)}`) === '0',
+      'The owned encounter template was not removed');
+  });
+  sql.execute(`INSERT INTO encountertemplate (encountertemplate_name,createdatetime,encountertemplate_value,creator)
+    VALUES (${h.sqlString(templateName)},NOW(),${h.sqlString(`${marker} template text`)},${h.sqlString(provider)})`);
+  const TEMPLATE_CALLS = [
+    ['POST', 'recordUX/searchTemplates?startIndex=0&itemsToReturn=5', { name: marker }],
+    ['POST', 'recordUX/template', { name: templateName }],
+  ];
+  // Guards that refuse by throwing (AccessDeniedException / SecurityException), not ForbiddenException.
+  const THROWING_GUARDS = ['pharmacies/', 'forms/allEForms'];
+  const servesTemplate = result => result.status === 200
+    && (result.json?.templates || []).some(template => template.encounterTemplateName === templateName);
   const consentRows = () => sql.value(`SELECT COUNT(*) FROM consentType WHERE name=${h.sqlString(consentName)}`);
   const newConsentType = () => ({ name: consentName, description: `${marker} consent type`, type: consentName, active: true });
 
@@ -83,10 +107,10 @@ async function workflow(s) {
     const receptionist = fixture.rolePrivileges('receptionist').map(entry => entry.split(':')[0]);
     const doctor = fixture.rolePrivileges('doctor').map(entry => entry.split(':')[0]);
     h.assert(receptionist.includes('_demographic'), 'receptionist no longer holds _demographic');
-    for (const object of ['_eChart', '_admin', '_appDefinition', '_newCasemgmt.templates']) {
+    for (const object of ['_eChart', '_admin', '_appDefinition', '_newCasemgmt.templates', '_rx', '_eform']) {
       h.assert(!receptionist.includes(object), `receptionist now holds ${object}`);
     }
-    for (const object of ['_demographic', '_eChart', '_newCasemgmt.templates']) {
+    for (const object of ['_demographic', '_eChart', '_newCasemgmt.templates', '_rx', '_eform']) {
       h.assert(doctor.includes(object), `doctor no longer holds ${object}`);
     }
     for (const object of ['_admin', '_appDefinition']) {
@@ -123,9 +147,13 @@ async function workflow(s) {
     if (allergies.status !== 200 || !allergies.json) wrong.push(describe('full', 'GET', 'recordUX/{demo}/getAllergies', allergies));
     const print = await call('full', 'GET', `recordUX/${patient}/print?printOps=${encodeURIComponent(PRINT_OPTIONS)}`);
     if (print.status !== 200 || !print.pdf) wrong.push(describe('full', 'GET', 'recordUX/{demo}/print', print));
-    for (const route of ['recordUX/searchTemplates', 'recordUX/template']) {
-      const templates = await call('full', 'POST', route, { name: `${marker}-none` });
-      if (templates.status !== 200) wrong.push(describe('full', 'POST', route, templates));
+    for (const [method, route, body] of TEMPLATE_CALLS) {
+      const templates = await call('full', method, route, body);
+      if (!servesTemplate(templates)) wrong.push(describe('full', method, route.split('?')[0], templates));
+    }
+    for (const route of THROWING_GUARDS) {
+      const result = await call('full', 'GET', route);
+      if (result.status !== 200 || !result.json) wrong.push(describe('full', 'GET', route, result));
     }
     h.assert(!wrong.length, `The control login was not served: ${wrong.join('; ')}`);
   });
@@ -148,7 +176,7 @@ async function workflow(s) {
     }
   });
 
-  await s.step('the receptionist reads the consent catalogue but is refused (403) the chart, templates and admin endpoints', async () => {
+  await s.step('the receptionist reads the consent catalogue but is refused (403) the chart, templates, Rx, eForm and admin endpoints', async () => {
     const wrong = [];
     const types = await call('receptionist', 'GET', 'consentService/consentTypes');
     if (types.status !== 200) wrong.push(`${describe('receptionist', 'GET', 'consentService/consentTypes', types)} (holds _demographic)`);
@@ -156,8 +184,8 @@ async function workflow(s) {
       ['GET', 'app/getApps/'],
       ['GET', `recordUX/${patient}/print?printOps=${encodeURIComponent(PRINT_OPTIONS)}`],
       ['GET', `recordUX/${patient}/getAllergies`],
-      ['POST', 'recordUX/searchTemplates', { name: '' }],
-      ['POST', 'recordUX/template', { name: '' }],
+      ...TEMPLATE_CALLS,
+      ...THROWING_GUARDS.map(route => ['GET', route]),
       ['POST', 'consentService/consentType', newConsentType()],
     ];
     for (const [method, route, body] of refusals) {
@@ -168,14 +196,20 @@ async function workflow(s) {
     h.assert(!wrong.length, `Expected an application 403: ${wrong.join('; ')}`);
   });
 
-  await s.step('the doctor reads the chart and templates but is refused (403) the admin-only endpoints', async () => {
+  await s.step('the doctor reads the chart, templates, pharmacies and eForms but is refused (403) the admin-only endpoints', async () => {
     const wrong = [];
     const print = await call('doctor', 'GET', `recordUX/${patient}/print?printOps=${encodeURIComponent(PRINT_OPTIONS)}`);
     if (print.status !== 200 || !print.pdf) wrong.push(`${describe('doctor', 'GET', 'recordUX/{demo}/print', print)} (holds _eChart)`);
     const allergies = await call('doctor', 'GET', `recordUX/${patient}/getAllergies`);
     if (allergies.status !== 200) wrong.push(`${describe('doctor', 'GET', 'recordUX/{demo}/getAllergies', allergies)} (holds _eChart)`);
-    const templates = await call('doctor', 'POST', 'recordUX/searchTemplates', { name: '' });
-    if (templates.status !== 200) wrong.push(`${describe('doctor', 'POST', 'recordUX/searchTemplates', templates)} (holds templates)`);
+    for (const [method, route, body] of TEMPLATE_CALLS) {
+      const templates = await call('doctor', method, route, body);
+      if (!servesTemplate(templates)) wrong.push(`${describe('doctor', method, route.split('?')[0], templates)} (holds templates)`);
+    }
+    for (const route of THROWING_GUARDS) {
+      const result = await call('doctor', 'GET', route);
+      if (result.status !== 200) wrong.push(`${describe('doctor', 'GET', route, result)} (holds the object)`);
+    }
     for (const [method, route, body] of [['GET', 'app/getApps/'], ['POST', 'consentService/consentType', newConsentType()]]) {
       const result = await call('doctor', method, route, body);
       if (!(result.status === 403 && result.fromApp)) wrong.push(describe('doctor', method, route, result));
