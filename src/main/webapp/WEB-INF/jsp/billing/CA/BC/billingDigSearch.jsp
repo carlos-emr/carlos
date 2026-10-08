@@ -202,7 +202,7 @@
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=Dcode%>
+                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=Dcode%>"
@@ -230,7 +230,7 @@
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=Dcode%>
+                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=Dcode%>"
@@ -257,7 +257,7 @@
         <tr bgcolor="<%=color%>">
             <td width="12%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <a
-                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=Dcode2%>
+                    href="#" onclick="CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode2)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc2)%>'); return false;"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(Dcode2)%>
                 <a></font></td>
             <td width="88%"><font face="Arial, Helvetica, sans-serif"
                                   size="2"> <input type="text" name="<%=Dcode2%>"
