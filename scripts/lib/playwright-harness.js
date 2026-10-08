@@ -193,7 +193,7 @@ function shouldIgnoreHttpsErrors(baseUrl, env = process.env) {
   return isLocalTlsTarget(target) || env.ALLOW_UNVERIFIED_TLS === 'true';
 }
 
-const CERTIFICATE_ERROR_RE = /ERR_CERT_|SSL_ERROR|SELF[_ ]SIGNED|certificate/i;
+const CERTIFICATE_ERROR_RE = /net::ERR_CERT_|net::ERR_SSL_|SELF[_ ]SIGNED/i;
 
 /**
  * Turns a certificate failure against a non-local target into an error that

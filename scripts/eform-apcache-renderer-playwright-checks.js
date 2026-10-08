@@ -447,7 +447,7 @@ async function checkDirectProbes() {
     results.loopbackPost = post.status;
     assert([403, 405].includes(post.status), `POST to the read-only bridge answered ${post.status}, expected 403/405`);
   }
-  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl) });
   try {
     const response = await front.get(`${config.baseUrl.origin}${config.baseUrl.pathname}${SERVLET_PATH}?key=${TODAY_KEY}`, { maxRedirects: 0 });
     results.frontDoorNoGrant = response.status();

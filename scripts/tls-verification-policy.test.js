@@ -62,6 +62,8 @@ test('a certificate failure against a remote target names ALLOW_UNVERIFIED_TLS',
 test('other failures, and failures where the waiver is already on, pass through unchanged', () => {
   const timeout = new Error('page.goto: Timeout 30000ms exceeded');
   assert.equal(explainTlsFailure(timeout, new URL(REMOTE), {}), timeout);
+  const unrelated = new Error('expected the certificate upload form to be visible');
+  assert.equal(explainTlsFailure(unrelated, new URL(REMOTE), {}), unrelated);
   const cert = new Error('net::ERR_CERT_COMMON_NAME_INVALID');
   assert.equal(explainTlsFailure(cert, new URL(REMOTE), { ALLOW_UNVERIFIED_TLS: 'true' }), cert);
   assert.equal(explainTlsFailure(cert, new URL('https://127.0.0.1/carlos'), {}), cert);
