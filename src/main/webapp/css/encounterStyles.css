@@ -1126,6 +1126,23 @@ div.passwdErr {
     margin-right: 5px;
 }
 
+/* Issue #3609: a notes fetch that rendered nothing. Sits where the throbber sits. */
+#notesLoadFailed {
+    position: absolute;
+    background-color: #fff3cd;
+    border: 1px solid #d9a800;
+    border-radius: 4px;
+    box-shadow: 2px 3px 5px #999;
+    padding: 4px 8px;
+    text-align: center;
+    z-index: 4000;
+}
+
+#notesLoadFailed a {
+    margin-left: 4px;
+    font-weight: bold;
+}
+
 /*Note format */
 div.newNote {
     color: #000000;

@@ -31,6 +31,8 @@ class EChartLayoutRegressionTest {
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp");
     private static final Path CHART_NOTES =
             Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/ChartNotes.jsp");
+    private static final Path NOTES_PAGINATION_JS =
+            Path.of("src/main/webapp/js/newCaseManagementView.js.jsp");
 
     @Test
     @DisplayName("should render notes panel once via AJAX when rendering new encounter layout")
@@ -54,8 +56,13 @@ class EChartLayoutRegressionTest {
 
         assertThat(jsp).doesNotContain("layoutIncludesDependencies");
         assertThat(jsp).contains("newCaseManagementView.js.jsp");
-        // Each render arms its own scroll poll; the previous one must be stopped first.
-        assertThat(jsp).contains("stopNotesScrollCheck();");
+        // Each render arms its own scroll poll through startNotesScrollCheck(), which the
+        // indicator's Retry link shares (#3609); it must stop the previous poll before arming
+        // its own, or a filter/save reload leaves a timer polling for the life of the chart.
+        assertThat(jsp).contains("startNotesScrollCheck();");
+        assertThat(jsp).doesNotContain("setInterval(");
+        String js = Files.readString(NOTES_PAGINATION_JS, StandardCharsets.UTF_8);
+        assertThat(js).contains("function startNotesScrollCheck() {\n        stopNotesScrollCheck();");
     }
 
     @Test

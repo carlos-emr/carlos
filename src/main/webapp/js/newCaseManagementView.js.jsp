@@ -519,21 +519,85 @@
      * request. Never test the raw response body for emptiness instead: that fragment always
      * emits bootstrap scripts (maxNcId, fullView listeners), so a batch with zero notes
      * still comes back non-empty and the "no more notes" stop condition never fires.
-     * A response that leaves this at -1 (error page, redirect, aborted request) is treated
-     * as end-of-list so the poll stops rather than walking the offset forward forever.
+     * A response that leaves this at -1 (error page, CSRF rejection, login redirect, dropped
+     * connection) rendered nothing and is NOT the end of the list: notesLoader() rolls the
+     * offset back so the batch is asked for again, and only a run of such failures stops the
+     * poll (issue #3609). Only 0 means the server said the chart is fully loaded.
      */
     var notesLastBatchSize = -1;
     const MAXNOTES = 1000000;         // upper bound to stop pagination
+    /*
+     * Consecutive fetches that rendered nothing, reset by any fetch that did. The poll retries
+     * a failed batch each time the reader is back at the top, which on a persistent error is
+     * one request a second — the loop #3589 fixed. After this many in a row the poll stops and
+     * the indicator's Retry link is the only way to ask again.
+     */
+    var notesFailedLoads = 0;
+    const NOTES_MAX_FAILED_LOADS = 3;
 
     /**
      * Stops the 1s poll that loads older notes when the user is at the top of the chart.
-     * Called once the server reports the chart is fully loaded; idempotent.
+     * Called once the server reports the chart is fully loaded, or after
+     * NOTES_MAX_FAILED_LOADS fetches in a row rendered nothing; idempotent.
      */
     function stopNotesScrollCheck() {
         if (notesScrollCheckInterval !== null) {
             clearInterval(notesScrollCheckInterval);
             notesScrollCheckInterval = null;
         }
+    }
+
+    /**
+     * Arms the 1s poll that pages older notes in while the reader is at the top of the chart.
+     *
+     * Filter and save reloads re-render ChartNotes.jsp into #notCPP and call this again in the
+     * same window; the stop first means the earlier handle is never overwritten and left
+     * polling, unstoppable, for the life of the chart. The Retry link also comes through here
+     * after the failure cap cleared the poll.
+     */
+    function startNotesScrollCheck() {
+        stopNotesScrollCheck();
+        notesScrollCheckInterval = setInterval(notesIncrementAndLoadMore, 1000);
+    }
+
+    /**
+     * Shows or hides the "notes could not be loaded" indicator next to the loading throbber.
+     * Null-safe: the span lives in ChartNotes.jsp and a chart layout without it just has no
+     * indicator, the fetch bookkeeping is unaffected.
+     *
+     * @param {boolean} failed - true after a fetch rendered nothing, false once one did
+     */
+    function notesShowLoadFailure(failed) {
+        var indicator = $("notesLoadFailed");
+        if (!indicator) {
+            return;
+        }
+        if (failed) {
+            indicator.show();
+        } else {
+            indicator.hide();
+        }
+    }
+
+    /**
+     * The indicator's Retry link: asks for the batch that failed again, right now, without
+     * waiting for a scroll, and re-arms the poll the failure cap may have cleared.
+     *
+     * A click while a fetch is still pending is ignored rather than stacked behind it; the
+     * pending fetch's own completion decides what happens next. The offset was rolled back by
+     * the failure, so the same arithmetic the poll uses lands on the batch that never rendered
+     * (the first page, after a failed initial load).
+     */
+    function notesRetryLoad() {
+        if (notesLoadsInFlight > 0) {
+            return;
+        }
+        notesFailedLoads = 0;
+        notesShowLoadFailure(false);
+        notesOffset += notesIncrement;
+        notesRetrieveOk = false;
+        startNotesScrollCheck();
+        notesLoader(notesOffset, notesIncrement, demographicNo);
     }
 
     /**
@@ -662,7 +726,11 @@
         }
         var notesContainer = $("encMainDiv");
         var scrollAnchor = null;
-        CarlosAjax.updater(notesContainer,
+        // Success only: with a plain container CarlosAjax.updater also inserts a non-2xx
+        // body, so a Tomcat error page or the CSRF rejection text would land at the top of
+        // the chart as if it were a note. A failed fetch renders nothing; the indicator
+        // below is what the clinician sees instead (issue #3609).
+        CarlosAjax.updater({success: notesContainer},
             ctx + "/CaseManagementView",
             {
                 method: 'post',
@@ -689,8 +757,29 @@
                     }
                     // CarlosAjax.updater inserts the fragment and runs its scripts before
                     // it calls onComplete, so notesLastBatchSize already holds the count
-                    // this response rendered. An empty batch means the chart is fully
-                    // loaded: stop the poll instead of requesting ever-higher offsets.
+                    // this response rendered.
+                    if (notesLastBatchSize < 0) {
+                        // Nothing rendered: the response never ran ChartNotesAjax.jsp's
+                        // scripts (error page, CSRF rejection, login redirect, dropped
+                        // connection). Not the end of the chart. Roll the offset back to
+                        // what it was before this fetch so the next scroll-to-top (or the
+                        // Retry link) asks for this batch again; a failed Load All comes
+                        // back from past MAXNOTES the same way. The poll stays armed until
+                        // NOTES_MAX_FAILED_LOADS fetches in a row have rendered nothing, so a
+                        // persistent error cannot turn it into a request a second.
+                        notesFailedLoads++;
+                        notesOffset = offset - notesIncrement;
+                        notesRetrieveOk = notesFailedLoads < NOTES_MAX_FAILED_LOADS;
+                        if (!notesRetrieveOk) {
+                            stopNotesScrollCheck();
+                        }
+                        notesShowLoadFailure(true);
+                        return;
+                    }
+                    notesFailedLoads = 0;
+                    notesShowLoadFailure(false);
+                    // An empty batch means the chart is fully loaded: stop the poll
+                    // instead of requesting ever-higher offsets.
                     notesRetrieveOk = notesLastBatchSize > 0;
                     if (!notesRetrieveOk) {
                         stopNotesScrollCheck();

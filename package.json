@@ -383,6 +383,7 @@
     "test:gap-clinical-cpp-boxes-playwright": "node scripts/gap-clinical-cpp-boxes-playwright-checks.js",
     "test:gap-clinical-chart-print-scope-playwright": "node scripts/gap-clinical-chart-print-scope-playwright-checks.js",
     "test:gap-clinical-chart-notes-pagination-playwright": "node scripts/gap-clinical-chart-notes-pagination-playwright-checks.js",
+    "test:echart-notes-pagination-retry-playwright": "node scripts/echart-notes-pagination-retry-playwright-checks.js",
     "test:gap-clinical-calculators-conversions-playwright": "node scripts/gap-clinical-calculators-conversions-playwright-checks.js",
     "test:gap-clinical-calculators-coronary-playwright": "node scripts/gap-clinical-calculators-coronary-playwright-checks.js",
     "test:gap-clinical-measurement-group-style-playwright": "node scripts/gap-clinical-measurement-group-style-playwright-checks.js",

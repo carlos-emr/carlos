@@ -124,11 +124,20 @@ function setup(pane) {
     notesActiveLoadId: 0,
     notesLastBatchSize: -1,
     notesRetrieveOk: false,
+    // Failure bookkeeping (#3609) is covered by echart-notes-pagination-retry.test.js; here it
+    // only has to exist so a failed fetch can roll the offset back without reaching the DOM.
+    notesOffset: 20,
+    notesIncrement: 20,
+    notesFailedLoads: 0,
+    NOTES_MAX_FAILED_LOADS: 3,
+    notesShowLoadFailure() {},
     stopNotesScrollCheck() { context.pollStopped = true; },
     pollStopped: false,
     CarlosAjax: {
-      updater(container, url, options) {
-        requests.push({ container, url, options });
+      updater(target, url, options) {
+        // notesLoader() names only a success container (#3609), so a failed fetch's error
+        // body is never inserted into the pane; the batch itself still lands in #encMainDiv.
+        requests.push({ container: target.success, url, options });
       },
     },
   });
