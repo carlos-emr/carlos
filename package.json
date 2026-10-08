@@ -496,6 +496,7 @@
     "test:xss-poison-echart-playwright": "node scripts/xss-poison-echart-playwright-checks.js",
     "test:xss-poison-schedule-playwright": "node scripts/xss-poison-schedule-playwright-checks.js",
     "test:xss-poison-documents-inbox-playwright": "node scripts/xss-poison-documents-inbox-playwright-checks.js",
+    "test:xss-poison-note-history-playwright": "node scripts/xss-poison-note-history-playwright-checks.js",
     "test:xss-poison-eform-playwright": "node scripts/xss-poison-eform-playwright-checks.js",
     "test:xss-poison-messenger-consult-playwright": "node scripts/xss-poison-messenger-consult-playwright-checks.js",
     "test:xss-poison-billing-playwright": "node scripts/xss-poison-billing-playwright-checks.js",

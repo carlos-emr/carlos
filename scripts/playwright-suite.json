@@ -7860,6 +7860,26 @@
       "notes": "Expected to FAIL at the last step (finding 117): Master Record > Documents prints the patient name raw through <oscar:nameage> (documentManager/documentReport.jsp:475; DemographicNameAgeTag.java:66). Inbox, the eDoc provider list and the document Edit popup encode. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED."
     },
     {
+      "name": "xss-poison-note-history",
+      "script": "scripts/xss-poison-note-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "XSS_POISON_LEDGER_DIR"
+      ],
+      "fixtures": "One owned FAKE patient with poisoned text columns and one signed note whose text and history are poisoned, seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone.",
+      "notes": "Expected to FAIL at the last step while app-findings-log.md finding 148 stands: since #4307 the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) prints the patient's name raw (casemgmt/showHistory.jsp ${demoName}). Failed as described on 2026.08.0~alpha19 BC."
+    },
+    {
       "name": "xss-poison-eform",
       "script": "scripts/xss-poison-eform-playwright-checks.js",
       "tiers": [
