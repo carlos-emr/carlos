@@ -2078,3 +2078,40 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
 ### Note-role repair isolation
 
 `admin-role-management` requires `EXCLUSIVE=1` on a disposable deployment with no other checks running. Launch it with `EXCLUSIVE=1 npm run test:admin-role-management-playwright` or `EXCLUSIVE=1 node scripts/run-playwright-suite.js --only admin-role-management`. The workflow refuses to seed or submit the global repair if any pre-existing note has `reporter_caisi_role='0'`; it verifies that empty, nonnumeric and other existing roles remain unchanged. Set the same variable when including this check in `--tier core`.
+
+### Rx fax pharmacy fixture validation (2026-10-08, issue #3607)
+
+`release/2026.08` at `17c363e3` was packaged in an `ubuntu:26.04` container
+(`dpkg-buildpackage -us -uc -b`, DrugRef from `debian/drugref.pin`, Chromium from
+`debian/chromium.pin`, `carlos-ctl_1.1.1_all.deb` from `debian/carlos-ctl.pin`) and
+installed with the section 3 preseed, demo data included, in a privileged
+`ubuntu:26.04` container with systemd as PID 1. The container had no IPv6, so the
+first nginx start failed on the stock `listen [::]:80` site exactly as section 2
+describes; once the package had replaced it, `carlos-ctl finish-install` completed
+and `carlos-ctl check` reported "All checks passed". The checks ran from the repo
+mount with the section 6 environment.
+
+On that install demo patient 1's active pharmacies are 3 and 6 (`4164000305`) and
+10 (`7896541230`); none is blank. A watcher polled their fax column every 0.5 s
+during each run:
+
+| Run | Result |
+|---|---|
+| `rx-fax-reprint-represcribe`, unmodified `release/2026.08` | PASS, but `pharmacy-fax` reported `active: 3, seeded: []`: the real-looking numbers stayed in place for the whole run while ViewScript2 rendered them as the fax destination. |
+| The three Rx fax checks with the shared fixture | PASS each; `active: 3, seeded: 3`; all three pharmacies held the run's `555…` number and were restored to the values above, and the journal directory was left empty. |
+| `rx-fax-signature-stamp` killed with SIGKILL once staged | All three pharmacies stranded on its `555…` number (the state #3607 reported); a 0600 journal held the originals; the advisory lock was already free. The next `rx-fax-reprint-represcribe` reported `pharmacy-fax-recovery: journals 1, restored 3`, snapshotted the true originals and passed; the final values matched the table above. |
+| `rx-fax-reprint-represcribe` started while `rx-fax-record-binding` held the fixture | Stopped with `pharmacy-fixture: Error (RX_FAX_FIXTURE_LOCKED)` before writing any row; the first run passed. |
+| `scripts/rx-fax-pharmacy-fax-fixture-integration-check.js` | 5/5 PASS against MariaDB 11.8 (own marked pharmacies: NULL, `''`, a trailing-space and a punctuated value, a deleted pharmacy and an inactive link). |
+
+`rx-fax-record-binding` failed on the unmodified branch with one
+`[login] pageerror: Error`: its own "inaccessible" fax-confirmation stub threw for
+every `getElementById` id, and the dispatched load event also runs `setComment()`.
+With the stub limited to the fax-result reads it passes, and the "inaccessible"
+case still reports `passed: true`.
+
+Wider runs on the same install: the `smoke` tier 12/12 (`login` rerun on its own
+once `TEST_PASSWORD_HASH` from section 6 was exported), and the Rx and pharmacy checks plus the four
+checks whose paired waits were settled 21/22. The exception,
+`rx-interactions-renal-luc` ("No major interaction marker is shown ... for
+ciprofloxacin + theophylline"), fails identically with the unmodified
+`release/2026.08` script and is unrelated to this change.
