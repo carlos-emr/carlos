@@ -162,10 +162,10 @@ before adding any exclusion.
 `VARCHAR(2000)` to `TEXT`, so the clinic footer and each user's own footer can
 be stored there as formatted HTML. It also adds an ordinary index on
 `property (name, provider_no)`, which those footer lookups use; MariaDB builds it
-without blocking reads or writes. No index
-or key covers that column. MariaDB rebuilds the `property` table for this
-change; on a typical clinic it takes seconds, during which writes to `property`
-wait. Run the upgrade outside clinic hours on a very large installation.
+without blocking reads or writes. No index or key covers `property.value`.
+MariaDB rebuilds the `property` table for the widening; on a typical clinic it
+takes seconds, during which writes to `property` wait. Run the upgrade outside
+clinic hours on a very large installation.
 
 ## Local Development
 
