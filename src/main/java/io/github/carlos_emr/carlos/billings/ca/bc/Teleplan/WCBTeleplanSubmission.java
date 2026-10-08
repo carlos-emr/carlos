@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.Misc;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.entities.WCB;
@@ -70,20 +70,20 @@ public class WCBTeleplanSubmission {
                 "<tr>" +
                         "<td class='bodytext'>" +
                         "<a href='#' onClick=\"openBrWindow('adjustBill.jsp?billingmaster_no=" +
-                        Encode.forJavaScriptAttribute(Encode.forUriComponent(recordNo)) +
+                        SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(recordNo)) +
                         "','','resizable=yes, scrollbars=yes, top=0, left=0, width=900, height=600'); return false;\">" +
-                        Encode.forHtml(invNo) +
+                        SafeEncode.forHtml(invNo) +
                         "</a>" +
                         "</td>" +
-                        "<td class='bodytext'>" + Encode.forHtml(demoName) + "</td>" +
-                        "<td class='bodytext'>" + Encode.forHtml(phn) + "</td>" +
-                        "<td class='bodytext'>" + Encode.forHtml(dateFormat(serviceDate)) + "</td>" +
-                        "<td class='bodytext'>" + Encode.forHtml(billingCode) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Encode.forHtml(billAmount) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx1, 5)) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx2, 5)) + "</td>" +
-                        "<td align='right' class='bodytext'>" + Encode.forHtml(Misc.backwardSpace(dx3, 5)) + "</td>" +
-                        "<td class='bodytext'>" + Encode.forHtml(recordNo) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(demoName) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(phn) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(dateFormat(serviceDate)) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(billingCode) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(billAmount) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx1, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx2, 5)) + "</td>" +
+                        "<td align='right' class='bodytext'>" + SafeEncode.forHtml(Misc.backwardSpace(dx3, 5)) + "</td>" +
+                        "<td class='bodytext'>" + SafeEncode.forHtml(recordNo) + "</td>" +
                         "<td class='bodytext'>&nbsp;</td>" +
                         "</tr>";
         return htmlContent;
