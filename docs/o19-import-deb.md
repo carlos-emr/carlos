@@ -276,8 +276,9 @@ Prerequisites, all of them before the command below:
    take the same lock *before* they check the guard. So an import started
    while one of them holds it is refused with nothing written; re-run it
    once that run has finished. A configure that finds an import holding
-   the lock defers at once: `carlos-emr` touches neither the database nor
-   its configuration and does not start the service, and `carlos-emr-drugref`
+   the lock defers at once: `carlos-emr` does not touch the database,
+   skips the steps serialized by the lock (`init-config`, the eForm render
+   browser) and does not start the service, and `carlos-emr-drugref`
    fails its configure. Either one says to finish the import and then
    `dpkg-reconfigure` the package. A boot-time repair leaves the work for
    the next boot (carlos-ctl 1.1.2 and later; #3678).

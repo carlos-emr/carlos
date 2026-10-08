@@ -132,8 +132,9 @@ acquire_provision_lock() {
     if o19_import_in_progress; then
         echo "carlos-emr: an OSCAR 19 import is in progress and owns the database (it holds" >&2
         echo "carlos-emr:   ${PROVISION_LOCK}; see /var/lib/carlos-emr/o19-import/report.txt)." >&2
-        echo "carlos-emr: This configure did NOT touch the database, its settings, the schema or" >&2
-        echo "carlos-emr: the configuration, and is NOT starting the service. Finish the import with" >&2
+        echo "carlos-emr: This configure did NOT touch the database, its server settings or the" >&2
+        echo "carlos-emr: schema, skipped the lock-serialized steps (init-config, the eForm render" >&2
+        echo "carlos-emr: browser), and is NOT starting the service. Finish the import with" >&2
         echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
         echo "carlos-emr: then complete this configure:  sudo dpkg-reconfigure carlos-emr" >&2
         return 2
