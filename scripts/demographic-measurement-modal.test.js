@@ -164,3 +164,17 @@ test('observation date defaults to the local date in the evening west of UTC (is
     if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
   }
 });
+
+test('history uses the server-formatted observation day when the browser zone differs (issue #4421)', () => {
+  const previousTz = process.env.TZ;
+  process.env.TZ = 'America/Vancouver';
+  try {
+    // Stored as midnight America/Toronto = 21:00 the previous day in Vancouver.
+    const stored = Date.UTC(2026, 2, 10, 4, 0, 0);
+    const f = setup({12:{dateObserved:stored, dateObservedLocal:'2026-03-10', dataField:'3.6', measuringInstruction:'in kg'}});
+    f.body.find(element => element.tag === 'a').listeners.click({preventDefault() {}});
+    assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, '2026-03-10');
+  } finally {
+    if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
+  }
+});

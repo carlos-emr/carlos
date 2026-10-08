@@ -225,7 +225,9 @@
                             ageDisplay += ageYears + ' <fmt:message key="form.measurement.yearsOld"/>';
                         }
 
-                        let obsDate = hasObservationDate ? formatLocalIsoDate(dateObserved) : '';
+                        // Prefer the server-formatted calendar day: dates are stored as midnight in the server's
+                        // zone, so re-deriving the day from the epoch in the browser's zone can show the previous day.
+                        let obsDate = this.dateObservedLocal || (hasObservationDate ? formatLocalIsoDate(dateObserved) : '');
 
                         // Server-sourced values are rendered via textContent and value (XSS-safe DOM APIs).
                         // Do NOT use innerHTML with these values — stored XSS is possible via clinical data.
