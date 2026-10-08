@@ -14,7 +14,8 @@
  *      ADD audit row naming the test provider.
  *   2. Sulfa, a coded allergen: saves with its drugref id and type code and archives the NKDA row
  *      after the page's own "Remove NKDA" confirmation.
- *   3. A DrugRef search result: saves the picked allergen.
+ *   3. A DrugRef search result saves the picked allergen; a search with no match renders quietly.
+ *      The standalone reaction page (ChooseAllergy2 > /rx/addReaction) saves the same way.
  *   4. The dialogue request refused by CSRFGuard (its token header stripped, a real server 403):
  *      the page says so in its role="alert" region instead of spinning, the dialogue container
  *      survives, and the next click loads the form.
@@ -141,6 +142,14 @@ async function workflow(s) {
   });
 
   await s.step(`a DrugRef search result (${searchTerm}) saves the picked allergen`, async () => {
+    // A search with no match still answers with the (empty) results container: it must render
+    // quietly, not be reported as a failed request.
+    await page.locator('#searchString').fill('ZQXJW');
+    const [empty] = await Promise.all([page.waitForResponse(isPost('/rx/searchAllergy2')), page.locator('#searchStringButton').click()]);
+    h.assert(empty.status() === 200, `searchAllergy2 answered HTTP ${empty.status()} for a search with no match`);
+    await page.waitForFunction(() => !document.querySelector('#searchString.ajax-loader'));
+    h.assert(!await page.locator('#allergyRequestStatus').isVisible(), 'A search with no match was reported as a failure');
+    h.assert(await page.locator('#searchResultsContainer').count() === 1, 'A search with no match lost the results container');
     await page.locator('#searchString').fill(searchTerm);
     const [answer] = await Promise.all([page.waitForResponse(isPost('/rx/searchAllergy2')), page.locator('#searchStringButton').click()]);
     h.assert(answer.status() === 200, `searchAllergy2 answered HTTP ${answer.status()}`);
@@ -153,6 +162,42 @@ async function workflow(s) {
     await saveAndReturnToList(page, () => form.locator('input[type="submit"][value="Add Allergy"]').click());
     await expectValue(sql, rows(` AND DESCRIPTION=${h.sqlString(picked)} AND reaction=${h.sqlString(`${marker} search`)} AND archived=0`),
       '1', 'The picked search result was not saved');
+  });
+
+  await s.step('the standalone reaction page (ChooseAllergy2 > addReaction) saves the same way', async () => {
+    const standalone = await context.newPage();
+    h.relabelStrictPage(standalone, 'add-reaction');
+    const name = `STD ${marker.slice(-8)}`.toUpperCase();
+    await h.gotoApp(standalone, s.config.baseUrl, `/rx/showAllergy?demographicNo=${patient}`);
+    // /rx/addReaction is POST-only. Reach it as ChooseAllergy2.jsp's submitAddReaction() does: a
+    // posted form submitted with form.submit(), which CSRFGuard's submit hook tokenises.
+    await Promise.all([
+      standalone.waitForURL(url => url.pathname.endsWith('/rx/addReaction')),
+      standalone.evaluate(({ allergen, demographicNo }) => {
+        const post = document.createElement('form');
+        post.method = 'post';
+        post.action = new URL('addReaction', location.href).href;
+        for (const [key, value] of Object.entries({ ID: '0', type: '0', name: allergen, demographicNo })) {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value;
+          post.appendChild(input);
+        }
+        document.body.appendChild(post);
+        post.submit();
+      }, { allergen: name, demographicNo: patient }),
+    ]);
+    const form = standalone.locator('#RxAddAllergyForm');
+    await form.waitFor({ state: 'visible' });
+    h.assert(await standalone.evaluate(() => typeof window.CarlosAllergyDialog === 'object'),
+      'The standalone reaction page did not load the dialogue handler');
+    await form.locator('#reactionDescription').fill(`${marker} standalone`);
+    await form.locator('[name="nonDrug"]').selectOption('on');
+    await saveAndReturnToList(standalone, () => form.locator('input[type="submit"][value="Add Allergy"]').click());
+    await expectValue(sql, rows(` AND DESCRIPTION=${h.sqlString(name)} AND reaction=${h.sqlString(`${marker} standalone`)}`),
+      '1', 'The standalone reaction page did not save');
+    await standalone.close();
   });
 
   await s.step('a dialogue request refused by CSRFGuard is announced and the container survives', async () => {
@@ -218,9 +263,20 @@ async function workflow(s) {
       .then(() => page.locator('#RxAddAllergyForm'));
     await form.locator('#reactionDescription').fill(`${marker} double`);
     await form.locator('[name="nonDrug"]').selectOption('on');
-    await saveAndReturnToList(page, () => form.locator('input[type="submit"][value="Add Allergy"]').dblclick());
+    // Counted as the requests are SENT, not from responses: a second click's POST leaves before the
+    // first one's answer, so by the time the list has reloaded it has been seen if it exists.
+    const sent = [];
+    const countSave = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/rx/addAllergy2')) sent.push(request);
+    };
+    page.on('request', countSave);
+    try {
+      await saveAndReturnToList(page, () => form.locator('input[type="submit"][value="Add Allergy"]').dblclick());
+    } finally {
+      page.off('request', countSave);
+    }
+    h.assert(sent.length === 1, `A double click sent ${sent.length} allergy saves, not one`);
     await expectValue(sql, rows(` AND DESCRIPTION=${h.sqlString(name)}`), '1', 'The custom allergy was not saved');
-    await new Promise(resolve => setTimeout(resolve, 1500));
     h.assert(sql.value(rows(` AND DESCRIPTION=${h.sqlString(name)}`)) === '1', 'A double click recorded the allergy twice');
   });
 

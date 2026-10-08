@@ -75,12 +75,14 @@
             outcome: 'Nothing was saved.'}
     ];
 
+    /** The URL without its query string or fragment; routes are matched on the path alone. */
     function pathOf(url) {
         var text = String(url || '');
         var end = text.search(/[?#]/);
         return end < 0 ? text : text.slice(0, end);
     }
 
+    /** Whether the URL's path ends with route (so it matches with or without the context path). */
     function routeEndsWith(url, route) {
         var path = pathOf(url);
         return path.length >= route.length && path.slice(path.length - route.length) === route;
@@ -171,9 +173,18 @@
         }
     }
 
+    /**
+     * Builds the dialogue handler for one window. Kept separate from the browser bootstrap below so
+     * the tests can drive it with a fake window, document, fetch and form.
+     *
+     * @param {Window} win the window whose document holds the allergy page or reaction form
+     * @returns {{save: function, install: function, reportRequestFailure: function,
+     *            clearRequestFailure: function}}
+     */
     function create(win) {
         var doc = win.document;
 
+        /** A hidden, empty role="alert" region, for markup that did not render one. */
         function newRegion(className) {
             var region = doc.createElement('div');
             region.className = className;
@@ -198,10 +209,15 @@
             return region;
         }
 
+        /** The form's submit controls, disabled together while a save is out. */
         function submitButtons(form) {
             return Array.prototype.slice.call(form.querySelectorAll('input[type="submit"], button[type="submit"]'));
         }
 
+        /**
+         * Marks a save as in flight (or finished): the attribute is the double-submit guard,
+         * aria-busy tells assistive technology, and the submit buttons are disabled.
+         */
         function setBusy(form, busy) {
             if (busy) {
                 form.setAttribute(SAVING_ATTRIBUTE, 'true');
@@ -220,6 +236,7 @@
             return response.ok && routeEndsWith(response.url, '/rx/showAllergy');
         }
 
+        /** Ends a save that was not confirmed: re-enables the form and says why, keeping every value. */
         function fail(form, submitter, status) {
             setBusy(form, false);
             showMessage(saveStatusRegion(form), saveFailureMessage(status));
@@ -292,6 +309,7 @@
             });
         }
 
+        /** Whether this browser can save in the page; otherwise the form posts the classic way. */
         function canSaveInPage() {
             return typeof win.fetch === 'function' && typeof win.FormData === 'function'
                 && typeof win.URLSearchParams === 'function';
@@ -339,6 +357,7 @@
             form.addEventListener('submit', onSubmit, false);
         }
 
+        /** Installs the capture-phase binding once per document; repeated calls are no-ops. */
         function install() {
             if (doc.carlosAllergyDialogInstalled === true) {
                 return;
@@ -362,6 +381,7 @@
             showMessage(region, requestFailureMessage(url, status));
         }
 
+        /** Hides the page's request-failure alert once a later request has rendered. */
         function clearRequestFailure() {
             showMessage(doc.getElementById('allergyRequestStatus'), '');
         }

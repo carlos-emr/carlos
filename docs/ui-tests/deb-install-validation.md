@@ -60,6 +60,23 @@ pages (the admin preview shows the catalog description as the subject) and
 with only the new-form page reverted (a new form is pre-filled with that
 description).
 
+`allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
+added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
+`release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1 from its tag)
+and installed fresh into an Ubuntu 26.04 container with the demo dataset
+(`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`). Result: **PASS** 10/10 steps through
+`:443`, three runs in a row. `allergy-add-penicillin`, `allergy-custom-lifecycle`,
+`allergy-rx-alert`, `csrf-runtime-forms` and `csrf-xhr-token` also passed. In
+`double-submit-chart-adds` all five Add Allergy modes passed; its prevention slow-resubmit
+mode recorded two preventions, which this change does not touch. Against the unfixed release
+head, the new check passed the #3355 reproduction itself (steps 1-3) and then **FAILED**:
+the CSRF-refused dialogue request was never announced. On that head a refused save also
+replaced the patient's allergy page with `CARLOS Error: 403` and lost the typed reaction,
+and `double-submit-chart-adds` recorded the allergy twice on a slow-response re-click.
+The save is now an in-page `fetch()`, and the page is already at `/rx/showAllergy` when it
+saves. So a check that saves an allergy has to wait for the list to reload, not for that
+URL; `allergy-add-penicillin` shows how.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
