@@ -42,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.math.BigDecimal;
@@ -55,6 +56,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -162,6 +164,24 @@ class BillingOnPaymentViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
         assertThat(vm.getProviderOptions()).hasSize(1);
         assertThat(vm.getProviderOptions().get(0).displayName()).contains("Smith");
+    }
+
+    @Test
+    void shouldRequestWholeCalendarMonthOfEndDate_whenQueryingRaDetails() {
+        // RaDetailDao treats both bounds as inclusive (issue #4430), so the assembler must hand it
+        // the first and the last day of the End Date's month for an RA paid on the 31st to appear.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+        req.setParameter("startDateText", "2026-10-05");
+        req.setParameter("endDateText", "2026-10-20");
+
+        assembler.assemble(req, loggedInInfo, false, false);
+
+        ArgumentCaptor<Date> from = ArgumentCaptor.forClass(Date.class);
+        ArgumentCaptor<Date> to = ArgumentCaptor.forClass(Date.class);
+        verify(raDetailDao).getRaDetailByDate(from.capture(), to.capture(), any());
+        assertThat(new java.sql.Date(from.getValue().getTime()).toLocalDate().toString()).isEqualTo("2026-10-01");
+        assertThat(new java.sql.Date(to.getValue().getTime()).toLocalDate().toString()).isEqualTo("2026-10-31");
     }
 
     @Test
