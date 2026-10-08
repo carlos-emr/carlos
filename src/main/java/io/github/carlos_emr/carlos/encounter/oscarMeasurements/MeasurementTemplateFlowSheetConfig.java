@@ -1732,7 +1732,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                 // by their measurement or prevention type, which is mstring.
                 // Serialize time-based recommendations into <rules> child element
                 List<Recommendation> dsR = mFlowsheet.getDSElements(mstring);
-                log.debug(mstring + " LIST DSR " + dsR);
+                log.debug("{} LIST DSR {}", mstring, dsR);
                 if (dsR != null) {
                     Element rules = new Element("rules");
                     for (Recommendation e : dsR) {

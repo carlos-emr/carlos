@@ -528,7 +528,7 @@ class FlowsheetCopyRuleRetentionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should report a customized flowsheet as not up to date to decision support when its rules warn")
-    void shouldReportNotUpToDate_whenCustomizedFlowsheetRulesWarn() throws Exception {
+    void shouldReportNotUpToDate_whenCustomizedFlowsheetRulesWarn() {
         // Guidelines read flowsheet currency through DSDemographicAccess; a customized copy without
         // its rules counted every customized patient as up to date.
         MeasurementFlowSheet base = parse(diabetesDefinition());
