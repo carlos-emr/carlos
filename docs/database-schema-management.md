@@ -111,6 +111,11 @@ differed from the Flyway baseline loaded "successfully" with patient names coerc
   strict mode, so a strict server does not protect that path. `check-demo-data-strict-load.sh` therefore
   loads the artifact into a Flyway-only schema and fails on any warning other than duplicate-key `1062`
   (where the Flyway row is meant to win).
+- **Rows seeded by SQL must name every `NOT NULL` column that has no default.** That applies to the
+  Playwright fixtures and to any script that inserts directly. A permissive server fills the omitted column
+  with `0` or `''`; a strict one refuses the row (error 1364, `Field 'x' doesn't have a default value`).
+  The same rule exposes entities that do not map such a column: `Favorites` (`dispenseInternal`) and
+  `PharmacyInfo` (`uid`) both failed this way on a strict server until they were mapped.
 - **Who else runs strict.** `container-images.yml` builds and starts the devcontainer database image, so a
   strict violation anywhere in `populate_db.sh` now fails that job. `db-schema-verify.yml` mounts the same
   `my.cnf`, so its `mariadb`-client steps now run against the strict default too (its Flyway steps already
