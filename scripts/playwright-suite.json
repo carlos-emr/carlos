@@ -3092,6 +3092,23 @@
       "env": []
     },
     {
+      "name": "report-print",
+      "script": "scripts/report-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "REPORT_PRINT_TIMEOUT_MS",
+        "REPORT_PRINT_ARTIFACT_DIR",
+        "REPORT_PRINT_KEEP_GOING"
+      ]
+    },
+    {
       "name": "admin-report-validation",
       "script": "scripts/admin-report-validation-playwright-checks.js",
       "tiers": [
