@@ -511,7 +511,7 @@
             Start Date Unknown: <%= drug.getStartDateUnknown()%><br>
             Script No: <%= drug.getScriptNo()%><br>
             hide for cpp: <%= drug.getHideFromCpp() %><br>
-            GCN: <%= drug.getGcnSeqNo()%><br>
+            GCN: <%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%><br>
             Gen Name: <%= drug.getGenericName()%><br>
             Min: <%= drug.getTakeMin()%><br>
             Max: <%= drug.getTakeMax()%><br>

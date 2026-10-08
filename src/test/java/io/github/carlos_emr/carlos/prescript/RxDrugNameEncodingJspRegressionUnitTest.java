@@ -101,6 +101,8 @@ class RxDrugNameEncodingJspRegressionUnitTest {
                         "<%= drug.getFullOutLine()%>", "<%= SafeEncode.forHtmlContent(drug.getFullOutLine())%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp",
                         "<%= drug.getAuditString()%>", "<%= SafeEncode.forHtmlContent(drug.getAuditString())%>"),
+                Arguments.of("src/main/webapp/WEB-INF/jsp/rx/DisplayRxRecord.jsp",
+                        "<%= drug.getGcnSeqNo()%>", "<%= SafeEncode.forHtmlContent(drug.getGcnSeqNo())%>"),
                 Arguments.of("src/main/webapp/WEB-INF/jsp/rx/ListDrugs.jsp",
                         "<%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \")%>",
                         "<carlos:encode value='<%= RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(\";\", \" \") %>'/>"));
