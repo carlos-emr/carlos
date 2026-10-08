@@ -2287,7 +2287,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows (a renewal after expiry, two overlapping copies, two concurrent regimens, a ReRx pair, a current copy with a newer archived sibling); cleanup deletes the patient's drugs and prescription rows and asserts them gone. The consultation form is opened, never saved.",
+      "fixtures": "Operator prerequisite: CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true in carlos.properties (packaged default false), then restart. Owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows (a renewal after expiry, two overlapping copies, two concurrent regimens, a ReRx pair, a current copy with a newer archived sibling); cleanup deletes the patient's drugs and prescription rows and asserts them gone. The consultation form is opened, never saved.",
       "notes": "Regression for #4420: the E-Chart Medications panel, a new consultation's Current Medications and the REST medication summary list each current product and regimen once and agree."
     },
     {

@@ -15,6 +15,8 @@
  * same entries as the E-Chart panel. Every seeded drug row is still in the database afterwards (read-only views).
  * Fixtures: the owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows; cleanup deletes the
  * patient's drugs and prescription rows and asserts them gone. Nothing is saved from the consultation form.
+ * Operator prerequisite: CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true in carlos.properties (the packaged default is false;
+ * the form's Import button uses another path), then restart. See docs/ui-tests/deb-install-validation.md section 4.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');

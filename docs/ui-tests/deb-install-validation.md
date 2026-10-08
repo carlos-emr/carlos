@@ -78,6 +78,21 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`rx-unique-medication-list-playwright-checks.js` (issue #4420) was added on 2026-10-08 and
+run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch
+(DrugRef from its pinned ref; carlos-ctl built from the pin's fallback commit because the
+`1.1.2` tag was not yet published) and installed fresh into an Ubuntu 26.04 systemd container
+with the demo dataset (`carlos-ctl check` clean, `EXPECT_FRONT_DOOR=true`,
+`CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true` per section 4). It **PASS**es 4/4 steps through
+`:443`, and `export-content-chart-print-sections` passes 9/9, alongside
+`echart-navbar-modules`, `echart-print`, `drug-search`, `rx-med-history`,
+`double-submit-consultation` and nine other `rx-*` checks. With the pre-fix
+`RxPrescriptionData` and `PrescriptionManagerImpl` swapped into the installed webapp, the new
+check **FAILS** on the E-Chart panel (a renewal and two overlapping copies each listed twice)
+and the chart-print check **FAILS** on the date-only renewal. With only the pre-fix
+`PrescriptionManagerImpl` swapped in, the panel and consultation steps pass and the REST
+summary step **FAILS**, so each half of the fix is guarded.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
@@ -564,6 +579,18 @@ The keyring sits under `/var/lib/carlos-emr`, the only tree the hardened
 `carlos-emr.service` may write (gpg writes its trust database and lock files
 there). Export `CDS_EXPORT_GNUPGHOME=/var/lib/carlos-emr/export-gnupg` for the
 suite; the check runs as root and decrypts the `.pgp` download with it.
+
+`rx-unique-medication-list-playwright-checks.js` (#4420) reads a new
+consultation's Current Medications, which the form fills from the chart only
+when `CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true`. The package ships `false`,
+and the form's "Import active medications" button takes a different path
+(`getActiveMedications`), so turn the property on for the suite:
+
+```bash
+lxc exec carlos-test -- sed -i \
+    's/^CONSULTATION_AUTO_INCLUDE_MEDICATIONS=false/CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true/' \
+    /etc/carlos-emr/carlos.properties
+```
 
 Restart once after loading so nothing serves from a pre-load cache:
 
