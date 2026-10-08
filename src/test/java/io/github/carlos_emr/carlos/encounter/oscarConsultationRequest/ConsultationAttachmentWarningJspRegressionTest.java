@@ -12,9 +12,12 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest;
 
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -44,18 +47,59 @@ class ConsultationAttachmentWarningJspRegressionTest {
             "src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp",
             CONFIRM_JSP,
             "src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp"})
-    @DisplayName("should list each unavailable attachment, encoded, under the shared heading")
+    @DisplayName("should list each left-out attachment, worded from the bundle and encoded, under the shared heading")
     void shouldListUnavailableAttachments_forFaxAndPrintPages(String jspPath) throws Exception {
         String jsp = read(jspPath);
 
         int block = jsp.indexOf("<c:if test=\"${ not empty attachmentWarnings");
         assertThat(block).isGreaterThanOrEqualTo(0);
-        String warning = jsp.substring(block, jsp.indexOf("</c:if>", block));
+        String warning = jsp.substring(block, jsp.indexOf("</ul>", block));
         assertThat(warning)
                 .contains("<fmt:message key=\"encounter.oscarConsultationRequest.msgAttachmentsUnavailable\"/>")
                 .contains("<c:forEach items=\"${ attachmentWarnings }\" var=\"attachmentWarning\">")
-                .contains("<carlos:encode value=\"${ attachmentWarning }\"/>")
+                .contains("<fmt:message key=\"${ attachmentWarning.typeLabelKey }\"/>")
+                .contains("<fmt:message key=\"${ attachmentWarning.messageKey }\"><fmt:param value=\"${ attachmentTypeLabel }\"/>"
+                        + "<fmt:param value=\"${ attachmentWarning.id }\"/></fmt:message>")
+                .contains("<li><carlos:encode value=\"${ attachmentWarningText }\"/></li>")
                 .doesNotContain("<li>${");
+    }
+
+    @Test
+    @DisplayName("should make staff confirm, before the fax goes, that the listed attachments will be left out")
+    void shouldRequireConfirmation_beforeFaxingWithoutUnavailableAttachments() throws Exception {
+        String jsp = read("src/main/webapp/WEB-INF/jsp/fax/CoverPage.jsp");
+
+        int block = jsp.indexOf("<c:if test=\"${ not empty attachmentWarnings and transactionType eq 'CONSULTATION' }\">");
+        int form = jsp.indexOf("<form id=\"coverPageForm\"");
+        int formEnd = jsp.indexOf("</form>", form);
+        // The consult-only block ends where the consult's documents card begins: the box must
+        // stay inside it, or every eForm and document fax would be blocked by submitForm.
+        int blockEnd = jsp.indexOf("<c:if test=\"${ not empty documents and transactionType eq 'CONSULTATION' }\">", block);
+        assertThat(block).isGreaterThan(form).isLessThan(formEnd);
+        assertThat(blockEnd).isGreaterThan(block).isLessThan(formEnd);
+        // The keys the page listed go back with the fax, and the box must be ticked.
+        assertThat(jsp.substring(block, blockEnd))
+                .contains("name=\"confirmedUnavailableAttachments\"")
+                .contains("<carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/>")
+                .contains("id=\"confirmSendWithoutUnavailable\"")
+                .contains("name=\"confirmSendWithoutUnavailable\" value=\"true\" required data-rule-required=\"false\">")
+                .contains("<fmt:message key=\"consultation.fax.confirmSendWithoutUnavailable\"/>");
+        // The form is novalidate, so the submit handler checks the box itself, before the send.
+        int submit = jsp.indexOf("function submitForm(event)");
+        int check = jsp.indexOf("if (confirmLeftOut && !confirmLeftOut.checked) {", submit);
+        int send = jsp.indexOf("return ShowSpin(true);", submit);
+        assertThat(check).isGreaterThan(submit).isLessThan(send);
+    }
+
+    @Test
+    @DisplayName("should preselect the default referring provider when a saved consult has none")
+    void shouldPreselectDefaultReferringProvider_whenSavedProviderIsBlank() throws Exception {
+        String jsp = read("src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
+
+        // EctConsultationFormRequestUtil turns a NULL provider into "", so "" must count as none.
+        assertThat(jsp)
+                .contains("(StringUtils.isNullOrEmpty(consultUtil.providerNo) && p.getProviderNo().equalsIgnoreCase(referringProviderDefault))")
+                .doesNotContain("(consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo()))");
     }
 
     @Test
@@ -74,16 +118,58 @@ class ConsultationAttachmentWarningJspRegressionTest {
         assertThat(jsp).contains("<% if (!\"true\".equals(isPreview) && !hasAttachmentWarnings) { %>");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"en", "es", "fr", "pl", "pt_BR"})
-    @DisplayName("should define the heading in every locale, as the English placeholder")
-    void shouldDefineHeading_forEveryLocale(String locale) throws Exception {
-        String bundle = Files.readString(
-                resolveProjectPath(Path.of("src/main/resources/oscarResources_" + locale + ".properties")),
-                StandardCharsets.ISO_8859_1);
+    private static final String PREFIX = "encounter.oscarConsultationRequest.";
+    /** Keys worded through MessageFormat (fmt:param or ConsultAttachmentWarning), where a lone ' is eaten. */
+    private static final List<String> FORMATTED_KEYS = List.of(
+            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.notRendered",
+            PREFIX + "attachmentWarning.printBlocked", "consultation.fax.unavailableNotConfirmed",
+            "consultation.fax.attachmentsNotRendered");
+    private static final List<String> NEW_KEYS = List.of(
+            PREFIX + "msgAttachmentsUnavailable",
+            PREFIX + "ConsultationFormRequest.msgPreviewAttachmentsUnavailable",
+            PREFIX + "ConsultationFormRequest.msgPreviewRequestFailed",
+            PREFIX + "attachmentWarning.unavailable", PREFIX + "attachmentWarning.notRendered",
+            PREFIX + "attachmentWarning.printBlocked",
+            PREFIX + "attachmentType.document", PREFIX + "attachmentType.lab", PREFIX + "attachmentType.eform",
+            PREFIX + "attachmentType.hrm", PREFIX + "attachmentType.form", PREFIX + "attachmentType.unknown",
+            "consultation.fax.confirmSendWithoutUnavailable", "consultation.fax.unavailableNotConfirmed",
+            "consultation.fax.attachmentsNotRendered");
 
-        assertThat(bundle).contains("encounter.oscarConsultationRequest.msgAttachmentsUnavailable="
-                + "Some attachments listed on this consultation were unavailable and were not included:");
+    @ParameterizedTest
+    @ValueSource(strings = {"es", "fr", "pl", "pt_BR"})
+    @DisplayName("should translate every new attachment-warning key, keeping its placeholders")
+    void shouldTranslateNewKeys_forEveryLocale(String locale) throws Exception {
+        Properties english = bundle("en");
+        Properties translated = bundle(locale);
+
+        for (String key : NEW_KEYS) {
+            String englishText = english.getProperty(key);
+            String text = translated.getProperty(key);
+            assertThat(englishText).as("en %s", key).isNotBlank();
+            assertThat(text).as("%s %s", locale, key).isNotBlank();
+            // "Document" is the same word in French; everything else is translated.
+            if (!(locale.equals("fr") && key.equals(PREFIX + "attachmentType.document"))) {
+                assertThat(text).as("%s %s is translated", locale, key).isNotEqualTo(englishText);
+            }
+            for (String placeholder : List.of("{0}", "{1}")) {
+                assertThat(text.contains(placeholder)).as("%s %s keeps %s", locale, key, placeholder)
+                        .isEqualTo(englishText.contains(placeholder));
+            }
+        }
+        for (String key : FORMATTED_KEYS) {
+            assertThat(translated.getProperty(key)).as("%s %s has no lone apostrophe", locale, key).doesNotContain("'");
+            assertThat(english.getProperty(key)).as("en %s has no lone apostrophe", key).doesNotContain("'");
+        }
+    }
+
+    private static Properties bundle(String locale) throws Exception {
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(
+                resolveProjectPath(Path.of("src/main/resources/oscarResources_" + locale + ".properties")),
+                StandardCharsets.ISO_8859_1)) {
+            properties.load(reader);
+        }
+        return properties;
     }
 
     private static String read(String relativePath) throws Exception {

@@ -31,6 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -41,6 +42,8 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FilePromotionException;
@@ -299,6 +302,120 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
         org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
         verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should send nothing when staff did not confirm leaving out the unavailable attachments")
+    void shouldRefuseFax_whenUnavailableAttachmentsAreNotConfirmed() throws Exception {
+        grantFaxPrivileges();
+        // The cover page always sends the keys it listed; only the box says staff confirmed.
+        request.addParameter(EctConsultationFormFax2Action.CONFIRMED_ATTACHMENTS_PARAM, "D:80");
+        when(documentAttachmentManager.getUnavailableConsultAttachmentWarnings(456))
+                .thenReturn(java.util.List.of(ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80)));
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("This fax was not sent. These attachments are no "
+                + "longer available and would be left out: Document 80. Open the fax page again, check the list, "
+                + "and confirm sending without them.");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+        org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should send nothing when the confirmation box arrives unticked")
+    void shouldRefuseFax_whenConfirmationIsFalse() throws Exception {
+        grantFaxPrivileges();
+        request.addParameter(EctConsultationFormFax2Action.CONFIRM_SEND_WITHOUT_PARAM, "false");
+        request.addParameter(EctConsultationFormFax2Action.CONFIRMED_ATTACHMENTS_PARAM, "D:80");
+        when(documentAttachmentManager.getUnavailableConsultAttachmentWarnings(456))
+                .thenReturn(java.util.List.of(ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80)));
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should send nothing when an attachment became unavailable after the cover page was shown")
+    void shouldRefuseFax_whenAnUnavailableAttachmentWasNotAmongThoseConfirmed() throws Exception {
+        grantFaxPrivileges();
+        request.addParameter(EctConsultationFormFax2Action.CONFIRM_SEND_WITHOUT_PARAM, "true");
+        request.addParameter(EctConsultationFormFax2Action.CONFIRMED_ATTACHMENTS_PARAM, "D:80");
+        when(documentAttachmentManager.getUnavailableConsultAttachmentWarnings(456)).thenReturn(java.util.List.of(
+                ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80),
+                ConsultAttachmentWarning.unavailable(DocumentType.EFORM, 12)));
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        assertThat(request.getAttribute("errorMessage")).asString().contains("Document 80, eForm 12");
+        verify(documentAttachmentManager, never()).renderConsultationFormWithAttachments(any(), any());
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should send nothing when an attachment becomes unavailable while the fax is being prepared")
+    void shouldRefuseFax_whenAttachmentBecomesUnavailableDuringRender() throws Exception {
+        grantFaxPrivileges();
+        // Nothing was unavailable at the check, so nothing was confirmed; the render then finds one.
+        Path rendered = temporaryDirectory.resolve("consult-fax-race.pdf");
+        Files.writeString(rendered, "%PDF-1.4");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    java.util.List.of(ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80)));
+            return rendered;
+        });
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        assertThat(request.getAttribute("errorMessage")).asString()
+                .startsWith("This fax was not sent.").contains("Document 80");
+        verify(nioFileManager, never()).promoteApplicationTempFile(any());
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should go on to prepare the fax once staff confirmed leaving out every unavailable attachment")
+    void shouldPrepareFax_whenStaffConfirmedLeavingOutUnavailableAttachments() throws Exception {
+        grantFaxPrivileges();
+        request.addParameter(EctConsultationFormFax2Action.CONFIRM_SEND_WITHOUT_PARAM, "true");
+        request.addParameter(EctConsultationFormFax2Action.CONFIRMED_ATTACHMENTS_PARAM, "D:80,E:12");
+        when(documentAttachmentManager.getUnavailableConsultAttachmentWarnings(456)).thenReturn(java.util.List.of(
+                ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80),
+                ConsultAttachmentWarning.unavailable(DocumentType.EFORM, 12)));
+        // Stop right after the confirmation gate: reaching the render is what this test proves.
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("stop here"));
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        verify(documentAttachmentManager).renderConsultationFormWithAttachments(request, response);
+        assertThat(request.getAttribute("errorMessage")).asString().contains("consultation PDF could not be prepared");
+    }
+
+    @Test
+    @DisplayName("should name, by type and id, the attachments that could not be read when the fax is refused")
+    void shouldNameUnreadableAttachments_whenFaxRenderFails() throws Exception {
+        grantFaxPrivileges();
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    java.util.List.of(ConsultAttachmentWarning.notRendered(DocumentType.LAB, 7)));
+            throw new io.github.carlos_emr.carlos.utility.PDFGenerationException("One or more consultation attachments could not be rendered");
+        });
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("This fax was not sent, and no faxes were queued. "
+                + "These attachments could not be read: Lab result 7. Fix or detach them, then try again.");
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    private void grantFaxPrivileges() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
     }
 
     @Test

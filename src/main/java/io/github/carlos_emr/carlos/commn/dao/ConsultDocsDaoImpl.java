@@ -48,6 +48,11 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     private static final String EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION =
             "(cd.docType = :eformType AND ("
                     + "NOT EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo) "
+                    // Deleting an eForm only clears its status (EFormData.current), as deleting a
+                    // document sets status 'D'; both are left out and named.
+                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo AND e.current = false) "
+                    // Patient-independent eForms never go into a consult packet; name them too.
+                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo AND e.patientIndependent = true) "
                     + "OR EXISTS (SELECT e.id FROM EFormData e, ConsultationRequest cr "
                     + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
                     + "AND (e.demographicId IS NULL OR e.demographicId <> cr.demographicId))"
@@ -71,7 +76,9 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "AND (" + EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION + " OR "
                     + "(cd.docType = :labType AND NOT EXISTS (SELECT plr.id FROM PatientLabRouting plr, ConsultationRequest cr "
                     + "WHERE cr.id = cd.requestId AND plr.labNo = cd.documentNo AND plr.demographicNo = cr.demographicId))"
-                    + ")";
+                    + ") "
+                    // A stable order, so every screen lists the same attachments the same way.
+                    + "ORDER BY cd.docType, cd.documentNo";
 
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);

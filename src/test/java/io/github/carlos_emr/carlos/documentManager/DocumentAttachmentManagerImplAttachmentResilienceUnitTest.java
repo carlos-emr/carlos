@@ -71,14 +71,18 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -226,9 +230,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             Path result = manager.renderConsultationFormWithAttachments(request, response);
 
             assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly("Lab attachment BAD is unavailable and was not included.");
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("L:BAD NOT_RENDERED");
             verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
         }
     }
@@ -278,9 +281,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
                 .thenReturn(List.of(consultDoc(80, "D"), consultDoc(20, "L")));
 
-        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(
-                "Document attachment 80 is unavailable and was not included.",
-                "Lab attachment 20 is unavailable and was not included.");
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                .containsExactly("D:80 UNAVAILABLE", "L:20 UNAVAILABLE");
         assertThat(manager.getUnavailableConsultAttachmentWarnings(null)).isEmpty();
         assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)).isNull();
         verifyNoInteractions(consultationManager);
@@ -308,12 +310,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             Path result = manager.renderConsultationFormWithAttachments(request, response);
 
             assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly(
-                            "Document attachment 80 is unavailable and was not included.",
-                            "eForm attachment 915 is unavailable and was not included.",
-                            "Lab attachment 20 is unavailable and was not included.");
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE", "L:20 UNAVAILABLE");
             verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
         }
     }
@@ -340,9 +338,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             Path result = manager.renderConsultationFormWithAttachments(request, response);
 
             assertThat(result).isEqualTo(outputPdf);
-            assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))
-                    .asList()
-                    .containsExactly("Form attachment 3 is unavailable and was not included.");
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("F:3 NOT_RENDERED");
             verify(formsManager).renderForm(request, response, form);
         }
     }
@@ -367,7 +364,85 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
             // A faxed or printed consult must never go out silently missing an attachment it lists.
             assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
-                    .isInstanceOf(PDFGenerationException.class);
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("One or more consultation attachments could not be rendered");
+            verify(formsManager).renderForm(request, response, form);
+            // The caller names it in the error staff see.
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("F:3 NOT_RENDERED");
+        }
+    }
+
+    @Test
+    @DisplayName("leaves a damaged PDF document out of the preview, naming it, instead of failing the whole preview")
+    void shouldSkipDamagedPdfDocument_whenPreviewMaySkip() throws Exception {
+        Path damaged = Files.createTempFile("damaged-document", ".pdf");
+        Files.writeString(damaged, "not a PDF at all");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(41, damaged)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:41 NOT_RENDERED");
+        } finally {
+            Files.deleteIfExists(damaged);
+        }
+    }
+
+    @Test
+    @DisplayName("leaves a password-protected PDF document out of the preview, naming it")
+    void shouldSkipPasswordProtectedPdfDocument_whenPreviewMaySkip() throws Exception {
+        Path locked = Files.createTempFile("locked-document", ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage(PDRectangle.LETTER));
+            StandardProtectionPolicy policy = new StandardProtectionPolicy("FAKE-owner", "FAKE-user", new AccessPermission());
+            document.protect(policy);
+            document.save(locked.toFile());
+        }
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(42, locked)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:42 NOT_RENDERED");
+        } finally {
+            Files.deleteIfExists(locked);
+        }
+    }
+
+    @Test
+    @DisplayName("fails print and fax on a damaged PDF document, naming it for the error")
+    void shouldFailRender_whenPdfDocumentIsDamagedAndSkippingIsNotAllowed() throws Exception {
+        Path damaged = Files.createTempFile("damaged-document", ".pdf");
+        Files.writeString(damaged, "not a PDF at all");
+        try {
+            assertThatThrownBy(() -> renderWithDocument(41, damaged))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("One or more consultation attachments could not be rendered");
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:41 NOT_RENDERED");
+        } finally {
+            Files.deleteIfExists(damaged);
+        }
+    }
+
+    @Test
+    @DisplayName("passes a readable PDF document through, with no warning")
+    void shouldIncludePdfDocument_whenItOpens() throws Exception {
+        Path readable = createPdf("readable-document");
+        try {
+            assertThat(renderWithDocument(43, readable)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))).isEmpty();
+            // The consult page and the document both went into the merged packet.
+            ArgumentCaptor<ByteArrayOutputStream> merged = ArgumentCaptor.forClass(ByteArrayOutputStream.class);
+            verify(nioFileManager).saveTempFile(anyString(), merged.capture());
+            try (PDDocument packet = Loader.loadPDF(merged.getValue().toByteArray())) {
+                assertThat(packet.getNumberOfPages()).isEqualTo(2);
+            }
+        } finally {
+            Files.deleteIfExists(readable);
         }
     }
 
@@ -382,10 +457,10 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
         assertThat(deletedDocument.getDeleted()).isNull();
         verify(consultDocsDao, never()).merge(any());
-        String warning = "Document attachment 80 is unavailable and was not included.";
+        String warning = "D:80 UNAVAILABLE";
         // The fax cover page and the "Update And Print Preview" render read the same active row.
-        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactly(warning);
-        assertThat(renderConsultationWarnings()).asList().containsExactly(warning);
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(warning);
+        assertThat(warnings(renderConsultationWarnings())).containsExactly(warning);
     }
 
     @Test
@@ -399,7 +474,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         assertThat(removedDocument.getDeleted()).isEqualTo("Y");
         verify(consultDocsDao).merge(removedDocument);
         assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).isEmpty();
-        assertThat(renderConsultationWarnings()).asList().isEmpty();
+        assertThat(warnings(renderConsultationWarnings())).isEmpty();
     }
 
     @Test
@@ -428,12 +503,9 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         assertThat(removedDocument.getDeleted()).isEqualTo("Y");
         assertThat(removedLab.getDeleted()).isEqualTo("Y");
         verify(consultDocsDao, never()).persist(any());
-        List<String> expectedWarnings = List.of(
-                "Document attachment 80 is unavailable and was not included.",
-                "Lab attachment 20 is unavailable and was not included.",
-                "eForm attachment 915 is unavailable and was not included.");
-        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).containsExactlyElementsOf(expectedWarnings);
-        assertThat(renderConsultationWarnings()).asList().containsExactlyElementsOf(expectedWarnings);
+        List<String> expectedWarnings = List.of("D:80 UNAVAILABLE", "L:20 UNAVAILABLE", "E:915 UNAVAILABLE");
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactlyElementsOf(expectedWarnings);
+        assertThat(warnings(renderConsultationWarnings())).containsExactlyElementsOf(expectedWarnings);
     }
 
     /**
@@ -478,6 +550,33 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
         }
         return request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+    }
+
+    /** Each warning as "type:id REASON", so the tests read the warning, not its wording. */
+    private static List<String> warnings(Object warnings) {
+        assertThat(warnings).isInstanceOf(List.class);
+        return ((List<?>) warnings).stream()
+                .map(warning -> (ConsultAttachmentWarning) warning)
+                .map(warning -> warning.getKey() + " " + warning.getReason())
+                .toList();
+    }
+
+    /** Renders consult 9 for patient 1 with one attached document whose stored file is {@code file}. */
+    private Path renderWithDocument(int documentId, Path file) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        EDoc document = new EDoc();
+        document.setDocId(String.valueOf(documentId));
+        when(documentManager.renderDocument(loggedInInfo, document)).thenReturn(file);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>(List.of(document)));
+            return manager.renderConsultationFormWithAttachments(request, response);
+        }
     }
 
     private ConsultDocs attachedRow(int id, int documentNo, String docType) {

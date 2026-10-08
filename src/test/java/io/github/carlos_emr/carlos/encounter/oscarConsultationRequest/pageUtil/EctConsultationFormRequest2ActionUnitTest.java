@@ -40,6 +40,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -56,6 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -69,6 +71,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -92,7 +95,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
     private static final String PDF_BASE64 = "JVBERi0xLjQK";
-    private static final String UNAVAILABLE_DOCUMENT_WARNING = "Document attachment 80 is unavailable and was not included.";
+    private static final ConsultAttachmentWarning UNAVAILABLE_DOCUMENT_WARNING =
+            ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80);
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -241,15 +245,66 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         doAnswer(invocation -> {
             request.setAttribute("demographicId", "1");
             request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
-                    List.of("Document attachment 80 is unavailable and was not included."));
+                    List.of(UNAVAILABLE_DOCUMENT_WARNING));
             return pdfPath;
         }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
 
         String result = action.execute();
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("\"attachmentWarnings\":[\"Document 80 is no longer available "
+                + "(it was deleted or does not belong to this patient).\"]");
+    }
+
+    @Test
+    @DisplayName("words the print preview's attachment warnings in the reader's language")
+    void shouldTranslateAttachmentWarnings_whenReaderPrefersFrench() throws Exception {
+        request.addPreferredLocale(Locale.FRENCH);
+        doAnswer(invocation -> {
+            request.setAttribute("demographicId", "1");
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    List.of(UNAVAILABLE_DOCUMENT_WARNING, ConsultAttachmentWarning.notRendered(DocumentType.LAB, 7)));
+            return pdfPath;
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+
+        action.execute();
+
         assertThat(response.getContentAsString())
-                .contains("\"attachmentWarnings\":[\"Document attachment 80 is unavailable and was not included.\"]");
+                .contains("Document 80 : n\u2019est plus disponible (\u00e9l\u00e9ment supprim\u00e9 ou n\u2019appartenant pas \u00e0 ce patient).")
+                .contains("R\u00e9sultat de laboratoire 7 : lecture impossible.");
+    }
+
+    @Test
+    @DisplayName("names the attachments that could not be read when the consultation PDF cannot be made")
+    void shouldNameUnreadableAttachments_whenRenderFails() throws Exception {
+        doAnswer(invocation -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    List.of(UNAVAILABLE_DOCUMENT_WARNING, ConsultAttachmentWarning.notRendered(DocumentType.LAB, 7)));
+            throw new PDFGenerationException("One or more consultation attachments could not be rendered");
+        }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
+
+        action.execute();
+
+        // Only the unreadable one blocks the PDF; the unavailable one is left out either way.
+        assertThat(response.getContentAsString()).contains("\"errorMessage\":\"The consultation PDF could not be made. "
+                + "These attachments could not be read: Lab result 7. Fix or detach them, then try again.\"");
+    }
+
+    @Test
+    @DisplayName("refuses the preview, rendering nothing, when the user may not write the saved patient's consults")
+    void shouldRefusePreview_whenUserMayNotWriteSavedPatientsConsult() throws Exception {
+        // The submitted patient is one the user may write; the consult's own saved patient is not.
+        action.setDemographicNo("2");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("w"), eq("1"))).thenReturn(false);
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString()).contains("Consultation request unavailable.");
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "w", "1");
+        verify(documentAttachmentManager, never())
+                .renderConsultationFormWithAttachments(any(HttpServletRequest.class), any(HttpServletResponse.class));
     }
 
     @Test
@@ -281,7 +336,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
             renderResponse.flushBuffer();
             request.setAttribute("demographicId", "1");
             request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
-                    List.of("Form attachment 3 is unavailable and was not included."));
+                    List.of(ConsultAttachmentWarning.notRendered(DocumentType.FORM, 3)));
             return pdfPath;
         }).when(documentAttachmentManager).renderConsultationFormWithAttachments(eq(request), any(HttpServletResponse.class));
 
@@ -293,7 +348,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsString())
                 .contains("\"consultPDF\":\"" + PDF_BASE64 + "\"")
-                .contains("Form attachment 3 is unavailable and was not included.")
+                .contains("Form 3 could not be read.")
                 .doesNotContain("renderer body");
     }
 

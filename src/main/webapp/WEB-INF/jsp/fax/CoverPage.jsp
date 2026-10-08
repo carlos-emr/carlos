@@ -127,6 +127,14 @@
                 return true;
             }
 
+            // Attachments that will be left out must be confirmed before the fax goes.
+            const confirmLeftOut = document.getElementById('confirmSendWithoutUnavailable');
+            if (confirmLeftOut && !confirmLeftOut.checked) {
+                confirmLeftOut.reportValidity();
+                confirmLeftOut.focus();
+                return false;
+            }
+
             const coverPageForm = document.getElementById('coverPageForm');
             if (coverPageForm.checkValidity()) {
                 return ShowSpin(true);
@@ -401,9 +409,25 @@
                         <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
                         <ul class="mb-0">
                             <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
-                                <li><carlos:encode value="${ attachmentWarning }"/></li>
+                                <%-- Type and id only, worded from the bundle; see ConsultAttachmentWarning. --%>
+                                <c:set var="attachmentTypeLabel"><fmt:message key="${ attachmentWarning.typeLabelKey }"/></c:set>
+                                <c:set var="attachmentWarningText"><fmt:message key="${ attachmentWarning.messageKey }"><fmt:param value="${ attachmentTypeLabel }"/><fmt:param value="${ attachmentWarning.id }"/></fmt:message></c:set>
+                                <li><carlos:encode value="${ attachmentWarningText }"/></li>
                             </c:forEach>
                         </ul>
+                        <%-- Staff confirm sending without them; EctConsultationFormFax2Action refuses the
+                             fax unless every attachment it finds unavailable is among these keys. --%>
+                        <input type="hidden" name="confirmedUnavailableAttachments" value="<c:forEach items='${ attachmentWarnings }' var='confirmedWarning' varStatus='confirmedStatus'><carlos:encode value='${ confirmedWarning.key }' context='htmlAttribute'/><c:if test='${ not confirmedStatus.last }'>,</c:if></c:forEach>"/>
+                        <div class="form-check mt-2">
+                            <%-- required for checkValidity() in submitForm, which shows the browser's own
+                                 prompt; data-rule-required="false" keeps jQuery Validate from adding its
+                                 untranslated "This field is required." label as well. --%>
+                            <input class="form-check-input" type="checkbox" id="confirmSendWithoutUnavailable"
+                                   name="confirmSendWithoutUnavailable" value="true" required data-rule-required="false">
+                            <label class="form-check-label" for="confirmSendWithoutUnavailable">
+                                <fmt:message key="consultation.fax.confirmSendWithoutUnavailable"/>
+                            </label>
+                        </div>
                     </div>
                 </c:if>
 
