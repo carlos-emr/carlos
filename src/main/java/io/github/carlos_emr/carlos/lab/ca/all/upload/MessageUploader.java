@@ -53,8 +53,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import jakarta.persistence.EntityTransaction;
 import org.springframework.orm.jpa.EntityManagerHolder;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.ResourceHolderSupport;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -658,7 +660,8 @@ public final class MessageUploader {
      * than thrown, so it cannot replace the failure that brought the caller here. It does mark the
      * enclosing transaction rollback-only, because a half-finished cleanup that the caller then commits
      * would leave some rows removed and others stored; only if the transaction cannot be marked is the
-     * failure rethrown, so that it still rolls back.</p>
+     * failure rethrown, so that it still rolls back. A call with no transaction runs the cleanup in one of
+     * its own, for the same all-or-nothing reason.</p>
      *
      * @param fileId the id of the {@code fileUploadCheck} row that the failed upload's rows reference
      */
@@ -668,7 +671,14 @@ public final class MessageUploader {
             return;
         }
         try {
-            removeStoredRows(fileId);
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                removeStoredRows(fileId);
+            } else {
+                // Without a caller transaction every DAO call commits on its own, so a failure part-way would
+                // leave some rows recycled and removed and the rest stored. One transaction makes it all or nothing.
+                new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                        .executeWithoutResult(status -> removeStoredRows(fileId));
+            }
         } catch (RuntimeException cleanupFailure) {
             // exceptionTrace, like the upload actions: a persistence failure's nested causes can carry row content.
             logger.warn("Could not clean up the rows of lab upload {}: {}", fileId, LogSafe.exceptionTrace(cleanupFailure));

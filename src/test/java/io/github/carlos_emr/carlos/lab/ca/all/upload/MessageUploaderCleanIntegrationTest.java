@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
+import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
@@ -226,6 +227,28 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
         assertThat(countInfos()).isZero();
         assertThat(countRecycledMessages()).isEqualTo(1);
         assertThat(countRecycledInfos()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRollBackPartialCleanup_whenNoTransactionIsActiveAndCleanupFails() throws Exception {
+        tx.executeWithoutResult(status -> infos.persist(infoFor(persistMessage(), "F")));
+        assertThat(countMessages()).as("the rows are committed before clean runs").isEqualTo(1);
+
+        // The last step of the cleanup fails, after the message and info rows have been recycled and removed.
+        Field dao = MessageUploader.class.getDeclaredField("fileUploadCheckDao");
+        dao.setAccessible(true);
+        FileUploadCheckDao failing = mock(FileUploadCheckDao.class);
+        when(failing.find(anyInt())).thenThrow(new IllegalStateException("synthetic late cleanup failure"));
+        dao.set(null, failing);
+
+        assertThatCode(() -> MessageUploader.clean(CHECKSUM))
+                .as("with no transaction to doom, the failure is logged and not thrown").doesNotThrowAnyException();
+
+        // Without a caller transaction every DAO call commits on its own, so a cleanup that is not made
+        // atomic would leave the rows removed and recycled even though it reported failure.
+        assertThat(countMessages()).as("the message is still stored").isEqualTo(1);
+        assertThat(countInfos()).as("the info row is still stored").isEqualTo(1);
+        assertThat(countRecycledMessages() + countRecycledInfos()).as("nothing was recycled").isZero();
     }
 
     @Test
