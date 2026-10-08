@@ -65,15 +65,29 @@ type is seeded inactive until its wording has compliance sign-off, so SMS stays 
 configured until it is activated, and then for each patient until their consent is recorded.
 See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#patient-consent).
 
+`V1.0.57__one_live_consent_per_type.sql` leaves at most one live `Consent` row per patient and
+consent type, then adds a unique key that keeps it that way. It first fills NULL flags, retires
+the extra live rows with the rule `ConsentRecords.effective` uses (an opt-out first, then a consent
+the patient confirmed directly, then the latest edit, a zero or empty date counting as undated, then
+the higher id), and makes `explicit`, `optout` and `deleted` NOT NULL. Retired duplicates change only
+`deleted`; a row that had a NULL flag also gets that flag filled, and every row the migration
+changes has its earlier values kept in `Consent_migration_audit`. The key sits on an invisible generated column, `live_demographic_no`,
+because deleted rows legitimately repeat and MariaDB has no partial index.
+It was merged as `V1.0.33` (#3917) and then renumbered to `V1.0.57`, above the highest version on
+both develop and `release/2026.08`: a lower number never runs on an already-migrated database.
+
 `V1.0.41__patient_portal_security_objects.sql` seeds the `_portal.*` security objects
 used by the patient portal client and grants them to `admin` only.
-Versions up to `V1.0.40` are not free: `release/2026.08` holds them and they arrive with that
+Versions up to `V1.0.53` are not free: `release/2026.08` holds them and they arrive with that
 forward-merge.
 
 `V1.0.42__portal_email_delivery.sql` adds the portal password lifecycle columns to `emailLog`
 (state, opaque source reference, secret ID, original portal origin and clinic). It never stores a
-password. `V1.0.43` is reserved for the portal invite delivery migration (#3856), which merges
-after this one.
+password.
+
+`V1.0.43__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
+attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
+sequence got. It never stores the invitation code.
 
 `V1.0.54__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
 with its approved wording (#3848) and, in the same statement, switches the type on where the
@@ -85,7 +99,7 @@ number is set when it merges: it must be above the highest version on both devel
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in use is `common/V1.0.42`
-(also the highest shared one), `V1.0.43` is reserved for #3856, and `release/2026.08` holds
-versions up to `V1.0.40`, so the next free version for ANY location is `V1.0.44` (see
-`../README.md`).
+next free number accounts for province deltas too. The highest version in use is `common/V1.0.54`
+(also the highest shared one), `common/V1.0.43` (portal invite delivery) is in use, and
+`release/2026.08` holds versions up to `V1.0.53`, so the next free version for ANY location is
+`V1.0.55` (see `../README.md`).

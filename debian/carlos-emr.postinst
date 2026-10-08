@@ -386,6 +386,8 @@ case "$1" in
             install -d -m 0700 -o carlos-backup -g adm /var/log/carlos-emr/backup-state
             install -d -m 0700 -o carlos-backup -g carlos-backup /var/backups/carlos-emr
             install -d -m 0750 -o root -g www-data "${CONF_DIR}/tls"
+            # The outbound email archive keyring (mirrors the tmpfiles entry).
+            install -d -m 0700 -o carlos -g carlos "${CONF_DIR}/archive-keyring"
         fi
 
         # The document skeleton the application expects to exist before it

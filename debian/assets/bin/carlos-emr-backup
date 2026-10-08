@@ -711,7 +711,8 @@ cmd_verify() {
     # buffer — a production-sized document store made the drill false-page
     # "NOT being backed up" about files that were right there. (The first
     # fix moved the SIGPIPE from restic to printf; reviewed and reproduced.)
-    # A bash substring match on the captured variable has no pipe to kill.
+    # A bash substring match, or a here-string into grep, on the captured
+    # variable has no pipe to kill.
     local files_list
     # --host scoping like every other restic call here: in a SHARED offsite
     # repository, an unscoped "latest" could validate another clinic's
@@ -734,6 +735,40 @@ cmd_verify() {
             exit 1
             ;;
     esac
+    # The outbound email archive keyring (#3448). Once the restored database
+    # holds archived emails, a files snapshot without the keyring restores a
+    # record nobody can read. Before the first archive exists (a fresh install
+    # whose EMR has not started) there may be no keyring yet, so zero archived
+    # rows pass. This user cannot look inside the live 0700 keyring directory,
+    # which is why the restored database is the yardstick.
+    local archived archive_table
+    if ! archive_table="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+        "SHOW TABLES FROM \`${VERIFY_DB}\` LIKE 'outboundEmailArchive'" 2>/dev/null)"; then
+        alert "restore drill failed" "could not check the restored database for the outbound email archive table."
+        exit 1
+    fi
+    archived=0
+    if [ -n "${archive_table}" ]; then
+        if ! archived="$(mariadb "${MYSQL_ARGS[@]}" -N -B -e \
+            "SELECT COUNT(*) FROM \`${VERIFY_DB}\`.outboundEmailArchive" 2>/dev/null)"; then
+            alert "restore drill failed" "could not count archived emails in the restored database."
+            exit 1
+        fi
+        case "${archived}" in
+            ''|*[!0-9]*)
+                alert "restore drill failed" "the restored archive count was not a number."
+                exit 1
+                ;;
+        esac
+    fi
+    # The keyring's exact path as a whole listing line, so the rotation lock
+    # file, a leftover temporary file, or a look-alike path elsewhere does not
+    # count as it.
+    if [ "${archived:-0}" != 0 ] && \
+            ! grep -qxF "${CONF_DIR}/archive-keyring/outbound-email-archive.keyring" <<<"${files_list}"; then
+        alert "restore drill failed" "the restored database holds ${archived} archived email(s) but the newest files snapshot has no ${CONF_DIR}/archive-keyring/outbound-email-archive.keyring — archived patient email would NOT be readable after a restore."
+        exit 1
+    fi
     if ! restic snapshots --tag binlog --host "$(hostname -s)-carlos" >/dev/null 2>&1 || \
             [ "$(restic snapshots --tag binlog --host "$(hostname -s)-carlos" --json 2>/dev/null | head -c 3)" = "[]" ]; then
         warn "no binlog snapshots in the repository yet; point-in-time replay is unproven"

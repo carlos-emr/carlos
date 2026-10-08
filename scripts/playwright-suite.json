@@ -1422,6 +1422,23 @@
       ]
     },
     {
+      "name": "vaccine-catalogue-update",
+      "script": "scripts/vaccine-catalogue-update-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "PREVENTION_DEMOGRAPHIC_NO",
+        "VACCINE_CATALOGUE_KEEP",
+        "VACCINE_CATALOGUE_TRIGGER"
+      ]
+    },
+    {
       "name": "prevention-recall-report",
       "script": "scripts/prevention-recall-report-playwright-checks.js",
       "tiers": [
