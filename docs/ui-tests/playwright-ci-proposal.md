@@ -14,13 +14,21 @@ committing anything: it separates what was run from what was only read.
 |---|---|---|---|---|---|---|---|
 | 1 | Add the standalone tier | `.github/workflows/script-regressions.yml` (edit: one step and a comment) | every PR and push, as today | `run-playwright-suite.js --tier standalone` | +10 s measured; the job's 10 min limit stays | The Chromium the job already installs. No secrets, images or services | None known |
 | 2 | Smoke tier on pull requests | `.github/workflows/playwright-smoke.yml` (new) | `pull_request` on app, script and database paths; also `workflow_call` | `--tier smoke --province ON` against the devcontainer stack | About 25 min estimated (45 min limit); 12 min of it is the planned suite time | `ghcr.io` read for two images, Docker on the runner. No secrets | `appointment-lifecycle` fails today (smoke is 11 of 12); never run on GitHub |
-| 3 | Nightly core tier | `.github/workflows/playwright-nightly.yml` (new) | cron `17 6 * * *` and `workflow_dispatch` | `--tier core --province ON`, 8 shards per branch, `develop` and every `release/*`, JUnit per shard and a roll-up | Not measured: the tier's timeouts sum to 45.65 h. 350 min limit per shard | As change 2, and change 2 committed first | The core tier has never run end to end; expect environment noise on the first runs |
+| 3 | Nightly core tier | `.github/workflows/playwright-nightly.yml` (new) | cron `17 6 * * *` and `workflow_dispatch` | `--tier core --province ON --skip fax-configure`, 8 shards per branch, `develop` and every `release/*`, JUnit per shard and a roll-up | Not measured: the tier's timeouts sum to 45.57 h. 350 min limit per shard | As change 2, and change 2 committed first. **Both files must be on `main`, the default branch, for the cron to fire** (section 4) | The core tier has never run end to end; expect environment noise on the first runs. Other core checks have not been audited for outbound calls |
 | - | Populated-database upgrade leg | `.github/workflows/db-schema-verify.yml` (edit) | the PRs the job already runs on | Previous release's database plus demo data, migrate to HEAD, compare row counts | Not measured | MariaDB container and Flyway CLI the job already has | Sketch only (section 5) |
 
 The `front-door` tier is in none of these. It needs the `.deb`, nginx and ModSecurity, and stays in the deb
 runbook ([deb-install-validation.md section 6](deb-install-validation.md#6-run-the-suite)).
-Nothing here touches a live external system: the four SRFax scripts under `scripts/e2e/fax/` are registered
-as manual entries (section 6) and are in no workflow.
+**Default branch.** The repository's default branch is `main` (GitHub API: `default_branch` is `main`), although
+[release-process.md](../release-process.md) calls `develop` the "default integration branch". The nightly's cron
+fires only from the default branch's copy of its file, and the reusable file it calls is read from that same
+branch, so where each file is committed matters; see "Where the files must land" in section 4.
+
+**Live external systems.** To the extent known, nothing here contacts one. The four SRFax scripts under
+`scripts/e2e/fax/` are manual entries (section 6) in no workflow, and the nightly passes `--skip fax-configure`:
+that check presses "Test SRFax connection", which sends a `Get_Fax_Inbox` request with the check's fake
+credentials to SRFax's real endpoint, and its save starts the fax scheduler. The other core checks have not
+been audited for outbound calls (section 4).
 
 ## 1. What exists today
 
@@ -104,6 +112,12 @@ fails all four, exit 1 (seen once in the container, which has no Playwright brow
 A single file that is both the pull-request gate and the reusable engine of the nightly (section 4).
 On a pull request it runs the `smoke` tier; called with inputs it runs any tier, optionally one shard.
 
+The `pull_request` trigger covers `main`, `develop` and `release/*` only. `maven-project.yml` also runs on
+`experimental`, `staging/*`, `hotfix/*` and `community/*`; the omission is deliberate for a first, non-required
+rollout (the three lines the release policy defines, and a smaller bill), and the YAML says so. Add the
+patterns to `branches:` if the gate should cover them. A `pull_request` run uses the workflow file from the PR's
+merge ref, so the file must exist on each base branch the gate should cover.
+
 ```yaml
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
@@ -136,6 +150,9 @@ name: Playwright Suite
 
 on:
   pull_request:
+    # Deliberately narrower than maven-project.yml, which also runs on experimental, staging/*,
+    # hotfix/* and community/*: the first rollout gates the three lines docs/release-process.md
+    # defines. Add those patterns here if the gate should cover them.
     branches:
       - main
       - develop
@@ -174,6 +191,11 @@ on:
         required: false
         type: number
         default: 1
+      skip:
+        description: Space-separated check names to leave out (each becomes --skip)
+        required: false
+        type: string
+        default: ''
       residue_audit:
         description: Pass --residue-audit to the runner
         required: false
@@ -513,9 +535,10 @@ jobs:
           TIER: ${{ inputs.tier || 'smoke' }}
           SHARD: ${{ inputs.shard || 1 }}
           SHARDS: ${{ inputs.shards || 1 }}
+          SKIP: ${{ inputs.skip }}
           RESIDUE_AUDIT: ${{ inputs.residue_audit && 'true' || 'false' }}
         run: |
-          docker exec -w /workspace -e TIER -e SHARD -e SHARDS -e RESIDUE_AUDIT carlos-tomcat-dev bash -c '
+          docker exec -w /workspace -e TIER -e SHARD -e SHARDS -e SKIP -e RESIDUE_AUDIT carlos-tomcat-dev bash -c '
             set -euo pipefail
             source /root/suite-env.sh
             test -x "$CHROME_PATH" || { echo "::error::no Chromium at $CHROME_PATH"; exit 1; }
@@ -524,9 +547,16 @@ jobs:
             junit=/workspace/playwright-artifacts/junit.xml
             # The dev stack is the Ontario schema, so BC-only checks are out of scope.
             select=(--tier "$TIER" --province ON)
+            # Names come from the caller (the nightly), not from a PR, but check them anyway.
+            for skipped in ${SKIP:-}; do
+              case "$skipped" in
+                *[!a-z0-9:_-]*) echo "::error::bad check name in skip: $skipped"; exit 1 ;;
+              esac
+              select+=(--skip "$skipped")
+            done
             if [ "$SHARDS" -gt 1 ]; then
-              # Round-robin the tier by name. --list also prints manual checks (they run only by
-              # name), so drop them: a shard must never start one.
+              # Round-robin the tier by name. --list honours --skip, but also prints manual checks
+              # (they run only by name), so drop those: a shard must never start one.
               mapfile -t names < <(node scripts/run-playwright-suite.js "${select[@]}" --list \
                 | grep -v "(manual:" | awk "{print \$1}" | LC_ALL=C sort \
                 | awk -v n="$SHARDS" -v i="$SHARD" "NR % n == i % n")
@@ -654,11 +684,19 @@ devcontainer's paths; they matter to the core tier and are inert for smoke.
 # whose real wall time has never been measured end to end, so it cannot be assumed to fit
 # one 6 h job. Round-robin by name; raise `shards` if a shard runs long.
 #
-# A scheduled workflow runs from the DEFAULT branch's copy of this file, so the matrix
-# below checks out each branch itself. `uses: ./...` resolves playwright-smoke.yml from
-# that same copy; each branch's own scripts/ are what run.
+# WHERE THIS FILE MUST LIVE. A `schedule` trigger fires only from the DEFAULT branch's copy
+# of the file, and this repository's default branch is `main` (not `develop`). `uses: ./...`
+# resolves from the caller's ref, so playwright-smoke.yml must be on that branch too. For
+# the cron to fire, and for the workflow to be listed under "Run workflow", BOTH files must
+# be on `main`. Until then, dispatch it from another branch that has both files:
+#   gh workflow run playwright-nightly.yml --ref develop -f branches=develop -f shards=8
+# The matrix below checks out each branch itself, so the branch it runs FROM is not the
+# branch it tests; each tested branch's own scripts/ are what run.
 #
 # Requires playwright-smoke.yml to be committed first.
+#
+# NO TRAFFIC TO A REAL THIRD PARTY. The suite is told to skip `fax-configure` (see `skip`
+# below). Other core checks have not been audited for outbound calls.
 
 name: Playwright Nightly
 
@@ -743,6 +781,10 @@ jobs:
       tier: ${{ inputs.tier || 'core' }}
       shard: ${{ matrix.shard }}
       shards: ${{ matrix.shards }}
+      # fax-configure presses "Test SRFax connection", which sends a Get_Fax_Inbox request (with
+      # the check's fake credentials) to SRFax's real endpoint, and its save starts the fax
+      # scheduler. A hosted nightly must not send traffic to a real third party.
+      skip: fax-configure
       residue_audit: true
       # 6 h is the hosted-runner ceiling; leave room for the boot.
       timeout_minutes: 350
@@ -787,20 +829,33 @@ jobs:
 
 ### Why it is built this way
 
-- **Branches.** A scheduled workflow runs the default branch's copy of the file, so the matrix checks out
-  each branch itself. `plan` lists `develop` plus every `release/*` head through the matching-refs API and
+- **Branches.** A scheduled workflow runs the default branch's (`main`'s) copy of the file, so the matrix
+  checks out each branch itself. `plan` lists `develop` plus every `release/*` head through the matching-refs API and
   rejects names outside `[A-Za-z0-9._/-]`. Today that is `develop` and `release/2026.08`
   ([release-process.md](../release-process.md) names no other maintenance line). `workflow_dispatch` takes an
   explicit branch list.
-- **Shards.** The core tier is 462 checks (459 for Ontario) whose per-check timeouts sum to 164,340 s
-  (45.65 h), median 300 s. It cannot be assumed to fit one 6 h job, and its real wall time has never been
+- **Shards.** The core tier is 462 checks (459 for Ontario, 458 once `fax-configure` is skipped) whose
+  per-check timeouts sum to 164,040 s (45.57 h), median 300 s. It cannot be assumed to fit one 6 h job, and its real wall time has never been
   measured end to end. The runner has no shard flag, so each job lists the tier with `--list`, drops manual
   entries (`--list` prints them, and they must run only by name), sorts the names and keeps every n-th one.
-  Run against the real manifest, 8 shards hold 58, 58, 58, 57, 57, 57, 57, 57 checks, with no overlap and a
-  union equal to the full list. The worst-case timeout sum per shard is 19,560 to 23,640 s (5.4 to 6.6 h), so
+  Run against the real manifest with `--skip fax-configure`, 8 shards hold 58, 58, 57, 57, 57, 57, 57, 57
+  checks, with no overlap and a union equal to the 458 checks. The worst-case timeout sum per shard is
+  19,380 to 24,360 s (5.4 to 6.8 h), so
   the 350 min job limit, not the per-check timeouts, is what bounds a shard. Typical wall time is a guess:
   the smoke budget is about a minute a check, which puts a 58-check shard near an hour plus about 12 min of
   boot. Replace the guess with the first `workflow_dispatch` run's numbers and move `shards` accordingly.
+- **No traffic to a real third party.** The nightly passes `skip: fax-configure`. That check opens
+  Administration > Faxes > Configure Fax, presses "Test SRFax connection" (the application sends a read-only
+  `Get_Fax_Inbox` request to `https://www.srfax.com/SRF_SecWebSvc.php`, `SRFaxProviderClient.DEFAULT_SRFAX_API_URL`,
+  SRFax's real endpoint, with the check's fake credentials) and saves the fake account, which starts the fax
+  scheduler (finding 180). **No systematic audit of the other core checks for outbound calls has been done;
+  `fax-configure` is the one known.** A read of three checks that stage an active `SRFAX` `fax_config` row by
+  SQL (`rx-fax-signature-stamp`, `rx-fax-record-binding`, `fax-queue-admin`) found nothing that should reach
+  the provider: in the source the fax scheduler starts only at boot when an active account exists
+  (`FaxSchedulerJob.initialize`) or from the Configure Fax admin actions (`ConfigureFax2Action`, through
+  `FaxManagerImpl`), and the dev stack has no active account at boot. That is a reading of scripts and source,
+  not an observation of a running stack. Confirm it on the first dispatch run, on a
+  runner whose outbound connections you can see, before the cron is enabled.
 - **Residue audit.** Each shard passes `--residue-audit`, so a check that leaves the shared install changed
   fails its shard (Task 3). `origin/release/2026.08` does not have the option until the coverage-gap pull
   request merges, so the workflow checks the checked-out runner for it and runs unaudited with a warning
@@ -810,9 +865,33 @@ jobs:
 - **JUnit.** Every shard uploads `junit.xml` inside its artifact `playwright-core-<branch>-<n>of8`; the
   `report` job downloads them all and writes totals and each failure to the run summary. The upload does not
   depend on the runner's JUnit properties, so the `browserVersion` property Task 4 adds changes nothing.
-- **Dependency.** `uses: ./.github/workflows/playwright-smoke.yml` needs change 2 committed first. The
-  caller declares no `concurrency` group; the callee's job-level group includes the ref and shard, and a
-  group shared by caller and callee deadlocks.
+- **Dependency.** `uses: ./.github/workflows/playwright-smoke.yml` needs change 2 committed first, on the same
+  branch. The caller declares no `concurrency` group; the callee's job-level group includes the ref and shard,
+  and a group shared by caller and callee deadlocks.
+
+### Where the files must land
+
+- GitHub fires a `schedule` trigger only from the default branch's copy of a workflow file. The default branch
+  here is `main`, so `playwright-nightly.yml` committed only to `develop` never runs on its cron.
+- `uses: ./.github/workflows/playwright-smoke.yml` resolves the reusable file from the caller's ref. For the
+  scheduled run that ref is `main`, so `playwright-smoke.yml` has to be on `main` too.
+- The same applies to the "Run workflow" button: GitHub lists a dispatchable workflow only once its file is on
+  the default branch (documented GitHub behaviour; not tried here). **For the cron and the button, both new
+  files must be on `main`, or the default branch must be changed.**
+- Branch policy points the other way. [release-process.md](../release-process.md) sends normal work to
+  `develop` and keeps `main` for release preparation, while allowing "release-infrastructure or documentation
+  corrections" there when they are "required to operate the release process". Whether a nightly CI workflow
+  qualifies is the maintainers' decision; this proposal does not make it. The options are:
+  1. Land both files on `develop` and let them reach `main` with the next promotion. The cron does not fire
+     until then. In the meantime run the nightly by hand from `develop`, which needs both files to exist on
+     that branch: `gh workflow run playwright-nightly.yml --ref develop -f branches=develop -f shards=8`.
+     GitHub's documentation says a `workflow_dispatch` workflow must be on the default branch to be
+     triggered, so GitHub may refuse this until the files reach `main`; it was not tried here. If it is
+     refused, use option 2.
+  2. Also land both files on `main` as a narrowly scoped release-infrastructure change, and carry them back
+     to `develop` and the `release/*` lines as the policy describes.
+  3. Change the repository's default branch. Not recommended: it also moves every other schedule
+     (`pmd.yml`, `semgrep.yml`), the default base of new pull requests and the branch other tooling reads.
 
 ### Time budget
 
@@ -840,11 +919,13 @@ fewer branches.
    checks (live wrapper: `EXCLUSIVE=1`), and `admin-role-management` and `session-heartbeat-timeout` refuse to
    run without `EXCLUSIVE=1`. Each job owns a private stack and runs one check at a time, so the workflow sets
    `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true`.
-4. **Older release branches.** The reusable workflow comes from `develop`'s copy; the scripts that run are
-   each branch's own. `origin/release/2026.08` already has the `standalone` tier, `--province` and `--junit`
+4. **Older release branches.** The reusable workflow comes from `main`'s copy (the default branch); the
+   scripts that run are each branch's own. `origin/release/2026.08` already has the `standalone` tier, `--province` and `--junit`
    (checked), but not `--residue-audit` or `expectedFailure`, which arrive with the coverage-gap pull request.
    A branch whose runner predates `--province` would fail with "Unknown argument".
 5. **Same as change 2:** `appointment-lifecycle`, and nothing has run on GitHub.
+6. **Outbound calls.** Only `fax-configure` is known to send traffic to a real third party, and it is skipped.
+   The rest of the core tier has not been audited for outbound calls (see "No traffic to a real third party").
 
 ## 5. Populated-database migration leg for `db-schema-verify.yml`
 
@@ -862,7 +943,8 @@ The leg, per province, on the pull requests the job already runs on (its `paths`
    through that release's `scripts/build-demo-additive.sh`, the transform `carlos-ctl demo-data` uses.
    Checked here: the script exists from tag `2026.08.0-alpha9` onward, and run from the `2026.08.0-alpha18`
    tree it writes a 32.7 MB Ontario artifact in 0.3 s. That tree has 28 common migrations against 35 at
-   this commit, so the leg applies at least seven forward migrations.
+   this commit, and this commit adds one more Ontario file, so the leg applies eight forward migrations on
+   Ontario (seven on BC).
 3. Insert one `FAKE-UPGRADE-SENTINEL` patient, so survival is checked on a row the job wrote.
 4. Count every base table, `flyway migrate` and `flyway validate` with this commit's files, count again.
 5. Fail if a table disappeared or shrank unless `scripts/migration/upgrade-row-count-exceptions.txt` names it
@@ -916,6 +998,8 @@ The leg, per province, on the pull requests the job already runs on (its `paths`
           $MYSQL "${DB}" < "$RUNNER_TEMP/demo-additive.sql"
 
           # 3. A sentinel patient, so "the rows survived" is checked on a row this job wrote.
+          #    The column list is copied from scripts/e2e/fax/fixtures.sql and has NOT been run
+          #    against the previous release's schema or this commit's.
           $MYSQL "${DB}" -e "INSERT INTO demographic (last_name, first_name, sex, provider_no, roster_status, patient_status, hin, year_of_birth, month_of_birth, date_of_birth, date_joined, lastUpdateDate) VALUES ('FAKE-UPGRADE-SENTINEL', 'FAKE-Ada', 'F', '999998', 'RO', 'AC', '', '1980', '01', '01', CURDATE(), NOW())"
 
           # 4. Exact row count of every base table, before and after.
@@ -934,7 +1018,8 @@ The leg, per province, on the pull requests the job already runs on (its `paths`
           snapshot "$RUNNER_TEMP/rows-after.tsv"
 
           # 6. Assert. A migration may add rows and tables. It may remove or change a table's
-          #    rows only if the table is named, with a reason, in the exceptions file.
+          #    rows only if the table is named, with a reason, in the exceptions file (seeded
+          #    with providerExt; see below the step).
           python3 - "$RUNNER_TEMP/rows-before.tsv" "$RUNNER_TEMP/rows-after.tsv" \
               scripts/migration/upgrade-row-count-exceptions.txt <<'PY'
           import sys
@@ -979,6 +1064,24 @@ Open points for the maintainer:
   request to `develop` it is the newest release line that has been forward-merged into `develop`. A release
   that has not been forward-merged yet is not reachable and is not tested; the forward merge is where
   [release-process.md](../release-process.md) renumbers the unreleased side, never a published file.
+- **Exceptions file.** Create `scripts/migration/upgrade-row-count-exceptions.txt` in the same pull request and
+  seed it with `providerExt`:
+
+  ```
+  # One table per line. Text after # names the migration that justifies the exception.
+  providerExt   # V1.0.52 deletes every row, then re-inserts one copy of each exact duplicate
+  ```
+
+  `common/V1.0.52__enforce_provider_signature_identity.sql:71` runs `DELETE FROM providerExt`; it is the only
+  statement in the eight migrations added since `2026.08.0-alpha18` (V1.0.45 to V1.0.47, V1.0.52 to V1.0.55,
+  `on/V1.0.56`) that removes rows (checked: no other `DELETE FROM`, `TRUNCATE`, `DROP TABLE`, `DROP COLUMN` or
+  `REPLACE INTO`). On the demo dataset `providerExt` holds one row, `('999998','Alex')`, in both trees, so the
+  migration rewrites it to the same count and the comparison would not trip on it with this dataset; the seed
+  is for a dataset or a clinic database that has exact duplicates, where the count falls by design. The
+  migration also refuses one provider with two different signatures, which the demo dataset does not have.
+- **Sentinel insert unverified.** The `INSERT INTO demographic` column list is copied from
+  `scripts/e2e/fax/fixtures.sql`. It has not been run against the previous release's schema or this commit's,
+  so the first run may need its column list corrected.
 - **Cost.** One more Flyway run on a database with demo data, in each province. The job limit is 60 min;
   the leg has not been timed.
 - **Tags.** The tag's migration set must never change; the release policy already forbids editing a Flyway
@@ -1036,6 +1139,14 @@ Run for this document:
   comparison script compiles and behaves as described.
 - Every `uses:` is pinned to a SHA already present in `.github/workflows/`.
 - The `script-regressions.yml` diff applies to the current file with `patch` and gives the edited file shown.
+- The default branch is `main`: read from the GitHub API (`default_branch`).
+- `fax-configure`'s outbound call: `SRFaxProviderClient.DEFAULT_SRFAX_API_URL` is the real SRFax endpoint and
+  the "Test SRFax connection" step goes through it (read from the source and the script header; not observed on
+  the wire).
+- The `skip` input was run against the real manifest through the workflow's own inner script (with the final
+  `node` call switched to `--dry-run`): unsharded core selects 458 checks and no `fax-configure`; eight shards
+  select the same 458 with no overlap; a malformed name exits 1 before any check starts; an unknown name exits 1
+  from the runner; the smoke tier is unchanged at 12 checks with `login` last.
 - Shard selection was run against the real manifest (section 4); the `jq` matrix expression and the
   `sub("^refs/heads/"; "")` filter were run; the roll-up script was run against output of the runner's own
   `toJUnit`.
@@ -1062,11 +1173,16 @@ Not run, and only a first run on GitHub (or a maintainer's machine) can settle:
 
 1. Merge the coverage-gap pull request, then commit change 1 alone. (Change 1 already works on
    `release/2026.08`, which has the `standalone` tier; the nightly's residue audit and known-failure
-   reporting come from this branch.)
-2. Commit `playwright-smoke.yml` in a pull request whose diff touches the file (its `paths` list includes it,
-   so it triggers itself). Read the first run's log. Fix the sequence, not the checks.
+   reporting come from this branch.) It goes where `script-regressions.yml` already lives, on each branch the
+   job runs for.
+2. Commit `playwright-smoke.yml` to `develop` (and `release/*`) in a pull request whose diff touches the file
+   (its `paths` list includes it, so it triggers itself). Read the first run's log. Fix the sequence, not the
+   checks. It must later also be on `main` for step 4.
 3. Keep it non-required. After two weeks of green runs, require `Playwright smoke`.
-4. Commit `playwright-nightly.yml`. First run: `workflow_dispatch` with `branches=develop` and `shards=8`.
-   Record the per-shard wall time and the skip and failure counts here, and tune `shards` and the
-   environment step.
-5. Decide on the migration leg separately, as its own pull request.
+4. Commit `playwright-nightly.yml`. **Decide where first** (section 4, "Where the files must land"): the cron
+   fires only from `main`. Until both files are on `main`, dispatch it by hand from `develop`:
+   `gh workflow run playwright-nightly.yml --ref develop -f branches=develop -f shards=8`. Do that once, on a
+   runner whose outbound connections you can see, before the cron is enabled; record the per-shard wall time,
+   the skip and failure counts and any outbound connection to a host that is not the registry or a package
+   mirror, and tune `shards` and the environment step.
+5. Decide on the migration leg separately, as its own pull request, with its exceptions file.
