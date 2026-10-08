@@ -99,6 +99,28 @@ class EmailFooterEditorJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should take the logo address from the page's own markup, never from text read out of the page")
+    void shouldCloneLogoFromTemplate_withoutCopyingPageText() throws IOException {
+        String modal = Files.readString(MODAL, StandardCharsets.UTF_8);
+        String script = Files.readString(SCRIPT, StandardCharsets.UTF_8);
+
+        // Nothing inside a template loads, so the logo is still fetched only when the window opens.
+        assertThat(modal)
+                .contains("<template id=\"footerEditorPreviewLogoTemplate\"><img id=\"footerEditorPreviewLogo\"")
+                // Firefox fetches a template's images early unless they are lazy.
+                .contains("loading=\"lazy\" src=\"${carlos:forHtmlAttribute(ctx)}/email/clinicEmailLogo\"></template>")
+                .doesNotContain("data-logo-url");
+        assertThat(script)
+                // Listeners first, then into the page, where the image starts loading.
+                .containsSubsequence("source.cloneNode(true)", "previewLogo.loading = 'eager';", "addEventListener('load'",
+                        "addEventListener('error'", "previewLogoTemplate.replaceWith(previewLogo)")
+                .containsSubsequence("addEventListener('show.bs.modal'", "loadLogo();")
+                .doesNotContain(".src =")
+                .doesNotContain("setAttribute('src'")
+                .doesNotContain("data-logo-url");
+    }
+
+    @Test
     @DisplayName("should offer the logo upload only inside the _admin write check, as a multipart POST")
     void shouldGuardLogoForm_withAdminWriteCheck() throws IOException {
         String jsp = Files.readString(CONFIGURE, StandardCharsets.UTF_8);

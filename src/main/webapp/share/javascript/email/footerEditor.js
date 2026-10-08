@@ -151,7 +151,8 @@
         var previewFooter = modal.querySelector('#footerEditorPreviewFooter');
         var previewText = modal.querySelector('#footerEditorPreviewText');
         var previewHtml = modal.querySelector('#footerEditorPreviewHtml');
-        var previewLogo = modal.querySelector('#footerEditorPreviewLogo');
+        var previewLogoTemplate = modal.querySelector('#footerEditorPreviewLogoTemplate');
+        var previewLogo = null;
         var logoNote = modal.querySelector('#footerEditorLogoNote');
         var linkRow = modal.querySelector('#footerEditorLinkRow');
         var linkAddress = modal.querySelector('#footerEditorLinkAddress');
@@ -165,17 +166,29 @@
         var logoLoaded = false;
 
         // The clinic logo shows only when one is set: the address answers 404 otherwise. It is
-        // fetched when the window first opens, not with every page.
-        previewLogo.addEventListener('load', function () {
-            logoLoaded = true;
-            show(logoNote, true);
-            refresh();
-        });
-        previewLogo.addEventListener('error', function () {
-            logoLoaded = false;
-            show(previewLogo, false);
-            show(logoNote, false);
-        });
+        // fetched when the window first opens, not with every page: the image waits in a
+        // template, where nothing loads, until it is moved into the preview.
+        function loadLogo() {
+            var source = previewLogoTemplate ? previewLogoTemplate.content.firstElementChild : null;
+            if (previewLogo || !source) {
+                return;
+            }
+            previewLogo = source.cloneNode(true);
+            // Lazy only to keep Firefox from fetching it early; it stays hidden until it loads, and a
+            // hidden lazy image would never load.
+            previewLogo.loading = 'eager';
+            previewLogo.addEventListener('load', function () {
+                logoLoaded = true;
+                show(logoNote, true);
+                refresh();
+            });
+            previewLogo.addEventListener('error', function () {
+                logoLoaded = false;
+                show(previewLogo, false);
+                show(logoNote, false);
+            });
+            previewLogoTemplate.replaceWith(previewLogo);
+        }
 
         function refresh() {
             var html = clean(editor.innerHTML);
@@ -183,7 +196,9 @@
             var text = toText(html);
             previewText.textContent = text;
             // The logo travels only with a footer, as the server sends it.
-            show(previewLogo, logoLoaded && html !== '');
+            if (previewLogo) {
+                show(previewLogo, logoLoaded && html !== '');
+            }
             count.textContent = text.length;
             var overText = text.length > maxLength;
             var overHtml = !overText && html.length > maxHtmlLength;
@@ -289,9 +304,6 @@
         });
 
         modal.addEventListener('show.bs.modal', function (event) {
-            if (!previewLogo.getAttribute('src')) {
-                previewLogo.src = modal.getAttribute('data-logo-url'); // codeql[js/xss-through-dom] -- an image address the server wrote (context path + fixed route); an img src is never run or read as HTML.
-            }
             var opener = event.relatedTarget;
             target = opener ? document.getElementById(opener.getAttribute('data-footer-editor-target')) : null;
             targetPreview = opener ? document.getElementById(opener.getAttribute('data-footer-editor-preview')) : null;
@@ -300,6 +312,8 @@
             show(linkRow, false);
             show(linkError, false);
             refresh();
+            // Last, so the optional logo can never stop the editor from opening.
+            loadLogo();
         });
         modal.addEventListener('shown.bs.modal', function () {
             editor.focus();
