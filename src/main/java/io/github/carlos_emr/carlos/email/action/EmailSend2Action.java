@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -69,7 +70,7 @@ public class EmailSend2Action extends ActionSupport {
     private static final Logger logger = MiscUtils.getLogger();
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
     private EformDataManager eformDataManager = SpringUtils.getBean(EformDataManager.class);
-    private final AttachmentOwnershipService attachmentOwnershipService;
+    private final transient AttachmentOwnershipService attachmentOwnershipService;
 
     /**
      * Shown when the send is refused because the window's attachments are gone (already sent,
@@ -138,11 +139,11 @@ public class EmailSend2Action extends ActionSupport {
         boolean deleteEFormAfterEmail = request.getParameter("deleteEFormAfterEmail") != null && "true".equalsIgnoreCase(request.getParameter("deleteEFormAfterEmail"));
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        List<EmailAttachment> attachments = takeVerifiedAttachments(request);
-        if (attachments == null) {
+        Optional<List<EmailAttachment>> attachments = takeVerifiedAttachments(request);
+        if (attachments.isEmpty()) {
             return refuseSend();
         }
-        EmailLog emailLog = sendEmail(request, attachments);
+        EmailLog emailLog = sendEmail(request, attachments.get());
 
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
@@ -171,11 +172,11 @@ public class EmailSend2Action extends ActionSupport {
      * @return String Struts2 SUCCESS result for rendering the email result page
      */
     public String sendDirectEmail() {
-        List<EmailAttachment> attachments = takeVerifiedAttachments(request);
-        if (attachments == null) {
+        Optional<List<EmailAttachment>> attachments = takeVerifiedAttachments(request);
+        if (attachments.isEmpty()) {
             return refuseSend();
         }
-        EmailLog emailLog = sendEmail(request, attachments);
+        EmailLog emailLog = sendEmail(request, attachments.get());
         boolean isEmailSuccessful = emailLog.getStatus() == EmailStatus.SUCCESS;
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
@@ -244,7 +245,7 @@ public class EmailSend2Action extends ActionSupport {
      *
      * <p>The window's {@value EmailAttachmentStaging#KEY_PARAMETER} takes its own entry, once, so a
      * compose or resend in another window can no longer change what this one sends. The send is
-     * refused (returns {@code null}) when:</p>
+     * refused (returns an empty {@code Optional}) when:</p>
      * <ul>
      *   <li>nothing is staged under the key: already sent or cancelled, dropped, or forged;</li>
      *   <li>the email's {@code demographicId} is not the patient the attachments were prepared for;</li>
@@ -257,26 +258,27 @@ public class EmailSend2Action extends ActionSupport {
      * The entry is consumed even when refused, so a refused window cannot be retried into sending.</p>
      *
      * @param request the send request
-     * @return a mutable copy of the verified attachments, or {@code null} to refuse the send
+     * @return a mutable copy of the verified attachments (an empty list when the window staged
+     *         none), or an empty {@code Optional} to refuse the send
      */
-    List<EmailAttachment> takeVerifiedAttachments(HttpServletRequest request) {
+    Optional<List<EmailAttachment>> takeVerifiedAttachments(HttpServletRequest request) {
         EmailAttachmentStaging.Prepared prepared = EmailAttachmentStaging.take(
                 request.getSession(), request.getParameter(EmailAttachmentStaging.KEY_PARAMETER));
         if (prepared == null) {
             logger.warn("Email send refused: no attachments are staged for this compose window");
-            return null;
+            return Optional.empty();
         }
         Integer demographicNo = parseDemographicNo(request.getParameter("demographicId"));
         if (demographicNo == null || demographicNo != prepared.demographicNo()) {
             logger.warn("Email send refused: the email's patient is not the patient its attachments were prepared for");
-            return null;
+            return Optional.empty();
         }
         Map<DocumentType, List<Integer>> idsByType = new EnumMap<>(DocumentType.class);
         for (EmailAttachment attachment : prepared.attachments()) {
             DocumentType type = attachment.getDocumentType();
             if (type == null) {
                 logger.warn("Email send refused: an attachment has no document type");
-                return null;
+                return Optional.empty();
             }
             if (type != DocumentType.FORM) {
                 idsByType.computeIfAbsent(type, t -> new ArrayList<>()).add(attachment.getDocumentId());
@@ -284,9 +286,9 @@ public class EmailSend2Action extends ActionSupport {
         }
         if (!attachmentOwnershipService.allBelongToDemographic(idsByType, demographicNo)) {
             logger.warn("Email send refused: an attachment does not belong to the email's patient");
-            return null;
+            return Optional.empty();
         }
-        return new ArrayList<>(prepared.attachments());
+        return Optional.of(new ArrayList<>(prepared.attachments()));
     }
 
     /** Reports a refused send on the compose page, which alerts and closes the window. */
@@ -302,7 +304,7 @@ public class EmailSend2Action extends ActionSupport {
         }
         try {
             return Integer.valueOf(demographicId.trim());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

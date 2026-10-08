@@ -409,7 +409,7 @@
 
                 <div class="card mt-4">
                     <div class="card-header">
-                        <h5 class="card-title">${emailComposeBodyLabel}</h5>
+                        <h5 class="card-title"><label class="mb-0" for="bodyEmail">${emailComposeBodyLabel}</label></h5>
                     </div>
                     <div class="card-body">
                         <div class="container">
@@ -449,7 +449,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 mb-3">
-                                    <label>${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
+                                    <label for="encryptedMessage">${emailComposeEncryptedMessageLabel} <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-bs-toggle="tooltip" data-bs-placement="right"
                                                                    title="${emailComposeEncryptedMessageTooltip}"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"

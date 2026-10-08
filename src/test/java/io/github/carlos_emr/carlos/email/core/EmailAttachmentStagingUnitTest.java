@@ -116,9 +116,10 @@ class EmailAttachmentStagingUnitTest {
         assertThat(copy.getDocumentId()).isEqualTo(77);
         assertThat(copy.getFileSize()).isEqualTo(2048L);
         assertThat(copy.getPreviewToken()).isEqualTo("preview");
-        assertThat(staged.prepared().attachments()).hasSize(1);
-        assertThatThrownBy(() -> staged.prepared().attachments().add(eForm(1)))
-                .isInstanceOf(UnsupportedOperationException.class);
+        List<EmailAttachment> stagedList = staged.prepared().attachments();
+        EmailAttachment another = eForm(1);
+        assertThat(stagedList).hasSize(1);
+        assertThatThrownBy(() -> stagedList.add(another)).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

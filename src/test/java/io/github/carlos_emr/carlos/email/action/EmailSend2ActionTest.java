@@ -176,7 +176,7 @@ class EmailSend2ActionTest extends CarlosUnitTestBase {
         EmailData sent = sentEmail();
         assertThat(sent.getDemographicNo()).isEqualTo(10001);
         assertThat(sent.getAttachments()).extracting(EmailAttachment::getDocumentId).containsExactly(501);
-        verify(ownership).allBelongToDemographic(eq(Map.of(DocumentType.EFORM, List.of(501))), eq(10001));
+        verify(ownership).allBelongToDemographic(Map.of(DocumentType.EFORM, List.of(501)), 10001);
         verify(eformDataManager).removeEFormData(any(), eq("20001"));
     }
 
