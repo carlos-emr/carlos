@@ -1,0 +1,59 @@
+{
+  "_comment": "Fixed proposals the NHS fixture gateway returns for three committed synthetic notes (no model). Each passage must pass ChartUpdateProposals.validate; ChartUpdateNhsFixtureGatewayUnitTest checks that, so the gateway cannot drift from the server's passage rules again.",
+  "cases": {
+    "NHSSYN001": {
+      "note_index": 16,
+      "source_sha256": "0cac494dc22d152317479c21ae5414cdfc800b3b0c7dbe7e54b716a94307cd92",
+      "proposals": [
+        {
+          "kind": "history",
+          "evidence": "Reversible Cerebral Vasoconstriction Syndrome (RCVS)"
+        },
+        {
+          "kind": "tickler",
+          "evidence": "Referral for neurology OP follow-up in 4 weeks"
+        },
+        {
+          "kind": "history",
+          "evidence": "Documented resolution of VC on 11 /01/26"
+        }
+      ]
+    },
+    "NHSSYN002": {
+      "note_index": 16,
+      "source_sha256": "b074b2a00e06d9dcf3694c2ea57610cf47195e4476c6480d972a3ef0e2f118c4",
+      "proposals": [
+        {
+          "kind": "history",
+          "evidence": "End stage osteoarthritis of left knee"
+        },
+        {
+          "kind": "tickler",
+          "evidence": "Review tomorrow for potential discharge"
+        },
+        {
+          "kind": "history",
+          "evidence": "Hb 108 g/L (mild post-operative anaemia), no evidence of infection or further blood loss"
+        }
+      ]
+    },
+    "NHSSYN003": {
+      "note_index": 14,
+      "source_sha256": "48bb604a1eff0edebcd031f0b7f81bdd73c1a98d8ff1ad8e523c9f7e36e9f846",
+      "proposals": [
+        {
+          "kind": "history",
+          "evidence": "Spontaneous Pneumomediastinum"
+        },
+        {
+          "kind": "tickler",
+          "evidence": "1. ischarge planning initiated. 2. No new meds or changes made. 3. Arrange routine OP follow-up in Resp clinic. 4. Patient advised on monitoring for recurrence of symptoms."
+        },
+        {
+          "kind": "history",
+          "evidence": "Chest pain"
+        }
+      ]
+    }
+  }
+}

@@ -19,7 +19,10 @@ excerpts** for each of NHSSYN001–003. It does not run AI and cannot measure ex
 quality. It accepts only the complete committed corpus note selected for each case
 and validates the same request contract as the model gateway. Changed documents
 and other notes are rejected. Configure the isolated application's HTTP agent port
-as 11438 and label it `Fixed NHS proposals - no model`.
+as 11438 and label it `Fixed NHS proposals - no model`. The fixed passages live in
+`nhs_fixture_proposals.json`; `ChartUpdateNhsFixtureGatewayUnitTest` runs each one through the
+server's own passage validation, so a tighter server rule shows up as a failing unit test instead
+of every generation failing here.
 
 For model testing, use the configured model gateway instead and give
 `CHART_TEST_AGENT` its actual model/provider. The walkthrough currently expects at

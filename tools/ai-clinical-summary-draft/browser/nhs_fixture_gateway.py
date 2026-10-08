@@ -7,6 +7,7 @@ calls, chart writes or model credentials are used. Start explicitly on loopback 
 configure only an isolated CARLOS test instance to use its port.
 """
 import argparse
+import hashlib
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -16,23 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import chart_updates
 from openrouter_agent import committed_notes
 
-CASES = {
-    'NHSSYN001': (16, [
-        {'kind': 'history', 'evidence': 'Reversible Cerebral Vasoconstriction Syndrome (RCVS)'},
-        {'kind': 'tickler', 'evidence': 'Referral for neurology OP follow-up in 4 weeks'},
-        {'kind': 'history', 'evidence': 'Mild hyponatremia (Na 132 mmol/L).'},
-    ]),
-    'NHSSYN002': (16, [
-        {'kind': 'history', 'evidence': 'End stage osteoarthritis of left knee'},
-        {'kind': 'tickler', 'evidence': 'Review tomorrow for potential discharge'},
-        {'kind': 'history', 'evidence': 'Mild post-operative anemia with Hb 108 g/L'},
-    ]),
-    'NHSSYN003': (14, [
-        {'kind': 'history', 'evidence': 'Spontaneous Pneumomediastinum'},
-        {'kind': 'tickler', 'evidence': 'Arrange routine OP follow-up in Resp clinic.'},
-        {'kind': 'history', 'evidence': 'CXR: No complications, stable pneumomediastinum.'},
-    ]),
-}
+# Shared with ChartUpdateNhsFixtureGatewayUnitTest, which runs every passage through the server's own
+# validation (ChartUpdateProposals.validate), so these cannot drift from its passage rules again.
+FIXTURE = json.loads((Path(__file__).resolve().parent / 'nhs_fixture_proposals.json').read_text(encoding='utf-8'))
+CASES = {name: (case['note_index'], case['proposals']) for name, case in FIXTURE['cases'].items()}
 
 
 def main():
@@ -43,6 +31,8 @@ def main():
     outputs = {}
     for fixture, (index, proposals) in CASES.items():
         source = [body for key, _date, body in notes if key == fixture][index]
+        if hashlib.sha256(source.encode('utf-8')).hexdigest() != FIXTURE['cases'][fixture]['source_sha256']:
+            raise ValueError('Committed synthetic note changed; update nhs_fixture_proposals.json')
         output = {'proposals': proposals}
         chart_updates.validate_output(output, source)
         outputs[source] = output
