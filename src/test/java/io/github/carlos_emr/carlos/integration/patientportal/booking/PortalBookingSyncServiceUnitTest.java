@@ -121,7 +121,7 @@ class PortalBookingSyncServiceUnitTest {
         outcome(PortalBookingChoiceService.Outcome.UNAVAILABLE, refused);
         var fresh = List.of(new PatientPortalOfferedSlot("slot-b", OffsetDateTime.parse("2026-10-21T10:00:00-04:00"),
                 15, "in_person", null));
-        when(offers.replacementsFor(refused, 11, SETTINGS)).thenReturn(fresh);
+        when(offers.replacementsFor(refused, 7, 11, SETTINGS)).thenReturn(fresh);
         sync.answer(portal, CHOICE, SYNC, SETTINGS);
         verify(portal).recordBookingChoiceResult(7, 11, false, fresh, SYNC);
     }
@@ -131,7 +131,7 @@ class PortalBookingSyncServiceUnitTest {
         outcome(PortalBookingChoiceService.Outcome.UNKNOWN, null);
         sync.answer(portal, CHOICE, SYNC, SETTINGS);
         verify(portal).recordBookingChoiceResult(7, 11, false, List.of(), SYNC);
-        verify(offers, never()).replacementsFor(any(), anyLong(), any());
+        verify(offers, never()).replacementsFor(any(), anyLong(), anyLong(), any());
     }
 
     @Test
@@ -143,6 +143,35 @@ class PortalBookingSyncServiceUnitTest {
             assertThat(sync.answer(portal, CHOICE, SYNC, SETTINGS)).isTrue();
         }
         verify(bookings, org.mockito.Mockito.times(2)).undo("slot-a", 11, "-9");
+        verify(bookings, never()).confirm(any());
+    }
+
+    @Test
+    void shouldStopTheRun_whenThePortalAnswersAsDownOrThrottling() {
+        var second = new PatientPortalBookingChoiceDto(7, 12, 124, "slot-b", Instant.parse("2026-10-08T15:30:00Z"));
+        Provider provider = new Provider();
+        provider.setFirstName("Booking");
+        provider.setLastName("Portal");
+        when(providers.getProvider("-9")).thenReturn(provider);
+        when(logins.findByProviderNo("-9")).thenReturn(List.of());
+        when(portal.listPendingBookingChoices(eq(100), any()))
+                .thenReturn(new PatientPortalBookingChoiceDto.Page(List.of(CHOICE, second), false));
+        outcome(PortalBookingChoiceService.Outcome.BOOKED, new PortalBookingOffer());
+        for (int status : new int[] {503, 429}) {
+            org.mockito.Mockito.reset(bookings);
+            outcome(PortalBookingChoiceService.Outcome.BOOKED, new PortalBookingOffer());
+            org.mockito.Mockito.doThrow(PatientPortalException.ofStatus(status, "/x", null))
+                    .when(portal).recordBookingChoiceResult(anyLong(), anyLong(), anyBoolean(), any(), any());
+            try (var configured = org.mockito.Mockito.mockStatic(
+                    io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings.class)) {
+                configured.when(io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings::isConfigured)
+                        .thenReturn(true);
+                assertThatThrownBy(() -> sync.runOnce(SETTINGS)).isInstanceOf(PatientPortalException.class);
+            }
+            // The second patient's time is not booked while the portal cannot be told.
+            verify(bookings, never()).book(eq(second), any(), any());
+            verify(bookings, never()).confirm(any());
+        }
     }
 
     @Test
@@ -161,6 +190,7 @@ class PortalBookingSyncServiceUnitTest {
                 PatientPortalException.ofTransportFailure("/x", new IOException("down")));
         assertThatThrownBy(() -> sync.answer(portal, CHOICE, SYNC, SETTINGS)).isInstanceOf(PatientPortalException.class);
         verify(bookings, never()).undo(any(), anyLong(), any());
+        verify(bookings, never()).confirm(any());
     }
 
     @Test

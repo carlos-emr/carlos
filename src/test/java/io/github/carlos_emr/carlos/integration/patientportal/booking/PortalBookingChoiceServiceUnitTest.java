@@ -126,26 +126,34 @@ class PortalBookingChoiceServiceUnitTest {
         assertThat(offer.getChoiceId()).isEqualTo(11L);
         assertThat(offer.getAppointmentNo()).isEqualTo(55);
         // The other times stay open until the portal confirms the booking.
-        verify(offers, never()).closeOthers(org.mockito.ArgumentMatchers.anyLong(), any(), any());
+        verify(offers, never()).closeOthers(any(), any(), any());
     }
 
     @Test
     void shouldCloseTheOtherTimes_onlyOnceThePortalConfirms() {
         offer.setStatus(PortalBookingOffer.BOOKED);
         offer.setChoiceId(11L);
+        offer.setAppointmentNo(55);
+        Appointment appointment = new Appointment();
+        appointment.setStatus("t");
+        when(appointments.find(55)).thenReturn(appointment);
         service.confirm(CHOICE);
         assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CONFIRMED);
-        verify(offers).closeOthers(eq(7L), eq("slot-a"), any());
+        verify(offers).closeOthers(eq("operation-1"), eq("slot-a"), any());
         // A confirmed booking is reported again as booked, and is never undone.
         assertThat(service.book(CHOICE, "-9", SETTINGS).outcome())
                 .isEqualTo(PortalBookingChoiceService.Outcome.ALREADY_BOOKED);
         assertThat(service.undo("slot-a", 11, "-9")).isFalse();
+        assertThat(offer.getStatus()).isEqualTo(PortalBookingOffer.CONFIRMED);
+        assertThat(appointment.getStatus()).isEqualTo("t");
+        verify(appointments, never()).merge(any());
     }
 
     @Test
     void shouldShortenTheName_toTheScheduleColumn() {
         io.github.carlos_emr.carlos.commn.model.Demographic patient = mock(io.github.carlos_emr.carlos.commn.model.Demographic.class);
-        when(patient.getFormattedName()).thenReturn("FAKE-" + "Ä".repeat(60));
+        // A character outside the BMP is two Java chars: cutting by chars could split it.
+        when(patient.getFormattedName()).thenReturn("FAKE-" + "\uD835\uDD38".repeat(60));
         when(demographics.getDemographicById(123)).thenReturn(patient);
         service.book(CHOICE, "-9", SETTINGS);
         ArgumentCaptor<Appointment> saved = ArgumentCaptor.forClass(Appointment.class);

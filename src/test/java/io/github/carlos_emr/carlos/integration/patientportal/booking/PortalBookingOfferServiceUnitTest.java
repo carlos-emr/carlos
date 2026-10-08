@@ -86,11 +86,14 @@ class PortalBookingOfferServiceUnitTest {
     void shouldKeepReplacementsInsideAYear_forARefusedTimeFarAhead() {
         PortalBookingOffer refused = stored("slot-a", 123, 19, 9);
         refused.setStartTime(Date.from(ZonedDateTime.of(2027, 10, 1, 9, 0, 0, 0, ZONE).toInstant()));
-        when(offers.findReplacements(7, 11)).thenReturn(List.of());
-        when(offers.findOpenForPrompt(eq(7L), any())).thenReturn(List.of());
-        service.replacementsFor(refused, 11, SETTINGS);
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of());
+        when(offers.findOpenForOperation(eq("operation-1"), any())).thenReturn(List.of());
+        service.replacementsFor(refused, 7, 11, SETTINGS);
+        ArgumentCaptor<LocalDate> from = ArgumentCaptor.forClass(LocalDate.class);
         ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
-        verify(loader).load(eq("101"), any(), to.capture(), eq(3), anySet(), eq(SETTINGS), any());
+        verify(loader).load(eq("101"), from.capture(), to.capture(), eq(3), anySet(), eq(SETTINGS), any());
+        // Near the refused time, not from today: a week before it, cut at a year from today.
+        assertThat(from.getValue()).isEqualTo(LocalDate.of(2027, 9, 24));
         assertThat(to.getValue()).isEqualTo(LocalDate.of(2026, 10, 8).plusDays(PortalBookingOfferService.MAX_DAYS_AHEAD));
     }
 
@@ -161,11 +164,11 @@ class PortalBookingOfferServiceUnitTest {
         for (int index = 0; index < 6; index++) {
             stillOpen.add(stored("open-" + index, 123, 21 + index, 10));
         }
-        when(offers.findReplacements(7, 11)).thenReturn(List.of());
-        when(offers.findOpenForPrompt(eq(7L), any())).thenReturn(stillOpen);
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of());
+        when(offers.findOpenForOperation(eq("operation-1"), any())).thenReturn(stillOpen);
         when(loader.load(eq("101"), any(), any(), eq(2), anySet(), eq(SETTINGS), any()))
                 .thenReturn(List.of(time(20, 9), time(20, 14)));
-        var replacements = service.replacementsFor(refused, 11, SETTINGS);
+        var replacements = service.replacementsFor(refused, 7, 11, SETTINGS);
         assertThat(replacements).hasSize(2);
         ArgumentCaptor<PortalBookingOffer> saved = ArgumentCaptor.forClass(PortalBookingOffer.class);
         verify(offers, org.mockito.Mockito.times(2)).persist(saved.capture());
@@ -178,8 +181,8 @@ class PortalBookingOfferServiceUnitTest {
 
     @Test
     void shouldReuseReplacements_whenTheReportIsRetried() {
-        when(offers.findReplacements(7, 11)).thenReturn(List.of(stored("slot-b", 123, 20, 9)));
-        assertThat(service.replacementsFor(stored("slot-a", 123, 19, 9), 11, SETTINGS))
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of(stored("slot-b", 123, 20, 9)));
+        assertThat(service.replacementsFor(stored("slot-a", 123, 19, 9), 7, 11, SETTINGS))
                 .extracting(slot -> slot.slotId()).containsExactly("slot-b");
         verify(loader, never()).load(any(), any(), any(), anyInt(), anySet(), any(), any());
     }
@@ -190,9 +193,9 @@ class PortalBookingOfferServiceUnitTest {
         for (int index = 0; index < 8; index++) {
             full.add(stored("open-" + index, 123, 20 + index, 10));
         }
-        when(offers.findReplacements(7, 11)).thenReturn(List.of());
-        when(offers.findOpenForPrompt(eq(7L), any())).thenReturn(full);
-        assertThat(service.replacementsFor(stored("slot-a", 123, 19, 9), 11, SETTINGS)).isEmpty();
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of());
+        when(offers.findOpenForOperation(eq("operation-1"), any())).thenReturn(full);
+        assertThat(service.replacementsFor(stored("slot-a", 123, 19, 9), 7, 11, SETTINGS)).isEmpty();
         verify(offers, never()).persist(any());
     }
 }

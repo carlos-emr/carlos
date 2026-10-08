@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal.booking;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.PortalBookingOffer;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalBookingChoiceDto;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
@@ -31,8 +32,10 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalServic
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestPreparationException;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.DeamonThreadFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.util.List;
@@ -40,9 +43,8 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.function.Supplier;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -132,13 +134,15 @@ public class PortalBookingSyncService {
         int answered = 0;
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
             var choices = client.listPendingBookingChoices(PatientPortalService.MAX_BOOKING_CHOICES_PER_POLL, staff);
+            int answeredOnPage = 0;
             for (PatientPortalBookingChoiceDto choice : choices.items()) {
                 try {
                     if (answer(client, choice, staff, settings)) {
-                        answered++;
+                        answeredOnPage++;
                     }
                 } catch (PatientPortalException failure) {
-                    if (failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE) {
+                    if (portalUnavailable(failure)) {
+                        // Stop before booking more times the patient cannot be told about.
                         throw failure;
                     }
                     // One pick the portal keeps refusing must not hold up every later patient.
@@ -148,11 +152,20 @@ public class PortalBookingSyncService {
                             failure.getClass().getSimpleName());
                 }
             }
-            if (!choices.hasMore()) {
+            answered += answeredOnPage;
+            // The next page would start with the same unanswered picks: stop when nothing moved.
+            if (!choices.hasMore() || answeredOnPage == 0) {
                 break;
             }
         }
         return answered;
+    }
+
+    /** The portal is down, overloaded or throttling: every further pick would fail the same way. */
+    static boolean portalUnavailable(PatientPortalException failure) {
+        return failure.kind() == PatientPortalException.Kind.TRANSPORT_FAILURE
+                || failure.kind() == PatientPortalException.Kind.THROTTLED
+                || failure.statusCode() >= 500;
     }
 
     /** Books or refuses one pick and tells the portal; false when it must be retried later. */
@@ -163,7 +176,7 @@ public class PortalBookingSyncService {
                 || result.outcome() == PortalBookingChoiceService.Outcome.ALREADY_BOOKED;
         List<PatientPortalOfferedSlot> replacements = List.of();
         if (result.outcome() == PortalBookingChoiceService.Outcome.UNAVAILABLE && result.offer() != null) {
-            replacements = offers.replacementsFor(result.offer(), choice.choiceId(), settings);
+            replacements = offers.replacementsFor(result.offer(), choice.promptId(), choice.choiceId(), settings);
         }
         if (result.outcome() == PortalBookingChoiceService.Outcome.UNKNOWN) {
             // Not a time CARLOS offered this patient (or its record is gone): refuse it, never book it.
@@ -198,13 +211,12 @@ public class PortalBookingSyncService {
      * The portal will not list this pick again, so a failed undo cannot be retried here: record the
      * appointment in the audit log for staff, rather than leave a booking the patient was told failed.
      */
-    private void undoOrFlag(io.github.carlos_emr.carlos.commn.model.PortalBookingOffer offer,
-            PatientPortalBookingChoiceDto choice, String systemProviderNo) {
+    private void undoOrFlag(PortalBookingOffer offer, PatientPortalBookingChoiceDto choice, String systemProviderNo) {
         try {
             bookings.undo(choice.slotId(), choice.choiceId(), systemProviderNo);
         } catch (RuntimeException failure) {
             LOGGER.error("Portal booking could not be undone; see the audit log entry PortalBooking.undoFailed");
-            io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.undoFailed",
+            LogAction.addLogSynchronous(systemProviderNo, "PortalBooking.undoFailed",
                     "appointment", offer == null ? "" : String.valueOf(offer.getAppointmentNo()), null);
         }
     }

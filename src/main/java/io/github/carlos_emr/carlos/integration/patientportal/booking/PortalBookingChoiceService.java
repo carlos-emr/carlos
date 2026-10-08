@@ -153,7 +153,7 @@ public class PortalBookingChoiceService {
                 Date now = Date.from(clock.instant());
                 offer.setStatus(PortalBookingOffer.CONFIRMED);
                 offer.setUpdatedAt(now);
-                offers.closeOthers(choice.promptId(), offer.getSlotId(), now);
+                offers.closeOthers(offer.getOperationId(), offer.getSlotId(), now);
             }
         });
     }

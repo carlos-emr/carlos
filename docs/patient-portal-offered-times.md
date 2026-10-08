@@ -66,7 +66,8 @@ The job lists pending picks, then for each:
 
 Every step is safe to repeat. If the job stops between booking and reporting, the pick is listed again
 and the same booking is reported again, never made twice. A pick that keeps failing for another reason
-is left for a later run without holding up the others; a portal outage stops the run. If the portal
+is left for a later run without holding up the others; a portal outage (no answer, 5xx, or throttling)
+stops the run before more times are booked, and paging stops when a page answers nothing. If the portal
 answers `409` "booking choice expired" or "booking choice was withdrawn", the portal will never show the
 pick as booked, so CARLOS cancels the appointment it made. Bookings are never made first and cancelled
 on a clash (`removeIfDoubleBooked` is not used).
@@ -75,8 +76,10 @@ Known limits:
 
 - If that cancellation fails, the portal will not list the pick again: CARLOS writes
   `PortalBooking.undoFailed` with the appointment number to the audit log for staff.
-- If reporting keeps failing until the time starts, the portal closes the pick unanswered and the
-  appointment stays `booked` (not `confirmed`) in `portal_booking_offer`. Finding these needs the
+- If reporting keeps failing until the time starts, or the portal records the booking but its answer
+  is lost, the portal does not list the pick again and the offer stays `booked` (not `confirmed`) in
+  `portal_booking_offer`, with the prompt's other times still `offered` there (the portal has dropped
+  them; nothing else can pick them). Finding these needs the
   portal's prompt states, which the sync permission cannot read yet (#4480).
 - On a daylight-saving change day the schedule's slot times follow `ScheduleManager`, which counts
   minutes from midnight.

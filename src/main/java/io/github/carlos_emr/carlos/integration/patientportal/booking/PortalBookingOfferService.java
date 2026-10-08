@@ -124,16 +124,13 @@ public class PortalBookingOfferService {
      */
     @Transactional
     public List<PatientPortalOfferedSlot> replacementsFor(
-            PortalBookingOffer refused, long choiceId, PortalBookingSettings settings) {
-        if (refused.getPromptId() == null) {
-            return List.of();
-        }
-        List<PortalBookingOffer> already = offers.findReplacements(refused.getPromptId(), choiceId);
+            PortalBookingOffer refused, long promptId, long choiceId, PortalBookingSettings settings) {
+        List<PortalBookingOffer> already = offers.findReplacements(refused.getOperationId(), choiceId);
         if (!already.isEmpty()) {
             return already.stream().map(offer -> toSlot(offer, settings)).toList();
         }
         ZonedDateTime now = ZonedDateTime.now(clock);
-        List<PortalBookingOffer> open = offers.findOpenForPrompt(refused.getPromptId(), Date.from(now.toInstant()));
+        List<PortalBookingOffer> open = offers.findOpenForOperation(refused.getOperationId(), Date.from(now.toInstant()));
         int room = Math.min(MAX_REPLACEMENTS, PatientPortalOfferedSlot.MAX_PER_PROMPT - open.size());
         if (room <= 0) {
             return List.of();
@@ -142,15 +139,21 @@ public class PortalBookingOfferService {
         open.forEach(offer -> exclude.add(zoned(offer.getStartTime(), now)));
         ZonedDateTime refusedStart = zoned(refused.getStartTime(), now);
         exclude.add(refusedStart);
-        LocalDate from = now.toLocalDate();
+        // Around the refused time: from a week before it (not before today) to two weeks after it,
+        // within a year of today.
+        LocalDate today = now.toLocalDate();
+        LocalDate from = refusedStart.toLocalDate().minusDays(7);
+        if (from.isBefore(today)) {
+            from = today;
+        }
         LocalDate to = refusedStart.toLocalDate().plusDays(REPLACEMENT_WINDOW_DAYS);
-        LocalDate last = from.plusDays(MAX_DAYS_AHEAD);
+        LocalDate last = today.plusDays(MAX_DAYS_AHEAD);
         if (to.isAfter(last)) {
             to = last;
         }
         List<PatientPortalOfferedSlot> slots = new ArrayList<>();
         for (var time : loader.load(refused.getProviderNo(), from, to, room, exclude, settings, now)) {
-            slots.add(toSlot(record(time, refused.getOperationId(), refused.getPromptId(),
+            slots.add(toSlot(record(time, refused.getOperationId(), promptId,
                     refused.getDemographicNo(), refused.getOfferedBy(), choiceId, now), settings));
         }
         return slots;

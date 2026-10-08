@@ -66,28 +66,31 @@ public class PortalBookingOfferDao {
                 .setParameter("operation", operationId).getResultList();
     }
 
+    // A prompt's times are found by the operation that created it (replacements share it), not by the
+    // portal's prompt id: that id is recorded only after the portal answers, and may be missing.
+
     /** Times still on offer for a prompt that have not started. */
-    public List<PortalBookingOffer> findOpenForPrompt(long promptId, Date now) {
-        return entityManager.createQuery("from PortalBookingOffer where promptId = :prompt and status = :offered "
-                        + "and startTime > :now order by startTime", PortalBookingOffer.class)
-                .setParameter("prompt", promptId).setParameter("offered", PortalBookingOffer.OFFERED)
+    public List<PortalBookingOffer> findOpenForOperation(String operationId, Date now) {
+        return entityManager.createQuery("from PortalBookingOffer where operationId = :operation "
+                        + "and status = :offered and startTime > :now order by startTime", PortalBookingOffer.class)
+                .setParameter("operation", operationId).setParameter("offered", PortalBookingOffer.OFFERED)
                 .setParameter("now", now).getResultList();
     }
 
     /** Replacements already made for a refused pick, so a retried report sends the same ones. */
-    public List<PortalBookingOffer> findReplacements(long promptId, long choiceId) {
-        return entityManager.createQuery("from PortalBookingOffer where promptId = :prompt and choiceId = :choice "
-                        + "and status = :offered order by startTime", PortalBookingOffer.class)
-                .setParameter("prompt", promptId).setParameter("choice", choiceId)
+    public List<PortalBookingOffer> findReplacements(String operationId, long choiceId) {
+        return entityManager.createQuery("from PortalBookingOffer where operationId = :operation "
+                        + "and choiceId = :choice and status = :offered order by startTime", PortalBookingOffer.class)
+                .setParameter("operation", operationId).setParameter("choice", choiceId)
                 .setParameter("offered", PortalBookingOffer.OFFERED).getResultList();
     }
 
     /** Once one time is booked the portal drops the others; close them here too. */
-    public int closeOthers(long promptId, String bookedSlotId, Date now) {
+    public int closeOthers(String operationId, String bookedSlotId, Date now) {
         return entityManager.createQuery("update PortalBookingOffer set status = :closed, updatedAt = :now "
-                        + "where promptId = :prompt and slotId <> :booked and status = :offered")
+                        + "where operationId = :operation and slotId <> :booked and status = :offered")
                 .setParameter("closed", PortalBookingOffer.CLOSED).setParameter("now", now)
-                .setParameter("prompt", promptId).setParameter("booked", bookedSlotId)
+                .setParameter("operation", operationId).setParameter("booked", bookedSlotId)
                 .setParameter("offered", PortalBookingOffer.OFFERED).executeUpdate();
     }
 }

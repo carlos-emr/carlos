@@ -143,6 +143,17 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
     }
 
     @Test
+    void shouldStayInsideAYear_whenTheWindowRunsPastIt() throws Exception {
+        request.setParameter("offerAfterDays", "360");
+        request.setParameter("offerWithinDays", "30");
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of(SLOT));
+        execute();
+        ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
+        verify(offers).offer(any(), anyInt(), any(), any(), to.capture(), anyInt(), any(), any());
+        assertThat(to.getValue()).isEqualTo(LocalDate.now().plusDays(365));
+    }
+
+    @Test
     void shouldSayNoTimesWereFound_withoutCreatingAPrompt() throws Exception {
         when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of());
         execute();
