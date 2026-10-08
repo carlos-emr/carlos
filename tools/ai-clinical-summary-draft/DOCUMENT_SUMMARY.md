@@ -160,4 +160,6 @@ no-store responses, loaded styling, expandable evidence, retained extraction not
 The Document Manager button opened the expected preview popup. All 194 Java clinical tests and 113
 Python draft-tool tests passed; Struts DTD, encoding and locale-key checks passed.
 
-![Single-document draft from invented NHS test data](screenshots/document-summary.png)
+![Single-document draft from invented NHS test data](https://raw.githubusercontent.com/carlos-emr/carlos/7a27ce1508abc246b0f20bc090b5d20ef1b2bf62/tools/ai-clinical-summary-draft/screenshots/document-summary.png)
+
+The screenshot is not shipped with the code; the link above points at the commit that last had it.
