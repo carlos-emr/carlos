@@ -2541,7 +2541,7 @@ UNIQUE_SOURCE_DDL = (
 #: Rows CARLOS's key allows: distinct keys, NULL patient twins (a unique
 #: index admits repeated NULLs) and two `excludeIndicator` rows.
 UNIQUE_ALLOWED_ROWS = [
-    "(1, 100, '999998', 'cell', 'FAKE-1', '2020-01-01 00:00:00', '0')",
+    "(1, 100, '999998', 'FAKEKEY', 'FAKE-1', '2020-01-01 00:00:00', '0')",
     "(2, 100, '999998', 'email', 'FAKE-2', '2020-01-01 00:00:00', '0')",
     "(3, 101, '999998', 'cell', 'FAKE-3', '2020-01-01 00:00:00', '0')",
     "(4, NULL, '999998', 'cell', 'FAKE-4', NULL, '0')",
@@ -2549,9 +2549,10 @@ UNIQUE_ALLOWED_ROWS = [
     "(6, 100, '999998', 'excludeIndicator', 'a', NULL, '0')",
     "(7, 100, '999998', 'excludeIndicator', 'b', NULL, '0')",
 ]
-#: An OSCAR 19 edit history: patient 100's `cell` changed once. The value
-#: is a marker the refusal must not echo.
-UNIQUE_COLLIDING_ROW = ("(8, 100, '999998', 'cell', 'FAKE-EDITED', "
+#: An OSCAR 19 edit history: patient 100's `FAKEKEY` value changed once.
+#: MariaDB's ERROR 1062 text echoes the colliding KEY (`100-FAKEKEY`), not
+#: the payload, so the marker the refusal must withhold sits in the key.
+UNIQUE_COLLIDING_ROW = ("(8, 100, '999998', 'FAKEKEY', 'FAKE-EDITED', "
                         "'2021-01-01 00:00:00', '0')")
 
 
@@ -2643,7 +2644,7 @@ def _unique_collision_body(client: Client, src: str,
         failures.append("a duplicate unique key did not stop the copy with "
                         "ERROR 1062 -- the table would be checkpointed")
     leaked = refusal is not None and any(
-        "FAKE" in text for text in (str(refusal), refusal.stderr or ""))
+        "FAKEKEY" in text for text in (str(refusal), refusal.stderr or ""))
     print("    {0:<44} {1}".format("the refusal withholds the value",
                                    "LEAKED" if leaked else "ok"))
     if leaked:
@@ -2665,7 +2666,9 @@ def _unique_collision_body(client: Client, src: str,
     if rc == 0:
         seen = "reported success and stored {0} of {1} row(s){2}".format(
             stored, len(UNIQUE_ALLOWED_ROWS) + 1,
-            " -- the #4100 defect" if stored == 0 else "")
+            " -- the #4100 defect" if stored == 0 else
+            " -- a row was dropped silently"
+            if stored < len(UNIQUE_ALLOWED_ROWS) + 1 else "")
     else:
         seen = "refused it ({0})".format(
             "ERROR 1062" if "1062" in err else err[:60])

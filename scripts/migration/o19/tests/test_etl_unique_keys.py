@@ -110,7 +110,11 @@ class TestTheLiveCheckStaysMeaningful(unittest.TestCase):
         kept = [k for k in allowed if k is not None]
         self.assertEqual(len(kept), len(set(kept)),
                          "the allowed rows must not collide among themselves")
-        self.assertIn(key(self.verify.UNIQUE_COLLIDING_ROW), kept)
+        colliding = key(self.verify.UNIQUE_COLLIDING_ROW)
+        self.assertIn(colliding, kept)
+        # MariaDB's 1062 text names the KEY, not the payload: the marker the
+        # live check looks for in a leaked refusal must be in the key
+        self.assertIn("FAKEKEY", colliding[1])
 
 
 if __name__ == "__main__":
