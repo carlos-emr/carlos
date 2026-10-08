@@ -189,6 +189,22 @@
       ]
     },
     {
+      "name": "oauth-rest-surfaces",
+      "script": "scripts/oauth-rest-surfaces-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "OAUTH_DEMOGRAPHIC_NO"
+      ],
+      "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
+    },
+    {
       "name": "application-health",
       "script": "scripts/application-health-playwright-checks.js",
       "tiers": [
