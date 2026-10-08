@@ -67,19 +67,30 @@ test('other failures, and failures where the waiver is already on, pass through 
   assert.equal(explainTlsFailure(cert, new URL('https://127.0.0.1/carlos'), {}), cert);
 });
 
-test('no browser check hardcodes ignoreHTTPSErrors: true', () => {
+// login-failure-host-header drives rejectUnauthorized and ignoreHTTPSErrors from the same
+// predicate and pins that pairing in its own test (login-failure-host-header-tls-scope.test.js).
+const OWN_POLICY = new Set(['login-failure-host-header-playwright-checks.js']);
+const SHARED_POLICY = /^(?:shouldIgnoreHttpsErrors\(|(?:s\.)?config\.ignoreHTTPSErrors\b)/;
+
+test('every ignoreHTTPSErrors value comes from the shared policy (issue #3598)', () => {
   const offenders = [];
   const scan = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules') scan(full);
-      } else if (entry.name.endsWith('.js') && !entry.name.endsWith('.test.js')
-          && /ignoreHTTPSErrors\s*:\s*true\b/.test(fs.readFileSync(full, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''))) {
-        offenders.push(path.relative(__dirname, full));
+        continue;
+      }
+      if (!entry.name.endsWith('.js') || entry.name.endsWith('.test.js')
+          || full === path.join(__dirname, 'lib', 'playwright-harness.js') || OWN_POLICY.has(entry.name)) continue;
+      const source = fs.readFileSync(full, 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+      for (const match of source.matchAll(/ignoreHTTPSErrors\s*:\s*([^,}\n]+)/g)) {
+        if (!SHARED_POLICY.test(match[1].trim())) {
+          offenders.push(`${path.relative(__dirname, full)}: ${match[0].trim()}`);
+        }
       }
     }
   };
   scan(__dirname);
-  assert.deepEqual(offenders, [], 'route TLS verification through shouldIgnoreHttpsErrors() (issue #3598)');
+  assert.deepEqual(offenders, [], 'route TLS verification through shouldIgnoreHttpsErrors() so ALLOW_UNVERIFIED_TLS is honoured everywhere');
 });

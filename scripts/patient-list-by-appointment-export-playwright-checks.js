@@ -67,6 +67,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const fs = require('fs');
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
@@ -398,7 +399,7 @@ function checkRows(label, rows, expected) {
 }
 
 async function checkUnauthenticatedRejection(browser) {
-  const anonymous = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget });
+  const anonymous = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const response = await anonymous.request.get(
       appUrl(`/patientlistbyappt?provider_no=all&date_from=${SEED_DATE_FROM}&date_to=${SEED_DATE_TO}`),
@@ -425,7 +426,7 @@ async function checkUnauthenticatedRejection(browser) {
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
     // intercept the credentialed login this script performs.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: loopbackTarget,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1000 },
       acceptDownloads: true,
     });

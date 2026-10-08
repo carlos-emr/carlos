@@ -81,6 +81,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
@@ -737,7 +738,7 @@ async function runChecks(context, cancellation) {
     // URL parser already strips the [...] brackets, but be defensive) before the check.
     const bypassHost = baseUrl.hostname.toLowerCase().replace(/^\[|\]$/g, '');
     const loopbackTarget = new Set(['localhost', '127.0.0.1', '::1']).has(bypassHost);
-    const context = await browser.newContext({ ignoreHTTPSErrors: loopbackTarget, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
     const loginPage = await cancellation.run(() => login(context));
     await loginPage.close();
 

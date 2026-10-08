@@ -39,6 +39,7 @@ for (const [signal, exitCode] of [['SIGINT', 130], ['SIGTERM', 143]]) {
     const submitted = new Promise(resolve => { release = resolve; });
     const operation = vm.runInNewContext(main, {
       createGracefulSignalCancellation: () => createGracefulSignalCancellation({ signalProcess }),
+      shouldIgnoreHttpsErrors: () => true,
       process: signalProcess, chromePath: '', baseUrl: new URL('https://localhost/carlos'),
       console: { log() {}, error() {} }, visited: [], findings: [], browserErrorClass: () => 'Error',
       chromium: { async launch(value) { options = value; return {
