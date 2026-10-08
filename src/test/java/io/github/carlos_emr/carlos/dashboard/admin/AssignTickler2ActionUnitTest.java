@@ -107,6 +107,20 @@ class AssignTickler2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseNonexistentLocalTime_whenSpringForwardGap() {
+        var original = java.util.TimeZone.getDefault();
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+        try {
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> TicklerRequest.parseServiceDateTime("2027-03-14", "02:30"));
+            assertTrue(ex.getMessage().contains("does not exist"));
+            assertNotNull(TicklerRequest.parseServiceDateTime("2027-03-14", "03:30"));
+        } finally {
+            java.util.TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
     void shouldRejectMissingOrRepeatedFields_beforeConsumingReceipt() {
         request.removeParameter("message");
         action.saveTickler();

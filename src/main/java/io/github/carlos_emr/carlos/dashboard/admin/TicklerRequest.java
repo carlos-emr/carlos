@@ -4,7 +4,6 @@ package io.github.carlos_emr.carlos.dashboard.admin;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -65,20 +64,21 @@ record TicklerRequest(Tickler tickler, Integer[] patients) {
         if (day == null) {
             throw new IllegalArgumentException("Invalid service date. Use yyyy-MM-dd (for example 2026-10-15)");
         }
-        Date clock = parseWhole(time, TIME_PATTERNS);
-        if (clock == null) {
+        if (parseWhole(time, TIME_PATTERNS) == null) {
             throw new IllegalArgumentException("Invalid service time. Use hh:mm AM/PM or 24-hour HH:mm (for example 10:30 AM or 14:30)");
         }
-        var merged = Calendar.getInstance();
-        merged.setTime(day);
-        var hm = Calendar.getInstance();
-        hm.setTime(clock);
-        merged.set(Calendar.HOUR_OF_DAY, hm.get(Calendar.HOUR_OF_DAY));
-        merged.set(Calendar.MINUTE, hm.get(Calendar.MINUTE));
-        return merged.getTime();
+        // Parse date and time together, strictly, so a local time that does not exist (the spring-forward
+        // gap) is refused rather than silently moved an hour by a lenient Calendar merge.
+        for (String datePattern : DATE_PATTERNS) {
+            for (String timePattern : TIME_PATTERNS) {
+                Date combined = parseWhole(date + " " + time, datePattern + " " + timePattern);
+                if (combined != null) return combined;
+            }
+        }
+        throw new IllegalArgumentException("That service date and time does not exist (daylight saving change). Choose a different time");
     }
 
-    private static Date parseWhole(String text, String[] patterns) {
+    private static Date parseWhole(String text, String... patterns) {
         for (String pattern : patterns) {
             var format = new SimpleDateFormat(pattern, Locale.ENGLISH);
             format.setLenient(false);
