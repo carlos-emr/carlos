@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.demographic;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -41,35 +43,62 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @since 2026-10-08
  */
-@DisplayName("Patient record: the SMS history section follows the waiting-list link")
+@DisplayName("Demographic edit JSP SMS history placement regression tests")
 @Tag("unit")
+@Tag("demographic")
 @Tag("regression")
 class DemographicEditSmsHistoryPlacementRegressionTest {
 
     private static final Path MASTER_JSP = Path.of("src/main/webapp/WEB-INF/jsp/demographic/edit.jsp");
-    private static final String SMS_SECTION = "objectName=\"_sms\"";
+    private static final String SMS_HISTORY_ROW = "id=\"sms_hx\"";
+    private static final String APPOINTMENT_HISTORY_ROW = "id=\"appt_hx\"";
     private static final String WAITING_LIST_LINK = "/waitinglist/SetupDisplayPatientWaitingList";
-    private static final String CLOSE_BLOCK = "<%}%>";
+    private static final String HEADER_ROW = "class=\"Header\"";
+    private static final Pattern CLOSE_BLOCK = Pattern.compile("<%\\s*}\\s*%>");
     private static final String BILLING_SECTION = "objectName=\"_billing\"";
 
     @Test
-    @DisplayName("places the SMS history section after the waiting-list block and before billing")
+    @DisplayName("should place the SMS history section after the waiting-list block and before billing")
     void shouldPlaceSmsSection_afterWaitingListBlock() throws Exception {
         String jsp = Files.readString(resolveProjectPath(MASTER_JSP), StandardCharsets.UTF_8);
 
         int waitingListLink = jsp.indexOf(WAITING_LIST_LINK);
-        int waitingListClose = jsp.indexOf(CLOSE_BLOCK, waitingListLink);
-        int smsSection = jsp.indexOf(SMS_SECTION);
+        int waitingListClose = indexOf(CLOSE_BLOCK, jsp, waitingListLink);
+        int smsHistoryRow = jsp.indexOf(SMS_HISTORY_ROW);
         int billingSection = jsp.indexOf(BILLING_SECTION, Math.max(waitingListClose, 0));
 
         assertThat(waitingListLink).as("waiting-list link").isPositive();
         assertThat(waitingListClose).as("end of the waiting-list block").isPositive();
         assertThat(billingSection).as("billing section after the waiting-list block").isPositive();
-        assertThat(jsp.indexOf(SMS_SECTION, smsSection + 1)).as("one SMS section").isEqualTo(-1);
-        assertThat(smsSection)
-                .as("SMS section after the waiting-list block, so that link keeps its own heading")
+        assertThat(jsp.indexOf(SMS_HISTORY_ROW, smsHistoryRow + 1)).as("one SMS history row").isEqualTo(-1);
+        assertThat(smsHistoryRow)
+                .as("SMS history after the waiting-list block, so that link keeps its own heading")
                 .isGreaterThan(waitingListClose)
                 .isLessThan(billingSection);
+    }
+
+    @Test
+    @DisplayName("should keep the waiting-list link under the appointment heading, with no other heading between")
+    void shouldKeepWaitingListLink_underAppointmentHeading() throws Exception {
+        String jsp = Files.readString(resolveProjectPath(MASTER_JSP), StandardCharsets.UTF_8);
+
+        int appointmentHistoryRow = jsp.indexOf(APPOINTMENT_HISTORY_ROW);
+        int waitingListLink = jsp.indexOf(WAITING_LIST_LINK);
+
+        assertThat(appointmentHistoryRow).as("appointment history row").isPositive();
+        assertThat(waitingListLink).as("waiting-list link after the appointment history row")
+                .isGreaterThan(appointmentHistoryRow);
+        assertThat(jsp.substring(appointmentHistoryRow, waitingListLink))
+                .as("no section heading between the appointment history row and the waiting-list link")
+                .doesNotContain(HEADER_ROW);
+    }
+
+    private static int indexOf(Pattern pattern, String text, int from) {
+        if (from < 0) {
+            return -1;
+        }
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find(from) ? matcher.start() : -1;
     }
 
     /**
