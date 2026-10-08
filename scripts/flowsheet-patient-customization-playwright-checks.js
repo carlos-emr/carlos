@@ -10,8 +10,13 @@
 // and the target colour fire on a seeded value and stop after Revert, that the trash removes only its
 // item, and that custom print lists the patient's customised item and reading and previews it.
 // health-tracker seeds its customization rows with SQL; flowsheet-admin covers clinic-wide editing.
+// Last (pinned to app-findings-log.md finding 176): after a patient-scope customization, a flowsheet-level
+// decision-support message must still show. The Health Tracker's own tracker.drl holds no rules, so this
+// uses the CKD flowsheet (ckd.drl: "An Alb: creat ratio value has not been recorded" for a patient with no
+// urine ACR): its message shows, a patient-scope Hide of one item is applied, and the message must remain.
+// makeNewFlowsheet re-parses an export that omits the root ds_rules, so the customized copy has no rule base.
 // Fixtures: the owned FAKE-PW patient (runWorkflow) and one seeded WT and HT reading carrying the
-// marker. Cleanup deletes this patient's tracker customization rows and readings, asserting both.
+// marker. Cleanup deletes this patient's tracker and CKD customization rows and readings, asserting both.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
@@ -36,7 +41,7 @@ async function workflow(s, { editorOnly = false } = {}) {
   const addRow = (type) => `AND action='add' AND measurement IS NULL
     AND payload LIKE ${h.sqlString(`%measurement_type="${type}"%`)} AND payload LIKE ${h.sqlString(`%${items[type]}%`)}`;
   s.cleanup(() => {
-    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet='tracker' AND demographic_no=${patient};
+    sql.execute(`DELETE FROM flowsheet_customization WHERE flowsheet IN ('tracker','ckd') AND demographic_no=${patient};
       DELETE FROM measurements WHERE demographicNo=${patient};
       DELETE FROM FlowSheetUserCreated WHERE scope='patient' AND scopeDemographicNo=${patient} AND displayName=${h.sqlString(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM flowsheet_customization WHERE demographic_no=${patient}`) === '0',
@@ -261,6 +266,50 @@ async function workflow(s, { editorOnly = false } = {}) {
     }
   });
 
+  // ---- Finding 176: a customized flowsheet loses its flowsheet-level decision support -----------
+  // The CKD flowsheet (ds_rules="ckd.drl") warns when no urine ACR is on file; the patient has none.
+  const ckdWarning = 'An Alb: creat ratio value has not been recorded';
+  const ckdAceItem = 'ACE-I OR ARB';
+  const ckd = async (label) => {
+    const flowsheet = await s.context.newPage();
+    await h.gotoApp(flowsheet, s.config.baseUrl,
+      `/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=${patient}&template=ckd`);
+    await flowsheet.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await h.assertNotErrorPage(flowsheet, label);
+    // The recommendations list is in the page, hidden until its toggle is opened; read the DOM, not the screen.
+    const messages = (await flowsheet.locator('div.recommendations li').allTextContents()).map(text => text.trim());
+    const itemShown = await flowsheet.getByText(ckdAceItem, { exact: false }).count() > 0;
+    return { flowsheet, messages, itemShown };
+  };
+
+  await s.step('the CKD flowsheet warns that no urine ACR is recorded and lists the ACE-I or ARB item', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM flowsheet_customization WHERE flowsheet='ckd' AND demographic_no=${patient}`) === '0',
+      'The owned patient already has a CKD flowsheet customization');
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient} AND type='ACR'`) === '0',
+      'The owned patient already has a urine ACR reading');
+    const { flowsheet, messages, itemShown } = await ckd('CKD flowsheet before customization');
+    h.assert(messages.includes(ckdWarning), 'The uncustomized CKD flowsheet shows no warning for the missing urine ACR');
+    h.assert(itemShown, `The uncustomized CKD flowsheet does not list ${ckdAceItem}`);
+    await flowsheet.close();
+  });
+
+  await s.step('a patient-scope Hide of the ACE-I or ARB item takes effect on the CKD flowsheet', async () => {
+    // The row the flowsheet editor's "Hide this measurement" writes for one patient.
+    sql.execute(`INSERT INTO flowsheet_customization (flowsheet,action,measurement,payload,provider_no,demographic_no,create_date,archived)
+      VALUES ('ckd','delete','AORA',NULL,${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
+    const { flowsheet, itemShown } = await ckd('CKD flowsheet after customization');
+    h.assert(!itemShown, `The customized CKD flowsheet still lists ${ckdAceItem}, so the customization was not applied`);
+    await flowsheet.close();
+  });
+
+  // Pinned: holds only the assertion finding 176 breaks.
+  await s.step('the customized CKD flowsheet still warns that no urine ACR is recorded', async () => {
+    const { flowsheet, messages } = await ckd('CKD flowsheet after customization, recommendations');
+    h.assert(messages.includes(ckdWarning),
+      'The customized CKD flowsheet shows no warning for the missing urine ACR '
+      + '(its flowsheet-level decision-support rules were lost when the customized copy was built)');
+    await flowsheet.close();
+  });
 }
 
 if (require.main === module) runWorkflow('flowsheet-patient-customization', workflow);

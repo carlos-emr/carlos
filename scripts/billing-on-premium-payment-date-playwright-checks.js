@@ -7,6 +7,13 @@
  * inactive premiums, adjacent dates, premium subtotals and the final paid total.
  * Standard browser/SQL harness; disposable Ontario database, no extra settings.
  * Owns two providers, a patient and six RA/premium pairs; removes every fixture.
+ *
+ * Last (pinned to app-findings-log.md finding 173): the RA Billing Report half of the same page takes
+ * the month of the End Date as its window and compares the RA header's payment date with an
+ * EXCLUSIVE upper bound on the month's last day, so a remittance paid on the 30th is left out. Two
+ * more owned RA headers (paid the 29th as the control, the 30th as the pinned row), each with one
+ * radetail row for an owned claim, are seeded after the premium steps so those steps' totals are
+ * not disturbed.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -26,7 +33,10 @@ async function workflow(s) {
     { tag: 'other', day: '2004-06-16', amount: '33.33', active: 1, provider: other },
   ];
   const filenames = fixtures.map(row => `${marker}-${row.tag}`);
-  const ownsRa = `filename IN (${filenames.map(h.sqlString).join(',')}) AND payable=${h.sqlString(marker)}`;
+  // raheader.filename is varchar(30) and the marker alone is 23 characters, so a longer name is stored cut
+  // short and `filename IN (...)` would never match it again: ownership is the payable column, which
+  // holds the full run marker.
+  const ownsRa = `payable=${h.sqlString(marker)}`;
   // Register before any RA INSERT; recover even when an INSERT acknowledgement is lost.
   s.cleanup(() => {
     const ids = sql.rows(`SELECT raheader_no FROM raheader WHERE ${ownsRa}`).map(row => Number(row[0]));
@@ -99,6 +109,60 @@ async function workflow(s) {
       h.assert(premiumState() === before, 'Reading Payment Received changed premium records');
     });
   }
+
+  // ---- Finding 173: the RA payment report skips an RA paid on the month's last day -------------
+  // Seeded now, not with the premium fixtures above: those steps read the report's totals.
+  const raFixtures = [
+    { tag: 'ra-29', paid: '20040629', amount: '31.31' },
+    { tag: 'ra-30', paid: '20040630', amount: '77.77' },
+  ].map(row => ({ ...row, filename: `${marker}-${row.tag}` }));
+  const ownsRaDetail = `${ownsRa} AND filename LIKE ${h.sqlString(`${marker}-ra-%`)}`;
+  s.cleanup(() => {
+    const ids = sql.rows(`SELECT raheader_no FROM raheader WHERE ${ownsRaDetail}`).map(row => Number(row[0]));
+    for (const id of ids) {
+      sql.execute(`DELETE FROM radetail WHERE raheader_no=${id};
+        DELETE FROM raheader WHERE raheader_no=${id} AND ${ownsRaDetail}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM radetail WHERE raheader_no=${id}`) === '0', 'Owned radetail rows remain after cleanup');
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM raheader WHERE ${ownsRaDetail}`) === '0', 'Owned RA detail headers remain after cleanup');
+  });
+  for (const row of raFixtures) {
+    row.claim = selected.addClaim({ tag: row.tag, date: '2004-06-10', status: 'B', items: [{ code: 'A007A', fee: '40.00' }] });
+    const id = sql.value(`INSERT INTO raheader (filename, paymentdate, payable, totalamount, records, claims, status, readdate)
+      VALUES (${h.sqlString(row.filename)}, ${h.sqlString(row.paid)}, ${h.sqlString(marker)}, ${h.sqlString(row.amount)},
+        '1', '1', 'N', ${h.sqlString(row.paid)}); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(id), 'RA detail header fixture insert failed');
+    sql.execute(`INSERT INTO radetail (raheader_no, providerohip_no, billing_no, service_code, service_count, hin,
+        amountclaim, amountpay, service_date, error_code, billtype, claim_no)
+      VALUES (${id}, ${h.sqlString(selected.ohipNo)}, ${row.claim.id}, 'A007A', '1', ${h.sqlString(selected.hin)},
+        '40.00', ${h.sqlString(row.amount)}, '20040610', '', 'ODP', '')`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM radetail WHERE raheader_no=${id}`) === '1', 'RA detail fixture insert failed');
+  }
+  const raRow = (claim) => page.locator(`a[onclick*="BillingONCorrection?billing_no=${claim.id}'"]`);
+  // The window is the month of the End Date, whichever provider is chosen.
+  const reportFor = (provider) => generate(provider, '2004-06-15', '2004-06-16');
+
+  await s.step('Payment Received lists an RA paid the day before the month ends', async () => {
+    await reportFor(selected.providerNo);
+    await h.assertNotErrorPage(page, 'Payment Received report');
+    const day = raFixtures[0];
+    h.assert(await raRow(day.claim).count() === 1, 'The RA paid on the 29th is missing from the RA Billing Report');
+    const cells = (await raRow(day.claim).locator('xpath=ancestor::tr[1]/td').allInnerTexts()).map(text => text.trim());
+    h.assert(cells.includes(day.amount), 'The RA paid on the 29th does not show its paid amount');
+  });
+
+  // Pinned: holds only the assertion finding 173 breaks, for both provider scopes (the two
+  // RaDetailDaoImpl.getRaDetailByDate overloads carry the same bound).
+  await s.step('Payment Received lists an RA paid on the last day of the month', async () => {
+    const last = raFixtures[1];
+    for (const [scope, provider] of [['the selected provider', selected.providerNo], ['all providers', '']]) {
+      await reportFor(provider);
+      h.assert(await raRow(last.claim).count() === 1,
+        `The RA paid on the 30th is missing from the RA Billing Report for ${scope}`);
+      const cells = (await raRow(last.claim).locator('xpath=ancestor::tr[1]/td').allInnerTexts()).map(text => text.trim());
+      h.assert(cells.includes(last.amount), `The RA paid on the 30th does not show its paid amount for ${scope}`);
+    }
+  });
   await page.close();
 }
 

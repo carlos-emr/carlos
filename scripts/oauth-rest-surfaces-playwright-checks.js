@@ -45,6 +45,14 @@
  *      the fix, loading applicationContextREST.xml as it was replaced the /ws/rs
  *      mapper (a shared bean id) and turned them into "yyyy-MM-dd" strings. SOAP
  *      still publishes its WSDL and still rejects an unauthenticated operation.
+ *   6. Scopes bind the token (last, pinned to app-findings-log.md finding 150). The provider
+ *      approved one scope (demographic.read); a signed GET of an endpoint
+ *      whose scope is outside it (/ws/services/allergies/active needs allergy.read) must be
+ *      refused with the application's 403 and return no data. Shipped, the interceptor
+ *      enforces scopes only when oauth.scope.enforcement.enabled is set and no packaged
+ *      carlos.properties sets it, so the call is served. This is the one labelled step of the
+ *      script; the steps before it are unlabelled, so a failure in them is never mistaken for
+ *      the known failure.
  *
  * FIXTURE. The check inserts one ServiceClient row with a unique name, key and
  * secret, because the Administration > REST Clients page never shows a client's
@@ -69,13 +77,32 @@
 const crypto = require('crypto');
 const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
-  launchBrowser, login, newContext, readConfig, runCheck, sqlString, wireStrictPage,
+  isWafPage, launchBrowser, login, markFailedStep, newContext, readConfig, runCheck, sqlString, wireStrictPage,
 } = require('./lib/playwright-harness');
 
 const CXF_NOT_PUBLISHED = 'No service was found';
-// Scopes the signed calls below need when oauth.scope.enforcement.enabled is on. With
-// enforcement off (the default) they are recorded on the token and not consulted.
-const REQUESTED_SCOPES = 'demographic.read provider.read';
+
+/**
+ * Runs one labelled step. The label travels with a failure (markFailedStep) so the suite runner
+ * can tell the failure the manifest expects (expectedFailure.step) from a new one elsewhere.
+ */
+async function step(label, body) {
+  try {
+    await body();
+  } catch (error) {
+    throw markFailedStep(error, label);
+  }
+  console.log(`  PASS oauth-rest-surfaces: ${label}`);
+}
+const SCOPE_STEP = 'a token approved for demographic.read is refused at an endpoint outside that scope, with no data';
+// The one scope the signed data calls below need when oauth.scope.enforcement.enabled is on
+// (/ws/services/demographics/{id}; /ws/services/oauth/info maps to no scope). With enforcement off
+// (the default) it is recorded on the token and not consulted. ONE scope, not a list: a list has
+// to be sent as `scope=a%20b`, and OAuth1ParamParser keeps that %20 in the stored scope string
+// ("a%20b" is then a single unknown scope; app-findings-log.md finding 214), so a two-scope request
+// would stop working the moment enforcement is switched on, taking this check's handshake with it
+// before the pinned step could pass.
+const REQUESTED_SCOPES = 'demographic.read';
 
 /** RFC 3986 percent-encoding, as OAuth 1.0a section 3.6 requires. */
 function pct(value) {
@@ -378,6 +405,32 @@ async function main(state = {}) {
       + '</s:Body></s:Envelope>',
   });
   await expectStatus(r, [400, 401], 'unauthenticated SOAP getDemographic');
+
+  // 6. Scopes bind the access token (finding 150).
+  // Control, in its own step: the token the provider approved records exactly that one scope, so
+  // the refusal below is about scope and not about a token that was never granted anything.
+  await step('the access token records only the scope the provider approved', async () => {
+    const recorded = sql.value(`SELECT scopes FROM ServiceAccessToken
+      WHERE tokenId=${sqlString(accessToken.oauth_token)}`);
+    const tokenScopes = String(recorded).split(' ').filter(Boolean).sort().join(' ');
+    assert(tokenScopes === REQUESTED_SCOPES.split(' ').sort().join(' '),
+      `the access token records the scopes "${tokenScopes}", not exactly the one the provider approved on the consent page`);
+  });
+  // The pinned step holds only the assertion the defect breaks. /ws/services/allergies/active
+  // needs allergy.read (OAuthScopes: root "allergies" -> domain "allergy", GET -> read), which
+  // the token above does not hold.
+  await step(SCOPE_STEP, async () => {
+    const allergyUrl = app(`/ws/services/allergies/active?demographicNo=${demographicNo}`);
+    const refused = await anon.get(allergyUrl, { headers: { ...json, Authorization: signedGet(allergyUrl) } });
+    const status = refused.status();
+    const body = await refused.text();
+    assert(!isWafPage(status, body), 'the front door, not the application, answered the out-of-scope call');
+    assert(status === 403,
+      `GET /ws/services/allergies/active with a token that lacks allergy.read answered HTTP ${status}, expected the `
+      + 'application\'s 403 (scopes are enforced only when oauth.scope.enforcement.enabled is set)');
+    assert(!body.includes(surname) && !body.includes('"allergies"'),
+      'the refused out-of-scope call returned patient data');
+  });
 
   assertStrictPage(recorder);
   return { surfaces: 4, handshake: 'oob' };

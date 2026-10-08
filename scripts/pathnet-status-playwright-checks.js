@@ -2,6 +2,11 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Requires legacy BC tables and PATHNET_LABS=yes in a disposable installation.
 // Exercise the real Hibernate projection and patient lab list with owned labs.
+// Three owned PathNet messages: one with a final (F) result, one with a preliminary (P) result and one
+// with both. The last step is pinned to app-findings-log.md finding 165: a report mixing final and
+// preliminary results is Partial, but the list takes the alphabetical MIN of the OBR statuses
+// (Hl7MshDao), so F beside P reads F and the list says Final. The controls (the mixed report is
+// listed, with its lab-display link and its ordering provider) are in the step before it.
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -41,7 +46,9 @@ async function workflow(s) {
       'Owned PathNet fixture was not removed');
     }
   });
-  for (const status of ['F', 'P']) {
+  // One OBR per status in `statuses`: ['F'] final, ['P'] preliminary, ['F', 'P'] a report mixing both.
+  for (const statuses of [['F'], ['P'], ['F', 'P']]) {
+    const status = statuses.join('');
     const id = randomInt(1000000000, 1800000000);
     const occupied = sql.value(`SELECT (SELECT COUNT(*) FROM hl7_message WHERE message_id=${id})
       +(SELECT COUNT(*) FROM hl7_pid WHERE pid_id=${id} OR message_id=${id})
@@ -62,7 +69,7 @@ async function workflow(s) {
         VALUES(${id},'FAKE-ACCESSION-TEST',${h.sqlString(`000000^${marker}^${status}`)});
       INSERT INTO hl7_obr(pid_id,result_status,diagnostic_service_sect_id,
         requested_date_time,observation_date_time,specimen_received_date_time,results_report_status_change)
-        VALUES(${id},${h.sqlString(status)},'CHEM',NOW(),NOW(),NOW(),NOW());
+        VALUES ${statuses.map(result => `(${id},${h.sqlString(result)},'CHEM',NOW(),NOW(),NOW(),NOW())`).join(',')};
       INSERT INTO patientLabRouting(lab_no,lab_type,demographic_no) VALUES(${id},'BCP',${patient});
       INSERT INTO providerLabRouting(lab_no,lab_type,provider_no,status)
         VALUES(${id},'BCP',${h.sqlString(provider)},'U')`);
@@ -84,6 +91,27 @@ async function workflow(s) {
       h.assert((await row.locator('td').nth(4).innerText()).trim() === status,
         `PathNet ${status} report has the wrong final/partial classification`);
     }
+  });
+
+  const mixedRow = () => page.locator('#labResultsTbl tbody tr').filter({ has: page.locator(`a[href*="${owned[2]}"]`) });
+  await s.step('patient lab listing includes the report that mixes final and preliminary results', async () => {
+    await h.gotoApp(page, s.config.baseUrl, `/lab/ViewDemographicLab?demographicNo=${patient}`);
+    await h.assertNotErrorPage(page, 'legacy PathNet patient lab listing');
+    await page.locator('#labResultsTbl').waitFor();
+    h.assert(await mixedRow().count() === 1, 'The PathNet report with both F and P results was omitted from the patient listing');
+    h.assert((await mixedRow().locator('a').first().getAttribute('href')).includes('ViewLabDisplay'),
+      'The mixed PathNet row has no lab-display link');
+    h.assert((await mixedRow().innerText()).includes(marker), 'The mixed PathNet row lost its owned ordering provider');
+    h.assert(sql.value(`SELECT COUNT(*) FROM hl7_obr WHERE pid_id=${owned[2]}`) === '2',
+      'The mixed PathNet fixture does not hold one final and one preliminary result');
+  });
+
+  // Pinned: holds only the assertion finding 165 breaks.
+  await s.step('a PathNet report with both final and preliminary results is listed as Partial, not Final', async () => {
+    await h.gotoApp(page, s.config.baseUrl, `/lab/ViewDemographicLab?demographicNo=${patient}`);
+    await page.locator('#labResultsTbl').waitFor();
+    const shown = (await mixedRow().locator('td').nth(4).innerText()).trim();
+    h.assert(shown === 'Partial', `The PathNet report with a final and a preliminary result is listed as ${shown}, expected Partial`);
   });
 }
 

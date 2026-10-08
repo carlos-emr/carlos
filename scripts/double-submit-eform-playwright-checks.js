@@ -8,13 +8,22 @@
  * clicks, double Enter on the focused toolbar Save button (the fixture's own submit is not the eForm save path), slow-response re-click) the check saves ONE instance with
  * its own marker subject and asserts EXACTLY ONE eform_data row for the owned patient and that subject.
  *
- * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; cleanup deletes the instances
- * (eform_values + eform_data) for the owned patient/form and the template, and asserts they are gone.
+ * Last (pinned to app-findings-log.md finding 168): a login that may save eForms but holds no `_edoc` x
+ * presses Add to Documents. The eForm is stored, the eDoc step is then refused, and the answer must not be
+ * the replay refusal ("This form can no longer be submitted from this page"): that text tells the
+ * clinician nothing failed and that the page was submitted twice.
+ * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; for finding 168 one owned
+ * role holding `_eform` w, `_demographic` r and `_eChart` r (no `_edoc`) and a login holding it; cleanup
+ * deletes the instances (eform_values + eform_data) for the owned patient/form and the template, removes the
+ * role and login, and asserts they are gone.
  * Wave-6 pattern sweep "double-submit".
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
+const { authzReadFixture } = require('./lib/authz-read-fixture');
+const { signIn } = require('./lib/authz-read-probe');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
 const { MODES_REPLAY: MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer, sleep, recorderMark, forgiveAbortedSecondRequest } = require('./lib/double-submit-helpers');
 
 const q = h.sqlString;
@@ -228,6 +237,57 @@ async function workflow(s) {
     h.assert(await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
       AND form_name=${q(formName)} AND subject=${q(`${marker}-REVISION`)}`) === 1, 'Saved-form revision was lost');
     for (const form of [first, second, revision]) if (!form.isClosed()) await form.close();
+  });
+
+  // ---- Finding 168: a failure after the eForm is stored is reported as a replay -------------------
+  // AddEForm2Action answers every RuntimeException after the eForm is committed with the replay 409
+  // (rejectSubmission(false): eform.submitUnavailable). Add to Documents moves the PDF into the document
+  // store, which DocumentManagerImpl.moveDocument refuses without `_edoc` x.
+  const replayText = bundleMessage('eform.submitUnavailable', "This form can no longer be submitted from this page.")
+    .split('. ')[0].replace(/\.$/, '');
+  let noEdoc;
+  await s.step('Add to Documents by a login without _edoc x stores the eForm once and files no document', async () => {
+    const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
+    s.cleanup(() => fixture.cleanup());
+    const role = fixture.addRole({ _eform: 'w', _demographic: 'r', _eChart: 'r' });
+    const login = fixture.addLogin(role);
+    const subject = `${marker}-NOEDOC`;
+    const restricted = await signIn(s, login);
+    if (process.env.DS_DEBUG_DELAY) await sleep(Number(process.env.DS_DEBUG_DELAY) * 1000);
+    try {
+      const page = await restricted.context.newPage();
+      await h.gotoApp(page, s.config.baseUrl, `/eform/efmformadd_data?fid=${fid}&demographic_no=${patient}`);
+      await page.locator('#remoteSaveEdocumentButton').waitFor({ state: 'visible' });
+      // NETIDLE-WAIT
+      await page.locator('#remote_eform_subject').fill(subject);
+      await page.locator('#note').fill('no document rights');
+      const [response] = await Promise.all([
+        page.waitForResponse(r => r.request().method() === 'POST' && /\/eform\/addEForm$/i.test(new URL(r.url()).pathname)),
+        page.locator('#remoteSaveEdocumentButton').click(),
+      ]);
+      noEdoc = { status: response.status(), text: await response.text() };
+      console.log('DEBUG-FIELDS', JSON.stringify([...new URLSearchParams(response.request().postData() || '').entries()].map(([k, v]) => `${k}=${String(v).slice(0, 30)}`)));
+      console.log('DEBUG', noEdoc.status);
+      if (noEdoc.status !== 409) {
+        console.log('DEBUG-PRIV', JSON.stringify(sql.rows(`SELECT roleUserGroup, objectName, privilege, priority FROM secObjPrivilege WHERE roleUserGroup IN (${q(role)},${q(login.providerNo)}) OR objectName LIKE '%$${patient}'`)));
+        console.log('DEBUG-ROLE', JSON.stringify(sql.rows(`SELECT provider_no, role_name, activeyn FROM secUserRole WHERE provider_no=${q(login.providerNo)}`)));
+      }
+      await page.close();
+    } finally {
+      await restricted.context.close();
+    }
+    const stored = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+      AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 1500 });
+    h.assert(stored === 1, `The eForm was stored ${stored} time(s), expected exactly once (HTTP ${noEdoc.status})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${q(subject)}`) === '0',
+      'A document was filed for a login that may not add documents');
+  });
+
+  // Pinned: holds only the assertion finding 168 breaks.
+  await s.step('a failed Add to Documents is not answered with the replay refusal', async () => {
+    h.assert(!noEdoc.text.includes(replayText),
+      `The answer to a failed Add to Documents (HTTP ${noEdoc.status}) is the replay refusal "${replayText}.", which is what a `
+      + 'replayed submission gets and hides that the eForm was saved and only the document step failed');
   });
 }
 

@@ -161,8 +161,14 @@
       ],
       "timeoutSec": 300,
       "env": [
-        "ALLERGY_DEMOGRAPHIC_NO"
-      ]
+        "ALLERGY_DEMOGRAPHIC_NO",
+        "CARLOS_LOG_JOURNAL_UNIT"
+      ],
+      "notes": "Adds a Penicillins allergy through the allergy page, checks the chart and amends it (archive plus replacement). Last, pinned to app-findings-log.md finding 178: both the added allergy and its amendment must carry a regional_identifier and an atc, and RxAddAllergy2Action must log no ERROR in the run's window of the server journal (CARLOS_LOG_JOURNAL_UNIT; without it the check ends SKIP after its row assertions). The script is a runCheck script whose only labelled step is the pinned one.",
+      "expectedFailure": {
+        "finding": 178,
+        "step": "the added allergy and its amendment both carry a regional identifier and an ATC code, and the action logged no error"
+      }
     },
     {
       "name": "allergy-rx-alert",
@@ -219,7 +225,11 @@
       "env": [
         "OAUTH_DEMOGRAPHIC_NO"
       ],
-      "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
+      "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens. Last, pinned to app-findings-log.md finding 150: a token the provider approved for demographic.read, calling /ws/services/allergies/active (needs allergy.read), must get the application's 403 and no data; it is served while oauth.scope.enforcement.enabled is unset, as shipped. The script labels only its last two steps (the scope control and the pinned one); a failure anywhere earlier is failed-elsewhere. It requests ONE scope on purpose: a list is sent as scope=a%20b, which the parameter parser stores undecoded (finding 214), so a list would break the handshake once enforcement is on.",
+      "expectedFailure": {
+        "finding": 150,
+        "step": "a token approved for demographic.read is refused at an endpoint outside that scope, with no data"
+      }
     },
     {
       "name": "application-health",
@@ -852,8 +862,12 @@
       "env": [
         "PATHNET_LABS"
       ],
-      "fixtures": "Owned synthetic patient and two legacy BCP reports; requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
-      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows."
+      "fixtures": "Owned synthetic patient and three legacy BCP reports (final, preliminary and one holding both a final and a preliminary result); requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows. Last, pinned to app-findings-log.md finding 165: a report with both an F and a P result is listed as Partial, but Hl7MshDao takes the alphabetical MIN of its OBR statuses, so the patient lab list says Final. BC-only: it ends SKIP on an Ontario install (the hl7_* tables exist only on a schema the BC migrations built), so this pin has been written from the source and has not been seen failing on a live install (issue #4439).",
+      "expectedFailure": {
+        "finding": 165,
+        "step": "a PathNet report with both final and preliminary results is listed as Partial, not Final"
+      }
     },
     {
       "name": "echart-new-patient-notes",
@@ -4094,8 +4108,12 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Health Tracker custom print omits patient customisations (and its Preview POST answers 405).",
-      "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope); all owned rows removed."
+      "notes": "Earlier steps pass on 2026.08.0~alpha19 (the old note that the Health Tracker custom print omits patient customisations is out of date). The last three steps are for finding 176: the CKD flowsheet (ckd.drl) warns that no urine ACR is recorded; a patient-scope Hide of one item (the row the flowsheet editor writes) takes effect; and the customized flowsheet must still show the warning. makeNewFlowsheet re-parses an export that omits the root ds_rules, so the customized copy has no rule base and getMessages throws (the page logs 'Error getting messages for flowsheet' at ERROR). The Health Tracker's own tracker.drl holds no rules, so the pin uses CKD.",
+      "expectedFailure": {
+        "finding": 176,
+        "step": "the customized CKD flowsheet still warns that no urine ACR is recorded"
+      },
+      "fixtures": "Owned patient with seeded WT/HT measurements; flowsheet_customization rows created through the Health Tracker editor (patient scope) and, for finding 176, one patient-scope Hide row on the CKD flowsheet; all owned rows removed."
     },
     {
       "name": "immunization-schedule-config",
@@ -4287,8 +4305,12 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails at its last step on 2026.08: the Key Manager buttons post to /admin/... without the context path (404).",
-      "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key and the key's PublicKey read-audit log rows."
+      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, pinned to app-findings-log.md finding 163: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row; createKey.jsp creates the key pair for any request that carries a name, so a cross-site GET registers keys.",
+      "expectedFailure": {
+        "finding": 163,
+        "step": "a GET of Create Key that names a service is refused and registers no key pair"
+      },
+      "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
     },
     {
       "name": "admin-email-config",
@@ -4635,8 +4657,12 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image.",
-      "fixtures": "Owned FAKE- patient and its client_image rows only."
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image. Last, pinned to app-findings-log.md finding 156: with the photo managers of two patients open in one login, Clear Photo in the first must keep the second patient's client_image (ClientImage reads the session-wide clientId, which the manager opened last set, so it deletes the second patient's photo).",
+      "expectedFailure": {
+        "finding": 156,
+        "step": "Clear Photo in the first photo manager keeps the photo of the patient whose manager was opened second"
+      },
+      "fixtures": "Owned FAKE- patient and its client_image rows, plus a second owned FAKE- patient (first name PhotoBravo) with one seeded client_image row; both patients' rows removed."
     },
     {
       "name": "note-browser-documents",
@@ -4750,8 +4776,12 @@
       "env": [
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
-      "notes": "Fails at its last step on 2026.08: Row Display throws ReferenceError (scanDOM) and loads a missing spinner image.",
-      "fixtures": "Owned patient; a two-test lab created through Inbox ▸ Create Lab under an owned accession; lab, routing and measurement rows removed."
+      "notes": "Five steps pass on 2026.08.0~alpha19 (the old note that Row Display threw a ReferenceError on scanDOM and loaded a missing spinner image is out of date). The sixth and seventh steps are for finding 149: a second lab whose result, units and range carry inert xss-poison markup (payloads 1100-1102; the stored HL7 text is rewritten by SQL, as an imported lab's would be) is listed by Row Display as literal text with the markup in the tooltip source, and hovering its row must build no [data-xp] element in the tooltip; DisplayLabValue.jsp attribute-encodes the lab text into the row's title and boxover.js writes the decoded title with innerHTML.",
+      "expectedFailure": {
+        "finding": 149,
+        "step": "hovering a Row Display row whose result, units and range carry markup builds no element from them"
+      },
+      "fixtures": "Owned patient; a two-test lab and a one-test markup lab, both created through Inbox ▸ Create Lab under owned accessions (the markup lab's stored HL7 text is then rewritten by SQL); labs, routing and measurement rows removed."
     },
     {
       "name": "session-heartbeat-timeout",
@@ -4871,7 +4901,12 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Verifies inclusive RA premium payment dates for all/selected providers, same-day ranges, inactive/adjacent exclusions, premium/final totals and unchanged database rows; owned fixtures cleaned."
+      "notes": "Verifies inclusive RA premium payment dates for all/selected providers, same-day ranges, inactive/adjacent exclusions, premium/final totals and unchanged database rows; owned fixtures cleaned. Last, pinned to app-findings-log.md finding 173: the RA Billing Report takes the month of the End Date as its window and compares the RA header's payment date with an exclusive upper bound on the month's last day (BillingOnPaymentViewModelAssembler, RaDetailDaoImpl.getRaDetailByDate), so a remittance paid on the 30th of June is missing for the selected provider and for all providers; a remittance paid the 29th is the control.",
+      "expectedFailure": {
+        "finding": 173,
+        "step": "Payment Received lists an RA paid on the last day of the month"
+      },
+      "fixtures": "Two owned providers, the owned patient, six RA/premium pairs and, for finding 173, two RA headers (paid the 29th and the 30th) each with one radetail row for an owned claim; every row removed."
     },
     {
       "name": "billing-on-ra-import",
@@ -5776,8 +5811,13 @@
       ],
       "timeoutSec": 480,
       "env": [],
-      "fixtures": "Owns the synthetic patient and one marker eForm template; cleanup deletes the instances (eform_values + eform_data) and the template and asserts them gone.",
-      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision."
+      "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone.",
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action answers every post-commit RuntimeException with eform.submitUnavailable, HTTP 409). Runs about 60 s; the POST-replay step was seen failing once in Task 4 with its message lost and has not failed in later runs (see the Task 15 report)."
+      ,
+      "expectedFailure": {
+        "finding": 168,
+        "step": "a failed Add to Documents is not answered with the replay refusal"
+      }
     },
     {
       "name": "double-submit-lab-manual",
