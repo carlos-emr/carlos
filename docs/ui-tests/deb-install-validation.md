@@ -644,7 +644,8 @@ it does not approve omitted content to obtain a PDF.
 > the selected checks' manifest `mutates` names before the first check, and after the last
 > it counts marker-named (`FAKE-PW...`) fixture rows left in `demographic`, `provider`,
 > `security`, `tickler`, `casemgmt_note`, `billing_on_cheader1`, `billingmaster`,
-> `eform_data` and `document`. It prints `residue: <table> <count>` (never a row) and exits
+> `eform_data` and `document`, and the roles a check makes for itself (`secRole` and
+> `secObjPrivilege` rows named `FAKEPW...`). It prints `residue: <table> <count>` (never a row) and exits
 > non-zero, or `residue audit: no residue`. A run that cannot take its baseline stops before
 > any check starts.
 

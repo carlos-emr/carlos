@@ -8418,6 +8418,50 @@
         "step": "PathNet display shows the lab's values and its patient"
       },
       "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name; no master record is opened), a throwaway provider login that is the Forward recipient (lib/throwaway-login-fixture.js), and one PathNet lab seeded by SQL under a random 10-digit number verified unoccupied (hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx, plus patientLabRouting and providerLabRouting rows). Cleanup removes exactly those rows by key after proving the lab header still carries the run's marker, together with the providerLabRoutingLock row and the audit rows the pages wrote for the owned lab number, and asserts them gone. Forward, once it reaches ReportReassign, rewrites the test login's forwarding favourites from what the page posts; they are snapshotted and restored, so it must not run concurrently with detached-delete-forward-favourites, inbox-file-forward or another check that creates favourites (live wrapper: EXCLUSIVE=1). No clinic-wide state is changed."
+    },
+    {
+      "name": "authz-write-role-matrix",
+      "script": "scripts/authz-write-role-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE"
+      ],
+      "notes": "The write half of the role matrix. A role no install seeds holds exactly _demographic r, _appointment w and _eChart r (authzReadFixture.addRole, WRITE_RESTRICTED_PRIVILEGES); its login is in the test login's programs, as a clinic sets up staff, and signs in through the login form. Its top bar has no Administration and no billing entry, and its day sheet shows its own appointment with no Bill link, where the full login's has Administration and a Bill link; its chart (Master Record opened at its address: the role has no Search and no M or E link) shows no Rx \"+\", no Allergy \"+\" and no Bill button, where the full login's shows all three. Then, per family (tickler add, Rx Save Only, allergy add, demographic update, provider update, chart note save, Ontario bill save), the full login performs the write through the UI and the captured request is replayed with the restricted login's cookies and its own valid CSRF token (lib/mutation-replay.js, lib/mutation-families.js): it must pass h.assertRefused (the application's 403/405/securityError and an unchanged marker-keyed COUNT(*)), and the same request from the full login must write. The five families before the note save pass on 2026.08 (403, or the securityError redirect for the tickler). Fails at \"chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes\": the replay writes the note and only then redirects to securityError?type=_casemgmt.notes (finding 198). The Ontario bill save step after it is not reached while 198 stands; run on its own (AUTHZ_WRITE_ONLY=billing-on-save) it fails at its step with HTTP 500 instead of 403 (finding 199). Opening the restricted chart makes its four CPP boxes answer 500 (finding 201): the journal gets four ConfigurationException ERRORs per run, which scripts/deb-server-log-audit.sh lists as UNKNOWN, and the restricted schedule's tab-alert refresh logs finding 142 as usual. Ontario only: the bill family posts the Ontario bill save; the other families have not been run on BC (issue #4439).",
+      "expectedFailure": {
+        "finding": 198,
+        "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes"
+      },
+      "fixtures": "Owned FAKE patient (runWorkflow), a custom secRole named FAKEPW<hex>R1 (described by the run marker) with exactly its three secObjPrivilege rows, two throwaway logins from lib/authz-read-fixture.js (the restricted one, given program_provider rows copying the test login's, and an er_clerk login whose provider row is the provider-update target), and the rows each family writes, keyed by the run marker (<marker>-<family>-<tag> text in the tickler message, drug custom name, allergy reaction, demographic city, provider team, note text) or by owned appointments (the Ontario bill family's, on BILLING_SUBMIT_DATE, and the two menu-visibility appointments). The patient is given a synthetic HIN for the bill family. Cleanup removes every row by key (bills with their items/ext/transactions, drugs with prescriptions, notes with their links and locks, providerArchive/providerbillcenter of the target, demographicExtArchive) and the logins, the role and its privileges, and asserts them gone. No clinic-wide state is changed."
+    },
+    {
+      "name": "csrf-negative-matrix",
+      "script": "scripts/csrf-negative-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "BILLING_SUBMIT_DATE",
+        "BILLING_OHIP_CODE",
+        "BILLING_FORM_NAME",
+        "BILLING_DX_CODE"
+      ],
+      "notes": "For eleven write families (appointment add, update and delete; demographic add and update; Ontario bill save; eform/addEForm; messenger send; consultation request; AddPrevention; measurement save) the logged-in clinician performs the write through the real UI, the request is captured, and the same session replays it with ONLY the CSRF token removed (header, form parameter and query; X-Requested-With, Origin and Referer kept), aimed at a new marker: it must pass h.assertRefused (CSRFGuard's 403 carrying the application header, and an unchanged marker-keyed COUNT(*)), and the same replay with the session's token must write, so the refusal was about the token. Replays that need fresh server state get it the way the page would: an eForm replay uses the submission id of a fresh rendering of the same form, a demographic update the extension-row ids a fresh rendering carries. Then /ws/rs, which CSRFGuard does not cover: POST /ws/rs/tickler/add (what eForms built with the eForm Generator's tickler option call) writes from a page of the session as JSON with no token (control), the session cookie is SameSite=Lax, and the same body as text/plain, form-encoded and multipart writes nothing: the application's 415 (assertRefused alsoRefusedBy [415]), or for text/plain behind the packaged front door the WAF's 403, reported as the front door's refusal (the application's own 415 for text/plain was confirmed once directly at Tomcat). Passes on 2026.08 (no defect found). Ontario only: the bill family posts the Ontario bill save; the other families have not been run on BC (issue #4439).",
+      "fixtures": "Owned FAKE patient (runWorkflow, given a synthetic HIN for the bill family), an owned eForm template (<marker> csrf form), owned appointments (the update target, three delete targets, and the bill family's on BILLING_SUBMIT_DATE), and the rows each family writes, keyed by the run marker (<marker>-<family>-<tag> in the appointment reason, the new patient's last name, the city, the eForm subject, the message subject, the consultation reason, the prevention comment, the measurement comment and the REST tickler message). Cleanup removes them by key (with the appointment archive, new-patient child rows, bill items, eForm values, delivery rows above the run's high-water marks, consultation extension rows and signatures, prevention extension rows, and measurement history) and asserts them gone. No clinic-wide state is changed."
     }
   ]
 }

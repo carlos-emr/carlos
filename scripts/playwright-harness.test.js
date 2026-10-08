@@ -936,6 +936,41 @@ test('shouldFailAssertRefused_whenRouteServedOrErrored', async () => {
   }
 });
 
+test('shouldPassAssertRefused_whenANamedStatusCarriesTheApplicationHeader', async () => {
+  // A JAX-RS resource that @Consumes JSON refuses a form-encoded body with 415 before it runs.
+  const { s } = sessionCounting(2);
+  const verdict = await harness.assertRefused(s, {
+    response: apiResponse({ status: 415, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  });
+  assert.match(verdict.evidence, /HTTP 415 carrying x-permitted-cross-domain-policies/);
+});
+
+test('shouldFailAssertRefused_whenANamedStatusLacksTheHeaderOrWasNotNamed', async () => {
+  const unmarked = sessionCounting(2);
+  await assert.rejects(harness.assertRefused(unmarked.s, {
+    response: apiResponse({ status: 415 }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  }), /HTTP 415 whose origin cannot be shown to be the application/);
+  // Without the opt-in a 415 is what it always was: not a refusal.
+  const unnamed = sessionCounting(2);
+  await assert.rejects(harness.assertRefused(unnamed.s, {
+    response: apiResponse({ status: 415, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2',
+  }), /HTTP 415 is not the application's 403\/405\/securityError refusal/);
+  // The WAF page and a changed row count still fail with a named status.
+  const waf = sessionCounting(3);
+  await assert.rejects(harness.assertRefused(waf.s, {
+    response: apiResponse({ status: 403, body: WAF_BODY }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy: [415],
+  }), (error) => /WAF refusal/.test(error.message) && /COUNT\(\*\) was 2 before the request and 3 after/.test(error.message));
+});
+
+test('shouldRefuseAssertRefused_whenANamedStatusIsNotA4xx', async () => {
+  const { s } = sessionCounting(2);
+  for (const alsoRefusedBy of [[200], [302], [500], ['415'], 415]) {
+    await assert.rejects(harness.assertRefused(s, {
+      response: apiResponse({ status: 200, headers: APP_HEADERS }), table: 'tickler', where: 'id=1', before: '2', alsoRefusedBy,
+    }), /alsoRefusedBy names 4xx statuses only/, JSON.stringify(alsoRefusedBy));
+  }
+});
+
 test('shouldNameEveryProblem_whenWafPageAndRowCountChanged', async () => {
   const { s } = sessionCounting(4);
   await assert.rejects(harness.assertRefused(s, {

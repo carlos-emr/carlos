@@ -79,6 +79,10 @@ const MARKER_TABLES = Object.freeze([
   },
   { table: 'eform_data', columns: [{ name: 'subject' }] },
   { table: 'document', columns: [{ name: 'docdesc' }, { name: 'docfilename' }] },
+  // A role a check makes for itself (authzReadFixture.addRole) is named like a throwaway login and
+  // described by the run marker; its privilege rows are keyed on that name.
+  { table: 'secRole', columns: [{ name: 'role_name', prefixes: USER_NAME_PREFIXES }, { name: 'description' }] },
+  { table: 'secObjPrivilege', columns: [{ name: 'roleUserGroup', prefixes: USER_NAME_PREFIXES }] },
 ]);
 
 /**

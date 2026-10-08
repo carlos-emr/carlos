@@ -21,7 +21,7 @@ const { parseArguments, main } = require('./run-playwright-suite');
 const { EXIT_FAIL, EXIT_PASS } = require('./lib/playwright-harness');
 
 const BRIEF_TABLES = ['demographic', 'provider', 'security', 'tickler', 'casemgmt_note',
-  'billing_on_cheader1', 'billingmaster', 'eform_data', 'document'];
+  'billing_on_cheader1', 'billingmaster', 'eform_data', 'document', 'secRole', 'secObjPrivilege'];
 
 /** The schema the stub reports: every column the marker queries read, plus the state tables. */
 function installedSchema(without = []) {

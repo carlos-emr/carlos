@@ -51,6 +51,12 @@ function multipartFields(buffer, contentType) {
 /**
  * Run `act` and capture the first POST (or, with method:null, any request) it sends whose
  * URL satisfies `match`. Returns {path, params, method, status}; params = query + body.
+ *
+ * For a check that replays the request as a POST (lib/mutation-replay.js) the capture also
+ * carries what a faithful replay needs and a GET replay does not: `query` and `body` kept apart
+ * (body = the urlencoded or multipart text fields), the request `headers` (lower-case names, so
+ * whether the page sent the CSRF-TOKEN as a header is known), its `contentType` and its raw
+ * `postData` (a JSON body, which has no fields).
  */
 async function captureRequest(page, match, act, { timeout = 20000, method = 'POST' } = {}) {
   // method: null captures whatever verb the page used (to prove a page that WRITES by GET).
@@ -60,24 +66,32 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   const request = await requested;
   const url = new URL(request.url());
   const params = new URLSearchParams(url.search);
-  const type = (await request.allHeaders())['content-type'] || '';
+  const body = new URLSearchParams();
+  const headers = await request.allHeaders();
+  const type = headers['content-type'] || '';
   if (/application\/x-www-form-urlencoded/i.test(type)) {
-    for (const [k, v] of new URLSearchParams(request.postData() || '')) params.append(k, v);
+    for (const [k, v] of new URLSearchParams(request.postData() || '')) body.append(k, v);
   } else if (/multipart\/form-data/i.test(type)) {
-    for (const [k, v] of multipartFields(request.postDataBuffer(), type)) params.append(k, v);
+    for (const [k, v] of multipartFields(request.postDataBuffer(), type)) body.append(k, v);
   }
+  for (const [k, v] of body) params.append(k, v);
   const response = await request.response().catch(() => null);
-  return { path: url.pathname, params, method: request.method(), status: response ? response.status() : 0 };
+  return {
+    path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
+    query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
+  };
 }
 
 /**
  * Copy captured params for a GET replay: CSRF-TOKEN and empty values are dropped,
  * `overrides` (object; null deletes a key, an array sets repeated values) applied.
+ * keepEmpty: true keeps empty values, for a POST replay whose action treats an absent field
+ * differently from an empty one (the request line length is no concern there).
  */
-function replayParams(params, overrides = {}) {
+function replayParams(params, overrides = {}, { keepEmpty = false } = {}) {
   const out = new URLSearchParams();
   for (const [k, v] of params) {
-    if (k === 'CSRF-TOKEN' || v === '' || Object.prototype.hasOwnProperty.call(overrides, k)) continue;
+    if (k === 'CSRF-TOKEN' || (v === '' && !keepEmpty) || Object.prototype.hasOwnProperty.call(overrides, k)) continue;
     out.append(k, v);
   }
   for (const [k, v] of Object.entries(overrides)) {

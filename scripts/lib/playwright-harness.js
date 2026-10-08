@@ -1197,7 +1197,7 @@ async function readRefusalEvidence(response) {
  * Did the APPLICATION refuse? Returns { refused, evidence } or { refused: false, problem }.
  * Nothing here echoes the body or the address: the message lands in stdout and RESULT_JSON.
  */
-function judgeRefusal({ status, headers, body }) {
+function judgeRefusal({ status, headers, body }, alsoRefusedBy = []) {
   if (isWafPage(status, body)) {
     return {
       refused: false,
@@ -1225,6 +1225,16 @@ function judgeRefusal({ status, headers, body }) {
       refused: false,
       problem: `HTTP 403 whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header `
         + 'and not the securityError page)',
+    };
+  }
+  // A status the caller named as this request's deliberate refusal (a JAX-RS resource that
+  // @Consumes JSON answers any other content type with 415 before the method runs) counts only
+  // with the application header: the front door and the container can answer it too.
+  if (alsoRefusedBy.includes(status)) {
+    if (fromApplication) return { refused: true, evidence: `HTTP ${status} carrying ${APPLICATION_HEADER}` };
+    return {
+      refused: false,
+      problem: `HTTP ${status} whose origin cannot be shown to be the application (no ${APPLICATION_HEADER} header)`,
     };
   }
   // An include()d gate cannot set a status, so the securityError page can arrive under a 200.
@@ -1266,11 +1276,16 @@ function judgeRefusal({ status, headers, body }) {
  * `response` is a Playwright APIResponse or Response, or a pre-read { status, body, headers }.
  * `table` must be a plain table name and `where` a fragment that selects only rows the calling
  * check owns; both come from the check's source, never from request data. `label` (optional) names
- * the request in the message. Returns { status, evidence, rows } for logging.
+ * the request in the message. `alsoRefusedBy` (optional, default none) names further HTTP statuses
+ * that are THIS request's deliberate refusal, such as 415 from a JAX-RS resource that @Consumes JSON
+ * when the probe sends another content type; one of them counts only when it carries the
+ * application header, and only 4xx statuses can be named. Returns { status, evidence, rows }.
  */
 async function assertRefused(s, {
-  response, table, where, before, label = 'the request',
+  response, table, where, before, label = 'the request', alsoRefusedBy = [],
 } = {}) {
+  assert(Array.isArray(alsoRefusedBy) && alsoRefusedBy.every(status => Number.isInteger(status) && status >= 400 && status < 500),
+    'assertRefused: alsoRefusedBy names 4xx statuses only');
   assert(s && s.sql && typeof s.sql.value === 'function', 'assertRefused needs the workflow session (s.sql.value)');
   assert(before !== undefined && before !== null && String(before).trim() !== '',
     'assertRefused needs the COUNT(*) taken before the request (before)');
@@ -1279,7 +1294,7 @@ async function assertRefused(s, {
   assert(typeof where === 'string' && where.trim() !== '',
     'assertRefused needs a where clause that selects only the rows the check owns');
   const evidence = await readRefusalEvidence(response);
-  const verdict = judgeRefusal(evidence);
+  const verdict = judgeRefusal(evidence, alsoRefusedBy);
   const rows = String(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`));
   const problems = [];
   if (!verdict.refused) problems.push(verdict.problem);
