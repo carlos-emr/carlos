@@ -55,7 +55,7 @@ test('storageFailureLogProblems reports the pre-fix log: a session assertion and
   // The database message is present, but only at WARN, which is all the issue says an administrator got.
   const problems = storageFailureLogProblems(BEFORE_FIX, PROBE);
   assert.equal(problems.length, 2);
-  assert.match(problems[0], /Hibernate session assertion.*hibernate\.AssertionFailure/);
+  assert.match(problems[0], /Hibernate session assertion \(HHH000099\).*hibernate\.AssertionFailure/);
   assert.match(problems[1], /no ERROR event carries the database's own message/);
 });
 
@@ -63,8 +63,10 @@ test('storageFailureLogProblems accepts the fixed log', () => {
   assert.deepEqual(storageFailureLogProblems(AFTER_FIX, PROBE), []);
 });
 
-test('storageFailureLogProblems fails when the log is empty, e.g. the wrong unit was named', () => {
-  assert.equal(storageFailureLogProblems('', PROBE).length, 1);
+test('storageFailureLogProblems says so when nothing was logged, e.g. the wrong unit was named', () => {
+  const problems = storageFailureLogProblems('', PROBE);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /nothing was logged.*may read it/);
 });
 
 test('storageFailureLogProblems recognizes the assertion by its message when the logger is renamed', () => {

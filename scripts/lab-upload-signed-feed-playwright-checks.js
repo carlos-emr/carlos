@@ -223,15 +223,16 @@ async function workflow(session) {
       const logMark = serverLog.mark();
       const status = await postSigned(session, popup, sealed, service);
       h.assert(status === 500, `A failed signed upload answered HTTP ${status}; a sender must be told to retry`);
-      // #4436: the rejected insert must surface as the database's own error, not as Hibernate's HHH000099.
-      await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
-        databaseMessage: 'Synthetic signed upload failure probe', assert: h.assert });
       h.assert(sql.value(`SELECT
           (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownChecksum})
         + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
         + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
       'The failed upload left its checksum or partial lab rows, which would refuse the retry');
       expectCopies(0, 'after the failed upload');
+      // After the rollback, which matters more, so a log failure cannot mask it. #4436: the rejected
+      // insert must surface as the database's own error, not as Hibernate's HHH000099.
+      await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
+        databaseMessage: 'Synthetic signed upload failure probe', assert: h.assert });
     } finally {
       sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
       triggerMayExist = false;

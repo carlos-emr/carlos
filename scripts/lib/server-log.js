@@ -69,12 +69,18 @@ function splitLogEvents(text) {
  */
 function storageFailureLogProblems(text, databaseMessage) {
   const events = splitLogEvents(text);
+  if (events.length === 0) {
+    // Nothing at all, not even the upload's own lines: the source is not this server's log or cannot be read.
+    return ['nothing was logged while the upload ran; check that the log source names this server '
+      + 'and that this user may read it (a journal needs root or group systemd-journal or adm)'];
+  }
   const problems = [];
   const assertion = events.find((event) => SESSION_ASSERTION.test(event.text));
   if (assertion) {
-    problems.push(`a Hibernate session assertion was logged (${assertion.level} ${assertion.logger}), `
-      + 'so the cleanup ran in the failed session');
+    problems.push(`a Hibernate session assertion (HHH000099) was logged while the upload ran (${assertion.level} ${assertion.logger})`);
   }
+  // Relies on the handler logging the exception with its message chain. Should that logging be reduced
+  // to LogSafe.exceptionTrace (type names only), match the SQLException type here instead of the text.
   if (!events.some((event) => event.level === 'ERROR' && event.text.includes(databaseMessage))) {
     problems.push(`no ERROR event carries the database's own message "${databaseMessage}"`);
   }

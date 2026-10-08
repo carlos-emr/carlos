@@ -305,16 +305,17 @@ async function workflow(session, options = {}) {
         const status = await uploadThroughPopup(session, filePath, fileName);
         h.assert(['Invalid lab', 'Failed to upload HL7 lab'].includes(status),
           `Injected database failure reported "${status}"`);
-        // #4436: the handler's cleanup used to run in the session the rejected insert had poisoned,
-        // so Hibernate logged HHH000099 and the database's own message never reached an ERROR line.
-        await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
-          databaseMessage: 'Synthetic upload rollback probe', assert: h.assert });
         h.assert(sql.value(`SELECT
           (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
           + (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
           + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})`) === '0',
         'A rejected lab left its checksum or partially stored rows behind');
         expectArchivedUploads(stamp, 0, 'after the rolled-back upload');
+        // After the rollback, which matters more, so a log failure cannot mask it. #4436: the handler's
+        // cleanup used to run in the session the rejected insert had poisoned, so Hibernate logged
+        // HHH000099 and the database's own message never reached an ERROR line.
+        await verifyStorageFailureLog({ reader: serverLog, mark: logMark,
+          databaseMessage: 'Synthetic upload rollback probe', assert: h.assert });
       } finally {
         sql.execute(`DROP TRIGGER IF EXISTS ${failureTrigger}`);
         triggerMayExist = false;
