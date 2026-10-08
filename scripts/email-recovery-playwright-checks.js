@@ -4,8 +4,9 @@
  * Installed-app regression checks for email recovery and compose state. Creates
  * only owned synthetic email logs for demo patient 1; never submits or sends an
  * email. Uses the deb-install environment contract. The copied log carries a
- * footer (issue #3981): the compose screen must show it in the Footer box with
- * its limit and help line, and put it in the form it posts.
+ * formatted footer (issue #3981) with a script appended: the compose screen must
+ * show it cleaned in the Footer card, open it in the Edit footer window, and put
+ * the cleaned footer in the form it posts. Nothing in it may run.
  */
 // Credentials: TEST_USER, TEST_PASSWORD, TEST_PIN; MYSQL_HOST/USER/PASSWORD/DATABASE.
 // Run only against a disposable local demo database. Optional EMAIL_RECOVERY_DEMO_NO.
@@ -31,7 +32,9 @@ assert(['localhost', '127.0.0.1', '::1'].includes(mysqlHost), 'Email recovery fi
 const demographicNo = process.env.EMAIL_RECOVERY_DEMO_NO || '1';
 assert(/^[1-9]\d*$/.test(demographicNo), 'EMAIL_RECOVERY_DEMO_NO must be a positive identifier');
 const marker = `PWRECOVERY${randomUUID().replaceAll('-', '')}`;
-const footerText = 'Synthetic recovery footer';
+// Stored as a log would never hold it, to prove the copy path cleans what it reads.
+const storedFooter = '<b>Synthetic</b> recovery footer<script>window.__footerScriptRan = true</script>';
+const cleanFooter = '<b>Synthetic</b> recovery footer';
 function sql(query) {
   return execFileSync('mariadb', ['--no-defaults', '-h', mysqlHost,
     '-u', process.env.MYSQL_USER || 'root', process.env.MYSQL_DATABASE || 'carlos', '-N', '-B', '-e', query],
@@ -39,24 +42,53 @@ function sql(query) {
     stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
-// The Footer box on a copied email: the footer that was sent, the 2,000-character limit, the
-// plain-text/not-charted help line, and a place in the posted form. Switching sender never
-// changes the footer.
+// The Footer card on a copied email: the footer that was sent, cleaned; the warning line; the
+// shared Edit footer window with its limit and counter; and a place in the posted form. Switching
+// sender never changes the footer. Nothing from the stored footer runs.
 async function assertCopiedFooter(compose) {
   const footer = compose.locator('#footerEmail');
-  assert(await footer.inputValue() === footerText, 'Copying a log lost its footer');
-  assert(await footer.getAttribute('maxlength') === '2000', 'Footer box lost its 2,000-character limit');
+  assert(await footer.inputValue() === cleanFooter, 'Copying a log lost its footer or did not clean it');
+  const preview = compose.locator('#footerEmailPreview');
+  assert(await preview.innerText() === 'Synthetic recovery footer', 'Footer card does not show the footer');
+  assert(await preview.locator('b').count() === 1, 'Footer card lost the footer formatting');
   const help = await compose.locator('#footerEmailHelp').innerText();
-  assert(/plain text/i.test(help) && /not saved to the chart/i.test(help) && /patient information/i.test(help),
-    'Footer help line does not warn that the footer is plain text, not charted and PHI-free');
+  assert(/unencrypted/i.test(help) && /not saved to the chart/i.test(help) && /patient information/i.test(help),
+    'Footer help line does not warn that the footer is unencrypted, not charted and PHI-free');
+
+  await compose.locator('#footerEmailEdit').click();
+  const modal = compose.locator('#footerEditorModal');
+  await modal.waitFor({ state: 'visible' });
+  assert(await modal.getAttribute('data-max-length') === '2000', 'Edit footer window lost its 2,000-character limit');
+  assert(await compose.locator('#footerEditorCount').innerText() === String('Synthetic recovery footer'.length),
+    'Edit footer window does not count the plain-text characters');
+  await compose.locator('#footerEditorText').click();
+  await compose.keyboard.press('End');
+  await compose.keyboard.type(' edited');
+  await compose.locator('#footerEditorApply').click();
+  await modal.waitFor({ state: 'hidden' });
+  assert(/^<b>Synthetic<\/b> recovery footer edited/.test(await footer.inputValue()),
+    'Applying the Edit footer window did not update the footer');
+
+  // A footer smuggled into the field is cleaned before the window shows it: nothing runs.
+  await compose.evaluate(() => {
+    document.getElementById('footerEmail').value = '<img src="x" onerror="window.__footerScriptRan = true"><i>ok</i>';
+  });
+  await compose.locator('#footerEmailEdit').click();
+  await modal.waitFor({ state: 'visible' });
+  assert(await compose.locator('#footerEditorText img').count() === 0, 'Edit footer window showed an image tag');
+  await compose.locator('#footerEditorModal .btn-close').click();
+  await modal.waitFor({ state: 'hidden' });
+  assert(await compose.evaluate(() => window.__footerScriptRan === undefined), 'A footer script ran on the compose screen');
+  await compose.evaluate(html => { document.getElementById('footerEmail').value = html; }, cleanFooter);
+
   const posted = await compose.evaluate(() => new FormData(document.getElementById('emailComposeForm')).get('footerEmail'));
-  assert(posted === footerText, 'Footer is not part of the posted compose form');
+  assert(posted === cleanFooter, 'Footer is not part of the posted compose form');
   const senders = compose.locator('#senderEmailAddress option');
   if (await senders.count() > 1 && await compose.locator('#senderEmailAddress').isEnabled()) {
     const current = await compose.locator('#senderEmailAddress').inputValue();
     const other = await senders.evaluateAll((options, value) => options.map(o => o.value).find(v => v !== value), current);
     await compose.locator('#senderEmailAddress').selectOption(other);
-    assert(await footer.inputValue() === footerText, 'Switching sender replaced a copied footer');
+    assert(await footer.inputValue() === cleanFooter, 'Switching sender replaced a copied footer');
     await compose.locator('#senderEmailAddress').selectOption(current);
   }
 }
@@ -74,7 +106,7 @@ async function assertCopiedFooter(compose) {
         const id = sql(`INSERT INTO emailLog (fromEmail,toEmail,subject,body,footer,status,timestamp,isEncrypted,
           isAttachmentEncrypted,chartDisplayOption,transactionType,demographicNo,providerNo)
           VALUES ('sender@example.invalid','recipient@example.invalid','${marker}',TO_BASE64('Synthetic recovery message'),
-          TO_BASE64('${footerText}'),'PENDING',${age},1,1,'WITHOUT_NOTE','DIRECT',${demographicNo},'999998');
+          TO_BASE64('${storedFooter}'),'PENDING',${age},1,1,'WITHOUT_NOTE','DIRECT',${demographicNo},'999998');
           SELECT LAST_INSERT_ID()`);
         assert(/^[1-9]\d*$/.test(id), 'Email fixture did not return an identifier');
         ids.push(id);

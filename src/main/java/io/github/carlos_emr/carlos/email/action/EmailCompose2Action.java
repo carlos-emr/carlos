@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -465,18 +466,19 @@ public class EmailCompose2Action extends ActionSupport {
     /**
      * Picks the footer the compose screen opens with (issue #3981): the footer the eForm staged
      * (a blank one counts as none), otherwise the user's footer, which is their own or the clinic
-     * default (see {@link EmailFooterService#composeFooter}), otherwise empty. Staff can type or
-     * change it before sending; changing the sending account never changes it.
+     * default (see {@link EmailFooterService#composeFooter}), otherwise empty. Staff can change it
+     * before sending, in the Edit footer window; changing the sending account never changes it.
      *
-     * @param stagedFooter footer the eForm posted, or null
-     * @param userFooter the logged-in user's footer, empty when they have none
-     * @return the footer text, never null
+     * @param stagedFooter footer the eForm posted, as plain text, or null
+     * @param userFooter the logged-in user's footer (formatted HTML), empty when they have none
+     * @return the footer as formatted HTML (an eForm's line breaks kept), never null
      */
     static String resolveComposeFooter(String stagedFooter, Optional<String> userFooter) {
         if (stagedFooter != null && !stagedFooter.isBlank()) {
-            return stagedFooter;
+            // An eForm's footer is plain text: escaped, its line breaks kept.
+            return EmailFooterHtml.fromPlainText(stagedFooter);
         }
-        return userFooter.orElse("");
+        return EmailFooterHtml.clean(userFooter.orElse(""));
     }
 
     /**

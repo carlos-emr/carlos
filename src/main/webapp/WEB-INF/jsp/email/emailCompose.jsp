@@ -22,7 +22,6 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
-<%@ page import="io.github.carlos_emr.carlos.email.core.EmailData" %>
 <%
     // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
     // manual password is collected; the send path refuses encrypted email until it is fixed.
@@ -599,15 +598,23 @@
                 </div>
 
                 <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
-                     stays in clear text when encryption is on (it follows the secure-message notice and is
+                     stays unencrypted when encryption is on (it follows the secure-message notice and is
                      never inside the encrypted PDF), and it is never written to the chart note. The value
-                     is seeded server-side as footerEmail: the eForm's footer, else the user's own footer
-                     or the clinic default (see EmailFooterService), else empty; a resend or failed-send
-                     retry seeds the footer it had. When a clinic footer change affected the user's own
-                     footer, a notice links to their footer page until they deal with it there. --%>
+                     is seeded server-side as footerEmail, formatted HTML: the eForm's footer, else the user's
+                     own footer or the clinic default (see EmailFooterService), else empty; a resend or
+                     failed-send retry seeds the footer it had. Staff change it for this email in the shared
+                     Edit footer window (footerEditorModal.jspf); the card shows it cleaned. Ticking "Also make
+                     this my usual footer" saves it as their own footer when the email is sent. When a clinic
+                     footer change affected the user, a notice links to their footer page until they deal
+                     with it there. --%>
                 <div class="card mt-4">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">${emailComposeFooterLabel}</h5>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0" id="footerEmailLabel">${emailComposeFooterLabel}</h5>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="footerEmailEdit"
+                                data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                                data-footer-editor-target="footerEmail" data-footer-editor-preview="footerEmailPreview"
+                                aria-describedby="footerEmailHelp">
+                            <fmt:message key="email.footerEditor.open"/></button>
                     </div>
                     <div class="card-body">
                         <c:if test="${footerClinicChanged}">
@@ -620,16 +627,16 @@
                                    class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>
                             </div>
                         </c:if>
-                        <div class="container">
-                            <div class="row">
-                                <div class="col-sm-12">
-                                    <label for="footerEmail" class="visually-hidden">${emailComposeFooterLabel}</label>
-                                    <textarea class="form-control" name="footerEmail" id="footerEmail" rows="3"
-                                              maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>" aria-describedby="footerEmailHelp"><carlos:encode value="${footerEmail}"/></textarea>
-                                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                                       class="small" id="myEmailFooterLink"><fmt:message key="email.compose.footer.myFooterLink"/></a>
-                                </div>
+                        <input type="hidden" name="footerEmail" id="footerEmail" value="<carlos:encode value='${footerEmail}' context='htmlAttribute'/>"/>
+                        <div id="footerEmailPreview" class="footer-editor-mail" aria-labelledby="footerEmailLabel"
+                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input" type="checkbox" name="saveFooterAsMine" id="saveFooterAsMine" value="true">
+                                <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
                             </div>
+                            <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
+                               class="small" id="myEmailFooterLink"><fmt:message key="email.compose.footer.myFooterLink"/></a>
                         </div>
                     </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
@@ -1254,5 +1261,8 @@ function toggleInternalTextArea() {
 }
 
 </script>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeThisEmail"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyThisEmail"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>
 </html>

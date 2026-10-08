@@ -176,7 +176,7 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
     void shouldArchiveFooterBelowBody_inSmtpMessage() throws Exception {
         EmailConfig emailConfig = smtpEmailConfig();
         EmailData emailData = emailData(List.of());
-        emailData.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        emailData.setFooter("Riverside Clinic<br>Not monitored for urgent issues.");
         EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(),
                 emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.PENDING);
         injectDependency(emailLog, "id", 47);

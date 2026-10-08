@@ -22,6 +22,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
@@ -382,7 +383,7 @@ public class EmailSend2Action extends ActionSupport {
         request.setAttribute(PARAM_SENDER_CONFIG_ID, request.getParameter(PARAM_SENDER_CONFIG_ID));
         request.setAttribute(PARAM_SUBJECT_EMAIL, request.getParameter(PARAM_SUBJECT_EMAIL));
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
-        request.setAttribute(PARAM_FOOTER_EMAIL, request.getParameter(PARAM_FOOTER_EMAIL));
+        request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         request.setAttribute("emailPatientChartOption", request.getParameter(PARAM_PATIENT_CHART_OPTION));
         request.setAttribute(
                 PARAM_DEMOGRAPHIC_ID,
@@ -427,8 +428,8 @@ public class EmailSend2Action extends ActionSupport {
      */
     private void preserveComposeInputsForReRender(EmailLog emailLog) {
         request.setAttribute(PARAM_MESSAGE, request.getParameter(PARAM_MESSAGE));
-        // The footer as submitted: a retry keeps what staff sent.
-        request.setAttribute(PARAM_FOOTER_EMAIL, request.getParameter(PARAM_FOOTER_EMAIL));
+        // The footer as submitted, cleaned as it would be sent: a retry keeps what staff sent.
+        request.setAttribute(PARAM_FOOTER_EMAIL, EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL)));
         // Fail closed on both encryption flags, matching prepareEmailFields: only an explicit
         // "false" re-renders a toggle OFF, so a failed draft cannot silently lose protection.
         request.setAttribute(PARAM_IS_EMAIL_ENCRYPTED,
@@ -586,18 +587,32 @@ public class EmailSend2Action extends ActionSupport {
     }
 
     /**
-     * Enforces the footer's length limit at the server boundary, as the message's is: the
-     * textarea's {@code maxlength} can be bypassed by a direct POST (issue #3981). Line breaks
-     * count once, as the browser counts them, although a form submits each as CR LF.
+     * Enforces the footer's length limits at the server boundary, as the message's is: the editor's
+     * counter can be bypassed by a direct POST (issue #3981). The footer counts the characters of
+     * its plain-text version, as the editor does; its cleaned HTML may not exceed
+     * {@link EmailFooterHtml#MAX_HTML_LENGTH}.
      *
      * @param request request containing the optional footer
-     * @throws EmailSendValidationException when the footer is longer than the limit
+     * @throws EmailSendValidationException when the footer is longer than a limit
      */
     private void validateFooterLength(HttpServletRequest request) {
         String footer = request.getParameter(PARAM_FOOTER_EMAIL);
-        if (footer != null && footer.replace("\r\n", "\n").length() > EmailData.FOOTER_MAX_LENGTH) {
+        if (footer == null || footer.isEmpty()) {
+            return;
+        }
+        // Refused before it is parsed: no footer within the limits posts more than this.
+        if (footer.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
+            throw new EmailSendValidationException(
+                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
+        }
+        String cleaned = EmailFooterHtml.clean(footer);
+        if (EmailFooterHtml.visibleLength(cleaned) > EmailData.FOOTER_MAX_LENGTH) {
             throw new EmailSendValidationException(
                     "Footer must not exceed " + EmailData.FOOTER_MAX_LENGTH + " characters");
+        }
+        if (cleaned.length() > EmailFooterHtml.MAX_HTML_LENGTH) {
+            throw new EmailSendValidationException(
+                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
         }
     }
 

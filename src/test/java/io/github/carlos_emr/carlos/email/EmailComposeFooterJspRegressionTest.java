@@ -17,14 +17,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.github.carlos_emr.carlos.email.core.EmailData;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pins the compose screen's Footer box (issue #3981): its limit, its encoding, its help line, the
- * encrypted-message notice that says the footer stays visible, and that choosing another sending
- * account leaves the footer alone.
+ * Pins the compose screen's Footer card (issue #3981): the posted field and its encoding, the shared
+ * Edit footer window it opens, its help line, the encrypted-message notice that says the footer stays
+ * visible, and that choosing another sending account leaves the footer alone.
  *
  * @since 2026-09-29
  */
@@ -40,26 +38,40 @@ class EmailComposeFooterJspRegressionTest {
     private static final List<String> LOCALES = List.of("en", "es", "fr", "pl", "pt_BR");
 
     @Test
-    @DisplayName("should post the footer from a limited textarea filled through the CARLOS encoder")
-    void shouldRenderFooterTextarea_withLimitAndEncodedValue() throws IOException {
+    @DisplayName("should post the footer from a hidden field filled through the CARLOS attribute encoder")
+    void shouldRenderFooterField_withEncodedValue() throws IOException {
         String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
 
-        int textarea = jsp.indexOf("<textarea class=\"form-control\" name=\"footerEmail\" id=\"footerEmail\"");
-        assertThat(textarea).isGreaterThanOrEqualTo(0);
-        String element = jsp.substring(textarea, jsp.indexOf("</textarea>", textarea) + "</textarea>".length());
-        // The limit comes from the constant the send action enforces, so the two cannot drift.
-        assertThat(element)
-                .contains("maxlength=\"<%= EmailData.FOOTER_MAX_LENGTH %>\"")
-                .endsWith("><carlos:encode value=\"${footerEmail}\"/></textarea>");
-        assertThat(jsp).contains("<%@ page import=\"io.github.carlos_emr.carlos.email.core.EmailData\" %>");
-        assertThat(EmailData.FOOTER_MAX_LENGTH).isEqualTo(2000);
+        int field = jsp.indexOf("<input type=\"hidden\" name=\"footerEmail\" id=\"footerEmail\"");
+        assertThat(field).isGreaterThanOrEqualTo(0);
+        String element = jsp.substring(field, jsp.indexOf('\n', field)).strip();
+        // The footer is HTML; in an attribute it must be attribute-encoded, never placed raw.
+        assertThat(element).endsWith("value=\"<carlos:encode value='${footerEmail}' context='htmlAttribute'/>\"/>");
         assertThat(jsp)
                 .doesNotContain(">${footerEmail}<")
+                .doesNotContain("value=\"${footerEmail}\"")
                 .doesNotContain("e:forHtmlContent value=\"${footerEmail}\"");
         // Inside the send form, after the message box.
-        assertThat(textarea)
+        assertThat(field)
                 .isGreaterThan(jsp.indexOf("name=\"message\" id=\"message\""))
                 .isLessThan(jsp.indexOf("</form>"));
+    }
+
+    @Test
+    @DisplayName("should edit the footer in the shared window, included once outside the send form")
+    void shouldOpenSharedEditor_forThisEmailOnly() throws IOException {
+        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp)
+                .contains("data-bs-target=\"#footerEditorModal\"")
+                .contains("data-footer-editor-target=\"footerEmail\" data-footer-editor-preview=\"footerEmailPreview\"")
+                .contains("<div id=\"footerEmailPreview\"")
+                .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeThisEmail\"/>")
+                .contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.applyThisEmail\"/>");
+        String include = "<%@ include file=\"/WEB-INF/jsp/email/footerEditorModal.jspf\" %>";
+        assertThat(jsp.indexOf(include)).isEqualTo(jsp.lastIndexOf(include))
+                .isGreaterThan(jsp.indexOf("</form>"))
+                .isGreaterThan(jsp.indexOf("bootstrap.bundle.min.js"));
     }
 
     @Test
@@ -74,7 +86,7 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("${emailComposeFooterHelp}")
                 .contains("aria-describedby=\"footerEmailHelp\"");
         String english = bundle("en").getProperty("email.compose.footer.help");
-        assertThat(english).contains("plain text", "not saved to the chart", "Do not include patient information");
+        assertThat(english).contains("unencrypted", "not saved to the chart", "Do not include patient information");
         assertThat(bundle("en").getProperty("email.compose.footer.heading")).isEqualTo("Footer");
         String englishNotice = bundle("en").getProperty("email.compose.msg.encryptedMessageNotice");
         assertThat(englishNotice).contains("password-protected PDF", "the footer remain visible");

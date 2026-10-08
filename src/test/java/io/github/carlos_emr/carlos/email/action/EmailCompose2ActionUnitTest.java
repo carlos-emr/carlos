@@ -982,13 +982,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should prefer the eForm footer, then the user's footer, then nothing")
+    @DisplayName("should prefer the eForm footer (read as plain text), then the user's footer (cleaned), then nothing")
     void shouldResolveFooter_inEFormThenUserOrder() {
         assertThat(EmailCompose2Action.resolveComposeFooter(null, Optional.empty())).isEmpty();
         assertThat(EmailCompose2Action.resolveComposeFooter("  \n ", Optional.empty())).isEmpty();
-        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\n", Optional.of("Dr A")))
-                .isEqualTo("Book online\n");
-        assertThat(EmailCompose2Action.resolveComposeFooter(" ", Optional.of("Dr A"))).isEqualTo("Dr A");
+        // An eForm's footer is plain text: its line breaks are kept and nothing in it is markup.
+        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\nCall <front desk> & ask\n", Optional.of("Dr A")))
+                .isEqualTo("Book online<br>Call &lt;front desk&gt; &amp; ask");
+        assertThat(EmailCompose2Action.resolveComposeFooter(" ", Optional.of("<b>Dr A</b><script>x()</script>")))
+                .isEqualTo("<b>Dr A</b>");
     }
 
     @Test
@@ -999,7 +1001,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         Provider provider = new Provider();
         provider.setProviderNo("101");
         user.setLoggedInProvider(provider);
-        when(emailFooterService.composeFooter("101")).thenReturn(Optional.of("Dr A\nBook online"));
+        when(emailFooterService.composeFooter("101")).thenReturn(Optional.of("<b>Dr A</b><br>Book online"));
         when(emailFooterService.clinicChangeNotice("101")).thenReturn("Dr A old footer");
         when(emailFooterService.clinicChangeKeptOwnFooter("101")).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
@@ -1012,7 +1014,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
                     new MockHttpServletResponse(), "compose");
 
-            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("Dr A\nBook online");
+            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("<b>Dr A</b><br>Book online");
             assertThat(rendered.getAttribute("footerClinicChanged")).isEqualTo(true);
             assertThat(rendered.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(true);
         } finally {

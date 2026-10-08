@@ -2,7 +2,6 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.email.core.EmailData" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -126,18 +125,28 @@
                             <p class="fst-italic mb-0"><fmt:message key="email.myFooter.noClinicFooter"/></p>
                         </c:when>
                         <c:otherwise>
-                            <pre class="border bg-light p-2 mb-0" style="white-space: pre-wrap;" id="clinicFooterCurrent"><carlos:encode value="${clinicFooterCurrent}"/></pre>
+                            <div class="border bg-white p-2 footer-editor-mail" id="clinicFooterCurrent"
+                                 data-footer-html="<carlos:encode value='${clinicFooterCurrent}' context='htmlAttribute'/>"></div>
                         </c:otherwise>
                     </c:choose>
                 </div>
             </c:if>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
+                <%-- Edited in the shared Edit footer window (footerEditorModal.jspf), as on the email screen;
+                     the window writes the cleaned HTML into the hidden field and redraws the preview. --%>
                 <form action="${ctx}/admin/saveClinicEmailFooter" method="post">
                     <input type="hidden" name="clinicFooterFingerprint" value="${carlos:forHtmlAttribute(clinicFooterFingerprint)}"/>
-                    <label for="clinicFooter" class="form-label">
-                        <fmt:message key="admin.configureEmail.footer.label"/></label>
-                    <textarea class="form-control" id="clinicFooter" name="clinicFooter" rows="4" maxlength="<%= EmailData.FOOTER_MAX_LENGTH %>"
-                              aria-describedby="clinicFooterHelp"><carlos:encode value="${clinicFooter}"/></textarea>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="form-label mb-0" id="clinicFooterLabel"><fmt:message key="admin.configureEmail.footer.label"/></span>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="clinicFooterEdit"
+                                data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                                data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview"
+                                aria-describedby="clinicFooterHelp">
+                            <fmt:message key="email.footerEditor.open"/></button>
+                    </div>
+                    <input type="hidden" id="clinicFooter" name="clinicFooter" value="<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>"/>
+                    <div id="clinicFooterPreview" class="border bg-white p-2 footer-editor-mail" aria-labelledby="clinicFooterLabel"
+                         data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
                     <div id="clinicFooterHelp" class="form-text">
                         <fmt:message key="admin.configureEmail.footer.help"/></div>
                     <button type="submit" class="btn btn-primary mt-2">
@@ -145,9 +154,78 @@
                 </form>
             </security:oscarSec>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
-                <pre class="border bg-light p-2" style="white-space: pre-wrap;"><carlos:encode value="${clinicFooter}"/></pre>
+                <div class="border bg-white p-2 footer-editor-mail" id="clinicFooterReadOnly"
+                     data-footer-html="<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>"
+                     data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
+            </security:oscarSec>
+        </div>
+    </div>
+    <%-- The clinic's email footer logo (issue #3981): shown above the footer in patient emails and
+         carried inside each email. Only _admin writers get the form; everyone else sees the logo. --%>
+    <div class="card shadow-sm rounded mt-4 mb-5" id="clinicLogoCard">
+        <div class="card-body">
+            <h4 class="card-title"><fmt:message key="admin.configureEmail.logo.heading"/></h4>
+            <p class="card-text"><fmt:message key="admin.configureEmail.logo.intro"/></p>
+            <c:if test="${param.logoSaved eq 'true'}">
+                <div class="alert alert-success" role="status" id="clinicLogoSaved"><fmt:message key="admin.configureEmail.logo.saved"/></div>
+            </c:if>
+            <c:if test="${param.logoRemoved eq 'true'}">
+                <div class="alert alert-success" role="status" id="clinicLogoRemoved"><fmt:message key="admin.configureEmail.logo.removed"/></div>
+            </c:if>
+            <%-- One branch per known reason code; the parameter itself is never shown or used as a key. --%>
+            <c:choose>
+                <c:when test="${param.logoError eq 'EMPTY'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorEmpty"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'TOO_BIG'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooBig"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'NOT_AN_IMAGE'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorNotImage"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'TOO_LARGE'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooLarge"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'COPY_TOO_BIG'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorCopyTooBig"/></div>
+                </c:when>
+            </c:choose>
+            <c:choose>
+                <c:when test="${clinicLogoSet}">
+                    <img src="${ctx}/email/clinicEmailLogo" alt="<fmt:message key='admin.configureEmail.logo.alt'/>"
+                         class="border bg-white p-2 d-block" style="max-width: 100%;" id="clinicLogoImage">
+                    <p class="small text-muted mt-1" id="clinicLogoSize">
+                        <fmt:message key="admin.configureEmail.logo.size">
+                            <fmt:param value="${clinicLogoWidth}"/>
+                            <fmt:param value="${clinicLogoHeight}"/>
+                        </fmt:message>
+                    </p>
+                </c:when>
+                <c:otherwise>
+                    <p class="text-muted" id="clinicLogoNone"><fmt:message key="admin.configureEmail.logo.none"/></p>
+                </c:otherwise>
+            </c:choose>
+            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
+                <form action="${ctx}/admin/saveClinicEmailLogo" method="post" enctype="multipart/form-data" class="mt-3" id="clinicLogoForm">
+                    <label for="logoFile" class="form-label"><fmt:message key="admin.configureEmail.logo.choose"/></label>
+                    <input class="form-control" type="file" id="logoFile" name="logoFile" accept="image/png,image/jpeg"
+                           aria-describedby="clinicLogoHelp">
+                    <div id="clinicLogoHelp" class="form-text"><fmt:message key="admin.configureEmail.logo.help"/></div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="submit" name="logoAction" value="upload" class="btn btn-primary">
+                            <fmt:message key="admin.configureEmail.logo.upload"/></button>
+                        <c:if test="${clinicLogoSet}">
+                            <button type="submit" name="logoAction" value="remove" class="btn btn-outline-danger">
+                                <fmt:message key="admin.configureEmail.logo.remove"/></button>
+                        </c:if>
+                    </div>
+                </form>
             </security:oscarSec>
         </div>
     </div>
 </div>
+<script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+<c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyFooter"/>
+<%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>

@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +59,9 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private UserPropertyDAO userPropertyDAO;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private UserProperty createProperty(String providerNo, String name, String value) throws Exception {
         UserProperty prop = new UserProperty();
@@ -106,6 +111,26 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
 
             UserProperty result = userPropertyDAO.getProp(uniqueProviderNo(), uniqueName("missing"));
             assertThat(result).isNull();
+        }
+
+        @Test
+        @Tag("create")
+        @Tag("read")
+        @DisplayName("should keep a value longer than 2,000 characters, such as a user's formatted email footer")
+        void shouldRoundTripLongValue_forFormattedFooter() throws Exception {
+            // Issue #3981: UserProperty maps the same property table, whose value is now TEXT, so a
+            // formatted footer of 2,000 visible characters fits with its formatting.
+            String providerNo = uniqueProviderNo();
+            String name = uniqueName("email_footer");
+            String footer = "<i>Dr. Test</i><br><a href=\"mailto:desk@clinic.example\">Front desk</a><br>".repeat(90);
+            assertThat(footer.length()).isGreaterThan(6_000);
+            createProperty(providerNo, name, footer);
+            userPropertyDAO.flush();
+            entityManager.clear();
+
+            UserProperty result = userPropertyDAO.getProp(providerNo, name);
+
+            assertThat(result.getValue()).isEqualTo(footer);
         }
     }
 

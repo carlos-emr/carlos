@@ -79,6 +79,8 @@
         <action name="email/portalDelivery" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalEmailDelivery2Action">
             <result name="success">/WEB-INF/jsp/email/portalDelivery.jsp</result>
         </action>
+        <!-- The clinic's email footer logo, for the Edit footer window (issue #3981); writes the image itself. -->
+        <action name="email/clinicEmailLogo" class="io.github.carlos_emr.carlos.email.action.ClinicEmailLogo2Action"/>
         <action name="email/emailSendAction" class="io.github.carlos_emr.carlos.email.action.EmailSend2Action">
             <result name="success">/WEB-INF/jsp/email/emailCompose.jsp</result>
         </action>

@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -46,7 +48,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * The Configure Email page's clinic footer section (issue #4093, follow-up to #3981): the footer
- * shown, the fingerprint its form sends back, and the clinic-change rule its wording follows.
+ * shown, the fingerprint its form sends back, and the clinic-change rule its wording follows; and
+ * the clinic email footer logo's state for the page (issue #3981).
  *
  * @since 2026-10-07
  */
@@ -61,6 +64,7 @@ class ViewConfigureEmail2ActionUnitTest {
     private MockHttpServletRequest request;
     private SecurityInfoManager securityInfoManager;
     private EmailFooterService emailFooterService;
+    private EmailFooterLogoService logoService;
     private LoggedInInfo loggedInInfo;
     private MockedStatic<ServletActionContext> servletActionContext;
     private MockedStatic<LoggedInInfo> loggedInInfoStatic;
@@ -70,6 +74,7 @@ class ViewConfigureEmail2ActionUnitTest {
         request = new MockHttpServletRequest("GET", "/admin/ViewConfigureEmail");
         securityInfoManager = mock(SecurityInfoManager.class);
         emailFooterService = mock(EmailFooterService.class);
+        logoService = mock(EmailFooterLogoService.class);
         loggedInInfo = mock(LoggedInInfo.class);
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
@@ -91,7 +96,7 @@ class ViewConfigureEmail2ActionUnitTest {
         when(emailFooterService.clinicDefault()).thenReturn("Riverside Clinic\nBook online");
         when(emailFooterService.ownFootersReplacedOnClinicChange()).thenReturn(true);
 
-        String result = new ViewConfigureEmail2Action(securityInfoManager, emailFooterService).execute();
+        String result = action().execute();
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("clinicFooter")).isEqualTo("Riverside Clinic\nBook online");
@@ -103,9 +108,40 @@ class ViewConfigureEmail2ActionUnitTest {
     @Test
     @DisplayName("should refuse a user without _admin read before reading the footer")
     void shouldThrowSecurityException_whenAdminReadMissing() {
-        assertThatThrownBy(() -> new ViewConfigureEmail2Action(securityInfoManager, emailFooterService).execute())
+        assertThatThrownBy(() -> action().execute())
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_admin)");
-        verifyNoInteractions(emailFooterService);
+        verifyNoInteractions(emailFooterService, logoService);
+    }
+
+    @Test
+    @DisplayName("should give the page the logo's size when the clinic has one")
+    void shouldExposeLogoSize_whenLogoSet() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+        EmailFooterLogo logo = new EmailFooterLogo();
+        logo.setWidth(320);
+        logo.setHeight(80);
+        when(logoService.currentLogo()).thenReturn(logo);
+
+        action().execute();
+
+        assertThat(request.getAttribute("clinicLogoSet")).isEqualTo(true);
+        assertThat(request.getAttribute("clinicLogoWidth")).isEqualTo(320);
+        assertThat(request.getAttribute("clinicLogoHeight")).isEqualTo(80);
+    }
+
+    @Test
+    @DisplayName("should tell the page there is no logo")
+    void shouldMarkNoLogo_whenNoneSet() throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+
+        action().execute();
+
+        assertThat(request.getAttribute("clinicLogoSet")).isEqualTo(false);
+        assertThat(request.getAttribute("clinicLogoWidth")).isNull();
+    }
+
+    private ViewConfigureEmail2Action action() {
+        return new ViewConfigureEmail2Action(securityInfoManager, emailFooterService, logoService);
     }
 }

@@ -1,0 +1,100 @@
+<%--
+  Purpose: The shared "Edit footer" window for patient email footers (issue #3981; formatting and a
+  clinic logo added by maintainer decision, 8 Oct 2026). One window, used wherever a footer is
+  edited, so it looks and works the same everywhere.
+  Key features: bold, italic, links (https and mailto only) and line breaks; pasted text keeps no
+  formatting; a live preview of the formatted version (with the clinic logo, when one is set) and of
+  the plain-text version; the 2,000-character limit, counted on the plain-text version as the server
+  counts it. The preview is cleaned in the browser by DOMPurify; the server cleans again
+  (EmailFooterHtml), and that cleaning is the one that counts.
+  Usage: include once per page, after Bootstrap's script, inside a page that defines ${ctx} and
+  sets the oscarResources bundle. Set footerEditorScopeKey and footerEditorApplyKey (bundle keys for
+  the scope badge and the apply button) first. A button with
+  data-footer-editor-target="<hidden input id>" and data-footer-editor-preview="<preview element id>"
+  opens it; applying writes the cleaned HTML into that input and redraws that preview.
+  @since 2026-10-08
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<style>
+    #footerEditorText { min-height: 9rem; }
+    #footerEditorText:focus { outline: none; box-shadow: 0 0 0 .2rem rgba(13, 110, 253, .25); }
+    .footer-editor-mail { font-family: Arial, Helvetica, sans-serif; font-size: .9rem; }
+    /* Previews only: a footer link must not navigate away from an unsent email (footerEditor.js also
+       stops keyboard activation). */
+    .footer-editor-mail a { pointer-events: none; }
+</style>
+<div class="modal fade" id="footerEditorModal" tabindex="-1" aria-labelledby="footerEditorTitle" aria-hidden="true"
+     data-max-length="<%= io.github.carlos_emr.carlos.email.core.EmailData.FOOTER_MAX_LENGTH %>"
+     data-max-html-length="<%= io.github.carlos_emr.carlos.email.core.EmailFooterHtml.MAX_HTML_LENGTH %>"
+     data-logo-url="${carlos:forHtmlAttribute(ctx)}/email/clinicEmailLogo"
+     data-unavailable-text="<fmt:message key='email.footerEditor.unavailable'/>">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="footerEditorTitle"><fmt:message key="email.footerEditor.title"/>
+                    <span class="badge text-bg-secondary fw-normal ms-2"><fmt:message key="${footerEditorScopeKey}"/></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="<fmt:message key='email.footerEditor.cancel'/>"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning py-2 small" role="note"><fmt:message key="email.footerEditor.warning"/></div>
+                <div class="row g-4">
+                    <div class="col-lg-6">
+                        <div class="fw-semibold mb-2" id="footerEditorLabel"><fmt:message key="email.footerEditor.text"/></div>
+                        <div class="btn-toolbar mb-2" role="toolbar" aria-label="<fmt:message key='email.footerEditor.formatting'/>">
+                            <div class="btn-group btn-group-sm me-2">
+                                <button type="button" class="btn btn-outline-secondary" data-footer-command="bold"
+                                        title="<fmt:message key='email.footerEditor.bold'/>" aria-label="<fmt:message key='email.footerEditor.bold'/>"><strong>B</strong></button>
+                                <button type="button" class="btn btn-outline-secondary" data-footer-command="italic"
+                                        title="<fmt:message key='email.footerEditor.italic'/>" aria-label="<fmt:message key='email.footerEditor.italic'/>"><em>I</em></button>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary" data-footer-command="link"><fmt:message key="email.footerEditor.link"/></button>
+                                <button type="button" class="btn btn-outline-secondary" data-footer-command="unlink"><fmt:message key="email.footerEditor.unlink"/></button>
+                            </div>
+                        </div>
+                        <div class="input-group input-group-sm mb-1 d-none" id="footerEditorLinkRow">
+                            <input type="text" class="form-control" id="footerEditorLinkAddress" placeholder="https://"
+                                   aria-label="<fmt:message key='email.footerEditor.linkAddress'/>">
+                            <button type="button" class="btn btn-outline-primary" id="footerEditorLinkApply"><fmt:message key="email.footerEditor.linkAdd"/></button>
+                        </div>
+                        <div class="form-text text-danger d-none mb-1" id="footerEditorLinkError"><fmt:message key="email.footerEditor.linkInvalid"/></div>
+                        <div id="footerEditorText" class="form-control" contenteditable="true" role="textbox" aria-multiline="true"
+                             aria-labelledby="footerEditorLabel" aria-describedby="footerEditorHelp"></div>
+                        <div class="form-text d-flex justify-content-between" id="footerEditorHelp">
+                            <span><fmt:message key="email.footerEditor.help"/></span>
+                            <span class="text-nowrap ms-3"><span id="footerEditorCount">0</span> / <%= io.github.carlos_emr.carlos.email.core.EmailData.FOOTER_MAX_LENGTH %></span>
+                        </div>
+                        <div class="form-text text-danger d-none" id="footerEditorTooLong"><fmt:message key="email.footerEditor.tooLong"/></div>
+                        <div class="form-text text-danger d-none" id="footerEditorTooMuchFormatting"><fmt:message key="email.footerEditor.tooMuchFormatting"/></div>
+                        <div class="form-text mt-3 d-none" id="footerEditorLogoNote"><fmt:message key="email.footerEditor.logoNote"/></div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-semibold"><fmt:message key="email.footerEditor.preview"/></span>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="<fmt:message key='email.footerEditor.preview'/>">
+                                <button type="button" class="btn btn-outline-primary active" data-footer-preview="html" aria-pressed="true">
+                                    <fmt:message key="email.footerEditor.previewFormatted"/></button>
+                                <button type="button" class="btn btn-outline-primary" data-footer-preview="text" aria-pressed="false">
+                                    <fmt:message key="email.footerEditor.previewText"/></button>
+                            </div>
+                        </div>
+                        <div id="footerEditorPreviewHtml" class="border rounded p-3 bg-white footer-editor-mail">
+                            <img id="footerEditorPreviewLogo" alt="" class="d-none mb-2" style="max-width: 100%;">
+                            <div id="footerEditorPreviewFooter"></div>
+                        </div>
+                        <pre id="footerEditorPreviewText" class="border rounded p-3 bg-white small d-none mb-0" style="white-space: pre-wrap;"></pre>
+                        <div class="form-text"><fmt:message key="email.footerEditor.encryptedNote"/></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><fmt:message key="email.footerEditor.cancel"/></button>
+                <button type="button" class="btn btn-primary" id="footerEditorApply"><fmt:message key="${footerEditorApplyKey}"/></button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="${carlos:forHtmlAttribute(ctx)}/library/dompurify/purify.min.js"></script>
+<script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/email/footerEditor.js"></script>

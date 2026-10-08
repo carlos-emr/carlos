@@ -349,10 +349,10 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should keep the submitted footer on the retry form when delivery fails")
+    @DisplayName("should keep the submitted footer, cleaned, on the retry form when delivery fails")
     void shouldKeepFooter_whenRetryRendersAfterDeliveryFailure() {
         MockHttpServletRequest request = encryptedSendRequest();
-        request.setParameter("footerEmail", "Riverside Clinic\r\nNot monitored for urgent issues.");
+        request.setParameter("footerEmail", "<b>Riverside Clinic</b><br>Not monitored for urgent issues.<script>x()</script>");
 
         EmailLog emailLog = mock(EmailLog.class);
         when(emailLog.getStatus()).thenReturn(EmailStatus.FAILED);
@@ -369,7 +369,7 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
 
         assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
         assertThat(request.getAttribute("footerEmail"))
-                .isEqualTo("Riverside Clinic\r\nNot monitored for urgent issues.");
+                .isEqualTo("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
     }
 
     @Test
@@ -393,10 +393,10 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     @Test
     @DisplayName("should send a copied email with the footer its log kept, below the message")
     void shouldResendLoggedFooter_whenCopiedEmailIsSent() {
-        // First send: the browser posts line breaks as CR LF, and the log keeps the footer as it
-        // was sent (EmailManager stores getSentFooter()).
+        // First send: the editor leaves a trailing line break, and the log keeps the footer as it
+        // was sent, cleaned (EmailManager stores getSentFooter()).
         EmailData first = captureSentEmail("A non-clinical reminder.", "false", "false",
-                "Riverside Clinic\r\nNot monitored for urgent issues.\r\n");
+                "<b>Riverside Clinic</b><br>Not monitored for urgent issues.<br>");
         EmailLog logged = new EmailLog();
         logged.setFooter(first.getSentFooter());
 
@@ -404,9 +404,10 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
         // (ManageEmails2ActionUnitTest), and the form posts it back unchanged.
         EmailData resent = captureSentEmail("A non-clinical reminder.", "false", "false", logged.getFooter());
 
-        assertThat(resent.getSentFooter()).isEqualTo(first.getSentFooter());
+        assertThat(resent.getSentFooter()).isEqualTo(first.getSentFooter())
+                .isEqualTo("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
         assertThat(resent.getTransmittedBody())
-                .isEqualTo("A non-clinical reminder.\n\nRiverside Clinic\r\nNot monitored for urgent issues.");
+                .isEqualTo("A non-clinical reminder.\n\nRiverside Clinic\nNot monitored for urgent issues.");
     }
 
     @Test
@@ -535,9 +536,33 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should count each submitted line break once against the footer limit")
-    void shouldAcceptFooter_whenLimitReachedOnlyByCrLfLineBreaks() {
-        String footer = "f".repeat(EmailData.FOOTER_MAX_LENGTH - 2) + "\r\n" + "g";
+    @DisplayName("should reject a footer whose formatting is over its own limit, with a message that says so")
+    void shouldRejectFooter_whenFormattingExceedsHtmlLimit() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("message", "Message");
+        request.setParameter("isEmailEncrypted", "false");
+        // 1,500 visible characters, well under 2,000, but 12,000 characters of HTML.
+        request.setParameter("footerEmail", "<b>x</b>".repeat(1_500));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+
+        EmailSend2Action action = new EmailSend2Action();
+        action.request = request;
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        action.response = response;
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getContentAsString()).contains("Footer must not exceed 10000 characters of formatting");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should count each line break once against the footer limit")
+    void shouldAcceptFooter_whenLimitReachedOnlyByLineBreaks() {
+        // 1,998 + one line break + 1 = exactly 2,000 characters of plain text.
+        String footer = "f".repeat(EmailData.FOOTER_MAX_LENGTH - 2) + "<br>" + "g";
 
         EmailData sent = captureSentEmail("A non-clinical reminder.", "false", "false", footer);
 

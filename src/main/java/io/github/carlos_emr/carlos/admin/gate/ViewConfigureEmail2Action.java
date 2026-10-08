@@ -14,6 +14,8 @@ package io.github.carlos_emr.carlos.admin.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -33,6 +35,8 @@ import org.apache.struts2.ServletActionContext;
  * {@code admin/saveClinicEmailFooter} saves, the fingerprint the form sends back so a save can tell
  * whether the footer changed after the page was opened, and whether saving replaces users' own
  * footers (the page's wording follows it).</p>
+ * <p>The page also shows the clinic's email footer logo (issue #3981), which {@code _admin}
+ * writers can replace or remove there.</p>
  *
  * @since 2026-04-13
  */
@@ -40,15 +44,20 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
     private final EmailFooterService emailFooterService;
+    private final EmailFooterLogoService logoService;
 
+    /** Used by Struts, which needs a no-argument constructor. */
     public ViewConfigureEmail2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class),
+                SpringUtils.getBean(EmailFooterLogoService.class));
     }
 
     // Package-private so tests can supply the collaborators.
-    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService) {
+    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService,
+            EmailFooterLogoService logoService) {
         this.securityInfoManager = securityInfoManager;
         this.emailFooterService = emailFooterService;
+        this.logoService = logoService;
     }
 
     @Override
@@ -64,6 +73,12 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
         request.setAttribute("clinicFooter", clinicFooter);
         request.setAttribute("clinicFooterFingerprint", EmailFooterService.fingerprint(clinicFooter));
         request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
+        EmailFooterLogo logo = logoService.currentLogo();
+        request.setAttribute("clinicLogoSet", logo != null);
+        if (logo != null) {
+            request.setAttribute("clinicLogoWidth", logo.getWidth());
+            request.setAttribute("clinicLogoHeight", logo.getHeight());
+        }
         return SUCCESS;
     }
 }
