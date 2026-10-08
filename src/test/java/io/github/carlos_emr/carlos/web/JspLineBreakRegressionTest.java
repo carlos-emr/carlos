@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,17 +47,21 @@ import org.junit.jupiter.params.provider.ValueSource;
  * a cut {@code value} attribute leaves a button unlabelled, a cut {@code <tr>} becomes stray text or an
  * empty unknown tag, and a cut in a {@code javascript:} link or an {@code on*} handler makes it fail
  * when clicked.
+ *
+ * @since 2026-10-06
  */
 @DisplayName("JSP line-break regressions")
 @Tag("unit")
 class JspLineBreakRegressionTest {
 
-    private static final Path WEBAPP = Path.of("src/main/webapp");
-    private static final String JSP_DIR = "src/main/webapp/WEB-INF/jsp/";
-    private static final Path RESOURCES = Path.of("src/main/resources");
+    private static final String BASEDIR_PROPERTY = "basedir";
+    private static final Path WEBAPP = resolveProjectPath(Path.of("src/main/webapp"));
+    private static final Path JSP_DIR = WEBAPP.resolve("WEB-INF/jsp");
+    private static final Path RESOURCES = resolveProjectPath(Path.of("src/main/resources"));
     private static final String[] LOCALES = {"en", "es", "fr", "pl", "pt_BR"};
     /** The cut: text, then a run of padding spaces at the end of the line, then the rest at column 0. */
     private static final Pattern CUT = Pattern.compile("\\S {8,}\\r?\\n(?=\\S)");
+    private static final Pattern NON_BLANK = Pattern.compile("\\S");
     private static final Pattern MESSAGE_KEY = Pattern.compile("<fmt:message key=[\"']([^\"'$<]+)[\"']");
     /**
      * JSP comments, scriptlets, EL expressions, then custom tags, masked in that order so a
@@ -78,15 +81,13 @@ class JspLineBreakRegressionTest {
      * what breaks the link; in an {@code on*} handler either half alone is already wrong.
      */
     private static final Pattern SCRIPT_WORD_CUT = Pattern.compile("\\w[ \\t]+\\r?\\n\\w");
-    /**
-     * Cuts another open PR repairs, as page to the text just before the cut. #4107 rejoins the
-     * eChart button's onClick on the BC lab display; remove this entry once it is merged.
-     */
-    private static final Map<String, String> REPAIRED_ELSEWHERE =
-            Map.of("WEB-INF/jsp/lab/CA/BC/labDisplay.jsp", "/oscarMDS/Se");
+    /** The cut #1787 made in the E-Chart link on oscarMDS/OpenEChart.jsp, the scan's known-bad sample. */
+    private static final String KNOWN_CUT = "<a\n        href=\"javascript:p        \n"
+            + "opupPage(700, 980, '<%= request.getContextPath() %>/encounter/IncomingEncounter');\">Please</a>";
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {
+            "lab/CA/BC/labDisplay.jsp",
             "lab/CA/ON/CMLDisplay.jsp",
             "oscarMDS/Index.jsp",
             "oscarMDS/OpenEChart.jsp",
@@ -95,7 +96,7 @@ class JspLineBreakRegressionTest {
             "billing/CA/BC/genTAS01.jsp"})
     @DisplayName("should keep each line whole on the repaired pages")
     void shouldKeepLinesWhole_onRepairedPages(String page) throws IOException {
-        String jsp = Files.readString(Path.of(JSP_DIR + page), StandardCharsets.UTF_8);
+        String jsp = Files.readString(JSP_DIR.resolve(page), StandardCharsets.UTF_8);
 
         List<Integer> cutLines = new ArrayList<>();
         Matcher cut = CUT.matcher(jsp);
@@ -113,7 +114,7 @@ class JspLineBreakRegressionTest {
             "tickler/ticklerDemoMain.jsp"})
     @DisplayName("should find every label key of the repaired pages in every bundle")
     void shouldResolveLabelKeys_inEveryBundle(String page) throws IOException {
-        String jsp = Files.readString(Path.of(JSP_DIR + page), StandardCharsets.UTF_8);
+        String jsp = Files.readString(JSP_DIR.resolve(page), StandardCharsets.UTF_8);
         List<String> keys = MESSAGE_KEY.matcher(jsp).results().map(match -> match.group(1)).distinct().toList();
         assertThat(keys).as("message keys on %s", page).isNotEmpty();
 
@@ -133,24 +134,37 @@ class JspLineBreakRegressionTest {
     @DisplayName("should keep every word whole in javascript: links and on* handlers")
     void shouldKeepWordsWhole_inScriptAttributes() throws IOException {
         List<String> cuts = new ArrayList<>();
+        int scanned = 0;
         try (Stream<Path> files = Files.walk(WEBAPP)) {
             for (Path file : files.filter(JspLineBreakRegressionTest::isJspSource).sorted().toList()) {
                 String page = WEBAPP.relativize(file).toString().replace('\\', '/');
-                String masked = maskJsp(Files.readString(file, StandardCharsets.UTF_8));
-                Matcher attribute = SCRIPT_ATTRIBUTE.matcher(masked);
-                while (attribute.find()) {
-                    Matcher cut = SCRIPT_WORD_CUT.matcher(attribute.group(1));
-                    while (cut.find()) {
-                        String before = attribute.group(1).substring(0, cut.start() + 1);
-                        String repairedElsewhere = REPAIRED_ELSEWHERE.get(page);
-                        if (repairedElsewhere == null || !before.endsWith(repairedElsewhere)) {
-                            cuts.add(page + ":" + lineOf(masked, attribute.start(1) + cut.start()));
-                        }
-                    }
-                }
+                cuts.addAll(scriptCuts(page, Files.readString(file, StandardCharsets.UTF_8)));
+                scanned++;
             }
         }
+        assertThat(scanned).as("JSP, JSPF and tag files scanned").isGreaterThan(100);
         assertThat(cuts).as("script attributes with a word cut across a line break").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should find the known cut, even with JSP code in the attribute")
+    void shouldFindKnownCut_whenScanningASample() {
+        assertThat(scriptCuts("sample.jsp", KNOWN_CUT)).containsExactly("sample.jsp:2");
+        assertThat(scriptCuts("sample.jsp", KNOWN_CUT.replace("p        \nopupPage", "popupPage"))).isEmpty();
+    }
+
+    /** Each word cut across a line break inside a {@code javascript:} link or {@code on*} handler, as page:line. */
+    private static List<String> scriptCuts(String page, String jsp) {
+        List<String> cuts = new ArrayList<>();
+        String masked = maskJsp(jsp);
+        Matcher attribute = SCRIPT_ATTRIBUTE.matcher(masked);
+        while (attribute.find()) {
+            Matcher cut = SCRIPT_WORD_CUT.matcher(attribute.group(1));
+            while (cut.find()) {
+                cuts.add(page + ":" + lineOf(masked, attribute.start(1) + cut.start()));
+            }
+        }
+        return cuts;
     }
 
     private static boolean isJspSource(Path file) {
@@ -165,12 +179,27 @@ class JspLineBreakRegressionTest {
             Matcher match = construct.matcher(masked);
             StringBuilder out = new StringBuilder(masked.length());
             while (match.find()) {
-                match.appendReplacement(out, Matcher.quoteReplacement(match.group().replaceAll("\\S", "#")));
+                match.appendReplacement(out, Matcher.quoteReplacement(NON_BLANK.matcher(match.group()).replaceAll("#")));
             }
             match.appendTail(out);
             masked = out.toString();
         }
         return masked;
+    }
+
+    private static Path resolveProjectPath(Path relativePath) {
+        Path current = Path.of(System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")))
+                .toAbsolutePath()
+                .normalize();
+        for (int checkedParents = 0; current != null && checkedParents < 6; checkedParents++) {
+            Path candidate = current.resolve(relativePath).normalize();
+            if (Files.isRegularFile(candidate) || Files.isDirectory(candidate)) {
+                return candidate;
+            }
+            current = current.getParent();
+        }
+        throw new IllegalStateException("Unable to locate " + relativePath + " from "
+                + System.getProperty(BASEDIR_PROPERTY, System.getProperty("user.dir")));
     }
 
     private static int lineOf(String text, int offset) {
