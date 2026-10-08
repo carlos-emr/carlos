@@ -671,16 +671,18 @@ export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 #      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
 #   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
 #      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
-# It also points EVERY active pharmacy of the patient at a per-run unroutable 555 number (NPA 555
-# is never assigned in the NANP) and restores each original exactly on cleanup -- including a
-# pharmacy that already has a fax: the demo patient's pharmacies carry a real-looking Toronto
-# number (4164000305), and the Fax click queues a real job to whatever number the pharmacy holds.
+# It also points EVERY pharmacy the Rx page lists for the patient (each one behind an active
+# link, including one marked deleted) at a per-run unroutable 555 number (NPA 555 is never
+# assigned in the NANP) and restores each original exactly on cleanup -- including a pharmacy
+# that already has a fax: the demo patient's pharmacies carry a real-looking Toronto number
+# (4164000305), and the Fax click queues a real job to whatever number the pharmacy holds.
 # The three Rx fax checks (this one, reprint/re-prescribe and record-binding) share one database
 # advisory lock for that fixture, so run them one after another: a second one started while
 # another holds the lock stops before writing anything. Each journals the original numbers to
 # ~/.cache/carlos-playwright/rx-fax-pharmacy/ (RX_FAX_JOURNAL_DIR overrides it) before the
-# first write; if a run is killed (SIGKILL, `timeout` expiry, container restart) the next Rx fax
-# check restores them from that journal before it stages its own. See the Rx fax pharmacy
+# first write; if a run is killed outright (SIGKILL, `timeout -s KILL`, a container restart) the
+# next Rx fax check restores them from that journal before it stages its own. A plain `timeout`
+# sends SIGTERM, which the three checks handle by cleaning up first. See the Rx fax pharmacy
 # fixture note under "Notes on the contract" below for a leftover with no journal.
 export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
@@ -688,8 +690,8 @@ export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # It creates one prescription through the UI and removes it (with its drugs row and stored
 # signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
 # record is touched, and the only file it writes is the pharmacy fixture's crash journal. Like the
-# fax check it points every active pharmacy of the patient at its own 555 number (an existing fax
-# included) and restores them, under the same lock and journal, and it stages (and removes) its own active fax gateway
+# fax check it points every pharmacy the Rx page lists for the patient at its own 555 number (an
+# existing fax included) and restores them, under the same lock and journal, and it stages (and removes) its own active fax gateway
 # account (fax_config) on a per-run 416 number: ViewScript2 folds `hasFaxNumber` into the Fax button
 # and only offers a destination through an active sender account, so without both the pad
 # assertions would not isolate the stamp. Its only operator prerequisites are therefore the two
@@ -913,10 +915,12 @@ Notes on the contract:
 - **The three Rx fax checks share one pharmacy fax fixture**
   (`scripts/rx-fax-pharmacy-fax-fixture.js`, issue #3607):
   `rx-fax-signature-stamp`, `rx-fax-reprint-represcribe` and
-  `rx-fax-record-binding`. For the run, every active pharmacy of
-  `RX_FAX_DEMOGRAPHIC_NO` holds a per-run `555xxxxxxx` number, a pharmacy that
-  already has a fax included; each original is restored exactly (NULL and `''`
-  kept distinct) and only while the column still holds that run's number, so an
+  `rx-fax-record-binding`. For the run, every pharmacy the Rx page lists for
+  `RX_FAX_DEMOGRAPHIC_NO` -- each one behind an active `demographicPharmacy`
+  link, including one marked deleted, which the page still offers -- holds a
+  per-run `555xxxxxxx` number, a pharmacy that already has a fax included. Each
+  original is restored exactly (NULL and `''` kept distinct, `addDate` left
+  untouched) and only while the column still holds that run's number, so an
   edit made during the run is never overwritten. A failure is printed as a fixed
   code after the error class:
 
@@ -925,14 +929,22 @@ Notes on the contract:
   | `RX_FAX_FIXTURE_LOCKED` | Another Rx fax check holds the fixture lock on this database (or the `mysql` client could not connect). Run the checks one after another. |
   | `RX_FAX_FIXTURE_VALUE` | A pharmacy fax holds something other than digits, letters, spaces and `.()+-` (at most 32). The check refuses to rewrite a value it could not restore; nothing was changed. |
   | `RX_FAX_FIXTURE_CHANGED` | A pharmacy fax changed between the snapshot and the rewrite; the edit was kept and the run stopped. |
-  | `RX_FAX_FIXTURE_JOURNAL`, `_JOURNAL_DIR` | A crash journal is malformed, or its directory is not private to this user. Inspect and remove it by hand; nothing is replayed from it. |
+  | `RX_FAX_FIXTURE_JOURNAL` | A crash journal is malformed. Nothing is replayed from it; inspect it, repair the pharmacies it names if needed, then remove it by hand. |
+  | `RX_FAX_FIXTURE_JOURNAL_DIR` | The journal directory is group- or world-writable or owned by another user. Fix its ownership and mode (`chmod 700`) rather than deleting it or switching `RX_FAX_JOURNAL_DIR`: journals already in it would no longer be replayed. |
+  | `RX_FAX_FIXTURE_DATABASE` | The server's identity (`@@hostname`, `@@port`, `DATABASE()`) could not be read, so the journal key is unknown. Check the `MYSQL_*` settings. |
   | `RX_FAX_FIXTURE_RECOVERY`, `_RESTORE` | A restore statement failed. The journal is kept and the next Rx fax check retries it. |
 
-  A run killed outright (SIGKILL, a `timeout` expiry, a container restart)
+  A run killed outright (SIGKILL, `timeout -s KILL`, a container restart)
   skips its cleanup, but the originals were journalled under
   `~/.cache/carlos-playwright/rx-fax-pharmacy/` before the first write and the
   next Rx fax check on the same database restores them before staging its own
-  (it reports a `pharmacy-fax-recovery` entry). A leftover with **no** journal --
+  (it reports a `pharmacy-fax-recovery` entry). Journals are keyed by the
+  server's `@@hostname`, `@@port` and `DATABASE()`, so a database container
+  recreated with a new hostname no longer finds its old journal: restore from it
+  by hand with the SQL below. A journal that restores nothing on replay -- its
+  rows were already repaired, or it belongs to another database with the same
+  key -- is kept rather than deleted (`pharmacy-fax-recovery` reports it as
+  `kept`); remove it once you have checked it. A leftover with **no** journal --
   a run from before the journal existed, or a journal directory that was wiped
   -- cannot be restored automatically because the original is not in the
   database any more. Find it with
@@ -947,9 +959,12 @@ Notes on the contract:
   active pharmacies are 3 and 6 (`4164000305`) and 10 (`7896541230`):
 
   ```sql
-  UPDATE pharmacyInfo SET fax = '4164000305' WHERE recordID IN (3, 6) AND fax REGEXP '^555[0-9]{7}$';
-  UPDATE pharmacyInfo SET fax = '7896541230' WHERE recordID = 10 AND fax REGEXP '^555[0-9]{7}$';
+  UPDATE pharmacyInfo SET fax = '4164000305', addDate = addDate WHERE recordID IN (3, 6) AND fax REGEXP '^555[0-9]{7}$';
+  UPDATE pharmacyInfo SET fax = '7896541230', addDate = addDate WHERE recordID = 10 AND fax REGEXP '^555[0-9]{7}$';
   ```
+
+  (`addDate = addDate` keeps the column's `ON UPDATE current_timestamp()` from
+  restamping the pharmacy.)
 
   A stranded `555` number is harmless (no fax can reach it) and a later run
   simply restores it unchanged; the repair is for the dataset's fidelity.
@@ -2098,10 +2113,11 @@ during each run:
 | Run | Result |
 |---|---|
 | `rx-fax-reprint-represcribe`, unmodified `release/2026.08` | PASS, but `pharmacy-fax` reported `active: 3, seeded: []`: the real-looking numbers stayed in place for the whole run while ViewScript2 rendered them as the fax destination. |
-| The three Rx fax checks with the shared fixture | PASS each; `active: 3, seeded: 3`; all three pharmacies held the run's `555…` number and were restored to the values above, and the journal directory was left empty. |
+| The three Rx fax checks with the shared fixture | PASS each; `active: 3, seeded: 3`; all three pharmacies held the run's `555…` number and were restored to the values above, `addDate` was unchanged across the three runs, and the journal directory was left empty. |
 | `rx-fax-signature-stamp` killed with SIGKILL once staged | All three pharmacies stranded on its `555…` number (the state #3607 reported); a 0600 journal held the originals; the advisory lock was already free. The next `rx-fax-reprint-represcribe` reported `pharmacy-fax-recovery: journals 1, restored 3`, snapshotted the true originals and passed; the final values matched the table above. |
 | `rx-fax-reprint-represcribe` started while `rx-fax-record-binding` held the fixture | Stopped with `pharmacy-fixture: Error (RX_FAX_FIXTURE_LOCKED)` before writing any row; the first run passed. |
-| `scripts/rx-fax-pharmacy-fax-fixture-integration-check.js` | 5/5 PASS against MariaDB 11.8 (own marked pharmacies: NULL, `''`, a trailing-space and a punctuated value, a deleted pharmacy and an inactive link). |
+| `rx-fax-record-binding` killed with SIGKILL once staged, then `rx-fax-signature-stamp` | Same recovery from the other direction: `journals 1, restored 3, kept 0`, then PASS. |
+| `scripts/rx-fax-pharmacy-fax-fixture-integration-check.js` | 5/5 PASS against MariaDB 11.8 (own marked pharmacies: NULL, `''`, a trailing-space and a punctuated value, a deleted-but-linked pharmacy that must be covered and an inactive link that must not; `addDate` asserted unchanged after seeding, restoring and recovery). With the `addDate = addDate` clause removed it fails on "seeding must not restamp addDate". |
 
 `rx-fax-record-binding` failed on the unmodified branch with one
 `[login] pageerror: Error`: its own "inaccessible" fax-confirmation stub threw for

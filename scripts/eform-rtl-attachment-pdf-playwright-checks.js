@@ -212,9 +212,10 @@ async function downloadPdf(page, locator, label, trigger = (target) => target.cl
     { timeout: 120000 },
   );
   // Settle the trigger and both waits together: awaiting one while another is pending lets a
-  // second timeout reject unhandled and kill the process before cleanup runs (#3607).
-  const [download, response] = await settleOperations([
-    downloadPromise, responsePromise, Promise.resolve().then(() => trigger(locator)),
+  // second timeout reject unhandled and kill the process before cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, download, response] = await settleOperations([
+    Promise.resolve().then(() => trigger(locator)), downloadPromise, responsePromise,
   ]);
   try {
     // saveAs sits inside the try as well: if it rejects part-way, whatever it did write is

@@ -8,7 +8,6 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { openRx, stageCustomDrug, consumeExpectedConflict } = require('./rx-stash-patient-isolation-playwright-checks');
-const { settleOperations } = require('./graceful-signal-cancellation');
 
 /** Hold a real CSS opening transition until reset is acknowledged, independent of VM speed. */
 async function holdPreviewOpeningTransition(page) {
@@ -192,10 +191,14 @@ async function workflow(session) {
       const dialogs = await h.withExpectedDialogs(original, async () => {
         const pending = original.waitForResponse(response => routePattern.test(response.url()));
         const alert = original.waitForEvent('dialog');
+        // Mark the dialog wait handled up front: if the response wait or the 409 assertion fails
+        // first, an unawaited dialog timeout would otherwise reject unhandled and end the process
+        // before cleanup (#3607). Awaiting `alert` below still surfaces its own failure.
+        alert.catch(() => {});
         release();
-        // Settle both: awaiting the response alone leaves the dialog wait to reject unhandled (#3607).
-        [refusal] = await settleOperations([pending, alert]);
+        refusal = await pending;
         h.assert(refusal.status() === 409, 'the delayed old deletion was accepted for the replacement draft');
+        await alert;
       });
       h.assert(dialogs.length === 1 && dialogs[0].text === await original.evaluate(() => jsMsg.removeRefused),
         'the stale deletion did not visibly report its refusal');

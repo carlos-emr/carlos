@@ -15,10 +15,11 @@ const PATIENT = '424242';
  */
 function fakeDatabase({ pharmacies, links, identity = 'db-host\t3306\tcarlos' }) {
   const db = {
-    pharmacies: new Map(pharmacies.map((p) => [String(p.id), { status: '1', ...p }])),
+    pharmacies: new Map(pharmacies.map((p) => [String(p.id), { status: '1', addDate: '2024-01-31 19:41:06', ...p }])),
     links,
     statements: [],
     failUpdatesTo: null,
+    commitThenFail: null,
     afterSnapshot: null,
   };
   const literal = (text) => (text === 'NULL' ? null : text.replace(/^'|'$/g, ''));
@@ -30,14 +31,16 @@ function fakeDatabase({ pharmacies, links, identity = 'db-host\t3306\tcarlos' })
       const rows = db.links
         .filter((l) => String(l.patient) === patient && l.status === '1')
         .map((l) => db.pharmacies.get(String(l.pharmacy)))
-        .filter((p) => p && p.status !== '0')
+        .filter(Boolean)
         .sort((a, b) => a.id - b.id)
         .map((p) => `${p.id}\t${p.fax === null ? 1 : 0}\t${p.fax === null ? '' : Buffer.from(p.fax, 'utf8').toString('hex').toUpperCase()}`);
       const output = rows.join('\n');
       if (db.afterSnapshot) { db.afterSnapshot(db); db.afterSnapshot = null; }
       return output;
     }
-    const update = query.match(/^UPDATE pharmacyInfo SET fax = (NULL|'[^']*') WHERE recordId = (\d+) AND (fax IS NULL|fax = BINARY '[^']*'|fax = '[^']*'); SELECT ROW_COUNT\(\);$/);
+    // Every statement must carry addDate = addDate: the column is ON UPDATE current_timestamp(), and
+    // an UPDATE without it is rejected here exactly as the real column would silently be restamped.
+    const update = query.match(/^UPDATE pharmacyInfo SET fax = (NULL|'[^']*'), addDate = addDate WHERE recordId = (\d+) AND (fax IS NULL|fax = BINARY '[^']*'|fax = '[^']*'); SELECT ROW_COUNT\(\);$/);
     if (update) {
       const [, value, id, condition] = update;
       if (db.failUpdatesTo !== null && literal(value) === db.failUpdatesTo) throw new Error('database query failed');
@@ -45,6 +48,7 @@ function fakeDatabase({ pharmacies, links, identity = 'db-host\t3306\tcarlos' })
       const expected = condition === 'fax IS NULL' ? null : literal(condition.replace(/^fax = (BINARY )?/, ''));
       if (!row || row.fax !== expected) return '0';
       row.fax = literal(value);
+      if (db.commitThenFail === id) throw new Error('database query timed out');
       return '1';
     }
     throw new Error(`unexpected statement: ${query}`);
@@ -59,7 +63,7 @@ function demoDatabase() {
       { id: 6, fax: '416 400 0305 ' },     // trailing space a trim() would lose
       { id: 7, fax: null },
       { id: 8, fax: '' },
-      { id: 9, fax: '9055550100', status: '0' }, // deleted: never touched
+      { id: 9, fax: '9055550100', status: '0' }, // marked deleted but still linked: the Rx page lists it
       { id: 10, fax: '9055550111' },       // linked, but the link is inactive
       { id: 11, fax: '9055550122' },       // another patient's pharmacy
     ],
@@ -100,18 +104,31 @@ function fixture(db, dir, stagedFax = '5551234567', lockLog = []) {
   });
 }
 
-test('replaces every active destination, including existing numbers, and restores NULL, empty and exact values', async (t) => {
+test('replaces every listed destination, including existing numbers, and restores NULL, empty and exact values', async (t) => {
   const db = demoDatabase();
   const before = faxes(db);
   const lockLog = [];
   const run = fixture(db, journalDir(t), '5551234567', lockLog);
   await run.lock();
-  assert.deepEqual(run.seed(), { active: 4, seeded: 4 });
-  assert.deepEqual(faxes(db), { ...before, 3: '5551234567', 6: '5551234567', 7: '5551234567', 8: '5551234567' });
-  assert.deepEqual(run.restore(), { restored: 4, untouched: 0 });
+  assert.deepEqual(run.seed(), { active: 5, seeded: 5 });
+  assert.deepEqual(faxes(db), { ...before, 3: '5551234567', 6: '5551234567', 7: '5551234567', 8: '5551234567', 9: '5551234567' });
+  assert.deepEqual(run.restore(), { restored: 5, untouched: 0 });
   assert.deepEqual(faxes(db), before);
+  assert.deepEqual([...db.pharmacies.values()].map((p) => p.addDate), [...db.pharmacies.values()].map(() => '2024-01-31 19:41:06'));
   await run.unlock();
   assert.deepEqual(lockLog, [`lock:${LOCK_NAME}`, 'unlock']);
+});
+
+test('covers a deleted pharmacy that is still linked, because the Rx page lists it, but not an inactive link', async (t) => {
+  const db = demoDatabase();
+  const run = fixture(db, journalDir(t));
+  await run.lock();
+  run.seed();
+  assert.equal(db.pharmacies.get('9').fax, '5551234567');
+  assert.equal(db.pharmacies.get('10').fax, '9055550111');
+  assert.equal(db.pharmacies.get('11').fax, '9055550122');
+  run.restore();
+  assert.equal(db.pharmacies.get('9').fax, '9055550100');
 });
 
 test('refuses to seed before taking the shared lock', (t) => {
@@ -151,7 +168,7 @@ test('restore leaves a destination someone else changed during the run', async (
   await run.lock();
   run.seed();
   db.pharmacies.get('3').fax = '9055550144';
-  assert.deepEqual(run.restore(), { restored: 3, untouched: 1 });
+  assert.deepEqual(run.restore(), { restored: 4, untouched: 1 });
   assert.equal(db.pharmacies.get('3').fax, '9055550144');
 });
 
@@ -190,7 +207,7 @@ test('the next run restores an interrupted run exactly before taking its own sna
   crashed.seed(); // SIGKILL here: no restore, no unlock
 
   const next = fixture(db, dir, '5552222222');
-  assert.deepEqual(await next.lock(), { journals: 1, restored: 4, untouched: 0 });
+  assert.deepEqual(await next.lock(), { journals: 1, restored: 5, untouched: 0, kept: 0 });
   assert.deepEqual(faxes(db), before);
   assert.deepEqual(fs.readdirSync(dir), []);
   next.seed();
@@ -205,12 +222,12 @@ test('recovery leaves a value an operator set after the crash and still retires 
   await crashed.lock();
   crashed.seed();
   db.pharmacies.get('3').fax = '9055550177';
-  assert.deepEqual(await fixture(db, dir, '5552222222').lock(), { journals: 1, restored: 3, untouched: 1 });
+  assert.deepEqual(await fixture(db, dir, '5552222222').lock(), { journals: 1, restored: 4, untouched: 1, kept: 0 });
   assert.equal(db.pharmacies.get('3').fax, '9055550177');
   assert.deepEqual(fs.readdirSync(dir), []);
 });
 
-test('a failed restore keeps the journal so the next run can finish it', async (t) => {
+test('a failed restore keeps the row queued and the journal until a retry succeeds', async (t) => {
   const db = demoDatabase();
   const before = faxes(db);
   const dir = journalDir(t);
@@ -221,11 +238,57 @@ test('a failed restore keeps the journal so the next run can finish it', async (
   assert.throws(() => run.restore(), /could not restore 1 pharmacy fax/);
   assert.equal(db.pharmacies.get('3').fax, '5551111111');
   assert.equal(db.pharmacies.get('7').fax, null, 'the other rows are still attempted');
+  // The finally and the outer catch (or a signal handler) can both call restore(): a second
+  // failing call must not mistake the emptied queue for success and delete the journal.
+  assert.throws(() => run.restore(), /could not restore 1 pharmacy fax/);
   assert.equal(fs.readdirSync(dir).length, 1);
   db.failUpdatesTo = null;
-  await fixture(db, dir, '5552222222').lock();
+  assert.deepEqual(run.restore(), { restored: 1, untouched: 0 });
   assert.deepEqual(faxes(db), before);
   assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('a restore that never succeeds leaves the journal for the next run', async (t) => {
+  const db = demoDatabase();
+  const before = faxes(db);
+  const dir = journalDir(t);
+  const run = fixture(db, dir, '5551111111');
+  await run.lock();
+  run.seed();
+  db.failUpdatesTo = '4164000305';
+  assert.throws(() => run.restore());
+  assert.throws(() => run.restore());
+  db.failUpdatesTo = null;
+  assert.deepEqual(await fixture(db, dir, '5552222222').lock(), { journals: 1, restored: 1, untouched: 4, kept: 0 });
+  assert.deepEqual(faxes(db), before);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('an UPDATE whose outcome is unknown is still restored', async (t) => {
+  const db = demoDatabase();
+  const before = faxes(db);
+  const dir = journalDir(t);
+  const run = fixture(db, dir);
+  await run.lock();
+  db.commitThenFail = '6'; // the row is written, then the client reports a failure
+  assert.throws(() => run.seed(), /timed out/);
+  assert.equal(db.pharmacies.get('6').fax, '5551234567');
+  db.commitThenFail = null;
+  assert.deepEqual(run.restore(), { restored: 2, untouched: 0 });
+  assert.deepEqual(faxes(db), before);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('a journal that restores nothing is kept, not deleted', async (t) => {
+  const db = demoDatabase();
+  const before = faxes(db);
+  const dir = journalDir(t);
+  const crashed = fixture(db, dir, '5551111111');
+  await crashed.lock();
+  crashed.seed();
+  for (const [id, fax] of Object.entries(before)) db.pharmacies.get(id).fax = fax; // repaired by hand
+  assert.deepEqual(await fixture(db, dir, '5552222222').lock(), { journals: 0, restored: 0, untouched: 5, kept: 1 });
+  assert.equal(fs.readdirSync(dir).length, 1);
 });
 
 test('journals for another database are not replayed here', async (t) => {
@@ -236,7 +299,7 @@ test('journals for another database are not replayed here', async (t) => {
   const elsewhere = fixture(other, dir, '5553333333');
   await elsewhere.lock();
   elsewhere.seed(); // interrupted on the other database
-  assert.deepEqual(await fixture(db, dir).lock(), { journals: 0, restored: 0, untouched: 0 });
+  assert.deepEqual(await fixture(db, dir).lock(), { journals: 0, restored: 0, untouched: 0, kept: 0 });
   assert.equal(other.pharmacies.get('3').fax, '5553333333');
   assert.equal(fs.readdirSync(dir).length, 1);
 });

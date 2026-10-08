@@ -706,7 +706,7 @@ async function runChecks(context) {
     // before this run writes anything.
     checkPhase = 'pharmacy-fixture';
     const recovered = await pharmacyFax.lock();
-    if (recovered.journals) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+    if (recovered.journals || recovered.kept) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
     // A valid destination alone cannot enable Fax without an active sender account.
     seededSender = stageRxFaxAccount(senderDb, `416${runSuffix}`);
     const staged = pharmacyFax.seed();

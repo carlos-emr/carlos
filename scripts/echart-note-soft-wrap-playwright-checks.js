@@ -221,8 +221,9 @@ async function openEditorAndSettle(chart, open) {
   const issueList = chart.waitForResponse((r) => isPost(r, 'edit'), { timeout: 30000 });
   const issuesPanel = chart.waitForResponse((r) => /\/encounter\/displayIssues/.test(r.url()), { timeout: 30000 });
   // Settle both waits together: awaiting one while the other is pending lets a second timeout
-  // reject unhandled and kill the process before the workflow's cleanup runs (#3607).
-  const [list, panel] = await settleOperations([issueList, issuesPanel, Promise.resolve().then(open)]);
+  // reject unhandled and kill the process before the workflow's cleanup runs (#3607). The trigger
+  // goes first so its own failure is the one reported, not the waits' timeout.
+  const [, list, panel] = await settleOperations([Promise.resolve().then(open), issueList, issuesPanel]);
   await settleOperations([list.finished(), panel.finished()]);
 }
 

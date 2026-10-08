@@ -327,7 +327,7 @@ function cleanupOwnedFaxSender() {
  */
 async function seedPharmacyFax() {
   const recovered = await pharmacyFax.lock();
-  if (recovered.journals) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+  if (recovered.journals || recovered.kept) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
   const staged = pharmacyFax.seed();
   visited.push({ label: 'pharmacy-fax', ...staged });
   if (!staged.active) {

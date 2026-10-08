@@ -115,11 +115,22 @@ for (const filename of ['rx-fax-record-binding-playwright-checks.js', 'rx-fax-si
 
   test(`${filename}: stages the destination before the sender and releases the lock only after cleanup`, () => {
     const runChecks = source.slice(source.indexOf('async function runChecks('));
-    assert(runChecks.indexOf('await seedPharmacyFax();') < runChecks.indexOf('stageFaxConfig()'));
+    const seed = runChecks.indexOf('await seedPharmacyFax();');
+    assert(seed >= 0 && seed < runChecks.indexOf('stageFaxConfig()'));
     const cleanup = runChecks.indexOf('cleanupFixtures();');
-    assert(cleanup > 0 && cleanup < runChecks.indexOf('await releaseFixtureLock();'));
+    assert(cleanup >= 0 && cleanup < runChecks.indexOf('await releaseFixtureLock();'));
   });
 }
+
+test('reprint locks before staging anything and releases the lock only after cleanup', () => {
+  const source = fs.readFileSync(path.join(__dirname, 'rx-fax-reprint-represcribe-playwright-checks.js'), 'utf8');
+  const runChecks = source.slice(source.indexOf('async function runChecks('), source.lastIndexOf('(async () => {'));
+  const lock = runChecks.indexOf('await pharmacyFax.lock();');
+  assert(lock >= 0 && lock < runChecks.indexOf('stageRxFaxAccount(') && lock < runChecks.indexOf('pharmacyFax.seed()'));
+  const main = source.slice(source.lastIndexOf('(async () => {'));
+  const cleanup = main.indexOf('cleanupFixtures();');
+  assert(cleanup >= 0 && cleanup < main.indexOf('await releaseFixtureLock();'));
+});
 
 for (const digits of [6, 7]) {
   test(`reserved fax suffix requires exactly ${digits} digits before using any randomness`, () => {

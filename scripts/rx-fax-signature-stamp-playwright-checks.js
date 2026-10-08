@@ -266,7 +266,7 @@ const pharmacyFax = createPharmacyFaxFixture({
 async function seedPharmacyFax() {
   checkPhase = 'pharmacy-fixture';
   const recovered = await pharmacyFax.lock();
-  if (recovered.journals) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+  if (recovered.journals || recovered.kept) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
   const staged = pharmacyFax.seed();
   visited.push({ label: 'pharmacy-fax', ...staged });
   if (!staged.active) {

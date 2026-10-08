@@ -7,10 +7,12 @@
  *
  * The unit tests drive the fixture against an in-memory table; this proves the parts only MariaDB
  * can: that the hex snapshot, the BINARY compare-and-swap, ROW_COUNT() through the mysql client and
- * the shared advisory lock behave as the fixture assumes. It creates its own marked pharmacies
- * (NULL, '', a trailing-space value and a punctuated one, plus a deleted pharmacy and an inactive
- * link that must never be touched), links them to an unused synthetic patient number, and removes
- * every row it created in a finally. No existing pharmacy or patient record is read or written.
+ * the shared advisory lock behave as the fixture assumes, and that addDate (ON UPDATE
+ * current_timestamp()) survives. It creates its own marked pharmacies (NULL, '', a trailing-space
+ * value and a punctuated one; a pharmacy marked deleted but still linked, which the Rx page lists
+ * and the fixture must cover; and an inactive link it must leave alone), links them to an unused
+ * synthetic patient number, and removes every row it created in a finally. No existing pharmacy
+ * or patient record is read or written.
  *
  * Env: MYSQL_HOST (loopback unless ALLOW_NON_LOCAL_MYSQL_HOST=true), MYSQL_USER, MYSQL_PASSWORD,
  * MYSQL_DATABASE.
@@ -44,16 +46,20 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
   const text = (query) => db.rows(query).map((row) => row.join('\t')).join('\n');
   const journalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-fax-fixture-check-'));
   const created = [];
-  const fixture = (stagedFax, sql = text) => createPharmacyFaxFixture({
-    sql, demographicNo: patient, stagedFax, mysql: config, journalDir,
-  });
+  const fixtures = [];
+  const fixture = (stagedFax, sql = text) => {
+    const made = createPharmacyFaxFixture({ sql, demographicNo: patient, stagedFax, mysql: config, journalDir });
+    fixtures.push(made);
+    return made;
+  };
+  const addDates = () => db.rows(`SELECT recordID, addDate FROM pharmacyInfo WHERE name = ${sqlString(marker)} ORDER BY recordID`);
   const state = () => db.rows(`SELECT recordID, ISNULL(fax), HEX(IFNULL(fax, '')) FROM pharmacyInfo
     WHERE name = ${sqlString(marker)} ORDER BY recordID`).map(([id, isNull, hex]) => [id, isNull === '1' ? null : Buffer.from(hex, 'hex').toString('utf8')]);
   try {
     assert.equal(db.value(`SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no = ${patient}`), '0',
       'the synthetic patient number is already linked; rerun for a new one');
     const addPharmacy = (fax, status, linkStatus) => {
-      const id = db.value(`INSERT INTO pharmacyInfo (name, fax, status, uid) VALUES (${sqlString(marker)}, ${fax === null ? 'NULL' : sqlString(fax)}, ${sqlString(status)}, 0); SELECT LAST_INSERT_ID();`);
+      const id = db.value(`INSERT INTO pharmacyInfo (name, fax, status, uid, addDate) VALUES (${sqlString(marker)}, ${fax === null ? 'NULL' : sqlString(fax)}, ${sqlString(status)}, 0, '2024-01-31 19:41:06'); SELECT LAST_INSERT_ID();`);
       assert.match(id, /^[1-9][0-9]*$/);
       created.push(id);
       db.execute(`INSERT INTO demographicPharmacy (pharmacyID, demographic_no, status, preferredOrder) VALUES (${id}, ${patient}, ${sqlString(linkStatus)}, 0)`);
@@ -62,17 +68,20 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
     const active = ORIGINALS.map((fax) => addPharmacy(fax, '1', '1'));
     const deleted = addPharmacy('9055550100', '0', '1');
     const unlinked = addPharmacy('9055550111', '1', '0');
+    const listed = [...active, deleted];
     const before = state();
+    const datesBefore = addDates();
 
-    // 1. Every active destination, the existing numbers included, holds the run's number.
+    // 1. Every listed destination, the existing numbers included, holds the run's number.
     const run = fixture(`555${suffix}`);
     await run.lock();
-    assert.deepEqual(run.seed(), { active: ORIGINALS.length, seeded: ORIGINALS.length });
+    assert.deepEqual(run.seed(), { active: listed.length, seeded: listed.length });
     for (const [id, fax] of state()) {
-      const expected = active.includes(id) ? `555${suffix}` : before.find(([b]) => b === id)[1];
+      const expected = listed.includes(id) ? `555${suffix}` : before.find(([b]) => b === id)[1];
       assert.equal(fax, expected, `pharmacy ${id} after seeding`);
     }
-    console.log('PASS: every active destination, existing numbers included, holds the run\'s 555 number; deleted and unlinked ones are untouched');
+    assert.deepEqual(addDates(), datesBefore, 'seeding must not restamp addDate');
+    console.log('PASS: every listed destination (a deleted-but-linked one included) holds the run\'s 555 number; the unlinked one is untouched; addDate kept');
 
     // 2. The lock is shared: a second run on this database stops before writing anything.
     const second = fixture(`555${String(Number(suffix) + 1).slice(-7)}`);
@@ -82,7 +91,7 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
 
     // 3. An edit made during the run survives the restore; everything else is restored exactly.
     db.execute(`UPDATE pharmacyInfo SET fax = '9055550199' WHERE recordID = ${active[1]}`);
-    assert.deepEqual(run.restore(), { restored: ORIGINALS.length - 1, untouched: 1 });
+    assert.deepEqual(run.restore(), { restored: listed.length - 1, untouched: 1 });
     await run.unlock();
     const restored = Object.fromEntries(state());
     assert.equal(restored[active[0]], null, 'NULL restored as NULL');
@@ -92,8 +101,10 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
     assert.equal(restored[deleted], '9055550100');
     assert.equal(restored[unlinked], '9055550111');
     assert.deepEqual(fs.readdirSync(journalDir), []);
-    console.log('PASS: NULL, trailing-space and punctuated originals restored exactly; a concurrent edit kept; journal retired');
-    db.execute(`UPDATE pharmacyInfo SET fax = '' WHERE recordID = ${active[1]}`);
+    assert.deepEqual(addDates().filter(([id]) => id !== active[1]), datesBefore.filter(([id]) => id !== active[1]),
+      'restoring must not restamp addDate');
+    console.log('PASS: NULL, trailing-space and punctuated originals restored exactly with addDate kept; a concurrent edit kept; journal retired');
+    db.execute(`UPDATE pharmacyInfo SET fax = '', addDate = '2024-01-31 19:41:06' WHERE recordID = ${active[1]}`);
 
     // 4. A killed run: lock released by the dropped connection, originals restored by the next run.
     const killed = fixture(`555${String(Number(suffix) + 2).slice(-7)}`);
@@ -102,8 +113,9 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
     await killed.unlock(); // the connection a SIGKILL would drop; no restore runs
     assert.equal(fs.readdirSync(journalDir).length, 1);
     const next = fixture(`555${String(Number(suffix) + 3).slice(-7)}`);
-    assert.deepEqual(await next.lock(), { journals: 1, restored: ORIGINALS.length, untouched: 0 });
+    assert.deepEqual(await next.lock(), { journals: 1, restored: listed.length, untouched: 0, kept: 0 });
     assert.deepEqual(state(), before);
+    assert.deepEqual(addDates(), datesBefore, 'recovery must not restamp addDate');
     next.seed();
     next.restore();
     await next.unlock();
@@ -127,6 +139,8 @@ const ORIGINALS = [null, '', '416 400 0305 ', '(905) 555-0100 x.2+1'];
     assert.equal(Object.fromEntries(state())[active[0]], '9055550188');
     console.log('PASS: a value changed during staging is kept and the run stops');
   } finally {
+    // A failed assertion can leave a fixture holding the lock; its connection would keep Node alive.
+    for (const made of fixtures) await made.unlock().catch(() => {});
     if (created.length) {
       db.execute(`DELETE FROM demographicPharmacy WHERE demographic_no = ${patient} AND pharmacyID IN (${created.join(',')});
         DELETE FROM pharmacyInfo WHERE recordID IN (${created.join(',')}) AND name = ${sqlString(marker)}`);

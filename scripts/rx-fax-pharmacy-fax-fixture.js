@@ -8,26 +8,35 @@
  * WHY EVERY PHARMACY IS REWRITTEN. The Rx page renders, and the Fax button queues a job to,
  * whatever number the patient's pharmacy carries. The demo dataset's active pharmacies carry a
  * real-looking Toronto number, so a fixture prescription must never be able to leave for that
- * line: for the length of a run, every active pharmacy of the check's patient holds this run's
+ * line: for the length of a run, every pharmacy linked to the check's patient holds this run's
  * NPA-555 number, which the NANP never assigns. A pharmacy that already has a fax is rewritten
  * too -- leaving it in place is the case issue #3607 exists to close.
  *
+ * WHICH PHARMACIES. Exactly the set the Rx page lists: RxPharmacyData.getPharmacyFromDemographic
+ * reads every pharmacy behind an ACTIVE demographicPharmacy link and does not filter on the
+ * pharmacy's own status, so a pharmacy marked deleted but still linked is offered with its fax
+ * and is covered here too. An inactive link is not listed and is left alone.
+ *
  * Fidelity rules, because this mutates shared records:
- *   - deleted pharmacies are never touched. The predicate excludes PharmacyInfo.DELETED ('0')
- *     rather than requiring ACTIVE ('1'), because demo and migrated data also carry other codes;
  *   - each original value is snapshotted exactly: NULL and '' are distinct, and the value is read
  *     as hex so neither the client's batch escaping nor a caller's trim() can alter it. A value
  *     outside RESTORABLE_FAX is refused before ANY row is written, because it is restored later as
  *     a quoted literal;
  *   - the rewrite is compare-and-swap against that snapshot, and the restore is compare-and-swap
- *     against this run's number, so an operator edit made during the run is never overwritten.
+ *     against this run's number, so an operator edit made during the run is never overwritten;
+ *   - pharmacyInfo.addDate is `ON UPDATE current_timestamp()`, so every statement here sets it to
+ *     itself (KEEP_ADD_DATE); otherwise each run would stamp the pharmacy as added today.
  *
  * CRASH RECOVERY. SIGKILL or a container restart skips every finally and signal handler, which
  * is how runs left their 555 number behind (#3607). So before the first write the snapshot is
  * journalled to a private directory, and the next run on the same database restores any journal
  * an interrupted run left -- under a database advisory lock that all three checks share, which is
  * what makes that safe: while the lock is held no other run can be using its number. The journal
- * holds pharmacy record ids and fax numbers only, never a patient identifier.
+ * holds pharmacy record ids and fax numbers only, never a patient identifier. Journals are keyed by
+ * the server's @@hostname, @@port and DATABASE(); a journal that restores nothing on replay -- one
+ * written against another database with the same key, or one whose rows were already repaired by
+ * hand -- is kept rather than deleted, because deleting it could discard the only copy of another
+ * database's originals.
  */
 
 const crypto = require('node:crypto');
@@ -43,6 +52,9 @@ const RESTORABLE_FAX = /^[0-9A-Za-z .()+-]{0,32}$/;
 const RECORD_ID = /^[1-9][0-9]{0,9}$/;
 const LOCK_NAME = 'rx-fax-pharmacy-fixture';
 const JOURNAL_FORMAT = 1;
+// pharmacyInfo.addDate is `timestamp ... ON UPDATE current_timestamp()`; assigning it to itself
+// suppresses that, so neither the rewrite nor the restore changes when the pharmacy was added.
+const KEEP_ADD_DATE = 'addDate = addDate';
 
 /*
  * The checks print only a standard error class (browser-error-class.js), never a message, so a
@@ -146,14 +158,19 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
     return sql(`${statement}; SELECT ROW_COUNT();`).trim() === '1';
   }
 
-  /** Restore one journal left by an interrupted run; keep the file if any statement failed. */
+  /**
+   * Restore one journal left by an interrupted run. The file is kept if any statement failed (the
+   * next run retries it), and also if it restored nothing: then it was written against another
+   * database with the same key, or repaired by hand, and deleting it could lose originals.
+   */
   function recoverJournal(file, summary) {
     const journal = parseJournal(fs.readFileSync(file, 'utf8'));
     let failed = 0;
+    let restored = 0;
     for (const entry of journal.entries) {
       try {
-        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(entry)} WHERE recordId = ${entry.recordId} AND fax = '${journal.stagedFax}'`)) {
-          summary.restored += 1;
+        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(entry)}, ${KEEP_ADD_DATE} WHERE recordId = ${entry.recordId} AND fax = '${journal.stagedFax}'`)) {
+          restored += 1;
         } else {
           summary.untouched += 1;
         }
@@ -161,7 +178,12 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
         failed += 1;
       }
     }
+    summary.restored += restored;
     if (failed) throw fixtureError('RECOVERY', 'could not restore a pharmacy fax left by an interrupted Rx fax run; see docs/ui-tests/deb-install-validation.md');
+    if (!restored && journal.entries.length) {
+      summary.kept += 1;
+      return;
+    }
     fs.unlinkSync(file);
     summary.journals += 1;
   }
@@ -171,14 +193,14 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
    * earlier run on this database left behind. Must precede seed().
    */
   async function lock() {
-    if (releaseLock) return { journals: 0, restored: 0, untouched: 0 };
+    if (releaseLock) return { journals: 0, restored: 0, untouched: 0, kept: 0 };
     try {
       releaseLock = await lockFn(mysql, LOCK_NAME);
     } catch (error) {
       // The helper's own message names its first caller ("report workflow"); say what it means here.
       throw fixtureError('LOCKED', 'could not take the Rx fax pharmacy fixture lock: another Rx fax check is running against this database, or the mysql client could not connect');
     }
-    const summary = { journals: 0, restored: 0, untouched: 0 };
+    const summary = { journals: 0, restored: 0, untouched: 0, kept: 0 };
     ensurePrivateDir(dir);
     const prefix = `${databaseKey()}-`;
     for (const name of fs.readdirSync(dir).sort()) {
@@ -187,11 +209,12 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
     return summary;
   }
 
-  function readActivePharmacies() {
+  // The pharmacies the Rx page lists for the patient: every pharmacy behind an active link, whatever
+  // its own status (see WHICH PHARMACIES above).
+  function readLinkedPharmacies() {
     const output = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(HEX(p.fax), '') FROM pharmacyInfo p
       JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
       WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
-        AND (p.status IS NULL OR p.status <> '0')
       ORDER BY p.recordId;`);
     const rows = [];
     const ids = new Set();
@@ -224,48 +247,59 @@ function createPharmacyFaxFixture({ sql, demographicNo, stagedFax, mysql, journa
   }
 
   /**
-   * Point every active pharmacy of the patient at this run's number. Every value is validated
-   * before the first write, and the snapshot is journalled before it.
+   * Point every pharmacy the Rx page lists for the patient at this run's number. Every value is
+   * validated before the first write, and the snapshot is journalled before it.
    *
-   * @return {{active: number, seeded: number}}
+   * @return {{active: number, seeded: number}} active counts the listed pharmacies.
    */
   function seed() {
     if (!releaseLock) throw fixtureError('NOT_LOCKED', 'take the Rx fax pharmacy fixture lock before seeding');
-    const rows = readActivePharmacies();
+    const rows = readLinkedPharmacies();
     if (rows.length) writeJournal(rows);
+    let written = 0;
     for (const row of rows) {
+      // Recorded BEFORE the statement: an UPDATE whose outcome is unknown (the client timed out, or
+      // ROW_COUNT() failed after a commit) must still be restored. Restoring a row that was never
+      // written is a no-op, because the restore only matches this run's number.
+      seeded.push(row);
       const unchanged = row.wasNull ? 'fax IS NULL' : `fax = BINARY '${row.originalFax}'`;
-      if (!changedOne(`UPDATE pharmacyInfo SET fax = '${stagedFax}' WHERE recordId = ${row.recordId} AND ${unchanged}`)) {
+      if (!changedOne(`UPDATE pharmacyInfo SET fax = '${stagedFax}', ${KEEP_ADD_DATE} WHERE recordId = ${row.recordId} AND ${unchanged}`)) {
         throw fixtureError('CHANGED', 'a pharmacy fax changed while the fixture was being staged; refusing to continue');
       }
-      seeded.push(row);
+      written += 1;
     }
-    return { active: rows.length, seeded: seeded.length };
+    return { active: rows.length, seeded: written };
   }
 
   /**
    * Put back every value this run replaced, newest first, only where the column still holds this
-   * run's number. Synchronous and idempotent, so it is safe from a signal handler. Attempts every
-   * row, then throws if any statement failed -- leaving the journal for the next run to retry.
+   * run's number. Synchronous and safe to call again (a finally and a signal handler can both run
+   * it). Attempts every row; a row whose statement failed stays queued for the next call, and the
+   * journal is kept until every row has been settled, so neither a retry nor the next run can lose
+   * an original.
    *
-   * @return {{restored: number, untouched: number}} untouched counts rows someone else changed.
+   * @return {{restored: number, untouched: number}} untouched counts rows that no longer hold this
+   *   run's number: changed by someone else, or never written.
    */
   function restore() {
     const summary = { restored: 0, untouched: 0 };
-    let failed = 0;
+    const failed = [];
     while (seeded.length) {
       const row = seeded.pop();
       try {
-        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(row)} WHERE recordId = ${row.recordId} AND fax = '${stagedFax}'`)) {
+        if (changedOne(`UPDATE pharmacyInfo SET fax = ${sqlLiteral(row)}, ${KEEP_ADD_DATE} WHERE recordId = ${row.recordId} AND fax = '${stagedFax}'`)) {
           summary.restored += 1;
         } else {
           summary.untouched += 1;
         }
       } catch (error) {
-        failed += 1;
+        failed.unshift(row);
       }
     }
-    if (failed) throw fixtureError('RESTORE', `could not restore ${failed} pharmacy fax value(s); the next Rx fax run restores them from its journal`);
+    if (failed.length) {
+      seeded.push(...failed);
+      throw fixtureError('RESTORE', `could not restore ${failed.length} pharmacy fax value(s); the next Rx fax run restores them from its journal`);
+    }
     if (journalFile) {
       fs.rmSync(journalFile, { force: true });
       journalFile = null;

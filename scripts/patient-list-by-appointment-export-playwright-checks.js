@@ -269,8 +269,8 @@ async function exportViaForm(context, label, providerNo, dateFrom, dateTo) {
   // killing the process before cleanup (#3607).
   const downloadPromise = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
 
-  const [exportResponse, download] = await settleOperations([
-    exportResponsePromise, downloadPromise, page.locator('button[type="submit"]').first().click(),
+  const [, exportResponse, download] = await settleOperations([
+    page.locator('button[type="submit"]').first().click(), exportResponsePromise, downloadPromise,
   ]);
 
   // Chromium hands an attachment response to the download manager, so its body
