@@ -185,7 +185,15 @@ const foreignMarker = `FAKE-PW${randomBytes(8).toString('hex')}`;
 // Restores the staged pharmacy links, closes the browser, removes the owned foreign
 // patient and its prescription rows, then drops the cleartext MySQL password file.
 // Safe to call before any of that exists and safe to call twice.
-async function cleanupRun() {
+let cleanupRunPromise = null;
+function cleanupRun() {
+  // Memoised: the finally block and a signal share one run, so a signal during the
+  // async teardown cannot start a second concurrent browser close / row delete.
+  if (!cleanupRunPromise) cleanupRunPromise = cleanupRunOnce();
+  return cleanupRunPromise;
+}
+
+async function cleanupRunOnce() {
   try {
     restorePharmacy(stagedLinkIds);
   } catch (restoreError) {
@@ -455,7 +463,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    signalHandlers.dispose();
     await cleanupRun();
+    signalHandlers.dispose();
   }
 })();

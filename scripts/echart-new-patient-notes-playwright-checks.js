@@ -352,7 +352,14 @@ function cleanupFixturePatient() {
   }
 }
 
-const signalHandlers = installCleanupSignalHandlers(() => { cleanupFixturePatient(); cleanupMysqlDefaults(); });
+// The password file is removed even when row cleanup throws (e.g. MySQL unreachable).
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupFixturePatient();
+  } finally {
+    cleanupMysqlDefaults();
+  }
+});
 
 (async () => {
   const recorder = createRecorder();
@@ -433,8 +440,9 @@ const signalHandlers = installCleanupSignalHandlers(() => { cleanupFixturePatien
       console.error(`FAIL cleanup failed, fixture ${fixtureLastName} may remain: ${cleanupError.message}`);
       process.exitCode = 1;
     }
-    signalHandlers.dispose();
     cleanupMysqlDefaults();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

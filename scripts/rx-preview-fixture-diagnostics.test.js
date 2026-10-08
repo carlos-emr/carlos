@@ -121,7 +121,7 @@ for (const invalid of [true, false]) {
 
 // Run the production finally block with an otherwise successful status. Restoration failures
 // must change the process result while browser/owned fixture/defaults cleanup still proceeds.
-const cleanupStart = pharmacy.indexOf('async function cleanupRun() {');
+const cleanupStart = pharmacy.indexOf('async function cleanupRunOnce() {');
 const cleanupEnd = pharmacy.indexOf('\n}\n', cleanupStart) + '\n}'.length;
 assert.ok(cleanupStart > 0 && cleanupEnd > cleanupStart);
 const teardown = `(${pharmacy.slice(cleanupStart, cleanupEnd)})()`;

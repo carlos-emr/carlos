@@ -628,9 +628,10 @@ const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
 
     console.log('PASS demographic report navigation stays in-tab and offers a way back');
   } finally {
-    signalHandlers.dispose();
     cleanupSavedQueryRow();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
   console.error('FAIL demographic report navigation Playwright check');

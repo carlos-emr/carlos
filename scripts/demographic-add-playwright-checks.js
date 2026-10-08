@@ -116,7 +116,14 @@ function cleanupSyntheticPatient() {
   }
 }
 
-const signalHandlers = installCleanupSignalHandlers(() => { cleanupSyntheticPatient(); cleanupMysqlDefaults(); });
+// The password file is removed even when row cleanup throws (e.g. MySQL unreachable).
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupSyntheticPatient();
+  } finally {
+    cleanupMysqlDefaults();
+  }
+});
 
 (async () => {
   const recorder = createRecorder();
@@ -220,8 +227,9 @@ const signalHandlers = installCleanupSignalHandlers(() => { cleanupSyntheticPati
       process.exitCode = 1;
       console.error(`FAIL cleanup failed: ${cleanupError.message}`);
     }
-    signalHandlers.dispose();
     cleanupMysqlDefaults();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

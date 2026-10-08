@@ -562,8 +562,9 @@ const signalHandlers = installCleanupSignalHandlers(() => {
       restoreOriginal();
       console.log(`Restored ${testUser} security row`);
     } finally {
-      signalHandlers.dispose();
       cleanupMysqlDefaultsFile();
+      // Last, so a signal arriving during the restore still reaches the handler.
+      signalHandlers.dispose();
     }
     console.log(`Completed ${results.length} Playwright checks, ${failures.length} failures`);
     if (failures.length) {

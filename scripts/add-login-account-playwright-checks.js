@@ -576,8 +576,9 @@ async function run() {
         await browser.close();
       }
     } finally {
-      signalHandlers.dispose();
       cleanupRunFixtures();
+      // Last, so a signal arriving during cleanup still reaches the handler.
+      signalHandlers.dispose();
     }
   }
 }

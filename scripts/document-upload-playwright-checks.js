@@ -607,8 +607,9 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRunResources);
     // report it needs and fails it. A failing run here was silently failing a
     // sibling. The rows are listed as they are removed, so a failure is still
     // diagnosable from this output without leaving the fixture poisoned.
-    signalHandlers.dispose();
     cleanupRunResources();
     await closeBrowserWithChartCleanup(browser, config.baseUrl);
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

@@ -430,9 +430,10 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
-    signalHandlers.dispose();
     cleanupTicklerRows();
     cleanupMysqlDefaultsFile();
+    // Last, so a signal arriving during cleanup still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
   signalHandlers.dispose();
