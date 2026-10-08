@@ -41,6 +41,17 @@ function checkFields() {
     return verified;
 }
 
+/**
+ * Start the Service Date / Time pickers inside the Assign Tickler modal. Must run after the modal body is
+ * inserted: AssignTickler.jsp cannot carry its own script because DOMPurify strips it. The formats are
+ * accepted by TicklerRequest (yyyy-MM-dd; hh:mm AM/PM).
+ */
+function initTicklerPickers() {
+    if (typeof flatpickr === 'undefined') return;
+    flatpickr('#ticklerAddForm .date-picker', {dateFormat: 'Y-m-d', allowInput: true});
+    flatpickr('#ticklerAddForm .time-picker', {enableTime: true, noCalendar: true, dateFormat: 'h:i K', allowInput: true});
+}
+
 //paint a red border around missing fields
 function paintErrorField(fieldobject) {
     fieldobject.css("border", "medium solid red");
@@ -78,11 +89,15 @@ function sendData(path, param, target, button) {
                         console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
                         $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
                     }
+                    initTicklerPickers();
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
             },
             error: function (xhr, status, error) {
-                if (target === 'close') {
+                if (target === 'close' && xhr.status === 400 && xhr.responseJSON && xhr.responseJSON.message) {
+                    // Validation refused the request before anything was written; say what to fix.
+                    alert('Nothing was saved. ' + xhr.responseJSON.message);
+                } else if (target === 'close') {
                     alert('The tickler save could not be confirmed. Review the selected patients before trying again.');
                 } else {
                     console.error('Drilldown request failed:', status, error);

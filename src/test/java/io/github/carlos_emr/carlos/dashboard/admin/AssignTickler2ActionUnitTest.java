@@ -72,6 +72,40 @@ class AssignTickler2ActionUnitTest extends CarlosUnitTestBase {
         verify(ticklers, times(2)).addTickler(any(), any());
     }
 
+    @ParameterizedTest
+    @CsvSource({"2026-10-15,10:30 AM", "2026-10-15,14:30", "10-15-2026,10:30 AM", "10-15-2026,14:30", " 2026-10-15 , 02:30 PM "})
+    void shouldAcceptPickerAndLegacyFormats_forServiceDateAndTime(String date, String time) throws Exception {
+        request.setParameter("serviceDate", date);
+        request.setParameter("serviceTime", time);
+        action.saveTickler();
+        assertEquals(200, response.getStatus());
+        assertTrue(response.getContentAsString().contains("true"));
+        var captured = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.Tickler.class);
+        verify(ticklers, times(2)).addTickler(any(), captured.capture());
+        var cal = java.util.Calendar.getInstance();
+        cal.setTime(captured.getValue().getServiceDate());
+        assertEquals(2026, cal.get(java.util.Calendar.YEAR));
+        assertEquals(java.util.Calendar.OCTOBER, cal.get(java.util.Calendar.MONTH));
+        assertEquals(15, cal.get(java.util.Calendar.DAY_OF_MONTH));
+        assertEquals(time.trim().startsWith("10") ? 10 : 14, cal.get(java.util.Calendar.HOUR_OF_DAY));
+        assertEquals(30, cal.get(java.util.Calendar.MINUTE));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"serviceDate,2026-13-01,service date", "serviceDate,15/10/2026,service date",
+            "serviceTime,24:61,service time", "serviceTime,noon,service time", "ticklerCategoryId,abc,category",
+            "priority,Urgent,priority"})
+    void shouldNameTheFieldToFix_whenValidationFails(String field, String invalid, String expected) throws Exception {
+        request.setParameter(field, invalid);
+        action.saveTickler();
+        assertEquals(400, response.getStatus());
+        String body = response.getContentAsString();
+        assertTrue(body.contains("\"success\":\"false\""));
+        assertTrue(body.toLowerCase().contains(expected), body);
+        assertFalse(body.contains(invalid), "error must not echo request data");
+        verifyNoInteractions(ticklers);
+    }
+
     @Test
     void shouldRejectMissingOrRepeatedFields_beforeConsumingReceipt() {
         request.removeParameter("message");
