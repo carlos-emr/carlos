@@ -119,7 +119,10 @@
                     <fmt:message key="encounter.oscarConsultationRequest.msgAttachmentsUnavailable"/>
                     <ul class="mb-0">
                         <c:forEach items="${ attachmentWarnings }" var="attachmentWarning">
-                            <li><carlos:encode value="${ attachmentWarning }"/></li>
+                            <%-- Type and id only, worded from the bundle; see ConsultAttachmentWarning. --%>
+                            <c:set var="attachmentTypeLabel"><fmt:message key="${ attachmentWarning.typeLabelKey }"/></c:set>
+                            <c:set var="attachmentWarningText"><fmt:message key="${ attachmentWarning.messageKey }"><fmt:param value="${ attachmentTypeLabel }"/><fmt:param value="${ attachmentWarning.id }"/></fmt:message></c:set>
+                            <li><carlos:encode value="${ attachmentWarningText }"/></li>
                         </c:forEach>
                     </ul>
                 </div>

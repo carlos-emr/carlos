@@ -114,6 +114,32 @@ class FormTransportContainerUnitTest {
     }
 
     @Test
+    @DisplayName("keeps a nested form error's message out of the exception when sent through the Struts response")
+    void shouldRejectNestedStrutsError_withoutExposingNestedMessage() {
+        // Restores develop's check: the nested form action inside a consult preview reaches the
+        // response through ServletActionContext, and its error text may name the patient.
+        ActionContext previousContext = ActionContext.getContext();
+        MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+        ActionContext.of().withServletResponse(outerResponse).bind();
+        MockHttpServletRequest request = requestIncluding(servletResponse ->
+                ServletActionContext.getResponse().sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                        "FAKE-Patient specific error"));
+
+        try {
+            assertThatThrownBy(() -> new FormTransportContainer(outerResponse, request, "/form/formannual"))
+                    .isInstanceOf(ServletException.class)
+                    .hasMessageContaining("HTTP status 500")
+                    .hasMessageNotContaining("FAKE-Patient specific error");
+
+            assertThat(outerResponse.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(outerResponse.isCommitted()).isFalse();
+            assertThat(ServletActionContext.getResponse()).isSameAs(outerResponse);
+        } finally {
+            restoreActionContext(previousContext);
+        }
+    }
+
+    @Test
     @DisplayName("does not expose the nested form error message in the thrown exception")
     void shouldNotExposeNestedErrorMessage_whenIncludeSendsErrorWithMessage() {
         MockHttpServletResponse outerResponse = new MockHttpServletResponse();

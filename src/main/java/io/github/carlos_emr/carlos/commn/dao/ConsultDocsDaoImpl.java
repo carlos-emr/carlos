@@ -48,6 +48,11 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     private static final String EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION =
             "(cd.docType = :eformType AND ("
                     + "NOT EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo) "
+                    // Deleting an eForm only clears its status (EFormData.current), as deleting a
+                    // document sets status 'D'; both are left out and named. Patient-independent
+                    // eForms never go into a consult packet, so they are named too.
+                    + "OR EXISTS (SELECT e.id FROM EFormData e WHERE e.id = cd.documentNo "
+                    + "AND (e.current = false OR e.patientIndependent = true)) "
                     + "OR EXISTS (SELECT e.id FROM EFormData e, ConsultationRequest cr "
                     + "WHERE e.id = cd.documentNo AND cr.id = cd.requestId AND (e.patientIndependent IS NULL OR e.patientIndependent = false) "
                     + "AND (e.demographicId IS NULL OR e.demographicId <> cr.demographicId))"
@@ -82,7 +87,9 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                     + "(cd.docType = :labType AND NOT EXISTS (SELECT plr.id FROM PatientLabRouting plr, ConsultationRequest cr "
                     + "WHERE cr.id = cd.requestId AND plr.labNo = cd.documentNo AND plr.demographicNo = cr.demographicId)) OR "
                     + HRM_UNAVAILABLE_CONDITION
-                    + ")";
+                    + ") "
+                    // A stable order, so every screen lists the same attachments the same way.
+                    + "ORDER BY cd.docType, cd.documentNo";
 
     public ConsultDocsDaoImpl() {
         super(ConsultDocs.class);

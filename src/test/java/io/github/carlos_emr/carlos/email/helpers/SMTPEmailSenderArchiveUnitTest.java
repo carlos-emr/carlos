@@ -39,6 +39,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mail.MailException;
@@ -106,6 +107,34 @@ class SMTPEmailSenderArchiveUnitTest extends CarlosUnitTestBase {
                 assertThat(Files.getPosixFilePermissions(snapshots.get(0))).isEqualTo(
                         java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
             }
+        } finally {
+            sender.discardPrepared();
+        }
+    }
+
+    /**
+     * The patient portal invitation's archived copy is redacted by finding its code verbatim in these
+     * bytes (EmailManager.redactArchive), and the send is refused if it cannot be found. So the real
+     * MIME builder must keep the code on one line, unencoded: plain ASCII (7bit), and with non-ASCII
+     * text elsewhere in the body, which switches the part to quoted-printable.
+     */
+    @ParameterizedTest
+    @CsvSource({"Your clinic, 7bit", "Clinique Sainte-\u00c9lise \u2014 Montr\u00e9al, quoted-printable"})
+    @DisplayName("should keep an invitation code verbatim in the prepared message, whatever the body's encoding")
+    void shouldKeepInvitationCodeVerbatim_forRedaction(String clinicName, String encoding) throws Exception {
+        String code = "Xy7kQ2mN9pR4tV8wZ1bC5dF0gH3jK6lM-_aBcDeFgHi";
+        String body = "Hello,\n\nYou have been invited to create an account on " + clinicName + "'s patient portal.\n\n"
+                + "1. Open https://portal.clinic.example/auth/activate\n"
+                + "2. Enter this invitation code: " + code + "\n"
+                + "3. Confirm your email address, date of birth and health card number.\n";
+        SMTPEmailSender sender = new TestSMTPEmailSender(loggedInInfo, smtpEmailConfig(),
+                new String[]{"patient@example.test"}, "Your patient portal invitation", body, List.of(),
+                new CapturingJavaMailSender());
+        try {
+            String prepared = new String(sender.prepareArtifactBytes(), StandardCharsets.ISO_8859_1);
+
+            assertThat(prepared).contains("Content-Transfer-Encoding: " + encoding);
+            assertThat(prepared).contains("invitation code: " + code);
         } finally {
             sender.discardPrepared();
         }

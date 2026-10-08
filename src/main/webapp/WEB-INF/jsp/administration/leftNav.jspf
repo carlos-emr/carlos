@@ -38,7 +38,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
-String curProvider_no = (String)session.getAttribute("user");
 Properties oscarVariables = CarlosProperties.getInstance();
 %>
 
@@ -644,9 +643,6 @@ Properties oscarVariables = CarlosProperties.getInstance();
 					</security:oscarSec>	
 				
 					<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
-							<li><a href='javascript:void(0);'
-								class="xlink" rel="${ctx}/messenger/DisplayMessages?providerNo=<carlos:encode value='<%= curProvider_no %>' context="uriComponent"/>&amp;userName=<carlos:encode value='<%= userfirstname %>' context="uriComponent"/>%20<carlos:encode value='<%= userlastname %>' context="uriComponent"/>"><fmt:message key="admin.admin.messages"/></a></li>
-								
 							<li>
 								<a href="${ctx}/messenger?method=fetch" class="contentLink">
 									<fmt:message key="admin.admin.btnMessengerAdmin"/>
@@ -830,6 +826,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 		                        %>		
 			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/ViewUpdateDrugref" ><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
+					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/prevention/ViewVaccineCatalogue" ><fmt:message key="admin.admin.UpdateVaccineCatalogue"/></a></li>
 <%-- K2A config link removed --%>
 				</ul>
 				</div>

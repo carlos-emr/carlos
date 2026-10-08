@@ -32,6 +32,7 @@ import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
@@ -209,6 +210,43 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         eDocUtilMock.verifyNoInteractions();
         verifyNoInteractions(consultationManager, faxManager);
         assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should check the consult's own patient, not the submitted one, before reading attachments")
+    void shouldRefusePrint_whenOnlyTheSubmittedPatientIsAllowed() {
+        // The submitted patient is one the provider may read; consult 42's saved patient (1) is not.
+        request.setParameter("demographicNo", "2");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("2"))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_con"), eq("r"), eq("1"))).thenReturn(false);
+
+        assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
+
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", "r", "1");
+        eDocUtilMock.verifyNoInteractions();
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should fail the print, streaming nothing, when an attached document's file cannot be read")
+    void shouldFailPrint_whenAttachedDocumentFileCannotBeRead() throws Exception {
+        EDoc missing = new EDoc();
+        missing.setDocId("41");
+        missing.setFileName("FAKE-missing-" + System.nanoTime() + ".pdf");
+        missing.setContentType("application/pdf");
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), any(), any(), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(missing)));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            String result = action.execute();
+
+            assertThat(result).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            concatPdfMock.verifyNoInteractions();
+        }
     }
 
     @Test

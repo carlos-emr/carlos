@@ -65,9 +65,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ConsultDocsDao consultDocsDao;
 
-    // CarlosTestBase loads a single test EntityManagerFactory, so the default
-    // context binds to the test datasource.
-    @PersistenceContext
+    @Autowired
+    private EFormDataDao eFormDataDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     private static final String PROVIDER_NO = "999001";
@@ -290,9 +291,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
     class UnavailableActiveConsultAttachments {
 
         @Test
+        @Tag("query")
         @DisplayName("should report unavailable active eForm, document, lab and HRM attachments for runtime warnings")
         void shouldReportUnavailableActiveAttachments_forRuntimeWarnings() {
-            CleanupFixture fixture = createCleanupFixture();
+            AttachmentFixture fixture = createAttachmentFixture();
 
             List<ConsultDocs> results = consultDocsDao.findUnavailableActiveConsultAttachments(fixture.consultId);
 
@@ -301,15 +303,20 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
                     .containsExactlyInAnyOrder(
                             fixture.wrongPatientEForm.getId(),
                             fixture.missingEForm.getId(),
+                            fixture.deletedEForm.getId(),
+                            fixture.patientIndependentEForm.getId(),
                             fixture.missingDocument.getId(),
                             fixture.deletedDocument.getId(),
                             fixture.wrongPatientDocument.getId(),
                             fixture.activeLabWithMissingTarget.getId(),
                             fixture.wrongPatientLab.getId(),
                             fixture.activeHrmWithMissingTarget.getId());
+            // The same order on every screen: by type, then id.
+            assertThat(results).extracting(ConsultDocs::getDocType).isSorted();
         }
 
         @Test
+        @Tag("query")
         @DisplayName("should report an HRM attachment whose report is gone, unmatched or matched to another patient")
         void shouldReportHrmAttachment_whenReportIsMissingOrNotMatchedToConsultPatient() {
             int demographicNo = 83001;
@@ -337,6 +344,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("query")
         @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient")
         void shouldNotReportHrmAttachment_whenReportIsMatchedToConsultPatient() {
             int demographicNo = 83101;
@@ -350,6 +358,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("query")
         @DisplayName("should not report an HRM attachment whose report is matched to the consultation patient and another")
         void shouldNotReportHrmAttachment_whenReportIsMatchedToBothPatients() {
             int demographicNo = 83301;
@@ -365,7 +374,19 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             assertThat(consultDocsDao.findUnavailableActiveConsultAttachments(consult.getId())).isEmpty();
         }
 
-        private CleanupFixture createCleanupFixture() {
+        @Test
+        @Tag("query")
+        @DisplayName("should render only the consult patient's own eForms that are not deleted or patient-independent")
+        void shouldListOnlyRenderableEForms_forTheConsultPatient() {
+            AttachmentFixture fixture = createAttachmentFixture();
+
+            List<EFormData> results = eFormDataDao.findByDemographicIdCurrentAttachedToConsult(String.valueOf(fixture.consultId));
+
+            // Each eForm left out here is reported by findUnavailableActiveConsultAttachments above.
+            assertThat(results).extracting(EFormData::getId).containsExactly(fixture.samePatientEFormId);
+        }
+
+        private AttachmentFixture createAttachmentFixture() {
             int demographicNo = 81001;
             int otherDemographicNo = 81002;
             createDemographic(demographicNo);
@@ -375,6 +396,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             EFormData samePatientEForm = createEFormData(demographicNo, false);
             EFormData patientIndependentEForm = createEFormData(otherDemographicNo, true);
             EFormData wrongPatientEForm = createEFormData(otherDemographicNo, false);
+            EFormData deletedEForm = createEFormData(demographicNo, false);
+            // Deleting an eForm clears its status (EFormData.current), as RemEForm2Action does.
+            deletedEForm.setCurrent(false);
+            entityManager.flush();
 
             Document validDocument = createDocument(Document.STATUS_ACTIVE);
             createCtlDocument(demographicNo, validDocument.getDocumentNo());
@@ -391,8 +416,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             createPatientLabRouting(990007, "MDS", demographicNo);
             createPatientLabRouting(990008, "MDS", otherDemographicNo);
 
-            CleanupFixture fixture = new CleanupFixture();
+            AttachmentFixture fixture = new AttachmentFixture();
             fixture.consultId = consult.getId();
+            fixture.samePatientEFormId = samePatientEForm.getId();
+            fixture.deletedEForm = createConsultDoc(consult.getId(), deletedEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
             fixture.validSamePatientEForm = createConsultDoc(consult.getId(), samePatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
             fixture.patientIndependentEForm = createConsultDoc(consult.getId(), patientIndependentEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
             fixture.wrongPatientEForm = createConsultDoc(consult.getId(), wrongPatientEForm.getId(), ConsultDocs.DOCTYPE_EFORM, null);
@@ -413,8 +440,10 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    private static class CleanupFixture {
+    private static class AttachmentFixture {
         private Integer consultId;
+        private Integer samePatientEFormId;
+        private ConsultDocs deletedEForm;
         private ConsultDocs validSamePatientEForm;
         private ConsultDocs patientIndependentEForm;
         private ConsultDocs wrongPatientEForm;

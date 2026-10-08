@@ -2716,7 +2716,10 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
+                                                <%-- A consult saved with no referring provider has providerNo "" (EctConsultationFormRequestUtil
+                                                     normalizes null), so blank and null both take the default, as at the other two sites. The default
+                                                     itself is null when it should be the patient's MRP and there is none. --%>
+                                                <option value="<%=p.getProviderNo() %>" <%=((!StringUtils.isNullOrEmpty(consultUtil.providerNo) && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (StringUtils.isNullOrEmpty(consultUtil.providerNo) && p.getProviderNo().equalsIgnoreCase(referringProviderDefault)) ? "selected" : "") %>>
                                                     <carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>&nbsp;<carlos:encode value='<%= p.getSurname() %>' context="html"/>
                                                 </option>
                                                 <% }

@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver;
 import io.github.carlos_emr.carlos.consultation.ConsultationDemographicResolver.Resolution;
+import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -70,6 +71,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -118,7 +120,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private final DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
 
     /** The warnings for a consult's unavailable attachments; none for an id that is not a number. */
-    private List<String> unavailableAttachmentWarnings(String requestId) {
+    private List<ConsultAttachmentWarning> unavailableAttachmentWarnings(String requestId) {
         try {
             return documentAttachmentManager.getUnavailableConsultAttachmentWarnings(Integer.valueOf(requestId));
         } catch (NumberFormatException e) {
@@ -1072,7 +1074,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         } catch (PDFGenerationException e) {
             // Neither application logs nor the browser may receive renderer paths or causes.
             logger.error("Consultation attachment rendering failed ({})", e.getClass().getSimpleName());
-            request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
+            request.setAttribute(ATTR_ERROR_MESSAGE, printFailureMessage(request));
             return false;
         } catch (NumberFormatException e) {
             logger.error("Invalid consultation demographic while generating print preview for requestId={}",
@@ -1080,6 +1082,21 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             request.setAttribute(ATTR_ERROR_MESSAGE, PRINT_PREVIEW_ERROR_MESSAGE);
             return false;
         }
+    }
+
+    /**
+     * The message for a print that could not be generated. When attachments that exist could not
+     * be read, it names them by type and id, so staff know what to fix or detach.
+     */
+    private static String printFailureMessage(HttpServletRequest request) {
+        List<ConsultAttachmentWarning> notRendered = ConsultAttachmentWarning.notRenderedOnly(
+                ConsultAttachmentWarning.fromRequest(request));
+        if (notRendered.isEmpty()) {
+            return PRINT_PREVIEW_ERROR_MESSAGE;
+        }
+        return MessageFormat.format(
+                ConsultAttachmentWarning.bundleText(request.getLocale(), "encounter.oscarConsultationRequest.attachmentWarning.printBlocked"),
+                ConsultAttachmentWarning.formatNames(notRendered, request.getLocale()));
     }
 
     /**
@@ -1097,14 +1114,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         json.put(ATTR_ERROR_MESSAGE, (String) request.getAttribute(ATTR_ERROR_MESSAGE));
         json.put(ATTR_WARNING_MESSAGE, (String) request.getAttribute(ATTR_WARNING_MESSAGE));
         json.put(ATTR_SIGNATURE_IMG, (String) request.getAttribute(ATTR_PREVIEW_SIGNATURE_IMG));
+        // One sentence per left-out attachment, in the reader's language, naming its type and id.
         ArrayNode attachmentWarnings = json.putArray(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
-        Object warningAttribute = request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
-        if (warningAttribute instanceof List<?>) {
-            for (Object warning : (List<?>) warningAttribute) {
-                if (warning != null) {
-                    attachmentWarnings.add(String.valueOf(warning));
-                }
-            }
+        for (ConsultAttachmentWarning warning : ConsultAttachmentWarning.fromRequest(request)) {
+            attachmentWarnings.add(warning.format(request.getLocale()));
         }
         try {
             if (!response.isCommitted()) {

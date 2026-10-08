@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.email.admin;
 
+import java.io.UncheckedIOException;
+import java.io.IOException;
 import io.github.carlos_emr.carlos.managers.*;
 import org.apache.struts2.ActionSupport;
 import org.apache.logging.log4j.Logger;
@@ -305,6 +307,10 @@ public class ManageEmails2Action extends ActionSupport {
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
+     * An email whose delivery another workflow owns is never composed here: an unresolved
+     * portal password email goes to {@code /email/portalDelivery}, and a patient portal
+     * invitation to the patient's {@code /demographic/portalManage} page.
+     *
      * Email data including encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
@@ -316,6 +322,9 @@ public class ManageEmails2Action extends ActionSupport {
      * @see EmailLog
      * @see TransactionType#DIRECT
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's context path, a fixed
+    // route and a parsed integer id; no request text reaches the URL.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Fixed internal route with an integer id")
     public String resendEmail() {
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
@@ -339,16 +348,40 @@ public class ManageEmails2Action extends ActionSupport {
         /*
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
-        EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
-        if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
-            return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
+        EmailLog emailLog;
+        try {
+            emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        } catch (EmailComposeManager.PortalInviteEmailException portalInvite) {
+            // An invitation is never reopened: its code must not reach this window. The patient's portal
+            // page, which checks its own privileges, resolves the delivery and resends with a new code.
+            try {
+                response.sendRedirect(request.getContextPath() + "/demographic/portalManage?demographicNo="
+                        + portalInvite.demographicNo());
+            } catch (IOException redirectFailure) {
+                throw new UncheckedIOException(redirectFailure);
+            }
+            return NONE;
+        }
+        // Recovery has one owner, which also handles its authorization and portal errors, and
+        // shows its own "still sending" state for a fresh email.
+        if (emailLog != null && emailLog.isPortalDeliveryUnresolved()) {
+            try {
+                response.sendRedirect(request.getContextPath() + "/email/portalDelivery?emailLogId=" + emailLog.getId());
+            } catch (IOException redirectFailure) {
+                throw new UncheckedIOException(redirectFailure);
+            }
+            return NONE;
         }
 
         // A fresh PENDING record may still be in the synchronous transport call. Waiting before
         // exposing recovery avoids opening a duplicate while the first request is still active.
-        if (EmailStatus.PENDING.equals(emailLog.getStatus())
+        if (emailLog != null && EmailStatus.PENDING.equals(emailLog.getStatus())
                 && !emailManager.isManuallyResolvable(emailLog)) {
             return showEmailComposeError(getLocalizedMessage("admin.manageEmails.pendingTooRecent"));
+        }
+
+        if (emailLog == null || emailLog.getDemographic() == null || emailLog.getDemographic().getDemographicNo() == null) {
+            return showEmailComposeError(EMAIL_RESEND_MISSING_PATIENT_ERROR);
         }
 
         // A stale PENDING record has no conclusive outcome. Warn, but let the administrator decide

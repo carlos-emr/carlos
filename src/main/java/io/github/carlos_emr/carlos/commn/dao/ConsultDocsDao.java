@@ -46,15 +46,16 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
 
     /**
      * Finds active consultation attachment rows that will be hidden from the
-     * renderable attachment lists because the target row is unavailable or does
-     * not belong to the consultation demographic.
+     * renderable attachment lists because the target row is missing, deleted, a
+     * patient-independent eForm, or does not belong to the consultation demographic.
      *
-     * <p>This is runtime reporting only; it changes nothing. It covers eForms,
-     * documents, labs and HRM reports, whose existence and patient match can be
-     * checked in the database. An HRM report whose file is missing or cannot be
-     * read is not found here: the file can only be checked on disk, so
-     * {@code DocumentAttachmentManager.getUnavailableConsultAttachmentWarnings}
-     * checks it. Form attachments are not covered.</p>
+     * <p>It names these attachments to staff, and on save it keeps them attached (the
+     * form cannot list them). It covers eForms, documents, labs and HRM reports, whose
+     * existence and patient match can be checked in the database. An HRM report whose
+     * file is missing or cannot be read is not found here: the file can only be checked
+     * on disk, so {@code DocumentAttachmentManager.getUnavailableConsultAttachmentWarnings}
+     * checks it. Form attachments are not covered. It changes no rows; an audited cleanup
+     * is tracked separately (#4079).</p>
      *
      * @param requestId consultation request id
      * @return active unavailable consultation attachments for the request
