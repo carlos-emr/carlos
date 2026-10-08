@@ -565,4 +565,25 @@ class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
         verify(raDetailDao).persist(captor.capture());
         assertThat(captor.getValue().getAmountClaim()).isEqualTo("0.50");
     }
+
+    @Test
+    void shouldAbortImport_whenFileContainsTruncatedRecord() throws Exception {
+        // A non-blank line too short to identify is a corrupt file: the import must
+        // fail (and roll back), not skip the line and report a partial success.
+        List<RaHeader> persistedHeaders = new ArrayList<>();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            RaHeader header = invocation.getArgument(0);
+            ReflectionTestUtils.setField(header, "id", 7);
+            persistedHeaders.add(header);
+            return null;
+        }).when(raHeaderDao).persist(any(RaHeader.class));
+        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
+        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenAnswer(invocation -> persistedHeaders);
+        Path file = tempDir.resolve("truncated.ra");
+        Files.write(file, List.of(h1("20260401", "000000050", "+"), "H0", h4("00000001")));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importRAFile(file.toString()))
+                .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class)
+                .hasMessageContaining("too short");
+    }
 }

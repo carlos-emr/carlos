@@ -163,9 +163,14 @@ public class BillingOnRaService {
         String nextline;
 
         while ((nextline = input.readLine()) != null) {
-            // A blank or truncated line (a trailing empty line after transfer is
-            // common) carries no record; it must not abort and roll back the import.
-            if (nextline.trim().length() < 3) continue;
+            // A blank line (a trailing empty line after transfer is common) carries
+            // no record and must not abort the import; a non-blank line too short to
+            // identify is a corrupt file and aborts it (the import rolls back).
+            if (nextline.isBlank()) continue;
+            if (nextline.length() < 3) {
+                throw new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                        "RA file contains a record too short to identify; nothing was imported.");
+            }
             header = nextline.substring(0, 1);
 
             if (header.compareTo("H") == 0) {

@@ -1560,7 +1560,7 @@ public class OhipClaimFileService {
             // A referral number, fee, count or id wider than its field cannot be
             // written; report it against the claim instead of failing with a
             // misleading "file write" error.
-            errorFatalMsg += "Value '" + z + "' exceeds its " + x + "-character field! - "
+            errorFatalMsg += "A value (" + z.length() + " characters) exceeds its " + x + "-character field! - "
                     + (currentClaimHeader == null ? "" : currentClaimHeader.getId()) + "<br>";
             z = z.substring(z.length() - x);
         }

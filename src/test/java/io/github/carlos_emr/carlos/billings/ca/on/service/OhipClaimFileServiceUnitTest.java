@@ -720,7 +720,8 @@ class OhipClaimFileServiceUnitTest {
         String padded = service.rightJustify(" ", 6, "1234567");
 
         assertThat(padded).hasSize(6);
-        assertThat(service.getErrorFatalMsg()).contains("1234567").contains("6-character field");
+        assertThat(service.getErrorFatalMsg()).contains("7 characters").contains("6-character field")
+                .doesNotContain("1234567");
     }
 
     @Test
