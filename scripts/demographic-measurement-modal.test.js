@@ -152,9 +152,13 @@ test('observation date defaults to the local date in the evening west of UTC (is
       constructor(...args) { super(...(args.length ? args : [evening])); }
     }
     const f = setup({12:{dateObserved:evening, dataField:'3.6', measuringInstruction:'in kg'}}, {success:true}, EveningDate);
-    f.body.find(element => element.tag === 'a').listeners.click({preventDefault() {}});
-    assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, '2026-03-10');
+    // setup() overwrites the first dialog's date, so open a fresh dialog and read its untouched default.
+    const before = f.body.children.length;
     f.context.displayDemographicMeasurements('weight', 'WT', '17', '2026-01-01', '42');
+    const dialog = f.body.children[before];
+    const defaultInput = dialog.find(element => element.id === 'currentMeasurementObservationDate');
+    assert.equal(defaultInput.value, '2026-03-10');
+    f.body.find(element => element.tag === 'a').listeners.click({preventDefault() {}});
     assert.equal(f.document.getElementById('currentMeasurementObservationDate').value, '2026-03-10');
   } finally {
     if (previousTz === undefined) delete process.env.TZ; else process.env.TZ = previousTz;
