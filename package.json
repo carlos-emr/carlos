@@ -266,6 +266,7 @@
     "test:admin-update-demographic-provider-playwright": "node scripts/admin-update-demographic-provider-playwright-checks.js",
     "test:dx-registry-quicklist-playwright": "node scripts/dx-registry-quicklist-playwright-checks.js",
     "test:flowsheet-patient-customization-playwright": "node scripts/flowsheet-patient-customization-playwright-checks.js",
+    "test:flowsheet-customized-rules-playwright": "node scripts/flowsheet-customized-rules-playwright-checks.js",
     "test:immunization-schedule-config-playwright": "node scripts/immunization-schedule-config-playwright-checks.js",
     "test:report-by-template-playwright": "node scripts/report-by-template-playwright-checks.js",
     "test:appointment-group-copy-cut-playwright": "node scripts/appointment-group-copy-cut-playwright-checks.js",
