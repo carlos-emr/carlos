@@ -73,8 +73,9 @@
 #                 --catalina-dir is given too.
 #   --catalina-dir  Tomcat log directory (default /var/log/carlos-emr/tomcat).
 #
-# Exit status: 0 no match, 1 at least one match, 2 usage error or no log line
-# read at all (a window that read nothing proves nothing).
+# Exit status: 0 no match, 1 at least one match, 2 usage error, journalctl
+# failure, or no journal line read in the window (a window that read nothing
+# proves nothing; Tomcat's logs alone do not make a scan).
 set -euo pipefail
 
 SINCE="${CARLOS_LOG_AUDIT_SINCE:-}"
@@ -114,12 +115,21 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-# Needles from the environment: separated by commas, spaces or newlines.
-env_list() { printf '%s' "${1:-}" | tr ',\n' '  '; }
-for needle in $(env_list "${CARLOS_LOG_PHI_SCAN_HINS:-}"); do
+# Needles from the environment: separated by commas, spaces or newlines. read -a splits without pathname
+# expansion, so a needle containing * or ? is searched literally and never matched against the working directory.
+declare -a ENV_HINS=() ENV_MARKERS=()
+env_words() {
+  local -n words="$2"
+  words=()
+  [ -n "${1:-}" ] || return 0
+  read -r -a words <<< "$(printf '%s' "$1" | tr ',\n' '  ')"
+}
+env_words "${CARLOS_LOG_PHI_SCAN_HINS:-}" ENV_HINS
+env_words "${CARLOS_LOG_PHI_SCAN_MARKERS:-}" ENV_MARKERS
+for needle in "${ENV_HINS[@]+"${ENV_HINS[@]}"}"; do
   check_hin "$needle" '$CARLOS_LOG_PHI_SCAN_HINS'; HINS+=("$needle")
 done
-for needle in $(env_list "${CARLOS_LOG_PHI_SCAN_MARKERS:-}"); do
+for needle in "${ENV_MARKERS[@]+"${ENV_MARKERS[@]}"}"; do
   check_marker "$needle" '$CARLOS_LOG_PHI_SCAN_MARKERS'; MARKERS+=("$needle")
 done
 
@@ -160,6 +170,8 @@ scan_stream() {
     BEGIN {
       split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", m, " ")
       for (i = 1; i <= 12; i++) mon[m[i]] = sprintf("%02d", i)
+      split("TRACE DEBUG INFO WARN WARNING ERROR FATAL SEVERE CONFIG FINE FINER FINEST", lv, " ")
+      for (i = 1; i <= 11; i++) okl[lv[i]] = 1
       while ((getline row < needlefile) > 0) {
         tab = index(row, "\t")
         if (tab == 0) continue
@@ -175,28 +187,39 @@ scan_stream() {
       }
       delete hit
     }
-    # Returns 1 and sets level, logger and iso when the line starts a log event.
-    function header(line,   f, nf, rest, close_at, name, dot) {
+    # A message line can look like a header (a multi-line note that starts with a date), and what a header
+    # yields is PRINTED, so only a known level and a Java name count: anything else is a continuation line
+    # (log4j layout) or the fixed placeholder (Tomcat layout), never words taken from the line.
+    function java_name(s) {
+      return (s ~ /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$/ && length(s) <= 120)
+    }
+    # Returns 1 and sets nlevel, nlogger and niso when the line starts a log event.
+    function header(line,   f, nf, rest, close_at, name, dot, j) {
       # log4j packaged layout: 2026-10-08 18:40:36,876 WARN  utility.ErrorPageLogger (File.java:125) - message
       if (line ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9:,.]+ +[A-Za-z]+ +[^ ]+/) {
         nf = split(line, f, " ")
-        nlevel = f[3]; nlogger = f[4]; niso = f[1] " " substr(f[2], 1, 8)
-        return 1
+        if ((f[3] in okl) && java_name(f[4]) && f[5] ~ /^\(/) {
+          nlevel = f[3]; nlogger = f[4]; niso = f[1] " " substr(f[2], 1, 8)
+          return 1
+        }
+        return 0
       }
       # Tomcat (JUL) layout: 08-Oct-2026 12:11:03.867 INFO [main] org.apache.Class.method message
       if (line ~ /^[0-9][0-9]-[A-Z][a-z][a-z]-[0-9][0-9][0-9][0-9] [0-9:.]+ [A-Z]+ \[/) {
         nf = split(line, f, " ")
+        if (!(f[3] in okl) || !(substr(f[1], 4, 3) in mon)) return 0
         nlevel = f[3]
         niso = substr(f[1], 8, 4) "-" mon[substr(f[1], 4, 3)] "-" substr(f[1], 1, 2) " " substr(f[2], 1, 8)
+        nlogger = "(unparsed-tomcat-event)"
         close_at = index(line, "] ")
-        if (close_at == 0) { nlogger = "(unparsed-tomcat-event)"; return 1 }
+        if (close_at == 0) return 1
         rest = substr(line, close_at + 2)
         split(rest, f, " ")
         name = f[1]
         dot = 0
-        for (i = length(name); i > 0; i--) if (substr(name, i, 1) == ".") { dot = i; break }
-        if (dot > 1) name = substr(name, 1, dot - 1)
-        nlogger = name
+        for (j = length(name); j > 0; j--) if (substr(name, j, 1) == ".") { dot = j; break }
+        # class.method: the method is dropped; a token that is not a dotted Java name is not a logger.
+        if (dot > 1 && java_name(name)) nlogger = substr(name, 1, dot - 1)
         return 1
       }
       return 0
@@ -231,10 +254,21 @@ since_iso=""
 : > "$work/result.tsv"
 if [ -n "$INPUT" ]; then
   scan_stream journal "" < "$INPUT" >> "$work/result.tsv"
-elif [ -n "$SINCE" ]; then
-  journalctl -u "$UNIT" --no-pager -o cat --since "$SINCE" | scan_stream journal "" >> "$work/result.tsv"
 else
-  journalctl -u "$UNIT" --no-pager -o cat -b | scan_stream journal "" >> "$work/result.tsv"
+  # -a: print every field in full, so a non-printable byte in a message cannot turn it into a blob stub that hides a
+  # needle. journalctl runs to a file, not into the pipe, so its own failure is seen as a failure (exit 2), not as the
+  # scan's "hit" status, and an empty answer is told from an unreadable one.
+  jargs=(-u "$UNIT" --no-pager -a -o cat)
+  if [ -n "$SINCE" ]; then jargs+=(--since "$SINCE"); else jargs+=(-b); fi
+  jstatus=0
+  journalctl "${jargs[@]}" > "$work/journal.log" 2> "$work/journal.err" || jstatus=$?
+  if [ "$jstatus" -ne 0 ]; then
+    echo "deb-server-log-phi-scan: journalctl failed (exit $jstatus): $(head -n 1 "$work/journal.err" | cut -c1-200)" >&2
+    exit 2
+  fi
+  # Older systemd prints this status line on stdout when the window is empty; it is not a log line.
+  sed -i '/^-- No entries --$/d' "$work/journal.log"
+  scan_stream journal "" < "$work/journal.log" >> "$work/result.tsv"
 fi
 
 if { [ -z "$INPUT" ] || [ "$CATALINA_EXPLICIT" = true ]; } && [ -d "$CATALINA_DIR" ]; then
@@ -249,8 +283,10 @@ journal_lines=$(awk -F'\t' '$1 == "S" && $2 == "journal" { n += $3 } END { print
 catalina_lines=$(awk -F'\t' '$1 == "S" && $2 == "catalina" { n += $3 } END { print n + 0 }' "$work/result.tsv")
 window="${SINCE:-current boot}"
 
-if [ $((journal_lines + catalina_lines)) -eq 0 ]; then
-  echo "deb-server-log-phi-scan: read no log line since $window (journal and Tomcat logs unreadable or empty); a scan that read nothing proves nothing" >&2
+# The journal must have given lines on its own: a wrong or unreadable unit reads nothing, and a Tomcat line in the same
+# window must not turn that into a pass. (Tomcat's logs may be empty; they are a second source, not the first.)
+if [ "$journal_lines" -eq 0 ]; then
+  echo "deb-server-log-phi-scan: read no journal line since $window (wrong or unreadable unit, or nothing logged in the window); a scan that read nothing proves nothing" >&2
   exit 2
 fi
 

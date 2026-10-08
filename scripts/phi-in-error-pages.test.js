@@ -4,7 +4,7 @@
 // (the answers a running install gives) is the check itself.
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { detector, maskedContext, originOf, describeRoute, FAMILIES } = require('./phi-in-error-pages-playwright-checks');
+const { detector, maskedContext, originOf, readAnswer, describeRoute, FAMILIES } = require('./phi-in-error-pages-playwright-checks');
 const { APPLICATION_HEADER } = require('./lib/playwright-harness');
 
 // Fictitious fixture: a 10-digit HIN, FAKE- names and a four-digit demographic_no.
@@ -115,4 +115,14 @@ test('shouldMaskEveryFixtureValue_inTheContextItPrintsForADeveloper', () => {
   assert.match(context, /<name>/);
   assert.doesNotMatch(context, /FAKE-PW|4837261950|3208|e07efc2a/);
   assert.equal(maskedContext('nothing here', FIXTURE), '');
+});
+
+test('shouldNotReadAnUnreadableBodyAsClean_butLetTheRejectionReachTheCaller', async () => {
+  const fake = (text) => ({ status: () => 404, headers: () => ({ [APPLICATION_HEADER]: 'none' }), text });
+  await assert.rejects(readAnswer(fake(async () => { throw new Error('Response has been disposed'); }), find), /disposed/);
+  const answer = await readAnswer(fake(async () => 'demographic_no=3208'), find);
+  assert.deepEqual({ actual: answer.actual, origin: answer.origin, kinds: answer.kinds, bytes: answer.bytes },
+    { actual: 404, origin: 'application', kinds: ['demographic_no'], bytes: 19 });
+  const empty = await readAnswer(fake(async () => ''), find);
+  assert.deepEqual({ kinds: empty.kinds, bytes: empty.bytes }, { kinds: [], bytes: 0 });
 });

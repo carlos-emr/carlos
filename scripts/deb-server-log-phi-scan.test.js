@@ -29,7 +29,7 @@ function tmp(t) {
  * Run the scan on fixture lines. `catalina` maps a file name to its lines; the catalina directory is
  * passed only when it is given, so a test never reads the host's own /var/log.
  */
-function scan(t, journal, { catalina = null, args = [], env = {} } = {}) {
+function scan(t, journal, { catalina = null, args = [], env = {}, cwd = undefined } = {}) {
   const dir = tmp(t);
   const input = path.join(dir, 'app.log');
   fs.writeFileSync(input, journal.join('\n') + (journal.length ? '\n' : ''));
@@ -42,6 +42,7 @@ function scan(t, journal, { catalina = null, args = [], env = {} } = {}) {
   }
   const result = spawnSync('bash', [SCRIPT, '--input', input, ...catalinaArgs, ...args], {
     encoding: 'utf8',
+    cwd,
     env: { ...process.env, CARLOS_LOG_AUDIT_SINCE: '', CARLOS_LOG_PHI_SCAN_HINS: '', CARLOS_LOG_PHI_SCAN_MARKERS: '', ...env },
   });
   return { status: result.status, out: result.stdout, err: result.stderr, all: result.stdout + result.stderr };
@@ -232,7 +233,7 @@ test('should not print the needles it was given when nothing matches', (t) => {
 test('should exit 2 rather than pass when no log line was read', (t) => {
   const r = scan(t, []);
   assert.equal(r.status, 2, r.all);
-  assert.match(r.err, /read no log line/);
+  assert.match(r.err, /read no journal line/);
 });
 
 test('should refuse an unknown argument, a missing value, a needle too short to mean anything and a --since that is not a date', (t) => {
@@ -255,6 +256,102 @@ test('should not echo a bad needle in its usage error', (t) => {
   const r = scan(t, QUIET, { args: ['--hin', 'ab'] });
   assert.equal(r.status, 2, r.all);
   assert.doesNotMatch(r.all, /--hin ab|'ab'/);
+});
+
+/**
+ * Run the scan against a fake `journalctl` (no --input), so the real-journal path is exercised: its arguments are
+ * recorded, its output and exit status are the fixture's. An empty Tomcat directory is passed so no host log is read.
+ */
+function scanJournal(t, fakeBody, { args = [], env = {} } = {}) {
+  const dir = tmp(t);
+  const bin = path.join(dir, 'bin');
+  fs.mkdirSync(bin);
+  const argLog = path.join(dir, 'journalctl-args');
+  fs.writeFileSync(path.join(bin, 'journalctl'), `#!/bin/bash\nprintf '%s\\n' "$@" > '${argLog}'\n${fakeBody}\n`, { mode: 0o755 });
+  const catalinaDir = path.join(dir, 'tomcat');
+  fs.mkdirSync(catalinaDir);
+  const result = spawnSync('bash', [SCRIPT, '--catalina-dir', catalinaDir, ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, CARLOS_LOG_AUDIT_SINCE: '', CARLOS_LOG_PHI_SCAN_HINS: '', CARLOS_LOG_PHI_SCAN_MARKERS: '', ...env },
+  });
+  const argv = fs.existsSync(argLog) ? fs.readFileSync(argLog, 'utf8').split('\n').filter(Boolean) : [];
+  return { status: result.status, out: result.stdout, err: result.stderr, all: result.stdout + result.stderr, argv };
+}
+
+test('should exit 2, not pass, when the journal gave no line even though Tomcat logged one', (t) => {
+  // A wrong or unreadable unit reads nothing from the journal; a Tomcat line in the window must not make that a pass.
+  const r = scan(t, [], { catalina: { 'catalina.2026-10-08.log': ['08-Oct-2026 04:47:01.001 INFO [main] org.apache.catalina.startup.Other.start started'] } });
+  assert.equal(r.status, 2, r.all);
+  assert.match(r.err, /read no journal line/);
+  assert.doesNotMatch(r.out, /^PASS/m);
+});
+
+test('should exit 2, not report a hit, when journalctl itself fails', (t) => {
+  const r = scanJournal(t, 'echo "Failed to open journal" >&2; exit 1');
+  assert.equal(r.status, 2, r.all);
+  assert.match(r.err, /journalctl failed \(exit 1\)/);
+  assert.doesNotMatch(r.out, /^(HIT|FAIL|PASS)/m);
+});
+
+test('should exit 2 when journalctl succeeds but returns nothing, or only its "No entries" line', (t) => {
+  for (const body of ['exit 0', 'echo "-- No entries --"; exit 0']) {
+    const r = scanJournal(t, body);
+    assert.equal(r.status, 2, `${body}: ${r.all}`);
+    assert.match(r.err, /read no journal line/);
+  }
+});
+
+test('should read the real journal with -a, the unit and the window, and report a hit in it', (t) => {
+  const r = scanJournal(t, `printf '%s\\n' '2026-10-08 04:41:00,100 INFO  note.NoteSaver (NoteSaver.java:42) - saved ${MARKER}'`,
+    { args: ['--since', '2026-10-08 04:00:00', '--unit', 'carlos-emr.service'] });
+  assert.equal(r.status, 1, r.all);
+  assert.match(r.out, /^HIT +journal +INFO +note\.NoteSaver +marker +events=1 +lines=1$/m);
+  assert.ok(r.argv.includes('-a'), `journalctl must be run with -a so a non-printable byte cannot hide a needle: ${r.argv.join(' ')}`);
+  assert.deepEqual(r.argv.slice(r.argv.indexOf('-u'), r.argv.indexOf('-u') + 2), ['-u', 'carlos-emr.service']);
+  assert.equal(r.argv[r.argv.indexOf('--since') + 1], '2026-10-08 04:00:00');
+  assert.doesNotMatch(r.all, new RegExp(MARKER));
+});
+
+test('should print no word of a message line that merely looks like a log header', (t) => {
+  // A multi-line note can start with a date. Only a real level and a real logger make a header; anything else is
+  // a continuation, or, in the Tomcat layout, a fixed placeholder, and the words of the line are never printed.
+  const r = scan(t, [
+    `2026-10-08 10:15 Patient seen ${MARKER} with chest pain`,
+    `2026-10-08 10:16:00,000 INFO Patient seen again ${MARKER} chest`,
+    QUIET[0],
+    `2026-10-08 10:18:00,000 WARN Patient mentioned ${MARKER} twice`,
+    `08-Oct-2026 10:17:00.000 INFO [x] Patient seen once more ${MARKER} chest`,
+  ]);
+  assert.equal(r.status, 1, r.all);
+  assert.match(r.out, /^HIT +journal +- +\(no-event-header\) +marker +events=1 +lines=2$/m);
+  assert.match(r.out, /^HIT +journal +INFO +app\.Something +marker +events=1 +lines=1$/m);
+  assert.match(r.out, /^HIT +journal +INFO +\(unparsed-tomcat-event\) +marker +events=1 +lines=1$/m);
+  assert.doesNotMatch(r.all, /Patient|seen|chest|pain|again|once|mentioned|twice/);
+});
+
+test('should accept only a known level and a dotted Java name as a log4j header, and report nothing else of it', (t) => {
+  const r = scan(t, [
+    '2026-10-08 10:20:00,000 NOTE some.Logger (A.java:1) - not a level',
+    `2026-10-08 10:20:01,000 INFO have-a-dash (A.java:1) - not a logger ${MARKER}`,
+    '2026-10-08 10:20:02,000 INFO ok.Logger (A.java:2) - a real header',
+    `continuation ${MARKER}`,
+  ]);
+  assert.equal(r.status, 1, r.all);
+  assert.match(r.out, /^HIT +journal +INFO +ok\.Logger +marker +events=1 +lines=1$/m);
+  assert.doesNotMatch(r.all, /NOTE|some\.Logger|have-a-dash/);
+});
+
+test('should take environment needles literally, without expanding a glob character against the working directory', (t) => {
+  const cwd = tmp(t);
+  fs.writeFileSync(path.join(cwd, 'abXcd'), '');
+  const r = scan(t, [
+    ...QUIET,
+    '2026-10-08 04:44:02,100 INFO  a.Literal (Literal.java:1) - has the literal ab*cd in it',
+    '2026-10-08 04:44:03,100 INFO  a.Expanded (Expanded.java:1) - has abXcd in it',
+  ], { env: { CARLOS_LOG_PHI_SCAN_MARKERS: 'ab*cd' }, cwd });
+  assert.equal(r.status, 1, r.all);
+  assert.match(r.out, /^HIT +journal +INFO +a\.Literal +marker /m);
+  assert.doesNotMatch(r.out, /a\.Expanded/);
 });
 
 test('should be executable and carry the project header', () => {

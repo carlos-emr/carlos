@@ -202,6 +202,19 @@ function originOf({ status, headers, body }) {
 }
 
 /**
+ * Read one response: status, who wrote it, the kinds of patient data in its body, the body's size. There is
+ * deliberately no catch around the body read: a body that cannot be read has not been shown clean, so the
+ * rejection reaches the caller, which records the probe as unreadable.
+ */
+async function readAnswer(response, find) {
+  const body = await response.text();
+  const headers = {};
+  for (const [name, value] of Object.entries(response.headers())) headers[name.toLowerCase()] = value;
+  const actual = response.status();
+  return { body, actual, origin: originOf({ status: actual, headers, body }), kinds: find(body), bytes: body.length };
+}
+
+/**
  * The detector for one fixture. Returns the KINDS of data a body carries: 'hin', 'name', 'demographic_no'.
  * demographic_no counts only as a number of its own (not inside a longer number, word or UUID), so a request
  * reference or a timestamp cannot match by accident; the other needles are distinctive FAKE- strings.
@@ -304,17 +317,19 @@ async function workflow(s) {
     };
     try {
       const response = await contexts()[row.as].request.fetch(url, options);
-      const body = await response.text().catch(() => '');
-      const headers = {};
-      for (const [name, value] of Object.entries(response.headers())) headers[name.toLowerCase()] = value;
-      row.actual = response.status();
-      row.origin = originOf({ status: row.actual, headers, body });
-      row.kinds = find(body);
-      row.bytes = body.length;
-      if (row.kinds.length && showContext) row.context = maskedContext(body, { hin, names, patient });
+      // An unreadable body throws into the catch below, which marks the row unreadable; it is never read as clean.
+      const answer = await readAnswer(response, find);
+      row.actual = answer.actual;
+      row.origin = answer.origin;
+      row.kinds = answer.kinds;
+      row.bytes = answer.bytes;
+      if (row.kinds.length && showContext) row.context = maskedContext(answer.body, { hin, names, patient });
     } catch (error) {
       row.origin = 'error';
-      row.error = String(error.message).split('\n')[0].slice(0, 80);
+      // A Playwright message can quote the URL, and the URL carries the fixture: print the first line without any URL or fixture value.
+      let message = String(error.message).split('\n')[0].replace(/https?:\/\/\S+/g, '<url>');
+      for (const value of [hin, ...names]) message = message.split(value).join('<fixture>');
+      row.error = message.slice(0, 80);
     }
     seen.push(row);
     const reached = row.actual === row.status && row.origin === 'application';
@@ -401,9 +416,14 @@ async function workflow(s) {
     }
     const waf = seen.filter(row => row.origin === 'waf');
     if (waf.length) console.log(`  NOTE phi-in-error-pages: ${waf.length} response(s) were the WAF's block page, not a CARLOS body: ${waf.map(row => `${row.family} ${row.status} ${row.route}`).join('; ')}`);
+    const empty = seen.filter(row => row.origin !== 'error' && row.bytes === 0);
+    if (empty.length) console.log(`  NOTE phi-in-error-pages: ${empty.length} response(s) had an empty body, which no leak can hide in: ${empty.map(row => `${row.family} ${row.status} ${row.route} -> ${row.actual}`).join('; ')}`);
     const other = seen.filter(row => row.origin === 'other' || row.origin === 'error');
     if (other.length) console.log(`  NOTE phi-in-error-pages: ${other.length} response(s) came from neither the application nor the WAF (the proxy or the container): ${other.map(row => `${row.family} ${row.status} ${row.route} -> ${row.actual || 'none'}`).join('; ')}`);
     const leaking = seen.filter(row => row.kinds.length).length;
+    // A probe whose answer or body could not be read says nothing about leaks, whatever the other probes of its cell showed.
+    const unread = seen.filter(row => row.origin === 'error');
+    h.assert(!unread.length, `${unread.length} probe(s) got no readable answer, so their bodies were never judged: ${unread.map(row => `${row.family} ${row.status} ${row.as} ${row.method} ${row.route} (${row.error})`).join('; ')}`);
     h.assert(!missing.length, `Statuses the application was not seen to answer: ${missing.join('; ')}${leaking ? ` (${leaking} response(s) also carried patient data; the last step names them)` : ''}`);
     console.log(`  coverage phi-in-error-pages: ${seen.length} responses read, ${new Set(seen.map(row => row.family)).size} families`);
   });
@@ -439,4 +459,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('phi-in-error-pages', workflow, { openMaster: false });
-module.exports = { workflow, detector, maskedContext, originOf, describeRoute, FAMILIES };
+module.exports = { workflow, detector, maskedContext, originOf, readAnswer, describeRoute, FAMILIES };

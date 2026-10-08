@@ -1365,8 +1365,11 @@ for each `--hin` (also as `NNNN NNN NNN` and `NNNN-NNN-NNN`; or
 (`phi-in-error-pages` does this over its own window).
 
 It prints the source, level, logger or class, the needle class (`marker` or `hin`) and
-two counts per hit, never the needle or the line, and exits 1 on any match, 2 if it read
-no log line at all. A matching stack-trace line is attributed to the event above it, so
+two counts per hit, never the needle or the line, and exits 1 on any match, 2 on a usage
+error, a `journalctl` failure, or when the journal gave no line in the window (a wrong unit
+reads nothing, and Tomcat's logs alone do not make a scan). Only a known log level and a
+dotted Java name count as an event header; a message line that merely looks like one is
+treated as a continuation, so no word of a log line is ever printed. A matching stack-trace line is attributed to the event above it, so
 the logger named is the one that logged the exception. Not scanned: the nginx and
 ModSecurity logs (the WAF audit log keeps blocked bodies by design) and Tomcat's access
 log (path only, no query string).
