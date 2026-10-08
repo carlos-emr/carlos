@@ -32,8 +32,9 @@ test('appointment binds the shared panel to the persisted patient and signals au
   assert.match(source, /name="portalBookingPatientInput" value="#demographic_no"/);
   assert.equal(source.match(/getElementById\('keyword'\)\.dispatchEvent\(new Event\('change'\)\)/g).length, 2);
 });
-test('master record includes the same internal panel for its action-resolved patient', () => {
-  const source = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit.jsp'), 'utf8');
+test('master record shows the same box, after Notes, for its action-resolved patient', () => {
+  const source = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/edit-view.jsp'), 'utf8');
+  assert.ok(source.indexOf('portalBookingPrompt.jsp') > source.indexOf('id="notes"'), 'the box follows Notes');
   assert.match(source, /jsp:include page="\/WEB-INF\/jsp\/demographic\/portalBookingPrompt\.jsp"/);
   assert.match(source, /name="portalBookingPatient" value="<%= demographic_no %>"/);
 });

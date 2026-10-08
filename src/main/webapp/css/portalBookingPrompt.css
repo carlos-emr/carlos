@@ -1,9 +1,90 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
-.portal-booking { margin: 1rem; padding: 1rem; border: 1px solid #adb5bd; border-radius: .3rem; background: #fff; color: #212529; }
-.portal-booking h2 { font-size: 1.2rem; }
-.portal-booking [data-role="create"] { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: .75rem; }
+/* The portal booking box: like the record's sections (demographiceditdemographic.css section 5),
+   restated here so it looks the same on the appointment screen, which does not load that sheet. */
+.portal-booking.demographicSection {
+    margin-top: 6px;
+    border: 1px solid var(--carlos-border, #ddd);
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #fff;
+    color: #212529;
+}
+.portal-booking.demographicSection > h3 {
+    font: normal 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    margin: 0;
+    padding: 8px 12px;
+}
+.portal-booking .h3-pill {
+    color: #fff;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 6px;
+    cursor: pointer;
+}
+.portal-booking .h3-pill:hover,
+.portal-booking .h3-pill:focus-visible {
+    border-color: #fff;
+}
+.portal-booking-summary p {
+    margin: 0;
+    padding: 6px 12px;
+}
+.portal-booking-summary p + p {
+    border-top: 1px solid #eee;
+}
+.portal-booking-muted {
+    color: #666;
+}
 .portal-booking [hidden] { display: none !important; }
+
+/* The dialog with the controls. */
+.portal-booking-dialog {
+    width: min(680px, 95vw);
+    border: 0;
+    border-radius: 6px;
+    padding: 0;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    color: #212529;
+}
+.portal-booking-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.35);
+}
+.portal-booking-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--carlos-primary, #337ab7);
+    color: #fff;
+    padding: 10px 14px;
+}
+.portal-booking-dialog-header h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+.portal-booking-dialog-header button {
+    background: transparent;
+    border: 0;
+    color: #fff;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.portal-booking-dialog-body {
+    padding: 12px 16px 16px;
+}
+.portal-booking [data-role="create"] { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: .75rem; }
 .portal-booking label { display: flex; flex-direction: column; gap: .25rem; }
-.portal-booking select, .portal-booking button { font: inherit; padding: .4rem .6rem; }
-.portal-booking li { margin: .5rem 0; }
-.portal-booking li button { margin-left: .75rem; }
+.portal-booking-dialog select, .portal-booking-dialog button { font: inherit; padding: .4rem .6rem; }
+.portal-booking-history { width: 100%; border-collapse: collapse; margin: .5rem 0; }
+.portal-booking-history th, .portal-booking-history td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; }
+.portal-booking-history th { font-weight: 600; color: #555; font-size: 12px; }
+.portal-booking-dialog-footer { display: flex; justify-content: space-between; margin-top: .75rem; }
+.portal-booking-visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}

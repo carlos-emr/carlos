@@ -167,7 +167,9 @@ is optional; the action omits it until the staff UI has a server-verified provid
 accepts a provider name from browser free text. Audit failures after a confirmed remote change do not
 turn that change into a retryable failure.
 
-The UI draft adds a shared panel to the persisted appointment's patient and the master record.
+The UI draft adds a shared box, styled like the record's Notes and placed after it on the master
+record, and at the bottom of the persisted appointment's form. It shows the newest request and how
+many are open; its "Ask / manage" button opens a dialog with the controls and the history.
 Changing the appointment's patient ID or editing/previewing its patient name blocks portal
 controls until save/reopen; every mutation rechecks the current inputs, including programmatic
 changes that emit no input event.

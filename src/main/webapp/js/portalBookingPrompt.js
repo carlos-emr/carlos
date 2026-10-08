@@ -121,28 +121,58 @@
             && ['routine', 'soon', 'as_soon_as_possible'].includes(prompt.urgency)
             && ['follow_up', 'annual_exam', 'lab_review'].includes(prompt.appointmentType)
             && ['sent', 'read', 'choice_pending', 'booked', 'declined_all', 'withdrawn', 'expired'].includes(prompt.state);
+        const OPEN_STATES = ['sent', 'read', 'choice_pending'];
+        function promptDate(prompt) {
+            const date = new Date(prompt.createdAt);
+            return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+        }
+        function promptState(prompt) {
+            return message('state.' + prompt.state) + ' · ' + message(prompt.readAt ? 'read' : 'unread');
+        }
+        function cell(text) {
+            const node = document.createElement('td'); node.textContent = text; return node;
+        }
+        // The box on the page: the newest request and how many are still open.
+        function summarize(prompts) {
+            const summary = role('summary');
+            const openCount = role('openCount');
+            if (!prompts.length) {
+                summary.textContent = message('empty');
+                openCount.hidden = true;
+                return;
+            }
+            const last = prompts.reduce((newest, prompt) =>
+                (Date.parse(prompt.createdAt) || 0) > (Date.parse(newest.createdAt) || 0) ? prompt : newest);
+            summary.textContent = message('last') + ' ' + [message(last.appointmentType), message(last.urgency),
+                promptDate(last), promptState(last)].filter(Boolean).join(' · ');
+            openCount.textContent = message('openCount')
+                .replace('{count}', String(prompts.filter(prompt => OPEN_STATES.includes(prompt.state)).length));
+            openCount.hidden = false;
+        }
         function render(prompts) {
             role('prompts').replaceChildren();
+            summarize(prompts);
             if (!prompts.length) {
-                const item = document.createElement('li'); item.textContent = message('empty');
-                role('prompts').append(item);
+                const row = document.createElement('tr');
+                const empty = cell(message('empty')); empty.colSpan = 5;
+                row.append(empty);
+                role('prompts').append(row);
             }
             for (const prompt of prompts) {
-                const item = document.createElement('li');
-                const date = new Date(prompt.createdAt);
-                item.textContent = message(prompt.appointmentType) + ' | ' + message(prompt.urgency)
-                    + ' | ' + message('state.' + prompt.state) + ' | '
-                    + message(prompt.readAt ? 'read' : 'unread') + ' | ' + message('created')
-                    + ' ' + (Number.isNaN(date.getTime()) ? '' : date.toLocaleString());
+                const row = document.createElement('tr');
+                row.append(cell(message(prompt.appointmentType)), cell(message(prompt.urgency)),
+                    cell(promptState(prompt)), cell(promptDate(prompt)));
+                const actions = document.createElement('td');
                 if (mayWithdraw && prompt.state !== 'withdrawn') {
                     const template = role('withdraw-template').content.querySelector('button');
                     if (template) {
                         const button = template.cloneNode(true);
                         button.addEventListener('click', () => withdraw(prompt.id));
-                        item.append(button);
+                        actions.append(button);
                     }
                 }
-                role('prompts').append(item);
+                row.append(actions);
+                role('prompts').append(row);
             }
         }
         async function refresh(lead) {
@@ -169,6 +199,8 @@
             } catch (_) {
                 eligible = false; mayWithdraw = false;
                 role('prompts').replaceChildren();
+                role('summary').textContent = message('unavailable');
+                role('openCount').hidden = true;
                 status(lead || (pending ? 'uncertain' : null), 'unavailable');
             } finally {
                 busy = false; role('refresh').disabled = false; update();
@@ -240,6 +272,18 @@
             patientNameInput.addEventListener('change', markPatientEdited);
         }
         role('refresh').addEventListener('click', () => refresh());
+        // The controls live in a dialog opened from the box; without script the box says so.
+        const dialog = role('dialog');
+        const open = role('open');
+        open.hidden = false;
+        open.addEventListener('click', () => {
+            if (typeof dialog.showModal === 'function') { dialog.showModal(); }
+            else { dialog.setAttribute('open', ''); }
+        });
+        root.querySelectorAll('[data-role="close"]').forEach(button => button.addEventListener('click', () => {
+            if (typeof dialog.close === 'function') { dialog.close(); } else { dialog.removeAttribute('open'); }
+            open.focus();
+        }));
         update(); refresh();
     }
     function init() { document.querySelectorAll('[data-portal-booking]').forEach(mount); }
