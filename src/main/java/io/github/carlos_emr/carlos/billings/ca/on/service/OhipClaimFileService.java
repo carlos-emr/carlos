@@ -1355,6 +1355,11 @@ public class OhipClaimFileService {
         }
     }
 
+    /** Whether this disk's OHIP claim file currently exists as a regular file in the output directory. */
+    public boolean outputFileExists() {
+        return java.nio.file.Files.isRegularFile(BillingOutputFiles.path(ohipFilename));
+    }
+
     /**
      * Keeps the prior submission after a committed regeneration under the name OSCAR 19
      * gave it, {@code <ohipfilename>.<epochMillis>} beside the new file, instead of leaving

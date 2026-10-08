@@ -60,6 +60,9 @@ import org.springframework.beans.factory.ObjectFactory;
 @org.springframework.stereotype.Service
 public class BillingOnDiskService {
 
+    /** Request attribute carrying non-fatal generation warnings to the MRI page. */
+    public static final String GENERATION_WARNINGS_ATTRIBUTE = "ohipGenerationWarnings";
+
     private static final String[] BILLING_STATUS_NEW = new String[]{"O", "W", "I"};
     private static final String[] BILLING_STATUS_REGEN = new String[]{"B"};
 
@@ -264,14 +267,16 @@ public class BillingOnDiskService {
             } else {
                 // OSCAR 19 contract: the disk row and its headers already exist, so the
                 // listed download must exist too; an empty claim file is what it wrote.
-                // Nothing is billed on it, so a write failure is logged (as OSCAR 19 did)
-                // rather than aborting the remaining groups of an All Providers run; the
-                // file can be regenerated from the MRI page.
+                // Nothing is billed on it, so a write failure does not abort the remaining
+                // groups of an All Providers run: it is logged and reported on the MRI page,
+                // and regenerating the disk there recreates the missing file.
                 try {
                     finalize.writeFile("");
                 } catch (BillingFileWriteException failure) {
                     MiscUtils.getLogger().warn("Could not write the empty OHIP file for claimless group disk {} ({})",
                             diskId, failure.getClass().getSimpleName());
+                    addGenerationWarning(request, "Group " + groupNo + " has no claims; its empty OHIP file (disk "
+                            + diskId + ") could not be written. Regenerate the disk from this page.");
                 }
             }
         }
@@ -352,6 +357,7 @@ public class BillingOnDiskService {
                                       String currentUser) {
         StringBuilder value = new StringBuilder();
         OhipClaimFileService lastWriter = null;
+        OhipClaimFileService firstWriter = null;
         List<OhipClaimFileService> writers = new ArrayList<>();
         for (int i = 0; i < lProvider.size(); i++) {
             BillingProviderDto dataProvider = lProvider.get(i);
@@ -359,6 +365,7 @@ public class BillingOnDiskService {
                     dataProvider.getProviderNo(),
                     prep.getOhipfilename(Integer.parseInt(diskId)),
                     prep.getHtmlfilename(Integer.parseInt(diskId), dataProvider.getProviderNo()));
+            if (firstWriter == null) firstWriter = objFile;
             var prepared = prep.prepareBatchHeader(dataProvider, diskId, mohOffice, "" + (i + 1), currentUser);
             objFile.stageRegeneratedBatchHeader(prepared.replacement(), () -> prep.finalizeBatchHeader(prepared));
             objFile.readInBillingNo();
@@ -372,7 +379,23 @@ public class BillingOnDiskService {
         if (lastWriter != null) {
             writeRegeneratedGroupDiskFileAndFinalize(writers, lastWriter, value.toString(),
                     Integer.parseInt(diskId));
+        } else if (firstWriter != null && !firstWriter.outputFileExists()) {
+            // No member has claim records: an existing file is preserved (above), but a
+            // claimless disk whose empty file was never written gets it now so the listed
+            // download exists (OSCAR 19 contract for a claimless group disk).
+            firstWriter.writeFile("");
         }
+    }
+
+    /** Collects non-fatal generation problems for the MRI page (request attribute {@code ohipGenerationWarnings}). */
+    @SuppressWarnings("unchecked")
+    private static void addGenerationWarning(HttpServletRequest request, String message) {
+        List<String> warnings = (List<String>) request.getAttribute(GENERATION_WARNINGS_ATTRIBUTE);
+        if (warnings == null) {
+            warnings = new ArrayList<>();
+            request.setAttribute(GENERATION_WARNINGS_ATTRIBUTE, warnings);
+        }
+        warnings.add(message);
     }
 
     private void writeNewDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {

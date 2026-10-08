@@ -683,4 +683,14 @@ class OhipClaimFileServiceUnitTest {
         service.restoreRenamedFile();
         assertThat(original).hasContent("prior claim output");
     }
+
+    @Test
+    void shouldReportOutputFilePresence_forConfiguredOhipFilename() throws IOException {
+        service.setOhipFilename("claim.exists.txt");
+        assertThat(service.outputFileExists()).isFalse();
+
+        Files.writeString(tempDir.resolve("claim.exists.txt"), "");
+
+        assertThat(service.outputFileExists()).isTrue();
+    }
 }

@@ -200,10 +200,33 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         givenGroupMembers(provider("101"));
         when(claimFileFactory.getObject()).thenReturn(first, output);
         org.mockito.Mockito.doThrow(new BillingFileWriteException("disk full")).when(output).writeFile("");
+        MockHttpServletRequest request = allProvidersRequest();
 
-        service.generateNewDisk(allProvidersRequest());
+        service.generateNewDisk(request);
 
         verify(output).writeFile("");
+        verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
+        // The operator is told on the MRI page which disk lacks its file.
+        @SuppressWarnings("unchecked")
+        List<String> warnings = (List<String>) request.getAttribute(BillingOnDiskService.GENERATION_WARNINGS_ATTRIBUTE);
+        assertThat(warnings).singleElement().asString().contains("disk " + DISK_ID).contains("Regenerate");
+    }
+
+    @Test
+    void shouldWriteMissingEmptyFile_whenRegeneratingClaimlessGroupDisk() {
+        // A claimless disk whose empty file was never written (a failed write at
+        // generation) gets it on regeneration; nothing is finalized.
+        OhipClaimFileService empty = memberWriter("empty-body", BigDecimal.ZERO, 0);
+        when(empty.outputFileExists()).thenReturn(false);
+        when(diskCreationService.getProvider("20")).thenReturn(List.of(provider("101")));
+        when(claimFileFactory.getObject()).thenReturn(empty);
+        MockHttpServletRequest request = allProvidersRequest();
+        request.setParameter("diskId", "20");
+
+        service.regenerateDisk(request);
+
+        verify(empty).writeFile("");
+        verify(empty, never()).writeHtml(anyString());
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -232,6 +255,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveExistingDisk_whenRegenerationContainsNoClaimItems() {
         OhipClaimFileService empty = memberWriter("empty-body", BigDecimal.ZERO, 0);
+        when(empty.outputFileExists()).thenReturn(true);
         when(diskCreationService.getProvider("20")).thenReturn(List.of(provider("101")));
         when(claimFileFactory.getObject()).thenReturn(empty);
         MockHttpServletRequest request = allProvidersRequest();

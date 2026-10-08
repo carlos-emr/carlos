@@ -154,6 +154,16 @@
         <p class="mb-0">No files were generated and no billing records were changed.</p>
     </div>
 </c:if>
+<c:if test="${not empty ohipGenerationWarnings}">
+    <div class="alert alert-warning" role="alert" id="ohip-generation-warnings">
+        <strong>OHIP files generated with warnings.</strong>
+        <ul class="mb-0">
+            <c:forEach var="warning" items="${ohipGenerationWarnings}">
+                <li><carlos:encode value="${warning}" context="html"/></li>
+            </c:forEach>
+        </ul>
+    </div>
+</c:if>
 <c:if test="${not empty ohipGenerationError}">
     <div class="alert alert-danger" role="alert" id="ohip-generation-validation">
         <strong>OHIP file not generated.</strong>
