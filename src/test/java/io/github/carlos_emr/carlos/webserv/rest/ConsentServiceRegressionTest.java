@@ -27,6 +27,8 @@ import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsentTypeTo1;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response.Status;
@@ -58,12 +60,25 @@ class ConsentServiceRegressionTest {
     @Mock
     private PatientConsentManager patientConsentManager;
 
+    @Mock
+    private SecurityInfoManager securityInfoManager;
+
     private ConsentService service;
 
     @BeforeEach
     void setUp() {
-        service = new ConsentService();
+        // Direct calls bypass CXF, so supply the caller the interceptor would normally attach and
+        // grant the catalogue read right these exception-path tests run under (#2798).
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        service = new ConsentService() {
+            @Override
+            protected LoggedInInfo getLoggedInInfo() {
+                return loggedInInfo;
+            }
+        };
         service.patientConsentManager = patientConsentManager;
+        service.securityInfoManager = securityInfoManager;
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)).thenReturn(true);
     }
 
     @Test

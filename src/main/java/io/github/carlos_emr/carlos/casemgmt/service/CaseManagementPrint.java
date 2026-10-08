@@ -201,7 +201,9 @@ public class CaseManagementPrint {
             Long noteId = ConversionUtils.fromLongString(noteIdStr);
             if (noteId != null && noteId > 0) {
                 CaseManagementNote note = this.caseManagementMgr.getNote(noteId.toString());
-                if (note != null && note.getProviderNo() != null
+                // Callers authorize the print against demographicNo, but the note ids arrive from the
+                // request; a note of another patient must never ride into this patient's chart PDF.
+                if (note != null && demono.equals(note.getDemographic_no()) && note.getProviderNo() != null
                         && (note.getProviderNo().isEmpty() || Integer.parseInt(note.getProviderNo()) != -1)) {
                     notes.add(note);
                 }

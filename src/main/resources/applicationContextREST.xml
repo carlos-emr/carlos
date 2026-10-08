@@ -188,7 +188,6 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AppService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.AllergyService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.PreventionService" autowire="byName" />
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.ReportByTemplateService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.ResourceService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.DiseaseRegistryService" autowire="byName" />
             <bean class="io.github.carlos_emr.carlos.webserv.rest.LabService" autowire="byName" />
@@ -202,6 +201,10 @@
         <jaxrs:providers>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
+            <!-- A privilege refusal escaping a resource is HTTP 403, not the generic 500 error
+                 page (#2798). Keep in step with the session surface in spring_ws.xml. -->
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
         </jaxrs:providers>
 
         <jaxrs:extensionMappings>
