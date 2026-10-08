@@ -270,9 +270,20 @@
                         is requesting access to your OSCAR account.<br>
                         URL: <carlos:encode value='${oauthData.applicationURI}' context="html"/>.
                     </h5>
-                    <c:if test="${not oauthData.scopesEnforced}">
-                        <%-- oauth.scope.enforcement.enabled=false (#4419): the scopes below are recorded
-                             on the token but not checked, so approving grants the provider's full access. --%>
+                    <c:if test="${not oauthData.scopesEnforced and oauthData.legacyRestricted}">
+                        <%-- oauth.scope.enforcement.enabled=false with the default legacy access (#4419):
+                             the scopes below are recorded on the token but not checked; the application is
+                             held to the legacy integration endpoints instead. --%>
+                        <div class="alert alert-warning" role="alert" id="legacyRestrictedWarning">
+                            OAuth scope enforcement is turned off on this server. The permissions listed
+                            below are not checked. If you authorize this application, it is limited to the
+                            legacy integration operations: creating, updating and reading patient records
+                            and attaching documents to them.
+                        </div>
+                    </c:if>
+                    <c:if test="${not oauthData.scopesEnforced and not oauthData.legacyRestricted}">
+                        <%-- oauth.scope.enforcement.enabled=false and oauth.scope.legacy.access=full:
+                             approving grants the provider's full access. --%>
                         <div class="alert alert-warning" role="alert" id="fullAccessWarning">
                             OAuth scope enforcement is turned off on this server. If you authorize this
                             application, it can read and change everything your account can, not only

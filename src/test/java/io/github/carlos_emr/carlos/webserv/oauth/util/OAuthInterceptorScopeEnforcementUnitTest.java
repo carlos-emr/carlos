@@ -68,25 +68,39 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     // /ws/* servlet mapping (i.e. /services/<domain>/...), already decoded and canonicalized.
     private static final String SCHEDULE_GET_PATHINFO = "/services/schedule/day/2026-06-29";
 
+    private static final String LEGACY_ACCESS_PROPERTY = "oauth.scope.legacy.access";
+
     private String previousEnforcementValue;
+    private String previousLegacyAccessValue;
 
     @BeforeEach
     void captureEnforcementFlag() {
         previousEnforcementValue = CarlosProperties.getInstance().getProperty(ENFORCEMENT_PROPERTY, null);
+        previousLegacyAccessValue = CarlosProperties.getInstance().getProperty(LEGACY_ACCESS_PROPERTY, null);
     }
 
     @AfterEach
     void restoreEnforcementFlag() {
         // Restore (not just remove) so this test cannot clobber a pre-existing value in the shared singleton.
-        if (previousEnforcementValue == null) {
-            CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+        restore(ENFORCEMENT_PROPERTY, previousEnforcementValue);
+        restore(LEGACY_ACCESS_PROPERTY, previousLegacyAccessValue);
+    }
+
+    private static void restore(String key, String value) {
+        if (value == null) {
+            CarlosProperties.getInstance().remove(key);
         } else {
-            CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, previousEnforcementValue);
+            CarlosProperties.getInstance().setProperty(key, value);
         }
     }
 
     private void enableEnforcement() {
         CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "true");
+    }
+
+    private void legacyMode(String access) {
+        CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "false");
+        CarlosProperties.getInstance().setProperty(LEGACY_ACCESS_PROPERTY, access);
     }
 
     @Test
@@ -149,10 +163,11 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should admit the request without enforcement when an operator turned the flag off")
+    @DisplayName("should admit the request without enforcement when an operator opened full legacy access")
     void shouldAdmitRequest_whenEnforcementDisabled() {
-        // Only an explicit off value disables enforcement (#4419). A narrow/irrelevant scope is then admitted.
-        CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "false");
+        // Only an explicit off value disables enforcement (#4419), and only an explicit full legacy access
+        // admits an endpoint outside the legacy list. A narrow/irrelevant scope is then admitted.
+        legacyMode("full");
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
         MockHttpServletRequest request = scheduleReadServletRequest();
         Message message = messageWith(request);
@@ -339,5 +354,102 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         Message message = new MessageImpl();
         message.put(AbstractHTTPDestination.HTTP_REQUEST, request);
         return message;
+    }
+
+    @Test
+    @DisplayName("should refuse an always-blocked endpoint even with full legacy access")
+    void shouldRaiseFault_withHttp403ForBlockedEndpointUnderFullLegacyAccess() {
+        legacyMode("full");
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));
+        MockHttpServletRequest request = servletRequest("GET", "/services/jobs/all");
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+        assertThat(fault.getCause()).hasMessage("blocked_endpoint");
+        assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isNull();
+    }
+
+    @Test
+    @DisplayName("should refuse an always-blocked endpoint even when the token holds the matching scope")
+    void shouldRaiseFault_withHttp403ForBlockedEndpointDespiteScope() {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("persona.write provider.write"));
+        for (String path : new String[] {"/services/persona/rights", "/services/providerService/settings/999998/save"}) {
+            MockHttpServletRequest request = servletRequest("GET", path);
+
+            Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+            assertThat(fault).as(path).isNotNull();
+            assertThat(fault.getCause()).as(path).hasMessage("blocked_endpoint");
+        }
+    }
+
+    @Test
+    @DisplayName("should admit any ordinary endpoint to a scopeless token under full legacy access")
+    void shouldAdmitRequest_underFullLegacyAccess() {
+        legacyMode("full");
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));
+        MockHttpServletRequest request = servletRequest("GET", "/services/tickler/mine");
+
+        interceptor.handleMessage(messageWith(request));
+
+        assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
+    }
+
+    @Test
+    @DisplayName("should admit the Cortico calls to a scopeless token under restricted legacy access")
+    void shouldAdmitCorticoCalls_underRestrictedLegacyAccess() {
+        legacyMode("restricted");
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));
+        String[][] calls = {
+            {"POST", "/services/demographics/"}, {"PUT", "/services/demographics/"},
+            {"GET", "/services/demographics/12345"}, {"POST", "/services/document/saveDocumentToDemographic/"},
+            {"GET", "/services/oauth/info"},
+        };
+        for (String[] call : calls) {
+            MockHttpServletRequest request = servletRequest(call[0], call[1]);
+
+            interceptor.handleMessage(messageWith(request));
+
+            assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey()))
+                    .as("%s %s", call[0], call[1]).isInstanceOf(LoggedInInfo.class);
+        }
+    }
+
+    @Test
+    @DisplayName("should refuse everything outside the Cortico calls under restricted legacy access, scopes or not")
+    void shouldRaiseFault_withHttp403OutsideCorticoCallsUnderRestrictedLegacyAccess() {
+        legacyMode("restricted");
+        // Scopes are not consulted in this mode: a tickler.write grant does not open tickler.
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.write demographic.write"));
+        String[][] calls = {
+            {"GET", "/services/tickler/mine"}, {"DELETE", "/services/demographics/12345"},
+            {"POST", "/services/demographics/search"}, {"GET", "/services/demographics/"},
+        };
+        for (String[] call : calls) {
+            MockHttpServletRequest request = servletRequest(call[0], call[1]);
+
+            Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+            assertThat(fault).as("%s %s", call[0], call[1]).isNotNull();
+            assertThat(fault.getStatusCode()).as("%s %s", call[0], call[1]).isEqualTo(403);
+            assertThat(fault.getCause()).as("%s %s", call[0], call[1]).hasMessage("restricted_endpoint");
+        }
+    }
+
+    @Test
+    @DisplayName("should restrict legacy access by default when enforcement is merely turned off")
+    void shouldRestrictLegacyAccess_whenOnlyEnforcementIsOff() {
+        CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "false");
+        CarlosProperties.getInstance().remove(LEGACY_ACCESS_PROPERTY);
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));
+        MockHttpServletRequest request = servletRequest("GET", "/services/tickler/mine");
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getCause()).hasMessage("restricted_endpoint");
     }
 }

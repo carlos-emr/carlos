@@ -365,4 +365,157 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.parseScopeString("demographic.read%2")).containsExactly("demographic.read%2");
         }
     }
+
+    @Nested
+    @DisplayName("isAlwaysBlocked(method, servicePath)")
+    class IsAlwaysBlocked {
+
+        @Test
+        @DisplayName("should block the whole scheduled-job service for any method")
+        void shouldBlockJobs_forAnyMethod() {
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/jobs/all", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("POST", "/services/jobs/saveJob", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/jobs", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/JOBS/all.json", false)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not offer job scopes at /initiate once every job endpoint is blocked")
+        void shouldDropJobScopes_fromVocabulary() {
+            assertThat(OAuthScopes.isKnownScope("job.read")).isFalse();
+            assertThat(OAuthScopes.isKnownScope("job.write")).isFalse();
+            assertThat(OAuthScopes.isKnownScope("tickler.read")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should block the account-rights lookups but not the rest of persona")
+        void shouldBlockRightsLookups_onPersona() {
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/persona/rights", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/persona/hasRight", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("POST", "/services/persona/hasRights", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/persona/navbar", false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("POST", "/services/persona/preferences", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should block record merges on mutating methods only")
+        void shouldBlockMergeWrites_butAllowMergeReads() {
+            assertThat(OAuthScopes.isAlwaysBlocked("PUT", "/services/demographics/merge/", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("DELETE", "/services/demographics/merge", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/demographics/merge/42", false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("DELETE", "/services/demographics/42", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should block provider settings writes and the recently-viewed lists")
+        void shouldBlockSettingsSave_andRecentlyViewed() {
+            assertThat(OAuthScopes.isAlwaysBlocked("POST", "/services/providerService/settings/999998/save", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/providerService/getRecentDemographicsViewed", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET",
+                    "/services/providerService/getRecentDemographicsViewedAfterDateIncluded", false)).isTrue();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/providerService/settings/get", false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/providerService/provider/me", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should block a matrix-parameter spelling when either path form is blocked")
+        void shouldBlock_whenEitherPathFormMatchesUnderMatrixParameters() {
+            // With ";x=1" CXF may route "rights.json" unstripped (no match) or stripped (blocked).
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/persona/rights.json", true)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not block ordinary data endpoints or non-service paths")
+        void shouldNotBlock_ordinaryEndpoints() {
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", TICKLER_MINE_PATH, false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/services/oauth/info", false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", "/rs/demographics/1", false)).isFalse();
+            assertThat(OAuthScopes.isAlwaysBlocked("GET", null, false)).isFalse();
+        }
+    }
+
+    /**
+     * The REST calls the Cortico integration makes (its endpoint sheet; the rest of its calls are SOAP).
+     * They must work in legacy-restricted mode with no scopes, must never be always-blocked, and must work
+     * under enforcement with the two scopes they need.
+     */
+    private static final List<String[]> CORTICO_REST_CALLS = List.of(
+            new String[] {"POST", "/services/demographics/"},
+            new String[] {"PUT", "/services/demographics/"},
+            new String[] {"GET", "/services/demographics/12345"},
+            new String[] {"POST", "/services/document/saveDocumentToDemographic/"});
+    private static final List<String> CORTICO_SCOPES = List.of("demographic.write", "document.write");
+
+    @Nested
+    @DisplayName("isLegacyRestrictedAllowed(method, servicePath)")
+    class IsLegacyRestrictedAllowed {
+
+        @Test
+        @DisplayName("should admit every Cortico REST call with no scopes at all")
+        void shouldAdmitCorticoCalls_withoutScopes() {
+            for (String[] call : CORTICO_REST_CALLS) {
+                assertThat(OAuthScopes.isLegacyRestrictedAllowed(call[0], call[1], false))
+                        .as("%s %s", call[0], call[1]).isTrue();
+                assertThat(OAuthScopes.isAlwaysBlocked(call[0], call[1], false))
+                        .as("%s %s must not be blocked", call[0], call[1]).isFalse();
+            }
+        }
+
+        @Test
+        @DisplayName("should satisfy every Cortico REST call under enforcement with demographic.write and document.write")
+        void shouldSatisfyCorticoCalls_withTheirScopes() {
+            for (String[] call : CORTICO_REST_CALLS) {
+                String required = OAuthScopes.requiredScope(call[0], call[1], false);
+                assertThat(OAuthScopes.isSatisfiedBy(required, CORTICO_SCOPES))
+                        .as("%s %s needs %s", call[0], call[1], required).isTrue();
+            }
+            assertThat(OAuthScopes.isKnownScope("demographic.write")).isTrue();
+            assertThat(OAuthScopes.isKnownScope("document.write")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should admit the extension-mapped and case-varied spellings CXF routes the same way")
+        void shouldAdmitCorticoCalls_inRoutedSpellings() {
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/12345.json", false)).isTrue();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("post", "/services/Demographics", false)).isTrue();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("POST", "/services/document/saveDocumentToDemographic.json", false)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should refuse everything else on the demographics and document services")
+        void shouldRefuseOtherOperations_onAllowedRoots() {
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/", false)).isFalse();   // list all
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/quickSearch", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("POST", "/services/demographics/search", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("DELETE", "/services/demographics/12345", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/basic/12345", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/document/saveDocumentToDemographic", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("POST", "/services/document/uploadPendingDocuments", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should refuse every other service, the bare services root, and null methods")
+        void shouldRefuse_otherServices() {
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", TICKLER_MINE_PATH, false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", SCHEDULE_DAY_PATH, false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services", false)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed(null, "/services/demographics/", false)).isFalse();
+        }
+
+        @Test
+        @DisplayName("should keep the scope-exempt oauth root and non-service paths open")
+        void shouldAdmit_exemptRootAndNonServicePaths() {
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/oauth/info", false)).isTrue();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/rs/demographics/1", false)).isTrue();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", null, false)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should require both path forms to be allowed under a matrix parameter")
+        void shouldRequireBothForms_underMatrixParameters() {
+            // Stripped, "12345" is the allowed read; unstripped, "12345.json" is not a number.
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/12345.json", true)).isFalse();
+            assertThat(OAuthScopes.isLegacyRestrictedAllowed("GET", "/services/demographics/12345", true)).isTrue();
+        }
+    }
 }

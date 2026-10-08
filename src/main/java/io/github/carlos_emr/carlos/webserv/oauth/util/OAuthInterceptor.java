@@ -414,17 +414,17 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     /**
      * Enforces the granted OAuth 1.0a scopes for the current request (issue #3083).
      *
-     * <p>Fast-exits when an operator has turned enforcement off ({@link OAuthScopeEnforcement}; it is on
-     * by default since #4419) or when the endpoint is explicitly scope-exempt ({@link OAuthScopes#requiredScope}
-     * returns {@link OAuthScopes#NO_SCOPE_REQUIRED}). An endpoint the scope map does not know requires
+     * <p>First refuses the endpoints closed to every OAuth client ({@link OAuthScopes#isAlwaysBlocked}, 403
+     * {@code blocked_endpoint}), in every mode. Then, by {@link OAuthScopeEnforcement#mode()}: legacy full
+     * access admits the call; legacy restricted access admits only the legacy integration endpoints
+     * ({@link OAuthScopes#isLegacyRestrictedAllowed}, else 403 {@code restricted_endpoint}); scoped access, the
+     * default since #4419, admits a scope-exempt endpoint ({@link OAuthScopes#requiredScope} returns
+     * {@link OAuthScopes#NO_SCOPE_REQUIRED}) or one the token's scopes cover. An endpoint the scope map does not know requires
      * {@link OAuthScopes#UNMAPPED_ENDPOINT}, which no token satisfies. When a scope is required and the token's
      * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
      * the caller's catch block records the rejection in the audit trail.
      */
     private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken, String consumerKey) {
-        if (!OAuthScopeEnforcement.isEnabled()) {
-            return;
-        }
         // Resolve the scope from getPathInfo(): the container-decoded, canonicalized path (dot-segments
         // collapsed, matrix params stripped) that JAX-RS/CXF actually routes on. Using the raw request URI
         // here would force us to re-implement that normalization and risk diverging from the real routing.
@@ -432,7 +432,26 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // path with matrix parameters, and getPathInfo() no longer shows them (see OAuthScopes).
         String rawUri = req.getRequestURI();
         boolean matrixParameters = rawUri == null || rawUri.indexOf(';') >= 0;
-        String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo(), matrixParameters);
+        String method = req.getMethod();
+        String path = req.getPathInfo();
+        // Some endpoints are closed to every OAuth client in every mode: server administration, account
+        // reconnaissance and record merges. Checked before the mode, so turning scopes off cannot open them.
+        if (OAuthScopes.isAlwaysBlocked(method, path, matrixParameters)) {
+            throw new OAuth1Exception(403, "blocked_endpoint");
+        }
+        OAuthScopeEnforcement.Mode mode = OAuthScopeEnforcement.mode();
+        if (mode == OAuthScopeEnforcement.Mode.LEGACY_FULL) {
+            return;
+        }
+        if (mode == OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED) {
+            // Scopes are off for a legacy integration that never requested any; it gets its own few
+            // endpoints and nothing else.
+            if (!OAuthScopes.isLegacyRestrictedAllowed(method, path, matrixParameters)) {
+                throw new OAuth1Exception(403, "restricted_endpoint");
+            }
+            return;
+        }
+        String requiredScope = OAuthScopes.requiredScope(method, path, matrixParameters);
         if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: an explicitly exempt endpoint
             return;
         }

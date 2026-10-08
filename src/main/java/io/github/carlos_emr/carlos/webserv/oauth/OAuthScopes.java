@@ -55,7 +55,10 @@ import java.util.Set;
  * when a published service's root is in neither map.
  *
  * <p>Whether to enforce at all is {@link OAuthScopeEnforcement}'s decision (on by default since #4419); this
- * class only computes what scope a request requires.
+ * class only computes what scope a request requires. Two further decisions do not depend on the mode:
+ * {@link #isAlwaysBlocked} names endpoints no OAuth client may call at all, and
+ * {@link #isLegacyRestrictedAllowed} names the few a legacy integration may call when an operator has turned
+ * scopes off but kept the default restricted legacy access.
  *
  * <p>All methods are pure functions of their arguments; this type holds no request state and is safe to
  * call from any thread.
@@ -168,6 +171,78 @@ public final class OAuthScopes {
         Map.entry("rx", List.of(seg("*", "print", "*")))
     );
 
+    /**
+     * An endpoint rule: {@code operation} is a path template (as in {@link #READ_OP_TEMPLATES_BY_ROOT},
+     * with {@code "*"} for any one segment and {@code "#"} for one all-digit segment) relative to
+     * {@code root}; {@code prefix} makes it match that operation and everything below it (an empty prefix
+     * template is the whole root); {@code methods} limits it to those HTTP methods, or every method when
+     * empty.
+     */
+    private record EndpointRule(String root, List<String> operation, boolean prefix, Set<String> methods) {
+        boolean matches(String method, List<String> segments) {
+            if (!root.equals(segments.get(0))) {
+                return false;
+            }
+            if (!methods.isEmpty() && (method == null || !methods.contains(asciiLowerCase(method.trim())))) {
+                return false;
+            }
+            List<String> requested = segments.subList(1, segments.size());
+            if (prefix) {
+                return requested.size() >= operation.size()
+                        && matchesTemplate(operation, requested.subList(0, operation.size()));
+            }
+            return matchesTemplate(operation, requested);
+        }
+    }
+
+    private static final Set<String> ANY_METHOD = Set.of();
+    private static final Set<String> MUTATING_METHODS = Set.of("post", "put", "delete", "patch");
+
+    /**
+     * Endpoints no OAuth client may call, whatever its scopes and whatever
+     * {@link OAuthScopeEnforcement.Mode} the server runs in. They are server administration, account
+     * reconnaissance, or destructive record surgery: a provider's own session may do them in the UI, but an
+     * app approved by that provider must not inherit them, and turning enforcement off (which exists so a
+     * legacy integration keeps working) must not open them either.
+     *
+     * <ul>
+     *   <li>{@code jobs}: the scheduled-task configuration ({@code OscarJobService}); reading it reveals
+     *       server internals and writing it reschedules or disables jobs. Whole root; {@code job.*} is
+     *       therefore not a requestable scope.</li>
+     *   <li>{@code persona/rights}, {@code hasRight}, {@code hasRights}: a listing of what the approving
+     *       account may do, useful only to an attacker mapping it.</li>
+     *   <li>{@code demographics/merge} writes: merging and unmerging patient records is destructive and
+     *       belongs to a person in the UI. The read of merged ids stays available.</li>
+     *   <li>{@code providerService/settings/{no}/save}: rewrites the provider's own preferences.</li>
+     *   <li>{@code providerService/getRecentDemographicsViewed*}: the provider's record-browsing history,
+     *       PHI about who looked at which patient and not data an integration needs.</li>
+     * </ul>
+     */
+    private static final List<EndpointRule> ALWAYS_BLOCKED = List.of(
+        new EndpointRule("jobs", seg(), true, ANY_METHOD),
+        new EndpointRule("persona", seg("rights"), false, ANY_METHOD),
+        new EndpointRule("persona", seg("hasright"), false, ANY_METHOD),
+        new EndpointRule("persona", seg("hasrights"), false, ANY_METHOD),
+        new EndpointRule("demographics", seg("merge"), true, MUTATING_METHODS),
+        new EndpointRule("providerservice", seg("settings", "*", "save"), false, ANY_METHOD),
+        new EndpointRule("providerservice", seg("getrecentdemographicsviewed"), false, ANY_METHOD),
+        new EndpointRule("providerservice", seg("getrecentdemographicsviewedafterdateincluded"), false, ANY_METHOD)
+    );
+
+    /**
+     * The only {@code /ws/services} endpoints an OAuth client may call in
+     * {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED}: the REST calls the Cortico patient-engagement
+     * integration makes (its remaining calls are SOAP, which OAuth does not gate). Scopes are not consulted
+     * in that mode, so this list is the whole grant: create a patient, update a patient, read one patient
+     * by number, and attach a document to a patient. Anything else answers 403 {@code restricted_endpoint}.
+     * {@code oauth/info} is exempt as always.
+     */
+    private static final List<EndpointRule> LEGACY_RESTRICTED_ALLOWED = List.of(
+        new EndpointRule("demographics", seg(), false, Set.of("post", "put")),
+        new EndpointRule("demographics", seg("#"), false, Set.of("get")),
+        new EndpointRule("document", seg("savedocumenttodemographic"), false, Set.of("post"))
+    );
+
     /** The suffixes the {@code /services} server's {@code <jaxrs:extensionMappings>} strip before routing. */
     // Package-private so OAuthScopesServiceMapUnitTest can hold it to applicationContextREST.xml.
     static final List<String> EXTENSION_MAPPING_SUFFIXES = List.of(".json", ".xml");
@@ -186,11 +261,85 @@ public final class OAuthScopes {
 
     private static Set<String> buildKnownScopes() {
         Set<String> scopes = new HashSet<>();
-        for (String domain : DOMAIN_BY_PATH_ROOT.values()) {
-            scopes.add(domain + "." + READ);
-            scopes.add(domain + "." + WRITE);
+        for (Map.Entry<String, String> entry : DOMAIN_BY_PATH_ROOT.entrySet()) {
+            if (isWhollyBlockedRoot(entry.getKey())) {
+                continue;  // no endpoint is left for the scope to grant, so /initiate must not offer it
+            }
+            scopes.add(entry.getValue() + "." + READ);
+            scopes.add(entry.getValue() + "." + WRITE);
         }
         return Set.copyOf(scopes);
+    }
+
+    private static boolean isWhollyBlockedRoot(String root) {
+        for (EndpointRule rule : ALWAYS_BLOCKED) {
+            if (rule.root().equals(root) && rule.prefix() && rule.operation().isEmpty() && rule.methods().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether no OAuth client may make this request, in any enforcement mode ({@link #ALWAYS_BLOCKED}).
+     * Evaluated on the path CXF routes (extension mapping removed); with a matrix parameter, on the
+     * unstripped path too, so the request is blocked if either form is.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return {@code true} if the request must be refused outright
+     */
+    public static boolean isAlwaysBlocked(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
+        List<String> original = serviceSegments(servicePath);
+        if (original == null || original.isEmpty()) {
+            return false;
+        }
+        List<String> stripped = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
+        for (EndpointRule rule : ALWAYS_BLOCKED) {
+            if (rule.matches(httpMethod, stripped) || (pathHasMatrixParameters && rule.matches(httpMethod, unstripped))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether {@link OAuthScopeEnforcement.Mode#LEGACY_RESTRICTED} admits this request: a non-{@code /services}
+     * path or a scope-exempt root always, otherwise only an endpoint in {@link #LEGACY_RESTRICTED_ALLOWED}.
+     * With a matrix parameter both the stripped and unstripped path must be allowed, since CXF may route
+     * either. {@link #isAlwaysBlocked} is checked first by the caller and is not repeated here.
+     *
+     * @param httpMethod              the request method
+     * @param servicePath             the request's servlet path info
+     * @param pathHasMatrixParameters whether the raw request URI's path contains {@code ;}
+     * @return {@code true} if the restricted legacy grant covers the request
+     */
+    public static boolean isLegacyRestrictedAllowed(String httpMethod, String servicePath, boolean pathHasMatrixParameters) {
+        List<String> original = serviceSegments(servicePath);
+        if (original == null) {
+            return true;
+        }
+        if (original.isEmpty()) {
+            return false;
+        }
+        List<String> stripped = lowerCase(stripExtensionMapping(original));
+        List<String> unstripped = lowerCase(original);
+        if (SCOPE_EXEMPT_ROOTS.contains(stripped.get(0))) {
+            return true;
+        }
+        return isLegacyAllowed(httpMethod, stripped)
+                && (!pathHasMatrixParameters || isLegacyAllowed(httpMethod, unstripped));
+    }
+
+    private static boolean isLegacyAllowed(String httpMethod, List<String> segments) {
+        for (EndpointRule rule : LEGACY_RESTRICTED_ALLOWED) {
+            if (rule.matches(httpMethod, segments)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -287,13 +436,33 @@ public final class OAuthScopes {
         return false;
     }
 
-    /** Positional match: same length, and every non-wildcard template segment equals the request segment. */
+    /**
+     * Positional match: same length, and every template segment equals the request segment, except that
+     * {@code "*"} matches any one segment and {@code "#"} any one non-empty all-ASCII-digit segment.
+     */
     private static boolean matchesTemplate(List<String> template, List<String> operation) {
         if (template.size() != operation.size()) {
             return false;
         }
         for (int i = 0; i < template.size(); i++) {
-            if (!template.get(i).equals("*") && !template.get(i).equals(operation.get(i))) {
+            String t = template.get(i);
+            if (t.equals("*")) {
+                continue;
+            }
+            if (t.equals("#") ? !isAsciiDigits(operation.get(i)) : !t.equals(operation.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAsciiDigits(String s) {
+        if (s.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') {
                 return false;
             }
         }

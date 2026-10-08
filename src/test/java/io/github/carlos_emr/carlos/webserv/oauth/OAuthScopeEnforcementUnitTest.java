@@ -44,18 +44,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 class OAuthScopeEnforcementUnitTest {
 
     private String previousValue;
+    private String previousLegacyAccess;
 
     @BeforeEach
     void captureFlag() {
         previousValue = CarlosProperties.getInstance().getProperty(OAuthScopeEnforcement.PROPERTY, null);
+        previousLegacyAccess = CarlosProperties.getInstance().getProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, null);
     }
 
     @AfterEach
     void restoreFlag() {
-        if (previousValue == null) {
-            CarlosProperties.getInstance().remove(OAuthScopeEnforcement.PROPERTY);
+        restore(OAuthScopeEnforcement.PROPERTY, previousValue);
+        restore(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, previousLegacyAccess);
+    }
+
+    private static void restore(String key, String value) {
+        if (value == null) {
+            CarlosProperties.getInstance().remove(key);
         } else {
-            CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, previousValue);
+            CarlosProperties.getInstance().setProperty(key, value);
         }
     }
 
@@ -97,5 +104,44 @@ class OAuthScopeEnforcementUnitTest {
         assertThat(OAuthScopeEnforcement.isExplicitlyDisabled(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)))
                 .isFalse();
         assertThat(bundled.getProperty(OAuthScopeEnforcement.PROPERTY)).isEqualTo("true");
+    }
+
+    @Test
+    @DisplayName("should run scoped whatever the legacy access value while enforcement is on")
+    void shouldBeScoped_whenEnforcementOnRegardlessOfLegacyAccess() {
+        CarlosProperties.getInstance().remove(OAuthScopeEnforcement.PROPERTY);
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, "full");
+
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.SCOPED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"restricted", "", "  ", "ful", "everything", "FULL ACCESS"})
+    @DisplayName("should restrict legacy access unless the value is exactly full")
+    void shouldRestrictLegacyAccess_forAnyValueButFull(String value) {
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, "false");
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, value);
+
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);
+        assertThat(OAuthScopeEnforcement.isEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("should restrict legacy access when the legacy property is absent")
+    void shouldRestrictLegacyAccess_whenLegacyPropertyAbsent() {
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, "off");
+        CarlosProperties.getInstance().remove(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY);
+
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.LEGACY_RESTRICTED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"full", "FULL", " Full "})
+    @DisplayName("should open full legacy access only for an explicit full value")
+    void shouldOpenFullLegacyAccess_forExplicitFull(String value) {
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.PROPERTY, "false");
+        CarlosProperties.getInstance().setProperty(OAuthScopeEnforcement.LEGACY_ACCESS_PROPERTY, value);
+
+        assertThat(OAuthScopeEnforcement.mode()).isEqualTo(OAuthScopeEnforcement.Mode.LEGACY_FULL);
     }
 }

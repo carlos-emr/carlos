@@ -44,6 +44,24 @@ public final class OAuthScopeEnforcement {
     /** The carlos.properties key. Absent or blank means enabled. */
     public static final String PROPERTY = "oauth.scope.enforcement.enabled";
 
+    /**
+     * What an OAuth client may call once {@link #PROPERTY} is off: {@code restricted} (the default) admits
+     * only the legacy integration endpoints ({@link OAuthScopes#isLegacyRestrictedAllowed}); {@code full}
+     * admits everything the provider can do, less {@link OAuthScopes#isAlwaysBlocked}. Ignored while
+     * enforcement is on.
+     */
+    public static final String LEGACY_ACCESS_PROPERTY = "oauth.scope.legacy.access";
+
+    /** The three ways {@code /ws/services} can gate an OAuth client. */
+    public enum Mode {
+        /** Each call needs the scope its endpoint requires: the default. */
+        SCOPED,
+        /** Scopes are not checked; only the legacy integration endpoints may be called. */
+        LEGACY_RESTRICTED,
+        /** Scopes are not checked; every endpoint except the always-blocked ones may be called. */
+        LEGACY_FULL
+    }
+
     private static final Logger logger = MiscUtils.getLogger();
 
     private OAuthScopeEnforcement() {
@@ -61,12 +79,34 @@ public final class OAuthScopeEnforcement {
      *         {@code off} (case-insensitive); {@code true} otherwise
      */
     public static boolean isEnabled() {
+        return mode() == Mode.SCOPED;
+    }
+
+    /**
+     * The gating mode in force. Enforcement off plus an absent, blank, unrecognised or {@code restricted}
+     * {@link #LEGACY_ACCESS_PROPERTY} is {@link Mode#LEGACY_RESTRICTED}; only an explicit {@code full}
+     * widens it. A configuration read failure is {@link Mode#SCOPED}, for the reason given on
+     * {@link #isEnabled()}.
+     *
+     * @return the mode; never {@code null}
+     */
+    public static Mode mode() {
         try {
-            return !isExplicitlyDisabled(CarlosProperties.getInstance().getProperty(PROPERTY));
+            CarlosProperties properties = CarlosProperties.getInstance();
+            if (!isExplicitlyDisabled(properties.getProperty(PROPERTY))) {
+                return Mode.SCOPED;
+            }
+            return isFullLegacyAccess(properties.getProperty(LEGACY_ACCESS_PROPERTY))
+                    ? Mode.LEGACY_FULL : Mode.LEGACY_RESTRICTED;
         } catch (RuntimeException e) {
             logger.warn("Could not read {}; enforcing OAuth scopes", PROPERTY, e);
-            return true;
+            return Mode.SCOPED;
         }
+    }
+
+    /** Package-private for the unit test: only the one recognised value opens full legacy access. */
+    static boolean isFullLegacyAccess(String value) {
+        return value != null && OAuthScopes.asciiLowerCase(value.trim()).equals("full");
     }
 
     /** Package-private for the unit test: the value-to-decision rule without the singleton. */
