@@ -6046,6 +6046,21 @@
       "notes": "Verifies paging, Load All, Collapse/Expand and preserved container bounds after the final empty batch (#4171)."
     },
     {
+      "name": "echart-notes-pagination-retry",
+      "script": "scripts/echart-notes-pagination-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart; notes and eChart rows removed and asserted gone. Pagination failures are injected with Playwright routes (a 401, a 200 session-expired page, then 500s).",
+      "notes": "Issue #3609: a pagination fetch that rendered nothing is retried on the next scroll-to-top, capped at three in a row, shown with a Retry link, never left in the pane (a non-2xx body is not inserted, a 200 non-fragment page is taken back out); a failed Load All can be clicked again; a note save re-renders the fragment with paging started over so no batch is skipped."
+    },
+    {
       "name": "gap-clinical-calculators-conversions",
       "script": "scripts/gap-clinical-calculators-conversions-playwright-checks.js",
       "tiers": [

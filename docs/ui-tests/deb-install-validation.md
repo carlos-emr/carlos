@@ -2027,3 +2027,63 @@ tests OK. `debian/assets/tests` and `scripts/migration/o19/tests` also passed.
 ### Note-role repair isolation
 
 `admin-role-management` requires `EXCLUSIVE=1` on a disposable deployment with no other checks running. Launch it with `EXCLUSIVE=1 npm run test:admin-role-management-playwright` or `EXCLUSIVE=1 node scripts/run-playwright-suite.js --only admin-role-management`. The workflow refuses to seed or submit the global repair if any pre-existing note has `reporter_caisi_role='0'`; it verifies that empty, nonnumeric and other existing roles remain unchanged. Set the same variable when including this check in `--tier core`.
+
+### eChart notes pagination retry (2026-10-08, issue #3609)
+
+`echart-notes-pagination-retry-playwright-checks.js` was added for issue #3609 (one
+pagination fetch that rendered nothing ended loading older notes for the rest of the
+chart session) and run against a `2026.09.0~snapshot26` package built from the
+`release/2026.08` fix branch. The build ran in an `ubuntu:26.04` container the way
+`deb-packages.yml` does it: `CARLOS_WAR` set to the WAR `mvn package` produced from the
+branch (JDK 25), DrugRef built from `debian/drugref.pin`, Chromium from the
+`debian/chromium.pin` revision (prefetched and passed as `CHROMIUM_DIST`), and
+`carlos-ctl_1.1.1_all.deb` from the release `debian/carlos-ctl.pin` names.
+`dpkg-buildpackage -us -uc -b` produced `carlos-emr_…_amd64` and
+`carlos-emr-drugref_…_all`; lintian reported only the pre-existing
+`possible-bashism-in-maintainer-script` warning.
+
+The three packages were installed with the section 3 preseed
+(`install-demo-data=true`) into a fresh privileged `ubuntu:26.04` container with
+systemd as PID 1 on a cgroup-v1 Docker host (the entrypoint remounts `/sys/fs/cgroup`
+as cgroup2, as the section 2 note describes). `carlos-ctl check` reported every line
+`OK` (43 Flyway migrations, WAF blocking, live DrugRef lookup, render browser active).
+With the section 6 environment contract (`EXPECT_FRONT_DOOR=true`, the first-login
+reset consumed once through `drugref-update-playwright-checks.js`), all through `:443`:
+
+| Check | Result |
+|---|---|
+| `echart-notes-pagination-retry` | **PASS** 6/6: a 401 on the second page shows the "Older notes could not be loaded" indicator with Retry, inserts nothing, rolls the offset back and leaves the poll armed; the next scroll to the top retries the same batch and paging reaches all 45 notes; a persistent 500 is retried exactly three times and then the poll stops with nothing inserted; Retry re-arms the poll and paging completes; a failed Load All Notes can be clicked again. |
+| `gap-clinical-chart-notes-pagination` | **PASS** 5/5 (paging, Load All, Collapse/Expand, `maxNcId` after the final empty batch). |
+| `echart` | **PASS** (notes rendered, pagination stopped at the end of the chart, Social History, draft autosave, Unresolved Issues). |
+
+With the pre-fix `newCaseManagementView.js.jsp` and `ChartNotes.jsp` from
+`release/2026.08` swapped into the installed webapp (`carlos-ctl restart` so Jasper
+recompiles them; a swap alone keeps serving the cached compilation), the new check
+**FAILS** at its second step: "The "notes could not be loaded" indicator did not appear
+after the failed pagination fetch". Restoring the fixed files and restarting returns it
+to 6/6.
+
+A second defect surfaced while reading the same code and was reproduced on this
+install before it was fixed on the same branch: the pagination state lives in the page
+script, and every fragment reload (a note save; the filter and Full/Quick chart paths
+share it) re-rendered `ChartNotes.jsp` without starting it over. Driven live: page to
+40 notes (`notesOffset` 20), reload the fragment, page again, and the pane ends with
+25 notes, NOTE45 to NOTE41 and NOTE20 to NOTE01: the second batch is never shown again.
+With `notesLoadFirstPage()` hot-swapped into the installed webapp (JS and fragment,
+then `carlos-ctl restart`), the check's added seventh step, which pages to 40, saves a
+note through `#saveImg` and pages again, finds all 45 once each: **PASS** 7/7.
+
+A 200 response that is not the fragment (`expired.jsp`, `domain-error.jsp`) used to be
+inserted above the notes by the updater and stay there. The loader now records the
+pane's first child before the insert and, when no fragment script ran, removes what was
+inserted ahead of it. The check gained a step that answers one page fetch with a 200
+"Your session has expired" page: the text does not remain in the pane, the fetch counts
+as a failure with the indicator up, and paging continues to all 45 (**PASS**).
+
+The pinned carlos-ctl 1.1.1 suite ran against the branch under Python 3.14
+(`CARLOS_SRC`): 249 tests OK; `debian/assets/tests` (45) and the o19 manifest tests
+also passed. The full `mvn test` on the branch in the same `ubuntu:26.04` JDK 25
+container: 19157 tests, with 38 failures confined to the label/receipt/letter PDF and
+image classes, all `UnsatisfiedLinkError: libharfbuzz.so.0` from the headless JDK;
+those nine classes pass (92 tests) once `libharfbuzz0b`, `libfreetype6`, `fontconfig`
+and `fonts-dejavu-core` are installed in the build container.
