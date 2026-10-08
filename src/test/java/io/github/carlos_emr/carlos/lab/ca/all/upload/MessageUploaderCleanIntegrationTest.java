@@ -32,7 +32,6 @@ import jakarta.persistence.PersistenceContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
@@ -74,6 +73,8 @@ import static org.mockito.Mockito.when;
 class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
     private static final int CHECKSUM = 9843600;
     private static final String SYNTHETIC_MESSAGE = "U1lOVEhFVElD";
+    // clean() copies each removed row into the recycle bin; these find this test's copies by content.
+    private static final String SYNTHETIC_LAST_NAME = "Synth4436";
 
     @Autowired private PlatformTransactionManager transactions;
     @Autowired private Hl7TextMessageDao messages;
@@ -113,9 +114,11 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
                     .setParameter("checksum", CHECKSUM).executeUpdate();
             em.createQuery("delete from Hl7TextMessage m where m.fileUploadCheckId = :checksum")
                     .setParameter("checksum", CHECKSUM).executeUpdate();
-            em.createQuery("delete from RecycleBin r where r.providerNo = '0' and r.tableName in "
-                    + "('hl7TextInfo', 'hl7TextMessage') and r.tableContent like :marker")
-                    .setParameter("marker", "%" + SYNTHETIC_MESSAGE + "%").executeUpdate();
+            em.createQuery("delete from RecycleBin r where r.providerNo = '0' and "
+                    + "((r.tableName = 'hl7TextMessage' and r.tableContent like :message) "
+                    + "or (r.tableName = 'hl7TextInfo' and r.tableContent like :info))")
+                    .setParameter("message", "%" + SYNTHETIC_MESSAGE + "%")
+                    .setParameter("info", "%" + SYNTHETIC_LAST_NAME + "%").executeUpdate();
         });
     }
 
@@ -132,6 +135,7 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
     private Hl7TextInfo infoFor(Hl7TextMessage message, String sex) {
         Hl7TextInfo info = new Hl7TextInfo();
         info.setLabNumber(message.getId());
+        info.setLastName(SYNTHETIC_LAST_NAME);
         info.setSex(sex);
         return info;
     }
@@ -149,10 +153,18 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
                 .setParameter("checksum", CHECKSUM).getSingleResult());
     }
 
-    private long countRecycled() {
+    private long countRecycled(String table, String marker) {
         return tx.execute(status -> em.createQuery(
-                "select count(r) from RecycleBin r where r.tableName = 'hl7TextMessage' and r.tableContent like :marker",
-                Long.class).setParameter("marker", "%" + SYNTHETIC_MESSAGE + "%").getSingleResult());
+                "select count(r) from RecycleBin r where r.tableName = :table and r.tableContent like :marker",
+                Long.class).setParameter("table", table).setParameter("marker", "%" + marker + "%").getSingleResult());
+    }
+
+    private long countRecycledMessages() {
+        return countRecycled("hl7TextMessage", SYNTHETIC_MESSAGE);
+    }
+
+    private long countRecycledInfos() {
+        return countRecycled("hl7TextInfo", SYNTHETIC_LAST_NAME);
     }
 
     @Test
@@ -166,7 +178,7 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
         }
 
         assertThat(countMessages()).as("the doomed transaction rolled back").isZero();
-        assertThat(countRecycled()).as("nothing was recycled by a skipped clean").isZero();
+        assertThat(countRecycledMessages() + countRecycledInfos()).as("nothing was recycled by a skipped clean").isZero();
     }
 
     private void rejectInsertThenClean() {
@@ -197,24 +209,22 @@ class MessageUploaderCleanIntegrationTest extends CarlosTestBase {
         });
 
         assertThat(countMessages()).isZero();
-        assertThat(countRecycled()).isEqualTo(1);
         assertThat(countInfos()).isZero();
+        assertThat(countRecycledMessages()).isEqualTo(1);
+        assertThat(countRecycledInfos()).isEqualTo(1);
     }
 
     @Test
     void shouldRecycleCommittedRows_whenNoTransactionIsActive() {
-        List<Integer> ids = tx.execute(status -> {
-            Hl7TextMessage message = persistMessage();
-            infos.persist(infoFor(message, "F"));
-            return List.of(message.getId());
-        });
-        assertThat(ids).hasSize(1);
-        assertThat(countMessages()).isEqualTo(1);
+        tx.executeWithoutResult(status -> infos.persist(infoFor(persistMessage(), "F")));
+        assertThat(countMessages()).as("the rows are committed before clean runs").isEqualTo(1);
 
         MessageUploader.clean(CHECKSUM);
 
         assertThat(countMessages()).isZero();
-        assertThat(countRecycled()).isEqualTo(1);
+        assertThat(countInfos()).isZero();
+        assertThat(countRecycledMessages()).isEqualTo(1);
+        assertThat(countRecycledInfos()).isEqualTo(1);
     }
 
     @Test
