@@ -8,13 +8,23 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 @Tag("unit")
 class LogActionUnitTest {
@@ -24,6 +34,59 @@ class LogActionUnitTest {
         LogAction.setOscarLogDaoForTesting(null);
         LogAction.resetExecutorServiceForTesting();
         Thread.interrupted();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Tag("create")
+    void shouldRecordContentIdAndPatient_whenLoggingSynchronously(boolean requireAudit) {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+
+        Security security = new Security();
+        security.setSecurityNo(99);
+        when(loggedInInfo.getLoggedInSecurity()).thenReturn(security);
+        when(loggedInInfo.getLoggedInProvider()).thenReturn(mock(Provider.class));
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getIp()).thenReturn("127.0.0.1");
+        if (requireAudit) LogAction.addLogSynchronousOrThrow(loggedInInfo, "retire", "consent", "11", 100, "data");
+        else LogAction.addLogSynchronous(loggedInInfo, "retire", "consent", "11", 100, "data");
+
+        verify(oscarLogDao).persist(argThat((OscarLog log) ->
+                "retire".equals(log.getAction())
+                        && Integer.valueOf(99).equals(log.getSecurityId())
+                        && "999998".equals(log.getProviderNo())
+                        && "consent".equals(log.getContent())
+                        && "11".equals(log.getContentId())
+                        && Integer.valueOf(100).equals(log.getDemographicId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && "data".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldPropagateAuditFailure_whenCallerRequiresAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        IllegalStateException failure = new IllegalStateException("synthetic audit failure");
+        doThrow(failure).when(oscarLogDao).persist(any(OscarLog.class));
+
+        assertThatThrownBy(() -> LogAction.addLogSynchronousOrThrow(mock(LoggedInInfo.class),
+                "change", "consent", "11", 100, "data"))
+                .isSameAs(failure);
+    }
+
+    @Test
+    @Tag("create")
+    void shouldKeepLegacyFailureHandling_whenLoggingSynchronously() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        doThrow(new IllegalStateException("synthetic audit failure")).when(oscarLogDao).persist(any(OscarLog.class));
+
+        assertThatCode(() -> LogAction.addLogSynchronous(mock(LoggedInInfo.class),
+                "change", "consent", "11", 100, "data"))
+                .doesNotThrowAnyException();
     }
 
     @Test

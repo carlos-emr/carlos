@@ -74,6 +74,7 @@ class SmsConfigViewModelAssemblerUnitTest {
         stored.setSenderNumber("+14165551212");
         stored.setWebhookSecret("webhook-value-123");
         stored.setCredential("field_two", "value two");
+        org.springframework.test.util.ReflectionTestUtils.setField(stored, "version", 7);
         when(configService.current()).thenReturn(Optional.of(stored));
         when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two", "field_one"));
         when(scheduler.isRunning()).thenReturn(true);
@@ -86,6 +87,7 @@ class SmsConfigViewModelAssemblerUnitTest {
                         SmsConfigViewModel::senderNumber, SmsConfigViewModel::webhookSecretSet,
                         SmsConfigViewModel::stored, SmsConfigViewModel::resultKey)
                 .containsExactly("STUB", true, true, true, "+14165551212", true, true, "sms.config.result.saved");
+        assertThat(model.version()).as("sent back with the next save").isEqualTo("7");
         assertThat(model.credentialFields()).containsExactly(
                 new SmsConfigViewModel.CredentialField("field_two", true),
                 new SmsConfigViewModel.CredentialField("field_one", false));
@@ -105,6 +107,7 @@ class SmsConfigViewModelAssemblerUnitTest {
                         SmsConfigViewModel::resultKey)
                 .containsExactly("STUB", true, false, false, "");
         assertThat(model.providerOptions()).containsExactly("STUB");
+        assertThat(model.version()).as("nothing saved yet").isEmpty();
     }
 
     @Test
@@ -147,9 +150,10 @@ class SmsConfigViewModelAssemblerUnitTest {
         stored.setEnabled(true);
         stored.setSenderNumber("+14165551212");
         stored.setWebhookSecret("webhook-value-123");
+        org.springframework.test.util.ReflectionTestUtils.setField(stored, "version", 8);
         when(configService.current()).thenReturn(Optional.of(stored));
         SmsConfigUpdateDto submitted = new SmsConfigUpdateDto(
-                SmsProviderType.STUB, false, true, "not-a-number", "new-secret-value", false, Map.of());
+                SmsProviderType.STUB, false, true, "not-a-number", "new-secret-value", false, Map.of(), 7);
 
         SmsConfigViewModel model = assembler().assembleRejected(submitted, List.of("sms.config.error.senderNumber"));
 
@@ -159,6 +163,8 @@ class SmsConfigViewModelAssemblerUnitTest {
                         SmsConfigViewModel::resultKey, SmsConfigViewModel::errorKeys)
                 .containsExactly(false, true, "not-a-number", true, "", List.of("sms.config.error.senderNumber"));
         assertThat(model.toString()).doesNotContain("new-secret-value").doesNotContain("webhook-value-123");
+        assertThat(model.version()).as("the form keeps the version it was based on, not the stored one")
+                .isEqualTo("7");
     }
 
     @Test

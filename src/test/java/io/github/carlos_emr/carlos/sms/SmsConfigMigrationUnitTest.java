@@ -26,6 +26,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -35,6 +36,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,8 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("unit")
 @Tag("dao")
 class SmsConfigMigrationUnitTest {
-    private static final Path MIGRATION =
-            Path.of("database", "mysql", "migration", "common", "V1.0.34__add_sms_config.sql");
+    private static final Path COMMON_MIGRATIONS = Path.of("database", "mysql", "migration", "common");
 
     @Test
     @DisplayName("applied twice, creates sms_config with the columns the entity maps")
@@ -113,8 +115,19 @@ class SmsConfigMigrationUnitTest {
         }
     }
 
+    /** The one common migration named {@code V1.0.<n>__add_sms_config.sql}; the number is not pinned, since it is set at merge. */
+    private static Path migration() throws IOException {
+        try (Stream<Path> files = Files.list(COMMON_MIGRATIONS)) {
+            List<Path> candidates = files
+                    .filter(p -> p.getFileName().toString().matches("V1\\.0\\.\\d+__add_sms_config\\.sql"))
+                    .toList();
+            assertThat(candidates).as("exactly one add_sms_config migration").hasSize(1);
+            return candidates.get(0);
+        }
+    }
+
     private static void applyMigration(Connection connection) throws Exception {
-        try (Reader reader = Files.newBufferedReader(MIGRATION, StandardCharsets.UTF_8)) {
+        try (Reader reader = Files.newBufferedReader(migration(), StandardCharsets.UTF_8)) {
             RunScript.execute(connection, reader);
         }
     }

@@ -37,8 +37,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -67,6 +70,12 @@ public class SmsConfigService {
     private static final int MARIADB_RECORD_CHANGED = 1020;
     /** The standard SQLSTATE for a unique or primary key violation (what H2 reports). */
     private static final String SQLSTATE_UNIQUE_VIOLATION = "23505";
+    /**
+     * How recent the same administrator's save must be for a refused save to count as a second click on Save.
+     * A real double-click lands within seconds; the limit also stops the check being used at leisure to test
+     * guesses at a stored secret.
+     */
+    private static final long DOUBLE_CLICK_WINDOW_MILLIS = 60_000L;
 
     private final SmsConfigDao smsConfigDao;
     private final SmsProviderClientResolver providerClients;
@@ -132,15 +141,24 @@ public class SmsConfigService {
 
     /**
      * Saves validated settings (see {@code SmsConfigValidator}), creating the row the first time.
+     * <p>
+     * The save is refused unless the stored version is the one the page showed
+     * ({@link SmsConfigUpdateDto#expectedVersion()}). Without that check a page left open in another tab
+     * would silently put back every setting it showed, such as turning sending on again after another
+     * administrator turned it off.
      *
      * @param update              the submitted settings
      * @param updatedByProviderNo the admin saving them, recorded on the row
      * @return the saved settings
-     * @throws SmsConfigConflictException when another save raced this one; nothing from this one is stored
+     * @throws SmsConfigConflictException when another save got there first, after the page was loaded or
+     *                                    racing this one; nothing from this one is stored
      */
     @Transactional
     public SmsConfig save(SmsConfigUpdateDto update, String updatedByProviderNo) {
         Optional<SmsConfig> existing = smsConfigDao.findCurrent();
+        if (!Objects.equals(existing.map(SmsConfig::getVersion).orElse(null), update.expectedVersion())) {
+            throw new SmsConfigConflictException();
+        }
         SmsConfig config = existing.orElseGet(SmsConfig::new);
         Snapshot before = Snapshot.of(config, existing.isPresent());
         config.setProviderType(update.providerType());
@@ -165,6 +183,71 @@ public class SmsConfigService {
         auditRecorder.recordSaved(config, updatedByProviderNo, before.changedFields(Snapshot.of(config, true)));
         eventPublisher.publishEvent(new SmsConfigChangedEvent(config.isSchedulerEnabled()));
         return config;
+    }
+
+    /**
+     * Whether the stored settings are already exactly what {@code update} asks for, last saved by the same
+     * administrator within the last minute: the case of a Save button clicked twice, where the second request
+     * finds the first one's save. The settings page then reports the save as done instead of blaming another
+     * administrator. Typed secrets are compared with the stored ones; a blank secret field asks to keep what
+     * is stored, so it always matches.
+     *
+     * @param update     the submitted settings that met a conflict
+     * @param providerNo the administrator who submitted them
+     * @return {@code true} when nothing would change and the last save was by {@code providerNo}, moments ago
+     */
+    @Transactional(readOnly = true)
+    public boolean alreadySaved(SmsConfigUpdateDto update, String providerNo) {
+        Optional<SmsConfig> stored = smsConfigDao.findCurrent();
+        if (stored.isEmpty() || providerNo == null || !providerNo.equals(stored.get().getUpdatedBy())) {
+            return false;
+        }
+        SmsConfig config = stored.get();
+        Date updatedAt = config.getUpdatedAt();
+        // Either direction: a time in the future (another server's clock, or the hour repeated when clocks go
+        // back, since updated_at is local time) is not "moments ago" either.
+        if (updatedAt == null
+                || Math.abs(System.currentTimeMillis() - updatedAt.getTime()) > DOUBLE_CLICK_WINDOW_MILLIS) {
+            return false;
+        }
+        try {
+            return config.getProviderType() == update.providerType()
+                    && config.isEnabled() == update.enabled()
+                    && config.isSchedulerEnabled() == update.schedulerEnabled()
+                    && Objects.equals(config.getSenderNumber(),
+                            SmsPhoneNumbers.normalizeToE164(update.senderNumber()).orElse(null))
+                    && webhookSecretMatches(config, update)
+                    && credentialsMatch(config, update);
+        } catch (IllegalStateException unreadable) {
+            // A stored secret that cannot be decrypted cannot be shown to match.
+            return false;
+        }
+    }
+
+    private static boolean webhookSecretMatches(SmsConfig config, SmsConfigUpdateDto update) {
+        if (update.clearWebhookSecret()) {
+            return !config.hasWebhookSecret();
+        }
+        return isBlank(update.webhookSecret()) || sameSecret(update.webhookSecret(), config.getWebhookSecret());
+    }
+
+    private boolean credentialsMatch(SmsConfig config, SmsConfigUpdateDto update) {
+        Set<String> declared = new HashSet<>(credentialFields(update.providerType()));
+        if (!config.credentialsReadable() || !declared.containsAll(config.credentialNames())) {
+            return false;
+        }
+        for (String field : declared) {
+            String value = update.credentials().get(field);
+            if (!isBlank(value) && !sameSecret(value, config.getCredential(field))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Compares in constant time, so the time taken says nothing about how much of a guess was right. */
+    private static boolean sameSecret(String typed, String stored) {
+        return MessageDigest.isEqual(typed.getBytes(StandardCharsets.UTF_8), stored.getBytes(StandardCharsets.UTF_8));
     }
 
     /**

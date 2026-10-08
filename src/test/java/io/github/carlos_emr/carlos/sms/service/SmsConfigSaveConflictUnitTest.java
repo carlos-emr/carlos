@@ -46,7 +46,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 /**
- * Two administrators saving the SMS settings at once, against a real database. The mock-based
+ * Two administrators saving the SMS settings at once, or one saving from a page that is out of date, against
+ * a real database. The mock-based
  * {@link SmsConfigServiceUnitTest} checks which exceptions count as a conflict; this checks that the
  * fixed id and the version column really produce them, so the loser gets an error and the table
  * keeps one row holding the winner's settings.
@@ -80,11 +81,11 @@ class SmsConfigSaveConflictUnitTest {
             // The loser looked before the winner committed, so it also found no row.
             SmsConfigService loserService = serviceOver(loser, Optional.empty());
             Transaction winnerTransaction = winner.beginTransaction();
-            serviceOver(winner, null).save(update(true), "111111");
+            serviceOver(winner, null).save(update(true, null), "111111");
             winnerTransaction.commit();
 
             Transaction loserTransaction = loser.beginTransaction();
-            assertThatThrownBy(() -> loserService.save(update(false), "222222"))
+            assertThatThrownBy(() -> loserService.save(update(false, null), "222222"))
                     .isInstanceOf(SmsConfigConflictException.class);
             loserTransaction.rollback();
         }
@@ -97,7 +98,7 @@ class SmsConfigSaveConflictUnitTest {
     void shouldRefuseStaleUpdate_whenTwoUpdatesRace() {
         try (Session seed = factory.openSession()) {
             Transaction transaction = seed.beginTransaction();
-            serviceOver(seed, null).save(update(false), "000000");
+            serviceOver(seed, null).save(update(false, null), "000000");
             transaction.commit();
         }
 
@@ -105,16 +106,78 @@ class SmsConfigSaveConflictUnitTest {
             Transaction secondTransaction = second.beginTransaction();
             SmsConfig seenBySecond = second.find(SmsConfig.class, SmsConfig.SINGLETON_ID);
             Transaction firstTransaction = first.beginTransaction();
-            serviceOver(first, null).save(update(true), "111111");
+            serviceOver(first, null).save(update(true, 0), "111111");
             firstTransaction.commit();
 
             SmsConfigService secondService = serviceOver(second, Optional.of(seenBySecond));
-            assertThatThrownBy(() -> secondService.save(update(false), "222222"))
+            assertThatThrownBy(() -> secondService.save(update(false, 0), "222222"))
                     .isInstanceOf(SmsConfigConflictException.class);
             secondTransaction.rollback();
         }
 
         assertStored("111111", true);
+    }
+
+    @Test
+    @DisplayName("a save from a page loaded before another administrator's save is refused (stale tab)")
+    void shouldRefuseSave_whenPageShowedOlderVersion() {
+        saveCommitted(update(true, null), "000000");
+        // Tab B, loaded at version 0, turns sending off.
+        saveCommitted(update(false, 0), "222222");
+
+        // Tab A, also loaded at version 0 and still showing sending on, saves afterwards.
+        try (Session session = factory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            assertThatThrownBy(() -> serviceOver(session, null).save(update(true, 0), "111111"))
+                    .isInstanceOf(SmsConfigConflictException.class);
+            transaction.rollback();
+        }
+
+        assertStored("222222", false);
+    }
+
+    @Test
+    @DisplayName("a save from a page that showed nothing saved is refused once settings exist")
+    void shouldRefuseSave_whenPageShowedNothingSavedButRowExists() {
+        saveCommitted(update(false, null), "222222");
+
+        try (Session session = factory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            assertThatThrownBy(() -> serviceOver(session, null).save(update(true, null), "111111"))
+                    .isInstanceOf(SmsConfigConflictException.class);
+            transaction.rollback();
+        }
+
+        assertStored("222222", false);
+    }
+
+    @Test
+    @DisplayName("a second click on Save is refused but recognized as already saved; another admin's save is not")
+    void shouldRecognizeDoubleClick_butNotAnotherAdminsSave() {
+        saveCommitted(update(true, null), "111111");
+
+        try (Session session = factory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            SmsConfigService service = serviceOver(session, null);
+            // The second request of a double-click carries the same page version as the first.
+            assertThatThrownBy(() -> service.save(update(true, null), "111111"))
+                    .isInstanceOf(SmsConfigConflictException.class);
+            transaction.rollback();
+
+            assertThat(service.alreadySaved(update(true, null), "111111")).isTrue();
+            assertThat(service.alreadySaved(update(true, null), "222222")).isFalse();
+            assertThat(service.alreadySaved(update(false, null), "111111")).isFalse();
+        }
+
+        assertStored("111111", true);
+    }
+
+    private void saveCommitted(SmsConfigUpdateDto update, String providerNo) {
+        try (Session session = factory.openSession()) {
+            Transaction transaction = session.beginTransaction();
+            serviceOver(session, null).save(update, providerNo);
+            transaction.commit();
+        }
     }
 
     /**
@@ -143,7 +206,8 @@ class SmsConfigSaveConflictUnitTest {
         }
     }
 
-    private static SmsConfigUpdateDto update(boolean enabled) {
-        return new SmsConfigUpdateDto(SmsProviderType.STUB, enabled, false, "", "", false, Map.of());
+    /** @param expectedVersion the version the page showed; null when it showed nothing saved */
+    private static SmsConfigUpdateDto update(boolean enabled, Integer expectedVersion) {
+        return new SmsConfigUpdateDto(SmsProviderType.STUB, enabled, false, "", "", false, Map.of(), expectedVersion);
     }
 }

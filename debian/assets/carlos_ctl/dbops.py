@@ -69,7 +69,8 @@ def cmd_db(argv) -> int:
     need_root("db")
     require_db_root()
     s = config.load()
-    os.execvp("mariadb", _MARIADB + [s.db_name] + list(argv))
+    # No shell is involved: root's own client arguments, as an argv list.
+    os.execvp("mariadb", _MARIADB + [s.db_name] + list(argv))  # nosec B606
     raise AssertionError("unreachable: execvp replaces the process")
 
 
@@ -80,7 +81,8 @@ def cmd_db_dump(argv) -> int:
     need_root("db-dump")
     require_db_root()
     s = config.load()
-    os.execvp("mariadb-dump", [
+    # No shell is involved: a fixed program and a fixed argv list.
+    os.execvp("mariadb-dump", [  # nosec B606
         "mariadb-dump", "--protocol=socket", "--user=root",
         "--single-transaction", "--hex-blob", "--routines", "--events",
         "--triggers", "--no-tablespaces", "--default-character-set=utf8mb4",

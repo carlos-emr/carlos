@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.sms.assembler.SmsConfigViewModelAssembler;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigConflictException;
 import io.github.carlos_emr.carlos.sms.service.SmsConfigService;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
@@ -59,6 +60,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -176,6 +178,7 @@ class ConfigureSms2ActionUnitTest {
         request.setParameter("senderNumber", "416-555-1212");
         request.setParameter("webhookSecret", "webhook-value");
         request.setParameter("credential.field_two", FIELD_INPUT);
+        request.setParameter("version", "4");
         when(configService.credentialFields(SmsProviderType.STUB)).thenReturn(List.of("field_two"));
         when(validator.validate(any(), any())).thenReturn(List.of());
 
@@ -189,9 +192,29 @@ class ConfigureSms2ActionUnitTest {
                 .extracting(SmsConfigUpdateDto::providerType, SmsConfigUpdateDto::enabled,
                         SmsConfigUpdateDto::schedulerEnabled, SmsConfigUpdateDto::senderNumber,
                         SmsConfigUpdateDto::webhookSecret, SmsConfigUpdateDto::clearWebhookSecret,
-                        SmsConfigUpdateDto::credentials)
+                        SmsConfigUpdateDto::credentials, SmsConfigUpdateDto::expectedVersion)
                 .containsExactly(SmsProviderType.STUB, true, false, "416-555-1212", "webhook-value", false,
-                        Map.of("field_two", FIELD_INPUT));
+                        Map.of("field_two", FIELD_INPUT), 4);
+    }
+
+    @Test
+    @DisplayName("an empty version means the page showed nothing saved; an unreadable one matches no stored version")
+    void shouldPassPageVersion_whenSaving() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        ArgumentCaptor<SmsConfigUpdateDto> update = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
+
+        request.setParameter("version", "");
+        action().execute();
+        // A fresh response for the second request: the first one already holds a redirect.
+        servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        request.setParameter("version", "4; DROP");
+        action().execute();
+
+        verify(configService, times(2)).save(update.capture(), eq("999998"));
+        assertThat(update.getAllValues()).extracting(SmsConfigUpdateDto::expectedVersion).containsExactly(null, -1);
     }
 
     @Test
@@ -222,6 +245,7 @@ class ConfigureSms2ActionUnitTest {
         when(validator.validate(any(), any())).thenReturn(List.of());
         doThrow(new SmsConfigConflictException(new IllegalStateException("stale")))
                 .when(configService).save(any(), any());
+        when(configService.alreadySaved(any(), eq("999998"))).thenReturn(false);
         SmsConfigViewModel model = mock(SmsConfigViewModel.class);
         when(assembler.assemble(null, List.of("sms.config.error.concurrentSave"))).thenReturn(model);
 
@@ -231,6 +255,51 @@ class ConfigureSms2ActionUnitTest {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(request.getAttribute("smsConfig")).isSameAs(model);
+        verify(configService).alreadySaved(any(SmsConfigUpdateDto.class), eq("999998"));
+    }
+
+    @Test
+    @DisplayName("a second click on Save whose settings the first click already stored reports them as saved")
+    void shouldReportSaved_whenDoubleClickFindsOwnSave() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter("version", "4");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        doThrow(new SmsConfigConflictException()).when(configService).save(any(), any());
+        when(configService.alreadySaved(any(), eq("999998"))).thenReturn(true);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("none");
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=saved");
+        verify(assembler, never()).assemble(any(), any());
+        ArgumentCaptor<SmsConfigUpdateDto> saved = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
+        ArgumentCaptor<SmsConfigUpdateDto> checked = ArgumentCaptor.forClass(SmsConfigUpdateDto.class);
+        verify(configService).save(saved.capture(), eq("999998"));
+        verify(configService).alreadySaved(checked.capture(), eq("999998"));
+        assertThat(checked.getValue()).as("the same submission is checked").isSameAs(saved.getValue());
+    }
+
+    @Test
+    @DisplayName("a secret that cannot be encrypted re-displays the form (200) with an error instead of failing")
+    void shouldShowEncryptionError_whenSecretCannotBeEncrypted() throws Exception {
+        allowWrite();
+        request.setParameter("method", "configure");
+        request.setParameter("providerType", "STUB");
+        request.setParameter("webhookSecret", "webhook-value");
+        when(validator.validate(any(), any())).thenReturn(List.of());
+        doThrow(new SmsSecretEncryptionException()).when(configService).save(any(), any());
+        SmsConfigViewModel model = mock(SmsConfigViewModel.class);
+        when(assembler.assembleRejected(any(SmsConfigUpdateDto.class),
+                eq(List.of("sms.config.error.encryptionUnavailable")))).thenReturn(model);
+
+        String result = action().execute();
+
+        assertThat(result).isEqualTo("success");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(request.getAttribute("smsConfig")).isSameAs(model);
+        verify(configService, never()).alreadySaved(any(), any());
     }
 
     @Test
@@ -294,12 +363,11 @@ class ConfigureSms2ActionUnitTest {
         allowWrite();
         request.setParameter("method", "sendSystemTest");
         request.setParameter("testNumber", "nope");
-        when(sendService.sendSystemTest(anyString(), anyString(), any()))
-                .thenReturn(SmsSendResultDto.validationFailed(List.of("A valid recipient phone number is required.")));
 
         action().execute();
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ConfigureSms?result=testInvalid");
+        verifyNoInteractions(sendService);
         verify(configService, never()).save(any(), any());
         verify(validator, never()).validate(any(), any());
     }

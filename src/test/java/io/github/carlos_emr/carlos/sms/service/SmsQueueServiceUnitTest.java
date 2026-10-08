@@ -322,6 +322,12 @@ class SmsQueueServiceUnitTest {
         }
 
         @Override
+        public SmsTransaction renewClaim(SmsTransaction transaction, Date attemptAt) {
+            transaction.renewSendingClaim(attemptAt);
+            return transaction;
+        }
+
+        @Override
         public SmsTransaction recordInboundMessage(SmsInboundWebhookDto webhook) {
             SmsTransaction transaction = SmsTransaction.inboundMessage(webhook);
             transactions.add(transaction);

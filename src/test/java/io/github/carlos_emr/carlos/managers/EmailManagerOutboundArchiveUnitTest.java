@@ -699,6 +699,148 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should label a refused sender and report the refusal on the result")
+    void shouldReportSenderRefusal_whenServerRefusesMailFrom() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 49);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(49), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+
+        // The shape Angus throws for a non-250 reply to MAIL FROM, as Spring aggregates it.
+        String untrustedProviderText = "550 5.7.1 <clinic@example.test> sender rejected";
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 550, untrustedProviderText, null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getTransportOutcome()).isEqualTo(
+                    io.github.carlos_emr.carlos.email.core.EmailSendResult.TransportOutcome.FAILED);
+            assertThat(result.isTransportOutcomeRecorded()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+            assertThat(result.getEmailLog().getErrorMessage())
+                    .isEqualTo("Failed to send email (SMTP sender refused)")
+                    .doesNotContain(untrustedProviderText)
+                    .doesNotContain("clinic@example.test");
+        }
+    }
+
+    @Test
+    @DisplayName("should still report the refusal when the FAILED status cannot be recorded")
+    void shouldReportRefusal_whenFailedStatusCannotBeRecorded() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 52);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        doThrow(new IllegalStateException("status write failed"))
+                .when(emailLogDao).transitionEmailStatus(eq(52), eq(EmailLog.EmailStatus.PENDING),
+                        eq(EmailLog.EmailStatus.FAILED), any(String.class), any());
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                "MAIL FROM:<clinic@example.test>", 553, "553 rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.SENDER))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isTransportOutcomeRecorded()).isFalse();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.SENDER);
+        }
+    }
+
+    @Test
+    @DisplayName("should carry a refused recipient through to the result")
+    void shouldReportRecipientRefusal_whenServerRefusesRcptTo() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 50);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        when(emailLogDao.transitionEmailStatus(eq(50), eq(EmailLog.EmailStatus.PENDING),
+                eq(EmailLog.EmailStatus.FAILED), any(String.class), any())).thenReturn(1);
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new jakarta.mail.SendFailedException("Invalid Addresses"));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    doThrow(new EmailSendingException("SMTP failed before accepting the message.", aggregated,
+                            EmailSendingException.Refusal.RECIPIENT))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.RECIPIENT);
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP recipient failure)");
+        }
+    }
+
+    @Test
+    @DisplayName("should label a DATA-stage failure neutrally and report no refused address")
+    void shouldLabelMessageTransferFailure_whenServerFailsAfterData() {
+        EmailConfig emailConfig = smtpEmailConfig();
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(emailConfig);
+        doAnswer(invocation -> {
+            EmailLog emailLog = invocation.getArgument(0);
+            injectDependency(emailLog, "id", 51);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        java.util.Map<Object, Exception> failedMessages = new java.util.LinkedHashMap<>();
+        failedMessages.put("prepared-message", new org.eclipse.angus.mail.smtp.SMTPSendFailedException(
+                ".", 554, "554 5.7.1 message content rejected", null, null, null, null));
+        org.springframework.mail.MailSendException aggregated =
+                new org.springframework.mail.MailSendException(failedMessages);
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders(
+                (smtpSender, context) -> {
+                    when(smtpSender.prepareArtifactBytes()).thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
+                    // The sender keeps an end-of-data (".") refusal uncertain (#3857); only the label changes.
+                    doThrow(new EmailSendingException("SMTP transport did not confirm whether the message was accepted.",
+                            aggregated, true))
+                            .when(smtpSender).sendPrepared();
+                })) {
+
+            var result = emailManager.sendEmailWithResult(loggedInInfo, emailData());
+
+            assertThat(result.isDeliveryUnconfirmed()).isTrue();
+            assertThat(result.getRefusal()).isEqualTo(EmailSendingException.Refusal.NONE);
+            // Neutral: the row stays PENDING, and the message may have been delivered.
+            assertThat(result.getEmailLog().getErrorMessage()).isEqualTo("Failed to send email (SMTP message transfer failure)");
+        }
+    }
+
+    @Test
     @DisplayName("should report the underlying connection failure a MailSendException wraps")
     void shouldPersistConnectionCategory_whenMailSendExceptionWrapsTheCause() {
         EmailConfig emailConfig = smtpEmailConfig();

@@ -3,12 +3,15 @@ package io.github.carlos_emr.carlos.sms.service;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
+import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsProviderSendResultDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,6 +24,7 @@ import java.util.Objects;
 @Service
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class SmsSendService {
+    private static final Logger LOGGER = MiscUtils.getLogger();
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
     public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
@@ -103,9 +107,12 @@ public class SmsSendService {
      * Sends directly through the SMS provider. If the SMS-provider rate limiter denies the attempt, the
      * row is left {@code QUEUED} (due now) and returned as queued; draining it then depends on the queue
      * scheduler ({@code sms.queue.scheduler.enabled}) or an explicit worker run, so that scheduler must
-     * be enabled wherever this path is used. If the row cannot be handed back to the queue after a
-     * denial, that failure is thrown: the row stays {@code SENDING} for stale recovery, and the caller
-     * must not treat the message as queued.
+     * be enabled wherever this path is used. The claim is renewed after the permit and nothing is sent
+     * unless that succeeds, because stale recovery may take over a row whose permit wait was long. If the
+     * row cannot be handed back to the queue after a denial, limiter error or failed renewal, an exception
+     * reaches the caller. A confirmed release returns queued, so the caller does not retry a request that
+     * was already accepted. A concurrent update can reject the release; the returned result then reflects
+     * the current state and never assumes it is queued.
      */
     public SmsSendResultDto send(SmsSendCommand command) {
         if (configService != null && !configService.sendingEnabled()) {
@@ -142,15 +149,20 @@ public class SmsSendService {
         try {
             permitted = rateLimiter.tryAcquire(providerType);
         } catch (RuntimeException e) {
-            releaseClaimAfterFailure(transaction, e);
-            throw e;
+            return releaseClaimAfterFailure(transaction, "rate limiter", e);
         }
         if (!permitted) {
-            // If the claim cannot be handed back, the failure reaches the caller: the row stays SENDING
-            // until stale recovery retries it or fails it for review, so answering "queued" now would
-            // promise more than is known.
-            transactionRecorder.releaseClaim(transaction, new Date());
-            return SmsSendResultDto.queued();
+            // A release can lose a version race to another worker or callback. Use the returned row's
+            // state instead of assuming the handoff succeeded; release exceptions still reach the caller.
+            return releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
+        }
+        // The permit wait can outlast the stale-send timeout, and stale recovery may then have taken the row over
+        // and found it unsent at the SMS provider. Send only on a renewed claim; otherwise nothing was sent, so
+        // hand the row back as above and report whatever state it is now in.
+        try {
+            transaction = transactionRecorder.renewClaim(transaction, new Date());
+        } catch (RuntimeException e) {
+            return releaseClaimAfterFailure(transaction, "claim renewal", e);
         }
 
         SmsProviderSendResultDto providerResult;
@@ -165,13 +177,35 @@ public class SmsSendService {
         return SmsSendResultDto.fromTransaction(recorded);
     }
 
-    private void releaseClaimAfterFailure(SmsTransaction transaction, RuntimeException failure) {
+    private SmsSendResultDto releaseClaimAfterFailure(SmsTransaction transaction, String failedStep,
+                                                      RuntimeException failure) {
         try {
-            transactionRecorder.releaseClaim(transaction, new Date());
+            SmsSendResultDto result = releasedClaimResult(transactionRecorder.releaseClaim(transaction, new Date()));
+            // Database exceptions can contain query parameters. Keep diagnostics to status and type.
+            LOGGER.warn("SMS {} failed before sending; claim release returned {}. Failure type: {}",
+                    failedStep, result.status(), failure.getClass().getSimpleName());
+            return result;
         } catch (RuntimeException releaseFailure) {
             // Keep the original failure as the one reported; stale recovery still covers the row.
-            failure.addSuppressed(releaseFailure);
+            if (releaseFailure != failure) {
+                failure.addSuppressed(releaseFailure);
+            }
+            throw failure;
         }
+    }
+
+    private SmsSendResultDto releasedClaimResult(SmsTransaction released) {
+        Objects.requireNonNull(released, "SMS claim release result is required");
+        if (released.getStatus() == SmsStatus.QUEUED) {
+            return SmsSendResultDto.queued();
+        }
+        if (released.getStatus() == SmsStatus.SENDING) {
+            // A version conflict (or removed row) prevented a confirmed handoff. Preserve the newer
+            // claim and tell the caller to reconcile its outcome before creating another send.
+            return new SmsSendResultDto(false, SmsStatus.SENDING, released.getProviderMessageId(),
+                    List.of(SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE));
+        }
+        return SmsSendResultDto.fromTransaction(released);
     }
 
     private String clientReferenceId(SmsTransaction transaction) {

@@ -13,6 +13,7 @@ Forward deltas (not part of the frozen baseline):
 
 Applied together with `common/` for an Ontario install (`flyway.locations=filesystem:.../migration/common,filesystem:.../migration/on` (see `flyway.conf` for the real paths)). New
 Ontario-only changes go here as `V1.0.N__short_description.sql` (sequential, next free version number).
-The version line is global across `common` + `on`, so the next free number is `V1.0.35` (the
-highest version in use, also on the Ontario path, is `common/V1.0.34` — see
+The version line is global across `common` + `on`, so the next free number is `V1.0.55` (the
+highest version in use, also on the Ontario path, is `common/V1.0.54`, and `common/V1.0.43`
+(portal invite delivery) is in use — see
 `../README.md` for why a number at or below the global high-water mark must never be reused).

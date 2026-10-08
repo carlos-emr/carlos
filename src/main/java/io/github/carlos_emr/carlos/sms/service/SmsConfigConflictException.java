@@ -22,9 +22,10 @@
 package io.github.carlos_emr.carlos.sms.service;
 
 /**
- * Thrown by {@link SmsConfigService#save} when the save raced another administrator's: both tried to
- * create the settings row, or both changed the same version of it. Nothing from this save is stored,
- * and the other save stands.
+ * Thrown by {@link SmsConfigService#save} when another save got there first: the page the settings came
+ * from showed an older version than the one now stored (another administrator saved after it was loaded),
+ * or two saves raced to create the settings row or to change the same version of it. Nothing from this
+ * save is stored, and the other save stands.
  *
  * @since 2026-09-28
  */
@@ -33,5 +34,10 @@ public class SmsConfigConflictException extends RuntimeException {
 
     public SmsConfigConflictException(Throwable cause) {
         super("SMS settings were changed by another save at the same time.", cause);
+    }
+
+    /** For a save from a page that showed an older version than the one now stored. */
+    public SmsConfigConflictException() {
+        super("SMS settings were saved by another save after this page was loaded.");
     }
 }

@@ -43,7 +43,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.34).
+ * The clinic's SMS settings, saved from Administration &gt; SMS ({@code sms_config}, V1.0.59).
  * <p>
  * There is at most one row, {@link #SINGLETON_ID}; when there is none, the {@code sms.*} properties still
  * apply. A save that races another fails instead of adding a second row or overwriting the other: the
@@ -63,7 +63,7 @@ public class SmsConfig extends AbstractModel<Integer> {
     private static final TypeReference<TreeMap<String, String>> CREDENTIAL_MAP = new TypeReference<>() {
     };
 
-    /** The only row's id; V1.0.34 refuses any other. */
+    /** The only row's id; V1.0.59 refuses any other. */
     public static final int SINGLETON_ID = 1;
 
     @Id
@@ -105,6 +105,14 @@ public class SmsConfig extends AbstractModel<Integer> {
     @Override
     public Integer getId() {
         return id;
+    }
+
+    /**
+     * @return the row's version, which each save raises; null until first saved. The settings page sends
+     *         back the version it showed, so a save made from an out-of-date page can be refused.
+     */
+    public Integer getVersion() {
+        return version;
     }
 
     public SmsProviderType getProviderType() {
@@ -258,7 +266,7 @@ public class SmsConfig extends AbstractModel<Integer> {
             return EncryptionUtils.encrypt(plainText);
         } catch (Exception e) {
             // No cause or value in the message: it would carry the secret into logs.
-            throw new IllegalStateException("SMS secret could not be encrypted; check encryption.util.secret.key.");
+            throw new SmsSecretEncryptionException();
         }
     }
 

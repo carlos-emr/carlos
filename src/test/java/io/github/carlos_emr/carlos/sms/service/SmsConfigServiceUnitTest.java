@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.sms.dao.SmsConfigDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsConfigUpdateDto;
 import io.github.carlos_emr.carlos.sms.event.SmsConfigChangedEvent;
 import io.github.carlos_emr.carlos.sms.model.SmsConfig;
+import io.github.carlos_emr.carlos.sms.model.SmsSecretEncryptionException;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceException;
@@ -36,7 +37,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -135,7 +138,8 @@ class SmsConfigServiceUnitTest {
     void shouldPublishSchedulerSetting_whenSaved() {
         when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
 
-        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of()), "999998");
+        service().save(new SmsConfigUpdateDto(SmsProviderType.STUB, true, true, "", "", false, Map.of(), null),
+                "999998");
 
         ArgumentCaptor<SmsConfigChangedEvent> event = ArgumentCaptor.forClass(SmsConfigChangedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
@@ -242,6 +246,153 @@ class SmsConfigServiceUnitTest {
     }
 
     @Test
+    @DisplayName("save refuses settings from a page that showed an older version, changing nothing")
+    void shouldRefuseSave_whenPageShowedOlderVersion() {
+        SmsConfig stored = storedAt(3, "222222");
+        stored.setEnabled(false);
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThatThrownBy(() -> service().save(
+                update(SmsProviderType.STUB, true, "", "", false, Map.of(), 2), "111111"))
+                .isInstanceOf(SmsConfigConflictException.class);
+
+        assertThat(stored.isEnabled()).isFalse();
+        assertThat(stored.getUpdatedBy()).isEqualTo("222222");
+        verify(smsConfigDao, never()).merge(any());
+        verify(smsConfigDao, never()).flush();
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(auditRecorder, never()).recordSaved(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("save refuses settings from a page that showed nothing saved once a row exists")
+    void shouldRefuseSave_whenPageShowedNothingButRowExists() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(storedAt(0, "222222")));
+
+        assertThatThrownBy(() -> service().save(
+                update(SmsProviderType.STUB, true, "", "", false, Map.of(), null), "111111"))
+                .isInstanceOf(SmsConfigConflictException.class);
+        verify(smsConfigDao, never()).persist(any());
+        verify(smsConfigDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("save refuses a page version when nothing is stored, rather than creating the row")
+    void shouldRefuseSave_whenPageShowedVersionButNothingIsStored() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service().save(
+                update(SmsProviderType.STUB, true, "", "", false, Map.of(), 0), "111111"))
+                .isInstanceOf(SmsConfigConflictException.class);
+        verify(smsConfigDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("save stores nothing, audits nothing and announces nothing when a secret cannot be encrypted")
+    void shouldStoreNothing_whenSecretCannotBeEncrypted() {
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.empty());
+        EncryptionKeyTestSupport.restoreKey(null);
+
+        assertThatThrownBy(() -> service().save(
+                update(SmsProviderType.STUB, true, "", "webhook-value", false, Map.of()), "111111"))
+                .isInstanceOf(SmsSecretEncryptionException.class);
+        verify(smsConfigDao, never()).persist(any());
+        verify(smsConfigDao, never()).merge(any());
+        verify(smsConfigDao, never()).flush();
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+        verify(auditRecorder, never()).recordSaved(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("save goes ahead when the page showed the stored version")
+    void shouldSave_whenPageShowedStoredVersion() {
+        SmsConfig stored = storedAt(3, "222222");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        service().save(update(SmsProviderType.STUB, false, "", "", false, Map.of(), 3), "111111");
+
+        verify(smsConfigDao).merge(stored);
+        assertThat(stored.getUpdatedBy()).isEqualTo("111111");
+        assertThat(stored.isEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a double-click is recognized only when the same admin's save already stored the same settings")
+    void shouldRecognizeAlreadySaved_onlyForSameAdminAndSameSettings() {
+        SmsConfig stored = storedAt(1, "111111");
+        stored.setEnabled(true);
+        stored.setSenderNumber("+14165551212");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, true, "416-555-1212", "", false, Map.of(), 0),
+                "111111")).isTrue();
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, true, "416-555-1212", "", false, Map.of(), 0),
+                "222222")).as("another administrator's save").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "416-555-1212", "", false, Map.of(), 0),
+                "111111")).as("a different switch").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, true, "", "", false, Map.of(), 0),
+                "111111")).as("a different sender number").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, true, "416-555-1212", "", false, Map.of(), 0),
+                "111111")).as("a different provider").isFalse();
+    }
+
+    @Test
+    @DisplayName("a double-click is recognized only shortly after the admin's own save")
+    void shouldNotRecognizeAlreadySaved_whenOwnSaveIsNotRecent() {
+        SmsConfig stored = storedAt(1, "111111");
+        ReflectionTestUtils.setField(stored, "updatedAt", new Date(System.currentTimeMillis() - 120_000L));
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "", "", false, Map.of(), 0),
+                "111111")).as("two minutes ago").isFalse();
+
+        ReflectionTestUtils.setField(stored, "updatedAt", new Date(System.currentTimeMillis() + 3_600_000L));
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "", "", false, Map.of(), 0),
+                "111111")).as("an hour in the future").isFalse();
+    }
+
+    @Test
+    @DisplayName("a double-click compares typed secrets with the stored ones without needing them retyped")
+    void shouldCompareSecrets_whenCheckingAlreadySaved() {
+        SmsConfig stored = storedAt(1, "111111");
+        stored.setProviderType(SmsProviderType.VOIPMS);
+        stored.setWebhookSecret("webhook-value");
+        stored.setCredential("field_one", "value-one");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored));
+
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "", "webhook-value", false,
+                Map.of("field_one", "value-one", "field_two", ""), 0), "111111")).isTrue();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "", "", false, Map.of(), 0),
+                "111111")).as("blank fields keep what is stored").isTrue();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "", "other-webhook-value", false,
+                Map.of(), 0), "111111")).as("a different webhook secret").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "", "", true, Map.of(), 0),
+                "111111")).as("asking to remove a stored secret").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.VOIPMS, false, "", "", false,
+                Map.of("field_one", "other-value"), 0), "111111")).as("a different credential").isFalse();
+    }
+
+    @Test
+    @DisplayName("a double-click is not recognized when a stored secret cannot be read or a stale credential remains")
+    void shouldNotRecognizeAlreadySaved_whenStoredSecretsDiffer() throws Exception {
+        SmsConfig stored = storedAt(1, "111111");
+        stored.setCredential("legacy_field", "stale-value");
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(stored), Optional.empty());
+
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "", "", false, Map.of(), 0),
+                "111111")).as("a credential the save would remove").isFalse();
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "", "", false, Map.of(), 0),
+                "111111")).as("nothing stored").isFalse();
+
+        SmsConfig unreadable = storedAt(1, "111111");
+        unreadable.setWebhookSecret("webhook-value");
+        EncryptionKeyTestSupport.seedFreshKey();
+        when(smsConfigDao.findCurrent()).thenReturn(Optional.of(unreadable));
+        assertThat(service().alreadySaved(update(SmsProviderType.STUB, false, "", "webhook-value", false, Map.of(), 0),
+                "111111")).as("a secret encrypted under another key").isFalse();
+    }
+
+    @Test
     @DisplayName("sending stays on while nothing is stored, and follows the stored switch once saved")
     void shouldReportSendingEnabled_fromStoredSwitch() {
         SmsConfig disabled = new SmsConfig();
@@ -291,7 +442,22 @@ class SmsConfigServiceUnitTest {
     private static SmsConfigUpdateDto update(SmsProviderType providerType, boolean enabled, String senderNumber,
                                              String webhookSecret, boolean clearWebhookSecret,
                                              Map<String, String> credentials) {
+        return update(providerType, enabled, senderNumber, webhookSecret, clearWebhookSecret, credentials, null);
+    }
+
+    /** @param expectedVersion the version the page showed; null when it showed nothing saved */
+    private static SmsConfigUpdateDto update(SmsProviderType providerType, boolean enabled, String senderNumber,
+                                             String webhookSecret, boolean clearWebhookSecret,
+                                             Map<String, String> credentials, Integer expectedVersion) {
         return new SmsConfigUpdateDto(providerType, enabled, false, senderNumber, webhookSecret, clearWebhookSecret,
-                credentials);
+                credentials, expectedVersion);
+    }
+
+    /** A row as loaded from the database: Hibernate sets the version, which has no setter. */
+    private static SmsConfig storedAt(int version, String updatedBy) {
+        SmsConfig stored = new SmsConfig();
+        ReflectionTestUtils.setField(stored, "version", version);
+        stored.markUpdated(updatedBy);
+        return stored;
     }
 }

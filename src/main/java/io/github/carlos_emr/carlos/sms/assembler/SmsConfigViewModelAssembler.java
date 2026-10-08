@@ -120,7 +120,8 @@ public class SmsConfigViewModelAssembler {
                 stored.isPresent(),
                 systemTestEnabled.getAsBoolean(),
                 resultCode != null && RESULT_CODES.contains(resultCode) ? "sms.config.result." + resultCode : "",
-                messageKeys
+                messageKeys,
+                stored.map(SmsConfig::getVersion).map(String::valueOf).orElse("")
         );
     }
 
@@ -128,6 +129,8 @@ public class SmsConfigViewModelAssembler {
      * The page after a rejected save. It shows what the administrator submitted (provider, switches and sender
      * number) instead of the stored settings, so correcting one field does not silently undo the others, such as
      * a "sending off" switch. Secrets are never echoed back; their "stored" flags still describe what is saved.
+     * The form keeps the version it was based on, so its next save is still refused if another administrator
+     * saved in the meantime.
      *
      * @param submitted the settings that failed validation
      * @param errorKeys the validation message keys to show
@@ -162,7 +165,8 @@ public class SmsConfigViewModelAssembler {
                 page.stored(),
                 page.systemTestEnabled(),
                 "",
-                page.errorKeys()
+                page.errorKeys(),
+                submitted.expectedVersion() == null ? "" : String.valueOf(submitted.expectedVersion())
         );
     }
 }
