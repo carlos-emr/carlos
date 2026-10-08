@@ -21,15 +21,17 @@ async function workflow(s) {
   const other = createBillingFixture(s);
   // Each RA row pays its own owned claim, so every row renders as the first row of its bill.
   const fixtures = [
-    { tag: 'before', paid: '20040531', amount: '100.00', provider: selected },
+    { tag: 'pre', paid: '20040531', amount: '100.00', provider: selected },
     { tag: 'start', paid: '20040601', amount: '11.11', provider: selected },
     { tag: 'end', paid: '20040630', amount: '22.22', provider: selected },
-    { tag: 'after', paid: '20040701', amount: '200.00', provider: selected },
+    { tag: 'post', paid: '20040701', amount: '200.00', provider: selected },
     { tag: 'other', paid: '20040630', amount: '33.33', provider: other },
     { tag: 'leap', paid: '20040229', amount: '44.44', provider: selected },
     { tag: 'march', paid: '20040301', amount: '300.00', provider: selected },
   ];
   const filenames = fixtures.map(row => `${marker}-${row.tag}`);
+  // raheader.filename is varchar(30); a truncated name would escape the cleanup's exact match.
+  h.assert(filenames.every(name => name.length <= 30), 'An RA fixture filename exceeds raheader.filename (30)');
   const ownsRaAs = alias => `${alias}filename IN (${filenames.map(h.sqlString).join(',')}) AND ${alias}payable=${h.sqlString(marker)}`;
   const ownsRa = ownsRaAs('');
   // Registered after the billing fixtures, so it runs before their claim/provider cleanups.

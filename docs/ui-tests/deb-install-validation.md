@@ -78,6 +78,22 @@ The save is now an in-page `fetch()`, and the page is already at `/rx/showAllerg
 saves. So a check that saves an allergy has to wait for the list to reload, not for that
 URL; `allergy-add-penicillin` shows how.
 
+`billing-on-ra-payment-date-playwright-checks.js` (issue #4430) was added on 2026-10-08. It
+was run against 2026.09.0~snapshot26 packages built from the `release/2026.08` fix branch and
+installed fresh into an Ubuntu 26.04 container with the demo dataset (`carlos-ctl check` clean,
+`EXPECT_FRONT_DOOR=true`). The WARs were compiled on the host with the `debian/rules` Maven flags
+and packaged in an Ubuntu 26.04 container through `CARLOS_WAR`/`DRUGREF_WAR` (DrugRef from its
+pinned revision). carlos-ctl 1.1.2 was not yet published, so it was built from the pin's
+fallback commit, with a `1.1.2` changelog stanza stamped in the throwaway worktree.
+Result: **PASS**, all three steps through `:443`. `billing-on-premium-payment-date`,
+`billing-on-ra-import`, `billing-on-payment-status` and `billing-on-ohip-simulation-report`
+also passed. With the pre-fix `RaDetailDaoImpl.class` (exclusive `paymentDate < ?2`) swapped
+into the installed webapp, the new check **FAILS**: the RA paid on June 30 is missing from the
+report. `gap-billing-ra-premium-settle35` failed at its third step, as its manifest entry says it
+does on 2026.08. Note for later checks: `billing-on-premium-payment-date` leaves one `raheader`
+row behind. Its `<marker>-inactive` filename is 31 characters, `raheader.filename` is
+`varchar(30)`, and its cleanup matches the untruncated name.
+
 The current release-base validation for PR #3995 is recorded in
 [PR #3995 prevention validation](pr3995-validation.md). The following is the
 earlier port-validation record.
