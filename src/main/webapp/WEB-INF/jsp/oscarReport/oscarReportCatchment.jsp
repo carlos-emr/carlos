@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,6 +46,8 @@
         return;
     }
 %>
+<%-- Declared before <head> so the document <title> can use the same message as the heading. --%>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
@@ -54,7 +57,7 @@
          panel contains, now or later, without each panel having to (#4130). --%>
     <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <title>Catchment Report</title>
+    <title><fmt:message key="admin.admin.pcnReport"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/report-print.css">
 </head>

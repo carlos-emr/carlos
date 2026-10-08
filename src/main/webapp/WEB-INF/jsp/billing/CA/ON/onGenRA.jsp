@@ -109,7 +109,7 @@
     <button class="btn btn-primary float-end d-print-none report-print-hide" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
-    <br/><br/>
+    <span class="report-print-hide"><br/><br/></span>
 
     <table class="table table-striped table-hover table-sm report-print-table">
         <thead>

@@ -403,6 +403,23 @@ async function main() {
           await assertPdf(admin, 'billing-reconciliation', { present: ['Payment Date'], absent: ['Print'] });
         });
         await assertVisibility(scope, { 'Print button': 'button[name="print"]' }, true, 'Reconciliation back on screen');
+
+        // The page's own Print button prints the framed document by itself, not the
+        // shell around it, so its table header repeats on every page it spans. (A
+        // browser print of the whole shell lays the frame out as one tall box, so
+        // a long reconciliation prints completely there but without repeated
+        // headers.) Vacuous on a one-page list; verified with 150 seeded RA rows.
+        const alone = await context.newPage();
+        wireStrictPage(alone, 'standalone-reconciliation', createRecorder());
+        try {
+          await alone.goto(appUrl(config.baseUrl, '/billing/CA/ON/ViewOnGenRA'), { waitUntil: 'domcontentloaded' });
+          await alone.locator('button[name="print"]').waitFor({ state: 'visible' });
+          await assertPdf(alone, 'billing-reconciliation-own-page', {
+            present: ['Payment Date'], absent: ['Print'], repeatsOnEveryPage: 'Payment Date',
+          });
+        } finally {
+          await alone.close();
+        }
       });
     }
     assert(await sideNav(l => admin.locator(l)).first().isVisible(), 'Side navigation did not return to the screen layout');
