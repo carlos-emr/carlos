@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.core.LogEvent;
@@ -50,6 +51,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -62,7 +64,7 @@ import static org.mockito.Mockito.when;
 /**
  * The Manage Emails resend when a sent email's attachments cannot be prepared again: staff get a
  * generic message in their language with a reference, and the log the failure's type and the same
- * reference, never the error's own text.
+ * reference, never the error's own text. A missing email privilege is still a refusal.
  *
  * @since 2026-10-08
  */
@@ -73,12 +75,16 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
 
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
-    @Test
-    @DisplayName("should show a generic message and log only the failure's type and reference when attachments fail")
-    void shouldShowGenericMessageAndLogNoDetail_whenResendAttachmentsCannotBePrepared() throws Exception {
-        EmailComposeManager emailComposeManager = mock(EmailComposeManager.class);
-        DocumentAttachmentManager documentAttachmentManager = mock(DocumentAttachmentManager.class);
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+    private EmailComposeManager emailComposeManager;
+    private DocumentAttachmentManager documentAttachmentManager;
+    private SecurityInfoManager securityInfoManager;
+    private MockHttpServletRequest request;
+
+    /** A resend of email log 5, for FAKE patient 10001, whose one eForm attachment is 7. */
+    private void prepareResend(boolean allowed) {
+        emailComposeManager = mock(EmailComposeManager.class);
+        documentAttachmentManager = mock(DocumentAttachmentManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(DemographicManager.class, mock(DemographicManager.class));
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailManager.class, mock(EmailManager.class));
@@ -86,7 +92,7 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         registerMock(FormsManager.class, mock(FormsManager.class));
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
-        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(allowed);
 
         Demographic patient = new Demographic();
         patient.setDemographicNo(10001);
@@ -99,27 +105,30 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        // Stands for an error whose text names a file and repeats document content.
-        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(7)))
-                .thenThrow(new PDFGenerationException("FAKE-Smith /var/FAKE-path/report.pdf"));
 
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin/ManageEmails");
+        request = new MockHttpServletRequest("GET", "/admin/ManageEmails");
         request.setSession(new MockHttpSession());
         request.addParameter("logId", "5");
         request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
+    }
 
-        String result;
-        List<String> log;
-        boolean anyThrowableLogged;
+    /** Runs the resend, returning its result and the action's log lines (and whether any had an exception). */
+    private String resend(List<String> log, boolean[] anyThrowableLogged) {
         try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
                 LogCapture capture = LogCapture.forLogger(ManageEmails2Action.class)) {
             servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            result = new ManageEmails2Action().resendEmail();
-            log = capture.messages();
-            anyThrowableLogged = capture.events().stream().map(LogEvent::getThrown).anyMatch(thrown -> thrown != null);
+            try {
+                return new ManageEmails2Action().resendEmail();
+            } finally {
+                log.addAll(capture.messages());
+                anyThrowableLogged[0] = capture.events().stream().map(LogEvent::getThrown).anyMatch(thrown -> thrown != null);
+            }
         }
+    }
 
+    private void assertGenericMessageAndQuietLog(String result, List<String> log, boolean anyThrowableLogged,
+            Class<?> causeType) {
         String message = (String) request.getAttribute("emailErrorMessage");
         assertThat(result).isEqualTo("compose");
         assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
@@ -129,8 +138,47 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         String reference = message.substring(message.lastIndexOf(' ') + 1);
         assertThat(log).noneSatisfy(line -> assertThat(line).contains("FAKE"));
         assertThat(log).anySatisfy(line -> assertThat(line)
-                .contains("causeType=" + PDFGenerationException.class.getName())
+                .contains("causeType=" + causeType.getName())
                 .contains("reference=" + reference));
         assertThat(anyThrowableLogged).as("no exception attached to the log line").isFalse();
+    }
+
+    @Test
+    @DisplayName("should show a generic message and log only the failure's type and reference when attachments fail")
+    void shouldShowGenericMessageAndLogNoDetail_whenResendAttachmentsCannotBePrepared() throws Exception {
+        prepareResend(true);
+        // Stands for an error whose text names a file and repeats document content.
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(7)))
+                .thenThrow(new PDFGenerationException("FAKE-Smith /var/FAKE-path/report.pdf"));
+        List<String> log = new ArrayList<>();
+        boolean[] anyThrowableLogged = new boolean[1];
+
+        String result = resend(log, anyThrowableLogged);
+
+        assertGenericMessageAndQuietLog(result, log, anyThrowableLogged[0], PDFGenerationException.class);
+    }
+
+    @Test
+    @DisplayName("should show the same generic message when preparing the attachments fails unexpectedly")
+    void shouldShowGenericMessageAndLogNoDetail_whenResendFailsUnexpectedly() throws Exception {
+        prepareResend(true);
+        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(7)))
+                .thenThrow(new IllegalStateException("FAKE-Smith /var/FAKE-path/report.pdf"));
+        List<String> log = new ArrayList<>();
+        boolean[] anyThrowableLogged = new boolean[1];
+
+        String result = resend(log, anyThrowableLogged);
+
+        assertGenericMessageAndQuietLog(result, log, anyThrowableLogged[0], IllegalStateException.class);
+    }
+
+    @Test
+    @DisplayName("should refuse, not show the attachment message, when the user may not read emails")
+    void shouldRefuse_whenEmailReadPrivilegeMissing() {
+        prepareResend(false);
+
+        assertThatThrownBy(() -> resend(new ArrayList<>(), new boolean[1]))
+                .isInstanceOf(SecurityException.class);
+        assertThat(request.getAttribute("emailErrorMessage")).isNull();
     }
 }

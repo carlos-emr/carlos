@@ -246,7 +246,10 @@ public class ManageEmails2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog);
-        } catch (PDFGenerationException e) {
+        } catch (SecurityException e) {
+            // A refusal is not a preparation failure: it goes to the access-denied page.
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
             // As for an eForm email: the exception's text stays out of the page and the log.
             String reference = EmailFailureMessage.newReference();
             logger.error("Unable to prepare attachments to resend an email; causeType={}, reference={}{}",
@@ -324,7 +327,7 @@ public class ManageEmails2Action extends ActionSupport {
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();
