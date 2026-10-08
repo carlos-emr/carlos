@@ -88,20 +88,33 @@ async function main(state = {}) {
   const auditRows = () => Number(sql.value(
     "SELECT COUNT(*) FROM log WHERE action IN ('OAUTH_LOGIN_FAILURE','OAUTH_LOGIN_FAILURE_SUPPRESSED')"));
 
-  // 1. Application bound: many anonymous rejections, few synchronous audit rows.
-  const before = auditRows();
-  const seen = [];
-  for (let i = 0; i < SEQUENTIAL_CALLS; i += 1) {
-    const r = await anon.get(infoUrl, { failOnStatusCode: false });
-    seen.push(r.status());
+  // 1. Application bound: many anonymous rejections, few synchronous audit rows. The run must also
+  // show that rejected calls ARE audited (written >= 1): a bound of "zero rows" would pass vacuously
+  // if auditing were broken. A previous run from this address can leave its 60 s window suppressed,
+  // which looks the same as broken auditing, so wait the window out once and retry.
+  async function sequentialRejections() {
+    const before = auditRows();
+    const seen = [];
+    for (let i = 0; i < SEQUENTIAL_CALLS; i += 1) {
+      const r = await anon.get(infoUrl, { failOnStatusCode: false });
+      seen.push(r.status());
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500)); // let the synchronous audit rows commit
+    return { seen, written: auditRows() - before };
+  }
+  let { seen, written } = await sequentialRejections();
+  if (written === 0) {
+    console.log('note: no audit rows written; waiting out a possibly exhausted 60 s window and retrying once');
+    await new Promise((resolve) => setTimeout(resolve, 62000));
+    ({ seen, written } = await sequentialRejections());
   }
   const refused = seen.filter((s) => s === 401).length;
   assert(seen.every((s) => s === 401 || s === 429),
     `anonymous /ws/services calls must be refused (401) or throttled (429); got ${JSON.stringify(await statuses(seen))}`);
   assert(refused > MAX_ROWS_FOR_ONE_ADDRESS,
     `only ${refused} calls reached the application; the check cannot show a bound (is the address already throttled?)`);
-  await new Promise((resolve) => setTimeout(resolve, 1500)); // audit rows are written synchronously; allow commit visibility
-  const written = auditRows() - before;
+  assert(written >= 1,
+    `${refused} anonymous rejections wrote no OAUTH_LOGIN_FAILURE* rows: rejected-call auditing is not working`);
   assert(written <= MAX_ROWS_FOR_ONE_ADDRESS,
     `${refused} anonymous rejections wrote ${written} OAUTH_LOGIN_FAILURE* rows; the per-address bound is `
     + `${MAX_ROWS_FOR_ONE_ADDRESS} (issue #4429: one synchronous row per rejected call is unbounded)`);
