@@ -8299,6 +8299,25 @@
       ],
       "notes": "live-external: grouped with the manual SRFax loopback set (scripts/e2e/fax/README.md step 4) but, unlike the others, it contacts no SRFax account and sends no fax. It runs rx/searchDrug three times (amoxicillin, a nonsense term, metformin) to prove the DrugRef2 lookup behind prescribing answers, so it needs the carlos-emr-drugref service and its dataset, not SRFax credentials or SRFAX_LIVE. It reads one demographic through the MARIADB launcher, not MYSQL_*.",
       "fixtures": "Needs scripts/e2e/fax/fixtures.sql loaded (fixture patient Loopback/Faxtest). Writes nothing."
+    },
+    {
+      "name": "echart-two-patient-isolation",
+      "script": "scripts/echart-two-patient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Two E-Charts in one login: A's chart, then B's in a second tab, then back to A. What A's window shows (Measurements module, WT history, plot, Forms module, a form) and writes (measurement, Dx code, CPP item, prevention, history Delete) must stay A's and leave B's row counts unchanged; the chart-side twin of rx-stash-patient-isolation. Fails at the first read step, \"A's reloaded navbar, measurement history and plot show only A's rows\", while the session-wide EctSessionBean stands (app-findings-log.md finding 182), so the Forms and write steps do not run on 2026.08. Run as a probe that continues past a failing step, the Forms, Vitals, Preventions and history Delete steps fail for the same reason, and the Dx and CPP steps pass (their links were rendered before B opened). The Vascular Tracker (SetupForm) is not driven: it is broken as seeded (404, 400 and 400, see finding 182), so a form save is not exercised.",
+      "expectedFailure": {
+        "finding": 182,
+        "step": "A's reloaded navbar, measurement history and plot show only A's rows"
+      },
+      "fixtures": "Owned patient B (the run's FAKE-PW marker as last name) and one WT measurement each for A and B; the chart opens leave note locks. Every row written is removed by key and asserted gone: measurements, archived measurements, Dx, preventions, notes, CPP, eChart and note locks. No clinic-wide state is changed."
     }
   ]
 }
