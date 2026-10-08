@@ -295,11 +295,7 @@ public class BillingOnRaService {
                     } else {
                         amountsubmit = amountsubmit.substring(0, amountsubmit.length() - 2) + "." + amountsubmit.substring(amountsubmit.length() - 2);
                     }
-                    // OSCAR 19 contract: the H5 HIN field alone (left-justified, space-padded
-                    // to 12). radetail.hin is varchar(12); appending the version code made
-                    // the value 14 characters, which strict SQL mode rejects (rolling back
-                    // the whole RA import) and lenient mode silently truncates.
-                    newhin = hin;
+                    newhin = hin + ver;
 
                     // if it needs to write a radt record for the rahd record
                     if (recFlag > 0) {
@@ -615,6 +611,9 @@ public class BillingOnRaService {
                     String demo_name = "";
                     String localServiceDate = "";
                     String demo_hin = r.getHin() != null ? r.getHin() : "";
+                    // New imports retain the trailing version; older rows may contain
+                    // only the 12-character number. Match the patient number in either case.
+                    if (demo_hin.length() > 12) demo_hin = demo_hin.substring(0, 12);
                     demo_hin = demo_hin.trim();
                     String site = "";
                     String famProviderNo = null;

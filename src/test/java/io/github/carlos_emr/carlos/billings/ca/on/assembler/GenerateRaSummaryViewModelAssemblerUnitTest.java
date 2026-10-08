@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
@@ -45,7 +47,45 @@ import static org.mockito.Mockito.when;
 @DisplayName("GenerateRaSummaryViewModelAssembler")
 @Tag("unit")
 @Tag("billing")
-class GenerateRaSummaryViewModelAssemblerUnitTest {
+class GenerateRaSummaryViewModelAssemblerUnitTest extends CarlosUnitTestBase {
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "'1234567890',1234567890",
+            "'1234567890  ',1234567890",
+            "'1234567890  ZZ',1234567890",
+            "'123456789012ZZ',123456789012"
+    })
+    void shouldMatchThePatientNumber_withoutIncludingTheStoredVersion(String storedHin, String patientHin) {
+        RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+        RaHeader header = new RaHeader();
+        header.setStatus("A");
+        when(raHeaderDao.find((Object) 7)).thenReturn(header);
+        RaDetail detail = new RaDetail();
+        detail.setBillingNo(100);
+        detail.setHin(storedHin);
+        detail.setAmountClaim("12.34");
+        detail.setAmountPay("12.34");
+        detail.setServiceDate("20260428");
+        detail.setServiceCode("A001");
+        when(raDetailDao.search_rasummary_dt(7, "%")).thenReturn(List.of(detail));
+        io.github.carlos_emr.carlos.commn.model.Billing billing = mock(io.github.carlos_emr.carlos.commn.model.Billing.class);
+        when(billingDao.find(100)).thenReturn(billing);
+        when(billing.getHin()).thenReturn(patientHin);
+        when(billing.getDemographicName()).thenReturn("FAKE remittance patient");
+        when(billing.getBillingDate()).thenReturn(java.sql.Date.valueOf("2026-04-28"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "7");
+        GenerateRaSummaryViewModelAssembler assembler =
+                new GenerateRaSummaryViewModelAssembler(raHeaderDao, raDetailDao, providerDao, billingDao);
+        assertThat(assembler.assemble(request, null).getRows()).singleElement().satisfies(row -> {
+            assertThat(row.demoHin()).isEqualTo(patientHin);
+            assertThat(row.demoName()).isEqualTo("FAKE remittance patient");
+        });
+    }
 
     @Test
     void shouldRejectMalformedInvoicedAmount_insteadOfSilentlyZeroingTotal() {

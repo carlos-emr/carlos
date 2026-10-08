@@ -101,7 +101,7 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
         String uuid = note.getUuid();
         if (uuid == null) return Collections.emptyList();
         return (List<CaseManagementNote>) JpqlQueryHelper.find(entityManager(),
-                "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc", uuid);
+                "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc, cmn.id asc", uuid);
     }
 
     @SuppressWarnings("unchecked")

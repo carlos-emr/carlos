@@ -152,7 +152,7 @@ public class CaseManagementPrint {
      * @param printLabs boolean true to include laboratory results (HL7 reports)
      * @param printPreventions boolean true to include prevention/immunization records
      * @param printAllergies boolean true to include patient allergy information
-     * @param useDateRange boolean true to filter notes by date range (requires startDate and endDate)
+     * @param useDateRange boolean true to filter notes and labs by date range (requires startDate and endDate)
      * @param startDate Calendar the start date for date range filtering (inclusive); may be null if useDateRange is false
      * @param endDate Calendar the end date for date range filtering (inclusive); may be null if useDateRange is false
      * @param request HttpServletRequest the servlet request containing session data and parameters
@@ -348,7 +348,9 @@ public class CaseManagementPrint {
                 LinkedHashMap<String, LabResultData> accessionMap = new LinkedHashMap<String, LabResultData>();
                 for (int i = 0; i < labs.size(); i++) {
                     LabResultData result = labs.get(i);
-                    if (result.isHL7TEXT()) {
+                    // Filter before accession de-duplication so an out-of-range version
+                    // cannot hide a report that belongs to the selected calendar days.
+                    if (result.isHL7TEXT() && (printRange == null || printRange.contains(result.getDateObj()))) {
                         if (result.accessionNumber == null || result.accessionNumber.equals("")) {
                             accessionMap.put("noAccessionNum" + i + result.labType, result);
                         } else {
@@ -359,8 +361,6 @@ public class CaseManagementPrint {
                 }
 
                 for (LabResultData result : accessionMap.values()) {
-                    //Date d = result.getDateObj();
-                    // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     // Each lab is rendered into the application temp directory, as every other
                     // LabPDFCreator caller does, NOT under DOCUMENT_DIR: addEmbeddedDocuments()

@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -125,7 +126,7 @@
             int i = 0;
         %>
         <h1><fmt:message key="encounter.immunization.config.immunizationSetDisplay.msgSet"/>:
-            <%=setNamed%>
+            <carlos:encode value='<%= setNamed %>' context="html"/>
         </h1>
         <table cellpadding=2 cellspacing=0 border="2px" rules="all"
                id="tblSet<%=i%>" style="margin-bottom: 10px">

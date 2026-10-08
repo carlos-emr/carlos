@@ -14,7 +14,7 @@
  * carry the file's values and the matched test provider; the downloaded import
  * event log counts 1 allergy / 1 medication / 1 clinical note for that patient;
  * re-importing the same file creates no second patient, lists the duplicate, and
- * (last step, an open application defect) must not be labelled "Imported Successfully".
+ * is not labelled "Imported Successfully"; mixed and all-refused ZIP imports report exact counts.
  *
  * Fixtures and cleanup: the patient exists only because the check imported it
  * (surname = per-run FAKE-PW marker). Cleanup, registered before the upload,
@@ -29,7 +29,7 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
-const { runWorkflow } = require('./lib/workflow-session');
+const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const xmlText = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -170,8 +170,13 @@ function remainingChildren(sql, id) {
 
 async function workflow(s) {
   const v = fixtureValues(s.marker);
-  const owner = `last_name=${h.sqlString(v.lastName)} AND first_name=${h.sqlString(v.firstName)}`;
-  const importedIds = () => s.sql.rows(`SELECT demographic_no FROM demographic WHERE ${owner} ORDER BY demographic_no`).flat();
+  const mixedFirst = 'Mixed } import';
+  const mixedLast = `${s.marker}-B`;
+  const concurrentLast = `${s.marker}-C`;
+  const owner = `(last_name=${h.sqlString(v.lastName)} AND first_name=${h.sqlString(v.firstName)})
+    OR (last_name=${h.sqlString(mixedLast)} AND first_name=${h.sqlString(mixedFirst)})
+    OR (last_name=${h.sqlString(concurrentLast)} AND first_name=${h.sqlString(v.firstName)})`;
+  const importedIds = () => s.sql.rows(`SELECT demographic_no FROM demographic WHERE (${owner}) ORDER BY demographic_no`).flat();
   s.cleanup(() => {
     for (const id of importedIds()) {
       h.assert(/^[1-9]\d*$/.test(id), 'Imported patient has an invalid identity');
@@ -186,7 +191,7 @@ async function workflow(s) {
         + (SELECT COUNT(*) FROM casemgmt_note_link WHERE note_id IN (${noteIds}))
         + (SELECT COUNT(*) FROM casemgmt_issue_notes WHERE note_id IN (${noteIds}))`) === '0',
       'Imported patient child rows were not removed');
-      s.sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND ${owner}`);
+      s.sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND (${owner})`);
     }
     h.assert(importedIds().length === 0, 'The imported patient was not removed');
   });
@@ -226,6 +231,57 @@ async function workflow(s) {
     h.assert(importedIds().length === 0, 'An empty import created a patient');
   });
 
+  await s.step('a rejected upload filename returns its JSON warning without a success or log link', async () => {
+    const refusedFile = {...file, name: '.hidden.xml'};
+    await frame.locator('#importFile').setInputFiles(refusedFile);
+    const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
+      && r.request().method() === 'POST', {timeout: 120000});
+    await frame.locator('input[type="submit"][name="Submit"]').click();
+    const response = await uploaded;
+    h.assert(response.status() === 200, `Refused upload answered HTTP ${response.status()}`);
+    const outcome = await response.json();
+    h.assert(outcome.importedPatients === 0 && outcome.refusedPatients === 0 && outcome.importLog === null,
+      'A rejected upload reported imported patients or a nonexistent log');
+    h.assert(outcome.warnings.some(warning => warning.startsWith('Invalid filename.')),
+      'The upload validation warning was not returned');
+    const result = frame.locator('#result > div').filter({hasText: refusedFile.name}).last();
+    await result.locator('h5', {hasText: 'No patients imported'}).waitFor();
+    h.assert((await result.innerText()).includes(outcome.warnings[0]), 'The validation warning was not displayed');
+    h.assert(await result.locator('a').count() === 0, 'A refused upload offers an invalid event log');
+    h.assert(importedIds().length === 0, 'The rejected upload created a patient');
+  });
+
+  await s.step('A multipart interceptor rejection displays its warning and imports nothing', async () => {
+    await frame.locator('#importFile').setInputFiles(file);
+    await frame.locator('#importFile').evaluate(input => {
+      const oversized = document.createElement('input');
+      oversized.type = 'hidden';
+      oversized.name = 'ownedMultipartLimitProbe';
+      oversized.id = 'ownedMultipartLimitProbe';
+      oversized.value = 'x'.repeat(8192);
+      input.form.appendChild(oversized);
+    });
+    try {
+      const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
+        && r.request().method() === 'POST', {timeout: 120000});
+      await frame.locator('input[type="submit"][name="Submit"]').click();
+      const response = await uploaded;
+      h.assert(response.status() === 200 && (response.headers()['content-type'] || '').includes('text/html'),
+        'The multipart limit did not return the interceptor INPUT page');
+      const messages = await frame.evaluate(text => Array.from(new DOMParser().parseFromString(text, 'text/html')
+        .querySelectorAll('#importValidationErrors li'), node => node.textContent.trim()), await response.text());
+      h.assert(messages.length > 0 && messages.every(Boolean), 'The rejection page contained no validation reason');
+      const result = frame.locator('#result > div').filter({hasText: file.name}).last();
+      await result.locator('li').first().waitFor();
+      h.assert(JSON.stringify(await result.locator('li').allTextContents()) === JSON.stringify(messages),
+        'The result panel hid or changed the interceptor warning');
+      h.assert(await result.locator('a').count() === 0 && importedIds().length === 0,
+        'The rejected multipart request imported a patient or offered a log');
+    } finally {
+      await frame.locator('#ownedMultipartLimitProbe').evaluate(input => input.remove());
+    }
+  });
+
   let importLogHref;
   let id;
   await s.step('importing the CDS file reports success and offers the import event log', async () => {
@@ -235,6 +291,8 @@ async function workflow(s) {
     await frame.locator('input[type="submit"][name="Submit"]').click();
     const response = await uploaded;
     h.assert(response.status() === 200, `Import upload answered HTTP ${response.status()}`);
+    const outcome = await response.json();
+    h.assert(outcome.importedPatients === 1 && outcome.refusedPatients === 0, 'The first import did not count one imported patient');
     const result = frame.locator('#result > div').filter({ hasText: file.name });
     await result.getByRole('link', { name: 'Download Import Event Log' }).waitFor({ timeout: 120000 });
     h.assert(await result.locator('h5', { hasText: 'Imported Successfully' }).count() === 1,
@@ -295,7 +353,10 @@ async function workflow(s) {
     const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
       && r.request().method() === 'POST', { timeout: 120000 });
     await frame.locator('input[type="submit"][name="Submit"]').click();
-    h.assert((await uploaded).status() === 200, 'Duplicate import upload did not complete');
+    const response = await uploaded;
+    h.assert(response.status() === 200, 'Duplicate import upload did not complete');
+    const outcome = await response.json();
+    h.assert(outcome.importedPatients === 0 && outcome.refusedPatients === 1, 'The duplicate did not count one refused patient');
     const result = frame.locator('#result > div').filter({ hasText: file.name });
     await result.locator('li', { hasText: /already exist/ }).waitFor({ timeout: 60000 });
     h.assert(importedIds().length === 1, 'Re-importing the same file created a second patient');
@@ -304,13 +365,82 @@ async function workflow(s) {
     'Re-importing the same file duplicated the existing patient\'s records');
   });
 
-  // Last on purpose: every database fact above is proven before this UI defect.
+  // Keep the original positive import, clinical rows and event-log assertions above.
   await s.step('the refused duplicate is not reported as "Imported Successfully"', async () => {
     const panels = frame.locator('#result > div').filter({ hasText: file.name });
     h.assert(await panels.count() === 1, 'The duplicate import produced no result panel of its own');
     h.assert(await panels.locator('h5', { hasText: 'Imported Successfully' }).count() === 0,
       'A file whose only patient was refused as a duplicate is reported as "Imported Successfully"');
   });
+  const mixedXml = buildCdsXml({...v, firstName: mixedFirst, lastName: mixedLast}, {first, last});
+  assertSchemaValid(mixedXml);
+  const zip = execFileSync('python3', ['-c',
+    'import io,json,sys,zipfile; entries=json.load(sys.stdin); out=io.BytesIO(); z=zipfile.ZipFile(out,"w",zipfile.ZIP_DEFLATED); [z.writestr(name,text) for name,text in entries]; z.close(); sys.stdout.buffer.write(out.getvalue())'],
+    {input: JSON.stringify([['new-patient.xml', mixedXml], ['existing-patient.xml', xml]]), timeout: 30000});
+  const batch = {name: `${s.marker}-batch.zip`, mimeType: 'application/zip', buffer: zip};
+  for (const [imported, refused, heading] of [[1, 1, 'Import completed with refusals'], [0, 2, 'No patients imported']]) {
+    await s.step(`ZIP import reports ${imported} imported and ${refused} refused patients`, async () => {
+      await frame.locator('#importFile').setInputFiles(batch);
+      const uploaded = admin.waitForResponse(r => new URL(r.url()).pathname.endsWith('/form/importUpload')
+        && r.request().method() === 'POST', {timeout: 120000});
+      await frame.locator('input[type="submit"][name="Submit"]').click();
+      const response = await uploaded;
+      h.assert(response.status() === 200, `ZIP import answered HTTP ${response.status()}`);
+      const outcome = await response.json();
+      h.assert(outcome.importedPatients === imported && outcome.refusedPatients === refused,
+        `ZIP import did not return the exact ${imported}/${refused} patient counts`);
+      const panel = frame.locator('#result > div').filter({hasText: batch.name});
+      await panel.getByRole('heading', {name: heading, exact: true}).waitFor({timeout: 60000});
+      h.assert(await panel.locator('p').innerText() === `Patients imported: ${imported}; refused: ${refused}`,
+        'The visible ZIP counts differ from the response');
+      const ids = importedIds();
+      h.assert(ids.length === 2, 'The mixed/refused ZIP changed the expected two owned patients');
+      for (const patientId of ids) {
+        h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patientId}`) === '1'
+          && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patientId}`) === '1'
+          && s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patientId} AND note=${h.sqlString(v.note)}`) === '1',
+        'The ZIP import omitted or duplicated an owned clinical record');
+      }
+    });
+  }
+  await s.step('Concurrent uploads create one patient and refuse the duplicate without duplicating clinical rows', async () => {
+    const concurrentXml = buildCdsXml({...v, lastName: concurrentLast}, {first, last});
+    assertSchemaValid(concurrentXml);
+    const fields = await frame.locator('#importFile').evaluate(input => Object.fromEntries(
+      Array.from(new FormData(input.form)).filter(([, value]) => typeof value === 'string')));
+    h.assert(fields['CSRF-TOKEN'], 'The concurrent import has no session CSRF token');
+    const post = async () => {
+      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/form/importUpload'), {
+        multipart: {...fields, importFile: {name: `${s.marker}-concurrent.xml`, mimeType: 'text/xml', buffer: Buffer.from(concurrentXml)}},
+        timeout: 120000,
+      });
+      h.assert(response.status() === 200, `Concurrent upload answered HTTP ${response.status()}`);
+      const result = await response.json();
+      await response.dispose();
+      return [result.importedPatients, result.refusedPatients];
+    };
+    const results = await Promise.all([post(), post()]);
+    h.assert(JSON.stringify(results.sort((a, b) => a[0] - b[0])) === JSON.stringify([[0, 1], [1, 0]]),
+      'Concurrent imports did not report exactly one insertion and one duplicate refusal');
+    const ids = s.sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(concurrentLast)}
+      AND first_name=${h.sqlString(v.firstName)}`).flat();
+    h.assert(ids.length === 1, 'Concurrent imports created duplicate patients');
+    for (const table of ['drugs', 'allergies']) {
+      h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${Number(ids[0])}`) === '1',
+        `Concurrent imports duplicated or omitted ${table}`);
+    }
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}
+      AND note=${h.sqlString(v.note)}`) === '1', 'Concurrent imports duplicated or omitted the clinical note');
+    // The importer also stores linked medication/allergy/demographic annotations in this table.
+    // Require the same total as the equivalent single import, including those ancillary notes.
+    const singleNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id}`);
+    const concurrentNotes = s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${Number(ids[0])}`);
+    h.assert(concurrentNotes === singleNotes,
+      `Concurrent import stored ${concurrentNotes} total notes; the equivalent single import stored ${singleNotes}`);
+    await expectValue(s.sql, "SELECT IS_FREE_LOCK(CONCAT('carlos-cds-import-', MD5(DATABASE())))", '1',
+      'A completed import retained its database lock');
+  });
+
 }
 
 if (require.main === module) runWorkflow('demographic-cds-import', workflow, { openPatient: false });

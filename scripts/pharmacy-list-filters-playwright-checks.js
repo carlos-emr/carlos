@@ -15,7 +15,7 @@ async function workflow(s) {
     }
   });
   for (const fixture of [
-    {name:'[Care]+ Pharmacy', address:'10 Clinic Street', city:'Montréal', postal:'H1A 1A1', phone:'4165550200', fax:'4165550100'},
+    {name:'[Care]+ Pharmacy', address:'10 Clinic Street', city:'Montréal', postal:'H1A 1A1', phone:'(416) 555-0200', fax:'416.555.0100'},
     {name:'Care Pharmacy', address:'20 Other Street', city:'Toronto', postal:'M1A 1A1', phone:'4165550201', fax:'4165550101'},
   ]) {
     const id = s.sql.value(`INSERT INTO pharmacyInfo(name,address,city,province,postalCode,phone1,fax,status)
@@ -65,6 +65,25 @@ async function workflow(s) {
       await rx.locator(field).fill('');
       await expected(true, true);
     }
+  });
+  await s.step('phone and fax searches ignore number formatting while retaining the name filter', async () => {
+    await rx.locator('#pharmacySearch').fill(s.marker);
+    for (const [field, queries] of [
+      ['#pharmacyPhoneSearch', ['4165550200', '416-555-0200', '(416) 555 0200', '555-0200']],
+      ['#pharmacyFaxSearch', ['4165550100', '(416) 555-0100', '416 555 0100', '555-0100']],
+    ]) {
+      for (const value of queries) {
+        await rx.locator(field).fill(value);
+        await expected(true, false);
+      }
+      await rx.locator(field).fill('()-');
+      await expected(false, false);
+      await rx.locator(field).fill('');
+      await expected(true, true);
+    }
+    await rx.locator('#pharmacyPhoneSearch').fill('(416) 555-0201');
+    await expected(false, true);
+    await rx.locator('#pharmacyPhoneSearch').fill('');
   });
   await s.step('select the filtered pharmacy and persist the patient association', async () => {
     await rx.locator('#pharmacySearch').fill(`${s.marker} [Care]+`);

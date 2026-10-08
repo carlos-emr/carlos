@@ -25,10 +25,10 @@
     "timeoutSec  wall clock the runner allows before it gives up on the check.",
     "runLast     the check is destructive to shared state (deliberate failed logins)",
     "            and must run after the positive suite.",
-    "manual      the check is never part of a tier run: it needs credentials",
-    "            the harness contract does not carry (the installer's",
-    "            initial-admin.txt) and changes the administrator password,",
-    "            so it runs only when named with --only.",
+    "manual      the check is never part of a tier run: it needs explicit",
+    "            fixture permissions or credentials beyond the common contract",
+    "            (for example, the installer's initial-admin.txt). It runs only",
+    "            when named with --only.",
     "env         environment variables beyond the common contract in",
     "            lib/playwright-harness.js readConfig(). Extracted from each script;",
     "            defaults and meanings belong in the scripts own header comment.",
@@ -38,6 +38,20 @@
     "in the PR that measures the tier, not by guess."
   ],
   "checks": [
+    {
+      "name": "retired-view-aliases",
+      "script": "scripts/retired-view-aliases-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "notes": "Read-only issue3665 findings2/4: retired aliases return404; retained template management opens Add New without saving."
+    },
     {
       "name": "annotate-document",
       "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
@@ -173,6 +187,22 @@
         "ANON_DEMOGRAPHIC_NO",
         "ANON_TIMEOUT_MS"
       ]
+    },
+    {
+      "name": "oauth-rest-surfaces",
+      "script": "scripts/oauth-rest-surfaces-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "OAUTH_DEMOGRAPHIC_NO"
+      ],
+      "notes": "Issue #3446: /ws/oauth and /ws/services are published and fail closed; full OAuth 1.0a out-of-band handshake through the consent page; /ws/rs keeps epoch-millisecond dates; SOAP unaffected. Seeds and removes its own ServiceClient and tokens."
     },
     {
       "name": "application-health",
@@ -386,6 +416,20 @@
       ]
     },
     {
+      "name": "legacy-calculator-bookmarks",
+      "script": "scripts/legacy-calculator-bookmarks-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Read-only issue3665 finding130: legacy static calculator bookmarks redirect to the guarded maintained pages with sex/age kept; Framingham/UKPDS prefills from its address and refuses an out-of-range age."
+    },
+    {
       "name": "clinical-freetext",
       "script": "scripts/clinical-freetext-playwright-checks.js",
       "tiers": [
@@ -469,12 +513,13 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [
+        "CONSULT_APPLICATION_TEMP_DIR",
         "CONSULT_DEMOGRAPHIC_NO",
         "CONSULT_REQUEST_ID",
         "CONSULT_SIGNATURE_SCENARIOS"
@@ -795,6 +840,23 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "pathnet-status",
+      "script": "scripts/pathnet-status-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PATHNET_LABS"
+      ],
+      "fixtures": "Owned synthetic patient and two legacy BCP reports; requires BC tables, server PATHNET_LABS=yes and the same explicit environment opt-in.",
+      "notes": "Exercise the real PathNet patient projection and final/partial classification; remove owned routing and lab rows."
     },
     {
       "name": "echart-new-patient-notes",
@@ -1467,6 +1529,34 @@
       ]
     },
     {
+      "name": "lab-patient-dob",
+      "script": "scripts/lab-patient-dob-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Search the real lab patient-matching DOB form for days 01-09 and 15 using the owned patient."
+    },
+    {
+      "name": "chart-print-lab-range",
+      "script": "scripts/chart-print-lab-range-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Verify printed lab date boundaries and accession-version selection in downloaded chart PDFs."
+    },
+    {
       "name": "lab-requisition-links",
       "script": "scripts/lab-requisition-links-playwright-checks.js",
       "tiers": [
@@ -1540,6 +1630,21 @@
       ],
       "timeoutSec": 360,
       "env": []
+    },
+    {
+      "name": "rx-profile-legend",
+      "script": "scripts/rx-profile-legend-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [],
+      "fixtures": "Owned synthetic patient and four medications; cleanup verifies their removal.",
+      "notes": "Delay real responses to check section order, rapid selections, long-term-status refresh, failed-section refusal and retry."
     },
     {
       "name": "rx-stash-deletion",
@@ -1922,6 +2027,19 @@
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
+      "name": "rest-birth-date",
+      "script": "scripts/rest-birth-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
       "name": "patient-search-modes",
       "script": "scripts/patient-search-modes-playwright-checks.js",
       "tiers": [
@@ -1936,6 +2054,21 @@
         "SEARCH_MODES",
         "SEARCH_INACTIVE_STATUSES",
         "SEARCH_TIMEOUT_MS"
+      ]
+    },
+    {
+      "name": "eform-restore-fid-validation",
+      "script": "scripts/eform-restore-fid-validation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EFORM_SCREENSHOT_DIR"
       ]
     },
     {
@@ -2013,6 +2146,19 @@
       "timeoutSec": 300
     },
     {
+      "name": "patient-retired-spreadsheet",
+      "script": "scripts/patient-retired-spreadsheet-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "notes": "Uses an owned patient to verify the retired spreadsheet route returns 404 for authenticated GET and CSRF-valid POST without exporting data."
+    },
+    {
       "name": "patient-letters-envelopes",
       "script": "scripts/patient-letters-envelopes-playwright-checks.js",
       "tiers": [
@@ -2028,6 +2174,20 @@
         "LETTER_DOCUMENT_DIR",
         "MYSQL_DOCKER_CONTAINER"
       ]
+    },
+    {
+      "name": "patient-letters-entry",
+      "script": "scripts/patient-letters-entry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned patient and report-denied login/role; all owned rows removed and checked. Envelope PDF is read only.",
+      "notes": "Real master-record Print / Labels entry, selected patient, template-management navigation, retained envelope PDF and report-permission visibility (#3665 finding 1)."
     },
     {
       "name": "rx-fax-pharmacy-phone",
@@ -2671,6 +2831,26 @@
       "fixtures": "Creates and removes an owned FAKE-PW patient; local disposable database only."
     },
     {
+      "name": "allergy-injected-form-csrf",
+      "script": "scripts/allergy-injected-form-csrf-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD",
+        "ALLERGY_SEARCH_TERM"
+      ],
+      "fixtures": "Creates and removes two owned FAKE-PW patients and every allergy written for them; logs the test session out in its last step. Needs DrugRef for the search-result step. Local disposable database only.",
+      "notes": "Issue #3355 acceptance list and #3488: the AJAX-injected allergy form carries one current CSRF token, NKDA/coded/search-result adds save once, CSRFGuard refusals of the dialogue request and of the save are reported in the page with the entries kept and a single-record retry, and cross-patient, forged, tokenless and post-logout submissions write nothing."
+    },
+    {
       "name": "contact-lifecycle",
       "script": "scripts/contact-lifecycle-playwright-checks.js",
       "tiers": [
@@ -2946,6 +3126,23 @@
       ],
       "timeoutSec": 180,
       "env": []
+    },
+    {
+      "name": "report-print",
+      "script": "scripts/report-print-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "REPORT_PRINT_TIMEOUT_MS",
+        "REPORT_PRINT_ARTIFACT_DIR",
+        "REPORT_PRINT_KEEP_GOING"
+      ]
     },
     {
       "name": "admin-report-validation",
@@ -3354,6 +3551,23 @@
       "fixtures": "Stores two owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) plus one owned document type, and turns on the test provider's edoc_browser_in_document_report preference (restored exactly); do not run it concurrently with another check that reads that preference."
     },
     {
+      "name": "note-browser-controls",
+      "script": "scripts/note-browser-controls-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Stores three owned PDFs under DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR when DOCUMENT_DIR is unset) with fixed content, update and observation dates on the run's FAKE- patient, and saves one owned note; all removed and verified gone."
+    },
+    {
       "name": "admin-messages",
       "script": "scripts/admin-messages-playwright-checks.js",
       "tiers": [
@@ -3417,6 +3631,21 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned synthetic patient saved into a marker-named patient set from the Demographic Report Tool; set rows removed."
+    },
+    {
+      "name": "password-spaces",
+      "script": "scripts/password-spaces-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Changes passwords through Preferences and logs in with exact internal, leading, trailing and repeated spaces; also changes from a space-containing password (#4273).",
+      "fixtures": "Owned throwaway provider/security/roles; cleanup verifies all owned records are removed."
     },
     {
       "name": "password-change-preferences",
@@ -3495,6 +3724,19 @@
       "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08."
     },
     {
+      "name": "security-password-length",
+      "script": "scripts/security-password-length-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": []
+    },
+    {
       "name": "security-record-admin",
       "script": "scripts/security-record-admin-playwright-checks.js",
       "tiers": [
@@ -3571,11 +3813,9 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [
-        "TICKLER_PREFS_DIRECT"
-      ],
+      "env": [],
       "fixtures": "property tickler_task_assignee snapshotted and restored; one owned tickler created to prove the default assignee.",
-      "notes": "Fails on 2026.08: the Preferences link opens the stale-note-date page instead of the tickler preference form (and further defects behind it)."
+      "notes": "Checks actual Preferences navigation, saved/default tickler assignees, reopen persistence, and refused GET mutations."
     },
     {
       "name": "my-groups",
@@ -3594,6 +3834,21 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates one marker-named provider group (test provider + two active demo providers) through Administration and the provider My Group pages; snapshots and restores ProviderPreference.myGroupNo; deletes the group through the UI and again in cleanup. The Group Preferences (billing form) step runs only when the Ontario link is present."
+    },
+    {
+      "name": "retired-provider-history",
+      "script": "scripts/retired-provider-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "notes": "Issue3665 finding5: retired history route and provider dispatcher modes refuse authenticated GET/HEAD/CSRF-valid POST; raw WEB-INF resources stay inaccessible; real schedule/master/chart navigation remains available.",
+      "fixtures": "Owned patient and expiring schedule-only login with a unique appointment/message-read role; every owned row removed."
     },
     {
       "name": "schedule-views",
@@ -3933,6 +4188,21 @@
       "fixtures": "Owns a synthetic patient, FAKEPW<hex> measurement types, groups and a style sheet (DB row plus the file in MEASUREMENT_CSS_UPLOAD_DIR, the server's oscarMeasurement_css_upload_path); removes and verifies all of them. SKIPs when MEASUREMENT_CSS_UPLOAD_DIR is not set."
     },
     {
+      "name": "measurement-stylesheet-delete",
+      "script": "scripts/measurement-stylesheet-delete-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Deletes an orphan group-style mapping from an already-open administration form after a competing stylesheet removal; preserves a peer, checks refusal for referenced styles and replay/GET/HEAD safety.",
+      "fixtures": "Two per-run marker CSS locations and group-style mappings; cleanup removes only marker-owned rows and verifies none remain."
+    },
+    {
       "name": "report-age-sex-visit",
       "script": "scripts/report-age-sex-visit-playwright-checks.js",
       "tiers": [
@@ -4009,8 +4279,10 @@
         "all"
       ],
       "timeoutSec": 420,
-      "env": [],
-      "notes": "Fails at its last step on 2026.08: TypeError on Assign Role/Rights to Object, the Administration link 403s for plain doctors, and GET FixRolesOnNotes reaches the bulk update (500 on the probe's invalid role).",
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "notes": "Requires EXCLUSIVE=1 on a disposable deployment. The protected repair changes only the string zero sentinel; empty and nonnumeric roles stay unchanged. Refuses pre-existing zero-role notes before seeding.",
       "fixtures": "Marker role, throwaway login (doctor only) and marker group; the access-control restriction applies only to the owned group. Role rows are removed by SQL because the UI has no role delete."
     },
     {
@@ -4137,7 +4409,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: a duplicate import is reported as 'Imported Successfully'. Needs xmllint (libxml2-utils).",
+      "notes": "Imports a schema-valid owned CDS patient, verifies demographic and clinical rows plus the event-log download, then proves a refused duplicate reports zero imported and one refused. Mixed and all-refused ZIP imports must show exact patient counts without duplicating clinical records. Empty submissions still raise the client alert; all imported fixture rows are removed.",
       "fixtures": "The imported patient (marker surname) and every child row the import wrote (drugs, allergies, casemgmt_note/link, partial_date, admission) are deleted by demographic_no. The CDS XML is built per run and validated with xmllint against the shipped schema; names the test login's own provider so no provider rows are created."
     },
     {
@@ -4152,7 +4424,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the administration shell Help ignores the saved Help Link, and the Ontario Billing Settings Save (no options shown) writes NULL rows for the BC-only property keys and invoice SystemPreferences. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
+      "notes": "Ontario Billing Settings has no Save control; explicit POSTs preserve BC-only property and invoice preference rows byte-exact. Administration Help uses the saved website, preserves literal markup in its URL, and refuses executable or malformed URLs. Website, Details, day-sheet and shell paths remain covered. Manage Sites and clinic numbers have no UI entry on this install (multisites off, rma_enabled=false).",
       "fixtures": "Snapshots and restores (with ids) the billing-settings and help-link rows in property and SystemPreferences; clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -4181,7 +4453,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Assign Tickler 404s on a doubled context path, Add To Disease Registry writes nothing, BulkPatientAction writes on GET, and Drill Down 403s without _dashboardChgUser.",
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges.",
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
@@ -4196,7 +4468,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the group page hides the last value of readings without a measuring instruction (Heart Rate).",
+      "notes": "Checks Vitals entry, encounter-note text, history, archive/delete, XML export, and the last Heart Rate value without a measuring instruction.",
       "fixtures": "Owned patient; Vitals readings entered through the E-Chart measurement group with a marker comment; measurements and measurementsDeleted rows removed."
     },
     {
@@ -4307,7 +4579,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails on 2026.08: a refused upload shows no error message; Clear Photo answers 500 (DetachedObjectException) and deleteImage accepts GET.",
+      "notes": "Verifies JPEG upload and GIF replacement with exact stored/rendered bytes; invalid uploads retain the photo and explain the rejected type with an escaped filename; GET deletion is refused and Clear Photo removes the owned image.",
       "fixtures": "Owned FAKE- patient and its client_image rows only."
     },
     {
@@ -4325,7 +4597,7 @@
         "DOCUMENT_DIR",
         "INCOMINGDOCUMENT_DIR"
       ],
-      "notes": "Fails on 2026.08: the Note Browser page has a JavaScript syntax error (identifiers split across lines) and its controls POST to a GET-only gate; note edits also overwrite rather than add revisions.",
+      "notes": "Verifies note editing, document delete/restore/refile, and printed latest-note content. Stored text history must match the database in newest-first order and render literal markup as text.",
       "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext."
     },
     {
@@ -4344,7 +4616,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails at its last step on 2026.08: enabling MFA wipes the stored PIN (the disabled PIN field posts no pin), and the security record edit page loads a missing admin/bcArStyle.css.",
+      "notes": "Verifies exact PIN/password and credential-date preservation after enabling and clearing MFA, plus enrolment, refused/accepted challenges, encrypted secret storage, reset GET rejection and re-enrolment. Retains the security editor stylesheet regression guard.",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration ▸ Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed."
     },
     {
@@ -4439,9 +4711,11 @@
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
-        "MYSQL_PASSWORD"
+        "MYSQL_PASSWORD",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
       ],
-      "fixtures": "Owned patient, an owned suggested-text row and a throwaway read-only tickler login; the session is ended from a second context sharing the cookie."
+      "fixtures": "Owned patient, suggested-text row and throwaway read-only tickler login. Existing inactive suggestions are temporarily activated to test an empty Inactive list and restored exactly; run only on a disposable VM with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true. The session is ended from a second context sharing the cookie."
     },
     {
       "name": "workflow-tickler-suggested-text",
@@ -4530,6 +4804,20 @@
       "fixtures": "Owned bills (one PAT, one with an owned error-report row) for an owned patient and appointment; all removed."
     },
     {
+      "name": "billing-on-premium-payment-date",
+      "script": "scripts/billing-on-premium-payment-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Verifies inclusive RA premium payment dates for all/selected providers, same-day ranges, inactive/adjacent exclusions, premium/final totals and unchanged database rows; owned fixtures cleaned."
+    },
+    {
       "name": "billing-on-ra-import",
       "script": "scripts/billing-on-ra-import-playwright-checks.js",
       "tiers": [
@@ -4544,7 +4832,7 @@
         "RA_DOCUMENT_DIR",
         "RA_EDT_INBOX"
       ],
-      "notes": "Fails on 2026.08: the claims error report page answers 500 (missing bean property), and Billing Reconciliation Report/Summary/Settle post a runtime-built form without a CSRF token (403).",
+      "notes": "Imports owned RA/error files through Upload MOH files, verifies reconciliation reports and settlement, and requires authenticated GET/HEAD/CSRF-valid POST to the retired ImportOnRA duplicate route to return 404.",
       "fixtures": "Reuses the OHIP simulation fixture; a synthetic Remittance Advice and claims error report built per run; raheader/radetail/billing_on_eareport rows and files removed."
     },
     {
@@ -4576,7 +4864,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Billing Form Add/bill-type/Delete and dx Search Update are refused for missing CSRF tokens, and the code Search update/confirm pages throw script errors.",
+      "notes": "Records billing administration saves independently. Code Search Update verifies exact persistence, return to search, reload and preservation of unsaved bill edits. Diagnosis Update verifies exact stored/reopened values, unchanged neighboring code and no duplicate rows. Code Confirm fills only the selected correction row, closes without script errors and leaves stored bill items unchanged. Manage Billing Form Add/bill-type/Delete failures remain separately tracked.",
       "fixtures": "Owned billing form (seeded, because its Add is broken), two marked service codes, two unused dx codes and an owned bill; the private code, location and favourite are created through the UI; all removed."
     },
     {
@@ -4624,7 +4912,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: ValidateSwipeCard answers 500 on a malformed track instead of a bad request.",
+      "notes": "Valid search, parsed-card confirmation and exact patient updates; malformed, missing, oversized and nameless tracks return HTTP 400 without disclosure or database changes, and a subsequent valid swipe remains usable.",
       "fixtures": "Owned synthetic patient given a unique synthetic HIN (valid Ontario check digit) and an X0X postal code; removed by runWorkflow."
     },
     {
@@ -4639,8 +4927,23 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Records each form and fails at the end on 2026.08: a second save/print is refused for a missing CSRF token, Vascular Tracker 404s, Annual print 404s, MMSE image 404s, and the Discharge Summary and Mental Health Form 1 saves throw TypeErrors.",
+      "notes": "Records each form independently. Palliative Care checks initial save, exact redisplay, CSRF-protected revision and latest-version reopening. Annual Health Review verifies its print route, saved record/date and literal prose. Discharge Summary and Mental Health Form 1 verify invalid-date rejection and cancelled confirmation without writes, followed by exact save/redisplay/reopen. Vascular Tracker routing remains a separately tracked failure.",
       "fixtures": "Owned synthetic patient and marker-named encounterForm registrations (the shipped forms are hidden); cleanup deletes the owned patient's form rows and the registrations. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "palliative-care-save-reopen",
+      "script": "scripts/palliative-care-save-reopen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Focused Palliative Care workflow: exact prose/date/provider, saved identity, forced folded-navbar reopening, second Save with CSRF protection, unchanged first version and latest-version reopening.",
+      "fixtures": "Owned workflow patient, Palliative Care rows and marker-named form registrations, including eight aliases forcing the saved entry beyond the first six. All removed; registrations are clinic-wide, so run EXCLUSIVE=1."
     },
     {
       "name": "billing-on-gst-css-benefit",
@@ -4654,7 +4957,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Code Styles drops a hand-typed colour declaration on save.",
+      "notes": "Covers GST and fee-schedule administration, picker/manual style creation, same-row declaration edits, reopening, unsupported-input validation without partial writes, and independent editing/deletion of styles with identical declarations.",
       "fixtures": "Snapshots and restores the clinic-wide gstControl, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Owned bill with billing_on_ext GST rows and one unused fake fee code created by a one-line synthetic schedule upload; no existing fee is changed."
     },
     {
@@ -4671,8 +4974,8 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Fails at its last step ('Reviewed records the logged-in provider as the document reviewer...') on 2026.08: editDocument.jsp reviewed() tests reviewerId == 'null', but the null-safe encoder renders a NULL reviewer as '', so the first review raises the debug alert 'set extra', writes a DocumentExtraReviewer row and leaves document.reviewer empty.",
-      "fixtures": "Owns a patient and one unreviewed PDF (document row with reviewer NULL, ctl_document link, file under DOCUMENT_DIR); cleanup deletes the document, its link, its file and any DocumentExtraReviewer row for that document id, and asserts each gone. No global settings; safe to run concurrently."
+      "notes": "Regression #4262: first review records and displays the primary reviewer; an additional review preserves the original reviewer/date and records/displays the current provider without a debug alert or duplicate acknowledgement.",
+      "fixtures": "Owns a patient and two PDFs (one unreviewed, one reviewed by another existing active provider); cleanup removes both document rows, links, files and extra-reviewer rows and asserts they are gone. Requires a second active provider; no provider or global-setting changes."
     },
     {
       "name": "encoder-null-eform-lists",
@@ -4815,6 +5118,25 @@
       "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
     },
     {
+      "name": "contact-editor",
+      "script": "scripts/contact-editor-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owned synthetic patient and one marker-named Contact created and edited through the directory UI; cleanup removes the owned contact and this patient's type-2 links.",
+      "notes": "Checks script parsing, real Save handlers, focus, stable contact identity and quoted text. GET/HEAD write rejection remains covered by get-reject-contact-directory."
+    },
+    {
       "name": "get-reject-contact-directory",
       "script": "scripts/get-reject-contact-directory-playwright-checks.js",
       "tiers": [
@@ -4831,7 +5153,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; the page creates one Contact row whose last name carries the run marker; cleanup deletes marker Contact rows (and any DemographicContact pointing at them) and asserts it.",
-      "notes": "Expected to FAIL at the last step 'the contact directory save refused GET/HEAD, the owned contact is unchanged, and the page ran cleanly': demographic/Contact method=saveContact writes on GET, and addEditContact.jsp's script block does not parse (unescaped quotes)."
+      "notes": "Expected to FAIL at the last step until demographic/Contact method=saveContact rejects GET/HEAD writes. Editor script behavior is also independently covered by contact-editor."
     },
     {
       "name": "get-reject-measurement-groups",
@@ -5399,7 +5721,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Owns the synthetic patient and one marker eForm template; cleanup deletes the instances (eform_values + eform_data) and the template and asserts them gone.",
-      "notes": "Fails at its final assertion on 2026.08: the floating-toolbar Submit saves TWO eform_data instances on two back-to-back clicks, a slow-response re-click and a POST replay (eform_floating_toolbar.js:92 submitEForm no guard; AddEForm2Action.java ~655 saveEformData persists a NEW instance on every submit)."
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision."
     },
     {
       "name": "double-submit-lab-manual",
@@ -5598,8 +5920,26 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product.",
-      "notes": "Expected to FAIL at its only step: RxWriteScript2Action.java:849 runs the chosen drug text through Encode.forJava, so the card shows CHILDREN\\'S and AC\\311TAMINOPH\\310NE."
+      "fixtures": "The owned FAKE- patient; two DrugRef products are staged on the prescription card but nothing is saved; cleanup asserts no drugs row exists for the patient. SKIPs when DrugRef offers no matching product."
+    },
+    {
+      "name": "rx-drug-name-quotes",
+      "script": "scripts/rx-drug-name-quotes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "The owned FAKE- patient; one marker-named custom drug with quotes and an accent and, when DrugRef offers it, one catalogue product with an apostrophe are saved through Save And Print, reprinted and read back from the E-Chart Medications panel; cleanup removes the patient's drugs, prescription and prescription signature rows and asserts them gone.",
+      "notes": "Covers #3952 stage -> save -> reprint. Override the catalogue product with RX_QUOTE_DRUG_TERM / RX_QUOTE_DRUG_NAME; when DrugRef lacks it the catalogue half is reported and only the custom drug runs."
     },
     {
       "name": "boundary-date-billing-claims",
@@ -5777,6 +6117,21 @@
       "env": [],
       "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart (one multi-line); notes and eChart rows removed and asserted gone.",
       "notes": "Verifies paging, Load All, Collapse/Expand and preserved container bounds after the final empty batch (#4171)."
+    },
+    {
+      "name": "echart-notes-pagination-retry",
+      "script": "scripts/echart-notes-pagination-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with 45 SQL-seeded signed notes dated 10 days apart; notes and eChart rows removed and asserted gone. Pagination failures are injected with Playwright routes (a 401, a 200 session-expired page, then 500s).",
+      "notes": "Issue #3609: a pagination fetch that rendered nothing is retried on the next scroll-to-top, capped at three in a row, shown with a Retry link, never left in the pane (a non-2xx body is not inserted, a 200 non-fragment page is taken back out); a failed Load All can be clicked again; a note save re-renders the fragment with paging started over so no batch is skipped."
     },
     {
       "name": "gap-clinical-calculators-conversions",
@@ -7213,7 +7568,22 @@
         "MASTER_RECORD_DEMOGRAPHIC_NO"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does. Skips the Rx stale-date '*' and favourite 'copy' links, which write.",
-      "notes": "Expected to FAIL today at Manage Contacts (About/License) and at the add-prevention forms (14 of 24 sampled): footer links throw ReferenceError popupStart is not defined (prevention/AddPreventionData.jsp:697-698 and others)."
+      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage."
+    },
+    {
+      "name": "prevention-footer-popups",
+      "script": "scripts/prevention-footer-popups-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Owned synthetic patient and two temporary Tdap-IPV catalogue mappings; cleanup verifies their removal. Never saves a prevention.",
+      "notes": "Issue3437: reach vaccine picker and entry form through UI; verify independent About/License popups, their Close controls, opener isolation and unsaved-draft retention when popups are blocked."
     },
     {
       "name": "page-health-footer-links",
@@ -7230,7 +7600,7 @@
         "PAGE_HEALTH_TIMEOUT_MS"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does.",
-      "notes": "Focused proof of the dead footer links. Expected to FAIL today at the end of step 2: Manage Contacts and the add-prevention form footer About/License throw ReferenceError popupStart is not defined and open no popup (about 40 JSPs, see risk-page-health.md C1)."
+      "notes": "Clicks About and License from Manage Contacts, an add-prevention form and Preferences > Edit Text Signature. Requires healthy same-origin destinations with no opener access, unchanged editor pages, and retention of an unsaved signature draft. Clicks each destination's Close control. Covers #4178 and #3437."
     },
     {
       "name": "page-health-help-link-offhost",
@@ -7697,6 +8067,38 @@
       ],
       "notes": "Uploads a PDF from E-Chart Documents +; verifies the success redirect retains the opener and refreshes Documents without reloading the chart (#4141).",
       "fixtures": "Owned patient, uploaded PDF and document/link/generated-note rows; cleanup verifies records and stored file are removed."
+    },
+    {
+      "name": "rourke-measurement",
+      "script": "scripts/rourke-measurement-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": []
+    },
+    {
+      "name": "jasper-production",
+      "script": "scripts/jasper-production-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120,
+      "env": [
+        "PLAYWRIGHT_ALLOW_JSP_FIXTURE_WRITE",
+        "JASPER_WEBAPP_DIR",
+        "JASPER_CLASS_DIR"
+      ],
+      "notes": "Isolated installed-package check. Creates one owned cold JSP, verifies effective production settings and no on-access recompilation, then removes source/generated files. Caller must restart Tomcat afterward to release the in-memory probe wrapper."
     }
   ]
 }

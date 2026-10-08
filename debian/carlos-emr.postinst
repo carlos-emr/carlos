@@ -84,12 +84,21 @@ mark_incomplete() {
 # `security`, so the file left on disk could name the other run's password --
 # and race the marker and the service state as well.
 #
+# It is the host's database-ownership lock (carlos-ctl util.DB_OWNERSHIP_LOCK;
+# the name predates the importer sharing it, and is kept because every
+# released postinst opens this path). `carlos-ctl import-o19` (carlos-ctl
+# 1.1.2 and later) holds it from before it publishes its ledger until it
+# exits, so the o19 guard this script consults AFTER taking the lock can no
+# longer pass a moment before an import becomes visible to it (#3678).
+#
 # Held on fd 9 for the remainder of the script (closed when it exits). Waits
-# rather than refuses, because the other holder is normally seconds from done;
-# a wait that times out records the install as unfinished and skips
+# rather than refuses, because a provisioning holder is normally seconds from
+# done; a wait that times out records the install as unfinished and skips
 # provisioning, which is the same non-fatal contract as every other step here.
-# flock(1) is util-linux and always present in practice; without it this
-# behaves exactly as it did before the lock existed.
+# An import holds it for hours, so when the guard reports one this does not
+# wait at all, and returns 2: the configure then defers exactly as the import
+# gate below does. flock(1) is util-linux and always present in practice;
+# without it this behaves exactly as it did before the lock existed.
 PROVISION_LOCK="${STATE}/.finish-install.lock"
 acquire_provision_lock() {
     # A host without flock(1) is the ONE deliberate fallthrough: it provisions
@@ -112,12 +121,28 @@ acquire_provision_lock() {
         echo "carlos-emr: rule out another provisioning run in the same database." >&2
         return 1
     fi
-    if flock -w 300 9; then
+    if flock -n 9; then
         return 0
     fi
-    echo "carlos-emr: another CARLOS provisioning run (carlos-ctl finish-install, or the" >&2
-    echo "carlos-emr: boot-time carlos-emr-provision.service) held the provisioning lock for" >&2
-    echo "carlos-emr: five minutes; this configure did NOT provision the database." >&2
+    # Held. Asked once before the wait, and once after it times out: an import
+    # still in intake publishes its ledger within the five minutes.
+    if ! o19_import_in_progress && flock -w 300 9; then
+        return 0
+    fi
+    if o19_import_in_progress; then
+        echo "carlos-emr: an OSCAR 19 import is in progress and owns the database (it holds" >&2
+        echo "carlos-emr:   ${PROVISION_LOCK}; see /var/lib/carlos-emr/o19-import/report.txt)." >&2
+        echo "carlos-emr: This configure did NOT touch the database, its server settings or the" >&2
+        echo "carlos-emr: schema, skipped the lock-serialized steps (init-config, the eForm render" >&2
+        echo "carlos-emr: browser), and is NOT starting the service. Finish the import with" >&2
+        echo "carlos-emr:   sudo carlos-ctl import-o19 ... --resume" >&2
+        echo "carlos-emr: then complete this configure:  sudo dpkg-reconfigure carlos-emr" >&2
+        return 2
+    fi
+    echo "carlos-emr: another CARLOS run (carlos-ctl finish-install, the boot-time" >&2
+    echo "carlos-emr: carlos-emr-provision.service, or carlos-ctl import-o19) held the" >&2
+    echo "carlos-emr: database-ownership lock for five minutes; this configure did NOT" >&2
+    echo "carlos-emr: provision the database." >&2
     return 1
 }
 
@@ -812,8 +837,18 @@ except ValueError:
         # this configure renames it is exactly what the lock exists to stop.
         # Everything from here to the end of provisioning is what
         # finish-install also does. Released when this script exits.
+        # Status 2 is an OSCAR 19 import holding it: the configure defers as the
+        # import gate does (no unfinished-install marker; see clear_incomplete).
         PROVISION_LOCK_HELD=1
-        acquire_provision_lock || PROVISION_LOCK_HELD=0
+        O19_IMPORT_HOLDS_LOCK=0
+        provision_lock_rc=0
+        acquire_provision_lock || provision_lock_rc=$?
+        if [ "${provision_lock_rc}" != 0 ]; then
+            PROVISION_LOCK_HELD=0
+        fi
+        if [ "${provision_lock_rc}" = 2 ]; then
+            O19_IMPORT_HOLDS_LOCK=1
+        fi
 
         # One-time migration (2026.08): the stock carlos.properties shipped the
         # OSCAR pre-installer template values for these clinic features (off),
@@ -1285,7 +1320,12 @@ OSCAR_DEFAULTS
         # another provisioning run in the database, nothing below may run.
         if [ "${PROVISION_LOCK_HELD}" = 0 ]; then
             MIGRATION_OK=0
-            mark_incomplete "another provisioning run held the provisioning lock"
+            # An import holding the lock is the import gate, reached earlier: it
+            # records nothing, because what is owed is the import's to finish,
+            # not the boot provisioner's (acquire_provision_lock said what to run).
+            if [ "${O19_IMPORT_HOLDS_LOCK}" = 0 ]; then
+                mark_incomplete "another provisioning run held the provisioning lock"
+            fi
         elif o19_import_in_progress; then
             MIGRATION_OK=0
             echo "carlos-emr: an OSCAR 19 import is in progress (see" >&2

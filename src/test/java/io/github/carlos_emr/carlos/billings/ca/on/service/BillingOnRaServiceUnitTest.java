@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingRaDetailDto;
@@ -30,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.RaHeader;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -71,7 +74,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingOnRaService")
 @Tag("unit")
 @Tag("billing")
-class BillingOnRaServiceUnitTest {
+class BillingOnRaServiceUnitTest extends CarlosUnitTestBase {
 
     private RaDetailDao raDetailDao;
     private RaHeaderDao raHeaderDao;
@@ -357,6 +360,37 @@ class BillingOnRaServiceUnitTest {
     // ---- getRASummary: pin the silent-swallow contract -----------------
 
     @Test
+    void shouldMatchPatientHealthNumber_whenStoredRemittanceIncludesItsVersion() {
+        BillingONCHeader1 claim = new BillingONCHeader1();
+        claim.setHin("1234567890");
+        claim.setDemographicName("FAKE PATIENT");
+        claim.setVisitType("00");
+        claim.setBillingDate(new java.util.Date());
+        Demographic patient = new Demographic();
+        patient.setProviderNo("999998");
+        when(cheader1Dao.findBillingsAndDemographicsById(1))
+                .thenReturn(Collections.singletonList(new Object[]{claim, patient}));
+        for (String storedHin : List.of("1234567890  ", "1234567890  ZZ")) {
+            RaDetail row = new RaDetail();
+            row.setBillingNo(1);
+            row.setHin(storedHin);
+            row.setServiceCode("A001A");
+            row.setServiceDate("20260101");
+            row.setServiceCount("01");
+            row.setErrorCode("");
+            row.setAmountClaim("35.00");
+            row.setAmountPay("35.00");
+            row.setClaimNo("CLAIM1");
+            when(raDetailDao.findByRaHeaderNoAndProviderOhipNo(99, "012345"))
+                    .thenReturn(List.of(row));
+            List<Properties> summary = service.getRASummary("99", "012345");
+            assertThat(summary).hasSize(1);
+            assertThat(summary.get(0).getProperty("demo_hin")).isEqualTo("1234567890");
+            assertThat(summary.get(0).getProperty("demo_name")).isEqualTo("FAKE PATIENT");
+        }
+    }
+
+    @Test
     void shouldAppendLoadFailureMarker_whenGetRASummaryHitsDaoError() {
         // Round-6 P1-8 contract change: when the outer catch fires, the
         // service appends a marker Properties row with LOAD_FAILURE_MARKER=true
@@ -500,23 +534,4 @@ class BillingOnRaServiceUnitTest {
         }
     }
 
-    @Test
-    void shouldStoreTwelveCharacterHinWithoutVersionCode_whenImportingH5Records() throws Exception {
-        // OSCAR 19 contract (JdbcBillingRAImpl): radetail.hin is the H4 HIN field alone,
-        // never HIN + version code, which overflows the varchar(12) column.
-        org.mockito.Mockito.doAnswer(invocation -> {
-            ReflectionTestUtils.setField(invocation.getArgument(0, RaHeader.class), "id", 7);
-            return null;
-        }).when(raHeaderDao).persist(any(RaHeader.class));
-        when(raHeaderDao.findCurrentByFilenamePaymentDate(any(), any())).thenReturn(List.of());
-        when(raHeaderDao.findByFilenamePaymentDate(any(), any())).thenReturn(List.of());
-        Path file = tempDir.resolve("hin.ra");
-        Files.write(file, List.of(h1("20260401", "000001000", "0"), h4("00000001"), h5()));
-
-        service.importRAFile(file.toString());
-
-        ArgumentCaptor<RaDetail> captor = ArgumentCaptor.forClass(RaDetail.class);
-        verify(raDetailDao).persist(captor.capture());
-        assertThat(captor.getValue().getHin()).isEqualTo("123456789012");
-    }
 }

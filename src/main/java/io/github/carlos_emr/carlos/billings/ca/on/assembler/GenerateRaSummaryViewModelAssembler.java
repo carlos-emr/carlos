@@ -188,10 +188,11 @@ public class GenerateRaSummaryViewModelAssembler {
                                                      Set<String> coBillingNos,
                                                      Totals totals) {
         String account = String.valueOf(rad.getBillingNo());
-        // The H5 HIN field is stored as read from the RA file, left-justified and
-        // space-padded to 12 (OSCAR 19 contract); compare it trimmed, as OSCAR 19's
-        // summary did, or a 10-digit billing HIN never matches and the patient is blanked.
-        String demoHin = nullToEmpty(rad.getHin()).trim();
+        String demoHin = nullToEmpty(rad.getHin());
+        // The stored HR4 field includes a two-character version after its
+        // twelve-character number; legacy imports may contain only the number.
+        if (demoHin.length() > 12) demoHin = demoHin.substring(0, 12);
+        demoHin = demoHin.trim();
         String demoName = "";
         String demoDocName = "";
         String location = "";

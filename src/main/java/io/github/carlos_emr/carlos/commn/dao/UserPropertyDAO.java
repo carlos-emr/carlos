@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     void delete(UserProperty prop);
 
+    /** Atomically replaces the owner's tickler assignee, or removes all copies for Default. */
+    void replaceTicklerTaskAssignee(String providerNo, String value);
+
     void saveProp(String provider, String userPropertyName, String value);
 
     void saveProp(UserProperty prop);

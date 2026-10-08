@@ -249,9 +249,9 @@
         <oscar:nameage demographicNo="${carlos:forHtmlAttribute(demographicNo)}"/>
     </span>
     <span class="small text-muted">
-        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a>
+        <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a>
         &nbsp;|&nbsp;
-        <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+        <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a>
     </span>
 </div>
 

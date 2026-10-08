@@ -150,10 +150,15 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     ////Start
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), Integer.parseInt(demographic_no));
+    String customizationProvider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+    Integer customizationPatient = Integer.valueOf(demographic_no);
+    List<FlowSheetCustomization> customizations = flowSheetCustomizationDao.getFlowSheetCustomizations(
+            temp, customizationProvider, customizationPatient);
+    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(
+            temp, customizationProvider, customizationPatient, customizations);
 
     MeasurementInfo mi = new MeasurementInfo(demographic_no);
-    List<String> measurementLs = mFlowsheet.getMeasurementList();
+    List<String> measurementLs = mFlowsheet.getVisibleMeasurementList();
     ArrayList<String> measurements = new ArrayList(measurementLs);
     long startTimeToGetM = System.currentTimeMillis();
 
