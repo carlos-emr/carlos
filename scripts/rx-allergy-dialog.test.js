@@ -170,6 +170,20 @@ for (const [label, fetchImpl, expected] of [
     });
 }
 
+test('a 4xx after the success redirect is unconfirmed, not NOT saved: the allergy may be recorded', async () => {
+    const page = fakePage({
+        fetchImpl: () => Promise.resolve(Object.assign(response(403, 'https://emr.example/carlos/rx/showAllergy?demographicNo=7'),
+            { redirected: true })),
+    });
+    const dialog = dialogModule.create(page.win);
+
+    assert.equal(await dialog.save(page.form, page.submitButton), 'failed');
+    assert.deepEqual(page.assigned, [], 'a 403 on the list is not the list');
+    assert.match(page.statusRegion.textContent, /^The allergy save could not be confirmed: the server refused the request \(HTTP 403\)/);
+    assert.match(dialogModule.saveFailureMessage(403, null, true), /^The allergy save could not be confirmed/);
+    assert.match(dialogModule.saveFailureMessage(403), /^Allergy NOT saved/, 'a direct refusal still says NOT saved');
+});
+
 test('a form rendered without a status region gets one, announced as an alert', async () => {
     const page = fakePage({
         withStatusRegion: false,

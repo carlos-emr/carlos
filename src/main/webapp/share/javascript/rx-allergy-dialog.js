@@ -178,13 +178,18 @@
      * the allergy list cannot be read that way (the write may have happened before the failure),
      * so the clinician is told to check the list before adding it again.
      *
+     * Only an answer from /rx/addAllergy2 itself is a refusal. fetch() follows the success redirect,
+     * so a 4xx that arrives after a redirect came from what followed the save, and the allergy may
+     * well be recorded: that is reported as unconfirmed too.
+     *
      * @param {number} status the HTTP status, 0 for no answer, or 200 when the answer was not the list
      * @param {Object} [messages] the page's localized messages; English where absent
+     * @param {boolean} [afterRedirect] true when the answer is not /rx/addAllergy2's own
      * @returns {string} the message shown in the dialogue
      */
-    function saveFailureMessage(status, messages) {
+    function saveFailureMessage(status, messages, afterRedirect) {
         var code = Number(status) || 0;
-        var name = code >= 400 && code < 500 ? 'msgSaveRefused' : 'msgSaveUnconfirmed';
+        var name = !afterRedirect && code >= 400 && code < 500 ? 'msgSaveRefused' : 'msgSaveUnconfirmed';
         return format(message(messages, name), describeStatus(code, messages));
     }
 
@@ -274,9 +279,10 @@
         }
 
         /** Ends a save that was not confirmed: re-enables the form and says why, keeping every value. */
-        function fail(form, submitter, status) {
+        function fail(form, submitter, status, afterRedirect) {
             setBusy(form, false);
-            showMessage(saveStatusRegion(form), saveFailureMessage(status, win.CarlosAllergyDialogMessages));
+            showMessage(saveStatusRegion(form),
+                saveFailureMessage(status, win.CarlosAllergyDialogMessages, afterRedirect));
             // The button was disabled while the request was out, which drops keyboard focus to the
             // page. Put it back so a keyboard user can retry with Enter.
             if (submitter && typeof submitter.focus === 'function') {
@@ -338,7 +344,8 @@
                     win.location.assign(response.url);
                     return 'saved';
                 }
-                fail(form, submitter, response.ok ? 200 : response.status);
+                fail(form, submitter, response.ok ? 200 : response.status,
+                    response.redirected === true || !routeEndsWith(response.url, '/rx/addAllergy2'));
                 return 'failed';
             }, function () {
                 fail(form, submitter, 0);
