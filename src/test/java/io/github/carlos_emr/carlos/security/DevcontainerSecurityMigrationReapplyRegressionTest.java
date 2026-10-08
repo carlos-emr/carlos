@@ -64,15 +64,29 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
         String script = Files.readString(POPULATE_SCRIPT, StandardCharsets.UTF_8);
 
         int demoLoad = script.indexOf("$SQL carlos < /scripts/development.sql");
-        int reapply = script.indexOf("for SEC_MIGRATION in ${FORWARD}");
+        int reapply = script.indexOf("reapply_security_migrations.sh");
         int repair = script.indexOf("$SQL carlos < /scripts/development_privileges.sql");
 
         assertThat(demoLoad).isPositive();
         assertThat(reapply).isGreaterThan(demoLoad);
         assertThat(repair).isGreaterThan(reapply);
         assertThat(script).contains(
-                "secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole",
-                "$SQL carlos < \"${SEC_MIGRATION}\"");
+                "reapply_security_migrations.sh",
+                "carlos -u root");
+    }
+
+    @Test
+    @DisplayName("should reapply security migrations on existing volumes before privilege repair")
+    void shouldReapplySecurityMigrations_onExistingVolumes() throws IOException {
+        String seed = Files.readString(
+                Path.of(".devcontainer", "development", "setup", "seed_data.sh"), StandardCharsets.UTF_8);
+        String dockerfile = Files.readString(
+                Path.of(".devcontainer", "db", "Dockerfile"), StandardCharsets.UTF_8);
+
+        assertThat(seed.indexOf("reapply_security_migrations.sh")).isPositive();
+        assertThat(seed.indexOf("development_privileges.sql"))
+                .isGreaterThan(seed.indexOf("reapply_security_migrations.sh"));
+        assertThat(dockerfile).contains("reapply_security_migrations.sh /scripts/reapply_security_migrations.sh");
     }
 
     @Test

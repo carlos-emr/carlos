@@ -112,12 +112,7 @@ done
 # are idempotent. (The deb demo load needs no equivalent:
 # demo-additive-exclude.txt drops the security tables, so Flyway rows stand.)
 echo 'Re-applying security-object migrations undone by the demo snapshot...'
-for SEC_MIGRATION in ${FORWARD}; do
-  if grep -qE 'secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole' "${SEC_MIGRATION}"; then
-    echo "  re-applying $(basename "${SEC_MIGRATION}")"
-    $SQL carlos < "${SEC_MIGRATION}"
-  fi
-done
+sh /scripts/reapply_security_migrations.sh "${MIG}" carlos -u root
 echo 'Restoring current Administration privileges...'
 $SQL carlos < /scripts/development_privileges.sql
 echo 'Seeding fake referral specialists and provider links...'
