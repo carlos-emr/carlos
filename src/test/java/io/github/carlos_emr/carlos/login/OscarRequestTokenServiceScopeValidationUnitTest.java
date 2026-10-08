@@ -126,9 +126,26 @@ class OscarRequestTokenServiceScopeValidationUnitTest {
     }
 
     @Test
-    @DisplayName("should accept any scope when enforcement is disabled")
+    @DisplayName("should reject an empty scope request when the flag is absent")
+    void shouldReject_whenNoScopeRequestedAndFlagAbsent() {
+        // #4419: an absent property means enforced, so an empty grant is refused.
+        CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+        OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
+        OscarRequestTokenService service = serviceFor(null, dataProvider);
+
+        OAuth1Exception thrown = catchThrowableOfType(
+                () -> service.initiatePost(new MockHttpServletRequest()), OAuth1Exception.class);
+
+        assertThat(thrown).isNotNull();
+        assertThat(thrown.getHttpCode()).isEqualTo(400);
+        verify(dataProvider, never()).createRequestToken(any());
+    }
+
+    @Test
+    @DisplayName("should accept any scope when an operator disabled enforcement")
     void shouldAccept_whenEnforcementDisabled() {
-        // Flag left unset (default). An unknown scope must still be accepted for backwards compatibility.
+        // Only an explicit off value disables enforcement; an unknown scope is then accepted.
+        CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "off");
         OscarOAuthDataProvider dataProvider = mock(OscarOAuthDataProvider.class);
         OscarRequestTokenService service = serviceFor("totally_bogus_zzz", dataProvider);
 

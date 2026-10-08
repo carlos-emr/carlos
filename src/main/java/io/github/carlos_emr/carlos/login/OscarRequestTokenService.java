@@ -58,10 +58,10 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopeEnforcement;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
@@ -79,13 +79,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class OscarRequestTokenService {
-
-    /**
-     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) keeps the
-     * historical lenient behaviour where any scope string is accepted and persisted; a truthy value makes
-     * {@code /initiate} reject empty or unknown scopes.
-     */
-    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     private final OscarOAuthDataProvider dataProvider;
     private final OAuth1ParamParser parser;
@@ -165,14 +158,14 @@ public class OscarRequestTokenService {
      * <p>When scope enforcement is enabled, a request token may only be issued for known
      * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
      * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
-     * being persisted onto a token. When enforcement is disabled (the default) this is a no-op so existing
-     * integrations are unaffected.
+     * being persisted onto a token. Enforcement is on unless an operator turns it off
+     * ({@link OAuthScopeEnforcement}, #4419); when it is off this is a no-op.
      *
      * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
      *                         is outside the vocabulary
      */
     private static void validateRequestedScopes(String[] scopes) {
-        if (!CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY)) {
+        if (!OAuthScopeEnforcement.isEnabled()) {
             return;
         }
         if (scopes == null || scopes.length == 0) {

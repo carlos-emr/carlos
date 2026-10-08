@@ -46,19 +46,38 @@ import java.util.Set;
  * grant implies the matching {@code .read} (see {@link #isSatisfiedBy}). Each JAX-RS service under
  * {@code /ws/services} maps to a domain ({@link #DOMAIN_BY_PATH_ROOT}), and read vs. write is classified
  * per endpoint rather than purely by HTTP method, so a read-only POST (e.g. {@code tickler/search}) maps to
- * {@code .read} instead of forcing a {@code .write} grant (issue #3102). A request whose root is not mapped
- * resolves to {@link #NO_SCOPE_REQUIRED}.
+ * {@code .read} instead of forcing a {@code .write} grant (issue #3102).
  *
- * <p>Enforcement remains gated by the {@code oauth.scope.enforcement.enabled} flag (default off); this class
- * only computes what scope a request requires, it does not decide whether to enforce.
+ * <p><b>Fail closed (#4419).</b> Only the roots in {@link #SCOPE_EXEMPT_ROOTS} resolve to
+ * {@link #NO_SCOPE_REQUIRED}. A root in neither map resolves to {@link #UNMAPPED_ENDPOINT}, which no grant
+ * satisfies, so a service added to {@code /ws/services} without a scope decision is refused under
+ * enforcement rather than reachable by every token. {@code OAuthScopesServiceMapUnitTest} fails the build
+ * when a published service's root is in neither map.
+ *
+ * <p>Whether to enforce at all is {@link OAuthScopeEnforcement}'s decision (on by default since #4419); this
+ * class only computes what scope a request requires.
  *
  * <p>All methods are pure functions of their arguments; this type holds no request state and is safe to
  * call from any thread.
  */
 public final class OAuthScopes {
 
-    /** Sentinel returned by {@link #requiredScope} for endpoints not in the enforcement map. */
+    /** Returned by {@link #requiredScope} for an explicitly scope-exempt endpoint ({@link #SCOPE_EXEMPT_ROOTS}). */
     public static final String NO_SCOPE_REQUIRED = null;
+
+    /**
+     * Returned by {@link #requiredScope} for a {@code /services/} root that is neither mapped nor exempt. It
+     * contains a space, and granted scopes are space-delimited, so no persisted grant can ever equal it;
+     * {@link #isSatisfiedBy} also refuses it outright.
+     */
+    public static final String UNMAPPED_ENDPOINT = "unmapped endpoint";
+
+    /**
+     * Roots that deliberately need no scope. {@code oauth} is {@code OAuthStatusService}
+     * ({@code /services/oauth/info}): it describes the token's own provider and is how a client confirms its
+     * token works, so any valid token may call it.
+     */
+    private static final Set<String> SCOPE_EXEMPT_ROOTS = Set.of("oauth");
 
     private static final String READ = "read";
     private static final String WRITE = "write";
@@ -67,7 +86,7 @@ public final class OAuthScopes {
      * Path-root segment (the first path element under {@code /services/} in the servlet path info) → scope
      * domain, covering the JAX-RS services wired into the {@code /ws/services} CXF endpoint. Roots are
      * matched case-insensitively (the resolver lower-cases them). A request whose root is not listed here
-     * resolves to {@link #NO_SCOPE_REQUIRED}. Several roots intentionally share a domain (e.g. {@code rx}
+     * (nor in {@link #SCOPE_EXEMPT_ROOTS}) resolves to {@link #UNMAPPED_ENDPOINT}. Several roots intentionally share a domain (e.g. {@code rx}
      * and {@code rxlookup} → {@code rx}, {@code reporting} and {@code reportbytemplate} → {@code report});
      * the {@code /initiate} vocabulary de-duplicates them.
      */
@@ -149,6 +168,9 @@ public final class OAuthScopes {
         Map.entry("rx", List.of(seg("*", "print", "*")))
     );
 
+    /** The suffixes the {@code /services} server's {@code <jaxrs:extensionMappings>} strip before routing. */
+    private static final List<String> EXTENSION_MAPPING_SUFFIXES = List.of(".json", ".xml");
+
     /** Readable constructor for a path template (a list of lower-cased segments; {@code "*"} = wildcard). */
     private static List<String> seg(String... parts) {
         return List.of(parts);
@@ -171,8 +193,9 @@ public final class OAuthScopes {
     }
 
     /**
-     * The scope a request must carry to be authorized, or {@link #NO_SCOPE_REQUIRED} when the target
-     * endpoint's root is not in {@link #DOMAIN_BY_PATH_ROOT}.
+     * The scope a request must carry to be authorized: {@link #NO_SCOPE_REQUIRED} for an explicitly exempt
+     * root or a path with no {@code /services/} root, and {@link #UNMAPPED_ENDPOINT} for a root in neither
+     * {@link #DOMAIN_BY_PATH_ROOT} nor {@link #SCOPE_EXEMPT_ROOTS}.
      *
      * <p>The domain comes from the first path segment under {@code /services/}. The read/write qualifier is
      * per-endpoint: safe methods ({@code GET}/{@code HEAD}/{@code OPTIONS}) are reads; non-safe methods are
@@ -190,7 +213,7 @@ public final class OAuthScopes {
      * @param servicePath the request's servlet path info (e.g. {@code /services/schedule/day/2026-06-29}
      *                    from {@code HttpServletRequest.getPathInfo()}); the segment after {@code /services/}
      *                    selects the domain
-     * @return the required scope string, or {@link #NO_SCOPE_REQUIRED} if the root is not mapped
+     * @return the required scope string, {@link #NO_SCOPE_REQUIRED}, or {@link #UNMAPPED_ENDPOINT}
      */
     public static String requiredScope(String httpMethod, String servicePath) {
         List<String> segments = serviceSegments(servicePath);
@@ -198,9 +221,12 @@ public final class OAuthScopes {
             return NO_SCOPE_REQUIRED;
         }
         String root = segments.get(0);
+        if (SCOPE_EXEMPT_ROOTS.contains(root)) {
+            return NO_SCOPE_REQUIRED;
+        }
         String domain = DOMAIN_BY_PATH_ROOT.get(root);
         if (domain == null) {
-            return NO_SCOPE_REQUIRED;
+            return UNMAPPED_ENDPOINT;
         }
         boolean read = isSafeMethod(httpMethod)
             || (isPostMethod(httpMethod) && isNonSafeRead(root, segments));
@@ -249,8 +275,9 @@ public final class OAuthScopes {
 
     /**
      * Whether the scopes granted on a token satisfy a {@code requiredScope}. A {@code null}
-     * {@code requiredScope} ({@link #NO_SCOPE_REQUIRED}) is always satisfied. Matching is exact, except
-     * that a {@code <domain>.write} grant also satisfies {@code <domain>.read}.
+     * {@code requiredScope} ({@link #NO_SCOPE_REQUIRED}) is always satisfied and {@link #UNMAPPED_ENDPOINT}
+     * never is. Matching is exact, except that a {@code <domain>.write} grant also satisfies
+     * {@code <domain>.read}.
      *
      * @param requiredScope the scope the request needs, or {@link #NO_SCOPE_REQUIRED}
      * @param grantedScopes the scopes present on the token (may be {@code null}/empty)
@@ -259,6 +286,9 @@ public final class OAuthScopes {
     public static boolean isSatisfiedBy(String requiredScope, Collection<String> grantedScopes) {
         if (requiredScope == null) {
             return true;
+        }
+        if (UNMAPPED_ENDPOINT.equals(requiredScope)) {
+            return false;
         }
         if (grantedScopes == null || grantedScopes.isEmpty()) {
             return false;
@@ -337,7 +367,30 @@ public final class OAuthScopes {
                 segments.add(asciiLowerCase(seg));
             }
         }
+        stripExtensionMapping(segments);
         return segments;
+    }
+
+    /**
+     * Mirrors the {@code <jaxrs:extensionMappings>} of the {@code /services} server in
+     * applicationContextREST.xml. CXF's {@code RequestPreprocessor} removes a trailing {@code .json} or
+     * {@code .xml} from the path before routing, so {@code /services/tickler.json} reaches the
+     * {@code /tickler} resource. {@code getPathInfo()} still carries the suffix, and without this the root
+     * would read as {@code tickler.json}, a root in neither map (#4419). Only the last segment is affected,
+     * as in CXF; a segment that is nothing but the suffix is left alone.
+     */
+    private static void stripExtensionMapping(List<String> segments) {
+        if (segments.isEmpty()) {
+            return;
+        }
+        int last = segments.size() - 1;
+        String seg = segments.get(last);
+        for (String suffix : EXTENSION_MAPPING_SUFFIXES) {
+            if (seg.length() > suffix.length() && seg.endsWith(suffix)) {
+                segments.set(last, seg.substring(0, seg.length() - suffix.length()));
+                return;
+            }
+        }
     }
 
     private static String normalize(String scope) {

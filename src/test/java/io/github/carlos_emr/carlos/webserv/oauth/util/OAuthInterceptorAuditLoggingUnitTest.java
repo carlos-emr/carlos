@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import static org.mockito.Mockito.times;
+import org.springframework.test.util.ReflectionTestUtils;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -253,5 +257,44 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
         assertThat(log.getIp()).isNull();
         assertThat(log.getProviderNo()).isNull();
         assertThat(log.getContent()).isNull();
+    }
+
+    @Test
+    @DisplayName("bounds anonymous failure rows per address and records one suppression notice")
+    void shouldSuppressFailureRows_afterPerAddressLimit() {
+        // #4429: an anonymous flood used to write one synchronous row per request.
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+
+        for (int i = 0; i < limit + 5; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(limit + 1));
+        List<OscarLog> rows = captor.getAllValues();
+        assertThat(rows.subList(0, limit)).allSatisfy(row -> assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE"));
+        assertThat(rows.get(limit).getAction()).isEqualTo("OAUTH_LOGIN_FAILURES_SUPPRESSED");
+        assertThat(rows.get(limit).getIp()).isEqualTo(REMOTE_IP);
+    }
+
+    @Test
+    @DisplayName("audits failures again once the suppression window has passed")
+    void shouldAuditAgain_whenWindowElapses() {
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        AtomicLong now = new AtomicLong(1_000_000L);
+        ReflectionTestUtils.setField(interceptor, "failureAuditBudget",
+                new OAuthInterceptor.FailureAuditBudget(now::get));
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+        for (int i = 0; i < limit + 3; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        now.addAndGet(OAuthInterceptor.FailureAuditBudget.WINDOW_MILLIS);
+        assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(limit + 2));
+        assertThat(captor.getValue().getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
     }
 }

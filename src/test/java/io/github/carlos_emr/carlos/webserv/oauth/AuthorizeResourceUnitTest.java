@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.oauth;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.OAuthData;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
 
@@ -39,6 +40,38 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("security")
 class AuthorizeResourceUnitTest {
+
+    @ParameterizedTest
+    @CsvSource(value = {"NULL,true", "true,true", "false,false"}, nullValues = "NULL")
+    @DisplayName("should tell the consent page whether the listed scopes are enforced")
+    void shouldFlagScopeEnforcement_whenShowingConsent(String flag, boolean expectedEnforced) throws Exception {
+        // #4419: with enforcement off the page warns that approval grants full access.
+        CarlosProperties props = CarlosProperties.getInstance();
+        String previous = props.getProperty(OAuthScopeEnforcement.PROPERTY, null);
+        try {
+            if (flag == null) {
+                props.remove(OAuthScopeEnforcement.PROPERTY);
+            } else {
+                props.setProperty(OAuthScopeEnforcement.PROPERTY, flag);
+            }
+            OscarOAuthDataProvider provider = mock(OscarOAuthDataProvider.class);
+            when(provider.getRequestToken("request-token")).thenReturn(requestToken("request-token"));
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/oauth/authorize");
+            request.setContextPath("/carlos");
+            AuthorizeResource resource = resource(request, new MockHttpServletResponse(), provider);
+
+            resource.showConsent("request-token");
+
+            assertThat(((OAuthData) request.getAttribute("oauthData")).isScopesEnforced())
+                    .isEqualTo(expectedEnforced);
+        } finally {
+            if (previous == null) {
+                props.remove(OAuthScopeEnforcement.PROPERTY);
+            } else {
+                props.setProperty(OAuthScopeEnforcement.PROPERTY, previous);
+            }
+        }
+    }
 
     @Test
     @DisplayName("should stage nonce without binding provider on GET")

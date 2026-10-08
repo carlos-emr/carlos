@@ -270,6 +270,15 @@
                         is requesting access to your OSCAR account.<br>
                         URL: <carlos:encode value='${oauthData.applicationURI}' context="html"/>.
                     </h5>
+                    <c:if test="${not oauthData.scopesEnforced}">
+                        <%-- oauth.scope.enforcement.enabled=false (#4419): the scopes below are recorded
+                             on the token but not checked, so approving grants the provider's full access. --%>
+                        <div class="alert alert-warning" role="alert" id="fullAccessWarning">
+                            OAuth scope enforcement is turned off on this server. If you authorize this
+                            application, it can read and change everything your account can, not only
+                            the permissions listed below.
+                        </div>
+                    </c:if>
                     <h5>Permissions requested:</h5>
                     <form id="scopeForm" method="post"
                         action="${carlos:forHtmlAttribute(oauthData.replyTo)}">

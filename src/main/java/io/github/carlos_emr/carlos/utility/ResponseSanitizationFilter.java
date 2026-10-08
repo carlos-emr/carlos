@@ -332,6 +332,14 @@ public class ResponseSanitizationFilter implements Filter {
         try {
             chain.doFilter(request, wrapper);
         } catch (IOException | ServletException | RuntimeException e) {
+            if (ClientAbort.isClientAbort(e)) {
+                // The browser closed the page or cancelled a download (#4438). Nothing failed on the
+                // server and the connection cannot take a sanitized page, so log once at DEBUG (this is
+                // the outermost filter; DbConnectionFilter stays silent) and let the container close it.
+                LOGGER.debug("Client aborted the response [uri={}]",
+                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()));
+                throw e;
+            }
             // An exception escaped the entire filter chain.
             // Always log for operational visibility and auditability, even when the response
             // is already committed, so failures are never silently swallowed.
@@ -390,12 +398,8 @@ public class ResponseSanitizationFilter implements Filter {
             String reason = sanitizationReason(status, capturedBody, webServiceRequest);
             if (reason != null) {
                 String correlationId = generateCorrelationId();
-                LOGGER.error("Sanitizing output-stream error response body "
-                                + "[status={} uri={} correlationId={} reason={}]",
-                        status,
-                        LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                        correlationId,
-                        reason);
+                logSanitizedBody("Sanitizing output-stream error response body", status,
+                        (HttpServletRequest) request, correlationId, reason);
                 if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
                     return;
                 }
@@ -427,12 +431,8 @@ public class ResponseSanitizationFilter implements Filter {
             // Tainted (stack trace) or web-service 5xx partial body: log correlation details
             // only and send a sanitized replacement.
             String correlationId = generateCorrelationId();
-            LOGGER.error("Sanitizing error response body "
-                    + "[status={} uri={} correlationId={} reason={}]",
-                    status,
-                    LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI()),
-                    correlationId,
-                    reason);
+            logSanitizedBody("Sanitizing error response body", status,
+                    (HttpServletRequest) request, correlationId, reason);
             if (dropTaintedBodyIfCommitted(httpResponse, status, correlationId)) {
                 return;
             }
@@ -440,6 +440,24 @@ public class ResponseSanitizationFilter implements Filter {
         } else {
             // Safe response — write captured content through to the real response.
             writeToResponse(httpResponse, capturedBody);
+        }
+    }
+
+    /**
+     * Records that an error body was replaced. A 5xx is a server failure and stays at ERROR. A 4xx is the
+     * client's error answered as designed, for example the expected 401 for an anonymous or bad-token call
+     * to {@code /ws/services} (#4438); it is logged at INFO so a normal day's journal does not fill with
+     * ERRORs that need no action. The correlation id is logged either way, so the generic page's reference
+     * can still be traced.
+     */
+    private static void logSanitizedBody(String what, int status, HttpServletRequest request,
+                                         String correlationId, String reason) {
+        String format = what + " [status={} uri={} correlationId={} reason={}]";
+        String uri = LogSafe.sanitizeUri(request.getRequestURI());
+        if (status >= 500) {
+            LOGGER.error(format, status, uri, correlationId, reason);
+        } else {
+            LOGGER.info(format, status, uri, correlationId, reason);
         }
     }
 

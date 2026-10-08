@@ -99,6 +99,8 @@ public class AuthorizeResource {
                 ? java.util.Collections.emptyList()
                 : rt.getScopes().stream().map(OAuth1Permission::getPermission).collect(Collectors.toList());
         od.setPermissions(scopes);
+        // With enforcement off the listed scopes limit nothing; the page must say so (#4419).
+        od.setScopesEnforced(OAuthScopeEnforcement.isEnabled());
 
         request.setAttribute("oauthData", od);
 

@@ -496,6 +496,112 @@ class ResponseSanitizationFilterUnitTest {
     // -------------------------------------------------------------------------
 
     @Nested
+    @DisplayName("log levels for expected events (#4438)")
+    class ExpectedEventLogLevels {
+
+        private static final String OAUTH_FAULT = "<ns1:XMLFault xmlns:ns1=\"http://cxf.apache.org/bindings/xformat\">"
+                + "<ns1:faultstring>io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception: "
+                + "authentication_required</ns1:faultstring></ns1:XMLFault>";
+
+        @Test
+        @DisplayName("should log a sanitized 4xx web-service body at INFO, not ERROR")
+        void shouldLogAtInfo_whenSanitizing4xxOutputStreamBody() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/ws/services/oauth/info");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                ((HttpServletResponse) res).setStatus(401);
+                res.setContentType("text/xml");
+                res.getOutputStream().write(OAUTH_FAULT.getBytes(StandardCharsets.UTF_8));
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getStatus()).isEqualTo(401);
+                assertThat(response.getContentAsString()).doesNotContain("OAuth1Exception");
+                assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .contains("Sanitizing output-stream error response body")
+                            .contains("status=401");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should log a sanitized 4xx writer body at INFO, not ERROR")
+        void shouldLogAtInfo_whenSanitizing4xxWriterBody() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                ((HttpServletResponse) res).setStatus(400);
+                res.setContentType("text/html");
+                res.getWriter().write("java.lang.IllegalArgumentException: bad\n"
+                        + "\tat io.github.carlos_emr.carlos.Page.render(Page.java:1)");
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.INFO);
+                    assertThat(event.getMessage().getFormattedMessage()).contains("Sanitizing error response body");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should keep a sanitized 5xx body at ERROR")
+        void shouldLogAtError_whenSanitizing5xxBody() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/page");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = (req, res) -> {
+                ((HttpServletResponse) res).setStatus(500);
+                res.setContentType("text/html");
+                res.getWriter().write("java.lang.IllegalStateException: boom\n"
+                        + "\tat io.github.carlos_emr.carlos.Page.render(Page.java:1)");
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                filter.doFilter(request, response, chain);
+
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage()).contains("Sanitizing error response body");
+                });
+            }
+        }
+
+        @Test
+        @DisplayName("should log a client abort once at DEBUG and rethrow it without a sanitized page")
+        void shouldLogAtDebugAndRethrow_whenClientAborts() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/js/app.js");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            org.apache.catalina.connector.ClientAbortException abort =
+                    new org.apache.catalina.connector.ClientAbortException("Broken pipe");
+            FilterChain chain = (req, res) -> {
+                throw new ServletException(abort);
+            };
+
+            try (LogCapture capture = LogCapture.forLogger(ResponseSanitizationFilter.class)) {
+                Throwable thrown = org.assertj.core.api.Assertions.catchThrowable(
+                        () -> filter.doFilter(request, response, chain));
+
+                assertThat(thrown).isInstanceOf(ServletException.class).hasCause(abort);
+                assertThat(response.getContentAsString()).doesNotContain("Reference ID:");
+                assertThat(capture.events()).noneMatch(event -> event.getLevel() == Level.ERROR);
+                assertThat(capture.events()).filteredOn(event -> event.getLevel() == Level.DEBUG)
+                        .singleElement()
+                        .satisfies(event -> assertThat(event.getMessage().getFormattedMessage())
+                                .contains("Client aborted the response"));
+            }
+        }
+    }
+
+    @Nested
     @DisplayName("sanitization scenarios")
     class Sanitization {
 

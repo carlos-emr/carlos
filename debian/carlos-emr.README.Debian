@@ -779,6 +779,18 @@ Grants on the old `oscar` schema are left behind by the rename (harmless —
 db-users grants on the new name during the same configure); drop them by hand
 if you want a tidy grant table.
 
+OAuth integrations (/ws/oauth, /ws/services): OAuth 1.0a scopes are enforced
+by default. An integration must request known <domain>.read / <domain>.write
+scopes at /ws/oauth/initiate (400 invalid_scope otherwise), and each
+/ws/services call needs the scope its endpoint requires (403
+insufficient_scope otherwise). Tokens issued before the upgrade keep the
+scopes they were granted; one granted nothing useful has to be re-authorized.
+To turn enforcement off, set oauth.scope.enforcement.enabled=false in
+/etc/carlos-emr/carlos.properties and restart; the consent page then warns
+providers that an approved app gets their full access. The front door
+rate-limits /ws/services and /ws/oauth/authorize per client address
+(carlos_wsapi in conf.d/carlos-emr-limits.conf; excess answers 429).
+
 
 9. Log retention   (DECIDE THIS)
 --------------------------------

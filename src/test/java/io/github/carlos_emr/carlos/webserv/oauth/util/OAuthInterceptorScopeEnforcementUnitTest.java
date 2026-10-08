@@ -129,9 +129,10 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     }
 
     @Test
-    @DisplayName("should admit the request without enforcement when the flag is off")
+    @DisplayName("should admit the request without enforcement when an operator turned the flag off")
     void shouldAdmitRequest_whenEnforcementDisabled() {
-        // Flag intentionally left unset (default). A narrow/irrelevant scope must still be admitted.
+        // Only an explicit off value disables enforcement (#4419). A narrow/irrelevant scope is then admitted.
+        CarlosProperties.getInstance().setProperty(ENFORCEMENT_PROPERTY, "false");
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
         MockHttpServletRequest request = scheduleReadServletRequest();
         Message message = messageWith(request);
@@ -140,6 +141,59 @@ class OAuthInterceptorScopeEnforcementUnitTest {
 
         Object attached = request.getAttribute(new LoggedInInfo().getLoggedInInfoKey());
         assertThat(attached).isInstanceOf(LoggedInInfo.class);
+    }
+
+    @Test
+    @DisplayName("should enforce scopes with HTTP 403 when the flag is absent")
+    void shouldRaiseFault_withHttp403WhenFlagAbsent() {
+        // #4419: enforcement is on by default; an absent property must not reopen full access.
+        CarlosProperties.getInstance().remove(ENFORCEMENT_PROPERTY);
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(scheduleReadRequest()), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should refuse with HTTP 403 a root that has no scope decision")
+    void shouldRaiseFault_withHttp403ForUnmappedRoot() {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.write schedule.write"));
+        MockHttpServletRequest request = servletRequest("POST", "/services/notyetmapped/do");
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should refuse a write reached through a .json extension mapping without the write scope")
+    void shouldRaiseFault_withHttp403ForExtensionMappedWrite() {
+        // CXF routes /services/tickler.json to /tickler; before #4419 the root read as "tickler.json",
+        // an unmapped root, and needed no scope at all.
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        MockHttpServletRequest request = servletRequest("POST", "/services/tickler.json");
+
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+
+        assertThat(fault).isNotNull();
+        assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should admit the scope-exempt oauth info endpoint with any valid token")
+    void shouldAdmitRequest_forScopeExemptOauthInfo() {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("tickler.read"));
+        MockHttpServletRequest request = servletRequest("GET", "/services/oauth/info");
+
+        interceptor.handleMessage(messageWith(request));
+
+        assertThat(request.getAttribute(new LoggedInInfo().getLoggedInInfoKey())).isInstanceOf(LoggedInInfo.class);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -208,6 +262,14 @@ class OAuthInterceptorScopeEnforcementUnitTest {
     private static MockHttpServletRequest scheduleReadServletRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", SCHEDULE_GET_URI);
         request.setPathInfo(SCHEDULE_GET_PATHINFO);
+        request.addParameter("oauth_consumer_key", CONSUMER_KEY);
+        request.addParameter("oauth_token", TOKEN);
+        return request;
+    }
+
+    private static MockHttpServletRequest servletRequest(String method, String pathInfo) {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, "/carlos/ws" + pathInfo);
+        request.setPathInfo(pathInfo);
         request.addParameter("oauth_consumer_key", CONSUMER_KEY);
         request.addParameter("oauth_token", TOKEN);
         return request;

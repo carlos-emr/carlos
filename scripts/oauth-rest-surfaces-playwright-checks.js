@@ -40,11 +40,22 @@
  *   4. Neither surface takes the other's credential. A logged-in browser session
  *      alone is refused by /ws/services, and a signed access token alone by /ws/rs
  *      (401, no patient data).
+ *   3a. Scopes are enforced by default (#4419). /initiate refuses a request with no
+ *      scope or an unknown one (400 invalid_scope). The token, granted
+ *      demographic.read, is refused (403 insufficient_scope) a read in another domain
+ *      and a write in its own (DELETE of a demographic that does not exist, so a
+ *      regression answers 404, never deletes). The consent page shows no
+ *      "enforcement is off" warning.
  *   5. The session surface is unaffected. /ws/rs refuses an anonymous call and
  *      serves the logged-in browser. Its JSON dates stay epoch milliseconds: before
  *      the fix, loading applicationContextREST.xml as it was replaced the /ws/rs
  *      mapper (a shared bean id) and turned them into "yyyy-MM-dd" strings. SOAP
  *      still publishes its WSDL and still rejects an unauthenticated operation.
+ *   6. Anonymous floods are bounded (#4429, #4438). Anonymous /ws/services
+ *      refusals are a plain-text reason, not a CXF XMLFault naming a Java exception
+ *      (which the sanitizing filter logged at ERROR). A burst of anonymous calls
+ *      writes a bounded number of OAUTH_LOGIN_* audit rows, not one per call, and
+ *      behind the packaged front door (EXPECT_FRONT_DOOR=true) some are answered 429.
  *
  * FIXTURE. The check inserts one ServiceClient row with a unique name, key and
  * secret, because the Administration > REST Clients page never shows a client's
@@ -73,8 +84,15 @@ const {
 } = require('./lib/playwright-harness');
 
 const CXF_NOT_PUBLISHED = 'No service was found';
-// Scopes the signed calls below need when oauth.scope.enforcement.enabled is on. With
-// enforcement off (the default) they are recorded on the token and not consulted.
+// OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT plus its one suppression notice, for
+// each of the (at most two) one-minute windows a burst can straddle.
+const MAX_FLOOD_AUDIT_ROWS = 2 * (10 + 1);
+const FLOOD_REQUESTS = 120;
+// A demographic number the demo dataset does not use: the scope-refused DELETE probe targets it,
+// so even a regression that let the call through could only answer 404.
+const ABSENT_DEMOGRAPHIC_NO = 2147483646;
+// Scopes the signed calls below need. Enforcement is on by default (#4419), so the token is
+// limited to these; /ws/services/oauth/info is scope-exempt.
 const REQUESTED_SCOPES = 'demographic.read provider.read';
 
 /** RFC 3986 percent-encoding, as OAuth 1.0a section 3.6 requires. */
@@ -246,6 +264,12 @@ async function main(state = {}) {
   for (const route of ['/ws/services/oauth/info', `/ws/services/demographics/${demographicNo}`]) {
     r = await anon.get(app(route), { headers: json });
     await expectStatus(r, 401, `anonymous GET ${route}`);
+    // #4438: OAuth1ExceptionMapper answers with the reason. Without it CXF wrote an XMLFault naming
+    // the Java exception, which ResponseSanitizationFilter replaced and logged at ERROR every time.
+    const refusal = await r.text();
+    assert(refusal.trim() === 'authentication_required',
+      `anonymous GET ${route} did not answer the plain reason authentication_required (got ${refusal.length} chars`
+      + `${/Exception|XMLFault/.test(refusal) ? ' naming a Java exception or an XMLFault' : ''})`);
     await noPatientData(r, `anonymous GET ${route}`);
   }
   r = await anon.get(demoUrl, {
@@ -260,7 +284,26 @@ async function main(state = {}) {
   await expectStatus(r, 401, 'GET /ws/services/demographics/{id} with an unknown access token');
   await noPatientData(r, 'an OAuth call with an unknown access token');
 
-  // 2. Handshake: request token, consent in the browser, access token.
+  // 2. Handshake. Scope enforcement is on by default (#4419): /initiate refuses a request
+  // token with no scope or an unknown one before it persists anything.
+  for (const [label, query] of [['no scope', ''], ['an unknown scope', `?scope=${pct('everything.write')}`]]) {
+    const refusedUrl = app(`/ws/oauth/initiate${query}`);
+    r = await anon.post(refusedUrl, {
+      headers: {
+        Authorization: oauthHeader({
+          method: 'POST', url: refusedUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
+        }),
+      },
+    });
+    await expectStatus(r, 400, `signed POST /ws/oauth/initiate with ${label}`);
+    assert((await r.text()).includes('invalid_scope'),
+      `/ws/oauth/initiate with ${label} did not answer invalid_scope: is oauth.scope.enforcement.enabled off?`);
+  }
+  assert(sql.value(`SELECT COUNT(*) FROM ServiceRequestToken WHERE clientId=
+      (SELECT id FROM ServiceClient WHERE clientKey=${sqlString(consumerKey)})`) === '0',
+  'a refused /ws/oauth/initiate still stored a request token');
+
+  // Request token, consent in the browser, access token.
   const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(REQUESTED_SCOPES)}`);
   r = await anon.post(initiateUrl, {
     headers: {
@@ -289,6 +332,8 @@ async function main(state = {}) {
   for (const scope of REQUESTED_SCOPES.split(' ')) {
     assert(consentText.includes(scope), `the consent page does not list the requested scope ${scope}`);
   }
+  assert(await consent.locator('#fullAccessWarning').count() === 0,
+    'the consent page warns that scope enforcement is off: oauth.scope.enforcement.enabled is disabled');
   const [approval] = await Promise.all([
     consent.waitForResponse((resp) => resp.request().method() === 'POST'
       && new URL(resp.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
@@ -338,6 +383,39 @@ async function main(state = {}) {
   assert(String((await r.json()).demographicNo) === String(demographicNo),
     '/ws/services/demographics/{id} returned a different record than the one requested');
 
+  // 3a. The token holds demographic.read and provider.read only (#4419).
+  const ticklerUrl = app('/ws/services/tickler/mine');
+  r = await anon.get(ticklerUrl, { headers: { ...json, Authorization: signedGet(ticklerUrl) } });
+  await expectStatus(r, 403, 'signed GET /ws/services/tickler/mine with a token granted no tickler scope');
+  assert((await r.text()).trim() === 'insufficient_scope',
+    'a read outside the granted scopes was not refused as insufficient_scope');
+  const deleteUrl = app(`/ws/services/demographics/${ABSENT_DEMOGRAPHIC_NO}`);
+  r = await anon.delete(deleteUrl, {
+    headers: {
+      ...json,
+      Authorization: oauthHeader({
+        method: 'DELETE', url: deleteUrl, consumerKey, consumerSecret,
+        token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret,
+      }),
+    },
+  });
+  await expectStatus(r, 403, 'signed DELETE /ws/services/demographics/{id} with only demographic.read');
+  assert((await r.text()).trim() === 'insufficient_scope',
+    'a write with only the read scope was not refused as insufficient_scope');
+  // The same write through the .json extension mapping CXF strips before routing: before #4419 its
+  // root read as "demographics.json", which needed no scope at all.
+  const deleteJsonUrl = `${deleteUrl}.json`;
+  r = await anon.delete(deleteJsonUrl, {
+    headers: {
+      ...json,
+      Authorization: oauthHeader({
+        method: 'DELETE', url: deleteJsonUrl, consumerKey, consumerSecret,
+        token: accessToken.oauth_token, tokenSecret: accessToken.oauth_token_secret,
+      }),
+    },
+  });
+  await expectStatus(r, 403, 'signed DELETE /ws/services/demographics/{id}.json with only demographic.read');
+
   r = await anon.get(infoUrl, { headers: { ...json, Authorization: infoAuthorization } });
   await expectStatus(r, 401, 'a replayed signed request (same nonce)');
   // The real access token, signed with the wrong consumer secret: only the HMAC is wrong.
@@ -379,8 +457,30 @@ async function main(state = {}) {
   });
   await expectStatus(r, [400, 401], 'unauthenticated SOAP getDemographic');
 
+  // 6. An anonymous burst (#4429). Rows are counted by id, not time, so the app's and the
+  // database's clocks cannot disagree. Last, because behind the front door it uses up this
+  // address's API request budget for a few seconds.
+  const lastLogId = Number(sql.value('SELECT COALESCE(MAX(id), 0) FROM log'));
+  const floodUrl = app('/ws/services/oauth/info');
+  const statuses = await Promise.all(Array.from({ length: FLOOD_REQUESTS },
+    () => anon.get(floodUrl, { headers: json }).then((resp) => resp.status())));
+  const unexpected = statuses.filter((status) => status !== 401 && status !== 429);
+  assert(unexpected.length === 0,
+    `an anonymous burst on /ws/services answered statuses other than 401 and 429: ${[...new Set(unexpected)].join(', ')}`);
+  const throttled = statuses.filter((status) => status === 429).length;
+  if (config.expectFrontDoor) {
+    assert(throttled > 0,
+      `${FLOOD_REQUESTS} concurrent anonymous /ws/services calls through the front door drew no 429: `
+      + 'the carlos_wsapi limit_req zone is not applied (#4429)');
+  }
+  const auditRows = Number(sql.value(`SELECT COUNT(*) FROM log WHERE id > ${lastLogId}
+      AND action IN ('OAUTH_LOGIN_FAILURE', 'OAUTH_LOGIN_FAILURES_SUPPRESSED')`));
+  assert(auditRows <= MAX_FLOOD_AUDIT_ROWS,
+    `${FLOOD_REQUESTS - throttled} anonymous /ws/services refusals wrote ${auditRows} audit rows; `
+    + `the failure audit budget allows at most ${MAX_FLOOD_AUDIT_ROWS} (#4429)`);
+
   assertStrictPage(recorder);
-  return { surfaces: 4, handshake: 'oob' };
+  return { surfaces: 4, handshake: 'oob', flood: { requests: FLOOD_REQUESTS, throttled, auditRows } };
 }
 
 if (require.main === module) {

@@ -85,13 +85,40 @@ class OAuthScopesUnitTest {
         }
 
         @Test
-        @DisplayName("should require no scope for a root that is not in the domain map")
-        void shouldRequireNoScope_forUnmappedRoot() {
-            // OAuthStatusService (/oauth/info) and any unknown root are intentionally not scope-mapped.
+        @DisplayName("should require no scope for the explicitly exempt oauth root")
+        void shouldRequireNoScope_forExemptOauthRoot() {
+            // OAuthStatusService (/oauth/info) describes the token's own provider; any valid token may call it.
             assertThat(OAuthScopes.requiredScope("GET", "/services/oauth/info"))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
-            assertThat(OAuthScopes.requiredScope("POST", "/services/madeup/x"))
+            assertThat(OAuthScopes.requiredScope("GET", "/services/OAuth/info.json"))
                     .isEqualTo(OAuthScopes.NO_SCOPE_REQUIRED);
+        }
+
+        @Test
+        @DisplayName("should fail closed for a root that is in neither map")
+        void shouldRequireUnmappedEndpoint_forUnknownRoot() {
+            // #4419: an unknown root used to need no scope, so a newly published service was open to any token.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/madeup/x"))
+                    .isEqualTo(OAuthScopes.UNMAPPED_ENDPOINT);
+            assertThat(OAuthScopes.requiredScope("GET", "/services/madeup"))
+                    .isEqualTo(OAuthScopes.UNMAPPED_ENDPOINT);
+        }
+
+        @Test
+        @DisplayName("should strip a .json or .xml extension mapping from the last segment, as CXF does")
+        void shouldStripExtensionMapping_fromLastSegment() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler.json")).isEqualTo("tickler.write");
+            assertThat(OAuthScopes.requiredScope("GET", "/services/demographics.xml")).isEqualTo("demographic.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler/search.json")).isEqualTo("tickler.read");
+            assertThat(OAuthScopes.requiredScope("GET", "/services/demographics/1.json")).isEqualTo("demographic.read");
+        }
+
+        @Test
+        @DisplayName("should not strip an extension from an interior segment")
+        void shouldKeepInteriorSegment_withExtensionLikeName() {
+            // CXF strips only the end of the path, so tickler.json/search is not routed to /tickler/search.
+            assertThat(OAuthScopes.requiredScope("POST", "/services/tickler.json/search"))
+                    .isEqualTo(OAuthScopes.UNMAPPED_ENDPOINT);
         }
 
         @Test
@@ -231,6 +258,13 @@ class OAuthScopesUnitTest {
         @DisplayName("should be satisfied when no scope is required")
         void shouldBeSatisfied_whenNoScopeRequired() {
             assertThat(OAuthScopes.isSatisfiedBy(OAuthScopes.NO_SCOPE_REQUIRED, List.of())).isTrue();
+        }
+
+        @Test
+        @DisplayName("should never be satisfied for an unmapped endpoint")
+        void shouldNotBeSatisfied_forUnmappedEndpoint() {
+            assertThat(OAuthScopes.isSatisfiedBy(OAuthScopes.UNMAPPED_ENDPOINT,
+                    List.of("unmapped endpoint", "unmapped", "endpoint", "tickler.write"))).isFalse();
         }
 
         @Test

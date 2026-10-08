@@ -60,14 +60,19 @@
 
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.LongSupplier;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Message;
@@ -92,8 +97,8 @@ import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopeEnforcement;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
-import io.github.carlos_emr.CarlosProperties;
 
 @Component
 public class OAuthInterceptor implements PhaseInterceptor<Message> {
@@ -104,13 +109,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     private static final String OAUTH_LOGIN_SUCCESS = "OAUTH_LOGIN_SUCCESS";
     /** OscarLog action recorded on a rejected REST OAuth authentication (parity with SOAP WS_LOGIN_FAILURE). */
     private static final String OAUTH_LOGIN_FAILURE = "OAUTH_LOGIN_FAILURE";
-
-    /**
-     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) preserves
-     * the historical behaviour where any valid token grants the provider's full API access; set to a
-     * truthy value to require the granted scope on piloted {@code /ws/services/*} endpoints.
-     */
-    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
+    /** OscarLog action recorded once when {@link FailureAuditBudget} starts dropping failure rows (#4429). */
+    private static final String OAUTH_LOGIN_FAILURES_SUPPRESSED = "OAUTH_LOGIN_FAILURES_SUPPRESSED";
 
     @Autowired
     private OscarOAuthDataProvider oauthDataProvider;
@@ -120,6 +120,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
 
     @Resource
     private OAuth1SignatureVerifier verifier;
+
+    private FailureAuditBudget failureAuditBudget = new FailureAuditBudget(System::currentTimeMillis);
 
     @Override
     public String getPhase() { return Phase.PRE_INVOKE; }
@@ -197,8 +199,8 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 throw new OAuth1Exception(401, "unknown_provider");
             }
 
-            // 5a) Enforce the granted OAuth scopes (issue #3083). No-op unless enforcement is enabled
-            //     AND the target endpoint is in the scope-enforcement pilot. Done before attaching
+            // 5a) Enforce the granted OAuth scopes (issues #3083, #4419). No-op only when an operator
+            //     turned enforcement off or the endpoint is explicitly scope-exempt. Done before attaching
             //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
             enforceScope(req, accessToken);
 
@@ -259,13 +261,32 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * is recorded because the request never resolved to an authenticated provider.
      */
     private void auditAuthFailure(String ip, String consumerKey) {
+        // #4429: an anonymous client can call /ws/services as fast as it likes, and each rejection used
+        // to be one synchronous log-table insert. The budget bounds the rows; when it closes for an
+        // address (or for everyone), one OAUTH_LOGIN_FAILURES_SUPPRESSED row says so, so the audit trail
+        // still shows the flood without recording each request of it.
+        FailureAuditBudget.Decision decision = failureAuditBudget.admit(ip);
+        if (decision == FailureAuditBudget.Decision.SUPPRESS) {
+            return;
+        }
         // Guard the audit write so a logging failure cannot replace the intended 400/401 Fault
         // with an unexpected error surfaced to the caller.
         try {
             OscarLog oscarLog = new OscarLog();
-            oscarLog.setAction(OAUTH_LOGIN_FAILURE);
             oscarLog.setIp(ip);
-            oscarLog.setContent(safeConsumerKey(consumerKey));
+            if (decision == FailureAuditBudget.Decision.AUDIT) {
+                oscarLog.setAction(OAUTH_LOGIN_FAILURE);
+                oscarLog.setContent(safeConsumerKey(consumerKey));
+            } else {
+                oscarLog.setAction(OAUTH_LOGIN_FAILURES_SUPPRESSED);
+                oscarLog.setContent(decision == FailureAuditBudget.Decision.SUPPRESS_ADDRESS_FROM_NOW
+                        ? "per-address limit reached" : "server-wide limit reached");
+                logger.warn("OAuth authentication failures exceeded the audit budget ({}); further "
+                        + "OAUTH_LOGIN_FAILURE rows are suppressed for up to {}s",
+                        decision == FailureAuditBudget.Decision.SUPPRESS_ADDRESS_FROM_NOW
+                                ? "per address" : "server-wide",
+                        FailureAuditBudget.WINDOW_MILLIS / 1000);
+            }
             LogAction.addLogSynchronous(oscarLog);
         } catch (Exception e) {
             logger.error("Failed to write OAUTH_LOGIN_FAILURE audit entry", e);
@@ -273,41 +294,107 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
     }
 
     /**
+     * Bounds how many {@code OAUTH_LOGIN_FAILURE} rows rejected {@code /ws/services} calls can write
+     * (#4429), per client address and server-wide, in fixed one-minute windows.
+     *
+     * <p>Within a window an address gets {@link #PER_ADDRESS_LIMIT} ordinary rows and then one
+     * {@link Decision#SUPPRESS_ADDRESS_FROM_NOW} notice; everything after that is dropped until the window
+     * ends. The server-wide limit does the same across all addresses, so a client rotating addresses (an
+     * IPv6 prefix, say) cannot get around the per-address limit. The front door's {@code limit_req} is the
+     * first line; this is the second, for direct-to-Tomcat traffic and for whatever the rate limit admits.
+     *
+     * <p>Address windows live in a size-bounded cache, so a flood of distinct addresses cannot grow memory
+     * without limit; an address evicted early merely starts a fresh window. Thread-safe.
+     */
+    static final class FailureAuditBudget {
+
+        enum Decision {
+            /** Write the ordinary failure row. */
+            AUDIT,
+            /** Write one notice that this address's rows are suppressed for the rest of the window. */
+            SUPPRESS_ADDRESS_FROM_NOW,
+            /** Write one notice that all rows are suppressed for the rest of the window. */
+            SUPPRESS_ALL_FROM_NOW,
+            /** Write nothing. */
+            SUPPRESS
+        }
+
+        static final long WINDOW_MILLIS = 60_000L;
+        static final int PER_ADDRESS_LIMIT = 10;
+        static final int SERVER_WIDE_LIMIT = 300;
+        private static final int MAX_TRACKED_ADDRESSES = 10_000;
+        private static final String UNKNOWN_ADDRESS = "unknown";
+
+        private final LongSupplier clock;
+        private final Cache<String, Window> addressWindows = Caffeine.newBuilder()
+                .maximumSize(MAX_TRACKED_ADDRESSES)
+                .expireAfterAccess(Duration.ofMillis(2 * WINDOW_MILLIS))
+                .build();
+        private final Window serverWindow = new Window();
+
+        FailureAuditBudget(LongSupplier clock) {
+            this.clock = clock;
+        }
+
+        Decision admit(String address) {
+            long now = clock.getAsLong();
+            String key = (address == null || address.isBlank()) ? UNKNOWN_ADDRESS : address;
+            int addressCount = addressWindows.get(key, k -> new Window()).increment(now);
+            if (addressCount > PER_ADDRESS_LIMIT + 1) {
+                return Decision.SUPPRESS;
+            }
+            // Only rows that would be written count against the server-wide budget.
+            int serverCount = serverWindow.increment(now);
+            if (serverCount > SERVER_WIDE_LIMIT + 1) {
+                return Decision.SUPPRESS;
+            }
+            if (serverCount == SERVER_WIDE_LIMIT + 1) {
+                return Decision.SUPPRESS_ALL_FROM_NOW;
+            }
+            return addressCount == PER_ADDRESS_LIMIT + 1 ? Decision.SUPPRESS_ADDRESS_FROM_NOW : Decision.AUDIT;
+        }
+
+        /** A fixed window: the count resets once {@link #WINDOW_MILLIS} has passed since it opened. */
+        private static final class Window {
+            private long start = Long.MIN_VALUE;
+            private int count;
+
+            synchronized int increment(long now) {
+                if (start == Long.MIN_VALUE || now - start >= WINDOW_MILLIS || now < start) {
+                    start = now;
+                    count = 0;
+                }
+                if (count < Integer.MAX_VALUE) {
+                    count++;
+                }
+                return count;
+            }
+        }
+    }
+
+    /**
      * Enforces the granted OAuth 1.0a scopes for the current request (issue #3083).
      *
-     * <p>Fast-exits when enforcement is disabled (the default) or when the target endpoint is outside
-     * the enforcement pilot ({@link OAuthScopes#requiredScope} returns {@link OAuthScopes#NO_SCOPE_REQUIRED}),
-     * so no extra token lookup happens on the un-piloted surface. When a scope is required and the token's
+     * <p>Fast-exits when an operator has turned enforcement off ({@link OAuthScopeEnforcement}; it is on
+     * by default since #4419) or when the endpoint is explicitly scope-exempt ({@link OAuthScopes#requiredScope}
+     * returns {@link OAuthScopes#NO_SCOPE_REQUIRED}). An endpoint the scope map does not know requires
+     * {@link OAuthScopes#UNMAPPED_ENDPOINT}, which no token satisfies. When a scope is required and the token's
      * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
      * the caller's catch block records the rejection in the audit trail.
      */
     private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken) {
-        if (!isScopeEnforcementEnabled()) {
+        if (!OAuthScopeEnforcement.isEnabled()) {
             return;
         }
         // Resolve the scope from getPathInfo(): the container-decoded, canonicalized path (dot-segments
         // collapsed, matrix params stripped) that JAX-RS/CXF actually routes on. Using the raw request URI
         // here would force us to re-implement that normalization and risk diverging from the real routing.
         String requiredScope = OAuthScopes.requiredScope(req.getMethod(), req.getPathInfo());
-        if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: endpoint outside the pilot
+        if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: an explicitly exempt endpoint
             return;
         }
         if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(accessToken))) {
             throw new OAuth1Exception(403, "insufficient_scope");
-        }
-    }
-
-    /**
-     * Whether OAuth scope enforcement is switched on. Reads {@link #SCOPE_ENFORCEMENT_PROPERTY}; a config
-     * read failure leaves enforcement disabled so a transient configuration problem cannot turn into a
-     * blanket denial of all OAuth API traffic (consistent with the default-off rollout).
-     */
-    private boolean isScopeEnforcementEnabled() {
-        try {
-            return CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY);
-        } catch (Exception e) {
-            logger.warn("Could not read OAuth scope-enforcement flag; leaving enforcement disabled", e);
-            return false;
         }
     }
 
