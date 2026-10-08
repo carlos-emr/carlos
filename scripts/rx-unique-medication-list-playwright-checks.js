@@ -13,7 +13,7 @@
  * line; two concurrent regimens of one product (10 mg and 20 mg) give one line each (#4270); a newer archived copy
  * does not hide its current sibling. The consultation lists each current product once; the REST summary lists the
  * same entries as the E-Chart panel. Every seeded drug row is still in the database afterwards (read-only views).
- * Fixtures: the owned FAKE-PW patient with one SQL-seeded prescription row and nine drug rows; cleanup deletes the
+ * Fixtures: the owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows; cleanup deletes the
  * patient's drugs and prescription rows and asserts them gone. Nothing is saved from the consultation form.
  */
 const h = require('./lib/playwright-harness');

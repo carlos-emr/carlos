@@ -70,7 +70,7 @@ public final class UniqueMedicationList {
     /**
      * Selects one row per product and regimen.
      *
-     * @param drugs the patient's drug rows in any order; not modified
+     * @param drugs the patient's drug rows in any order, never null (a DAO result); not modified
      * @return the selected rows, newest (highest id) first
      */
     public static List<Drug> select(List<Drug> drugs) {
