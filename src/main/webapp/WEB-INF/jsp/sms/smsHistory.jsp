@@ -107,7 +107,8 @@
                                     <span class="text-muted"><fmt:message key="sms.history.notStored"/></span>
                                 </c:when>
                                 <c:when test="${smsHistory.canReadMessageBodies}">
-                                    <form method="post" action="${ctx}/sms/ViewSmsHistory" class="d-flex gap-1">
+                                    <%-- The select sizes to its longest reason, so no language's text is cut off; the button wraps below it when the column is narrow. --%>
+                                    <form method="post" action="${ctx}/sms/ViewSmsHistory" class="d-flex flex-wrap gap-1">
                                         <input type="hidden" name="method" value="showMessage"/>
                                         <input type="hidden" name="demographic_no"
                                                value="<carlos:encode value='${smsHistory.demographicNo}' context='htmlAttribute'/>"/>
@@ -117,7 +118,7 @@
                                                value="<carlos:encode value='${row.id}' context='htmlAttribute'/>"/>
                                         <label class="visually-hidden"
                                                for="smsReason<carlos:encode value='${row.id}' context='htmlAttribute'/>"><fmt:message key="sms.history.reasonLabel"/></label>
-                                        <select name="reason" class="form-select form-select-sm" required
+                                        <select name="reason" class="form-select form-select-sm w-auto" required
                                                 id="smsReason<carlos:encode value='${row.id}' context='htmlAttribute'/>">
                                             <option value="" selected disabled><fmt:message key="sms.history.reasonPlaceholder"/></option>
                                             <option value="CARE_REVIEW"><fmt:message key="sms.history.reason.CARE_REVIEW"/></option>
