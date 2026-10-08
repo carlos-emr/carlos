@@ -77,6 +77,13 @@ final class AllergySaveTokens {
         }
     }
 
+    /**
+     * Guards first-time creation of a session's ledger. A dedicated lock is used because the
+     * session object a container hands out is not guaranteed to be a stable monitor; the lock is
+     * held only for the attribute lookup, never for a save.
+     */
+    private static final Object LEDGER_INIT_LOCK = new Object();
+
     private AllergySaveTokens() {
     }
 
@@ -170,7 +177,7 @@ final class AllergySaveTokens {
 
     @SuppressWarnings("unchecked")
     private static Map<String, TokenState> ledger(HttpSession session) {
-        synchronized (session) {
+        synchronized (LEDGER_INIT_LOCK) {
             Object existing = session.getAttribute(SESSION_ATTRIBUTE);
             if (existing == null) {
                 Map<String, TokenState> created = Collections.synchronizedMap(new LinkedHashMap<>() {
