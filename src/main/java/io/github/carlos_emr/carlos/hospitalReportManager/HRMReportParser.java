@@ -98,15 +98,50 @@ public class HRMReportParser {
         return parseReport(loggedInInfo, hrmReportFileLocation, null);
     }
 
+    /**
+     * Checks HRM report availability without this parser's logging: whether
+     * {@link #parseReport(LoggedInInfo, Integer)} would return a report for this id, decided by the
+     * same lookup, file checks, schema validation and unmarshalling (the parsed report is
+     * discarded). For availability checks that run on every view of a consultation, this class
+     * logs nothing for it but, at debug, a fixed message and the id. Shared helpers such as
+     * {@code PathValidationUtils} keep their own logging.
+     *
+     * @param hrmDocumentId the HRM report id
+     * @return whether the report's record exists and its file can be read and parsed
+     * @throws RuntimeException where {@code parseReport} would throw one; the caller decides what
+     *         of it to log
+     */
+    public static boolean isReportReadable(Integer hrmDocumentId) {
+        HRMDocument hrmDocument = SpringUtils.getBean(HRMDocumentDao.class).find(hrmDocumentId);
+        boolean readable = hrmDocument != null && parse(hrmDocument.getReportFile(), null, true) != null;
+        if (!readable && logger.isDebugEnabled()) {
+            logger.debug("HRM report availability check: not readable, id={}",
+                    LogSafe.sanitize(String.valueOf(hrmDocumentId)));
+        }
+        return readable;
+    }
+
     /*
      * Called when a report is added to system
      */
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input")
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation, List<Throwable> errors) {
+        return parse(hrmReportFileLocation, errors, false);
+    }
+
+    /**
+     * The parse behind {@link #parseReport(LoggedInInfo, String, List)} and
+     * {@link #isReportReadable(Integer)}; {@code quiet} skips every log line, so the availability
+     * check writes no location or parser detail.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input
+    // FindSecBugs XXE_SCHEMA_FACTORY: XmlUtils.createSecureSchemaFactory enables secure processing and blanks ACCESS_EXTERNAL_DTD and ACCESS_EXTERNAL_SCHEMA (the exclusion in spotbugs-exclude.xml names parseReport, where this code used to be)
+    @SuppressFBWarnings(value = {"PATH_TRAVERSAL_IN", "XXE_SCHEMA_FACTORY"}, justification = "path validated for directory containment via PathValidationUtils before use; path derived from trusted configuration/constant/DB value, not user-controllable input; the schema factory comes from XmlUtils.createSecureSchemaFactory, which disables external DTD and schema access")
+    private static HRMReport parse(String hrmReportFileLocation, List<Throwable> errors, boolean quiet) {
         OmdCds root = null;
 
-        logger.info("Parsing the Report in the location:" + hrmReportFileLocation);
+        if (!quiet) {
+            logger.info("Parsing the Report in the location:" + hrmReportFileLocation);
+        }
 
         String fileData = null;
         if (hrmReportFileLocation != null) {
@@ -133,7 +168,7 @@ public class HRMReportParser {
                     tmpXMLholder = PathValidationUtils.validateExistingPath(new File(documentDir, hrmReportFileLocation), documentDir);
                 }
 
-                if (!tmpXMLholder.exists()) {
+                if (!tmpXMLholder.exists() && !quiet) {
                     logger.warn("unable to find the HRM report. checked "
                         + hrmReportFileLocation + ", and in the document_dir");
                 }
@@ -172,26 +207,36 @@ public class HRMReportParser {
 
                 tmpXMLholder = null;
             } catch (FileNotFoundException e) {
-                logger.error("File Not Found " + e);
+                if (!quiet) {
+                    logger.error("File Not Found " + e);
+                }
                 if (errors != null) errors.add(e);
             } catch (SAXException | ParserConfigurationException e) {
-                logger.error("SAX ERROR PARSING XML " + e);
+                if (!quiet) {
+                    logger.error("SAX ERROR PARSING XML " + e);
+                }
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {
-                String msg = (e.getLinkedException() != null)
-                    ? e.getLinkedException().getMessage()
-                    : e.getMessage();
-                logger.error("HRM JAXB parse error: " + msg, e);
+                if (!quiet) {
+                    String msg = (e.getLinkedException() != null)
+                        ? e.getLinkedException().getMessage()
+                        : e.getMessage();
+                    logger.error("HRM JAXB parse error: " + msg, e);
+                }
                 if (errors != null) errors.add(e);
             } catch (IOException e) {
-                logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (!quiet) {
+                    logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                }
                 if (errors != null) errors.add(e);
             } catch (SecurityException e) {
                 // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
                 // that escapes it (FileValidationException extends SecurityException). Return null instead
                 // of letting the throw abort the whole HRM list render / batch import; list-render callers
                 // skip null reports, and the throw no longer aborts the batch loop.
-                logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
+                if (!quiet) {
+                    logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
+                }
                 if (errors != null) errors.add(e);
             }
 

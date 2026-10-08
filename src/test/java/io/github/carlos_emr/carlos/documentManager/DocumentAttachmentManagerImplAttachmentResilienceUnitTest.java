@@ -26,7 +26,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -102,7 +101,10 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
     /** A synthetic, schema-valid HRM report shipped with the dev database. */
     private static final Path DEMO_HRM_REPORT = Path.of(".devcontainer/db/db_data/hrm/demo-hrm-diagnostic-imaging.xml");
-    private static final String HRM_12_WARNING = "H:12 UNAVAILABLE";
+    /** A missing, unmatched or rematched HRM report: found by the database check. */
+    private static final String HRM_12_UNAVAILABLE = "H:12 UNAVAILABLE";
+    /** An HRM report whose file is missing or unreadable: found by parsing it. */
+    private static final String HRM_12_FILE_UNAVAILABLE = "H:12 FILE_UNAVAILABLE";
 
     @TempDir
     Path documentDir;
@@ -491,7 +493,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         attachHrmReport(12, "missing-report.xml");
 
         try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
-            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
         }
         verify(hrmDocumentDao).find(Integer.valueOf(12));
         verifyNoInteractions(consultationManager);
@@ -504,7 +506,7 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         attachHrmReport(12, "corrupt-report.xml");
 
         try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
-            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
         }
     }
 
@@ -515,11 +517,16 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
         try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
                 LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
-            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
 
             assertThat(log.messages()).anySatisfy(message -> assertThat(message)
-                    .contains("Left out consultation attachment H:12 UNAVAILABLE")
+                    .contains("Left out consultation attachment H:12 FILE_UNAVAILABLE")
                     .endsWith("missing or unreadable HRM report file"));
+            // A report whose file is gone is worth a warning, unlike a deleted or moved one.
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("H:12 FILE_UNAVAILABLE");
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.WARN);
+            });
         }
     }
 
@@ -531,15 +538,49 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         try (MockedStatic<HRMReportParser> hrmReportParserMock = mockStatic(HRMReportParser.class);
                 LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
             // The message stands for one that quotes a file path; it must not reach the log.
-            hrmReportParserMock.when(() -> HRMReportParser.parseReport(isNull(), eq(Integer.valueOf(12))))
+            hrmReportParserMock.when(() -> HRMReportParser.isReportReadable(Integer.valueOf(12)))
                     .thenThrow(new IllegalStateException("cannot read /documents/FAKE-hrm-path.xml"));
 
-            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
 
             assertThat(log.messages()).anySatisfy(message -> assertThat(message)
-                    .contains("Left out consultation attachment H:12 UNAVAILABLE")
+                    .contains("Left out consultation attachment H:12 FILE_UNAVAILABLE")
                     .endsWith("IllegalStateException"));
             assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-hrm-path"));
+        }
+    }
+
+    @Test
+    @DisplayName("checks a malformed HRM report's availability without logging its location or parser detail")
+    void shouldLogNothingButId_whenAvailabilityCheckMeetsMalformedReport() throws Exception {
+        Files.writeString(documentDir.resolve("FAKE-malformed-hrm.xml"),
+                "<omdCds><patientRecord>FAKE-Patient, Malformed</patientRecord>");
+        attachHrmReport(12, "FAKE-malformed-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture parserLog = LogCapture.forLogger(HRMReportParser.class)) {
+            assertThat(HRMReportParser.isReportReadable(12)).isFalse();
+
+            // Only the fixed debug line with the id: no path, file name, report content or XML detail.
+            assertThat(parserLog.messages()).containsExactly("HRM report availability check: not readable, id=12");
+            assertThat(parserLog.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    @DisplayName("checks a readable HRM report's availability as the full parse does, logging nothing")
+    void shouldReportReadable_whenHrmReportParses() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("readable-hrm.xml"));
+        attachHrmReport(12, "readable-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture parserLog = LogCapture.forLogger(HRMReportParser.class)) {
+            assertThat(HRMReportParser.isReportReadable(12)).isTrue();
+            assertThat(parserLog.messages()).isEmpty();
+        }
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            // The full parse agrees.
+            assertThat(HRMReportParser.parseReport(null, Integer.valueOf(12))).isNotNull();
         }
     }
 
@@ -551,10 +592,35 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
         when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenReturn(List.of(missingRecord, duplicate));
         when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(missingRecord, duplicate));
 
-        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
-                .containsExactly("H:990006 UNAVAILABLE");
+        try (LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                    .containsExactly("H:990006 UNAVAILABLE");
+            // A record that is gone is expected (deleted or moved) and named to staff: INFO, not WARN.
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("H:990006 UNAVAILABLE");
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.INFO);
+            });
+        }
         // The database check already named it; its report file is not looked for as well.
         verifyNoInteractions(hrmDocumentDao);
+    }
+
+    @Test
+    @DisplayName("names attached HRM reports whose files are missing in id order, whatever order they were attached in")
+    void shouldListUnreadableHrmReportsById_whenAttachedOutOfOrder() {
+        HRMDocument second = new HRMDocument();
+        second.setReportFile("FAKE-missing-13.xml");
+        HRMDocument first = new HRMDocument();
+        first.setReportFile("FAKE-missing-12.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(13))).thenReturn(second);
+        when(hrmDocumentDao.find(Integer.valueOf(12))).thenReturn(first);
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(consultDoc(13, "H"), consultDoc(12, "H")));
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                    .containsExactly("H:12 FILE_UNAVAILABLE", "H:13 FILE_UNAVAILABLE");
+        }
     }
 
     @Test
@@ -586,14 +652,14 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
                     .thenReturn(loggedInInfo);
             eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
                     .thenReturn(new ArrayList<>());
-            hrmReportParserMock.when(() -> HRMReportParser.parseReport(isNull(), eq(Integer.valueOf(12))))
-                    .thenReturn(null);
+            hrmReportParserMock.when(() -> HRMReportParser.isReportReadable(Integer.valueOf(12)))
+                    .thenReturn(false);
 
             Path result = manager.renderConsultationFormWithAttachments(request, response);
 
             assertThat(result).isEqualTo(outputPdf);
             assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
-                    .containsExactly(HRM_12_WARNING);
+                    .containsExactly(HRM_12_FILE_UNAVAILABLE);
         }
     }
 
@@ -687,8 +753,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
 
         assertThat(missingReport.getDeleted()).isNull();
         verify(consultDocsDao, never()).merge(any());
-        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
-        assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_WARNING);
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_UNAVAILABLE);
+        assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_UNAVAILABLE);
         verifyNoInteractions(hrmDocumentDao);
     }
 
@@ -712,8 +778,8 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
             assertThat(missingFile.getDeleted()).isNull();
             assertThat(removedReport.getDeleted()).isEqualTo("Y");
             verify(consultDocsDao).merge(removedReport);
-            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_WARNING);
-            assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_WARNING);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+            assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_FILE_UNAVAILABLE);
         }
     }
 

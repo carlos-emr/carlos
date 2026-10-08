@@ -363,7 +363,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
      * Keeps attached a consultation's attachments whose target is no longer available.
      *
      * <p>The consultation form does not list an attachment whose document, lab, eForm or HRM report was
-     * deleted or moved to another patient, so an Update submits a set without it, and the
+     * deleted or moved to another patient, or an HRM report whose file is missing or unreadable, so
+     * an Update submits a set without it, and the
      * whole-set replace in {@link DocumentAttach} would detach it with no warning. It is folded
      * back into the submitted set instead, as archive eDocs are: it stays attached, so the
      * preview, print, fax cover page and confirmation pages keep naming it as left out. An
@@ -1164,14 +1165,6 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     }
 
     /**
-     * Ben's call is pending (8 Oct): whether an HRM report whose file is missing or unreadable is
-     * "no longer available" (left out; a fax goes ahead once staff confirm) or "could not be read"
-     * (print and fax refused until it is fixed or detached). This one line decides it.
-     */
-    private static final ConsultAttachmentWarning.Reason UNREADABLE_HRM_FILE_REASON =
-            ConsultAttachmentWarning.Reason.UNAVAILABLE;
-
-    /**
      * An attachment a consultation can no longer include: the warning staff see (type and id
      * only), and for the server log why, as a fixed text or for an HRM report the parser's
      * exception class. Never a path or exception message.
@@ -1204,14 +1197,19 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         }
         List<ConsultDocs> attachedHrms = consultDocsDao.findByRequestIdDocType(requestId, ConsultDocs.DOCTYPE_HRM);
         if (attachedHrms != null) {
-            for (ConsultDocs attachment : attachedHrms) {
-                if (attachment != null && handledHrmIds.add(attachment.getDocumentNo())) {
+            // By id, so every screen lists these the same way, as the database check's list is.
+            List<ConsultDocs> byId = attachedHrms.stream().filter(Objects::nonNull)
+                    .sorted(Comparator.comparingInt(ConsultDocs::getDocumentNo))
+                    .toList();
+            for (ConsultDocs attachment : byId) {
+                if (handledHrmIds.add(attachment.getDocumentNo())) {
                     String readFailure = hrmReportReadFailure(attachment.getDocumentNo());
                     if (readFailure != null) {
-                        ConsultAttachmentWarning warning = UNREADABLE_HRM_FILE_REASON == ConsultAttachmentWarning.Reason.UNAVAILABLE
-                                ? ConsultAttachmentWarning.unavailable(DocumentType.HRM, attachment.getDocumentNo())
-                                : ConsultAttachmentWarning.notRendered(DocumentType.HRM, attachment.getDocumentNo());
-                        unavailable.add(new UnavailableAttachment(attachment, warning, readFailure));
+                        // Left out like an unavailable report (a fax goes ahead once staff
+                        // confirm), worded as a missing or unreadable file.
+                        unavailable.add(new UnavailableAttachment(attachment,
+                                ConsultAttachmentWarning.fileUnavailable(DocumentType.HRM, attachment.getDocumentNo()),
+                                readFailure));
                     }
                 }
             }
@@ -1219,13 +1217,12 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         return unavailable;
     }
 
-    /** @return why the HRM report cannot be read, or {@code null} when it parses */
+    /** @return why the HRM report cannot be read, or {@code null} when it can */
     private String hrmReportReadFailure(Integer hrmId) {
         try {
-            // The parser keeps the file inside DOCUMENT_DIR (PathValidationUtils) and returns null
-            // for a missing record or a missing, unreadable or invalid file. It ignores
-            // LoggedInInfo, so the fax cover page can ask without one.
-            return HRMReportParser.parseReport(null, hrmId) == null ? UNREADABLE_HRM_REPORT : null;
+            // The same lookup and parse the HRM listing uses (the file kept inside DOCUMENT_DIR),
+            // without its logging: this runs on every cover page, render and Update.
+            return HRMReportParser.isReportReadable(hrmId) ? null : UNREADABLE_HRM_REPORT;
         } catch (RuntimeException e) {
             // Logged as the skip reason: the exception class only, as for render failures, because
             // the message can carry a file path.
@@ -1302,8 +1299,8 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             ConsultAttachmentWarning warning, String reason) {
         attachmentWarnings.add(warning);
         // An unavailable target is expected (it was deleted or moved) and is named to staff; one
-        // that exists but could not be read is worth a warning.
-        if (warning.isUnavailable()) {
+        // whose file is missing or that exists but could not be read is worth a warning.
+        if (warning.getReason() == ConsultAttachmentWarning.Reason.UNAVAILABLE) {
             logger.info("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));
         } else if (logger.isWarnEnabled()) {
             logger.warn("Left out consultation attachment {}: {}", warning, LogSafe.sanitize(reason));

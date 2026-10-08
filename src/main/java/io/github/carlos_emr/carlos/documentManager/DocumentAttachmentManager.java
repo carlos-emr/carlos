@@ -299,8 +299,10 @@ public interface DocumentAttachmentManager {
      * attachments are not checked.
      *
      * @param requestId the consultation request id
-     * @return one {@link ConsultAttachmentWarning.Reason#UNAVAILABLE} warning per unavailable
-     *         attachment, naming its type and id; empty when there are none
+     * @return one warning per unavailable attachment, naming its type and id: {@link
+     *         ConsultAttachmentWarning.Reason#UNAVAILABLE}, or {@link
+     *         ConsultAttachmentWarning.Reason#FILE_UNAVAILABLE} for an HRM report whose file is
+     *         missing or unreadable; empty when there are none
      */
     public List<ConsultAttachmentWarning> getUnavailableConsultAttachmentWarnings(Integer requestId);
 
