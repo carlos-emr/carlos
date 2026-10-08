@@ -31,6 +31,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -84,6 +85,11 @@ public class ViewOnReportGeneration2Action extends ActionSupport {
             onBillingDiskService.generateNewDisk(request);
         } catch (InvalidBillingGroupException invalidGroup) {
             request.setAttribute("ohipInvalidGroupProviders", invalidGroup.getProviderNumbers());
+            return INPUT;
+        } catch (BillingValidationException rejected) {
+            // Other pre-write validation (for example a selected group provider that is
+            // not billable) is reported on the MRI page the same way, not as an error page.
+            request.setAttribute("ohipGenerationError", rejected.getMessage());
             return INPUT;
         }
         // Audit the generation as OSCAR 19's ongenreport.jsp did: the selected

@@ -1365,10 +1365,12 @@ public class OhipClaimFileService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void retainFileBackup() {
         if (lastRenamedOriginalFile == null || lastRenamedBackupFile == null) return;
-        File homeDirFile = new File(CarlosProperties.getInstance().getProperty("HOME_DIR"));
-        File retained = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
-                ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis(), homeDirFile);
+        String retainedName = ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis();
         try {
+            // Everything that can fail stays inside: the caller has already committed
+            // the regeneration, and an escaping exception would report it as uncertain.
+            File homeDirFile = new File(CarlosProperties.getInstance().getProperty("HOME_DIR"));
+            File retained = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(retainedName, homeDirFile);
             try {
                 java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath(),
                         java.nio.file.StandardCopyOption.ATOMIC_MOVE);
@@ -1378,9 +1380,9 @@ public class OhipClaimFileService {
             }
             lastRenamedOriginalFile = null;
             lastRenamedBackupFile = null;
-        } catch (IOException failure) {
+        } catch (IOException | RuntimeException failure) {
             _logger.warn("Could not retain the prior OHIP output as {} ({})",
-                    LogSafe.sanitize(retained.getName()), failure.getClass().getSimpleName());
+                    LogSafe.sanitize(retainedName), failure.getClass().getSimpleName());
         }
     }
 

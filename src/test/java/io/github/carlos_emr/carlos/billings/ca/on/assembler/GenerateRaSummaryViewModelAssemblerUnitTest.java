@@ -100,4 +100,47 @@ class GenerateRaSummaryViewModelAssemblerUnitTest {
         assertThat(model.isRaFileIncomplete()).isTrue();
         assertThat(model.getRaFileWarning()).contains("Invalid RA number");
     }
+
+    @Test
+    void shouldKeepPatientIdentification_whenStoredRaHinIsSpacePadded() {
+        // radetail.hin holds the 12-wide H5 field ("1234567890  "); the claim's HIN is
+        // the bare 10 digits. OSCAR 19 trimmed before comparing; so must the summary.
+        RaHeaderDao raHeaderDao = mock(RaHeaderDao.class);
+        RaDetailDao raDetailDao = mock(RaDetailDao.class);
+        ProviderDao providerDao = mock(ProviderDao.class);
+        BillingDao billingDao = mock(BillingDao.class);
+
+        RaHeader header = new RaHeader();
+        header.setStatus("A");
+        when(raHeaderDao.find((Object) 7)).thenReturn(header);
+        when(raDetailDao.search_raprovider(7)).thenReturn(Collections.emptyList());
+        when(raDetailDao.search_raob(7)).thenReturn(Collections.emptyList());
+        when(raDetailDao.search_racolposcopy(7)).thenReturn(Collections.emptyList());
+        when(providerDao.getActiveProviders()).thenReturn(Collections.emptyList());
+
+        RaDetail detail = new RaDetail();
+        detail.setBillingNo(100);
+        detail.setHin("1234567890  ");
+        detail.setAmountClaim("12.34");
+        detail.setAmountPay("12.34");
+        detail.setServiceDate("20260428");
+        detail.setServiceCode("A001");
+        when(raDetailDao.search_rasummary_dt(7, "%")).thenReturn(List.of(detail));
+
+        io.github.carlos_emr.carlos.commn.model.Billing claim = new io.github.carlos_emr.carlos.commn.model.Billing();
+        claim.setHin("1234567890");
+        claim.setDemographicName("FAKE-PATIENT, TEST");
+        when(billingDao.find(100)).thenReturn(claim);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setParameter("rano", "7");
+
+        io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GenerateRaSummaryViewModel model =
+                new GenerateRaSummaryViewModelAssembler(raHeaderDao, raDetailDao, providerDao, billingDao)
+                        .assemble(request, null);
+
+        assertThat(model.getRows()).hasSize(1);
+        assertThat(model.getRows().get(0).demoHin()).isEqualTo("1234567890");
+        assertThat(model.getRows().get(0).demoName()).isEqualTo("FAKE-PATIENT, TEST");
+    }
 }

@@ -192,6 +192,22 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldLogAndContinue_whenEmptyGroupFileCannotBeWritten() {
+        // The claimless disk's rows are already committed and nothing is billed on it:
+        // a failed empty-file write must not abort the run or surface as an error page.
+        OhipClaimFileService first = memberWriter("empty-1", BigDecimal.ZERO, 0);
+        OhipClaimFileService output = mock(OhipClaimFileService.class);
+        givenGroupMembers(provider("101"));
+        when(claimFileFactory.getObject()).thenReturn(first, output);
+        org.mockito.Mockito.doThrow(new BillingFileWriteException("disk full")).when(output).writeFile("");
+
+        service.generateNewDisk(allProvidersRequest());
+
+        verify(output).writeFile("");
+        verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
+    }
+
+    @Test
     void shouldReportClaimRecords_byItemCountNotTotal() {
         assertThat(BillingOnDiskService.hasClaimRecords(memberWriter("b", BigDecimal.ZERO, 1))).isTrue();
         assertThat(BillingOnDiskService.hasClaimRecords(memberWriter("b", BigDecimal.TEN, 0))).isFalse();

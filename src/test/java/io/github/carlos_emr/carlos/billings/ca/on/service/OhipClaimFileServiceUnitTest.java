@@ -657,4 +657,30 @@ class OhipClaimFileServiceUnitTest {
         // A second call is a no-op: the backup has already been handed over.
         service.retainFileBackup();
     }
+
+    @Test
+    void shouldKeepRollbackCopyAndNotThrow_whenRetainingBackupFails() throws IOException {
+        // Best effort after a committed regeneration: a failure here must not reach the
+        // caller, which would otherwise report the committed disk as uncertain.
+        Path original = tempDir.resolve("claim.keep.txt");
+        Files.writeString(original, "prior claim output");
+        service.setOhipFilename("claim.keep.txt");
+        service.backupFileForRollback();
+        service.writeFile("replacement");
+        CarlosProperties.getInstance().remove("HOME_DIR");
+        try {
+            service.retainFileBackup();
+        } finally {
+            CarlosProperties.getInstance().put("HOME_DIR", tempDir.toString() + File.separator);
+        }
+
+        assertThat(original).hasContent("replacement" + System.lineSeparator());
+        try (var files = Files.list(tempDir)) {
+            assertThat(files.map(path -> path.getFileName().toString()))
+                    .anyMatch(name -> name.startsWith(".ohip-preview-"));
+        }
+        // The hand-over is still pending, so a later restore can use the rollback copy.
+        service.restoreRenamedFile();
+        assertThat(original).hasContent("prior claim output");
+    }
 }

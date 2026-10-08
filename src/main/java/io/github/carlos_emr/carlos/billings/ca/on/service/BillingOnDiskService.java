@@ -264,7 +264,15 @@ public class BillingOnDiskService {
             } else {
                 // OSCAR 19 contract: the disk row and its headers already exist, so the
                 // listed download must exist too; an empty claim file is what it wrote.
-                finalize.writeFile("");
+                // Nothing is billed on it, so a write failure is logged (as OSCAR 19 did)
+                // rather than aborting the remaining groups of an All Providers run; the
+                // file can be regenerated from the MRI page.
+                try {
+                    finalize.writeFile("");
+                } catch (BillingFileWriteException failure) {
+                    MiscUtils.getLogger().warn("Could not write the empty OHIP file for claimless group disk {} ({})",
+                            diskId, failure.getClass().getSimpleName());
+                }
             }
         }
     }

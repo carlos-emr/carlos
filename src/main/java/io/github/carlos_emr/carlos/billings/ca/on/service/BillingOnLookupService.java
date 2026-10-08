@@ -413,7 +413,7 @@ public class BillingOnLookupService {
         for (Provider p : ps) {
             billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            if (!"0000".equals(billinggroup_no))
+            if (!BillingGroupNumber.SOLO.equals(billinggroup_no))
                 continue;
             BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());
@@ -445,7 +445,7 @@ public class BillingOnLookupService {
         for (Provider p : ps) {
             billinggroup_no = billingGroupNo(p);
             specialty_code = getXMLStringWithDefault(p.getComments(), "xml_p_specialty_code", "00");
-            if ("0000".equals(billinggroup_no))
+            if (BillingGroupNumber.SOLO.equals(billinggroup_no))
                 continue;
             BillingProviderDto pObj = new BillingProviderDto();
             pObj.setProviderNo(p.getProviderNo());

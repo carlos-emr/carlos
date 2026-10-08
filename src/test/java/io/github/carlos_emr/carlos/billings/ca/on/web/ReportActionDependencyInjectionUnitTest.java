@@ -157,6 +157,22 @@ class ReportActionDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldReturnGenerationGuidance_whenSelectedProviderIsNotBillable() throws Exception {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        BillingOnDiskService service = mock(BillingOnDiskService.class);
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                "Selected provider is not available for group billing."))
+                .when(service).generateNewDisk(request);
+
+        assertThat(new ViewOnReportGeneration2Action(securityInfoManager, service).execute())
+                .isEqualTo(ActionSupport.INPUT);
+        assertThat(request.getAttribute("ohipGenerationError"))
+                .isEqualTo("Selected provider is not available for group billing.");
+        assertThat(request.getAttribute("ohipInvalidGroupProviders")).isNull();
+    }
+
+    @Test
     void shouldRegenerateDisk_throughInjectedService() throws Exception {
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_billing"), eq("w"), isNull()))
                 .thenReturn(true);
