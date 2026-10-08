@@ -803,6 +803,14 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should return an empty list when the patient has no consent records")
+        void shouldReturnEmptyList_whenNoRecords() {
+            when(mockConsentDao.findByDemographic(100)).thenReturn(List.of());
+
+            assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 100)).isEmpty();
+        }
+
+        @Test
         @DisplayName("should preserve unrelated untyped records in the patient consent list")
         void shouldPreserveUntypedRecords_whenReadingPatientConsents() {
             Consent firstUntyped = consent(10, false, new Date(1_000L));
@@ -877,6 +885,488 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
             Date since = new Date(0L);
 
             assertThatThrownBy(() -> manager.getConsentsByTypeAndEditDate(loggedInInfo, emailType, since))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
+        }
+    }
+
+    @Nested
+    @DisplayName("recordExplicitConsent")
+    class RecordExplicitConsent {
+
+        private Consent impliedOptIn() {
+            Consent consent = consent(21, false, new Date(1_000L));
+            consent.setConsentDate(new Date(1_000L));
+            consent.setExplicit(false);
+            return consent;
+        }
+
+        @Test
+        @DisplayName("should mark an implied opt-in explicit and stamp its dates and author")
+        void shouldUpgradeImpliedOptIn_toExplicit() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            boolean result = manager.recordExplicitConsent(loggedInInfo, 100, 1);
+
+            assertThat(result).isTrue();
+            assertThat(implied.isExplicit()).isTrue();
+            assertThat(implied.getConsentDate()).isAfter(new Date(1_000L));
+            assertThat(implied.getEditDate()).isAfter(new Date(1_000L));
+            assertThat(implied.getLastEnteredBy()).isEqualTo("999998");
+            verify(mockConsentDao).merge(implied);
+            // Filed under the patient and the consent record, so an audit by patient finds it.
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), eq("21"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 21 implied->explicit PriorConsentDate: "
+                            + new Date(1_000L))));
+        }
+
+        @Test
+        @DisplayName("should fail the upgrade when its audit entry cannot be written, so the transaction rolls back")
+        void shouldThrow_whenUpgradeAuditCannotBeWritten() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+            IllegalStateException auditDown = new IllegalStateException("audit write failed");
+            logActionMock.when(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
+                    eq("PatientConsentManager.recordExplicitConsent"), any(), any(), any(), any())).thenThrow(auditDown);
+
+            assertThatThrownBy(() -> manager.recordExplicitConsent(loggedInInfo, 100, 1)).isSameAs(auditDown);
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading the record it confirms")
+        void shouldLockPatientBeforeReading_whenRecordingExplicitConsent() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+
+            manager.recordExplicitConsent(loggedInInfo, 100, 1);
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(implied);
+        }
+
+        @Test
+        @DisplayName("should change nothing when the record is already explicit")
+        void shouldLeaveRecordUntouched_whenAlreadyExplicit() {
+            Consent explicit = consent(22, false, new Date(1_000L));
+            explicit.setExplicit(true);
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(explicit));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isTrue();
+            assertThat(explicit.getEditDate()).isEqualTo(new Date(1_000L));
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse to confirm consent the patient opted out of")
+        void shouldNotUpgrade_whenPatientOptedOut() {
+            Consent optedOut = consent(23, true, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(optedOut));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            assertThat(optedOut.isExplicit()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+            // Staff asked for it, so the refusal is on the patient's audit trail.
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), eq("23"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 skipped: opted out")));
+        }
+
+        @Test
+        @DisplayName("should refuse when an older live opt-out sits beside a newer implied opt-in")
+        void shouldNotUpgrade_whenDuplicateOptOutDecides() {
+            Consent newerOptIn = consent(24, false, new Date(2_000L));
+            newerOptIn.setExplicit(false);
+            Consent olderOptOut = consent(25, true, new Date(1_000L));
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1))
+                    .thenReturn(List.of(newerOptIn, olderOptOut));
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            assertThat(newerOptIn.isExplicit()).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should refuse when there is no live record to confirm")
+        void shouldNotUpgrade_whenNoLiveRecordExists() {
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of());
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            verify(mockConsentDao, never()).merge(any());
+            verify(mockConsentDao, never()).persist(any());
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo),
+                    eq("PatientConsentManager.recordExplicitConsent"), eq("consent"), isNull(), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 skipped: no live record")));
+        }
+
+        @Test
+        @DisplayName("should refuse for an inactive consent type")
+        void shouldNotUpgrade_whenConsentTypeInactive() {
+            ConsentType inactive = createActiveConsentType(1, "email");
+            inactive.setActive(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(inactive);
+
+            assertThat(manager.recordExplicitConsent(loggedInInfo, 100, 1)).isFalse();
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should throw and change nothing when write privilege denied")
+        void shouldThrow_whenWritePrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.recordExplicitConsent(loggedInInfo, 100, 1))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_demographic)");
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should keep a routine save from upgrading an implied record")
+        void shouldKeepImplied_whenChartIsResavedWithOptIn() {
+            Consent implied = impliedOptIn();
+            when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(implied));
+
+            manager.addEditConsentRecord(loggedInInfo, 100, 1, true, false);
+
+            assertThat(implied.isExplicit()).isFalse();
+            // The save edited the implied record itself, rather than adding a new explicit one.
+            verify(mockConsentDao).merge(implied);
+            verify(mockConsentDao, never()).persist(any());
+        }
+    }
+
+    /**
+     * A chart save re-posts the choice the page showed. It is applied only while the record the
+     * page showed still decides the patient's consent.
+     */
+    @Nested
+    @DisplayName("saveChartConsent")
+    class SaveChartConsent {
+
+        private static final String REFUSED = "PatientConsentManager.saveChartConsent";
+
+        private ChartConsentRequest shown(ChartConsentRequest.Choice choice, boolean explicitRequested,
+                                          Integer shownId, Boolean shownOptOut) {
+            return new ChartConsentRequest(choice, explicitRequested, true, shownId, shownOptOut);
+        }
+
+        private Consent impliedOptIn(int id) {
+            Consent consent = consent(id, false, new Date(1_000L));
+            consent.setConsentDate(new Date(1_000L));
+            consent.setExplicit(false);
+            return consent;
+        }
+
+        private void stubLiveRecords(Consent... live) {
+            // Lenient: a refusal is decided before the consent type is looked up.
+            lenient().when(mockConsentTypeDao.find(1)).thenReturn(createActiveConsentType(1, "email"));
+            when(mockConsentDao.findLiveByDemographicAndConsentTypeIdForUpdate(100, 1)).thenReturn(List.of(live));
+        }
+
+        private void verifyNothingWritten() {
+            verify(mockConsentDao, never()).persist(any());
+            verify(mockConsentDao, never()).merge(any());
+        }
+
+        @Test
+        @DisplayName("should apply an opt-out when the shown record still decides")
+        void shouldApplyOptOut_whenShownRecordStillDecides() {
+            Consent optIn = impliedOptIn(21);
+            stubLiveRecords(optIn);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_OUT, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(optIn.isOptout()).isTrue();
+            verify(mockConsentDao).merge(optIn);
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(eq(loggedInInfo),
+                    eq("PatientConsentManager.changeConsent"), eq("consent"), eq("21"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 ConsentId: 21 Choice: opt-in->opt-out")));
+        }
+
+        @Test
+        @DisplayName("should create the first record when the page showed none and none exists")
+        void shouldCreateRecord_whenNoneShownAndNoneExists() {
+            stubLiveRecords();
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, null, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            verify(mockConsentDao).persist(any(Consent.class));
+        }
+
+        @Test
+        @DisplayName("should clear the consent when the shown record still decides")
+        void shouldClearConsent_whenShownRecordStillDecides() {
+            Consent optIn = impliedOptIn(21);
+            stubLiveRecords(optIn);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.CLEAR, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(optIn.isDeleted()).isTrue();
+            verify(mockConsentDao).merge(optIn);
+        }
+
+        @Test
+        @DisplayName("should refuse, change nothing and audit when a colleague opted the patient out")
+        void shouldRefuseAndAudit_whenDecidingChoiceDiffersFromShown() {
+            // The page showed record 21 as an opt-in; a colleague has since opted the patient out.
+            Consent optedOut = consent(21, true, new Date(2_000L));
+            stubLiveRecords(optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            assertThat(optedOut.isOptout()).isTrue();
+            assertThat(optedOut.getEditDate()).isEqualTo(new Date(2_000L));
+            verifyNothingWritten();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo), eq(REFUSED), eq("consent"),
+                    eq("21"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 refused: the consent record changed since the chart"
+                            + " page was loaded. Requested: opt-in Shown: ConsentId: 21 Choice: opt-in"
+                            + " Current: ConsentId: 21 Choice: opt-out")));
+            logActionMock.verify(() -> LogAction.addLogSynchronousOrThrow(any(LoggedInInfo.class),
+                    eq("PatientConsentManager.changeConsent"), any(), any(), any(), any()), never());
+        }
+
+        @Test
+        @DisplayName("should refuse when the deciding record is not the one that was shown")
+        void shouldRefuse_whenDecidingRecordIdDiffersFromShown() {
+            // Cleared and entered again by a colleague: the same choice, but a different record.
+            Consent reentered = impliedOptIn(22);
+            stubLiveRecords(reentered);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_OUT, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            assertThat(reentered.isOptout()).isFalse();
+            verifyNothingWritten();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo), eq(REFUSED), eq("consent"),
+                    eq("22"), eq(100), anyString()));
+        }
+
+        @Test
+        @DisplayName("should refuse when the page showed no record and one exists now")
+        void shouldRefuse_whenNoneShownAndRecordExistsNow() {
+            Consent optedOut = consent(23, true, new Date(2_000L));
+            stubLiveRecords(optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, null, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            assertThat(optedOut.isOptout()).isTrue();
+            verifyNothingWritten();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo), eq(REFUSED), eq("consent"),
+                    eq("23"), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 refused: the consent record changed since the chart"
+                            + " page was loaded. Requested: opt-in Shown: none"
+                            + " Current: ConsentId: 23 Choice: opt-out")));
+        }
+
+        @Test
+        @DisplayName("should refuse when the page showed a record and none exists now")
+        void shouldRefuse_whenRecordShownAndNoneExistsNow() {
+            stubLiveRecords();
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            verifyNothingWritten();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(eq(loggedInInfo), eq(REFUSED), eq("consent"),
+                    isNull(), eq(100),
+                    eq(" Demographic: 100 ConsentTypeId: 1 refused: the consent record changed since the chart"
+                            + " page was loaded. Requested: opt-in Shown: ConsentId: 21 Choice: opt-in"
+                            + " Current: none")));
+        }
+
+        @Test
+        @DisplayName("should refuse a clear made against a record that has since changed")
+        void shouldRefuseClear_whenDecidingRecordChanged() {
+            Consent optedOut = consent(21, true, new Date(2_000L));
+            stubLiveRecords(optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.CLEAR, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            assertThat(optedOut.isDeleted()).isFalse();
+            verifyNothingWritten();
+        }
+
+        @Test
+        @DisplayName("should refuse when the page sent a shown id without a shown choice")
+        void shouldRefuse_whenShownRecordIsIncomplete() {
+            stubLiveRecords(impliedOptIn(21));
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_OUT, false, 21, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            verifyNothingWritten();
+        }
+
+        @Test
+        @DisplayName("should not upgrade to explicit when refused, even with the box ticked")
+        void shouldNotUpgradeToExplicit_whenRefused() {
+            // The page showed an implied opt-in; a duplicate opt-out now decides.
+            Consent impliedOptIn = impliedOptIn(21);
+            Consent optedOut = consent(24, true, new Date(2_000L));
+            stubLiveRecords(impliedOptIn, optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, true, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.STALE);
+            assertThat(impliedOptIn.isExplicit()).isFalse();
+            assertThat(optedOut.isOptout()).isTrue();
+            assertThat(optedOut.isExplicit()).isFalse();
+            verifyNothingWritten();
+            logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class),
+                    eq("PatientConsentManager.recordExplicitConsent"), any(), any(), any(), any()), never());
+        }
+
+        @Test
+        @DisplayName("should upgrade to explicit when the shown record still decides and the box is ticked")
+        void shouldUpgradeToExplicit_whenShownRecordStillDecides() {
+            Consent impliedOptIn = impliedOptIn(21);
+            stubLiveRecords(impliedOptIn);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, true, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(impliedOptIn.isExplicit()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not upgrade to explicit when the box is not ticked")
+        void shouldKeepImplied_whenBoxNotTicked() {
+            Consent impliedOptIn = impliedOptIn(21);
+            stubLiveRecords(impliedOptIn);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(impliedOptIn.isExplicit()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should report an explicit upgrade that was asked for but not recorded")
+        void shouldReportExplicitNotRecorded_whenUpgradeIsRefused() {
+            // The consent type was deactivated after the page was loaded, so neither the opt-in
+            // nor the confirmation is recorded.
+            ConsentType inactive = createActiveConsentType(1, "email");
+            inactive.setActive(false);
+            when(mockConsentTypeDao.find(1)).thenReturn(inactive);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    new ChartConsentRequest(ChartConsentRequest.Choice.OPT_IN, true, false, null, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.EXPLICIT_NOT_RECORDED);
+            verifyNothingWritten();
+        }
+
+        @Test
+        @DisplayName("should apply the choice as before when the page did not send the shown record")
+        void shouldApplyWithoutCheck_whenShownRecordNotSent() {
+            // An older form posts only the choice: it is applied whatever the record now says.
+            Consent optedOut = consent(21, true, new Date(2_000L));
+            stubLiveRecords(optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    new ChartConsentRequest(ChartConsentRequest.Choice.OPT_IN, false, false, null, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(optedOut.isOptout()).isFalse();
+            verify(mockConsentDao).merge(optedOut);
+            logActionMock.verify(() -> LogAction.addLogSynchronous(any(LoggedInInfo.class), eq(REFUSED),
+                    any(), any(), any(), any()), never());
+        }
+
+        @Test
+        @DisplayName("should clear as before when the page did not send the shown record")
+        void shouldClearWithoutCheck_whenShownRecordNotSent() {
+            Consent optedOut = consent(21, true, new Date(2_000L));
+            stubLiveRecords(optedOut);
+
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    new ChartConsentRequest(ChartConsentRequest.Choice.CLEAR, false, false, null, null));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.APPLIED);
+            assertThat(optedOut.isDeleted()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should change nothing when no choice was posted")
+        void shouldChangeNothing_whenNoChoicePosted() {
+            ChartConsentOutcome outcome = manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.NONE, true, 21, false));
+
+            assertThat(outcome).isEqualTo(ChartConsentOutcome.NO_CHANGE);
+            verifyNoInteractions(mockConsentDao);
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading the record it checks")
+        void shouldLockPatientBeforeReading_whenCheckingShownRecord() {
+            Consent optIn = impliedOptIn(21);
+            stubLiveRecords(optIn);
+
+            manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_OUT, false, 21, false));
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verify(mockConsentDao).merge(optIn);
+        }
+
+        @Test
+        @DisplayName("should lock the patient before reading when it refuses")
+        void shouldLockPatientBeforeReading_whenRefusing() {
+            stubLiveRecords(consent(21, true, new Date(2_000L)));
+
+            manager.saveChartConsent(loggedInInfo, 100, 1,
+                    shown(ChartConsentRequest.Choice.OPT_IN, false, 21, false));
+
+            InOrder order = inOrder(mockConsentDao);
+            order.verify(mockConsentDao).lockPatientForConsentChange(100);
+            order.verify(mockConsentDao).findLiveByDemographicAndConsentTypeIdForUpdate(100, 1);
+            order.verifyNoMoreInteractions();
+        }
+
+        @Test
+        @DisplayName("should throw and touch nothing when write privilege denied")
+        void shouldThrow_whenWritePrivilegeDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(any(), eq("_demographic"), eq(SecurityInfoManager.WRITE), anyInt()))
+                    .thenReturn(false);
+            ChartConsentRequest request = shown(ChartConsentRequest.Choice.OPT_OUT, false, 21, false);
+
+            assertThatThrownBy(() -> manager.saveChartConsent(loggedInInfo, 100, 1, request))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_demographic)");
             verifyNoInteractions(mockConsentDao);

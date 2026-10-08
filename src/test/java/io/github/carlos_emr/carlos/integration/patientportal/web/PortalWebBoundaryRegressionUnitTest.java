@@ -38,8 +38,11 @@ import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalExcept
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Set;
@@ -70,19 +73,27 @@ class PortalWebBoundaryRegressionUnitTest {
         try (var servlet = mockStatic(ServletActionContext.class);
              var login = mockStatic(LoggedInInfo.class);
              var settings = mockStatic(PatientPortalSettings.class);
-             var spring = mockStatic(SpringUtils.class)) {
+             var spring = mockStatic(SpringUtils.class);
+             var logs = LogCapture.forLogger(PortalJsonAction.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
             settings.when(PatientPortalSettings::isConfigured).thenReturn(true);
             spring.when(() -> SpringUtils.getBean(PatientPortalService.class)).thenThrow(
                     new org.springframework.beans.factory.BeanCreationException("patientPortalService",
-                            "configuration failed", new PatientPortalConfigurationException("bad timeout")));
+                            "configuration failed", new PatientPortalConfigurationException(
+                                    "patient_portal.timeout.request.ms must be at most 59000 milliseconds")));
             assertThatCode(() -> new PortalAccount2Action(security, null, resolver).execute())
                     .doesNotThrowAnyException();
             assertThat(response.getStatus()).isEqualTo(503);
             assertThat(response.getContentAsString()).contains("portal_configuration_invalid");
             assertThat(response.getContentType()).startsWith("application/json");
+            // Only the setting the portal exception names is logged; the bean's own message, and the
+            // rest of the configuration message, may carry configured values.
+            assertThat(logs.messages()).anySatisfy(message ->
+                    assertThat(message).endsWith(": patient_portal.timeout.request.ms"));
+            assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("configuration failed"));
+            assertThat(logs.messages()).noneSatisfy(message -> assertThat(message).contains("59000"));
         }
     }
 
@@ -98,7 +109,7 @@ class PortalWebBoundaryRegressionUnitTest {
         request.setMethod("portalPanel".equals(route) ? "GET" : "POST");
         request.setParameter("demographicNo", "123");
         if ("portalInvite".equals(route)) {
-            // create and resend answer "not available yet" before the switch is consulted.
+            // Create, resend and recovery are covered by the delivery test below.
             request.setParameter("method", PortalInvite2Action.METHOD_REVOKE);
             request.setParameter("inviteId", "7");
         } else if ("portalAccount".equals(route)) {
@@ -129,6 +140,48 @@ class PortalWebBoundaryRegressionUnitTest {
         assertThat(response.getContentType()).startsWith("application/json");
         assertThat(response.getContentAsString()).contains("\"portal_not_configured\"");
         verifyNoInteractions(resolver);
+    }
+
+    /**
+     * The invitation workflow (#3856) has the portal prepare and commit each invitation code that CARLOS
+     * then emails, so with the portal switched off it answers like every other portal action: nothing is
+     * prepared on the portal, no email is queued, and the workflow is never even looked up.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {PortalInvite2Action.METHOD_CREATE, PortalInvite2Action.METHOD_RESEND,
+            PortalInvite2Action.METHOD_RECOVER})
+    void shouldAnswerPortalNotConfigured_whenInviteDeliveryIsRequestedWithPortalSwitchedOff(String method)
+            throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var resolver = mock(PortalStaffContextResolver.class);
+        var demographics = mock(DemographicManager.class);
+        var session = mock(LoggedInInfo.class);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        request.setMethod("POST");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("method", method);
+        request.setParameter("inviteId", "7");
+        request.setParameter("deliveryId", "9");
+        request.setParameter("decision", PortalInviteDeliveryService.Decision.CONFIRM_SENT.requestValue());
+        when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(any(), eq(123))).thenReturn(true);
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var login = mockStatic(LoggedInInfo.class);
+             var settings = mockStatic(PatientPortalSettings.class);
+             var spring = mockStatic(SpringUtils.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(session);
+            settings.when(PatientPortalSettings::isConfigured).thenReturn(false);
+            new PortalInvite2Action(security, null, resolver, null, demographics).execute();
+            spring.verify(() -> SpringUtils.getBean(PortalInviteDeliveryService.class), never());
+            spring.verify(() -> SpringUtils.getBean(PatientPortalService.class), never());
+        }
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("\"portal_not_configured\"");
+        verifyNoInteractions(resolver, demographics);
     }
 
     /**

@@ -4,6 +4,7 @@
 check: prove the DEPLOYED system end to end, probing live behaviour rather
 than trusting configuration files to describe it."""
 
+import datetime
 import os
 import re
 import time
@@ -14,6 +15,8 @@ from .util import (
 )
 
 _failures = 0
+
+_APPARMOR_PROFILES = "/sys/kernel/security/apparmor/profiles"
 
 
 def _ok(msg):
@@ -95,13 +98,7 @@ def _check_front_door(bind_ip: str) -> None:
              "serving the rendered configuration (systemctl restart nginx; journalctl -u nginx)")
 
 
-def cmd_check(argv) -> int:
-    global _failures
-    _failures = 0
-    # Root is required for what check READS (credential files, TLS pair,
-    # the WAF policy): without it half the probes false-failed with
-    # misleading diagnoses instead of one clear message.
-    need_root("check")
+def _load_settings():
     # config.load() EXITS on an invalid CARLOS_DB_NAME or CARLOS_PROVINCE, and
     # "the configuration could not be applied" is one of the reasons the
     # installer records — so that exit is exactly the case where an operator
@@ -117,8 +114,10 @@ def cmd_check(argv) -> int:
                  "The configuration above must be fixed first, then finish the "
                  "install with 'sudo carlos-ctl finish-install'")
         raise
-    print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
+    return s
 
+
+def _check_installation() -> None:
     # First, because it explains most of what follows: the installer records
     # this marker when a provisioning step did not run, and an install that
     # ended there has no schema, no administrator credential and a stopped
@@ -131,6 +130,9 @@ def cmd_check(argv) -> int:
              "next boot)")
         print()
 
+
+def _check_services() -> bool:
+    """Report the units; True when carlos-emr itself is running."""
     print("services")
     # Kept for the DrugRef probe far below, which is a probe of THIS service:
     # DrugRef is a second webapp in the same Tomcat.
@@ -159,10 +161,10 @@ def cmd_check(argv) -> int:
             _ok(f"{unit} is enabled")
         else:
             _bad(f"{unit} is NOT enabled")
+    return emr_running
 
-    print("\nprocess ownership")
-    _check_process_ownership()
 
+def _check_network_exposure(s) -> None:
     print("\nnetwork exposure")
     # Tomcat must not be reachable except on loopback: anything else is a
     # path around the WAF — and therefore around TLS, the headers and the
@@ -188,12 +190,15 @@ def cmd_check(argv) -> int:
     # the previous configuration — and "something is on 443" was green on
     # exactly that broken host.
     _check_front_door(s.bind_ip)
+    _check_mariadb_apparmor()
+
+
+def _check_mariadb_apparmor() -> None:
     # The MariaDB drop-in leans on AppArmor as the file-access control (it is
     # why secure_file_priv is not set there), so this check asserts the
     # profile is actually loaded and enforcing rather than assuming it.
-    profiles = "/sys/kernel/security/apparmor/profiles"
     try:
-        with open(profiles, encoding="utf-8", errors="replace") as fh:
+        with open(_APPARMOR_PROFILES, encoding="utf-8", errors="replace") as fh:
             entries = fh.read()
     except OSError:
         _note("AppArmor is not available on this kernel — the MariaDB profile the "
@@ -209,6 +214,8 @@ def cmd_check(argv) -> int:
             _bad("no AppArmor profile loaded for mariadbd — the file-access control the "
                  "MariaDB drop-in documents is missing")
 
+
+def _check_render_browser() -> None:
     # The eForm render browser is optional (Recommends:), so probe it only when its
     # env file says it is installed. Every check here maps to a way it silently breaks:
     # the unit not running, the AppArmor userns grant missing on a kernel that enforces
@@ -232,66 +239,86 @@ def cmd_check(argv) -> int:
               "is not installed, so its checks are skipped")
     elif os.path.exists(render_driver):
         print("\neForm render browser")
-        if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
-            _ok("carlos-emr-chromedriver is running")
-        else:
-            _bad("carlos-emr-chromedriver is NOT running "
-                 "(systemctl status carlos-emr-chromedriver)")
-        try:
-            with open(profiles, encoding="utf-8", errors="replace") as fh:
-                entries = fh.read()
-        except OSError:
-            entries = ""
-        restricted = "0"
-        try:
-            with open("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
-                      encoding="ascii") as fh:
-                restricted = fh.read().strip()
-        except OSError:
-            pass
-        if re.search(r"^carlos-emr-chromium ", entries, re.M):
-            _ok("AppArmor profile carlos-emr-chromium is loaded (userns grant for the sandbox)")
-        elif restricted == "1":
-            _bad("AppArmor profile carlos-emr-chromium is NOT loaded and this kernel "
-                 "restricts unprivileged user namespaces — the sandboxed browser cannot "
-                 "start and eForm PDF rendering fails closed "
-                 "(sudo apparmor_parser -r /etc/apparmor.d/carlos-emr-chromium)")
-        else:
-            _note("AppArmor profile carlos-emr-chromium is not loaded; the sandbox works "
-                  "anyway because this kernel does not restrict unprivileged user namespaces")
-        port, url_base = config._render_browser_endpoint()
-        prop_url = None
-        try:
-            with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
-                # prop_set writes "key = value"; tolerate any spacing around "=" and an
-                # unspaced hand edit alike, or this check reports every healthy install
-                # as misconfigured.
-                m = re.search(r"^eform_pdf_browser_service_url\s*=\s*(\S+)", fh.read(), re.M)
-                prop_url = m.group(1) if m else None
-        except OSError:
-            pass
-        # Mirror config.py's composition exactly, including the empty-url-base shape it
-        # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
-        # thing is the missing token — whose fix is the renderer postinst, not init-config.
-        expected = None
-        if port:
-            expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
-        if prop_url and expected and prop_url == expected:
-            if url_base:
-                _ok("eform_pdf_browser_service_url matches render-browser.env")
-            else:
-                _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
-                     "unit refuses to start without the token; reinstall the renderer package "
-                     "(its postinst regenerates it): sudo apt install --reinstall "
-                     "carlos-emr-eform-renderer")
-        elif prop_url is None:
-            _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
-                 "reach the render browser (sudo carlos-ctl init-config)")
-        else:
-            _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
-                 "and chromedriver disagree on port or url-base token "
-                 "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
+        _check_render_browser_service()
+        _check_render_browser_apparmor()
+        _check_render_browser_url()
 
+
+def _check_render_browser_service() -> None:
+    if run(["systemctl", "is-active", "--quiet", "carlos-emr-chromedriver"]).returncode == 0:
+        _ok("carlos-emr-chromedriver is running")
+    else:
+        _bad("carlos-emr-chromedriver is NOT running "
+             "(systemctl status carlos-emr-chromedriver)")
+
+
+def _check_render_browser_apparmor() -> None:
+    try:
+        with open(_APPARMOR_PROFILES, encoding="utf-8", errors="replace") as fh:
+            entries = fh.read()
+    except OSError:
+        entries = ""
+    restricted = "0"
+    try:
+        with open("/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                  encoding="ascii") as fh:
+            restricted = fh.read().strip()
+    except OSError:
+        pass
+    if re.search(r"^carlos-emr-chromium ", entries, re.M):
+        _ok("AppArmor profile carlos-emr-chromium is loaded (userns grant for the sandbox)")
+    elif restricted == "1":
+        _bad("AppArmor profile carlos-emr-chromium is NOT loaded and this kernel "
+             "restricts unprivileged user namespaces — the sandboxed browser cannot "
+             "start and eForm PDF rendering fails closed "
+             "(sudo apparmor_parser -r /etc/apparmor.d/carlos-emr-chromium)")
+    else:
+        _note("AppArmor profile carlos-emr-chromium is not loaded; the sandbox works "
+              "anyway because this kernel does not restrict unprivileged user namespaces")
+
+
+def _render_browser_property_url():
+    """eform_pdf_browser_service_url as carlos.properties has it, or None."""
+    prop_url = None
+    try:
+        with open(PROPERTIES, encoding="utf-8", errors="replace") as fh:
+            # prop_set writes "key = value"; tolerate any spacing around "=" and an
+            # unspaced hand edit alike, or this check reports every healthy install
+            # as misconfigured.
+            m = re.search(r"^eform_pdf_browser_service_url\s*=\s*(\S+)", fh.read(), re.M)
+            prop_url = m.group(1) if m else None
+    except OSError:
+        pass
+    return prop_url
+
+
+def _check_render_browser_url() -> None:
+    port, url_base = config._render_browser_endpoint()
+    prop_url = _render_browser_property_url()
+    # Mirror config.py's composition exactly, including the empty-url-base shape it
+    # deliberately writes mid-install: a base-less URL is then EXPECTED, and the broken
+    # thing is the missing token — whose fix is the renderer postinst, not init-config.
+    expected = None
+    if port:
+        expected = f"http://127.0.0.1:{port}/{url_base}" if url_base else f"http://127.0.0.1:{port}"
+    if prop_url and expected and prop_url == expected:
+        if url_base:
+            _ok("eform_pdf_browser_service_url matches render-browser.env")
+        else:
+            _bad("CARLOS_RENDER_URL_BASE is empty in render-browser.env — the chromedriver "
+                 "unit refuses to start without the token; reinstall the renderer package "
+                 "(its postinst regenerates it): sudo apt install --reinstall "
+                 "carlos-emr-eform-renderer")
+    elif prop_url is None:
+        _bad("carlos.properties has no eform_pdf_browser_service_url — the JVM cannot "
+             "reach the render browser (sudo carlos-ctl init-config)")
+    else:
+        _bad("eform_pdf_browser_service_url does not match render-browser.env — the JVM "
+             "and chromedriver disagree on port or url-base token "
+             "(sudo carlos-ctl init-config, then systemctl restart carlos-emr)")
+
+
+def _check_tls() -> None:
     print("\nTLS")
     run([os.path.join(LIB, "carlos-emr-cert"), "status"])
     fullchain = os.path.join(CONF_DIR, "tls", "fullchain.pem")
@@ -302,17 +329,9 @@ def cmd_check(argv) -> int:
         else:
             _bad("certificate expires within 21 days")
 
-    print("\nfront door")
-    # Probe through the CONFIGURED server name resolved to loopback: it
-    # exercises SNI and the certificate a real client sees, and avoids CRS
-    # rule 920350 ("Host header is a numeric IP address") filling the audit
-    # log with noise this check generated.
-    # Probe the address nginx actually listens on: with a non-default
-    # CARLOS_BIND_IP nothing answers on loopback and every front-door check
-    # would false-fail on a healthy install.
-    probe_ip = {"": "127.0.0.1", "0.0.0.0": "127.0.0.1", "::": "::1"}.get(s.bind_ip, s.bind_ip)
-    resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
-    url = f"https://{s.server_name}/carlos/"
+
+def _wait_for_front_door(resolve, url) -> str:
+    """The HTTP status the front door finally answered with, "000" for none."""
     # Retry a while before calling it down: deploying this webapp takes about
     # two minutes from cold, and a false alarm here teaches operators to
     # ignore the tool.
@@ -325,6 +344,23 @@ def cmd_check(argv) -> int:
         if attempt == 0:
             _note("front door not answering yet; waiting up to 2 minutes for the application to deploy")
         time.sleep(10)
+    return code
+
+
+def _check_front_door_responses(s):
+    """Probe the front door; returns the curl --resolve arguments the later probes reuse."""
+    print("\nfront door")
+    # Probe through the CONFIGURED server name resolved to loopback: it
+    # exercises SNI and the certificate a real client sees, and avoids CRS
+    # rule 920350 ("Host header is a numeric IP address") filling the audit
+    # log with noise this check generated.
+    # Probe the address nginx actually listens on: with a non-default
+    # CARLOS_BIND_IP nothing answers on loopback and every front-door check
+    # would false-fail on a healthy install.
+    probe_ip = {"": "127.0.0.1", config.WILDCARD_IPV4: "127.0.0.1", "::": "::1"}.get(s.bind_ip, s.bind_ip)
+    resolve = ["--resolve", f"{s.server_name}:443:{probe_ip}"]
+    url = f"https://{s.server_name}/carlos/"
+    code = _wait_for_front_door(resolve, url)
     if code in ("200", "302", "303"):
         _ok(f"{url} returned {code}")
     elif code == "000":
@@ -348,7 +384,10 @@ def cmd_check(argv) -> int:
         _ok("DrugRef is not reachable through the front door")
     else:
         _bad("the front door exposes /drugref2 — it is an unauthenticated service")
+    return resolve
 
+
+def _check_ws_catalog(s, resolve) -> None:
     # /ws/** (CXF SOAP/REST) is exempt from the login filter: every service is
     # expected to authenticate itself (OAuth 1.0a / WS-Security). Prove two
     # invariants at runtime rather than trusting the config — the service-list
@@ -378,6 +417,9 @@ def cmd_check(argv) -> int:
     else:
         _note(f"could not confirm the CXF catalog is hidden: /carlos/ws/ returned "
               f"{ws_list_code or '000'} (expected 404; a 502, 429 or redirect masks this check)")
+
+
+def _check_ws_auth_gate(s, resolve) -> None:
     # A gated data service must reject an unauthenticated call. The body is a
     # REAL operation, not an empty envelope: WS-Security runs at PRE_PROTOCOL,
     # strictly before unmarshalling, so a well-formed request still yields 400
@@ -401,6 +443,9 @@ def cmd_check(argv) -> int:
     else:
         _note(f"could not confirm the /ws auth gate: /carlos/ws/DemographicService returned "
               f"{ws_code or '000'} (a WAF 403, a 404, or a redirect can mask the auth check)")
+
+
+def _check_path_normalisation(s, resolve) -> None:
     # Pin the path-normalisation guard: nginx and Tomcat normalise in different
     # orders, so a dot segment carrying a matrix parameter used to slip past every
     # path-scoped rule (rate limits and the DrugRef/SystemInfoService 404s alike)
@@ -414,7 +459,9 @@ def cmd_check(argv) -> int:
             _bad(f"{probe} returned {code or '000'}, expected 400 — the path-normalisation "
                  "guard in the nginx site config is missing or was reordered")
 
-    print("\nWAF")
+
+def _waf_engine() -> str:
+    """The SecRuleEngine value in the WAF policy, "" when it cannot be read."""
     engine = ""
     try:
         with open(os.path.join(CONF_DIR, "modsecurity", "main.conf"),
@@ -426,6 +473,12 @@ def cmd_check(argv) -> int:
                     break
     except OSError as e:
         _bad(f"cannot read the WAF policy: {e} — reinstall carlos-emr to restore it")
+    return engine
+
+
+def _check_waf(s, resolve) -> None:
+    print("\nWAF")
+    engine = _waf_engine()
     if engine == "On":
         _ok("ModSecurity rule engine is On (blocking)")
     else:
@@ -441,6 +494,8 @@ def cmd_check(argv) -> int:
     else:
         _bad(f"a probe SQL-injection request returned {cp.stdout.strip() or '000'}, expected 403")
 
+
+def _check_drugref(emr_running: bool) -> None:
     print("\nDrugRef")
     # A live XML-RPC call, not a page probe: the context can deploy and still
     # have a dead pool behind it (seen in validation — a connection leak that
@@ -474,54 +529,60 @@ def cmd_check(argv) -> int:
     else:
         _note("carlos-emr-drugref is not installed; prescription drug lookups will return nothing")
 
-    print("\ndatabase")
-    if dbops.db_root_ok():
-        _ok("MariaDB reachable as root over the unix socket")
-        # A COUNT that FAILED and a COUNT that returned zero are different
-        # answers, and out() renders both as "" — which reported a database
-        # that could not be queried as one with no tables. Same discipline the
-        # demo-data guards already apply.
-        cp = dbops.db_root(
-            ["-N", "-B", "-e", "SELECT COUNT(*) FROM information_schema.tables "
-             f"WHERE table_schema='{s.db_name}'"], capture_output=True)
-        n = cp.stdout.strip() if cp.returncode == 0 else ""
-        if cp.returncode != 0:
-            _bad(f"could not count the tables in {s.db_name}: "
-                 f"{cp.stderr.strip() or 'the query failed'}")
-        elif n.isdigit() and int(n) > 100:
-            _ok(f"{s.db_name} has {n} tables")
-        elif n == "0":
-            _bad(f"{s.db_name} has NO tables: the schema was never created. The install "
-                 "did not finish — run 'sudo carlos-ctl finish-install' (it creates the "
-                 "schema, replaces the seeded credential and starts the EMR)")
-        else:
-            _bad(f"{s.db_name} has only {n or 0} tables — has the schema been migrated?")
-        n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
-                 f"SELECT COUNT(*) FROM `{s.db_name}`.flyway_schema_history WHERE success=1"])
-        if n.isdigit() and int(n) > 0:
-            _ok(f"flyway_schema_history has {n} successful migration(s)")
-        else:
-            _bad("flyway_schema_history is empty or missing — the application's boot-time "
-                 "schema gate will fail ('carlos-ctl finish-install' on an install that "
-                 "never provisioned, 'carlos-ctl db-info' otherwise)")
-    else:
-        _bad("cannot reach MariaDB as root over the unix socket")
 
-    print("\nbackups")
-    # The docs promise FRESHNESS, not existence: a .last-success from three
-    # weeks ago is a monitoring gap, not a passing check. The nightly timer
-    # runs daily, so anything older than 2 days is a failure; a brand-new
-    # install (state directory younger than 2 days) has legitimately not had
-    # its first nightly yet and gets a note instead of a false alarm.
-    import datetime as _dt
-    def _stamp_age_days(path):
-        try:
-            with open(path) as fh:
-                when = _dt.datetime.fromisoformat(fh.read().strip())
-            return (_dt.datetime.now(when.tzinfo) - when).total_seconds() / 86400, when
-        except (OSError, ValueError):
-            return None, None
-    state_dir = "/var/backups/carlos-emr"
+def _check_table_count(s) -> None:
+    # A COUNT that FAILED and a COUNT that returned zero are different
+    # answers, and out() renders both as "" — which reported a database
+    # that could not be queried as one with no tables. Same discipline the
+    # demo-data guards already apply.
+    cp = dbops.db_root(
+        ["-N", "-B", "-e", "SELECT COUNT(*) FROM information_schema.tables "
+         f"WHERE table_schema='{s.db_name}'"], capture_output=True)
+    n = cp.stdout.strip() if cp.returncode == 0 else ""
+    if cp.returncode != 0:
+        _bad(f"could not count the tables in {s.db_name}: "
+             f"{cp.stderr.strip() or 'the query failed'}")
+    elif n.isdigit() and int(n) > 100:
+        _ok(f"{s.db_name} has {n} tables")
+    elif n == "0":
+        _bad(f"{s.db_name} has NO tables: the schema was never created. The install "
+             "did not finish — run 'sudo carlos-ctl finish-install' (it creates the "
+             "schema, replaces the seeded credential and starts the EMR)")
+    else:
+        _bad(f"{s.db_name} has only {n or 0} tables — has the schema been migrated?")
+
+
+def _check_flyway_history(s) -> None:
+    n = out(["mariadb", "--protocol=socket", "--user=root", "-N", "-B", "-e",
+             f"SELECT COUNT(*) FROM `{s.db_name}`.flyway_schema_history WHERE success=1"])
+    if n.isdigit() and int(n) > 0:
+        _ok(f"flyway_schema_history has {n} successful migration(s)")
+    else:
+        _bad("flyway_schema_history is empty or missing — the application's boot-time "
+             "schema gate will fail ('carlos-ctl finish-install' on an install that "
+             "never provisioned, 'carlos-ctl db-info' otherwise)")
+
+
+def _check_database(s) -> None:
+    print("\ndatabase")
+    if not dbops.db_root_ok():
+        _bad("cannot reach MariaDB as root over the unix socket")
+        return
+    _ok("MariaDB reachable as root over the unix socket")
+    _check_table_count(s)
+    _check_flyway_history(s)
+
+
+def _stamp_age_days(path):
+    try:
+        with open(path) as fh:
+            when = datetime.datetime.fromisoformat(fh.read().strip())
+        return (datetime.datetime.now(when.tzinfo) - when).total_seconds() / 86400, when
+    except (OSError, ValueError):
+        return None, None
+
+
+def _check_last_backup(state_dir) -> None:
     stamp = os.path.join(state_dir, ".last-success")
     if os.path.exists(stamp):
         age, when = _stamp_age_days(stamp)
@@ -533,9 +594,8 @@ def cmd_check(argv) -> int:
         else:
             _ok(f"last successful backup: {when.isoformat()}")
     else:
-        import time as _time
         try:
-            dir_age = (_time.time() - os.stat(state_dir).st_ctime) / 86400
+            dir_age = (time.time() - os.stat(state_dir).st_ctime) / 86400
         except OSError:
             dir_age = 99
         if dir_age < 2:
@@ -543,6 +603,9 @@ def cmd_check(argv) -> int:
                   "one now: systemctl start carlos-emr-backup")
         else:
             _bad("no backup has ever succeeded (systemctl start carlos-emr-backup)")
+
+
+def _check_last_restore_drill(state_dir) -> None:
     stamp = os.path.join(state_dir, ".last-verify")
     if os.path.exists(stamp):
         age, when = _stamp_age_days(stamp)
@@ -556,10 +619,51 @@ def cmd_check(argv) -> int:
     else:
         _note("no restore drill has run yet; the weekly timer will run one, or start "
               "carlos-emr-backup-verify now")
+
+
+def _check_backups() -> None:
+    print("\nbackups")
+    # The docs promise FRESHNESS, not existence: a .last-success from three
+    # weeks ago is a monitoring gap, not a passing check. The nightly timer
+    # runs daily, so anything older than 2 days is a failure; a brand-new
+    # install (state directory younger than 2 days) has legitimately not had
+    # its first nightly yet and gets a note instead of a false alarm.
+    state_dir = "/var/backups/carlos-emr"
+    _check_last_backup(state_dir)
+    _check_last_restore_drill(state_dir)
     repo = util.env_get(BACKUP_ENV, "RESTIC_REPOSITORY") or ""
     if repo.startswith("/var/backups"):
         _note("backups are stored on THIS HOST only. That is not disaster recovery — set an "
               f"offsite RESTIC_REPOSITORY in {BACKUP_ENV}.")
+
+
+def cmd_check(argv) -> int:
+    global _failures
+    _failures = 0
+    # Root is required for what check READS (credential files, TLS pair,
+    # the WAF policy): without it half the probes false-failed with
+    # misleading diagnoses instead of one clear message.
+    need_root("check")
+    s = _load_settings()
+    print(f"\nCARLOS EMR deployment check ({s.server_name})\n")
+
+    _check_installation()
+    emr_running = _check_services()
+
+    print("\nprocess ownership")
+    _check_process_ownership()
+
+    _check_network_exposure(s)
+    _check_render_browser()
+    _check_tls()
+    resolve = _check_front_door_responses(s)
+    _check_ws_catalog(s, resolve)
+    _check_ws_auth_gate(s, resolve)
+    _check_path_normalisation(s, resolve)
+    _check_waf(s, resolve)
+    _check_drugref(emr_running)
+    _check_database(s)
+    _check_backups()
 
     print()
     if _failures == 0:
