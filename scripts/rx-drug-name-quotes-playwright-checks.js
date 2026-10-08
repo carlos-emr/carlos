@@ -234,6 +234,10 @@ async function workflow(s) {
     for (const card of cards) {
       const item = links.find(link => squash(link.title).includes(squash(card.name)));
       h.assert(item, `The Medications panel has no item titled with "${card.name}"`);
+      // The visible label is the outline cropped to 45 characters (EctDisplayAction.CROP_LEN_TITLE), so
+      // match a leading part of the name that still carries the apostrophe and the opening quote.
+      const lead = squash(card.name).slice(0, 40);
+      h.assert(squash(item.text).includes(lead), `The Medications item shows "${squash(item.text)}", not "${lead}…"`);
       h.assert(!/&#\d+;|&(amp|quot|lt|gt|apos);/.test(item.title + item.text) && !mangled(item.title + item.text),
         `The Medications panel shows "${card.name}" escaped: title "${item.title}", text "${squash(item.text)}"`);
     }
