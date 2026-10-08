@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -450,7 +451,10 @@
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
-                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no") %>' context="htmlAttribute"/>"
+                                   <%-- Rendered normalized (123 shows as 0123) so a stored short value still
+                                        satisfies the four-character pattern and is saved in MOH form; a blank
+                                        stays blank (solo). --%>
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null || SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no").isBlank() ? "" : BillingGroupNumber.normalize(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")) %>' context="htmlAttribute"/>"
                                    datafld='xml_p_billinggroup_no' maxlength="4" pattern="[A-Za-z0-9]{4}"
                                    title="OHIP group number: 4 letters or digits (0000 for solo billing)"></td>
                     </tr>
