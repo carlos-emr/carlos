@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -440,10 +441,16 @@ public class RecordUxService extends AbstractServiceImpl {
      * Streams the selected chart sections as a PDF. Date fields apply only to the dates print
      * mode, which requires both bounds; selected/all modes ignore optional stale date fields.
      *
+     * <p>The caller must hold patient-scoped {@code _eChart} read for {@code demographicNo}, the same
+     * right {@link #getFullSummmary(Integer, String)} requires: the PDF carries the chart's notes,
+     * CPP, medications, labs, preventions and allergies, so it is never weaker than the summaries it
+     * aggregates (#2798). The check runs before the print options are parsed.</p>
+     *
      * @param demographicNo patient identifier
      * @param jsonString JSON print options including printType, selectedList and section flags
      * @param request authenticated servlet request used for chart headers
      * @return PDF stream; generation failures propagate as HTTP errors
+     * @throws ForbiddenException if the caller lacks {@code _eChart} read for this patient
      * @throws BadRequestException if dates mode has missing, invalid or reversed bounds
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -452,7 +459,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/{demographicNo}/print")
     @Produces("application/pdf")
     public StreamingOutput print(@PathParam("demographicNo") Integer demographicNo, @QueryParam("printOps") String jsonString, @Context HttpServletRequest request) {
-
+        requireChartRead(demographicNo);
 
         logger.debug("jsonobject " + jsonString);
         ObjectNode jsonobject = null;
@@ -520,11 +527,38 @@ public class RecordUxService extends AbstractServiceImpl {
         };
     }
 
+    /**
+     * Fails closed with HTTP 403 unless the caller may read this patient's chart
+     * ({@code _eChart} read, patient-scoped so a per-patient restriction wins).
+     *
+     * @throws ForbiddenException when the privilege is missing
+     */
+    private void requireChartRead(Integer demographicNo) {
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", SecurityInfoManager.READ, demographicNo)) {
+            throw new ForbiddenException("missing required sec object (_eChart)");
+        }
+    }
+
+    /**
+     * Fails closed with HTTP 403 unless the caller may read encounter templates. This is the right
+     * the classic encounter's template picker ({@code EctInsertTemplate2Action}) enforces; template
+     * administration is separately gated on {@code _newCasemgmt.templates} write (#2798).
+     *
+     * @throws ForbiddenException when the privilege is missing
+     */
+    private void requireTemplateRead() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.templates", SecurityInfoManager.READ, null)) {
+            throw new ForbiddenException("missing required sec object (_newCasemgmt.templates)");
+        }
+    }
+
     @POST
     @Path("/searchTemplates")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EncounterTemplateResponse getEncounterTemplates(ObjectNode obj, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+        requireTemplateRead();
 
         String name = obj.get("name") != null ? obj.get("name").asText() : null;
 
@@ -543,6 +577,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EncounterTemplateResponse getEncounterTemplate(ObjectNode obj) {
+        requireTemplateRead();
 
         String name = obj.get("name") != null ? obj.get("name").asText() : null;
 
