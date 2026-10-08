@@ -54,6 +54,10 @@
         <action name="demographic/portalInvite" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action"/>
         <action name="demographic/portalAccount" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action"/>
         <action name="demographic/portalPanel" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalPanel2Action"/>
+        <!-- The staff page for a patient's portal access (issue #3854); it drives the JSON routes above. -->
+        <action name="demographic/portalManage" class="io.github.carlos_emr.carlos.integration.patientportal.web.PortalManage2Action">
+            <result name="success">/WEB-INF/jsp/demographic/portalManage.jsp</result>
+        </action>
         <action name="demographic/printDemoLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoLabel2Action"/>
         <action name="demographic/printDemoAddressLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoAddressLabel2Action"/>
         <action name="demographic/printDemoChartLabelAction" class="io.github.carlos_emr.carlos.demographic.PrintDemoChartLabel2Action"/>
