@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ServiceAccessToken;
 import io.github.carlos_emr.carlos.login.OscarOAuthDataProvider;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
@@ -112,6 +113,25 @@ class OAuthInterceptorScopeEnforcementUnitTest {
 
         assertThat(fault).isNotNull();
         assertThat(fault.getStatusCode()).isEqualTo(403);
+    }
+
+    @Test
+    @DisplayName("should warn the operator once per client about a token with no granted scopes")
+    void shouldWarnOnce_whenScopelessTokenIsRefusedRepeatedly() {
+        enableEnforcement();
+        OAuthInterceptor interceptor = interceptorWith(accessToken(null));
+
+        try (LogCapture capture = LogCapture.forLogger(OAuthInterceptor.class)) {
+            for (int i = 0; i < 3; i++) {
+                Message message = scheduleReadRequest();
+                assertThat(catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class)).isNotNull();
+            }
+
+            assertThat(capture.messages())
+                    .filteredOn(m -> m.contains("no granted scopes"))
+                    .singleElement()
+                    .satisfies(m -> assertThat(m).contains(CONSUMER_KEY).contains(ENFORCEMENT_PROPERTY));
+        }
     }
 
     @Test

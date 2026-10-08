@@ -323,4 +323,35 @@ class OAuthInterceptorAuditLoggingUnitTest extends CarlosUnitTestBase {
             assertThat(row.getContent()).isEqualTo(CONSUMER_KEY);
         });
     }
+
+    @Test
+    @DisplayName("keeps a separate budget for bad signatures from a registered client")
+    void shouldAuditRegisteredClientFailures_whenAnonymousBudgetIsExhausted() {
+        // Review follow-up to #4429: anonymous floods must not crowd out attempts against a real client's
+        // credentials. Exhaust the anonymous budget for this address first.
+        when(request.getParameter("oauth_consumer_key")).thenReturn(null);
+        int limit = OAuthInterceptor.FailureAuditBudget.PER_ADDRESS_LIMIT;
+        for (int i = 0; i < limit + 5; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        stubOAuthParameters(CONSUMER_KEY, ACCESS_TOKEN);
+        when(oauthDataProvider.getClient(CONSUMER_KEY))
+                .thenReturn(new Client(CONSUMER_KEY, "secret", "test-app", "http://localhost"));
+        when(verifier.verifySignature(eq(request), any(AppOAuth1Config.class)))
+                .thenThrow(new IllegalArgumentException("bad signature"));
+        for (int i = 0; i < limit + 3; i++) {
+            assertThatThrownBy(() -> interceptor.handleMessage(message)).isInstanceOf(Fault.class);
+        }
+
+        ArgumentCaptor<OscarLog> captor = ArgumentCaptor.forClass(OscarLog.class);
+        logActionMock.verify(() -> LogAction.addLogSynchronous(captor.capture()), times(2 * (limit + 1)));
+        List<OscarLog> clientRows = captor.getAllValues().subList(limit + 1, 2 * (limit + 1));
+        assertThat(clientRows.subList(0, limit)).allSatisfy(row -> {
+            assertThat(row.getAction()).isEqualTo("OAUTH_LOGIN_FAILURE");
+            assertThat(row.getContent()).isEqualTo(CONSUMER_KEY);
+        });
+        assertThat(clientRows.get(limit).getAction()).isEqualTo("OAUTH_LOGIN_FAILURES_SUPPRESSED");
+        assertThat(clientRows.get(limit).getContent()).isEqualTo("per-consumer limit reached for " + CONSUMER_KEY);
+    }
 }

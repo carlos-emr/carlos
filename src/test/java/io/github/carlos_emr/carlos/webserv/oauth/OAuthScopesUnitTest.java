@@ -333,4 +333,36 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.isSatisfiedBy("schedule.read", null)).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("parseScopeString")
+    class ParseScopeString {
+
+        @Test
+        @DisplayName("should decode a percent-encoded multi-scope value before splitting")
+        void shouldSplitScopes_fromPercentEncodedValue() {
+            assertThat(OAuthScopes.parseScopeString("demographic.read%20provider.read"))
+                    .containsExactly("demographic.read", "provider.read");
+        }
+
+        @Test
+        @DisplayName("should drop empty tokens from surrounding and repeated whitespace")
+        void shouldDropEmptyTokens_withStrayWhitespace() {
+            assertThat(OAuthScopes.parseScopeString("  demographic.read \t provider.write  "))
+                    .containsExactly("demographic.read", "provider.write");
+        }
+
+        @Test
+        @DisplayName("should return no scopes for a null or blank value")
+        void shouldReturnEmpty_forNullOrBlank() {
+            assertThat(OAuthScopes.parseScopeString(null)).isEmpty();
+            assertThat(OAuthScopes.parseScopeString("   ")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should keep a malformed escape as written")
+        void shouldKeepMalformedEscape_asWritten() {
+            assertThat(OAuthScopes.parseScopeString("demographic.read%2")).containsExactly("demographic.read%2");
+        }
+    }
 }

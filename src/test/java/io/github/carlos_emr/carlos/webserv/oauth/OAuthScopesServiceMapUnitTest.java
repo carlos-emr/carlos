@@ -78,7 +78,33 @@ class OAuthScopesServiceMapUnitTest {
         assertThat(undecided).as("services with no scope decision in OAuthScopes").isEmpty();
     }
 
+    @Test
+    @DisplayName("should strip exactly the extension mappings the /services server declares")
+    void shouldMatchExtensionMappings_ofServicesServer() throws Exception {
+        // CXF strips a mapped extension before routing; if the server gained a mapping the resolver does
+        // not know, "/demographics/1.csv" would route to /demographics/1 but resolve to a different domain.
+        Element server = servicesServer();
+        Element mappings = (Element) server.getElementsByTagNameNS(JAXRS_NS, "extensionMappings").item(0);
+        assertThat(mappings).as("extensionMappings on the /services server").isNotNull();
+        NodeList entries = mappings.getElementsByTagNameNS(BEANS_NS, "entry");
+        List<String> declared = new ArrayList<>();
+        for (int i = 0; i < entries.getLength(); i++) {
+            declared.add("." + ((Element) entries.item(i)).getAttribute("key"));
+        }
+        assertThat(declared).containsExactlyInAnyOrderElementsOf(OAuthScopes.EXTENSION_MAPPING_SUFFIXES);
+    }
+
     private static List<String> publishedServiceClasses() throws Exception {
+        Element serviceBeans = (Element) servicesServer().getElementsByTagNameNS(JAXRS_NS, "serviceBeans").item(0);
+        NodeList beans = serviceBeans.getElementsByTagNameNS(BEANS_NS, "bean");
+        List<String> classes = new ArrayList<>();
+        for (int j = 0; j < beans.getLength(); j++) {
+            classes.add(((Element) beans.item(j)).getAttribute("class"));
+        }
+        return classes;
+    }
+
+    private static Element servicesServer() throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -90,18 +116,12 @@ class OAuthScopesServiceMapUnitTest {
             doc = builder.parse(in);
         }
         NodeList servers = doc.getElementsByTagNameNS(JAXRS_NS, "server");
-        List<String> classes = new ArrayList<>();
         for (int i = 0; i < servers.getLength(); i++) {
             Element server = (Element) servers.item(i);
-            if (!"/services".equals(server.getAttribute("address"))) {
-                continue;
-            }
-            Element serviceBeans = (Element) server.getElementsByTagNameNS(JAXRS_NS, "serviceBeans").item(0);
-            NodeList beans = serviceBeans.getElementsByTagNameNS(BEANS_NS, "bean");
-            for (int j = 0; j < beans.getLength(); j++) {
-                classes.add(((Element) beans.item(j)).getAttribute("class"));
+            if ("/services".equals(server.getAttribute("address"))) {
+                return server;
             }
         }
-        return classes;
+        throw new AssertionError("no jaxrs:server with address /services in applicationContextREST.xml");
     }
 }

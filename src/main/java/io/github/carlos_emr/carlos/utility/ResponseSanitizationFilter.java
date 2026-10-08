@@ -340,15 +340,16 @@ public class ResponseSanitizationFilter implements Filter {
                 // DbConnectionFilter rethrows aborts to it without logging, so this is the one log line.
                 String abortedUri = LogSafe.sanitizeUri(((HttpServletRequest) request).getRequestURI());
                 if (httpResponse.isCommitted()) {
-                    LOGGER.debug("Client aborted the response [uri={}]", abortedUri);
+                    LOGGER.debug("Client aborted the response [uri={}]", abortedUri, e);
                     return;
                 }
                 // Not yet committed: possibly a read-side abort, such as a slow request body timing out,
                 // with the client still connected. Keep it visible at WARN and answer with the sanitized
                 // 500 if the connection can still take it.
                 String correlationId = generateCorrelationId();
+                // The throwable is kept: a pre-commit abort may be a server-side read timeout worth diagnosing.
                 LOGGER.warn("Client aborted before the response was committed [uri={} correlationId={}]",
-                        abortedUri, correlationId);
+                        abortedUri, correlationId, e);
                 try {
                     sendSanitizedError(httpResponse, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, correlationId);
                 } catch (IOException | RuntimeException unwritable) {
@@ -393,9 +394,9 @@ public class ResponseSanitizationFilter implements Filter {
                 int status = wrapper.getStatus();
                 if (status >= 400) {
                     String correlationId = generateCorrelationId();
-                    logSanitizedBody("Late output-stream error response bypassed capture; replacing buffered body",
-                            status, (HttpServletRequest) request, correlationId,
-                            "committed=" + httpResponse.isCommitted());
+                    logSanitizedBody("Late output-stream error response bypassed capture; replacing buffered body"
+                                    + " (committed=" + httpResponse.isCommitted() + ")",
+                            status, (HttpServletRequest) request, correlationId, "late-bypass");
                     if (!httpResponse.isCommitted()) {
                         sendSanitizedError(httpResponse, status, correlationId);
                     }

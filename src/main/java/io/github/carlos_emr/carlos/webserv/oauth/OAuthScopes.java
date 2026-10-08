@@ -169,7 +169,8 @@ public final class OAuthScopes {
     );
 
     /** The suffixes the {@code /services} server's {@code <jaxrs:extensionMappings>} strip before routing. */
-    private static final List<String> EXTENSION_MAPPING_SUFFIXES = List.of(".json", ".xml");
+    // Package-private so OAuthScopesServiceMapUnitTest can hold it to applicationContextREST.xml.
+    static final List<String> EXTENSION_MAPPING_SUFFIXES = List.of(".json", ".xml");
 
     /** Readable constructor for a path template (a list of lower-cased segments; {@code "*"} = wildcard). */
     private static List<String> seg(String... parts) {
@@ -297,6 +298,53 @@ public final class OAuthScopes {
             }
         }
         return true;
+    }
+
+    /**
+     * Splits a scope string into its scopes: the {@code /initiate} request value and the space-delimited
+     * value stored on a token both go through here, so the two readings cannot drift apart (#4419).
+     *
+     * <p>The value is percent-decoded once first. OAuth1ParamParser leaves query and Authorization-header
+     * values encoded, so a multi-scope request arrives as {@code demographic.read%20provider.read}, and
+     * tokens minted before #4419 stored it that way. Scopes are plain ASCII tokens, so one decode is safe
+     * whichever form the value is in, and the result is still matched exactly against the vocabulary.
+     *
+     * @param raw the scope string; may be {@code null} or blank
+     * @return the non-empty, whitespace-separated scopes, in order; empty when there are none
+     */
+    public static List<String> parseScopeString(String raw) {
+        List<String> scopes = new ArrayList<>();
+        if (raw == null || raw.isBlank()) {
+            return scopes;
+        }
+        for (String scope : percentDecode(raw).trim().split("\\s+")) {
+            if (!scope.isEmpty()) {
+                scopes.add(scope);
+            }
+        }
+        return scopes;
+    }
+
+    /** RFC 3986 percent-decoding of single-byte escapes; a malformed escape is kept as-is. */
+    private static String percentDecode(String s) {
+        if (s.indexOf('%') < 0) {
+            return s;
+        }
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '%' && i + 2 < s.length()) {
+                int hi = Character.digit(s.charAt(i + 1), 16);
+                int lo = Character.digit(s.charAt(i + 2), 16);
+                if (hi >= 0 && lo >= 0) {
+                    out.append((char) ((hi << 4) + lo));
+                    i += 2;
+                    continue;
+                }
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 
     /**
@@ -442,7 +490,7 @@ public final class OAuthScopes {
      * locale-sensitive {@code String.toLowerCase} adds no value while tripping locale/Unicode scanners; a
      * fixed ASCII fold mirrors the existing OAuth helpers in this package.
      */
-    private static String asciiLowerCase(String value) {
+    static String asciiLowerCase(String value) {
         StringBuilder lowered = new StringBuilder(value.length());
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);

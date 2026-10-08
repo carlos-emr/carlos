@@ -74,13 +74,9 @@ public final class OAuthScopeEnforcement {
         if (value == null) {
             return false;
         }
-        // ASCII-only fold, as elsewhere in this package: the values are ASCII tokens, and a
+        // ASCII-only fold, shared with OAuthScopes: the values are ASCII tokens, and a
         // locale-sensitive fold adds nothing while tripping the IMPROPER_UNICODE scanner.
-        StringBuilder folded = new StringBuilder();
-        for (char c : value.trim().toCharArray()) {
-            folded.append(c >= 'A' && c <= 'Z' ? (char) (c + ('a' - 'A')) : c);
-        }
-        String v = folded.toString();
+        String v = OAuthScopes.asciiLowerCase(value.trim());
         return v.equals("false") || v.equals("no") || v.equals("off");
     }
 }

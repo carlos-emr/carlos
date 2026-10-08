@@ -96,7 +96,8 @@ public class DbConnectionFilter implements jakarta.servlet.Filter {
             if (ClientAbort.isClientAbort(e)) {
                 // The browser went away mid-response (#4438). Not a server error: rethrow it unwrapped
                 // and unlogged. ResponseSanitizationFilter, outermost in web.xml, handles it and logs it
-                // once (DEBUG after commit, WARN before).
+                // once (DEBUG after commit, WARN before). With response.sanitization.enabled=false that
+                // filter passes it through, and Tomcat logs the abort itself as before #4438.
                 if (e instanceof IOException ioe) {
                     throw ioe;
                 }

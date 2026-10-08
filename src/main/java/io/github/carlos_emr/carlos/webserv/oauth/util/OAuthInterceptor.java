@@ -61,7 +61,6 @@
 package io.github.carlos_emr.carlos.webserv.oauth.util;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -123,6 +122,21 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
 
     private FailureAuditBudget failureAuditBudget = new FailureAuditBudget(System::currentTimeMillis);
 
+    /**
+     * A separate budget, keyed by consumer key, for failures that name a registered client but fail its
+     * signature or timestamp check. Kept apart from {@link #failureAuditBudget} so an anonymous flood that
+     * exhausts the server-wide budget cannot also hide attempts against a real client's credentials.
+     */
+    /**
+     * Consumer keys already warned about holding a token with no granted scopes, so the operator WARN is
+     * written once per client rather than once per call. Size-bounded; an evicted key may warn again.
+     */
+    private final Cache<String, Boolean> scopelessTokenWarned = Caffeine.newBuilder()
+            .maximumSize(1_000)
+            .build();
+
+    private FailureAuditBudget knownClientFailureAuditBudget = new FailureAuditBudget(System::currentTimeMillis);
+
     @Override
     public String getPhase() { return Phase.PRE_INVOKE; }
 
@@ -142,7 +156,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // cannot be authenticated, so it fails closed the same way.
         if (req == null || !OAuthRequestParser.isOAuth1Request(req)) {
             String remoteAddr = (req != null) ? req.getRemoteAddr() : null;
-            auditAuthFailure(remoteAddr, null, false);
+            auditAuthFailure(remoteAddr, null, false, false);
             throw toFault(new OAuth1Exception(401, "authentication_required"));
         }
 
@@ -152,6 +166,9 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         // Set once the request is proven to come from a registered client holding the access token's
         // secret. Refusals after that point (unknown_provider, insufficient_scope) are never budgeted.
         boolean signed = false;
+        // Set once the consumer key resolves to a registered client; failures after that point are
+        // budgeted per consumer key, apart from anonymous traffic.
+        boolean knownClient = false;
 
         try {
             // 2) Pull oauth params
@@ -171,6 +188,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             if (client == null) {
                 throw new OAuth1Exception(401, "invalid_consumer");
             }
+            knownClient = true;
 
             // 4) Verify signature + timestamp freshness
             AppOAuth1Config cfg = new AppOAuth1Config();
@@ -206,7 +224,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
             // 5a) Enforce the granted OAuth scopes (issues #3083, #4419). No-op only when an operator
             //     turned enforcement off or the endpoint is explicitly scope-exempt. Done before attaching
             //     LoggedInInfo so an out-of-scope call never reaches the resource with a security context.
-            enforceScope(req, accessToken);
+            enforceScope(req, accessToken, consumerKey);
 
             LoggedInInfo info = new LoggedInInfo();
             info.setLoggedInProvider(provider);
@@ -218,12 +236,12 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         } catch (OAuth1Exception e) {
             // Explicit auth outcome (e.g. 400 missing param, 401 invalid consumer/token):
             // carries its own intended status code. Record the rejection in the audit trail.
-            auditAuthFailure(ip, consumerKey, signed);
+            auditAuthFailure(ip, consumerKey, signed, knownClient);
             throw toFault(e);
         } catch (IllegalArgumentException badSigOrTime) {
             // from verifier: missing/stale timestamp, bad signature, unknown token, etc.
             // These are client-side authentication failures -> 401.
-            auditAuthFailure(ip, consumerKey, false);
+            auditAuthFailure(ip, consumerKey, false, knownClient);
             throw toFault(new OAuth1Exception(401, "invalid_signature"));
         } catch (Exception e) {
             // Anything else is an unexpected server-side failure (e.g. a data-access error),
@@ -264,17 +282,24 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * mirroring {@code AuthenticationInWSS4JInterceptor}'s WS_LOGIN_FAILURE entry. No providerNo
      * is recorded because the request never resolved to an authenticated provider.
      */
-    private void auditAuthFailure(String ip, String consumerKey, boolean signed) {
+    private void auditAuthFailure(String ip, String consumerKey, boolean signed, boolean knownClient) {
         // #4429: an anonymous client can call /ws/services as fast as it likes, and each rejection used
         // to be one synchronous log-table insert. The budget bounds the rows; when it closes for an
         // address (or for everyone), one OAUTH_LOGIN_FAILURES_SUPPRESSED row says so, so the audit trail
         // still shows the flood without recording each request of it. Only unauthenticated refusals are
         // budgeted: a correctly signed call refused for its scope or provider comes from a registered
         // client holding a live token, and must always reach the audit trail. Otherwise an anonymous
-        // flood could use up the budget and hide a compromised token probing beyond its grant.
-        FailureAuditBudget.Decision decision = signed
-                ? FailureAuditBudget.Decision.AUDIT
-                : failureAuditBudget.admit(ip);
+        // flood could use up the budget and hide a compromised token probing beyond its grant. A failure
+        // naming a registered client (bad signature or stale timestamp) draws on its own budget, keyed by
+        // consumer key, for the same reason: anonymous traffic must not be able to crowd it out.
+        FailureAuditBudget.Decision decision;
+        if (signed) {
+            decision = FailureAuditBudget.Decision.AUDIT;
+        } else if (knownClient) {
+            decision = knownClientFailureAuditBudget.admit(consumerKey);
+        } else {
+            decision = failureAuditBudget.admit(ip);
+        }
         if (decision == FailureAuditBudget.Decision.SUPPRESS) {
             return;
         }
@@ -287,14 +312,19 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
                 oscarLog.setAction(OAUTH_LOGIN_FAILURE);
                 oscarLog.setContent(safeConsumerKey(consumerKey));
             } else {
+                boolean perKey = decision == FailureAuditBudget.Decision.SUPPRESS_ADDRESS_FROM_NOW;
+                String scope;
+                if (knownClient) {
+                    scope = perKey ? "per-consumer limit reached for " + safeConsumerKey(consumerKey)
+                            : "server-wide registered-client limit reached";
+                } else {
+                    scope = perKey ? "per-address limit reached" : "server-wide limit reached";
+                }
                 oscarLog.setAction(OAUTH_LOGIN_FAILURES_SUPPRESSED);
-                oscarLog.setContent(decision == FailureAuditBudget.Decision.SUPPRESS_ADDRESS_FROM_NOW
-                        ? "per-address limit reached" : "server-wide limit reached");
+                oscarLog.setContent(scope);
                 logger.warn("OAuth authentication failures exceeded the audit budget ({}); further "
                         + "OAUTH_LOGIN_FAILURE rows are suppressed for up to {}s",
-                        decision == FailureAuditBudget.Decision.SUPPRESS_ADDRESS_FROM_NOW
-                                ? "per address" : "server-wide",
-                        FailureAuditBudget.WINDOW_MILLIS / 1000);
+                        scope, FailureAuditBudget.WINDOW_MILLIS / 1000);
             }
             LogAction.addLogSynchronous(oscarLog);
         } catch (Exception e) {
@@ -391,7 +421,7 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * granted scopes do not satisfy it, throws {@link OAuth1Exception} with HTTP 403 {@code insufficient_scope};
      * the caller's catch block records the rejection in the audit trail.
      */
-    private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken) {
+    private void enforceScope(HttpServletRequest req, ServiceAccessToken accessToken, String consumerKey) {
         if (!OAuthScopeEnforcement.isEnabled()) {
             return;
         }
@@ -406,9 +436,28 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
         if (requiredScope == null) {  // OAuthScopes.NO_SCOPE_REQUIRED: an explicitly exempt endpoint
             return;
         }
-        if (!OAuthScopes.isSatisfiedBy(requiredScope, grantedScopes(accessToken))) {
+        List<String> granted = grantedScopes(accessToken);
+        if (!OAuthScopes.isSatisfiedBy(requiredScope, granted)) {
+            if (granted.isEmpty()) {
+                warnScopelessTokenOnce(consumerKey);
+            }
             throw new OAuth1Exception(403, "insufficient_scope");
         }
+    }
+
+    /**
+     * A token approved while enforcement was off (before #4419) may carry no scopes at all, and every call
+     * it makes is now refused. Tell the operator once per client, since the integrator only sees a 403.
+     */
+    private void warnScopelessTokenOnce(String consumerKey) {
+        String key = safeConsumerKey(consumerKey);
+        if (key == null || scopelessTokenWarned.asMap().putIfAbsent(key, Boolean.TRUE) != null) {
+            return;
+        }
+        logger.warn("OAuth client {} presented an access token with no granted scopes; every /ws/services call "
+                + "it makes is refused with 403 insufficient_scope since scope enforcement became the default "
+                + "(#4419). Have the integrator re-authorize with the scopes it needs, or set {}=false to "
+                + "restore full-access tokens.", key, OAuthScopeEnforcement.PROPERTY);
     }
 
     /**
@@ -417,43 +466,10 @@ public class OAuthInterceptor implements PhaseInterceptor<Message> {
      * meaning); that is treated as no granted scopes so enforcement fails closed (403) rather than NPE-ing.
      */
     private static List<String> grantedScopes(ServiceAccessToken accessToken) {
-        String raw = accessToken == null ? null : accessToken.getScopes();
-        if (raw == null || raw.isBlank()) {
-            return Collections.emptyList();
-        }
-        // Before #4419's decoding fix, /initiate stored a multi-scope request still percent-encoded
-        // ("demographic.read%20provider.read" as ONE scope). Decode here too so those tokens keep the
-        // grants their provider approved. Safe: the result is still matched exactly against the vocabulary.
-        raw = percentDecode(raw);
-        List<String> scopes = new ArrayList<>();
-        for (String scope : raw.trim().split("\\s+")) {
-            if (!scope.isEmpty()) {
-                scopes.add(scope);
-            }
-        }
-        return scopes;
-    }
-
-    /** RFC 3986 percent-decoding of ASCII escapes; anything malformed is kept as-is. */
-    private static String percentDecode(String s) {
-        if (s.indexOf('%') < 0) {
-            return s;
-        }
-        StringBuilder out = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < s.length()) {
-                int hi = Character.digit(s.charAt(i + 1), 16);
-                int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) {
-                    out.append((char) ((hi << 4) + lo));
-                    i += 2;
-                    continue;
-                }
-            }
-            out.append(c);
-        }
-        return out.toString();
+        // OAuthScopes.parseScopeString percent-decodes first: before #4419's decoding fix, /initiate stored
+        // a multi-scope request still encoded ("demographic.read%20provider.read" as ONE scope), and those
+        // tokens keep the grants their provider approved.
+        return OAuthScopes.parseScopeString(accessToken == null ? null : accessToken.getScopes());
     }
 
     /**
