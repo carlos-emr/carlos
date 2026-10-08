@@ -303,14 +303,22 @@ async function workflow(s) {
     // satisfies, so give the owned patient the empty HIN the demographic form itself stores (after matching).
     sql.execute(`UPDATE demographic SET hin='' WHERE demographic_no=${patient} AND last_name=${q(marker)} AND hin IS NULL`);
 
-    seedOwnedPdfDocuments({ sql, store, patient, provider, docs });
     for (const doc of docs) {
       // Demo data carries routing rows for long-deleted document numbers; a reused number would link the
-      // owned document to other patients and providers, so refuse it rather than share it.
-      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id})
-        + (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id})
-        + (SELECT COUNT(*) FROM queue_document_link WHERE document_id=${doc.id})`) === '0',
-      'The new document number collides with orphaned routing rows; rerun once the auto-increment has passed them');
+      // owned document to other patients and providers. Take the next number instead of sharing them.
+      for (let attempt = 1; ; attempt += 1) {
+        seedOwnedPdfDocuments({ sql, store, patient, provider, docs: [doc] });
+        const held = sql.value(`SELECT (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id})
+          + (SELECT COUNT(*) FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${doc.id})
+          + (SELECT COUNT(*) FROM queue_document_link WHERE document_id=${doc.id})
+          + (SELECT COUNT(*) FROM ctl_document WHERE document_no=${doc.id} AND NOT (module='demographic' AND module_id=${patient}))`);
+        if (held === '0') break;
+        h.assert(attempt < 6, 'Six consecutive new document numbers collide with orphaned routing rows');
+        sql.execute(`DELETE FROM ctl_document WHERE document_no=${doc.id} AND module='demographic' AND module_id=${patient};
+          DELETE FROM document WHERE document_no=${doc.id} AND docdesc=${q(doc.label)}`);
+        fs.unlinkSync(doc.file);
+        delete doc.id;
+      }
       const queue = sql.value('SELECT MIN(id) FROM queue');
       h.assert(/^[1-9]\d*$/.test(queue), 'The install has no document queue to link the owned document to');
       sql.execute(`INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (${patient},${doc.id},'DOC',NOW());
