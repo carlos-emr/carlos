@@ -162,10 +162,12 @@ public class BillingOnDiskLoader {
 
      */
 
-    private java.util.Date parseBound(String value) throws java.text.ParseException {
+    private static java.util.Date parseBound(String value) throws java.text.ParseException {
+        // Local formatters: SimpleDateFormat is mutable, and the MRI page is served
+        // concurrently from this singleton.
         return value != null && value.trim().length() > "yyyy-MM-dd".length()
-                ? tsFormatter.parse(value.trim())
-                : dateformatter.parse(value);
+                ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(value.trim())
+                : new SimpleDateFormat("yyyy-MM-dd").parse(value);
     }
 
     public List getMRIList(String sDate, String eDate, String status) {

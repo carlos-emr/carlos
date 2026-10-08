@@ -1367,8 +1367,13 @@ public class OhipClaimFileService {
         File retained = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
                 ohipFilename + "." + GregorianCalendar.getInstance().getTimeInMillis(), homeDirFile);
         try {
-            java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath(),
-                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            try {
+                java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath(),
+                        java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException atomicNotSupported) {
+                // Cross-volume: plain move, as renameFile() falls back.
+                java.nio.file.Files.move(lastRenamedBackupFile.toPath(), retained.toPath());
+            }
             lastRenamedOriginalFile = null;
             lastRenamedBackupFile = null;
         } catch (IOException failure) {

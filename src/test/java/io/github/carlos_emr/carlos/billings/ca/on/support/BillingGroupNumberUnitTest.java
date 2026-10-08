@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.support;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("BillingGroupNumber")
 @Tag("unit")
 @Tag("billing")
-class BillingGroupNumberUnitTest {
+class BillingGroupNumberUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({

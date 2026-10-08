@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Administration > Update Provider Record form (admin.provider edit).
+  Features: edits the provider identity, contact, billing (OHIP number,
+    specialty code, four-character OHIP group number: letters or digits,
+    0000 for solo billing) and security settings, then posts to
+    /admin/ProviderUpdate.
+  Parameters: keyword (provider number of the record being edited).
+  @since 2026-08-04
+--%>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>

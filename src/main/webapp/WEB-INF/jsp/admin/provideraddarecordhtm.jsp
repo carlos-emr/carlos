@@ -28,6 +28,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Administration > Add a Provider Record form (admin.provider add).
+  Features: captures the provider identity, contact, billing (OHIP number,
+    specialty code, four-character OHIP group number: letters or digits,
+    0000 for solo billing) and security settings, then posts to
+    /admin/ProviderAddARecord.
+  Parameters: none on entry; the form fields are read by the add action.
+  @since 2026-08-04
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>

@@ -21,10 +21,19 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingONMRI in the Ontario billing workflow.
-  Expected request model data includes: mriModel.
+  Purpose: Supports billingONMRI in the Ontario billing workflow (Generate
+    OHIP File: the diskette list and the Create Report form).
+  Features: lists the year's OHIP disks with their download links, posts
+    Create Report to /billing/CA/ON/ViewOngenreport and Regenerate to
+    /billing/CA/ON/ViewOnregenreport, and shows the per-provider notices
+    the generation action stashes (skipped providers, invalid group numbers).
+  Parameters: year (archive year), providers, billcenter, xml_vdate,
+    xml_appointment_date, useProviderMOH (the Create Report form fields).
+  Expected request model data includes: mriModel, and optionally
+    skippedProviders and ohipInvalidGroupProviders.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-08-04
 --%>
 <!DOCTYPE html>
 <%@page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>

@@ -150,4 +150,16 @@ class BillingClaimBatchAcknowledgementReportParserUnitTest {
                 (BillingClaimBatchAcknowledgementReportRecordDto) parser.getBatchAcknowledgementRecords().get(0);
         assertThat(record.getExplain()).isEqualTo("processed ok" + " ".repeat(18));
     }
+
+    @Test
+    void shouldRejectFile_whenExplanationIsShorterThanOscar19Width() throws Exception {
+        File f = Files.createTempFile(tempDir, "ack100", ".txt").toFile();
+        Files.writeString(f.toPath(), headerLine().substring(0, 100));
+
+        BillingClaimBatchAcknowledgementReportParser parser =
+                new BillingClaimBatchAcknowledgementReportParser(new FileInputStream(f));
+
+        assertThat(parser.verdict).isFalse();
+        assertThat(parser.getBatchAcknowledgementRecords()).isEmpty();
+    }
 }
