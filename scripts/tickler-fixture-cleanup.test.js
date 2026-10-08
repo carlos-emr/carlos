@@ -1,7 +1,12 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { cleanupTicklerFixture, inheritedTicklerNoteLinkCount, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const {
+  cleanupTicklerFixture,
+  createTicklerWithoutInheritedNoteLink,
+  inheritedTicklerNoteLinkCount,
+  readNoteLinkFloor,
+} = require('./lib/tickler-fixture-cleanup');
 const fixture = { patient: '123', stamp: 'PW_TICKLER_NOTE_12345', noteTexts: ['first note', "second note's text"], linkIdFloor: '300' };
 function run(outputs, overrides = {}) {
   const statements = [];
@@ -125,4 +130,36 @@ assert db.execute('SELECT tickler_id FROM ticklerdocs').fetchall() == [(999,)]
 for table in ('tickler', 'tickler_comments', 'tickler_update'):
     assert db.execute('SELECT tickler_no FROM ' + table).fetchall() == [(999,)]
 `], { input: JSON.stringify(statements), stdio: ['pipe', 'pipe', 'pipe'] });
+});
+
+test('fixture creation skips ticklers whose id already carries a pre-run note link', async () => {
+  // Demo data: tickler ids 4 and 5 have note links at or below the floor (#4409).
+  const inherited = { 4: '1', 5: '3', 6: '0' };
+  const created = [];
+  const logged = [];
+  const result = await createTicklerWithoutInheritedNoteLink({
+    sql: query => inherited[query.match(/table_id=(\d+)/)[1]],
+    linkIdFloor: '332',
+    log: text => logged.push(text),
+    create: async attempt => {
+      const fixture = { id: String(3 + attempt), message: `A${attempt}` };
+      created.push(fixture);
+      return fixture;
+    },
+  });
+  assert.deepEqual(result, { id: '6', message: 'A3' });
+  assert.deepEqual(created.map(item => item.id), ['4', '5', '6']);
+  assert.equal(logged.length, 2);
+  assert.match(logged[1], /tickler 5: 3 note link/);
+});
+
+test('fixture creation gives up after the attempt limit instead of looping forever', async () => {
+  let attempts = 0;
+  await assert.rejects(createTicklerWithoutInheritedNoteLink({
+    sql: () => '1',
+    linkIdFloor: '0',
+    maxAttempts: 3,
+    create: async attempt => { attempts = attempt; return { id: String(attempt), message: `A${attempt}` }; },
+  }), /after 3 attempts/);
+  assert.equal(attempts, 3);
 });

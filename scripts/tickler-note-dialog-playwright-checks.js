@@ -64,7 +64,7 @@
 const { chromium } = require('playwright');
 const {
   cleanupTicklerFixture,
-  inheritedTicklerNoteLinkCount,
+  createTicklerWithoutInheritedNoteLink,
   readNoteLinkFloor,
 } = require('./lib/tickler-fixture-cleanup');
 const { execFileSync } = require('child_process');
@@ -280,20 +280,21 @@ async function createTickler(context, message) {
 
 /**
  * Create a tickler whose tickler_no carries no note link from before this run, so its
- * note dialog must open blank. Each attempt gets its own message: the list filter
- * matches substrings, and a skipped tickler must never match the one under test.
+ * note dialog must open blank. Each attempt gets its own message (A1, A2, ...): the
+ * list filter matches substrings, and a skipped tickler must never match the one
+ * under test.
  */
-async function createNotelessTickler(context, label, purpose) {
-  for (let attempt = 1; attempt <= MAX_FIXTURE_ATTEMPTS; attempt += 1) {
-    const message = `${stamp}_${label}${attempt} ${purpose}`;
-    const id = await createTickler(context, message);
-    const inherited = inheritedTicklerNoteLinkCount(sql, id, linkIdFloor);
-    if (inherited === 0) {
-      return { id, message };
-    }
-    console.log(`SKIP tickler ${id} for fixture ${label}: ${inherited} note link(s) predate this run`);
-  }
-  throw new Error(`no tickler without an inherited note link after ${MAX_FIXTURE_ATTEMPTS} attempts for fixture ${label}`);
+function createNotelessTickler(context, label, purpose) {
+  return createTicklerWithoutInheritedNoteLink({
+    sql,
+    linkIdFloor,
+    maxAttempts: MAX_FIXTURE_ATTEMPTS,
+    log: (text) => console.log(`SKIP fixture ${label}: ${text}`),
+    create: async (attempt) => {
+      const message = `${stamp}_${label}${attempt} ${purpose}`;
+      return { id: await createTickler(context, message), message };
+    },
+  });
 }
 
 async function openTicklerList(page) {

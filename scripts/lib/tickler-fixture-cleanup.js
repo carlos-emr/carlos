@@ -34,6 +34,24 @@ function inheritedTicklerNoteLinkCount(sql, ticklerNo, linkIdFloor) {
 }
 
 /**
+ * Create fixture ticklers until one has no note link from before the run, so its note
+ * dialog must open blank (#4409). `create(attempt)` makes one tickler and resolves to
+ * its `{ id, message }`; a skipped tickler is still the caller's to clean up. Each
+ * attempt must use its own message so a skipped tickler never matches the one returned.
+ */
+async function createTicklerWithoutInheritedNoteLink({ sql, linkIdFloor, create, maxAttempts = 10, log = () => {} }) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const created = await create(attempt);
+    const inherited = inheritedTicklerNoteLinkCount(sql, created.id, linkIdFloor);
+    if (inherited === 0) {
+      return created;
+    }
+    log(`skipped tickler ${created.id}: ${inherited} note link(s) predate this run`);
+  }
+  throw new Error(`no tickler without an inherited note link after ${maxAttempts} attempts`);
+}
+
+/**
  * Delete only ticklers, note links and marked notes created by this test for its selected
  * patient. Note links at or below linkIdFloor predate the run and are never deleted, even
  * when their table_id matches a reused tickler_no.
@@ -70,4 +88,9 @@ function cleanupTicklerFixture({ sql, patient, stamp, noteTexts = [], linkIdFloo
   sql(`DELETE FROM tickler WHERE ${owned} AND tickler_no IN (${ticklerIds})`);
 }
 
-module.exports = { cleanupTicklerFixture, inheritedTicklerNoteLinkCount, readNoteLinkFloor };
+module.exports = {
+  cleanupTicklerFixture,
+  createTicklerWithoutInheritedNoteLink,
+  inheritedTicklerNoteLinkCount,
+  readNoteLinkFloor,
+};
