@@ -266,8 +266,8 @@ public class SmsTransactionDaoImpl extends AbstractDaoImpl<SmsTransaction> imple
         if (staleBefore == null) {
             return Map.of();
         }
-        // Same predicate as claimStaleOutboundSendingForRecovery, so "stale" on the page means exactly the
-        // rows the worker's next stale recovery would pick up.
+        // Same predicate as claimStaleOutboundSendingForRecovery, so "stale" on the page means the rows stale
+        // recovery acts on (it claims at most one batch of them per run).
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT t.providerType, COUNT(t) FROM SmsTransaction t "
                         + "WHERE t.direction = :direction "

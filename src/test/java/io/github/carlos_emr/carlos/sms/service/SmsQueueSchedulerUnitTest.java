@@ -387,6 +387,25 @@ class SmsQueueSchedulerUnitTest {
     }
 
     @Test
+    @DisplayName("should not leave a run shown as in progress when recording the finished run throws")
+    void shouldClearRunInProgress_whenRecordingFinishedRunThrows() {
+        when(smsConfigService.sendingEnabled()).thenReturn(true);
+        when(smsQueueWorker.processDueMessages(60)).thenReturn(2);
+        Clock clock = mock(Clock.class);
+        when(clock.instant()).thenReturn(RUN_STARTED).thenThrow(new IllegalStateException("synthetic clock failure"));
+        SmsQueueScheduler scheduler = new SmsQueueScheduler(smsQueueWorker, smsConfigService, clock);
+
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(carlosProperties);
+            assertThatThrownBy(scheduler::runOnce).hasMessage("synthetic clock failure");
+        }
+
+        assertThat(scheduler.isRunInProgress()).isFalse();
+        assertThat(scheduler.lastRunStartedAt()).contains(RUN_STARTED);
+        assertThat(scheduler.lastCompletedRun()).isEmpty();
+    }
+
+    @Test
     @DisplayName("should show a run in progress, with its start time, while the worker is still draining")
     void shouldReportRunInProgress_whileWorkerIsDraining() {
         when(smsConfigService.sendingEnabled()).thenReturn(true);

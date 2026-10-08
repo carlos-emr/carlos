@@ -163,10 +163,14 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
     void shouldListOnlyRowsTheWorkerConsidersDue_asOverdue() {
         persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(3)), null);
         persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), NOW.minus(Duration.ofMinutes(30)));
-        SmsTransaction retried = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), null);
-        retried.markSending(Date.from(NOW.minus(Duration.ofHours(1))));
-        retried.markClaimReleased(Date.from(NOW.minus(Duration.ofMinutes(10))));
+        SmsTransaction released = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), null);
+        released.markSending(Date.from(NOW.minus(Duration.ofHours(1))));
+        released.markClaimReleased(Date.from(NOW.minus(Duration.ofMinutes(10))));
         persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(1)), null);
+        // Rows the worker would not claim, so a view that drifted on retries, direction or provider fails here.
+        persistRetry(SmsProviderType.STUB, NOW.minus(Duration.ofHours(3)), NOW.plus(Duration.ofHours(1)));
+        entityManager.persist(inbound(SmsProviderType.STUB, SmsStatus.QUEUED, NOW.minus(Duration.ofHours(3))));
+        persistQueued(SmsProviderType.VOIPMS, NOW.minus(Duration.ofHours(3)), null);
         entityManager.flush();
 
         List<Long> overdue = smsTransactionDao.findOverdueQueuedOutbound(SmsProviderType.STUB, FIVE_MINUTES_AGO, 10)
@@ -208,7 +212,10 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
         persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(5)));
         persistSending(SmsProviderType.STUB, NOW.minus(Duration.ofMinutes(1)));
         persistSending(SmsProviderType.VOIPMS, NOW.minus(Duration.ofMinutes(30)));
-        persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(1)), null);
+        // A released claim is QUEUED again but keeps its old last attempt, so only the status filter excludes it.
+        SmsTransaction released = persistQueued(SmsProviderType.STUB, NOW.minus(Duration.ofHours(2)), null);
+        released.markSending(Date.from(NOW.minus(Duration.ofHours(1))));
+        released.markClaimReleased(Date.from(NOW.minus(Duration.ofMinutes(50))));
         SmsTransaction inbound = inbound(SmsProviderType.STUB, SmsStatus.SENDING, NOW.minus(Duration.ofHours(1)));
         ReflectionTestUtils.setField(inbound, "lastAttemptAt", Date.from(NOW.minus(Duration.ofHours(1))));
         entityManager.persist(inbound);
@@ -221,7 +228,7 @@ class SmsTransactionDaoQueueViewIntegrationTest extends CarlosTestBase {
                         SmsProviderType.STUB, FIVE_MINUTES_AGO, Date.from(NOW), 10)
                 .stream().map(SmsTransaction::getId).toList();
 
-        assertThat(shown).hasSize(2).containsExactlyElementsOf(claimed);
+        assertThat(shown).hasSize(2).containsExactlyInAnyOrderElementsOf(claimed);
     }
 
     @Test
