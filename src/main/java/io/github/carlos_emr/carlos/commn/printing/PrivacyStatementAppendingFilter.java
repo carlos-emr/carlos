@@ -325,17 +325,23 @@ public class PrivacyStatementAppendingFilter implements Filter {
             return super.getResponse();
         }
 
+        // Each flag is set only after the container hands the channel over. A caller may ask
+        // for the other channel and swallow the IllegalStateException: CXF closes a void JAX-RS
+        // response with getOutputStream().close() even after a forwarded JSP took the writer
+        // (GET /ws/oauth/authorize, issue #3446). Flagging the stream before that call failed
+        // made printConfidentialityStatement() open it, which threw and turned the page into a 500.
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
+            ServletOutputStream stream = super.getOutputStream();
             responseOutputStreamObtained = true;
-            return super.getOutputStream();
+            return stream;
         }
 
         @Override
         public PrintWriter getWriter() throws IOException {
-            responseWriterObtained = true;
             if (writer == null)
                 writer = new DelegatingWriter(super.getWriter());
+            responseWriterObtained = true;
             return writer;
         }
 
