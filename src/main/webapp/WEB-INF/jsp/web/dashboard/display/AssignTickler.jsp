@@ -34,25 +34,8 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="tickler.ticklerAdd.additionalMessage" var="ticklerAdditionalMessage"/>
-<script type="text/javascript">
-
-    //--> Date picker
-    document.addEventListener('DOMContentLoaded', function () {
-        flatpickr('.date-picker', {
-            dateFormat: 'Y-m-d',
-            allowInput: true
-        });
-
-        // --> Time picker
-        flatpickr('.time-picker', {
-            enableTime: true,
-            noCalendar: true,
-            dateFormat: 'h:i K',
-            allowInput: true
-        });
-    });
-
-</script>
+<%-- The date and time pickers are started by initTicklerPickers() in drilldownDisplayController.js once
+     this fragment is inserted: the modal body is sanitized with DOMPurify, which strips inline scripts. --%>
 <form name="ticklerAddForm" id="ticklerAddForm"
       action="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler" method="POST" novalidate>
     <input type="hidden" value="saveTickler" name="method"/>
@@ -124,7 +107,7 @@
             <div>
                 <div class="input-group">
                     <input name="serviceDate" id="datePickerServiceDate" type="text"
-                           class="date-picker form-control required"/>
+                           class="date-picker form-control required" placeholder="yyyy-mm-dd" autocomplete="off"/>
                     <label for="datePickerServiceDate" class="input-group-text btn">
                         <span class="fa-solid fa-calendar"></span>
                     </label>
@@ -136,7 +119,7 @@
             <label for="ticklerTime" class="form-label"><fmt:message key="tickler.ticklerAdd.serviceTime"/></label>
             <div>
                 <div class="input-group">
-                    <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required"/>
+                    <input type="text" name="serviceTime" id="ticklerTime" class="time-picker form-control required" placeholder="hh:mm AM/PM" autocomplete="off"/>
                     <label for="ticklerTime" class="input-group-text btn">
                         <span class="fa-solid fa-clock"></span>
                     </label>
