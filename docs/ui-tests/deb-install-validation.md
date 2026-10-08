@@ -671,17 +671,25 @@ export RTL_TEMPLATE_NAME=MissedAppointment.rtl
 #      true by default), then `carlos-ctl restart`. Without rx_fax the Fax buttons never render.
 #   2. the same provider stamp PNG the consultation checks stage, consult_sig_999998.png, in the
 #      eForm image dir (CarlosDocument/eform/images and .../carlos/eform/images).
-# It also stages a destination fax number on the patient's active pharmacies and restores their
-# original value on cleanup: the demo dataset ships pharmacies with a blank fax, and the servlet
-# refuses such a prescription with "Valid fax number not found", so without it the check would be
-# measuring the missing pharmacy number rather than the signature gate.
+# It also points EVERY active pharmacy of the patient at a per-run unroutable 555 number (NPA 555
+# is never assigned in the NANP) and restores each original exactly on cleanup -- including a
+# pharmacy that already has a fax: the demo patient's pharmacies carry a real-looking Toronto
+# number (4164000305), and the Fax click queues a real job to whatever number the pharmacy holds.
+# The three Rx fax checks (this one, reprint/re-prescribe and record-binding) share one database
+# advisory lock for that fixture, so run them one after another: a second one started while
+# another holds the lock stops before writing anything. Each journals the original numbers to
+# ~/.cache/carlos-playwright/rx-fax-pharmacy/ (RX_FAX_JOURNAL_DIR overrides it) before the
+# first write; if a run is killed (SIGKILL, `timeout` expiry, container restart) the next Rx fax
+# check restores them from that journal before it stages its own. See the Rx fax pharmacy
+# fixture note under "Notes on the contract" below for a leftover with no journal.
 export RX_FAX_PROVIDER_NO=999998 RX_FAX_DEMOGRAPHIC_NO=1
 # Rx reprint / re-prescribe check (rx-fax-reprint-represcribe-playwright-checks.js). Same two
 # prerequisites as the fax check above, and it reuses RX_FAX_PROVIDER_NO / RX_FAX_DEMOGRAPHIC_NO.
 # It creates one prescription through the UI and removes it (with its drugs row and stored
 # signature) in a finally; it reprints and re-prescribes only that row, so no pre-existing patient
-# record is touched, and it writes no files. Like the fax check it stages, and then restores, a fax
-# number on the patient's active pharmacies, and it stages (and removes) its own active fax gateway
+# record is touched, and the only file it writes is the pharmacy fixture's crash journal. Like the
+# fax check it points every active pharmacy of the patient at its own 555 number (an existing fax
+# included) and restores them, under the same lock and journal, and it stages (and removes) its own active fax gateway
 # account (fax_config) on a per-run 416 number: ViewScript2 folds `hasFaxNumber` into the Fax button
 # and only offers a destination through an active sender account, so without both the pad
 # assertions would not isolate the stamp. Its only operator prerequisites are therefore the two
@@ -902,6 +910,49 @@ Notes on the contract:
   patient with no drug profile fails the check at staging rather than
   silently measuring the empty state. It stages in memory only: nothing is
   saved, so it seeds and cleans up nothing.
+- **The three Rx fax checks share one pharmacy fax fixture**
+  (`scripts/rx-fax-pharmacy-fax-fixture.js`, issue #3607):
+  `rx-fax-signature-stamp`, `rx-fax-reprint-represcribe` and
+  `rx-fax-record-binding`. For the run, every active pharmacy of
+  `RX_FAX_DEMOGRAPHIC_NO` holds a per-run `555xxxxxxx` number, a pharmacy that
+  already has a fax included; each original is restored exactly (NULL and `''`
+  kept distinct) and only while the column still holds that run's number, so an
+  edit made during the run is never overwritten. A failure is printed as a fixed
+  code after the error class:
+
+  | Code | Meaning |
+  |------|---------|
+  | `RX_FAX_FIXTURE_LOCKED` | Another Rx fax check holds the fixture lock on this database (or the `mysql` client could not connect). Run the checks one after another. |
+  | `RX_FAX_FIXTURE_VALUE` | A pharmacy fax holds something other than digits, letters, spaces and `.()+-` (at most 32). The check refuses to rewrite a value it could not restore; nothing was changed. |
+  | `RX_FAX_FIXTURE_CHANGED` | A pharmacy fax changed between the snapshot and the rewrite; the edit was kept and the run stopped. |
+  | `RX_FAX_FIXTURE_JOURNAL`, `_JOURNAL_DIR` | A crash journal is malformed, or its directory is not private to this user. Inspect and remove it by hand; nothing is replayed from it. |
+  | `RX_FAX_FIXTURE_RECOVERY`, `_RESTORE` | A restore statement failed. The journal is kept and the next Rx fax check retries it. |
+
+  A run killed outright (SIGKILL, a `timeout` expiry, a container restart)
+  skips its cleanup, but the originals were journalled under
+  `~/.cache/carlos-playwright/rx-fax-pharmacy/` before the first write and the
+  next Rx fax check on the same database restores them before staging its own
+  (it reports a `pharmacy-fax-recovery` entry). A leftover with **no** journal --
+  a run from before the journal existed, or a journal directory that was wiped
+  -- cannot be restored automatically because the original is not in the
+  database any more. Find it with
+
+  ```sql
+  SELECT p.recordID, p.name, p.fax FROM pharmacyInfo p
+    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordID
+   WHERE dp.demographic_no = 1 AND dp.status = '1' AND p.fax REGEXP '^555[0-9]{7}$';
+  ```
+
+  and put back the dataset's value. On the packaged demo dataset patient 1's
+  active pharmacies are 3 and 6 (`4164000305`) and 10 (`7896541230`):
+
+  ```sql
+  UPDATE pharmacyInfo SET fax = '4164000305' WHERE recordID IN (3, 6) AND fax REGEXP '^555[0-9]{7}$';
+  UPDATE pharmacyInfo SET fax = '7896541230' WHERE recordID = 10 AND fax REGEXP '^555[0-9]{7}$';
+  ```
+
+  A stranded `555` number is harmless (no fax can reach it) and a later run
+  simply restores it unchanged; the repair is for the dataset's fidelity.
 - **Consultation signature submission owns its test requests.** Its missing-stamp
   create scenario supplies the unsigned request for update and preview. Cleanup
   removes uniquely marked requests, dependent rows and their linked signatures;

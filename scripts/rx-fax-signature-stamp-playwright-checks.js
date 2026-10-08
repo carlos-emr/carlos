@@ -57,7 +57,11 @@
  *
  * Every database row it creates (prescription and drugs, stored signature, fax
  * job and its FaxClientLog audit row, a fax_config account, a throwaway unsigned
- * row) is removed in a finally, so the check is idempotent at the database.
+ * row) is removed in a finally, so the check is idempotent at the database. For
+ * the run, EVERY active pharmacy of the patient -- including one that already has
+ * a fax -- holds a per-run unroutable 555 number, restored exactly afterwards
+ * (rx-fax-pharmacy-fax-fixture.js; issue #3607), so the Fax click can only ever
+ * queue a job to a number the NANP never assigns.
  * Files are NOT removed: the fax servlet writes prescription_<pdfId>.pdf under
  * DOCUMENT_DIR and prescription_<pdfId>.pdf/.txt under fax_file_location on the
  * install, and this check runs through HTTP and MySQL only. The pdfId is
@@ -77,7 +81,8 @@
  *   fax_config and unsigned fixtures, and clean up).
  * Optional:
  *   RX_FAX_DEMOGRAPHIC_NO (default 1), RX_FAX_PROVIDER_NO (default 999998),
- *   CHROME_PATH, ALLOW_NON_LOCAL_BASE_URL.
+ *   CHROME_PATH, ALLOW_NON_LOCAL_BASE_URL, ALLOW_NON_LOCAL_MYSQL_HOST,
+ *   RX_FAX_JOURNAL_DIR (private directory for the pharmacy fixture's crash journal).
  */
 
 const { chromium } = require('playwright');
@@ -89,6 +94,8 @@ const os = require('os');
 const path = require('path');
 const { browserErrorClass } = require('./browser-error-class');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
+const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
+const { validateMysqlHost } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -98,6 +105,8 @@ const testPin = process.env.TEST_PIN || '2026';
 const demographicNo = String(process.env.RX_FAX_DEMOGRAPHIC_NO || '1').trim();
 const providerNo = String(process.env.RX_FAX_PROVIDER_NO || '999998').trim();
 
+// The suite-wide guard (scripts/lib/playwright-harness.js), the same one run-playwright-suite.js
+// applies before spawning this check: loopback only unless ALLOW_NON_LOCAL_MYSQL_HOST=true.
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'localhost');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
@@ -134,16 +143,6 @@ let checkPhase = 'initialization';
 let expectingCustomDrugConfirm = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
-
-function validateMysqlHost(host) {
-  // This check creates and deletes prescription/signature rows, so it must target a local dev
-  // database. Refuse a non-loopback host unless the operator explicitly opts in.
-  const loopback = new Set(['localhost', '127.0.0.1', '::1', 'carlos', 'db']);
-  if (!loopback.has(host.toLowerCase()) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing non-local MYSQL_HOST "${host}"; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`);
-  }
-  return host;
-}
 
 function validateBaseUrl(rawBaseUrl) {
   const parsed = new URL(rawBaseUrl);
@@ -251,55 +250,26 @@ function removeSecretsDir() {
 // the normal finally AND from a signal handler, and so an interrupted run cannot leave rows behind.
 let throwawayUnsignedScriptId = null;
 let faxConfig = null;
-// Pharmacy fax numbers this run seeded, restored by cleanupFixtures(): [{ recordId, wasNull }].
-const seededPharmacyFaxes = [];
+// Every active pharmacy of the patient holds this run's 555 number while the check runs. The fax
+// servlet refuses a prescription whose pharmacy has no fax number ("Valid fax number not found"),
+// and ViewScript2.jsp folds the same fact into the Fax button via `hasFaxNumber`, so without a
+// destination the signed-fax assertion would be measuring the missing number rather than the
+// signature gate. An existing number is replaced too: the Fax click queues a real job.
+const pharmacyFax = createPharmacyFaxFixture({
+  sql,
+  demographicNo,
+  stagedFax: pharmacyFaxNumber,
+  mysql: { host: mysqlHost, user: mysqlUser, password: mysqlPassword, database: mysqlDatabase },
+});
 
-/**
- * Remove every row this run seeded, keyed on its per-run-unique identifiers (customDrugName,
- * faxNumber) plus the explicit throwaway id — never a range — so a concurrent run's data is never
- * touched. Idempotent and synchronous (safe to call from a signal handler); records a finding on
- * failure rather than throwing.
- */
-/**
- * Give the patient's active pharmacies a destination fax number.
- *
- * The fax servlet refuses a prescription whose pharmacy has no fax number ("Valid fax number not
- * found"), and ViewScript2.jsp folds the same fact into the Fax button via `hasFaxNumber`. The demo
- * dataset ships its pharmacies with a blank fax, so without this the signed-fax assertion would be
- * measuring the missing pharmacy number rather than the signature gate it exists to pin. Every
- * active pharmacy for the patient, including one with an existing fax, gets this run's
- * non-routable destination. Which pharmacy the Rx page carries through is a
- * property of the patient's saved preference, not of this check.
- *
- * Fidelity rules this follows, because it mutates a shared record:
- *   - deleted pharmacy records are never touched. The predicate excludes PharmacyInfo.DELETED
- *     ('0') rather than requiring ACTIVE ('1'): the model defines only those two constants, but
- *     the shipped demo dataset stores '2' on every pharmacy, so requiring '1' would silently
- *     match nothing and disable this fixture instead of protecting anything;
- *   - a NULL fax and an empty-string fax are distinct states, so which one it was is remembered
- *     and restored exactly — writing '' back over a NULL would be a silent schema-level change;
- *   - cleanup restores only while the column still holds THIS run's synthetic number, so a
- *     concurrent run or an operator edit made during the check is never overwritten.
- */
-function seedPharmacyFax() {
+/** Take the shared fixture lock (replaying a killed run's journal), then stage the destination. */
+async function seedPharmacyFax() {
   checkPhase = 'pharmacy-fixture';
-  const rows = sql(`SELECT p.recordId, IF(p.fax IS NULL, 1, 0), IFNULL(p.fax, '') FROM pharmacyInfo p
-    JOIN demographicPharmacy dp ON dp.pharmacyID = p.recordId
-    WHERE dp.demographic_no = ${demographicNo} AND dp.status = '1'
-      AND (p.status IS NULL OR p.status <> '0');`)
-    .split('\n').map((r) => r.split('\t')).filter((r) => /^\d+$/.test((r[0] || '').trim()));
-  for (const [rawId, rawWasNull, rawFax] of rows) {
-    const recordId = rawId.trim();
-    const wasNull = String(rawWasNull).trim() === '1';
-    const originalFax = wasNull ? null : String(rawFax || '');
-    if (originalFax !== null && !/^[0-9A-Za-z .()+-]{0,32}$/.test(originalFax)) {
-      throw new Error('a pharmacy fax value has an unexpected shape; refusing to rewrite it');
-    }
-    sql(`UPDATE pharmacyInfo SET fax = '${pharmacyFaxNumber}' WHERE recordId = ${recordId};`);
-    seededPharmacyFaxes.push({ recordId, wasNull, originalFax });
-  }
-  visited.push({ label: 'pharmacy-fax', seeded: seededPharmacyFaxes.map((r) => r.recordId), active: rows.length });
-  if (!rows.length) {
+  const recovered = await pharmacyFax.lock();
+  if (recovered.journals) visited.push({ label: 'pharmacy-fax-recovery', ...recovered });
+  const staged = pharmacyFax.seed();
+  visited.push({ label: 'pharmacy-fax', ...staged });
+  if (!staged.active) {
     findings.push({
       label: 'pharmacy-fax', type: 'no-active-pharmacy',
       text: `patient ${demographicNo} has no active pharmacy, so a prescription for them can never be faxed`,
@@ -307,6 +277,21 @@ function seedPharmacyFax() {
   }
 }
 
+/** Release the shared fixture lock after cleanup; a lost lock is a finding, not a crash. */
+async function releaseFixtureLock() {
+  try {
+    await pharmacyFax.unlock();
+  } catch (error) {
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
+  }
+}
+
+/**
+ * Remove every row this run seeded, keyed on its per-run-unique identifiers (customDrugName,
+ * faxNumber) plus the explicit throwaway id — never a range — so a concurrent run's data is never
+ * touched, and put the pharmacy destinations back. Idempotent and synchronous (safe to call from a
+ * signal handler); records a finding on failure rather than throwing.
+ */
 function cleanupFixtures() {
   // Each target is deleted in its own try so one failure cannot suppress cleanup of the others;
   // failures are aggregated as findings rather than aborting the sweep.
@@ -314,7 +299,7 @@ function cleanupFixtures() {
     try {
       fn();
     } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
     }
   };
   let ourScriptNos = new Set();
@@ -348,13 +333,10 @@ function cleanupFixtures() {
     sql(`DELETE FROM faxes WHERE faxline='${faxNumber}';`);
   });
   attempt('fax_config', cleanupOwnedFaxSender);
-  while (seededPharmacyFaxes.length) {
-    const { recordId, wasNull, originalFax } = seededPharmacyFaxes.pop();
-    const restored = wasNull ? 'NULL' : `'${originalFax}'`;
-    attempt(`pharmacy-fax ${recordId}`, () => sql(
-      `UPDATE pharmacyInfo SET fax = ${restored} `
-      + `WHERE recordId = ${recordId} AND fax = '${pharmacyFaxNumber}';`));
-  }
+  attempt('pharmacy-fax', () => {
+    const { untouched } = pharmacyFax.restore();
+    if (untouched) visited.push({ label: 'pharmacy-fax-restore', untouched });
+  });
 }
 
 
@@ -562,8 +544,8 @@ async function runChecks(context, cancellation) {
     await installFaxRequestGuard(page, baseUrl, faxNumber, pharmacyFaxNumber, () => {
       findings.push({ label: 'fax-destination', type: 'blocked', text: 'Blocked a fax POST with an unowned sender or destination' });
     });
+    await seedPharmacyFax();
     faxConfig = stageFaxConfig();
-    seedPharmacyFax();
 
     const { modalFrame, scriptId, createdCount } = await writeCustomRxThroughUi(page);
     createdScriptId = scriptId;
@@ -718,6 +700,7 @@ async function runChecks(context, cancellation) {
     return { createdScriptId, faxDisabled, padPresent, persistedSignatureId: sigId };
   } finally {
     cleanupFixtures();
+    await releaseFixtureLock();
     await page.close();
   }
 }
@@ -763,7 +746,7 @@ async function runChecks(context, cancellation) {
     }
   }
 })().catch((error) => {
-  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}`);
+  console.error(`FAIL rx-fax-signature-stamp: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}`);
   removeSecretsDir();
   process.exit(1);
 });
