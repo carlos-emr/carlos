@@ -701,8 +701,12 @@ async function assertFaxConfirmationRecovery(modalFrame) {
           timeout();
         } else {
           previewDoc.getElementById = function (id) {
-            if (outcome === 'inaccessible') throw new Error('inaccessible fixture response');
-            if (['preview2Form', 'fax-success', 'fax-failure'].includes(id)) return null;
+            const resultRead = ['preview2Form', 'fax-success', 'fax-failure'].includes(id);
+            // Only the fax-result reads become inaccessible. setComment() also reads this document
+            // on load ('additNotes'); a stub that threw for every id escaped from that unrelated
+            // handler as an uncaught page error, which this check then counted against itself.
+            if (outcome === 'inaccessible' && resultRead) throw new Error('inaccessible fixture response');
+            if (resultRead) return null;
             return getElement.call(this, id);
           };
           frame.dispatchEvent(new w.Event('load'));
