@@ -82,7 +82,6 @@ import org.apache.xmlbeans.XmlOptions;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -95,6 +94,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -151,6 +151,25 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
 
     private final transient SecurityInfoManager securityInfoManager;
     private static final Logger logger = MiscUtils.getLogger();
+
+    /**
+     * What this action's log lines name an imported file or folder by, never its path: the first 12
+     * hex digits of the path's SHA-256 (an import folder's or report file's name can identify a
+     * patient). For a known path: {@code printf '%s' "$path" | sha256sum | cut -c1-12}.
+     */
+    static String pathReference(String path) {
+        return path == null ? "ref:none" : "ref:" + DigestUtils.sha256Hex(path).substring(0, 12);
+    }
+
+    /**
+     * A failure's trace at debug, types and code locations only: an exception's message (or a
+     * cause's) can carry a path, so the error line names the exception type and attaches nothing.
+     */
+    private static void logTrace(String step, Throwable failure) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("{} failure trace:{}", step, LogSafe.exceptionTrace(failure));
+        }
+    }
     private static final String PATIENTID = "Patient";
     private static final String ALERT = "Alert";
     private static final String ALLERGY = "Allergy";
@@ -570,7 +589,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (SecurityException e) {
             // Do not log the entry name: uploaded export entry/file names can carry patient-identifying
             // content (PHI). PathValidationUtils already logs the sanitized rejected path internally.
-            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import", e);
+            logger.error("SECURITY: Skipping malicious ZIP entry during demographic import ({})", e.getClass().getSimpleName());
+            logTrace("ZIP entry", e);
             return null;
         }
     }
@@ -595,7 +615,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
         } catch (IOException ex) {
             // Don't expose path in user-facing warnings (may contain PHI)
             warnings.add("Error while searching for XML files in directory");
-            logger.error("Error while locating .xml files in path: {}", path, ex);
+            logger.error("Error while locating .xml files in an import folder: {} ({})",
+                    pathReference(path == null ? null : path.toString()), ex.getClass().getSimpleName());
+            logTrace("Locating .xml files", ex);
         }
         return filteredFileList;
     }
@@ -708,10 +730,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             omdCds.validate(opts);
 
 
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
         PatientRecord patientRec = omdCds.getPatientRecord();
 
@@ -922,10 +944,10 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             OmdCdsDocument.OmdCds omdCds = OmdCdsDocument.Factory.parse(xmlF, opts).getOmdCds();
             omdCds.validate(opts);
             patientRec = omdCds.getPatientRecord();
-        } catch (IOException ex) {
-            logger.error("Error", ex);
-        } catch (XmlException ex) {
-            logger.error("Error", ex);
+        } catch (IOException | XmlException ex) {
+            // The message can carry the file's path or quote its content: log the type only.
+            logger.error("Error reading an imported patient file ({})", ex.getClass().getSimpleName());
+            logTrace("Reading an imported patient file", ex);
         }
 
         //DEMOGRAPHICS
@@ -2807,7 +2829,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                         PathValidationUtils.validateGeneratedFileName(docFileName),
                                         PathValidationUtils.resolveConfiguredDirectory(docDir, "DOCUMENT_DIR"));
                             } catch (SecurityException e) {
-                                logger.error("SECURITY: rejected report destination filename", e);
+                                logger.error("SECURITY: rejected report destination filename ({})", e.getClass().getSimpleName());
+                                logTrace("Report destination", e);
                                 err_data.add("Error! Invalid filename for Report (" + (i + 1) + ")");
                                 continue;
                             }
@@ -2839,7 +2862,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
                                 } catch (SecurityException e) {
                                     // Do not log the uploaded file/source names: they can carry
                                     // patient-identifying content (PHI). The rejection itself is the signal.
-                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory", e);
+                                    logger.error("SECURITY: Rejecting file copy - resolved path outside the allowed import directory ({})",
+                                            e.getClass().getSimpleName());
+                                    logTrace("Report source", e);
                                     err_data.add("Error! Security violation for Report (" + (i + 1) + "): Invalid file path");
                                     continue;
                                 }
@@ -3455,8 +3480,9 @@ public class ImportDemographicDataAction42Action extends ActionSupport implement
             file = PathValidationUtils.validateExistingPath(file, allowedRoot);
             return file;
         } catch (SecurityException e) {
-            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath='{}', resolvedPath='{}'",
-                    Encode.forJava(originalPath), Encode.forJava(file.getPath()), e);
+            logger.error("SECURITY: Rejecting malicious file path from XML. originalPath={}, resolvedPath={} ({})",
+                    pathReference(originalPath), pathReference(file.getPath()), e.getClass().getSimpleName());
+            logTrace("Report path", e);
             return null;
         }
     }
