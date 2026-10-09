@@ -89,6 +89,13 @@ password.
 attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
 sequence got. It never stores the invitation code.
 
+`V1.0.59__add_sms_config.sql` adds `sms_config`, the settings saved from Administration > SMS
+(provider, sending and scheduler switches, sender number, and the encrypted webhook secret and
+provider credentials). It seeds no row, so the `sms.*` properties keep applying until an
+administrator saves the page. See the [SMS backend guide](../../../../docs/architecture/sms-backend.md#configuration-and-validation).
+It took `V1.0.59`, above develop, `release/2026.08` and #4440's `V1.0.58`; its number is checked
+again at merge time.
+
 `V1.0.54__activate_sms_consent.sql` replaces the seeded draft description of the SMS consent type
 with its approved wording (#3848) and, in the same statement, switches the type on where the
 `sms_communication` property still points at it. A clinic's own wording is left alone, and a clinic

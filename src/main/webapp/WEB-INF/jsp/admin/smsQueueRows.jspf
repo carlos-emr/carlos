@@ -1,0 +1,102 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+    smsQueueRows.jspf: one message list on the SMS queue page (statically included by smsQueue.jsp).
+
+    Parameters: the including page sets "queueRows" (a list of SmsQueueViewModel.Row),
+    "queueRowsHidden" (how many messages were left out because the viewer has no access to their
+    patients) and "queueRowsTotal" (how many messages the list stands for) in page scope, and relies
+    on the c, fmt and carlos taglibs it declares.
+
+    Security: rows are redacted view-model records: no message text, only the recipient's last four
+    digits, and the patient only as a plain demographic number (no link), shown only when
+    smsQueue.demographicNumbersShown is set. Hidden messages are only counted; nothing else about them
+    reaches this fragment. Every value is encoded; the status label key is built only from the
+    SmsStatus enum name.
+
+    The page already declares these taglibs and the bundle; repeating them keeps the fragment
+    self-contained for the i18n lint and JspTaglibDeclarationRegressionTest, which check each JSP and
+    fragment on its own.
+
+    @since 2026-09-28
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<c:if test="${queueRowsTotal > smsQueue.listLimit}">
+    <p class="small text-muted mb-1">
+        <fmt:message key="sms.queue.listCapped">
+            <fmt:param value="${smsQueue.listLimit}"/>
+            <fmt:param value="${queueRowsTotal}"/>
+        </fmt:message>
+    </p>
+</c:if>
+<c:if test="${not empty queueRows}">
+<div class="table-responsive">
+    <table class="table table-sm table-striped small align-middle">
+        <thead>
+        <tr>
+            <th scope="col"><fmt:message key="sms.queue.col.id"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.status"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.created"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.updated"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.due"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.lastAttempt"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.attempts"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.errorCode"/></th>
+            <th scope="col"><fmt:message key="sms.queue.col.reasonCode"/></th>
+            <c:if test="${smsQueue.demographicNumbersShown}">
+                <th scope="col"><fmt:message key="sms.queue.col.demographicNo"/></th>
+            </c:if>
+            <th scope="col"><fmt:message key="sms.queue.col.recipient"/></th>
+        </tr>
+        </thead>
+        <tbody>
+        <c:forEach items="${queueRows}" var="row">
+            <tr>
+                <td><carlos:encode value="${row.id}"/></td>
+                <td><fmt:message key="sms.queue.status.${row.status}"/></td>
+                <td><carlos:encode value="${row.createdAt}"/></td>
+                <td><carlos:encode value="${row.updatedAt}"/></td>
+                <td><carlos:encode value="${row.dueAt}"/></td>
+                <td><carlos:encode value="${row.lastAttemptAt}"/></td>
+                <td><carlos:encode value="${row.attemptCount}"/></td>
+                <td><carlos:encode value="${row.errorCode}"/></td>
+                <td><carlos:encode value="${row.consentReasonCode}"/></td>
+                <c:if test="${smsQueue.demographicNumbersShown}">
+                    <td><carlos:encode value="${row.demographicNo}"/></td>
+                </c:if>
+                <td><carlos:encode value="${row.recipientLastFour}"/></td>
+            </tr>
+        </c:forEach>
+        </tbody>
+    </table>
+</div>
+</c:if>
+<c:if test="${queueRowsHidden > 0}">
+    <p class="small text-muted">
+        <fmt:message key="sms.queue.rowsHidden">
+            <fmt:param value="${queueRowsHidden}"/>
+        </fmt:message>
+    </p>
+</c:if>
