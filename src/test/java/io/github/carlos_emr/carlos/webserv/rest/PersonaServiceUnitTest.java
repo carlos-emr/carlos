@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -45,7 +47,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
-import io.github.carlos_emr.carlos.webserv.rest.to.ResponseStatus;
+import io.github.carlos_emr.carlos.webserv.rest.to.GenericRestResponse.ResponseStatus;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.doThrow;
 
@@ -197,6 +199,7 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
         when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(true);
         var row=new UserProperty();row.setId(7);row.setName("email_footer");row.setProviderNo(PROVIDER_NO);row.setValue("Old personal");
         when(mockUserPropertyDao.getProp(PROVIDER_NO,"email_footer")).thenReturn(row);
+        when(mockUserPropertyDao.isPersonalEmailFooterRow(PROVIDER_NO,7)).thenReturn(true);
         when(mockUserPropertyDao.findPersonalEmailFooterForUpdate(PROVIDER_NO)).thenReturn(List.of(row));
         registerMock(EmailFooterService.class,new EmailFooterService(mockUserPropertyDao));return row;
     }
@@ -279,6 +282,29 @@ class PersonaServiceUnitTest extends CarlosUnitTestBase {
         assertThat(row.getValue()).isEqualTo("Old personal");
         verify(mockUserPropertyDao,never()).savePersonalEmailFooterRow(any(),any());
         verify(mockUserPropertyDao,never()).merge(any());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldDenyResolvedFooterAlias_whenEmailWriteIsMissing(String alias) {
+        var row=allowExistingFooter();row.setName(alias);
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,alias)).thenReturn(row);
+        when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),isNull())).thenReturn(false);
+        assertThatThrownBy(()->service.updatePreference(preference(alias,"Forged personal")))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        assertThat(row.getValue()).isEqualTo("Old personal");
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).lockPersonalEmailFooterOwner(any());
+    }
+    @ParameterizedTest @ValueSource(strings={"EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldRouteResolvedFooterAlias_throughAuthorizedOwnService(String alias) {
+        var row=allowExistingFooter();row.setName(alias);
+        when(mockUserPropertyDao.getProp(PROVIDER_NO,alias)).thenReturn(row);
+        var json=preference(alias,"<b>Personal</b><script>unsafe()</script>");json.put("providerNo","202");
+        assertThat(service.updatePreference(json).getStatus()).isEqualTo(ResponseStatus.SUCCESS);
+        assertThat(row.getValue()).isEqualTo("<b>Personal</b>");assertThat(row.getName()).isEqualTo("email_footer");
+        verify(mockUserPropertyDao).savePersonalEmailFooterRow(PROVIDER_NO,row);
+        verify(mockUserPropertyDao,never()).merge(any());
+        verify(mockUserPropertyDao,never()).findClinicEmailFooter();
     }
 
 }

@@ -295,6 +295,44 @@ class PersonalEmailFooterMariaDbIntegrationTest {
         service.saveOwnFooter("101","Fresh later transaction");
         assertThat(service.ownFooter("101")).isEqualTo("Fresh later transaction");
     }
+    @ParameterizedTest @CsvSource({"EMAIL_FOOTER,true","EMAIL_FOOTER,false","'email_footer ',true","'email_footer ',false","émail_footér,true","émail_footér,false"})
+    void shouldIdentifyAndCleanStoredNameAliases_byDatabaseCollationAndExactOwner(String storedName,boolean clear){
+        service.saveOwnFooter("202","Other personal");
+        int id=new TransactionTemplate(manager).execute(status->{
+            var legacy=new UserProperty();legacy.setName(storedName);legacy.setProviderNo("101");legacy.setValue("Legacy personal");dao.persist(legacy);
+            var duplicate=new UserProperty();duplicate.setName("email_footer");duplicate.setProviderNo("101");duplicate.setValue("Duplicate personal");dao.persist(duplicate);
+            for(String requestedName:List.of("email_footer","EMAIL_FOOTER","email_footer ","émail_footér")){
+                var resolved=dao.getProp("101",requestedName);
+                assertThat(resolved).isNotNull();assertThat(dao.isPersonalEmailFooterRow("101",resolved.getId())).isTrue();
+                assertThat(dao.isPersonalEmailFooterRow("202",resolved.getId())).isFalse();
+            }
+            assertThat(dao.isPersonalEmailFooterRow("101",dao.findClinicEmailFooter().get(0).getId())).isFalse();
+            assertThat(dao.isPersonalEmailFooterRow("101",dao.getProp("202","email_footer").getId())).isFalse();
+            return legacy.getId();
+        });
+        service.saveOwnFooter("101",clear?"":"Legacy personal");
+        new TransactionTemplate(manager).executeWithoutResult(status->{
+            var rows=dao.getAllProperties("email_footer",List.of("101"));assertThat(rows).hasSize(clear?0:1);
+            if(!clear){assertThat(rows.get(0).getId()).isEqualTo(id);assertThat(rows.get(0).getName()).isEqualTo("email_footer");}
+        });
+        assertThat(service.ownFooter("101")).isEqualTo(clear?"":"Legacy personal");assertOtherOwnerAndClinic();
+    }
+    @ParameterizedTest @CsvSource({"EMAIL_FOOTER,true","EMAIL_FOOTER,false","'email_footer ',true","'email_footer ',false","émail_footér,true","émail_footér,false"})
+    void shouldOverlayPendingStoredNameAliases_withCallerRollbackAndClearReinsert(String storedName,boolean rollback){
+        tx(TransactionDefinition.ISOLATION_REPEATABLE_READ).executeWithoutResult(status->{
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).isEmpty();
+            var pending=new UserProperty();pending.setName(storedName);pending.setProviderNo("101");pending.setValue("Pending legacy");dao.persist(pending);
+            service.saveOwnFooter("101","Pending legacy");
+            var rows=dao.getAllProperties("email_footer",List.of("101"));assertThat(rows).hasSize(1);
+            assertThat(rows.get(0).getId()).isEqualTo(pending.getId());assertThat(rows.get(0).getName()).isEqualTo("email_footer");
+            dao.delete(rows.get(0));service.saveOwnFooter("101","Recreated alias");
+            assertThat(dao.getAllProperties("email_footer",List.of("101"))).hasSize(1);
+            if(rollback)status.setRollbackOnly();
+        });
+        assertThat(service.ownFooter("101")).isEqualTo(rollback?"":"Recreated alias");
+        assertThat(new TransactionTemplate(manager).<String>execute(status->dao.findClinicEmailFooter().get(0).getValue()))
+                .isEqualTo("Mandatory Clinic");
+    }
     private int seedDuplicatePersonal(){
         service.saveOwnFooter("101","Old personal");service.saveOwnFooter("202","Other personal");
         return new TransactionTemplate(manager).execute(status->{

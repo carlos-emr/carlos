@@ -73,6 +73,9 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     /** Serialize clinic footer saves, including the first save, on the existing clinic row. */
     void lockClinicEmailFooterSettings();
 
+    /** Match a resolved row to this owner's personal footer using the database's name collation. */
+    boolean isPersonalEmailFooterRow(String providerNo, Integer propertyId);
+
     /** Serialize personal footer saves on the existing provider row, including first creation. */
     void lockPersonalEmailFooterOwner(String providerNo);
 

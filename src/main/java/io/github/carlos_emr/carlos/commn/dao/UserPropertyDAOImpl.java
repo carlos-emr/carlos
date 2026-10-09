@@ -248,6 +248,16 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     }
 
     @Override
+    public boolean isPersonalEmailFooterRow(String providerNo, Integer propertyId) {
+        if (providerNo == null || providerNo.isBlank() || propertyId == null || propertyId <= 0) return false;
+        // Use the same DB predicate as footer reads: Java lower/trim cannot reproduce its collation.
+        return entityManager.createQuery("select count(p.id) from UserProperty p where p.id = :id "
+                        + "and p.providerNo = :provider and p.name = :name", Long.class)
+                .setParameter("id", propertyId).setParameter("provider", providerNo)
+                .setParameter("name", "email_footer").getSingleResult() > 0;
+    }
+
+    @Override
     @org.springframework.transaction.annotation.Transactional(
             propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public void lockPersonalEmailFooterOwner(String providerNo) {
@@ -293,13 +303,12 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
                         .setParameter("provider", providerNo).getResultList();
                 // Legacy writers outside the provider mutex can remove or repurpose a row.
                 // Refuse that race rather than silently create another default or edit its owner.
-                if (values.size() != 1 || !"email_footer".equals(values.get(0)[1])
-                        || !providerNo.equals(values.get(0)[2])) {
+                if (values.size() != 1 || !providerNo.equals(values.get(0)[2])) {
                     throw new jakarta.persistence.OptimisticLockException("Personal footer changed concurrently");
                 }
                 Object[] value = values.get(0);
                 var row = new UserProperty();
-                row.setId(id); row.setName("email_footer"); row.setProviderNo(providerNo);
+                row.setId(id); row.setName((String) value[1]); row.setProviderNo(providerNo);
                 row.setValue((String) value[3]); rows.add(row);
             }
             return rows;
@@ -347,8 +356,8 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     public void persist(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
         boolean newRow = model instanceof UserProperty property && property.getId() == null;
         super.persist(model);
-        if (newRow && model instanceof UserProperty property && "email_footer".equals(property.getName())
-                && property.getProviderNo() != null && !property.getProviderNo().isBlank()) {
+        if (newRow && model instanceof UserProperty property
+                && isPersonalEmailFooterRow(property.getProviderNo(), property.getId())) {
             var writes = personalFooterWrites(true);
             if (writes != null) writes.created.put(property.getId(), property.getProviderNo());
         }
@@ -357,8 +366,10 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
     /** Retain DAO removals so a joining footer save does not rediscover its uncommitted deletes. */
     @Override
     public void remove(io.github.carlos_emr.carlos.commn.model.AbstractModel<?> model) {
+        boolean personal = model instanceof UserProperty property
+                && isPersonalEmailFooterRow(property.getProviderNo(), property.getId());
         super.remove(model);
-        if (model instanceof UserProperty property && "email_footer".equals(property.getName())) {
+        if (personal && model instanceof UserProperty property) {
             var writes = personalFooterWrites(true);
             if (writes != null) writes.deleted.add(property.getId());
         }
@@ -379,11 +390,10 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         }
         personalCurrentRead(() -> {
             var managed = entityManager.find(UserProperty.class, property.getId());
-            if (managed != null && (!"email_footer".equals(managed.getName())
-                    || !providerNo.equals(managed.getProviderNo()))) {
+            if (managed != null && !providerNo.equals(managed.getProviderNo())) {
                 throw new IllegalArgumentException("Personal footer row belongs to another setting or owner");
             }
-            int updated = entityManager.createNativeQuery("UPDATE `property` SET `value` = :value "
+            int updated = entityManager.createNativeQuery("UPDATE `property` SET `name` = :name, `value` = :value "
                     + "WHERE `id` = :id AND `name` = :name AND `provider_no` = :provider")
                     .setParameter("value", property.getValue()).setParameter("id", property.getId())
                     .setParameter("name", "email_footer").setParameter("provider", providerNo).executeUpdate();
@@ -391,7 +401,7 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
                 throw new jakarta.persistence.OptimisticLockException("Personal footer row changed concurrently");
             }
             // Keep an earlier managed instance consistent without refreshing or clearing other data.
-            if (managed != null) managed.setValue(property.getValue());
+            if (managed != null) { managed.setName("email_footer"); managed.setValue(property.getValue()); }
             return updated;
         });
     }
@@ -408,7 +418,7 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
             // A prior RR view may not see this ID; absence never suppresses the current SQL delete.
             var managed = entityManager.find(UserProperty.class, propertyId);
             if (managed != null) {
-                if (!"email_footer".equals(managed.getName()) || !providerNo.equals(managed.getProviderNo())) {
+                if (!providerNo.equals(managed.getProviderNo())) {
                     throw new IllegalArgumentException("Personal footer row belongs to another setting or owner");
                 }
                 entityManager.detach(managed);

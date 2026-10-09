@@ -33,6 +33,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -243,7 +245,8 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
         assertThat(response.getHeaderString("Allow")).contains("POST");
         org.mockito.Mockito.verifyNoInteractions(properties);
     }
-    @Test void shouldUseAuthenticatedOwner_forAuthorizedLegacyFooterPost() {
+    @ParameterizedTest @ValueSource(strings={"email_footer","EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldUseAuthenticatedOwner_forAuthorizedLegacyFooterPost(String alias) {
         currentFooterProvider();
         when(mockSecurityInfoManager.hasPrivilege(any(),eq("_email"),eq(SecurityInfoManager.WRITE),org.mockito.ArgumentMatchers.isNull()))
                 .thenReturn(true);
@@ -251,12 +254,34 @@ class PersonaServiceEndpointTest extends CarlosRestTestBase {
         var footer=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
         registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
         registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class,footer);
-        when(properties.getProp("100","email_footer")).thenReturn(new io.github.carlos_emr.carlos.commn.model.UserProperty());
-        var response=request().path("/persona/updatePreference").post("{\"key\":\"email_footer\",\"value\":\"FAKE Personal\",\"providerNo\":\"202\"}");
+        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();row.setId(7);row.setName(alias);
+        when(properties.getProp("100",alias)).thenReturn(row);
+        when(properties.isPersonalEmailFooterRow("100",7)).thenReturn(true);
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        json.put("key",alias);json.put("value","FAKE Personal");json.put("providerNo","202");
+        var response=request().path("/persona/updatePreference").post(json);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(responseJson(response).at("/status").asText()).isEqualTo("SUCCESS");
         org.mockito.Mockito.verify(footer).saveOwnFooter("100","FAKE Personal");
         org.mockito.Mockito.verify(properties,org.mockito.Mockito.never()).merge(org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest @ValueSource(strings={"EMAIL_FOOTER","email_footer ","émail_footér"})
+    void shouldReturnForbidden_forResolvedStoredFooterAlias(String alias) {
+        currentFooterProvider();
+        var properties=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class);
+        var footer=org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,properties);
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class,footer);
+        var row=new io.github.carlos_emr.carlos.commn.model.UserProperty();row.setId(7);row.setName(alias);
+        when(properties.getProp("100",alias)).thenReturn(row);
+        when(properties.isPersonalEmailFooterRow("100",7)).thenReturn(true);
+        var json=new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+        json.put("key",alias);json.put("value","FAKE Forged Personal");
+        var response=request().path("/persona/updatePreference").post(json);
+        assertThat(response.getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verify(properties,org.mockito.Mockito.never()).merge(org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verifyNoInteractions(footer);
     }
 
 }

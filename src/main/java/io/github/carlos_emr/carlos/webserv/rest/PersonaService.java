@@ -474,6 +474,13 @@ public class PersonaService extends AbstractServiceImpl {
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty up = userPropertyDao.getProp(provider.getProviderNo(), key);
         if (up != null) {
+            // Classify the actual resolved row with DB collation, including request and stored-name
+            // aliases. A client key's spelling cannot decide which permission governs the write.
+            personalFooter = userPropertyDao.isPersonalEmailFooterRow(provider.getProviderNo(), up.getId());
+            if (personalFooter && !securityInfoManager.hasPrivilege(getLoggedInInfo(), "_email",
+                    SecurityInfoManager.WRITE, null)) {
+                throw new ForbiddenException("Access Denied");
+            }
             // This legacy preference alias must use the same permission, limits and owner mutex
             // as the personal editor. The request never supplies an authoritative provider.
             if (personalFooter) {

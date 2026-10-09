@@ -63,7 +63,7 @@ public class EmailFooterService {
             return;
         }
         UserProperty row = rows.isEmpty() ? new UserProperty() : rows.get(0);
-        boolean changed = row.getId() == null || !cleaned.equals(row.getValue());
+        boolean changed = row.getId() == null || !cleaned.equals(row.getValue()) || !USER_FOOTER.equals(row.getName());
         row.setProviderNo(providerNo);
         row.setName(USER_FOOTER);
         row.setValue(cleaned);
