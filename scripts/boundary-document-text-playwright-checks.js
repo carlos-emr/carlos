@@ -6,8 +6,9 @@
  * Asserts: a description of exactly the 255-character column that carries an apostrophe, accents, CJK, an emoji,
  * "&amp;", quotes, a backslash, "%41", "+" and ";" is stored byte for byte; and, last, a description one character past the
  * column is refused or visibly limited rather than silently cut.
- * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the
- * stored files they name (inside the document store only; SKIP when it is not readable) and asserts they are gone.
+ * Fixtures: the owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows, the chart
+ * note and note link each upload creates, and the stored files they name (inside the document store only; SKIP when it is
+ * not readable) and asserts they are gone.
  * Implements the wave-6 "boundary values" pattern, Part 1 (document description).
  */
 const fs = require('node:fs');

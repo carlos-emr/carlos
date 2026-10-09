@@ -74,9 +74,10 @@ class FormButtonHandlersJspRegressionTest {
     private static final Pattern JSP_EXPRESSION = Pattern.compile("<%=.*?%>", Pattern.DOTALL);
     private static final Pattern JSP_SCRIPTLET = Pattern.compile("<%.*?%>", Pattern.DOTALL);
     private static final Pattern EL_EXPRESSION = Pattern.compile("(?<!\\\\)\\$\\{[^}]*}");
-    // A message tag becomes its key, so two different prompts stay distinguishable.
-    private static final Pattern MESSAGE_TAG = Pattern.compile(
-            "<fmt:message\\b[^<>]*?\\bkey\\s*=\\s*['\"]([\\w.-]+)['\"][^<>]*/>");
+    // A message tag becomes its key, so two different prompts stay distinguishable. The tag and
+    // its key attribute are matched separately so neither pattern backtracks super-linearly.
+    private static final Pattern MESSAGE_TAG = Pattern.compile("<fmt:message\\b[^<>]*/>");
+    private static final Pattern MESSAGE_KEY = Pattern.compile("\\bkey\\s*=\\s*['\"]([\\w.-]+)['\"]");
     private static final Pattern PREFIXED_SELF_CLOSING_TAG = Pattern.compile("<[A-Za-z][\\w-]*:[\\w-]+[^<>]*/>");
     // Group 1: the <script> tag's attributes. Group 2: its inline source.
     private static final Pattern SCRIPT_BLOCK = Pattern.compile(
@@ -222,7 +223,10 @@ class FormButtonHandlersJspRegressionTest {
         source = JSP_EXPRESSION.matcher(source).replaceAll(PLACEHOLDER);
         source = JSP_SCRIPTLET.matcher(source).replaceAll("");
         source = EL_EXPRESSION.matcher(source).replaceAll(PLACEHOLDER);
-        source = MESSAGE_TAG.matcher(source).replaceAll("$1");
+        source = MESSAGE_TAG.matcher(source).replaceAll(tag -> {
+            Matcher key = MESSAGE_KEY.matcher(tag.group());
+            return Matcher.quoteReplacement(key.find() ? key.group(1) : tag.group());
+        });
         source = PREFIXED_SELF_CLOSING_TAG.matcher(source).replaceAll(PLACEHOLDER);
 
         List<String> blocks = new ArrayList<>();

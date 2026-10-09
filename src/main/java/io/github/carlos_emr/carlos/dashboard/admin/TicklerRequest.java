@@ -4,10 +4,12 @@ package io.github.carlos_emr.carlos.dashboard.admin;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /** Parses the dashboard form without side effects, before its at-most-once receipt is claimed. */
 record TicklerRequest(Tickler tickler, Integer[] patients) {
@@ -48,6 +50,26 @@ record TicklerRequest(Tickler tickler, Integer[] patients) {
         tickler.setMessage(single(parameters, "message") + " " + single(parameters, "messageAppend"));
         tickler.setStatus(Tickler.STATUS.A);
         return new TicklerRequest(tickler, patients.toArray(Integer[]::new));
+    }
+
+    // A record compares and prints an array component by identity; use the contents of the
+    // patient numbers instead. toString reports only how many were selected, so a logged request
+    // never carries demographic numbers.
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof TicklerRequest that
+                && Objects.equals(tickler, that.tickler) && Arrays.equals(patients, that.patients);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * Objects.hashCode(tickler) + Arrays.hashCode(patients);
+    }
+
+    @Override
+    public String toString() {
+        return "TicklerRequest[tickler=" + tickler + ", patients="
+                + (patients == null ? "null" : patients.length + " selected") + "]";
     }
 
     /** Date layouts accepted: the picker's ISO form first, then the legacy {@link Tickler#DATE_FORMAT}. */

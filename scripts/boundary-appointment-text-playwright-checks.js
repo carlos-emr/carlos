@@ -155,21 +155,34 @@ async function workflow(s) {
     const resourcesColumn = b.columnLength(sql, 'appointment', 'resources');
     const longName = b.exactly(nameColumn + 1, 'N' + marker.slice(-6));
     const longResources = b.exactly(resourcesColumn + 1, 'R');
-    const popup = await openBooking();
-    await popup.locator('#keyword').fill(longName);
-    await field(popup, 'resources').fill(longResources);
-    const shownName = await popup.locator('#keyword').inputValue();
-    const shownResources = await field(popup, 'resources').inputValue();
-    await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const second = sql.value(`SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no<>${apptNo} ORDER BY appointment_no DESC LIMIT 1`);
-    if (/^\d+$/.test(second)) {
-      for (const [column, typed] of [['name', shownName], ['resources', shownResources]]) {
-        const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${second}`);
-        if (stored.hex !== b.hex(typed)) problems.push(`${column}: ${b.cpLength(typed)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
+    // Each field is probed in a booking of its own, so a refusal of one cannot mask what happens to the other.
+    // The outcome must be visible either way: the box limits the text, the booking stores it whole, or the
+    // booking is refused with a length-specific message (alert or page). No row and no message is a defect too.
+    const probeOverlong = async (column, selector, typed, otherName) => {
+      const popup = await openBooking();
+      if (otherName) await popup.locator('#keyword').fill(otherName);
+      await popup.locator(selector).fill(typed);
+      const shown = await popup.locator(selector).inputValue();
+      if (b.cpLength(shown) < b.cpLength(typed)) { await popup.close().catch(() => {}); return; } // visibly limited by the box
+      const highWater = Number(sql.value(`SELECT COALESCE(MAX(appointment_no),0) FROM appointment WHERE provider_no=${owner}`));
+      let pageText = '';
+      const dialogs = await h.withExpectedDialogs(popup, async () => {
+        await ui.clickAndAwaitReload(popup, popup.locator('#addButton'), { required: false });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (!popup.isClosed()) pageText = await popup.locator('body').innerText().catch(() => '');
+      });
+      const row = sql.value(`SELECT appointment_no FROM appointment WHERE provider_no=${owner} AND appointment_no>${highWater} ORDER BY appointment_no DESC LIMIT 1`);
+      if (/^\d+$/.test(row)) {
+        const stored = b.readStored(sql, 'appointment', column, `${byApptNo()}${row}`);
+        if (stored.hex !== b.hex(shown)) problems.push(`${column}: ${b.cpLength(shown)} characters were typed into a box with no maxlength and the booking was accepted, but ${stored.chars} were stored (column ${b.columnLength(sql, 'appointment', column)}); silent truncation`);
+      } else if (!b.lengthRefusal([...dialogs.map(entry => entry.text), pageText].join('\n'))) {
+        problems.push(`${column}: a ${b.cpLength(shown)}-character entry past its column was not saved, but no length refusal was shown (no alert or page message naming the limit)`);
       }
-    }
-    await popup.close().catch(() => {});
+      await popup.close().catch(() => {});
+      await reloadDaySheet();
+    };
+    await probeOverlong('name', '#keyword', longName, null);
+    await probeOverlong('resources', 'form#addappt [name="resources"]', longResources, `N${marker.slice(-6)}`);
     h.assert(problems.length === 0, problems.join(' || '));
   });
 }

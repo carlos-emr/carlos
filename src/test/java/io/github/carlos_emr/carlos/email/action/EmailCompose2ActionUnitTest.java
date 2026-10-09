@@ -222,6 +222,20 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should give the window its draft back when a patient lookup fails, so a refresh retries")
+    void shouldRestoreDraft_whenRecipientLookupFails() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.getRecipients(any(), eq(10001)))
+                .thenThrow(new IllegalStateException("FAKE transient lookup failure"))
+                .thenReturn(new List<?>[]{List.of(), List.of()});
+
+        MockHttpServletRequest failed = prepare(keyA);
+        assertThat(failed.getAttribute("FAKE-result")).isEqualTo("eFormError");
+        assertThat(failed.getAttribute("errorMessage")).isNotEqualTo(EmailCompose2Action.COMPOSE_EXPIRED_MESSAGE);
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
     @DisplayName("should ignore and clear compose fields an older version left in the session")
     void shouldIgnoreAndClearOldSessionFields_whenDraftIsTaken() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));

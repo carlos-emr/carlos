@@ -625,7 +625,10 @@ async function workflow(s, { forms = FORMS, foldSavedForms = false, select = val
     h.assert(response.status() === 200 && /application\/pdf/.test(response.headers()['content-type'] || ''),
       'Print did not answer a PDF');
     h.assert(body.subarray(0, 4).toString() === '%PDF', 'Print answered something other than a PDF document');
-    h.assert(pdfText(body).includes(marker), 'The PDF does not carry the saved prose');
+    // The whole prose, not just its marker prefix, so a dropped or truncated tail fails. pdfText yields one line per
+    // PDF string literal and a wrapped cell splits across literals, so whitespace is compared away on both sides.
+    const squash = value => value.replace(/\s+/g, '');
+    h.assert(squash(pdfText(body)).includes(squash(entry.text)), 'The PDF does not carry the whole saved prose');
   }
 
   const fresh = await s.context.newPage();

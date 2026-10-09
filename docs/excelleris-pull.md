@@ -207,6 +207,7 @@ INI format. Values are taken literally (`%` and `;` inside a value are fine). Do
 | `server_public_key` or `server_public_key_file` | one of, unless `key_pair_file` | Base64 X.509 public key from the Key Manager page. |
 | `timeout_seconds` | no | Per-request timeout, default 120, minimum 5. |
 | `ca_file` | no | PEM bundle for an EMR served under a private CA. Must be a regular file owned by the service user or root and not writable by group or other. |
+| `pinned_cert_sha256` | no | Accept exactly one EMR certificate by its SHA-256 fingerprint, instead of checking its CA, expiry and hostname. Only accepted when `base_url` is `localhost`, `127.0.0.1` or `::1`, and not together with `ca_file`. For an EMR on the same host whose certificate cannot verify (self-signed, issued for another name, or expired), which the Mule bridge used to accept blindly. Paste the output of `openssl x509 -noout -fingerprint -sha256 -in cert.pem` (the `sha256 Fingerprint=` prefix and colons are optional). Any other certificate is refused during the handshake, before a request is sent, and the error names the fingerprint the server presented. See "An EMR whose certificate does not verify". |
 | `max_upload_attempts` | no | Runs with a transient upload failure (5xx, a redirect to the login page, an unreadable reply) tolerated for one file before it moves to `failed/`. Default 24, minimum 1. Permanent rejections (400, 403, 406) go to `failed/` at once. A 429 is not charged to any file (see Operations). |
 
 ### `[paths]`
@@ -348,6 +349,7 @@ the pattern of the `carlos-emr-backup` units shipped by the Debian package.
 | `upload-source validation` (403, CARLOS) | CARLOS refused the upload before checking the signature; see the CARLOS log. |
 | `instead of an upload result` | The EMR answered HTTP 200 with a page, not a result: usually the multipart layer refused the request (size limit). The file stays in `inbox/`. |
 | `could not import the file` | The handler type on the key is wrong for the feed, or the EMR log has the parse error. |
+| `does not match [carlos] pinned_cert_sha256` | The EMR now serves a different certificate (renewed or replaced). Check it is the expected one, then paste the fingerprint the message names. |
 | `uses a cipher this OpenSSL does not enable` | The PFX uses a legacy cipher. Re-export it with the command in the message. |
 
 ## Converting a GoFetchRover (LifeLabs/Rover) installation
@@ -389,6 +391,11 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
      `"root_cert_path": false`; here, put the endpoint's certificate in `ca_file` instead.
    - The OSCAR login (`username`, `password`, `pin`) is not needed for `flavour = oscar19`.
      Leave all three empty and the upload is session-less, exactly as Mule's was.
+   - Mule never checked OSCAR's certificate, so the `https://localhost:8443` connector it
+     used often carries a self-signed or long-expired one. Check with
+     `curl -s -o /dev/null -w '%{http_code}\n' https://localhost:8443/oscar/index.jsp`; a
+     `000` means it will not verify. Then set `pinned_cert_sha256` (see "An EMR whose
+     certificate does not verify").
 4. Run `--check-config`, then `--dry-run` against the same `base_url` GoFetchRover used,
    then one real pull against the LifeLabs test host if the site still has test
    credentials. A result file that GoFetchRover had already handed to Mule is answered
@@ -410,6 +417,43 @@ enrolment with LifeLabs or a new key in OSCAR. Default install root is `/opt/gof
 | Error mail from Mule via SMTP. | Alert mail from the tool via sendmail, naming the failing step. |
 | Runs as a container; secrets in `volumes/secrets`. | Runs as a service user; refuses root; refuses group- or world-readable secrets. |
 
+## An EMR whose certificate does not verify
+
+The tool verifies the EMR's certificate like any HTTPS client: a trusted issuer (the system
+store, plus `[carlos] ca_file`), a validity period that includes today, and a name matching
+the host in `base_url`. `ca_file` fixes only the first. An OSCAR reached on
+`https://localhost:8443` with a certificate issued for `*.clinic.example`, or one that
+expired years ago because the Mule bridge never noticed, fails the other two.
+
+When the EMR runs on the same host as the tool, pin that certificate instead:
+
+```sh
+openssl s_client -connect localhost:8443 -servername localhost </dev/null 2>/dev/null \
+  | openssl x509 -noout -fingerprint -sha256
+```
+
+```ini
+[carlos]
+base_url = https://localhost:8443/oscar
+pinned_cert_sha256 = AB:CD:...:EF
+```
+
+What the pin does and does not do:
+
+- The connection is still TLS 1.2 or better, and still encrypted.
+- Exactly the certificate with that fingerprint is accepted. Its issuer, dates and names are
+  not looked at, so expiry no longer stops uploads; nothing else about the EMR side changes.
+- Any other certificate is refused during the TLS handshake, before a byte of the request is
+  written; the run alerts and names the fingerprint the server presented.
+- It is refused at startup for a `base_url` that is not `localhost`, `127.0.0.1` or `::1`.
+  Without a hostname or CA check, a pin is only as safe as the route to the server, and
+  loopback never leaves the machine. An EMR on another host needs a certificate that
+  verifies, or `ca_file` for a private CA.
+- When the EMR's certificate is replaced (a renewal, a new keystore), uploads stop with that
+  alert until the new fingerprint is pasted in. Files wait in `inbox/` meanwhile.
+
+Every run logs the pinned fingerprint at `INFO`, so the log shows the mode is in use.
+
 ## What the Mule bridge did, and what this tool does instead
 
 Read from `hl7_file_management` (Bitbucket `oscaremr/hl7_file_management`, `Uploader.java`
@@ -423,7 +467,7 @@ and `mule-config*.xml`), so the comparison is against the actual bridge, not a g
 | Never logged in. OSCAR 19 exempts the route from its login filter. | Same on `oscar19` when no credentials are configured. CARLOS requires a logged-in `_lab` session, so the tool logs in there. |
 | Parsed `<outcome>` from the `uploadComplete.jsp` XML reply. | Same on CARLOS: the `<outcome>` document is the result. On OSCAR 19 the HTTP status is the result, and an `<outcome>` document is still honoured if a build returns one. A 200 that is neither is never archived as a success. |
 | Moved files to `completed` or `error` directories, renamed with a timestamp; emailed on error. | `done/` (compressed, with retention) and `failed/`; alert email with the failing step. |
-| Accepted any server certificate (`EasySSLProtocolSocketFactory`). | Verifies the server certificate; `ca_file` adds a private CA. |
+| Accepted any server certificate (`EasySSLProtocolSocketFactory`). | Verifies the server certificate; `ca_file` adds a private CA. On a loopback `base_url`, `pinned_cert_sha256` accepts the one certificate it names, so an EMR Mule reached despite an expired or wrong-name certificate still works without accepting any other. |
 | 8 second connection timeout, no read timeout. | Configurable timeout on connect and read. |
 | For MDS results, appended the audit text to a `CURHST.0` file. | Not implemented. MDS is a different lab feed; an Excelleris upload's audit is always `success`. |
 
@@ -448,7 +492,10 @@ requests, whatever `[carlos] flavour` is set to (the Excelleris session code nev
   `MessageCount` that disagrees with the number of `<Message>` elements is refused with a
   negative acknowledgment and an alert (the script never looked at the count; the Mule bridge
   refused it too), and an acknowledgment reply that is neither form (a maintenance page, say)
-  is an alert here, where the script only logged it.
+  is an alert here, where the script only logged it. The exception is the negative
+  acknowledgment that closes an empty pull, the normal quiet run: nothing was delivered, so
+  an empty reply (what the Ontario test host sends) is logged at `INFO` and any other odd
+  reply as a `WARNING`, without failing the run.
 - One difference by design: a password is URL-encoded. The script sent it raw, which broke
   on `&`, `+`, `%`, `#` and spaces. For any other password the bytes are identical.
 - One difference by design: the User-Agent. The script's string carries a literal backslash
@@ -540,8 +587,9 @@ token before the first scheduled run.
   signature) is the legacy format the EMR's `LabUpload2Action` decrypts. It is kept in one
   class, `LabUploadEnvelope`, so it can be swapped when CARLOS issue #3413 lands a modern
   format.
-- Server certificates are always verified. `ca_file` adds a trust anchor; nothing disables
-  verification.
+- Server certificates are always verified. `ca_file` adds a trust anchor. The one exception
+  is `[carlos] pinned_cert_sha256`, which replaces verification with an exact SHA-256 match
+  and is only accepted for an EMR on loopback; nothing disables verification outright.
 
 ## Testing
 

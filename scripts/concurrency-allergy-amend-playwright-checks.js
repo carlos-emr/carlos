@@ -85,9 +85,15 @@ async function workflow(s) {
     ]);
     h.assert(response.status() < 500, `Session B's stale amendment answered HTTP ${response.status()}`);
     // A correct application may store B's amendment (merge) or refuse it; either is acceptable here and the next step judges the
-    // outcome. An explicit 4xx refusal is consumed so the strict page check does not report it; a save that answered
+    // outcome. An explicit stale-edit (conflict) refusal is consumed so the strict page check does not report it; a save that answered
     // success must land, so give it a bounded moment and require the row then, so a dropped save cannot pass as one.
     if (response.status() >= 400) {
+      // Only a refusal BECAUSE the original is no longer active counts: a CSRF, privilege or validation 4xx would
+      // also leave A's single active row behind and must not pass as conflict handling.
+      const body = await response.text().catch(() => '');
+      h.assert([409, 412].includes(response.status())
+        || /conflict|stale|no longer active|already (?:been )?(?:archived|amended|modified|changed)|(?:modified|changed|updated) (?:by|in) another/i.test(body),
+      `Session B's stale amendment was refused with HTTP ${response.status()}, but not as a stale-edit conflict (expected 409/412 or a conflict message)`);
       await bPopup.waitForTimeout(500);
       consumeExpectedFailure(s.recorder, mark, { status: response.status(), path: /\/rx\/addAllergy2?$/ });
       return;
