@@ -242,6 +242,30 @@ class PersonalEmailFooterMariaDbIntegrationTest {
         assertThat(service.ownFooter("101")).isEqualTo(rollback?"Old personal":"Recreated committed");
         assertOtherOwnerAndClinic();
     }
+    @ParameterizedTest @CsvSource({"true,true,true","true,true,false","true,false,true","true,false,false", "false,true,true","false,true,false","false,false,true","false,false,false"})
+    void shouldNotBlockOtherOwner_withExistingRowPointLocksOrClear(
+            boolean repeatableRead,boolean clear,boolean otherAlreadyExists)throws Exception {
+        if(otherAlreadyExists)service.saveOwnFooter("202","Old other");
+        service.saveOwnFooter("101","Old first");
+        int isolation=repeatableRead?TransactionDefinition.ISOLATION_REPEATABLE_READ:TransactionDefinition.ISOLATION_READ_COMMITTED;
+        var held=new CountDownLatch(1);var release=new CountDownLatch(1);
+        try(var workers=Executors.newFixedThreadPool(2)){
+            var first=workers.submit(()->tx(isolation).execute(status->{
+                service.saveOwnFooter("101",clear?"":"Changed first");
+                held.countDown();await(release);return true;
+            }));
+            try{
+                if(!held.await(10,TimeUnit.SECONDS))first.get(1,TimeUnit.SECONDS);
+                var other=workers.submit(()->{service.saveOwnFooter("202","Changed other");return true;});
+                assertThat(other.get(5,TimeUnit.SECONDS)).isTrue();
+            }finally{release.countDown();}
+            assertThat(first.get(10,TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(service.ownFooter("101")).isEqualTo(clear?"":"Changed first");
+        assertThat(service.ownFooter("202")).isEqualTo("Changed other");
+        assertThat(new TransactionTemplate(manager).<String>execute(s->dao.findClinicEmailFooter().get(0).getValue()))
+                .isEqualTo("Mandatory Clinic");
+    }
     @ParameterizedTest @CsvSource({"true","false"})
     void shouldHonorCallerDaoRemovals_beforeJoiningFooterSave(boolean rollback){
         int retained=seedDuplicatePersonal();
