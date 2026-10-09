@@ -12,12 +12,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
 import java.util.zip.CRC32;
+import java.util.zip.Deflater;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -39,6 +41,7 @@ import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -161,6 +164,17 @@ class EmailFooterLogoServiceUnitTest {
         }
 
         @Test
+        @DisplayName("should refuse from the header alone a small PNG that claims a huge picture")
+        void shouldRefuseUnread_whenPngHeaderClaimsHugePicture() {
+            // About 100 bytes whose header claims 60,000 x 60,000 pixels. Decoding it would need
+            // gigabytes, so this passes only if the size is checked before the picture is read.
+            byte[] upload = pngClaiming(60_000, 60_000);
+            assertThat(upload.length).isLessThan(200);
+
+            assertTimeoutPreemptively(Duration.ofSeconds(5), () -> assertRefused(upload, Rejection.TOO_LARGE));
+        }
+
+        @Test
         @DisplayName("should refuse other formats, other files and damaged pictures")
         void shouldRefuse_whenNotPngOrJpeg() throws IOException {
             assertRefused(image("gif", 20, 20, BufferedImage.TYPE_INT_RGB), Rejection.NOT_AN_IMAGE);
@@ -278,19 +292,13 @@ class EmailFooterLogoServiceUnitTest {
 
     /** A PNG with a tEXt chunk (keyword, text) inserted straight after its IHDR chunk. */
     private static byte[] withPngTextChunk(byte[] png, String keyword, String text) {
-        byte[] data = (keyword + "\0" + text).getBytes(StandardCharsets.ISO_8859_1);
-        byte[] type = "tEXt".getBytes(StandardCharsets.ISO_8859_1);
-        CRC32 crc = new CRC32();
-        crc.update(type);
-        crc.update(data);
-        ByteBuffer chunk = ByteBuffer.allocate(12 + data.length)
-                .putInt(data.length).put(type).put(data).putInt((int) crc.getValue());
+        byte[] chunk = pngChunk("tEXt", (keyword + "\0" + text).getBytes(StandardCharsets.ISO_8859_1));
         // Signature (8) + IHDR chunk (4 length + 4 type + 13 data + 4 CRC) = 33 bytes.
         int afterHeader = 33;
-        byte[] out = new byte[png.length + chunk.capacity()];
+        byte[] out = new byte[png.length + chunk.length];
         System.arraycopy(png, 0, out, 0, afterHeader);
-        System.arraycopy(chunk.array(), 0, out, afterHeader, chunk.capacity());
-        System.arraycopy(png, afterHeader, out, afterHeader + chunk.capacity(), png.length - afterHeader);
+        System.arraycopy(chunk, 0, out, afterHeader, chunk.length);
+        System.arraycopy(png, afterHeader, out, afterHeader + chunk.length, png.length - afterHeader);
         return out;
     }
 
@@ -319,6 +327,33 @@ class EmailFooterLogoServiceUnitTest {
             writer.dispose();
         }
         return out.toByteArray();
+    }
+
+    /** A greyscale PNG whose header claims {@code width} x {@code height} but whose data holds a single row. */
+    private static byte[] pngClaiming(int width, int height) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.writeBytes(new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'});
+        // Bit depth 8, colour type 0 (grey), default compression, filter and interlace.
+        out.writeBytes(pngChunk("IHDR", ByteBuffer.allocate(13).putInt(width).putInt(height)
+                .put((byte) 8).put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0).array()));
+        Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
+        deflater.setInput(new byte[width + 1]);
+        deflater.finish();
+        byte[] buffer = new byte[256];
+        int length = deflater.deflate(buffer);
+        deflater.end();
+        out.writeBytes(pngChunk("IDAT", Arrays.copyOf(buffer, length)));
+        out.writeBytes(pngChunk("IEND", new byte[0]));
+        return out.toByteArray();
+    }
+
+    private static byte[] pngChunk(String typeName, byte[] data) {
+        byte[] type = typeName.getBytes(StandardCharsets.ISO_8859_1);
+        CRC32 crc = new CRC32();
+        crc.update(type);
+        crc.update(data);
+        return ByteBuffer.allocate(12 + data.length)
+                .putInt(data.length).put(type).put(data).putInt((int) crc.getValue()).array();
     }
 
     /** A PNG with bytes after its end, as a camera or editor might leave: the re-saved copy drops them. */

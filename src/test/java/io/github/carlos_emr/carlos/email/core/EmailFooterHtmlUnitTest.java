@@ -57,6 +57,14 @@ class EmailFooterHtmlUnitTest {
         }
 
         @Test
+        @DisplayName("should drop disguised script links and protocol-relative links")
+        void shouldDropHref_whenProtocolDisguisedOrMissing() {
+            assertThat(EmailFooterHtml.clean("<a href=\"&#106;avascript:alert(1)\">A</a>"
+                    + "<a href=\"java\tscript:alert(1)\">B</a><a href=\"//elsewhere.example/x\">C</a>"))
+                    .isEqualTo("<a>A</a><a>B</a><a>C</a>");
+        }
+
+        @Test
         @DisplayName("should return empty for null, blank or a footer with no visible text")
         void shouldReturnEmpty_whenNoVisibleText() {
             assertThat(EmailFooterHtml.clean(null)).isEmpty();
