@@ -87,15 +87,25 @@ Queue and stale-recovery claims lock with `FOR UPDATE SKIP LOCKED`. A claim skip
 
 ## Configuration and validation
 
+Administration > SMS (`admin/ConfigureSms`, `_admin.sms` read to view, write to save) stores the settings in `sms_config` (`V1.0.59`). Until someone saves that page, the properties below still apply; once saved, the stored values win:
+
+- **Provider:** only providers with an installed client can be chosen, because sends through any other would fail. Today that is `STUB` only.
+- **Sending on/off:** while off, `SmsSendService.send` and `SmsQueueService.enqueue` refuse new messages without recording them, and the scheduler leaves already-queued messages (and stale-send recovery) alone until sending is turned back on. The system test still works, so the setup can be checked before sending is turned on.
+- **Queue scheduler on/off:** applied at once on the server where it is saved (the scheduler starts or stops after the save commits); other servers pick it up at their next start.
+- **Sender number, webhook secret and provider credentials:** the secret and every credential value are encrypted at rest with `EncryptionUtils` (`encryption.util.secret.key`, outside the database). The page never shows them back; a blank field keeps the stored value. Only the credential fields the chosen provider declares (`SmsProviderClient.credentialFields()`) are kept.
+- **Send system test:** sends the fixed text "CARLOS SMS system test. No reply needed." to a number the administrator types, through `STUB` only, as a `SYSTEM_TEST` with no patient. It still needs `sms.systemTest.enabled=true`; never type a patient's number.
+- Each save from Administration > SMS writes an audit record (`SmsConfigAuditRecorder`, content `sms_config`): who saved, the provider and switches now in force, and the names of the settings that changed. It never holds a secret, a credential or the sender number. The record joins the save's transaction, so a save that cannot be audited is not stored.
+- **Saves from an out-of-date page are refused.** The form sends back the settings version it showed, and the save is refused with "another administrator saved…" when the stored version has moved on, so a page left open in another tab cannot silently put back settings someone has since changed (such as turning sending on again). Two saves racing each other are refused the same way (MariaDB error 1020 or a duplicate key). A second click on Save, whose settings the first click already stored, is reported as saved. If a secret cannot be encrypted (no working `encryption.util.secret.key`), the form shows an error and nothing is stored.
+
 - `sms.provider.default=STUB`: optional default for synthetic tests. An explicit unknown value blocks outbound SMS instead of silently simulating success. Known but unimplemented adapters are reported at startup.
 - `sms.systemTest.enabled=true`: permits `SYSTEM_TEST` messages without a patient consent record. It has no effect on patient messages or appointment reminders, which always need recorded SMS consent.
 - `sms.queue.scheduler.enabled=true`: required for automatic queue draining and stale recovery. It defaults off. Without it, invoke the worker explicitly; a queued response does not mean sent.
 - `sms.queue.scheduler.intervalSeconds=60` and `sms.queue.scheduler.batchSize=60`: default polling controls.
 - The initial database-coordinated limit is five sends per five-second fixed window per SMS backend. Confirm real carrier limits before enabling an adapter.
 
-Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. There is no browser flow to validate until a UI/API entry point is implemented.
+Run `mvn '-Dtest=**/sms/**/*Test' test` for the module's unit, persistence and competing-transaction tests. Tests use synthetic data. The browser entry point is Administration > SMS (`admin/ConfigureSms`): check it by saving the settings and sending a system test, which always goes through `STUB`.
 
-Schema installation uses `V1.0.25__add_sms_system_of_record.sql`, `V1.0.31__add_sms_security_objects.sql`, `V1.0.32__add_sms_consent.sql` and `V1.0.54__activate_sms_consent.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
+Schema installation uses `V1.0.25__add_sms_system_of_record.sql`, `V1.0.31__add_sms_security_objects.sql`, `V1.0.32__add_sms_consent.sql`, `V1.0.54__activate_sms_consent.sql` and `V1.0.59__add_sms_config.sql` in the active common Flyway migrations, for new installations and upgrades. Do not run the obsolete prototype `database/mysql/updates` script. Databases created manually from an earlier draft of this unmerged PR require an explicit schema/data conversion before `V1.0.25`: the draft `transaction_type`/`DIRECT` representation became `message_purpose`/`PATIENT_MESSAGE`. Do not drop existing SMS records to bypass a migration failure.
 
 ## Security objects
 
@@ -107,16 +117,16 @@ SMS has three security objects. A role's grant is a ladder, `x` > `w` > `u` > `r
 | `_admin.sms` | SMS configuration and the operational views (queue backlog, failures) | `w` to change, `r` to view | `admin`: `x` |
 | `_msgSMS` | Reading a stored message body through `SmsMessageBodyReadService` (audited) | `r`, plus `_demographic` `r` when the transaction has a patient | `admin` and `doctor`: `x` |
 
-- Only `_msgSMS` is enforced today, by `CarlosSmsMessageBodyAuthorizationService`. `_sms` and `_admin.sms` are seeded ahead of the code (`V1.0.31__add_sms_security_objects.sql`) so the grants exist before the first gate ships; nothing checks them yet. `_msgSMS` is seeded by `V1.0.25`.
+- `_msgSMS` is enforced by `CarlosSmsMessageBodyAuthorizationService`; `_sms` `r` by `ViewSmsHistory2Action` (the patient's SMS history, #3839, together with `_demographic` `r` for that patient); and `_admin.sms` by `ConfigureSms2Action` (Administration > SMS, #3836: `r` to view the page, `w` to save or send a system test). `_msgSMS` is seeded by `V1.0.25`, and `_sms` and `_admin.sms` by `V1.0.31__add_sms_security_objects.sql`.
 - Both migrations leave any existing clinic row for a role and object untouched, whatever its privilege.
 - Grants take effect on the next request: privileges are read from `secObjPrivilege` on every check and nothing caches them, so no restart is needed after the migration.
 - A clinic that wants a role to view history without sending grants it `r` on `_sms`.
 - `_admin` = `x` confers nothing on `_admin.sms`; a dotted object needs its own row.
 
-The actions that check `_sms` and `_admin.sms` arrive with #3836, #3838, #3839 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things for the first of those PRs to settle, because the current code does not:
+The history view (#3839) and the settings page (#3836) are the first actions to check `_sms` and `_admin.sms`; the rest arrive with #3838 and #3841. They follow the security-check rules in `CLAUDE.md` and `docs/soap-rbac-hardening.md`: the paren-form `SecurityException` message, and the patient's `demographicNo` rather than `null` whenever the patient is known. Two things each new action has to handle:
 
-- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so both must be added.
-- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal.
+- A Struts action's refusal is handled as a 403 only if its package maps `java.lang.SecurityException` to a `securityError` global result (see `struts-form.xml`); otherwise the exception reaches the container error page. The demographic package (`sms/ViewSmsHistory`) and the admin package (`admin/ConfigureSms`) have both. The messenger and eform packages define neither the mapping nor the result today, and `carlos-default` supplies no result, so an SMS action placed there must add both.
+- `CarlosSmsMessageBodyAuthorizationService` throws `commn.exception.AccessDeniedException`, which no Struts package maps to a refusal. The caller must catch it: `ViewSmsHistory2Action.showMessage` renders a denial page instead of the text.
 
 ## Required before real SMS traffic
 

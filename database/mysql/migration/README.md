@@ -38,6 +38,7 @@ migration/
            V1.0.43__patient_portal_invite_delivery.sql
            V1.0.54__activate_sms_consent.sql  # release/2026.08 later used V1.0.54 too: renumber at the forward-merge
            V1.0.57__one_live_consent_per_type.sql  # merged as V1.0.33 (#3917), renumbered above both lines (#3917 follow-up)
+           V1.0.59__add_sms_config.sql  # SMS settings (#3927); 58 is taken by #4440; number checked again at merge
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
