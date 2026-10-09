@@ -24,8 +24,8 @@
                         <c:forEach var="attempt" items="${portalFooterAudit.attempts}">
                             <details class="portal-footer-attempt border rounded p-2 mb-2">
                                 <summary>
-                                    <c:out value="${attempt.preparedAt}"/> —
-                                    <fmt:message key="admin.configureEmail.portalFooter.kind.${attempt.kind}"/> —
+                                    <c:out value="${attempt.preparedAt}"/> &#8212;
+                                    <fmt:message key="admin.configureEmail.portalFooter.kind.${attempt.kind}"/> &#8212;
                                     <fmt:message key="admin.configureEmail.portalFooter.status.${attempt.status}"/>
                                 </summary>
                                 <c:if test="${not empty attempt.statusAt}">
