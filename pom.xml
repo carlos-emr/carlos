@@ -1798,6 +1798,15 @@
                         <include>**/*Test.java</include>
                         <include>**/*Tests.java</include>
                     </includes>
+                    <!-- Fork test JVMs under the locale the packaged service runs with
+                         (carlos-emr.service sets LANG=C.UTF-8). The JVM derives its filename
+                         encoding (sun.jnu.encoding) from the locale and it cannot be overridden
+                         by a system property, so under a POSIX/C shell non-ASCII document names
+                         fail with InvalidPathException in tests but never in production. -->
+                    <environmentVariables>
+                        <LANG>C.UTF-8</LANG>
+                        <LC_ALL>C.UTF-8</LC_ALL>
+                    </environmentVariables>
                     <argLine>
                        @{argLine}
                        -Xmx2048m

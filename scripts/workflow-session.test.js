@@ -87,3 +87,32 @@ test('silently retained chart support rows fail cleanup before deleting the pati
   await assert.rejects(cleanupOwnedWorkflow(f), /chart support rows were not removed/);
   assert.deepEqual(f.events, ['close browser', 'delete chart support rows', 'dispose credentials']);
 });
+
+for (const contextOptions of [undefined, { locale: 'en-US' }]) {
+  test(`workflow browser context retains ${contextOptions ? 'the requested locale' : 'the default locale'}`, async t => {
+    const h = require('./lib/playwright-harness');
+    const { runWorkflow } = require('./lib/workflow-session');
+    let received;
+    let closed = false;
+    const context = { setDefaultTimeout() {}, on() {} };
+    const browser = {
+      async newContext(options) { received = options; return context; },
+      async close() { closed = true; },
+    };
+    t.mock.method(h, 'readConfig', () => ({ testUser: 'fixture', mysql: {}, ignoreHTTPSErrors: true }));
+    t.mock.method(h, 'createSqlRunner', () => ({ value: () => '999998', dispose() {} }));
+    t.mock.method(h, 'launchBrowser', async () => browser);
+    t.mock.method(h, 'login', async () => ({}));
+    t.mock.method(h, 'runCheck', async ({ run, cleanup }) => {
+      try { await run({ cancellation: { run: fn => fn() } }); }
+      finally { await cleanup(); }
+      return { outcome: 'PASS' };
+    });
+    const result = await runWorkflow('context-options', async session => {
+      assert.equal(session.context, context);
+    }, { openPatient: false, contextOptions });
+    assert.equal(result.outcome, 'PASS');
+    assert.deepEqual(received, { ...(contextOptions || {}), ignoreHTTPSErrors: true });
+    assert.equal(closed, true);
+  });
+}

@@ -166,20 +166,50 @@ async function workflow(s) {
     for (const test of TESTS) {
       const button = rowDisplay.getByRole('button', { name: test.name, exact: true });
       h.assert(await button.count() === 1, `Row Display does not list ${test.name}`);
-      const [response] = await Promise.all([
-        rowDisplay.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/lab/ViewDisplayLabValue'), { timeout: TIMEOUT }),
-        button.click(),
-      ]);
+      // Hold the real row request until the loading state is measured; its response is unmodified.
+      let releaseRow;
+      const loadingState = new Promise(resolve => { releaseRow = resolve; });
+      const routePattern = '**/lab/ViewDisplayLabValue';
+      const holdRow = async route => { await loadingState; await route.continue(); };
+      await rowDisplay.route(routePattern, holdRow);
+      let response;
+      try {
+        [response] = await Promise.all([
+          rowDisplay.waitForResponse((r) => new URL(r.url()).pathname.endsWith('/lab/ViewDisplayLabValue'), { timeout: TIMEOUT }),
+          (async () => {
+            await button.click();
+            const loader = rowDisplay.locator('#cumulativeLab img[src$="/images/spinner.jpg"]').last();
+            await loader.waitFor({ state: 'visible', timeout: TIMEOUT });
+            await loader.evaluate(img => img.decode());
+            h.assert((await loader.locator('..').getByRole('status').innerText()).trim() === 'Loading ...',
+              'The loading indicator did not expose its localized status text');
+            const bounds = await loader.boundingBox();
+            h.assert(bounds && bounds.width === 100 && bounds.height === 77,
+              'The row loading image did not retain the standard 100 by 77 pixel size');
+            releaseRow();
+          })(),
+        ]);
+      } finally {
+        releaseRow();
+        await rowDisplay.unroute(routePattern, holdRow);
+      }
       h.assert(response.status() === 200, `lab/ViewDisplayLabValue answered HTTP ${response.status()}`);
       const section = rowDisplay.locator('#cumulativeLab .preventionSection').filter({ hasText: test.name.slice(0, 8) }).last();
       await section.waitFor({ state: 'visible', timeout: TIMEOUT });
+      h.assert(await rowDisplay.locator('#cumulativeLab [role="status"]').count() === 0,
+        'Loaded lab results retained the temporary loading status');
       const shown = (await section.locator('.preventionProcedure p').allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim());
       h.assert(shown.length === 1 && shown[0].startsWith(`${test.value} ${DATE}`),
         `Row Display shows ${test.name} as ${JSON.stringify(shown)}`);
+      await section.locator('.preventionProcedure').hover();
+      await rowDisplay.waitForFunction(({ value, units, range }) =>
+        typeof oDv !== 'undefined' && getComputedStyle(oDv).visibility === 'visible'
+          && dvHdr.textContent.trim() === value && dvBdy.textContent.trim() === `${units} ${range}`,
+      { value: test.value, units: test.unit, range: `${test.low} - ${test.high}` }, { timeout: TIMEOUT });
     }
     await rowDisplay.close();
   });
 }
 
-if (require.main === module) runWorkflow('lab-manual-entry-cumulative', workflow);
+if (require.main === module) runWorkflow('lab-manual-entry-cumulative', workflow, { contextOptions: { locale: 'en-US' } });
 module.exports = { workflow };

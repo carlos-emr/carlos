@@ -1258,12 +1258,33 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
      * @see FlowSheetCustomization
      */
     public MeasurementFlowSheet getFlowSheet(String flowsheetName, List<FlowSheetCustomization> list) {
+        return customizeFlowSheet(getFlowSheet(flowsheetName), list);
+    }
+
+    /**
+     * Resolves the patient/provider/clinic definition before applying item customizations.
+     * Changes are applied to an independent copy so another patient's cached definition
+     * is not modified. If customization fails, the resolved definition is retained.
+     *
+     * @param flowsheetName internal flowsheet identifier
+     * @param providerNo current provider number
+     * @param demographicNo patient demographic number
+     * @param list ordered item customizations for this patient and provider
+     * @return customized copy, or the resolved definition when no changes apply
+     */
+    public MeasurementFlowSheet getFlowSheet(String flowsheetName, String providerNo,
+            Integer demographicNo, List<FlowSheetCustomization> list) {
+        return customizeFlowSheet(getFlowSheet(flowsheetName, providerNo, demographicNo), list);
+    }
+
+    private MeasurementFlowSheet customizeFlowSheet(MeasurementFlowSheet baseFlowsheet,
+            List<FlowSheetCustomization> list) {
         log.debug("IN CUSTOMIZED FLOWSHEET ");
         if (list.size() > 0) {
             log.debug("IN CUSTOMIZED FLOWSHEET " + list.size());
             try {
                 // Create a deep copy of the base flowsheet via XML round-trip
-                MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(getFlowSheet(flowsheetName));
+                MeasurementFlowSheet personalizedFlowsheet = makeNewFlowsheet(baseFlowsheet);
 
                 // Apply each customization action in order
                 for (FlowSheetCustomization cust : list) {
@@ -1275,9 +1296,18 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
                             item.setRuleBase(rb);
                         }
-                        personalizedFlowsheet.addAfter(cust.getMeasurement(), item);
+                        // A scoped definition may omit an anchor from a broader scope.
+                        // Keep the added item by appending it when that anchor is absent.
+                        String anchor = cust.getMeasurement();
+                        if (!personalizedFlowsheet.getMeasurementList().contains(anchor)) {
+                            anchor = null;
+                        }
+                        personalizedFlowsheet.addAfter(anchor, item);
                     } else if (FlowSheetCustomization.UPDATE.equals(cust.getAction())) {
                         log.debug(" CUST UPDATING");
+                        if (!personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            continue;
+                        }
                         FlowSheetItem item = getItemFromString(cust.getPayload());
                         if (item.getTargetColour() != null && item.getTargetColour().size() > 0) {
                             KieBase rb = personalizedFlowsheet.loadMeasurementRuleBase(item.getTargetColour());
@@ -1287,7 +1317,9 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
 
 
                     } else if (FlowSheetCustomization.DELETE.equals(cust.getAction())) {
-                        personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        if (personalizedFlowsheet.getMeasurementList().contains(cust.getMeasurement())) {
+                            personalizedFlowsheet.setToHidden(cust.getMeasurement());
+                        }
                         log.debug(" CUST DELETE");
                     } else {
                         log.debug("ERR" + cust);
@@ -1301,7 +1333,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             }
         }
         log.debug("Returning normal flowsheet");
-        return getFlowSheet(flowsheetName);
+        return baseFlowsheet;
     }
 
     /**

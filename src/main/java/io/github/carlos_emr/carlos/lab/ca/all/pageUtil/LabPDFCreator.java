@@ -790,7 +790,10 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                 }
 
                                 table.addCell(cell);
-                                cell.setPhrase(new Phrase(handler.getOBXReferenceRange(j, k), lineFont));
+                                // Handler break markers are layout, while all other range text stays literal in the PDF.
+                                String referenceRange = StringUtils.defaultString(handler.getOBXReferenceRange(j, k))
+                                        .replaceAll("(?i)<br\\s*/?>", "\n");
+                                cell.setPhrase(new Phrase(referenceRange, lineFont));
                                 table.addCell(cell);
                                 cell.setPhrase(new Phrase(handler.getOBXUnits(j, k), lineFont));
                                 table.addCell(cell);

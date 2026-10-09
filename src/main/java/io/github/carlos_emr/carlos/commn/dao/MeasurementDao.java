@@ -302,7 +302,7 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      */
     public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types);
 
-    public List<Object[]> findByCreateDate(Date from, Date to);
+    public List<Integer> findByCreateDate(Date from, Date to);
 
     /**
      * Finds all measurements of a specific type for a patient.

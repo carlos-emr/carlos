@@ -19,10 +19,8 @@
  * the owned tickler with its comments, updates and attachments, restores the preference snapshot,
  * and asserts both.
  *
- * Env: the common contract (lib/playwright-harness.js readConfig()). TICKLER_PREFS_DIRECT=true
- * opens the form by its own route (/setTicklerPreferences?method=viewTicklerTaskAssignee) because
- * the Preferences link (setProviderStaleDate?method=viewTicklerTaskAssignee) renders
- * setNoteStaleDate.jsp on the current build; without it the first step fails on that defect.
+ * Env: the common contract (lib/playwright-harness.js readConfig()). The regression always
+ * follows the actual Preferences link so a direct-route fallback cannot hide a navigation bug.
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -32,6 +30,11 @@ const { waitForSaveSentinel } = require('./tickler-forward-filters-playwright-ch
 
 const PREFERENCE = 'tickler_task_assignee';
 
+/**
+ * Verifies tickler preference persistence and reopening through the actual UI.
+ * @param {object} s Isolated workflow session with owned fixtures and strict browser checks.
+ * @returns {Promise<void>} Resolves after provider, MRP, Default and GET protections pass.
+ */
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const defaultedMessage = `${marker} saved with the preferred default assignee`;
@@ -65,22 +68,14 @@ async function workflow(s) {
   });
 
   const prefs = await s.popup(s.schedule, s.schedule.getByTitle(/Edit your personal setting/i).first(), 'preferences');
-  // The preference form, entered through the Preferences popup link unless TICKLER_PREFS_DIRECT.
   async function openPreferenceForm(label) {
-    let settings;
-    if (process.env.TICKLER_PREFS_DIRECT === 'true') {
-      settings = await s.context.newPage();
-      await h.gotoApp(settings, s.config.baseUrl, '/setTicklerPreferences?method=viewTicklerTaskAssignee');
-      await h.assertNotErrorPage(settings, label);
-    } else {
-      const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
-      await revealAuditLink(prefs, link, 20000);
-      settings = await s.popup(prefs, link, label);
-    }
+    const link = prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();
+    await revealAuditLink(prefs, link, 20000);
+    const settings = await s.popup(prefs, link, label);
+    h.assert(h.pathOnly(settings.url()).endsWith('/setTicklerPreferences'),
+      'The "Set Tickler Preferences" link did not open its own action route');
     h.assert(await settings.locator('#taskAssigneeProvider').count() === 1,
-      'The "Set Tickler Preferences" link did not open the tickler preference form (it opens '
-      + 'setProviderStaleDate?method=viewTicklerTaskAssignee, mapped to setNoteStaleDate.jsp); '
-      + 'TICKLER_PREFS_DIRECT=true drives the form by its own route until the link is fixed');
+      'The "Set Tickler Preferences" link did not open the tickler-assignee form');
     return settings;
   }
 
@@ -88,6 +83,8 @@ async function workflow(s) {
     const settings = await openPreferenceForm('tickler-preferences');
     await settings.locator('#taskAssigneeProvider').check();
     const select = settings.locator('#assigneeSelect');
+    h.assert(await settings.locator('label[for="assigneeSelect"]').isVisible(),
+      'The provider selector has no visible associated label');
     await select.waitFor({ state: 'visible' });
     await select.selectOption(otherNo);
     h.assert(await settings.locator('#taskAssignee').inputValue() === otherNo, 'Choosing a provider did not stage it for submission');
@@ -116,15 +113,81 @@ async function workflow(s) {
     if (!patientList.isClosed()) await patientList.close();
   });
 
-  await s.step('reopening shows the stored provider, and choosing Default removes the preference row', async () => {
+  await s.step('reopening selects the stored provider and saving unchanged preserves it', async () => {
+    const settings = await openPreferenceForm('tickler-preferences-reopen');
+    h.assert(await settings.locator('#taskAssigneeProvider').isChecked()
+      && await settings.locator('#assigneeSelect').inputValue() === otherNo,
+    'Reopening did not restore the saved provider selection');
+    h.assert(await settings.locator('#taskAssignee').inputValue() === otherNo,
+      'Reopening did not stage the saved provider for an unchanged submission');
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'unchanged preference Submit' });
+    await settings.locator('#AlertBanner').waitFor({state: 'visible'});
+    h.assert(preferenceRows() === '1' && storedPreference() === otherNo,
+      'Saving the reopened form changed or duplicated the preference');
+    await settings.close();
+  });
+
+  await s.step('MRP saves and reopens as the selected preference', async () => {
+    const settings = await openPreferenceForm('tickler-preferences-mrp');
+    await settings.locator('#taskAssigneeMRP').check();
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'MRP preference Submit' });
+    await settings.locator('#AlertBanner').waitFor({state: 'visible'});
+    h.assert(preferenceRows() === '1' && storedPreference() === 'mrp', 'MRP was not saved');
+    await settings.close();
+    const reopened = await openPreferenceForm('tickler-preferences-mrp-reopen');
+    h.assert(await reopened.locator('#taskAssigneeMRP').isChecked(), 'Reopening did not select MRP');
+    await reopened.close();
+  });
+
+  await s.step('choosing Default removes the preference row and reopens with Default selected', async () => {
     const settings = await openPreferenceForm('tickler-preferences-reset');
-    h.assert(await settings.locator('#taskAssigneeProvider').isChecked() && await settings.locator('#assigneeSelect').inputValue() === otherNo,
-      'Reopening the preference did not show the stored provider');
     await settings.locator('#taskAssigneeDefault').check();
     await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'tickler preference Submit' });
     await settings.locator('#AlertBanner').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(preferenceRows() === '0', 'Choosing Default did not delete the preference row');
     await settings.close();
+    const reopened = await openPreferenceForm('tickler-preferences-default-reopen');
+    h.assert(await reopened.locator('#taskAssigneeDefault').isChecked(), 'Reopening did not select Default');
+    await reopened.close();
+  });
+
+  await s.step('two first-time saves from separate preference windows leave one effective value', async () => {
+    h.assert(preferenceRows() === '0', 'The concurrent first-save fixture must start without a preference');
+    const first = await openPreferenceForm('tickler-preferences-first-save-a');
+    const second = await openPreferenceForm('tickler-preferences-first-save-b');
+    await first.locator('#taskAssigneeMRP').check();
+    await second.locator('#taskAssigneeProvider').check();
+    await second.locator('#assigneeSelect').selectOption(otherNo);
+    await Promise.all([
+      ui.clickAndAwaitReload(first, first.locator('form input[type="submit"]'), { label: 'first concurrent preference Submit' }),
+      ui.clickAndAwaitReload(second, second.locator('form input[type="submit"]'), { label: 'second concurrent preference Submit' }),
+    ]);
+    await first.locator('#AlertBanner').waitFor({ state: 'visible' });
+    await second.locator('#AlertBanner').waitFor({ state: 'visible' });
+    h.assert(preferenceRows() === '1' && ['mrp', otherNo].includes(storedPreference()),
+      'Concurrent saves created duplicate preferences or lost both writes');
+    await first.close();
+    await second.close();
+    const reopened = await openPreferenceForm('tickler-preferences-concurrent-reopen');
+    const selected = storedPreference() === 'mrp' ? '#taskAssigneeMRP' : '#taskAssigneeProvider';
+    h.assert(await reopened.locator(selected).isChecked(), 'Reopening did not show the effective concurrent-save result');
+    await reopened.close();
+  });
+
+  await s.step('Default removes all historical duplicate rows for the owned preference', async () => {
+    sql.execute(`INSERT INTO property(provider_no,name,value) VALUES
+      (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},'mrp'),
+      (${h.sqlString(provider)},${h.sqlString(PREFERENCE)},${h.sqlString(otherNo)})`);
+    h.assert(Number(preferenceRows()) === 3, 'Historical duplicate fixture did not contain three rows');
+    const settings = await openPreferenceForm('tickler-preferences-duplicate-reset');
+    await settings.locator('#taskAssigneeDefault').check();
+    await ui.clickAndAwaitReload(settings, settings.locator('form input[type="submit"]'), { label: 'duplicate preference Default Submit' });
+    await settings.locator('#AlertBanner').waitFor({ state: 'visible' });
+    h.assert(preferenceRows() === '0', 'Default left a stale duplicate preference');
+    await settings.close();
+    const reopened = await openPreferenceForm('tickler-preferences-duplicate-reset-reopen');
+    h.assert(await reopened.locator('#taskAssigneeDefault').isChecked(), 'Default did not remain selected after removing duplicates');
+    await reopened.close();
   });
 
   await s.step('a GET against setTicklerPreferences is refused and does not change the stored preference', async () => {

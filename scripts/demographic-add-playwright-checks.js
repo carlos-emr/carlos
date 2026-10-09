@@ -44,7 +44,9 @@ const {
   createRecorder,
   getLaunchOptions,
   gotoApp,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -90,11 +92,43 @@ function sql(query) {
   ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 }).trim();
 }
 
+// Idempotent, and also run from SIGINT/SIGTERM (issue #3600): a finally does not
+// run when the process is killed, which would leave the synthetic patient behind.
+let createdDemographicNo = null;
+function cleanupSyntheticPatient() {
+  if (!mysqlDefaults) return;
+  // Remove the synthetic patient (and the admission the add flow creates)
+  // so repeat runs stay clean. Looked up by the unique per-run last name —
+  // never a bare number — so a bug can never delete a pre-existing record,
+  // and a run that failed BEFORE capturing the id still cleans up after
+  // itself if the save had already gone through.
+  const leftover = createdDemographicNo
+    || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
+  if (/^\d+$/.test(leftover)) {
+    assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}
+      AND last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`) === '1',
+    'Owned new-patient fixture identity changed');
+    sql(`DELETE FROM admission WHERE client_id=${leftover}`);
+    sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
+    sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
+    assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
+      'Owned new-patient fixture was not removed');
+  }
+}
+
+// The password file is removed even when row cleanup throws (e.g. MySQL unreachable).
+const signalHandlers = installCleanupSignalHandlers(() => {
+  try {
+    cleanupSyntheticPatient();
+  } finally {
+    cleanupMysqlDefaults();
+  }
+});
+
 (async () => {
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
   initMysqlDefaults();
-  let createdDemographicNo = null;
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
@@ -187,29 +221,15 @@ function sql(query) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    // Remove the synthetic patient (and the admission the add flow creates)
-    // so repeat runs stay clean. Looked up by the unique per-run last name —
-    // never a bare number — so a bug can never delete a pre-existing record,
-    // and a run that failed BEFORE capturing the id still cleans up after
-    // itself if the save had already gone through.
     try {
-      const leftover = createdDemographicNo
-        || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
-      if (/^\d+$/.test(leftover)) {
-        assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}
-          AND last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`) === '1',
-          'Owned new-patient fixture identity changed');
-        sql(`DELETE FROM admission WHERE client_id=${leftover}`);
-        sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
-        assert(sql(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${leftover}`) === '0',
-          'Owned new-patient fixture was not removed');
-      }
+      cleanupSyntheticPatient();
     } catch (cleanupError) {
       process.exitCode = 1;
       console.error(`FAIL cleanup failed: ${cleanupError.message}`);
     }
     cleanupMysqlDefaults();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

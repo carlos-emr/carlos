@@ -59,8 +59,9 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePinHandler" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
@@ -86,9 +87,6 @@
         <%
 	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
 
-            String sPin = request.getParameter("pin");
-            if (CarlosProperties.getInstance().isPINEncripted()) sPin = Misc.encryptPIN(request.getParameter("pin"));
-
             int rowsAffected = 0;
 
             // Must stay aligned with the Login2Action username pattern and security.user_name
@@ -98,8 +96,13 @@
             String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
             boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
 
+            String newPassword = request.getParameter("password");
+            String passwordError = SecurityUpdatePasswordValidator.validate(newPassword,
+                    request.getParameter("conPassword"), CarlosProperties.getInstance());
             Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            if (s != null && isUserNameValid) {
+            // Validate before changing any fields on the managed entity: a rejected
+            // password must not partially apply a rename, PIN, or account-flag edit.
+            if (s != null && isUserNameValid && passwordError == null) {
                 s.setUserName(newUserName);
                 s.setProviderNo(request.getParameter("provider_no"));
                 s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
@@ -107,15 +110,13 @@
                 s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
                 s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
 
-                if (request.getParameter("password") == null || !"*********".equals(request.getParameter("password"))) {
-    		s.setPassword(securityManager.encodePassword(request.getParameter("password")));
+                if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(newPassword)) {
+                    s.setPassword(securityManager.encodePassword(newPassword));
                     s.setPasswordUpdateDate(new java.util.Date());
                 }
 
-                if (request.getParameter("pin") == null || !"****".equals(request.getParameter("pin"))) {
-                    s.setPin(sPin);
-                    s.setPinUpdateDate(new java.util.Date());
-                }
+                SecurityUpdatePinHandler.apply(s, request.getParameter("pin"),
+                        CarlosProperties.getInstance().isPINEncripted());
 
                 if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
                     s.setForcePasswordReset(Boolean.TRUE);
@@ -147,6 +148,10 @@
         } else if (!isUserNameValid) {
         %>
         <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
+        <%
+        } else if (passwordError != null) {
+        %>
+        <h1><fmt:message key="<%=passwordError%>"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></h1>
         <%
         } else {
         %>

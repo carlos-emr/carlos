@@ -68,6 +68,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
 
         String method = request.getParameter("method");
         if ("deleteImage".equals(method)) {
@@ -78,6 +79,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String saveImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doSaveImage();
     }
 
@@ -140,6 +142,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     public String deleteImage() {
         validateWritePrivilege();
+        if (!isPostRequest()) return NONE;
         return doDeleteImage();
     }
 
@@ -167,6 +170,14 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    /** Refuses photo mutations from safe-method requests, including direct action entry points. */
+    private boolean isPostRequest() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
     }
 
     /**

@@ -527,7 +527,7 @@ until the package can be installed with nginx + ModSecurity in CI.
 |---|---|---|---|---|
 | `billing-on-correction-delete` | Master Record ▸ Billing History ▸ bill; Administration ▸ Billing ▸ Billing Correction | Edit service code/dx/units → `billing_on_item` updated; status change; delete variants mark `billing_on_cheader1.status='D'` and unbill the appointment (day sheet B badge) | Bill created through the `billing-on-submit` path | `BillingONCorrection`, `UpdateBillingONCorrection`, `ViewBillingONStatus`, `BillingDelete*` |
 | `billing-on-invoice-third-party` | Master Record ▸ Invoice List ▸ print; Administration ▸ Billing ▸ Billing Correction ▸ 3rd-party bill ▸ payments; Administration ▸ Billing ▸ Manage Payment Type | bytes `%PDF` with the invoice logo; `billing_on_payment` rows; statement balances | Third-party bill | `BillingInvoice*`, `ViewBillingON3rdInv`, `billingON3rdPayments`, `Add3rdPartyPayment`, `managePaymentType` |
-| `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Billing Reconciliation ▸ pick the RA file ▸ summary / detail ▸ settle; Upload MOH files (fixture error report); View MOH files | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; the RA creates `raheader`/`radetail`; settle flips to `S`; the error report marks rejects | Synthetic RA placed in the MOH files directory by the fixture (the `ImportOnRA` route has no UI caller — the Billing Reconciliation page reads the directory), synthetic error-report file, seeded bills | `ViewBillingOHIPsimulation`, `ViewBillingOHIPreport`, `ViewGenReport`, `ViewGenRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `BillingONUpload`, `DocumentErrorReportUpload`, `moveMOHFiles` |
+| `billing-on-ohip-file-cycle` | Administration ▸ Billing ▸ Simulation OHIP File; Generate OHIP File; Billing Reconciliation ▸ pick the RA file ▸ summary / detail ▸ settle; Upload MOH files (fixture error report); View MOH files | Claim file bytes match the MOH fixed-width layout for the seeded bills; bills flip to `B`; the RA creates `raheader`/`radetail`; settle flips to `S`; the error report marks rejects | Synthetic RA and error-report files uploaded through the real MOH form, seeded bills; the unused `ImportOnRA` duplicate is retired | `ViewBillingOHIPsimulation`, `ViewBillingOHIPreport`, `ViewGenReport`, `ViewGenRA`, `ViewOnGenRA*`, `ViewOnGenRAsettle`, `BillingONUpload`, `DocumentErrorReportUpload`, `moveMOHFiles` |
 | `billing-on-group-disk-zero-total` **(landed, issue #3942)** | Administration ▸ Billing ▸ Generate OHIP diskette ▸ select each provider separately ▸ Create Report ▸ download the OHIP file ▸ regenerate the ZERO provider with R | Each selected provider gets its own disk; ZERO has the expected HEB/HEH/HET records, billed claims, disk linkage and filename summary; the unselected provider remains unbilled; regeneration preserves records and empty-provider metadata; the provider with no claims produces no file | Throwaway three-provider billing group and two seeded claims in an isolated date window; owned rows/files removed | `ViewBillingONMRI`, `ViewOngenreport`, `ViewOnregenreport`, `OscarDownload` |
 | `billing-on-mri-batch-clipboard` | Schedule ▸ Billing ▸ MRI; Administration ▸ Billing ▸ Batch Billing; bill form ▸ clipboard ▸ print | MRI lists unbilled/errored; batch creates N bills from N appointments; clipboard rows and print bytes | Seeded appointments | `ViewBillingONMRI`, `BatchBill`, `ViewBillingClipboard`, `ViewPrintBillingClipboard` |
 | `billing-unbilled-report` (landed, issue #3960) | ON and BC `ViewBillingReportControl` ▸ Unbilled ▸ Include No-Show / Include Cancelled ▸ Create Report | Owned `t`/`c`/`N`/`C`/`B` appointments: N and C listed only when opted in, B never, lowercase `c` always; checkbox state echoed | Owned FAKE- patient, appointments, and (when missing) the `billingreport` reportprovider row | `ViewBillingReportControl` (ON, BC), `OscarAppointmentDao.search_unbill_history_daterange` |
@@ -711,12 +711,14 @@ shared helper.
   transport. They cost money, need credentials, or take an hour.
 - **Routes with no UI entry**: no check — the finding is that the route is dead (or
   service-only), tracked for removal or documentation under the cleanup policy. Found while
-  verifying this plan: `prevention/printPrevention`; `report/ViewGenerateLetters` and the
-  letters / envelopes / spreadsheet generation behind it (nothing links the page);
-  `provider/ViewProviderEncounterHistory` (a `providercontrol` dispatch nothing calls);
+  verifying this plan: `prevention/printPrevention`; the originally unlinked
+  `report/ViewGenerateLetters` (now reached from the master toolbar and Print / Labels;
+  `patient-letters-entry` covers selection and permission visibility; spreadsheet retirement
+  is tracked in #3965); the retired `provider/ViewProviderEncounterHistory` and
+  `providercontrol` history/vary modes;
   the immunization *set* configuration pages (`encounter/immunization/config/*`);
-  `admin/ViewDbConnection`; `billing/CA/ON/ImportOnRA` (service-only, the Billing
-  Reconciliation page reads the MOH directory instead); and several `View*` fragments only
+  `admin/ViewDbConnection`; the retired `billing/CA/ON/ImportOnRA` duplicate (Upload MOH files
+  imports through `ViewGenRA` instead); and several `View*` fragments only
   reachable as includes.
 - **PHR / integrator / eConsult**: the top bar's eConsult opens an external URL; nothing to
   assert locally.
