@@ -75,6 +75,8 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         states = spy(new EmailComposeSubmissionStateService());
         doAnswer(call -> ReflectionTestUtils.invokeMethod(EmailComposeWorkingDirectory.class,
                 "create", tempDir)).when(states).createWorkingDirectory();

@@ -5,7 +5,6 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
@@ -61,10 +60,6 @@ class ManageEmails2ActionAuthorizationUnitTest extends EmailWorkflowUnitTestBase
         createAndRegisterMock(DocumentAttachmentManager.class);
         createAndRegisterMock(FormsManager.class);
         createAndRegisterMock(PdfPreviewCapabilityService.class);
-        // The resend window shows the user's footer state (follow-up to #3981).
-        EmailFooterService footers = createAndRegisterMock(EmailFooterService.class);
-        when(footers.clinicDefault()).thenReturn("Riverside Clinic");
-        when(footers.clinicChangeNotice(any())).thenReturn("Old clinic footer");
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.READ), isNull()))
                 .thenReturn(true);
 
@@ -102,10 +97,6 @@ class ManageEmails2ActionAuthorizationUnitTest extends EmailWorkflowUnitTestBase
         }
 
         assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("velvet-orbit-123-cabin-river-456");
-        // A resend shows the clinic-change notice and carries the clinic footer it shows, so its
-        // "Also make this my usual footer" never clears a notice the user was not shown.
-        assertThat(request.getAttribute("footerClinicFingerprint")).isEqualTo(EmailFooterService.fingerprint("Riverside Clinic"));
-        assertThat(request.getAttribute("footerClinicChanged")).isEqualTo(true);
         assertThat(request.getAttribute("emailPDFPasswordClue")).isNotEqualTo(log.getPasswordClue());
         assertThat(request.getAttribute("message")).isEqualTo("Message to copy");
         assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);

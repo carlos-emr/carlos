@@ -73,6 +73,60 @@ class EmailFooterLogoServiceUnitTest {
     class Prepare {
 
         @Test
+        @DisplayName("should reject excessive scans before calling the JPEG decoder")
+        void shouldRefuseBeforeDecode_whenJpegHasExcessiveScans() throws IOException {
+            byte[] jpeg = image("jpeg", 60, 20, BufferedImage.TYPE_INT_RGB);
+            int scan = -1;
+            for (int i = 2; i < jpeg.length - 1; i++) {
+                if ((jpeg[i] & 0xFF) == 0xFF && (jpeg[i + 1] & 0xFF) == 0xDA) {
+                    scan = i;
+                    break;
+                }
+            }
+            assertThat(scan).isPositive();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            out.writeBytes(Arrays.copyOf(jpeg, scan));
+            int scanLength = ((jpeg[scan + 2] & 0xFF) << 8) | (jpeg[scan + 3] & 0xFF);
+            byte[] header = Arrays.copyOfRange(jpeg, scan, scan + 2 + scanLength);
+            for (int i = 0; i <= EmailFooterLogoService.MAX_JPEG_SCANS; i++) {
+                out.writeBytes(header);
+            }
+            out.writeBytes(new byte[] {(byte) 0xFF, (byte) 0xD9});
+            javax.imageio.ImageReader reader = mock(javax.imageio.ImageReader.class);
+            when(reader.getFormatName()).thenReturn("jpeg");
+            when(reader.getWidth(0)).thenReturn(60);
+            when(reader.getHeight(0)).thenReturn(20);
+            try (var imageIo = org.mockito.Mockito.mockStatic(ImageIO.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+                imageIo.when(() -> ImageIO.getImageReaders(any(javax.imageio.stream.ImageInputStream.class)))
+                        .thenReturn(List.of(reader).iterator());
+                assertThatThrownBy(() -> EmailFooterLogoService.prepare(out.toByteArray()))
+                        .isInstanceOf(LogoRejectedException.class)
+                        .satisfies(e -> assertThat(((LogoRejectedException) e).reason()).isEqualTo(Rejection.NOT_AN_IMAGE));
+                verify(reader, never()).read(0);
+                verify(reader).dispose();
+            }
+        }
+
+        @Test
+        @DisplayName("should accept sequential and progressive JPEG images")
+        void shouldAcceptJpeg_withSequentialOrProgressiveEncoding() throws IOException {
+            BufferedImage image = new BufferedImage(60, 20, BufferedImage.TYPE_INT_RGB);
+            for (int mode : new int[] {ImageWriteParam.MODE_DISABLED, ImageWriteParam.MODE_DEFAULT}) {
+                ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                try (ImageOutputStream output = ImageIO.createImageOutputStream(out)) {
+                    writer.setOutput(output);
+                    ImageWriteParam param = writer.getDefaultWriteParam();
+                    param.setProgressiveMode(mode);
+                    writer.write(null, new IIOImage(image, null, null), param);
+                } finally {
+                    writer.dispose();
+                }
+                assertThat(EmailFooterLogoService.prepare(out.toByteArray()).contentType()).isEqualTo("image/jpeg");
+            }
+        }
+
+        @Test
         @DisplayName("should accept a PNG and store a re-saved copy with its size and hash")
         void shouldResavePng_whenUploadValid() throws IOException {
             byte[] upload = withTrailingComment(image("png", 120, 40, BufferedImage.TYPE_INT_ARGB));

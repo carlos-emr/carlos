@@ -21,7 +21,6 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
 import io.github.carlos_emr.carlos.email.core.EmailFooterHtml;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -425,34 +424,24 @@ public class ManageEmails2Action extends ActionSupport {
         String receiverName;
         List<?>[] receiverEmailList;
         List<EmailConfig> senderAccounts;
-        String clinicFooterFingerprint;
-        String clinicChangeNotice;
-        boolean clinicChangeKeptOwnFooter;
         try {
             demographicNo = emailLog.getDemographic().getDemographicNo();
             emailConsent = emailComposeManager.getEmailConsentStatus(loggedInInfo, demographicNo);
             receiverName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo);
             receiverEmailList = emailComposeManager.getRecipients(loggedInInfo, demographicNo);
             senderAccounts = emailComposeManager.getAllSenderAccounts();
-            // The user's footer state, as the compose screen shows it (follow-up to #3981): the
-            // clinic footer's fingerprint first, so a clinic save landing in between errs toward
-            // refusing "Also make this my usual footer", then any clinic-change notice. Looked up
-            // here: only this resend path needs the service.
-            EmailFooterService footers = SpringUtils.getBean(EmailFooterService.class);
-            String providerNo = loggedInInfo.getLoggedInProviderNo();
-            clinicFooterFingerprint = EmailFooterService.fingerprint(footers.clinicDefault());
-            clinicChangeNotice = footers.clinicChangeNotice(providerNo);
-            clinicChangeKeptOwnFooter = clinicChangeNotice != null && footers.clinicChangeKeptOwnFooter(providerNo);
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
         }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot clinic;
         try {
+            clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
-                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)).withClinicFooter(clinic),
                     workingDirectory);
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
@@ -478,17 +467,12 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
-        // The footer that was sent (issue #3981): this is a copy. A log written before footers
-        // existed has none.
-        request.setAttribute("footerEmail", EmailFooterHtml.clean(emailLog.getFooter()));
-        // As every compose render: the clinic footer this window shows, for "Also make this my usual
-        // footer" (EmailSend2Action), and the clinic-change notice, so a resend never clears a
-        // notice the user was not shown.
-        request.setAttribute("footerClinicFingerprint", clinicFooterFingerprint);
-        if (clinicChangeNotice != null) {
-            request.setAttribute("footerClinicChanged", true);
-            request.setAttribute("clinicChangeKeptOwnFooter", clinicChangeKeptOwnFooter);
-        }
+        // A resend is a new email. Its historical combined footer remains audit-only;
+        // the new optional personal text is the current user's default; the clinic preview is current.
+        request.setAttribute("footerEmail", SpringUtils.getBean(
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo()));
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

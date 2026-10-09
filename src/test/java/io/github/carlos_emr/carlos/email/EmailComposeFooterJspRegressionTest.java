@@ -66,6 +66,7 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("data-bs-target=\"#footerEditorModal\"")
                 .contains("data-footer-editor-target=\"footerEmail\" data-footer-editor-preview=\"footerEmailPreview\"")
                 .contains("<div id=\"footerEmailPreview\"")
+                .contains("SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText(EmailFooterHtml.clean((String) request.getAttribute(\"footerEmail\"))))")
                 .contains("<c:set var=\"footerEditorScopeKey\" value=\"email.footerEditor.scopeThisEmail\"/>")
                 .contains("<c:set var=\"footerEditorApplyKey\" value=\"email.footerEditor.applyThisEmail\"/>");
         // The page stops Enter from submitting the form, but not in the editor, where it starts a new line.
@@ -74,43 +75,6 @@ class EmailComposeFooterJspRegressionTest {
         assertThat(jsp.indexOf(include)).isEqualTo(jsp.lastIndexOf(include))
                 .isGreaterThan(jsp.indexOf("</form>"))
                 .isGreaterThan(jsp.indexOf("bootstrap.bundle.min.js"));
-    }
-
-    @Test
-    @DisplayName("should offer to make the footer the user's usual one, report the outcome, and stay open if it failed")
-    void shouldOfferSaveAsMine_insideSendForm() throws IOException {
-        String jsp = Files.readString(EMAIL_COMPOSE_JSP, StandardCharsets.UTF_8);
-
-        int box = jsp.indexOf("name=\"saveFooterAsMine\" id=\"saveFooterAsMine\" value=\"true\"");
-        assertThat(box).isGreaterThan(jsp.indexOf("id=\"footerEmail\"")).isLessThan(jsp.indexOf("</form>"));
-        assertThat(jsp)
-                .contains("<fmt:message key=\"email.compose.footer.saveAsMine\"/>")
-                .contains("<c:if test=\"${footerSavedAsMine}\">")
-                .contains("<c:if test=\"${footerSaveAsMineFailed}\">")
-                .contains("<c:if test=\"${footerSavedAsClinic}\">")
-                .contains("<c:if test=\"${footerSaveAsMineStale}\">")
-                .contains("<c:if test=\"${footerSaveAsMineNotDone}\">")
-                // A retry form keeps the box ticked.
-                .contains("${param.saveFooterAsMine eq 'true' ? 'checked' : ''}")
-                // The clinic footer the window showed goes back with the send, attribute-encoded.
-                .contains("name=\"footerClinicShown\"")
-                .contains("value=\"${carlos:forHtmlAttribute(empty footerClinicFingerprint ? param.footerClinicShown : footerClinicFingerprint)}\"")
-                // On an unconfirmed delivery the form is hidden: the note shows in the result too.
-                .contains("id=\"footerSaveAsMineNotDoneUnconfirmed\"")
-                // A failed or refused save keeps the window open so the user sees it.
-                .contains("&& !document.getElementById('footerSaveAsMineFailed')")
-                .contains("&& !document.getElementById('footerSaveAsMineStale')");
-        for (String locale : LOCALES) {
-            for (String key : List.of("email.compose.footer.saveAsMine", "email.compose.footer.savedAsMine",
-                    "email.compose.footer.saveAsMineFailed", "email.compose.footer.savedAsClinic",
-                    "email.compose.footer.saveAsMineStale", "email.compose.footer.saveAsMineNotDone")) {
-                assertThat(bundle(locale).getProperty(key)).as(locale + " " + key).isNotBlank();
-                if (!"en".equals(locale)) {
-                    assertThat(bundle(locale).getProperty(key)).as(locale + " " + key)
-                            .isNotEqualTo(bundle("en").getProperty(key));
-                }
-            }
-        }
     }
 
     @Test
@@ -125,8 +89,9 @@ class EmailComposeFooterJspRegressionTest {
                 .contains("${emailComposeFooterHelp}")
                 .contains("aria-describedby=\"footerEmailHelp\"");
         String english = bundle("en").getProperty("email.compose.footer.help");
-        assertThat(english).contains("unencrypted", "not saved to the chart", "Do not include patient information");
-        assertThat(bundle("en").getProperty("email.compose.footer.heading")).isEqualTo("Footer");
+        assertThat(english).contains("above the clinic footer", "outside the encrypted message",
+                "excluded from the chart note", "Do not include patient information");
+        assertThat(bundle("en").getProperty("email.compose.footer.heading")).contains("Personal", "optional");
         String englishNotice = bundle("en").getProperty("email.compose.msg.encryptedMessageNotice");
         assertThat(englishNotice).contains("password-protected PDF", "the footer remain visible");
         for (String locale : LOCALES) {

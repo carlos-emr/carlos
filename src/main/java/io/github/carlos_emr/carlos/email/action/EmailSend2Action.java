@@ -34,9 +34,6 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -94,9 +91,6 @@ public class EmailSend2Action extends ActionSupport {
     private static final String PARAM_PATIENT_CHART_OPTION = "patientChartOption";
     private static final String PARAM_MESSAGE = "message";
     private static final String PARAM_FOOTER_EMAIL = "footerEmail";
-    // "Also make this my usual footer" on the email screen (follow-up to #3981).
-    static final String PARAM_SAVE_FOOTER_AS_MINE = "saveFooterAsMine";
-    static final String PARAM_FOOTER_CLINIC_SHOWN = "footerClinicShown";
     private static final String PARAM_IS_EMAIL_ENCRYPTED = "isEmailEncrypted";
     private static final String PARAM_IS_EMAIL_ATTACHMENT_ENCRYPTED = "isEmailAttachmentEncrypted";
     private static final String PARAM_DELETE_EFORM_AFTER_EMAIL = "deleteEFormAfterEmail";
@@ -246,11 +240,11 @@ public class EmailSend2Action extends ActionSupport {
 
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
-        saveFooterAsMineIfAsked(loggedInInfo, isEmailSuccessful);
         if (isEmailSuccessful && context.deleteEFormAfterEmail() && StringUtils.filled(context.fdid())) {
             try {
                 eformDataManager.removeEFormData(loggedInInfo, context.fdid());
@@ -306,51 +300,38 @@ public class EmailSend2Action extends ActionSupport {
         EmailLog emailLog = sendResult.getEmailLog();
         boolean isEmailSuccessful = sendResult.isTransportAccepted();
         request.setAttribute("isEmailSuccessful", isEmailSuccessful);
+        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("isEmailDeliveryUnconfirmed", sendResult.isDeliveryUnconfirmed());
         request.setAttribute("isEmailStatusRecorded", sendResult.isTransportOutcomeRecorded());
         request.setAttribute(EMAIL_FOLLOW_UP_REQUIRED, sendResult.isFollowUpRequired());
         request.setAttribute(EMAIL_REFUSAL, sendResult.getRefusal().name());
-        saveFooterAsMineIfAsked(LoggedInInfo.getLoggedInInfoFromSession(request), isEmailSuccessful);
         request.setAttribute("emailLog", emailLog);
         return SUCCESS;
     }
 
-    /**
-     * "Also make this my usual footer" (follow-up to #3981): once the email is accepted, the footer
-     * it carried becomes the user's own footer, as saving it on My Email Footer would; a blank one
-     * means the clinic footer, and the page says so. Only an accepted email does it: when it was not
-     * accepted the page says the footer was not changed, and a retry form keeps the box ticked. Like
-     * My Email Footer, it is refused when the clinic changed its footer after this window opened
-     * (the window sends back the fingerprint of the clinic footer it showed).
-     * A failure here never touches the email already sent: the result page says the footer was not
-     * changed and stays open.
-     */
-    private void saveFooterAsMineIfAsked(LoggedInInfo loggedInInfo, boolean emailAccepted) {
-        if (!"true".equals(request.getParameter(PARAM_SAVE_FOOTER_AS_MINE))) {
+    /** Optional personal-default update never changes this attempt's frozen combined footer. */
+    void saveFooterAsMineIfAsked(LoggedInInfo user, boolean accepted) {
+        if (!"true".equals(request.getParameter("saveFooterAsMine"))) {
             return;
         }
-        if (!emailAccepted) {
+        if (!accepted) {
             request.setAttribute("footerSaveAsMineNotDone", true);
             return;
         }
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-        String footer = request.getParameter(PARAM_FOOTER_EMAIL);
-        String clinicFooterShown = request.getParameter(PARAM_FOOTER_CLINIC_SHOWN);
         try {
-            if (!EmailFooterService.isFingerprint(clinicFooterShown)) {
-                throw new IllegalArgumentException("Clinic footer fingerprint missing or malformed");
+            if (!securityInfoManager.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_email)");
             }
-            // Looked up here, not held in a field: only this optional step needs it.
-            boolean saved = SpringUtils.getBean(EmailFooterService.class).saveOwnFooter(providerNo, footer, clinicFooterShown);
-            if (!saved) {
-                request.setAttribute("footerSaveAsMineStale", true);
-                return;
-            }
-            LogAction.addLog(providerNo, LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
-            request.setAttribute(EmailFooterHtml.clean(footer).isEmpty() ? "footerSavedAsClinic" : "footerSavedAsMine", true);
-        } catch (RuntimeException e) {
-            logger.warn("Email accepted, but its footer could not be saved as the user's own ({})",
-                    e.getClass().getSimpleName());
+            // Missing personal input is a deliberately empty layer, never the combined EmailLog footer.
+            String personal = EmailFooterHtml.clean(request.getParameter(PARAM_FOOTER_EMAIL));
+            SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                    .saveOwnFooter(user.getLoggedInProviderNo(), personal);
+            io.github.carlos_emr.carlos.log.LogAction.addLog(user.getLoggedInProviderNo(),
+                    io.github.carlos_emr.carlos.log.LogConst.UPDATE, "emailFooterOwn", "", request.getRemoteAddr());
+            request.setAttribute(personal.isEmpty() ? "footerSavedEmpty" : "footerSavedAsMine", true);
+        } catch (RuntimeException failure) {
+            logger.warn("Email accepted; personal footer update could not be confirmed; cause={}",
+                    failure.getClass().getSimpleName());
             request.setAttribute("footerSaveAsMineFailed", true);
         }
     }
@@ -368,8 +349,11 @@ public class EmailSend2Action extends ActionSupport {
                 attachment.setFilePath(owned.toString());
                 attachment.setPreviewToken(pdfPreviewCapabilityService.issue(request, loggedInInfo, owned));
             }
+            var clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
+            var retryContext = previous.context().withClinicFooter(clinic);
+            io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
             var state = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
-                    request, emailPdfPasswordService, attachments, previous.context(), retryDirectory);
+                    request, emailPdfPasswordService, attachments, retryContext, retryDirectory);
             retryDirectory = null; // The cache now owns the replacement files.
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD, state.emailPDFPassword());
             request.setAttribute(PARAM_EMAIL_PDF_PASSWORD_CLUE, state.emailPDFPasswordClue());
@@ -651,16 +635,19 @@ public class EmailSend2Action extends ActionSupport {
         // Refused before it is parsed: no footer within the limits posts more than this.
         if (footer.length() > 4 * EmailFooterHtml.MAX_HTML_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
         }
         String cleaned = EmailFooterHtml.clean(footer);
         if (EmailFooterHtml.visibleLength(cleaned) > EmailData.FOOTER_MAX_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailData.FOOTER_MAX_LENGTH + " characters");
+                    getText("email.compose.footer.errorTextLength",
+                            List.of(String.valueOf(EmailData.FOOTER_MAX_LENGTH))));
         }
         if (cleaned.length() > EmailFooterHtml.MAX_HTML_LENGTH) {
             throw new EmailSendValidationException(
-                    "Footer must not exceed " + EmailFooterHtml.MAX_HTML_LENGTH + " characters of formatting");
+                    getText("email.compose.footer.errorFormattingLength",
+                            List.of(String.valueOf(EmailFooterHtml.MAX_HTML_LENGTH))));
         }
     }
 
@@ -785,6 +772,7 @@ public class EmailSend2Action extends ActionSupport {
         emailData.setBody(body);
         // Sent below the body in clear, even when encryption is on; never charted (issue #3981).
         emailData.setFooter(request.getParameter(PARAM_FOOTER_EMAIL));
+        emailData.setClinicFooterSnapshot(context.clinicFooter());
         emailData.setEncryptedMessage(encryptedMessage);
         emailData.setPassword(password);
         emailData.setPasswordClue(passwordClue);

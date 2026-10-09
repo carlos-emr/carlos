@@ -51,48 +51,39 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
 
     List<UserProperty> getPropValues(String name, String value);
 
-    /**
-     * Every provider's property with this name; clinic-wide rows (no provider) are left out.
-     *
-     * @param name property name
-     * @return the providers' rows, oldest first
-     */
-    List<UserProperty> findProviderProperties(String name);
-
-    /**
-     * The clinic-wide properties with this name (rows with no provider), never a provider's row.
-     * Normally there is one; two first saves at the same moment can leave two.
-     *
-     * @param name property name
-     * @return the clinic rows, oldest first
-     */
-    List<UserProperty> findClinicProperties(String name);
-
-    /**
-     * As {@link #findClinicProperties}, but locks each row by its key for the rest of the caller's
-     * transaction ({@code SELECT ... FOR UPDATE}) and re-reads it, so a second save waits and then
-     * reads what the first one committed. A row the lookup finds but another transaction then
-     * removes is reported as a {@code jakarta.persistence.OptimisticLockException}. Runs only
-     * inside an existing transaction: outside one the lock would be released at once.
-     *
-     * @param name property name
-     * @return the clinic rows, oldest first
-     */
-    List<UserProperty> lockClinicProperties(String name);
-
-    /**
-     * As {@link #findProviderProperties}, but locks each row by its key for the rest of the
-     * caller's transaction, as {@link #lockClinicProperties} does. Runs only inside an existing
-     * transaction.
-     *
-     * @param name property name
-     * @return the providers' rows, oldest first
-     */
-    List<UserProperty> lockProviderProperties(String name);
-
     UserProperty getProp(String prov, String name);
 
     UserProperty getProp(String name);
+
+    /** Clinic-only footer rows, oldest first; provider properties cannot override these. */
+    List<UserProperty> findClinicEmailFooter();
+
+    /**
+     * Fresh detached snapshots from a locking scalar read after the durable clinic mutex.
+     * Strict snapshot conflicts abort instead of returning an earlier transaction view.
+     */
+    List<UserProperty> findClinicEmailFooterForUpdate();
+
+    /** Update the already locked canonical clinic row through a current write, never a snapshot merge. */
+    void updateClinicEmailFooter(UserProperty current, String value);
+
+    /** Delete an already locked duplicate clinic row through a scoped current write. */
+    void deleteClinicEmailFooter(Integer id);
+
+    /** Serialize clinic footer saves, including the first save, on the existing clinic row. */
+    void lockClinicEmailFooterSettings();
+
+    /** Serialize personal footer saves on the existing provider row, including first creation. */
+    void lockPersonalEmailFooterOwner(String providerNo);
+
+    /** Fresh detached personal snapshots from a locking scalar read, oldest first. */
+    List<UserProperty> findPersonalEmailFooterForUpdate(String providerNo);
+
+    /** Persist only this owner's cleaned personal row, avoiding merge loads from an old RR view. */
+    void savePersonalEmailFooterRow(String providerNo, UserProperty property);
+
+    /** Current-row deletion for one locked personal property; owner and name are checked in SQL. */
+    void deletePersonalEmailFooterRow(String providerNo, Integer propertyId);
 
     List<UserProperty> getDemographicProperties(String providerNo);
 

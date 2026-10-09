@@ -92,162 +92,25 @@ sample SMTP/API payloads, but sender records are still managed as deployment
 configuration. Confirm the selected sender account is active before using real
 patient communications.
 
-## Email Footer
+## Email Footers
 
-The compose screen has a **Footer** card below the message. Use it for text the
-clinic wants at the bottom of every patient email: a signature, a booking link,
-or a line saying the mailbox is not checked for urgent issues. **Edit footer**
-opens the footer window; what is applied there is used for this email only.
+Every new CARLOS email requires the current clinic footer. An administrator sets its text on **Admin > Configure Email**; staff cannot edit or remove that clinic text from an individual email. An empty clinic setting refuses preparation before any outbox row, archive, or transport action. Before enabling production mail, configure a real clinic footer and verify it with the clinic. This change supplies no invented contact details.
 
-- **Formatting.** The window offers bold, italic, links and line breaks, and
-  nothing else. Links may only point to `https:` web addresses or `mailto:`
-  email addresses. Pasted text keeps no formatting. The window previews the
-  formatted version (with the clinic logo, when one is set) and the plain-text
-  version. The server cleans the footer against the same allow-list (jsoup in
-  `EmailFooterHtml`) before it is stored or sent; the browser's cleaning
-  (DOMPurify) only keeps the preview honest.
-- **Two versions in every email with a footer.** The email goes out as
-  `multipart/alternative`: a plain-text version (the message, one blank line,
-  then the footer's text, with each link's address written out after its text)
-  and a formatted (HTML) version. Mail apps show the formatted one; simple ones
-  show the text. This is the same for SMTP and SendGrid senders. The message
-  itself is never formatted: nothing in it is read as formatting, and its line
-  breaks and spacing are kept in both versions (some mail apps still turn web
-  addresses into links, as they do in plain text). An email without a footer is
-  plain text only, as before.
-- **Clinic logo.** An administrator can upload one logo on **Admin > Configure
-  Email** (PNG or JPEG, at most 100 KB and 600 x 200 pixels). It shows above the
-  footer in the formatted version, only in emails that have a footer. CARLOS
-  re-saves the picture before storing it, which drops anything else the file
-  carried (camera data, comments). The logo travels inside each email (an
-  inline `cid:` part), never as a link: nothing is hosted, and opening the email
-  tells no web server anything. A replaced or removed logo keeps its row in
-  `emailFooterLogo`; uploads and removals are in the audit log
-  (`emailFooterLogo`).
-- **Unencrypted, even with encryption on.** With encryption on, the message goes
-  inside the password-protected PDF and the email itself carries a fixed notice.
-  The footer (and logo) come after that notice, in the email itself. They are
-  never put inside the PDF. Anyone who can see the email can read the footer, so
-  it must not contain patient information. The compose screen says this under
-  the card.
-- **Not charted.** With the chart option "Chart as new note in patient's
-  chart", the chart note has the message but not the footer. The "[Sent on ... by ...]" line is unchanged.
-- **Kept with the email.** `emailLog.footer` stores the cleaned, formatted
-  footer as it was sent, apart from the message. The outbound archive copy is the
-  exact message that was sent, so it includes both versions and the logo. In
-  **Admin > Manage Emails**, "Copy and Open as New Email to Patient" fills in the
-  footer that was sent. A failed send that is retried from the same window keeps
-  the footer. Emails sent before footers existed have no footer.
-- **Limits.** 2,000 characters, counted on the plain-text version, so formatting
-  does not count. The formatted footer may take at most 10,000 characters of
-  HTML. A longer footer sent another way is refused, never cut. A plain-text
-  footer from an eForm longer than 2,000 characters is cut to 2,000 when the
-  eForm is saved, before the compose screen shows it.
+The compose screen shows optional personal text above a separate, read-only clinic preview. **Edit footer** changes only the personal text for that email. Removing all personal text keeps the clinic footer. An eForm's `footerEmail` supplies optional personal text, interpreted as plain text with its spacing and line breaks retained; changing the sender account does not change these footers. Saved personal defaults are managed under Preferences > Personal email footer. A new composer uses the logged-in user’s saved personal text when an eForm supplies no personal field; an explicitly empty eForm field means no personal text. Clearing the saved personal default never removes the mandatory clinic footer. Clinic edits do not replace personal text. The optional “Also save this as my personal footer” updates only personal text after confirmed transport acceptance; failure or uncertain acceptance leaves the default unchanged. A failure to confirm that optional update keeps the result window open for review.
 
-The compose screen fills in the footer from the first of these that applies:
+At new send preparation, the server reads the current trusted clinic text and logo. If either differs from the server-owned compose preview, it refuses before outbox/archive/transport, preserves personal text, refreshes the clinic preview and issues a new single-use submission token. Staff review the changed preview and send again. Once an outbox row and message are prepared, that footer and logo stay frozen through dispatch and history even if an administrator edits the clinic setting.
 
-1. The footer the eForm sends, in a field named `footerEmail` (the same way an
-   eForm can send `bodyEmail` for the message). A blank one counts as none. An
-   eForm's footer is plain text: its line breaks are kept and nothing in it is
-   read as formatting.
-2. The user's own footer. Every user who can send patient email (`_email`
-   write), doctor or front desk, can save one on **Preferences > My Email
-   Footer** (`email/myEmailFooter`), or by ticking **Also make this my usual
-   footer** under the footer on the email screen. That box saves the footer only
-   once the email is accepted (a retry form keeps it ticked), and an empty footer
-   there means the clinic footer; the email screen says what happened.
-   Saving it empty is not "no footer": it removes the user's own footer, so the
-   clinic footer applies.
-3. The clinic footer, set on **Administration > Emails > Configure Email**
-   (`_admin` write).
-4. Nothing: the footer starts empty.
+Both SMTP and SendGrid send a plain-text and formatted version, in order: message, optional personal footer, clinic logo in HTML, clinic footer. Formatting permits bold, italic, paragraph/div line breaks and HTTPS or mailto links. Server cleaning is authoritative; browser DOMPurify supports editing and preview. Both footers remain outside the password-protected message PDF and outside the chart note. Never put patient information in either footer.
 
-The clinic footer, each user's own footer and the footer of one email are all
-edited in the same **Edit footer** window, with the same formatting and limits.
+`emailLog.footer` stores the cleaned combined footer used to prepare the email. The outbound archive retains the prepared MIME/API payload and logo; usable portal invitation credentials are removed from every decoded archived text alternative before transport, while the transmitted copy stays unchanged. Redacted archive copies may be re-encoded. **Manage Emails** displays saved footer text in a section initially collapsed, with delivery status separate. A legacy log without footer content says none was recorded, rather than showing today's clinic setting. A resend is a new preparation with current clinic settings and the logged-in user’s current saved personal text; historical combined content never becomes the new personal footer.
 
-Changing the sending account never changes the footer. An eForm that sends
-automatically opens the compose screen and submits it at once, so its email also
-carries the user's or clinic footer (after a clinic change, the new clinic
-footer: automatic emails never wait for the user to answer the notice), and a
-clinic-change notice shows only briefly on that path.
+Each personal or clinic footer may contain at most 2,000 UTF-16 text units (including expanded link addresses) and 10,000 HTML units. Oversize submissions are refused. The combined UTF-8/base64 representation must fit the existing footer storage field; it is refused rather than cut. Plain eForm personal text is capped before compose by the existing eForm workflow.
 
-New installations, and upgraded ones whose front-desk roles have no email
-permission line at all, give the `receptionist`, `Medical Secretary` and
-`secretary` roles the same email rights as doctors (the maintainer's decision of
-8 October 2026). A clinic that already set, narrowed or switched off email for
-those roles keeps its setting; one that deleted the line entirely cannot be told
-apart from one that never set it, and gets the default.
+An administrator may upload a PNG/JPEG clinic logo, at most 100 KiB and 600 × 200 pixels. CARLOS decodes and re-saves it, removes metadata, and embeds verified bytes under a CID rather than a hosted URL. Replaced/removed logo rows and admin changes remain auditable. Use RGB/grayscale; unsupported JPEG variants are refused. More than 64 raw JPEG start-of-scan markers are refused before decoding, conservatively including marker bytes in metadata.
 
-### When the clinic footer changes
+**Patient Portal own mail.** Portal verification/MFA, password resets, contact changes and booking notices also require the current clinic footer. Its new read-only CARLOS endpoint `/ws/portal/email-footer` accepts only a clinic-scoped derived bearer and returns a nonce-bound Ed25519 signed snapshot under a distinct audience. Provision the endpoint's HMAC-derived read credential and public keyring to web/worker; the worker must not receive the full internal service token or a private signing key. Missing/invalid/unreachable configuration refuses SMTP without cached or footerless fallback. Each new worker transport attempt fetches current settings once; an already prepared attempt stays frozen. Portal footer-only attempt artifacts require a durable private shared volume before SMTP, with prepared snapshot separate from accepted/failed/unknown outcome. The CARLOS admin historical Portal display is a separate followup above this base change; do not claim that UI is included here.
 
-Every active user is told about a changed clinic footer (the maintainer's
-decision of 8 October 2026), not only those who had their own footer: a notice
-on the compose screen and on their footer page. The page shows the footer they
-had until then, their own or the previous clinic footer.
-
-Whether own footers are kept is set in code by
-`EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE`. It is currently
-`true` (the maintainer's decision of 6 October 2026), and the Configure Email
-page words its explanation to match the setting.
-
-- **`true` (current): own footers are replaced.** Saving a changed clinic footer
-  replaces every user's own footer with it; saving it empty leaves everyone with
-  no footer. The notice lets each user put their previous footer back, as their
-  own, or keep the clinic footer. A user who had no footer before (no clinic
-  footer was set) can only keep the new one.
-- **`false`: own footers are kept.** Users who follow the clinic footer get the
-  new one; users with their own footer keep it, and the notice lets them switch
-  to the clinic footer.
-
-"Every active user" means every active provider record other than CARLOS's
-system providers; a provider without email rights never sees the notice.
-Either way, the notice stays until the user answers it or saves their footer,
-and the administrator is not asked to confirm. Saving the clinic footer without
-editing it changes nothing, and the page says so. If someone else changed it
-after the page was opened, nothing is saved: the page shows the current footer
-and keeps the administrator's text in the box to check and save again.
-
-Footers are stored in the `property` table: the clinic footer as
-`email_footer_clinic_default` with no provider, each user's as `email_footer`,
-and a pending notice as `email_footer_clinic_change`. Saves are POST only,
-refuse more than 2,000 characters (counted on the plain text) or 10,000
-characters of formatting, and are audited (who and when, not the
-text; a clinic change also records how many users were told). A clinic save
-that changes the footer locks the clinic footer (once one exists) and the users'
-footers it reads, row by row by key, so another save at the same moment waits. A
-user's own save, restore or dismiss takes the clinic footer's lock first, so it
-waits for a clinic change in progress and then sees its notice.
-A second clinic save then compares against the first one's result. A user's own
-save (My Email Footer, or the email screen's box) sends back a fingerprint of the
-clinic footer its page showed: if the clinic changed its footer after the page
-was opened (a second change while a notice is still unanswered included),
-nothing is saved and the notice stays, and the page shows the notice with the
-user's text so they can decide with the change in front of them. The other collisions are
-handled the same way: a deadlock, or a user's footer removed between the clinic
-save reading it and locking it (the clinic save is the one rolled back then).
-Footers are stored as formatted HTML, cleaned against the footer's allow-list
-first, so a footer saved twice unchanged compares equal.
-
-**Web application firewall.** The footer is posted as HTML in `footerEmail`
-(the email screen, rule 1124), `myFooter` (My Email Footer, rule 1143) and
-`clinicFooter` (Configure Email, rule 1144). These rules lift the same
-injection families as for the message, and the CARLOS ModSecurity setup keeps
-its cross-site scripting rules on for all three fields
-(`ClinicalProseWafExclusionRegressionTest` pins that). The footer's
-allowed tags (`b`, `strong`, `i`, `em`, `br`, `p`, `div`, `a href="https:..."`)
-do not match those rules at the default paranoia level 1. A clinic that raises
-the paranoia level may see footer posts refused; check the ModSecurity audit log
-before adding any exclusion.
-
-**Upgrade note.** The footer migration widens `property.value` from
-`VARCHAR(2000)` to `TEXT`, so the clinic footer and each user's own footer can
-be stored there as formatted HTML. It also adds an ordinary index on
-`property (name, provider_no)`, which those footer lookups use; MariaDB builds it
-without blocking reads or writes. No index or key covers `property.value`.
-MariaDB rebuilds the `property` table for the widening; on a typical clinic it
-takes seconds, during which writes to `property` wait. Run the upgrade outside
-clinic hours on a very large installation.
-
+**Web application firewall.** Personal HTML is posted in `footerEmail`; admin clinic HTML uses `clinicFooter`. No broad XSS exemption is added. Test the configured ModSecurity rules and real clinic formatting before production deployment. These checks have not been run in the current private environment.
 ## Local Development
 
 Local development must not send real patient email.

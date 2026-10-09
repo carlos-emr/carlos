@@ -84,8 +84,8 @@
                             <%-- Nothing inside a template loads: footerEditor.js moves the logo in when the window
                                  first opens, so a page whose window is never opened never asks for it. loading="lazy"
                                  stops Firefox, which otherwise fetches images inside a template while it reads the page. --%>
-                            <template id="footerEditorPreviewLogoTemplate"><img id="footerEditorPreviewLogo" alt="" class="d-none mb-2" style="max-width: 100%;"
-                                 loading="lazy" src="${carlos:forHtmlAttribute(ctx)}/email/clinicEmailLogo"></template>
+                            <c:if test="${not footerEditorPersonalOnly}"><template id="footerEditorPreviewLogoTemplate"><img id="footerEditorPreviewLogo" alt="" class="d-none mb-2" style="max-width: 100%;"
+                                 loading="lazy" src="${carlos:forHtmlAttribute(ctx)}/email/clinicEmailLogo"></template></c:if>
                             <div id="footerEditorPreviewFooter"></div>
                         </div>
                         <pre id="footerEditorPreviewText" class="border rounded p-3 bg-white small d-none mb-0" style="white-space: pre-wrap;"></pre>

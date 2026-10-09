@@ -91,6 +91,16 @@
             </c:if>
         </table>
         
+        <details class="mb-3" id="sentFooters${emailStatusResult.logId}">
+            <summary><fmt:message key="email.audit.footer.heading"/></summary>
+            <p class="small text-muted mt-2"><fmt:message key="email.audit.footer.help"/></p>
+            <c:choose>
+                <c:when test="${not empty emailStatusResult.sentFooterText}">
+                    <pre class="small" style="white-space: pre-wrap;">${carlos:forHtml(emailStatusResult.sentFooterText)}</pre>
+                </c:when>
+                <c:otherwise><p><fmt:message key="email.audit.footer.none"/></p></c:otherwise>
+            </c:choose>
+        </details>
         <table class="table table-borderless">
             <tr>
                 <td class="status-and-date">

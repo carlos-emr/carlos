@@ -21,126 +21,63 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
-import java.io.IOException;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import io.github.carlos_emr.carlos.admin.gate.ViewConfigureEmail2Action;
-import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.SaveResult;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.springframework.dao.ConcurrencyFailureException;
 
-/**
- * Saves the clinic's default email footer (Administration, Emails, Configure Email; issue #4093,
- * follow-up to #3981).
- *
- * <p>POST only, with {@code _admin} write; GET and HEAD get 405 before anything is read or saved.
- * Saving also applies the new default to users' own footers (see
- * {@link EmailFooterService#saveClinicDefault}); the users concerned are told on their next email,
- * so the administrator is not asked to confirm.</p>
- *
- * <p>The form sends back the fingerprint of the footer it showed, so an unedited save changes
- * nothing, and a save made after someone else changed the footer is shown again with the current
- * footer instead of overwriting it. A footer over the limit, or a save that collided with another,
- * is shown again for editing. The audit entry records who changed the default and how many users
- * were told, not the text.</p>
- *
- * @since 2026-10-07
- */
+/** Only administrators may edit the mandatory clinic footer. Personal footers never alter it. */
 public final class SaveClinicEmailFooter2Action extends ActionSupport {
-
-    static final String FOOTER_PARAM = "clinicFooter";
-    static final String FINGERPRINT_PARAM = "clinicFooterFingerprint";
-
-    private static final Logger logger = MiscUtils.getLogger();
-
-    private final SecurityInfoManager securityInfoManager;
-    private final EmailFooterService emailFooterService;
-    private final EmailFooterLogoService logoService;
+    private final SecurityInfoManager security;
+    private final ClinicEmailFooterService footers;
 
     public SaveClinicEmailFooter2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class),
-                SpringUtils.getBean(EmailFooterLogoService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
-    // Package-private so tests can supply the collaborators.
-    SaveClinicEmailFooter2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService,
-            EmailFooterLogoService logoService) {
-        this.securityInfoManager = securityInfoManager;
-        this.emailFooterService = emailFooterService;
-        this.logoService = logoService;
+    SaveClinicEmailFooter2Action(SecurityInfoManager security, ClinicEmailFooterService footers) {
+        this.security = security;
+        this.footers = footers;
     }
 
     @Override
-    public String execute() throws IOException {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        HttpServletResponse response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
+    public String execute() throws Exception {
+        var request = ServletActionContext.getRequest();
+        var response = ServletActionContext.getResponse();
+        var user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!security.hasPrivilege(user, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
-        // HTTP method names are case-sensitive and upper case.
         if (!"POST".equals(request.getMethod())) {
-            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            response.sendError(405);
             return NONE;
         }
-
-        String footer = request.getParameter(FOOTER_PARAM);
-        String shown = request.getParameter(FINGERPRINT_PARAM);
-        if (footer == null || !EmailFooterService.isFingerprint(shown)) {
-            // A post without the field is not a request to clear the footer, and one without the
-            // fingerprint of what the page showed cannot be checked against later changes.
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        String html = request.getParameter("clinicFooter");
+        String shown = request.getParameter("clinicFooterFingerprint");
+        if (html == null || shown == null || !shown.matches("[0-9a-f]{64}")) {
+            response.sendError(400);
             return NONE;
         }
-        EmailFooterService.ClinicDefaultSaved saved;
+        String outcome;
         try {
-            saved = emailFooterService.saveClinicDefault(footer, shown);
-        } catch (EmailFooterService.FooterTooLongException e) {
-            return showAgain(request, footer, shown, "clinicFooterTooLong");
-        } catch (ConcurrencyFailureException e) {
-            // Another save of the footers ran at the same moment; this one was rolled back whole.
-            logger.warn("Clinic email footer save collided with another save; asked the user to retry ({})",
-                    e.getClass().getSimpleName());
-            return showAgain(request, footer, shown, "clinicFooterSaveConflict");
+            SaveResult result = footers.save(html, shown);
+            outcome = result == SaveResult.STALE ? "stale" : result == SaveResult.SAVED ? "saved" : "unchanged";
+            if (result == SaveResult.SAVED) {
+                LogAction.addLog(user.getLoggedInProviderNo(), "update", "emailFooterClinicDefault", "",
+                        request.getRemoteAddr());
+            }
+        } catch (IllegalArgumentException e) {
+            outcome = "invalid";
+        } catch (org.springframework.dao.ConcurrencyFailureException | jakarta.persistence.PersistenceException e) {
+            outcome = "conflict";
         }
-        if (saved.outcome() == EmailFooterService.ClinicDefaultOutcome.CHANGED_SINCE_SHOWN) {
-            String current = emailFooterService.clinicDefault();
-            request.setAttribute("clinicFooterCurrent", current);
-            // The page now shows the current footer, so a second save goes through.
-            return showAgain(request, footer, EmailFooterService.fingerprint(current), "clinicFooterChangedSinceShown");
-        }
-        if (!saved.changed()) {
-            // Nothing to audit. Not "saved" either: from a stale page, the footer now shown is
-            // someone else's, and the administrator should see that nothing they typed was stored.
-            response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterUnchanged=true");
-            return NONE;
-        }
-        LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.UPDATE, "emailFooterClinicDefault", "",
-                request.getRemoteAddr(), null, "noticed=" + saved.noticed());
-        response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterSaved=true");
+        // Fixed application route and fixed outcome constants; request text never reaches this URL.
+        response.sendRedirect(request.getContextPath() + "/admin/ViewConfigureEmail?clinicFooterOutcome=" + outcome);
         return NONE;
-    }
-
-    /** Shows the page again with the administrator's text in the box and the given message. */
-    private String showAgain(HttpServletRequest request, String footer, String fingerprint, String message) {
-        request.setAttribute(FOOTER_PARAM, footer);
-        request.setAttribute(FINGERPRINT_PARAM, fingerprint);
-        request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
-        // The page renders straight from here, not through its gate: give it the logo card's state too.
-        ViewConfigureEmail2Action.exposeClinicLogo(request, logoService);
-        request.setAttribute(message, true);
-        return INPUT;
     }
 }

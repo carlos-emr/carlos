@@ -2,30 +2,12 @@
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.admin.gate;
 
-import jakarta.servlet.http.HttpServletRequest;
-
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
@@ -41,89 +23,54 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * The Configure Email page's clinic footer section (issue #4093, follow-up to #3981): the footer
- * shown, the fingerprint its form sends back, and the clinic-change rule its wording follows; and
- * the clinic email footer logo's state for the page (issue #3981).
- *
- * @since 2026-10-07
+ * The Configure Email page gate: {@code _admin} read, and the clinic email footer logo's state for
+ * the page (issue #3981).
  */
-@DisplayName("ViewConfigureEmail2Action")
 @Tag("unit")
 @Tag("fast")
-@Tag("admin")
 @Tag("email")
 @Tag("security")
+@DisplayName("Configure Email page gate")
 class ViewConfigureEmail2ActionUnitTest {
 
+    private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+    private final EmailFooterLogoService logoService = mock(EmailFooterLogoService.class);
+    private final ClinicEmailFooterService clinicFooters = mock(ClinicEmailFooterService.class);
     private MockHttpServletRequest request;
-    private SecurityInfoManager securityInfoManager;
-    private EmailFooterService emailFooterService;
-    private EmailFooterLogoService logoService;
-    private LoggedInInfo loggedInInfo;
     private MockedStatic<ServletActionContext> servletActionContext;
-    private MockedStatic<LoggedInInfo> loggedInInfoStatic;
 
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest("GET", "/admin/ViewConfigureEmail");
-        securityInfoManager = mock(SecurityInfoManager.class);
-        emailFooterService = mock(EmailFooterService.class);
-        logoService = mock(EmailFooterLogoService.class);
-        loggedInInfo = mock(LoggedInInfo.class);
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         servletActionContext = mockStatic(ServletActionContext.class);
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        loggedInInfoStatic = mockStatic(LoggedInInfo.class);
-        loggedInInfoStatic.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(loggedInInfo);
+        when(clinicFooters.clinicFooter()).thenReturn("FAKE Clinic");
     }
 
     @AfterEach
     void tearDown() {
-        loggedInInfoStatic.close();
         servletActionContext.close();
-    }
-
-    @Test
-    @DisplayName("should show the clinic footer with its fingerprint and the clinic-change rule")
-    void shouldExposeClinicFooter_forConfigureEmailPage() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
-        when(emailFooterService.clinicDefault()).thenReturn("Riverside Clinic\nBook online");
-        when(emailFooterService.ownFootersReplacedOnClinicChange()).thenReturn(true);
-
-        String result = action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(request.getAttribute("clinicFooter")).isEqualTo("Riverside Clinic\nBook online");
-        assertThat(request.getAttribute("clinicFooterFingerprint"))
-                .isEqualTo(EmailFooterService.fingerprint("Riverside Clinic\nBook online"));
-        assertThat(request.getAttribute("ownFootersReplacedOnClinicChange")).isEqualTo(true);
-    }
-
-    @Test
-    @DisplayName("should refuse a user without _admin read before reading the footer")
-    void shouldThrowSecurityException_whenAdminReadMissing() {
-        assertThatThrownBy(() -> action().execute())
-                .isInstanceOf(SecurityException.class)
-                .hasMessage("missing required sec object (_admin)");
-        verifyNoInteractions(emailFooterService, logoService);
     }
 
     @Test
     @DisplayName("should give the page the logo's size when the clinic has one")
     void shouldExposeLogoSize_whenLogoSet() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+        allowAdminRead();
         EmailFooterLogo logo = new EmailFooterLogo();
         logo.setWidth(320);
         logo.setHeight(80);
         when(logoService.currentLogo()).thenReturn(logo);
 
-        action().execute();
+        assertThat(action().execute()).isEqualTo(ActionSupport.SUCCESS);
 
         assertThat(request.getAttribute("clinicLogoSet")).isEqualTo(true);
         assertThat(request.getAttribute("clinicLogoWidth")).isEqualTo(320);
@@ -133,7 +80,7 @@ class ViewConfigureEmail2ActionUnitTest {
     @Test
     @DisplayName("should tell the page there is no logo")
     void shouldMarkNoLogo_whenNoneSet() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+        allowAdminRead();
 
         action().execute();
 
@@ -141,7 +88,20 @@ class ViewConfigureEmail2ActionUnitTest {
         assertThat(request.getAttribute("clinicLogoWidth")).isNull();
     }
 
+    @Test
+    @DisplayName("should refuse a user without _admin read before reading the logo")
+    void shouldRefuse_whenAdminReadMissing() {
+        assertThatThrownBy(() -> action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin)");
+        verifyNoInteractions(logoService, clinicFooters);
+    }
+
+    private void allowAdminRead() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_admin"), eq("r"), isNull(String.class))).thenReturn(true);
+    }
+
     private ViewConfigureEmail2Action action() {
-        return new ViewConfigureEmail2Action(securityInfoManager, emailFooterService, logoService);
+        return new ViewConfigureEmail2Action(securityInfoManager, logoService, clinicFooters);
     }
 }

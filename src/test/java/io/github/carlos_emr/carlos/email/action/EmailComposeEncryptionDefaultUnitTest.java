@@ -5,7 +5,6 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
@@ -85,7 +84,6 @@ class EmailComposeEncryptionDefaultUnitTest extends EmailWorkflowUnitTestBase {
         when(securityInfoManager.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
-        registerMock(EmailFooterService.class, mock(EmailFooterService.class));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
         MockHttpServletResponse response = new MockHttpServletResponse();

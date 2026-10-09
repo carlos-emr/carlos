@@ -93,7 +93,9 @@ public class EmailFooterLogoService {
         /** Over {@link #MAX_WIDTH} x {@link #MAX_HEIGHT} pixels. */
         TOO_LARGE,
         /** The upload fits, but the copy CARLOS saves of it would be over {@link #MAX_BYTES}. */
-        COPY_TOO_BIG
+        COPY_TOO_BIG,
+        /** The server could not read or save the upload. */
+        UPLOAD_FAILED
     }
 
     /** Thrown when an upload is refused; nothing is saved. */
@@ -255,7 +257,14 @@ public class EmailFooterLogoService {
                 if (!png && jpegScanCount(upload) > MAX_JPEG_SCANS) {
                     throw new LogoRejectedException(Rejection.NOT_AN_IMAGE);
                 }
-                byte[] bytes = resave(reader.read(0), png);
+                BufferedImage decoded = reader.read(0);
+                byte[] bytes;
+                try {
+                    bytes = resave(decoded, png);
+                } catch (IOException | RuntimeException e) {
+                    logger.warn("Clinic email logo could not be saved; cause={}", e.getClass().getSimpleName());
+                    throw new LogoRejectedException(Rejection.UPLOAD_FAILED);
+                }
                 if (bytes.length > maxBytes) {
                     throw new LogoRejectedException(Rejection.COPY_TOO_BIG);
                 }

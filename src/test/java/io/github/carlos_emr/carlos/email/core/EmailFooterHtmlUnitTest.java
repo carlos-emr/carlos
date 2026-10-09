@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.email.core;
 
+import java.util.List;
+
 import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +25,41 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 @Tag("fast")
 @Tag("email")
 class EmailFooterHtmlUnitTest {
+
+    @Test
+    @DisplayName("should remove link addresses containing invisible characters")
+    void shouldRemoveAddress_whenLinkContainsInvisibleCharacters() {
+        for (String character : List.of("\u202e", "\u200f", "\u0000", "\u001f", "\ufffd")) {
+            assertThat(EmailFooterHtml.clean("<a href=\"https://ex" + character + "ample.example\">Website</a>"))
+                    .isEqualTo("<a>Website</a>");
+        }
+    }
+
+    @Test
+    @DisplayName("should remove empty leading lines consistently in both versions")
+    void shouldRemoveLeadingBreaks_whenEditorStartsWithEmptyLines() {
+        String html = EmailFooterHtml.clean("<br><div><br></div><br>Text");
+        assertThat(html).isEqualTo("Text");
+        assertThat(EmailFooterHtml.toPlainText(html)).isEqualTo("Text");
+    }
+
+    @Test
+    @DisplayName("should preserve spacing inside a plain-text eForm footer")
+    void shouldKeepSpacing_whenFooterComesFromPlainText() {
+        String html = EmailFooterHtml.clean(EmailFooterHtml.fromPlainText("Clinic\n  Fax:   1"));
+        assertThat(html).contains("&nbsp;");
+        assertThat(EmailFooterHtml.toPlainText(html)).isEqualTo("Clinic\n  Fax:   1");
+    }
+
+    @Test
+    @DisplayName("should collapse source whitespace while preserving encoded spaces and their count")
+    void shouldPreserveEncodedSpaces_whenHtmlContainsSourceWhitespace() {
+        String html = EmailFooterHtml.clean("A  \t\r\n B<br>&nbsp;&nbsp;C &nbsp;&nbsp;D");
+        assertThat(EmailFooterHtml.toPlainText(html)).isEqualTo("A B\n  C   D");
+        assertThat(EmailFooterHtml.visibleLength(html)).isEqualTo("A B\n  C   D".length());
+        assertThat(EmailFooterHtml.clean("<b></b>")).isEmpty();
+        assertThat(EmailFooterHtml.clean("<i>&nbsp; &nbsp;</i>")).isEmpty();
+    }
 
     @Nested
     @DisplayName("clean")

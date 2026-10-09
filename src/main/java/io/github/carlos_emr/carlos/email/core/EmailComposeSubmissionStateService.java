@@ -711,8 +711,19 @@ public class EmailComposeSubmissionStateService {
             String fdid,
             TransactionType transactionType,
             boolean openEFormAfterEmail,
-            boolean deleteEFormAfterEmail
+            boolean deleteEFormAfterEmail,
+            ClinicEmailFooterSnapshot clinicFooter
     ) {
+        public EmailComposeSubmissionContext(String demographicId, String fdid, TransactionType transactionType,
+                boolean openEFormAfterEmail, boolean deleteEFormAfterEmail) {
+            this(demographicId, fdid, transactionType, openEFormAfterEmail, deleteEFormAfterEmail, null);
+        }
+
+        public EmailComposeSubmissionContext withClinicFooter(ClinicEmailFooterSnapshot clinic) {
+            return new EmailComposeSubmissionContext(demographicId, fdid, transactionType,
+                    openEFormAfterEmail, deleteEFormAfterEmail, clinic);
+        }
+
         public EmailComposeSubmissionContext {
             demographicId = demographicId == null ? "" : demographicId;
             fdid = fdid == null ? "" : fdid;

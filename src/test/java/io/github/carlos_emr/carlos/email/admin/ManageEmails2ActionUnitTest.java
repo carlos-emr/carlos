@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -54,7 +53,6 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     private FormsManager formsManager;
     private SecurityInfoManager securityInfoManager;
     private PdfPreviewCapabilityService pdfPreviewCapabilityService;
-    private EmailFooterService emailFooterService;
 
     @BeforeEach
     void setUp() {
@@ -70,6 +68,11 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         // written. The test never ran in CI, so the missing registration went unnoticed.
         pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
 
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(DemographicManager.class, demographicManager);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailManager.class, emailManager);
@@ -77,10 +80,6 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         registerMock(FormsManager.class, formsManager);
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
-        // The resend path looks up the clinic footer for the compose window (follow-up to #3981).
-        emailFooterService = mock(EmailFooterService.class);
-        when(emailFooterService.clinicDefault()).thenReturn("<b>Riverside Clinic</b>");
-        registerMock(EmailFooterService.class, emailFooterService);
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
@@ -449,8 +448,8 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should fill in the footer that was sent when copying an email to resend")
-    void shouldPrefillSentFooter_whenCopyingEmailForResend() {
+    @DisplayName("should keep historical combined footers out of a new resend's personal field")
+    void shouldNotPromoteHistoricalFooter_whenCopyingEmailForResend() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
@@ -459,18 +458,19 @@ class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
         EmailLog failed = pendingEmailLog();
         failed.setStatus(EmailLog.EmailStatus.FAILED);
         failed.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        var currentPersonal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(currentPersonal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenReturn("<i>Current personal</i>");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, currentPersonal);
         stubComposeLookups(loggedInInfo);
         when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
 
         assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
 
         assertThat(request.getAttribute("message")).isEqualTo("body");
-        assertThat(request.getAttribute("footerEmail"))
-                .isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
-        // The window carries the clinic footer it shows, so "Also make this my usual footer" works
-        // on a resend and is refused if the clinic changes its footer meanwhile.
-        assertThat(request.getAttribute("footerClinicFingerprint"))
-                .isEqualTo(EmailFooterService.fingerprint("<b>Riverside Clinic</b>"));
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("<i>Current personal</i>");
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Mandatory Clinic");
+        assertThat(failed.getFooter()).isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
     }
 
     @Test

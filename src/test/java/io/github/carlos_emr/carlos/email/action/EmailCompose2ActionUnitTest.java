@@ -8,12 +8,10 @@ package io.github.carlos_emr.carlos.email.action;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
-import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.eform.actions.AddEForm2Action;
 import io.github.carlos_emr.carlos.email.core.EmailAttachmentSettings;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
@@ -25,7 +23,6 @@ import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -50,7 +47,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
@@ -82,8 +78,6 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     private static final String EXAMPLE_GENERATED_VALUE = "example-generated-value";
 
     private EmailComposeSubmissionStateService composeSubmissionStateService;
-
-    private EmailFooterService emailFooterService;
 
     private static void stubEmptyAttachmentPreparation(EmailComposeManager manager)
             throws Exception {
@@ -165,6 +159,15 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         return ownedPdf;
     }
 
+    @Test
+    void shouldKeepPersonalDefaultSeparateFromEFormOverrideAndExplicitEmpty() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null, "<b>Saved personal</b>"))
+                .isEqualTo("<b>Saved personal</b>");
+        assertThat(EmailCompose2Action.resolveComposeFooter("", "Saved personal")).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("EForm\nPersonal", "Saved personal"))
+                .isEqualTo("EForm<br>Personal");
+    }
+
     private record ComposeMocks(EmailComposeManager emailComposeManager,
             EmailPdfPasswordService emailPdfPasswordService,
             PdfPreviewCapabilityService pdfPreviewCapabilityService) {
@@ -172,14 +175,16 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpComposeSubmissionStateService() {
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
         composeSubmissionStateService = new EmailComposeSubmissionStateService();
         registerMock(EmailComposeSubmissionStateService.class, composeSubmissionStateService);
         // EmailCompose2Action resolves the preview-token service at construction time, so every
         // test needs it registered even when the test itself never exercises attachment previews.
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
-        // Likewise the footer service; by default the user has no footer and no clinic notice.
-        emailFooterService = mock(EmailFooterService.class);
-        registerMock(EmailFooterService.class, emailFooterService);
     }
 
     @AfterEach
@@ -1033,46 +1038,13 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should prefer the eForm footer (read as plain text), then the user's footer (cleaned), then nothing")
-    void shouldResolveFooter_inEFormThenUserOrder() {
-        assertThat(EmailCompose2Action.resolveComposeFooter(null, Optional.empty())).isEmpty();
-        assertThat(EmailCompose2Action.resolveComposeFooter("  \n ", Optional.empty())).isEmpty();
+    @DisplayName("should treat a missing or blank eForm footer as none, and read an eForm footer as plain text")
+    void shouldResolveFooter_fromEFormOnly() {
+        assertThat(EmailCompose2Action.resolveComposeFooter(null)).isEmpty();
+        assertThat(EmailCompose2Action.resolveComposeFooter("  \n ")).isEmpty();
         // An eForm's footer is plain text: its line breaks are kept and nothing in it is markup.
-        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\nCall <front desk> & ask\n", Optional.of("Dr A")))
+        assertThat(EmailCompose2Action.resolveComposeFooter("Book online\nCall <front desk> & ask\n"))
                 .isEqualTo("Book online<br>Call &lt;front desk&gt; &amp; ask");
-        assertThat(EmailCompose2Action.resolveComposeFooter(" ", Optional.of("<b>Dr A</b><script>x()</script>")))
-                .isEqualTo("<b>Dr A</b>");
-    }
-
-    @Test
-    @DisplayName("should open with the user's own or clinic footer when the eForm has none, and flag a clinic change")
-    void shouldPrefillUserFooterAndNotice_whenEFormHasNone() throws Exception {
-        registerComposeMocks();
-        LoggedInInfo user = new LoggedInInfo();
-        Provider provider = new Provider();
-        provider.setProviderNo("101");
-        user.setLoggedInProvider(provider);
-        when(emailFooterService.composeFooter("101")).thenReturn(Optional.of("<b>Dr A</b><br>Book online"));
-        when(emailFooterService.clinicChangeNotice("101")).thenReturn("Dr A old footer");
-        when(emailFooterService.clinicChangeKeptOwnFooter("101")).thenReturn(true);
-        when(emailFooterService.clinicDefault()).thenReturn("Riverside Clinic");
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
-        request.getSession(true).setAttribute("demographicId", "123");
-
-        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class);
-             MockedStatic<LoggedInInfo> loggedIn = mockStatic(LoggedInInfo.class)) {
-            loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(user);
-            String viewId = prepare(servletActionContext, request, new MockHttpServletResponse());
-            MockHttpServletRequest rendered = view(servletActionContext, request.getSession(), viewId,
-                    new MockHttpServletResponse(), "compose");
-
-            assertThat(rendered.getAttribute("footerEmail")).isEqualTo("<b>Dr A</b><br>Book online");
-            assertThat(rendered.getAttribute("footerClinicChanged")).isEqualTo(true);
-            assertThat(rendered.getAttribute("clinicChangeKeptOwnFooter")).isEqualTo(true);
-            assertThat(rendered.getAttribute("footerClinicFingerprint")).isEqualTo(EmailFooterService.fingerprint("Riverside Clinic"));
-        } finally {
-            composeSubmissionStateService.clear(request.getSession().getId());
-        }
     }
 
     private static EmailConfig senderAccount(String senderEmail) {

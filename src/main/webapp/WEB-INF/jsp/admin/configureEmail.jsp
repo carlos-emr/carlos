@@ -1,7 +1,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -85,81 +85,39 @@
         </div>
     </div>
 
-    <%-- Clinic email footer (follow-up to #3981, issue #4093): every user starts with it and can save
-         their own. Whether saving a changed footer replaces users' own footers or keeps them is
-         EmailFooterService.REPLACE_OWN_FOOTERS_ON_CLINIC_CHANGE (ownFootersReplacedOnClinicChange
-         picks the wording); either way the compose screen tells each user concerned on their next
-         email, so the administrator is not asked to confirm. The form sends back the fingerprint of
-         the footer it showed, so a save made after someone else changed the footer is shown again
-         (clinicFooterChangedSinceShown, with clinicFooterCurrent) instead of overwriting it. --%>
-    <div class="card shadow-sm rounded mt-4 mb-4" id="clinicEmailFooter">
+    <div class="card shadow-sm rounded mt-4" id="clinicFooterCard">
         <div class="card-body">
-            <h3 class="card-title"><fmt:message key="admin.configureEmail.footer.heading"/></h3>
-            <p class="card-text mt-3" id="clinicFooterIntro">
-                <c:choose>
-                    <c:when test="${ownFootersReplacedOnClinicChange}"><fmt:message key="admin.configureEmail.footer.intro"/></c:when>
-                    <c:otherwise><fmt:message key="admin.configureEmail.footer.introKeep"/></c:otherwise>
-                </c:choose>
-            </p>
-            <c:if test="${param.clinicFooterSaved eq 'true' and not clinicFooterTooLong}">
-                <div class="alert alert-success" role="status" id="clinicFooterSaved">
-                    <fmt:message key="admin.configureEmail.footer.saved"/></div>
+            <h3><fmt:message key="admin.configureEmail.footer.policyHeading"/></h3>
+            <p><fmt:message key="admin.configureEmail.footer.policyHelp"/></p>
+            <c:if test="${clinicFooterMissing}">
+                <p class="alert alert-warning"><fmt:message key="email.compose.footer.clinicRequired"/></p>
             </c:if>
-            <c:if test="${param.clinicFooterUnchanged eq 'true'}">
-                <div class="alert alert-info" role="status" id="clinicFooterUnchanged">
-                    <fmt:message key="admin.configureEmail.footer.unchanged"/></div>
-            </c:if>
-            <c:if test="${clinicFooterTooLong}">
-                <div class="alert alert-danger" role="alert" id="clinicFooterTooLong">
-                    <fmt:message key="admin.configureEmail.footer.tooLong"/></div>
-            </c:if>
-            <c:if test="${clinicFooterSaveConflict}">
-                <div class="alert alert-danger" role="alert" id="clinicFooterSaveConflict">
-                    <fmt:message key="email.footer.saveConflict"/></div>
-            </c:if>
-            <c:if test="${clinicFooterChangedSinceShown}">
-                <div class="alert alert-warning" role="alert" id="clinicFooterChangedSinceShown">
-                    <p class="mb-2"><fmt:message key="admin.configureEmail.footer.changedSinceShown"/></p>
+            <c:if test="${not empty param.clinicFooterOutcome}">
+                <p class="alert alert-info" role="status">
                     <c:choose>
-                        <c:when test="${empty clinicFooterCurrent}">
-                            <p class="fst-italic mb-0"><fmt:message key="email.myFooter.noClinicFooter"/></p>
-                        </c:when>
-                        <c:otherwise>
-                            <div class="border bg-white p-2 footer-editor-mail" id="clinicFooterCurrent"
-                                 data-footer-html="<carlos:encode value='${clinicFooterCurrent}' context='htmlAttribute'/>"></div>
-                        </c:otherwise>
+                        <c:when test="${param.clinicFooterOutcome eq 'saved'}"><fmt:message key="admin.configureEmail.footer.policySaved"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'unchanged'}"><fmt:message key="admin.configureEmail.footer.policyUnchanged"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'stale'}"><fmt:message key="admin.configureEmail.footer.policyStale"/></c:when>
+                        <c:when test="${param.clinicFooterOutcome eq 'conflict'}"><fmt:message key="admin.configureEmail.footer.policyConflict"/></c:when>
+                        <c:otherwise><fmt:message key="admin.configureEmail.footer.policyInvalid"/></c:otherwise>
                     </c:choose>
-                </div>
+                </p>
             </c:if>
+            <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
+                 data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.email.core.EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
             <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=false%>">
-                <%-- Edited in the shared Edit footer window (footerEditorModal.jspf), as on the email screen;
-                     the window writes the cleaned HTML into the hidden field and redraws the preview. --%>
-                <form action="${ctx}/admin/saveClinicEmailFooter" method="post">
+                <form action="${ctx}/admin/saveClinicEmailFooter" method="post" id="clinicFooterForm" class="mt-3">
+                    <input type="hidden" name="clinicFooter" id="clinicFooter" value="${carlos:forHtmlAttribute(clinicFooter)}"/>
                     <input type="hidden" name="clinicFooterFingerprint" value="${carlos:forHtmlAttribute(clinicFooterFingerprint)}"/>
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="form-label mb-0" id="clinicFooterLabel"><fmt:message key="admin.configureEmail.footer.label"/></span>
-                        <button type="button" class="btn btn-outline-primary btn-sm" id="clinicFooterEdit"
-                                data-bs-toggle="modal" data-bs-target="#footerEditorModal"
-                                data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview"
-                                aria-describedby="clinicFooterHelp">
-                            <fmt:message key="email.footerEditor.open"/></button>
-                    </div>
-                    <input type="hidden" id="clinicFooter" name="clinicFooter" value="<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>"/>
-                    <div id="clinicFooterPreview" class="border bg-white p-2 footer-editor-mail" aria-labelledby="clinicFooterLabel"
-                         data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
-                    <div id="clinicFooterHelp" class="form-text">
-                        <fmt:message key="admin.configureEmail.footer.help"/></div>
-                    <button type="submit" class="btn btn-primary mt-2">
-                        <fmt:message key="admin.configureEmail.footer.save"/></button>
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#footerEditorModal"
+                            data-footer-editor-target="clinicFooter" data-footer-editor-preview="clinicFooterPreview">
+                        <fmt:message key="email.footerEditor.open"/></button>
+                    <button type="submit" class="btn btn-primary"><fmt:message key="admin.configureEmail.footer.policySave"/></button>
                 </form>
-            </security:oscarSec>
-            <security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w" reverse="<%=true%>">
-                <div class="border bg-white p-2 footer-editor-mail" id="clinicFooterReadOnly"
-                     data-footer-html="<carlos:encode value='${clinicFooter}' context='htmlAttribute'/>"
-                     data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
             </security:oscarSec>
         </div>
     </div>
+
     <%-- The clinic's email footer logo (issue #3981): shown above the footer in patient emails and
          carried inside each email. Only _admin writers get the form; everyone else sees the logo. --%>
     <div class="card shadow-sm rounded mt-4 mb-5" id="clinicLogoCard">
@@ -185,6 +143,9 @@
                 </c:when>
                 <c:when test="${param.logoError eq 'TOO_LARGE'}">
                     <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorTooLarge"/></div>
+                </c:when>
+                <c:when test="${param.logoError eq 'UPLOAD_FAILED'}">
+                    <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorUploadFailed"/></div>
                 </c:when>
                 <c:when test="${param.logoError eq 'COPY_TOO_BIG'}">
                     <div class="alert alert-danger" role="alert" id="clinicLogoError"><fmt:message key="admin.configureEmail.logo.errorCopyTooBig"/></div>
@@ -226,6 +187,6 @@
 </div>
 <script src="${ctx}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeClinic"/>
-<c:set var="footerEditorApplyKey" value="email.footerEditor.applyFooter"/>
+<c:set var="footerEditorApplyKey" value="email.footerEditor.applyClinic"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>
 </body>

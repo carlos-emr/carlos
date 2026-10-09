@@ -8,6 +8,7 @@ package io.github.carlos_emr.carlos.email.admin;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Collections;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,6 +19,14 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionInvocation;
+import org.apache.struts2.ActionProxy;
+import org.apache.struts2.dispatcher.LocalizedMessage;
+import org.apache.struts2.dispatcher.multipart.MultiPartRequestWrapper;
+import org.apache.struts2.interceptor.ActionFileUploadInterceptor;
+import org.apache.struts2.interceptor.DefaultWorkflowInterceptor;
+import org.apache.struts2.text.TextProvider;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
@@ -39,6 +48,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -119,6 +130,9 @@ class SaveClinicEmailLogo2ActionUnitTest {
     void shouldSaveLogo_whenUploadAccepted() throws Exception {
         allowAdminWrite();
         byte[] picture = {1, 2, 3};
+        var stored = mock(io.github.carlos_emr.carlos.commn.model.EmailFooterLogo.class);
+        when(stored.getId()).thenReturn(123);
+        when(logoService.replace(any(), anyString())).thenReturn(stored);
         SaveClinicEmailLogo2Action action = action();
         action.withUploadedFiles(List.of(upload("other", new byte[] {9}), upload("logoFile", picture)));
         request.addParameter("logoAction", "upload");
@@ -127,7 +141,7 @@ class SaveClinicEmailLogo2ActionUnitTest {
 
         verify(logoService).replace(picture, "999998");
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoSaved=true");
-        logAction.verify(() -> LogAction.addLog("999998", "update", "emailFooterLogo", "", "127.0.0.1"));
+        logAction.verify(() -> LogAction.addLog("999998", "update", "emailFooterLogo", "123", "127.0.0.1"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -168,8 +182,8 @@ class SaveClinicEmailLogo2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should ignore an upload from outside the temporary upload folders")
-    void shouldIgnoreUpload_whenOutsideUploadFolders() throws Exception {
+    @DisplayName("should report a server failure for an upload outside the temporary upload folders")
+    void shouldReportServerFailure_whenOutsideUploadFolders() throws Exception {
         allowAdminWrite();
         UploadedFile outside = mock(UploadedFile.class);
         when(outside.getInputName()).thenReturn("logoFile");
@@ -180,7 +194,7 @@ class SaveClinicEmailLogo2ActionUnitTest {
 
         action.execute();
 
-        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoError=EMPTY");
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoError=UPLOAD_FAILED");
         verifyNoInteractions(logoService);
     }
 
@@ -213,6 +227,99 @@ class SaveClinicEmailLogo2ActionUnitTest {
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(response.getRedirectedUrl()).isNull();
         verifyNoInteractions(logoService);
+    }
+
+    @Test
+    @DisplayName("should report a server failure when the bound upload disappears before it is read")
+    void shouldReportServerFailure_whenBoundUploadDisappears() throws Exception {
+        allowAdminWrite();
+        UploadedFile uploaded = upload("logoFile", new byte[] {1});
+        SaveClinicEmailLogo2Action action = action();
+        action.withUploadedFiles(List.of(uploaded));
+        Files.delete(((java.io.File) uploaded.getContent()).toPath());
+        request.addParameter("logoAction", "upload");
+
+        action.execute();
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/admin/ViewConfigureEmail?logoError=UPLOAD_FAILED");
+        verifyNoInteractions(logoService);
+        logAction.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"struts.messages.upload.error.FileUploadSizeException",
+            "struts.messages.upload.error.FileUploadByteCountLimitException",
+            "struts.messages.error.uploading", "struts.messages.upload.error.FileUploadContentTypeException",
+            "struts.messages.upload.error.FileUploadFileCountLimitException"})
+    @DisplayName("should distinguish size and parser faults through the upload and workflow interceptors")
+    void shouldSelectUploadOutcome_whenMultipartInterceptorRejects(String errorKey) throws Exception {
+        MultiPartRequestWrapper multipart = mock(MultiPartRequestWrapper.class);
+        when(multipart.hasErrors()).thenReturn(true);
+        when(multipart.getErrors()).thenReturn(List.of(
+                new LocalizedMessage(getClass(), errorKey, "Upload refused", new Object[0])));
+        when(multipart.getFileParameterNames()).thenReturn(Collections.emptyEnumeration());
+        String expected = (errorKey.endsWith("FileUploadSizeException") || errorKey.endsWith("FileUploadByteCountLimitException")) ? "uploadTooBig" : ActionSupport.INPUT;
+        assertThat(runUploadInterceptors(multipart)).isEqualTo(expected);
+        verifyNoInteractions(logoService);
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should retain the size outcome when the file interceptor rejects an oversized file")
+    void shouldSelectSizeOutcome_whenUploadFileExceedsInterceptorLimit() throws Exception {
+        UploadedFile file = mock(UploadedFile.class);
+        when(file.length()).thenReturn(1_048_577L);
+        when(file.getOriginalName()).thenReturn("synthetic-logo.png");
+        when(file.getName()).thenReturn("synthetic-upload");
+        when(file.getContentType()).thenReturn("image/png");
+        MultiPartRequestWrapper multipart = mock(MultiPartRequestWrapper.class);
+        when(multipart.getFileParameterNames()).thenReturn(Collections.enumeration(List.of("logoFile")));
+        when(multipart.getFiles("logoFile")).thenReturn(new UploadedFile[]{file});
+        assertThat(runUploadInterceptors(multipart)).isEqualTo("uploadTooBig");
+        verifyNoInteractions(logoService);
+        logAction.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should use the generic upload outcome when parser errors include a non-size fault")
+    void shouldSelectGenericOutcome_whenMultipartErrorsMixed() throws Exception {
+        MultiPartRequestWrapper multipart = mock(MultiPartRequestWrapper.class);
+        when(multipart.hasErrors()).thenReturn(true);
+        when(multipart.getErrors()).thenReturn(List.of(
+                new LocalizedMessage(getClass(), "struts.messages.upload.error.FileUploadSizeException",
+                        "Size fault", new Object[0]),
+                new LocalizedMessage(getClass(), "struts.messages.error.uploading", "Parser fault", new Object[0])));
+        when(multipart.getFileParameterNames()).thenReturn(Collections.emptyEnumeration());
+        assertThat(runUploadInterceptors(multipart)).isEqualTo(ActionSupport.INPUT);
+        verifyNoInteractions(logoService);
+    }
+
+    // Use Struts' real file binding/validation and workflow; only the text provider and
+    // servlet multipart parser are fixtures. An error must stop before execute/save/audit.
+    private String runUploadInterceptors(MultiPartRequestWrapper multipart) throws Exception {
+        SaveClinicEmailLogo2Action action = spy(action());
+        doReturn("Upload refused").when(action).getText(anyString(), any(String[].class));
+        servletActionContext.when(ServletActionContext::getRequest).thenReturn(multipart);
+        ActionInvocation invocation = mock(ActionInvocation.class);
+        ActionContext context = mock(ActionContext.class);
+        ActionProxy proxy = mock(ActionProxy.class);
+        when(invocation.getAction()).thenReturn(action);
+        when(invocation.getInvocationContext()).thenReturn(context);
+        when(context.getServletRequest()).thenReturn(multipart);
+        when(invocation.getProxy()).thenReturn(proxy);
+        when(proxy.getMethod()).thenReturn("execute");
+        TextProvider provider = mock(TextProvider.class);
+        when(provider.hasKey(anyString())).thenReturn(true);
+        when(provider.getText(anyString(), any(List.class))).thenReturn("Upload refused");
+        ActionFileUploadInterceptor uploadInterceptor = new ActionFileUploadInterceptor() {
+            @Override
+            protected TextProvider getTextProvider(Object ignored) {
+                return provider;
+            }
+        };
+        uploadInterceptor.setMaximumSize(1_048_576L);
+        when(invocation.invoke()).thenAnswer(call -> new DefaultWorkflowInterceptor().intercept(invocation));
+        return uploadInterceptor.intercept(invocation);
     }
 
     private void allowAdminWrite() {

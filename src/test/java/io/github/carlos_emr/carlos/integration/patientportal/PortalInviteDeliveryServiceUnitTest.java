@@ -479,6 +479,39 @@ class PortalInviteDeliveryServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldWithdrawPreparedInvite_whenRealEmailManagerRefusesMissingClinicFooter() {
+            var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+            when(security.hasPrivilege(user, "_email", "w", null)).thenReturn(true);
+            when(security.hasPrivilege(user, "_email", "r", null)).thenReturn(true);
+            var senders = mock(io.github.carlos_emr.carlos.email.core.EmailSenderFactory.class);
+            var consent = mock(io.github.carlos_emr.carlos.email.core.EmailConsentResolver.class);
+            when(consent.resolve(user, PATIENT)).thenReturn(new io.github.carlos_emr.carlos.email.core.EmailConsentResult(
+                    "FAKE Email Consent", io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus.OPT_IN,
+                    1, null));
+            var archives = mock(io.github.carlos_emr.carlos.managers.OutboundEmailArchiveService.class);
+            var outbox = mock(io.github.carlos_emr.carlos.commn.dao.EmailLogDaoImpl.class);
+            var clinic = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+            when(clinic.snapshot()).thenReturn(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("", null));
+            var realManager = new EmailManager(consent, senders, security, archives);
+            injectDependency(realManager, "clinicFooterService", clinic);
+            injectDependency(realManager, "emailLogDao", outbox);
+            injectDependency(service, "emailManager", realManager);
+
+            PatientPortalInviteDelivery row = service.invite(user, patient(), staff, emailRequest());
+
+            assertThat(row.getState()).isEqualTo(State.ABANDONED);
+            assertThat(row.getOutcome()).isEqualTo(Outcome.SEND_BLOCKED);
+            assertThat(row.getEmailLogId()).isNull();
+            verify(portal, never()).commitInviteDelivery(anyLong(), anyString(), anyString(), any());
+            verify(portal).revokeInvite(PATIENT, INVITE, staff);
+            // The invitation checks explicit consent before preparing its token; the actual send
+            // then refuses the missing clinic without another consent read or any durable send work.
+            verify(consent).resolve(user, PATIENT);
+            org.mockito.Mockito.verifyNoMoreInteractions(consent);
+            org.mockito.Mockito.verifyNoInteractions(outbox, senders, archives);
+        }
+
+        @Test
         @DisplayName("should not commit or send when the attempt left PREPARED before the gate could queue it")
         void shouldNotCommit_whenTheGateLosesTheAttempt() {
             when(deliveries.advance(anyLong(), eq(State.PREPARED), eq(State.QUEUED), any())).thenReturn(null);

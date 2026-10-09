@@ -426,9 +426,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
         // The chart note is built from the body, so the body must stay footer-free.
         assertThat(emailLog.getBody()).isEqualTo("Body");
         // The log keeps the cleaned, formatted footer that was sent.
-        assertThat(emailLog.getFooter()).isEqualTo("<b>Riverside Clinic</b> footer");
-        assertThat(sent.getValue().getTransmittedBody()).isEqualTo("Body\n\nRiverside Clinic footer");
-        assertThat(sent.getValue().getFooterLogo()).isSameAs(logo);
+        assertThat(emailLog.getFooter()).containsSubsequence("<b>Riverside Clinic</b> footer", "FAKE Mandatory Clinic");
+        assertThat(sent.getValue().getTransmittedBody()).isEqualTo("Body\n\nRiverside Clinic footer\n\nFAKE Mandatory Clinic");
+        assertThat(sent.getValue().getFooterLogo()).isEqualTo(logo);
         assertThat(sent.getValue().getTransmittedHtml()).contains("cid:clinic-logo-1@carlos-emr");
     }
 
@@ -448,8 +448,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should not look up the clinic logo for an email without a footer")
-    void shouldSkipLogo_whenNoFooter() throws Exception {
+    @DisplayName("should include the clinic footer and its logo even when personal text is empty")
+    void shouldIncludeClinic_whenNoPersonalFooter() throws Exception {
         when(emailConsentResolver.resolve(loggedInInfo, 123))
                 .thenReturn(new EmailConsentResult("Email", EmailConsentStatus.OPT_IN, 55, new Date()));
         ArgumentCaptor<EmailData> sent = ArgumentCaptor.forClass(EmailData.class);
@@ -457,8 +457,9 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         emailManager.sendEmail(loggedInInfo, emailData());
 
-        verifyNoInteractions(footerLogoService);
-        assertThat(sent.getValue().getTransmittedHtml()).isNull();
+        verify(footerLogoService).inlineLogo();
+        assertThat(sent.getValue().getTransmittedHtml()).contains("FAKE Mandatory Clinic");
+        assertThat(sent.getValue().getSentFooter()).isEqualTo("FAKE Mandatory Clinic");
     }
 
     @Test
@@ -472,17 +473,17 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
 
         assertThat(emailLog.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(emailLog.getBody()).isEqualTo("Body");
-        assertThat(emailLog.getFooter()).isEqualTo("<i>Riverside Clinic footer</i>");
+        assertThat(emailLog.getFooter()).containsSubsequence("<i>Riverside Clinic footer</i>", "FAKE Mandatory Clinic");
         verifyNoInteractions(emailSenderFactory, emailSender);
     }
 
     private void initializeEmailManager(EmailConsentResolver resolver) {
         emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service(footerLogoService));
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "demographicManager", demographicManager);
         injectDependency(emailManager, "providerManager", providerManager);
-        injectDependency(emailManager, "footerLogoService", footerLogoService);
     }
 
     private void useImpliedConsentRecord(boolean optout) {

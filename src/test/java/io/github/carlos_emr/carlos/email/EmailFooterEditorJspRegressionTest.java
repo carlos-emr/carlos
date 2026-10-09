@@ -99,10 +99,9 @@ class EmailFooterEditorJspRegressionTest {
             // Either a clean(...) call, or the local "html" that the line above set from clean(...).
             assertThat(value).as(assignment.group()).matches("clean\\(.*\\)|html");
         }
-        assertThat(count).isEqualTo(5);
-        assertThat(script).containsSubsequence("var html = clean(target.value);", "preview.innerHTML = html;")
-                .containsSubsequence("var html = clean(editor.innerHTML);", "previewFooter.innerHTML = html;")
-                .containsSubsequence("var html = window.DOMPurify ? clean(source) : '';", "holder.innerHTML = html;");
+        assertThat(count).isEqualTo(4);
+        assertThat(script).containsSubsequence("var html = clean(value);", "preview.innerHTML = html;")
+                .containsSubsequence("var html = clean(editor.innerHTML);", "previewFooter.innerHTML = html;");
     }
 
     @Test
@@ -153,7 +152,7 @@ class EmailFooterEditorJspRegressionTest {
         }
         List<String> keys = List.of("admin.configureEmail.logo.errorEmpty", "admin.configureEmail.logo.errorTooBig",
                 "admin.configureEmail.logo.errorNotImage", "admin.configureEmail.logo.errorTooLarge",
-                "admin.configureEmail.logo.errorCopyTooBig");
+                "admin.configureEmail.logo.errorCopyTooBig", "admin.configureEmail.logo.errorUploadFailed");
         Properties english = bundle("en");
         for (String key : keys) {
             assertThat(jsp).contains("<fmt:message key=\"" + key + "\"/>");

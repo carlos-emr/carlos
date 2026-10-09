@@ -100,8 +100,17 @@ public final class EmailFooterHtml {
                 .prettyPrint(false)
                 .escapeMode(Entities.EscapeMode.base);
         // An editor leaves a line break at the end; it would only add space below the footer.
-        String cleaned = stripTrailingBreaks(Jsoup.clean(html, "", ALLOWED, output)).strip();
-        return toPlainText(cleaned).isEmpty() ? "" : cleaned;
+        String cleaned = stripLeadingBreaks(stripTrailingBreaks(Jsoup.clean(html, "", ALLOWED, output)).strip());
+        return hasVisibleText(toPlainText(cleaned)) ? cleaned : "";
+    }
+
+    /** Whitespace and invisible formatting alone cannot satisfy a required clinic footer. */
+    public static boolean hasVisibleText(String text) {
+        return text != null && text.codePoints().anyMatch(character ->
+                !Character.isWhitespace(character) && !Character.isSpaceChar(character)
+                        && !Character.isISOControl(character)
+                        && Character.getType(character) != Character.FORMAT
+                        && Character.getType(character) != Character.SURROGATE);
     }
 
     /**
@@ -121,7 +130,10 @@ public final class EmailFooterHtml {
             @Override
             public void head(Node node, int depth) {
                 if (node instanceof TextNode textNode) {
-                    text.append(textNode.text().replace('\u00A0', ' '));
+                    // Collapse HTML source whitespace before decoding the spaces deliberately
+                    // kept by fromPlainText. TextNode.text() also collapses NBSP, losing them.
+                    text.append(textNode.getWholeText().replaceAll("[ \\t\\r\\n\\f]+", " ")
+                            .replace('\u00A0', ' '));
                 } else if (node instanceof Element element) {
                     if ("br".equals(element.normalName())) {
                         text.append('\n');
@@ -165,7 +177,7 @@ public final class EmailFooterHtml {
             return "";
         }
         String lines = text.replace("\r\n", "\n").replace('\r', '\n').strip();
-        return SafeEncode.forHtmlContent(lines).replace("\n", "<br>");
+        return keepSpacing(SafeEncode.forHtmlContent(lines).replace("\n", "<br>"));
     }
 
     /**
@@ -188,6 +200,11 @@ public final class EmailFooterHtml {
     // FindSecBugs POTENTIAL_XML_INJECTION: every value appended is escaped (SafeEncode, messageHtml) or cleaned against the allow-list (clean); the rest are literals.
     @SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "appended values are escaped with SafeEncode or cleaned against the footer allow-list; the rest are literals")
     public static String toHtmlDocument(String plainBody, String footerHtml, String logoContentId) {
+        return toHtmlDocument(plainBody, "", footerHtml, logoContentId);
+    }
+
+    /** The optional personal layer is above the clinic logo and mandatory clinic layer. */
+    public static String toHtmlDocument(String plainBody, String personalHtml, String footerHtml, String logoContentId) {
         StringBuilder html = new StringBuilder(
                 "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head>"
                         + "<body style=\"font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.4;\">");
@@ -195,6 +212,10 @@ public final class EmailFooterHtml {
         // keep it where one does not (Outlook's Word engine).
         html.append("<div style=\"white-space: pre-wrap;\">").append(keepSpacing(messageHtml(plainBody)))
                 .append("</div><br>");
+        String personal = clean(personalHtml);
+        if (!personal.isEmpty()) {
+            html.append("<div>").append(personal).append("</div><br>");
+        }
         if (logoContentId != null) {
             // Inline (cid:), never a web address: nothing to host, and no request reveals that
             // the patient opened the email.
@@ -213,6 +234,29 @@ public final class EmailFooterHtml {
         }
         String lines = plainBody.replace("\r\n", "\n").replace('\r', '\n').stripTrailing();
         return SafeEncode.forHtmlContent(lines).replace("\n", BR);
+    }
+
+    // Drop empty leading editor lines too, matching the plain-text version's outer trim.
+    private static String stripLeadingBreaks(String html) {
+        int start = 0;
+        while (start < html.length()) {
+            if (Character.isWhitespace(html.charAt(start))) {
+                start++;
+                continue;
+            }
+            String head = null;
+            for (String candidate : EMPTY_TAILS) {
+                if (html.startsWith(candidate, start)) {
+                    head = candidate;
+                    break;
+                }
+            }
+            if (head == null) {
+                break;
+            }
+            start += head.length();
+        }
+        return html.substring(start);
     }
 
     // One backwards pass, no pattern: linear however many breaks, empty lines and spaces there are.

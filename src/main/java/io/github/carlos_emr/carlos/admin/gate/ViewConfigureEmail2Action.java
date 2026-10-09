@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.commn.model.EmailFooterLogo;
 import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
-import io.github.carlos_emr.carlos.email.core.EmailFooterService;
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -31,10 +31,6 @@ import org.apache.struts2.ServletActionContext;
  * security-hardening migration (defense in depth; matches the 2Action
  * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
  *
- * <p>It also supplies the clinic's default email footer for the form that
- * {@code admin/saveClinicEmailFooter} saves, the fingerprint the form sends back so a save can tell
- * whether the footer changed after the page was opened, and whether saving replaces users' own
- * footers (the page's wording follows it).</p>
  * <p>The page also shows the clinic's email footer logo (issue #3981), which {@code _admin}
  * writers can replace or remove there.</p>
  *
@@ -43,21 +39,21 @@ import org.apache.struts2.ServletActionContext;
 public final class ViewConfigureEmail2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager;
-    private final EmailFooterService emailFooterService;
     private final EmailFooterLogoService logoService;
+    private final ClinicEmailFooterService clinicFooters;
 
     /** Used by Struts, which needs a no-argument constructor. */
     public ViewConfigureEmail2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class),
-                SpringUtils.getBean(EmailFooterLogoService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterLogoService.class),
+                SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
-    // Package-private so tests can supply the collaborators.
-    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService,
-            EmailFooterLogoService logoService) {
+    // Package-private for tests.
+    ViewConfigureEmail2Action(SecurityInfoManager securityInfoManager, EmailFooterLogoService logoService,
+            ClinicEmailFooterService clinicFooters) {
         this.securityInfoManager = securityInfoManager;
-        this.emailFooterService = emailFooterService;
         this.logoService = logoService;
+        this.clinicFooters = clinicFooters;
     }
 
     @Override
@@ -69,28 +65,17 @@ public final class ViewConfigureEmail2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin)");
         }
 
-        String clinicFooter = emailFooterService.clinicDefault();
+        String clinicFooter = clinicFooters.clinicFooter();
         request.setAttribute("clinicFooter", clinicFooter);
-        request.setAttribute("clinicFooterFingerprint", EmailFooterService.fingerprint(clinicFooter));
-        request.setAttribute("ownFootersReplacedOnClinicChange", emailFooterService.ownFootersReplacedOnClinicChange());
-        exposeClinicLogo(request, logoService);
-        return SUCCESS;
-    }
-
-    /**
-     * Gives the page the clinic email footer logo's state. Every path that renders the page calls
-     * it, including the clinic footer save shown again (SaveClinicEmailFooter2Action), so the logo
-     * card never claims there is no logo.
-     *
-     * @param request the request the page renders from
-     * @param logoService the clinic logo
-     */
-    public static void exposeClinicLogo(HttpServletRequest request, EmailFooterLogoService logoService) {
+        request.setAttribute("clinicFooterMissing", clinicFooter.isEmpty());
+        request.setAttribute("clinicFooterFingerprint",
+                io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.fingerprint(clinicFooter));
         EmailFooterLogo logo = logoService.currentLogo();
         request.setAttribute("clinicLogoSet", logo != null);
         if (logo != null) {
             request.setAttribute("clinicLogoWidth", logo.getWidth());
             request.setAttribute("clinicLogoHeight", logo.getHeight());
         }
+        return SUCCESS;
     }
 }

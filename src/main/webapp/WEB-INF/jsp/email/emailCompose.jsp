@@ -5,7 +5,7 @@
   Key features: Selects sender and recipients, composes one message, controls message and
   attachment encryption, manages attachments, and displays send or validation results.
   Request attributes: senderAccounts, receiverEmailList, invalidReceiverEmailList, message,
-  footerEmail, footerClinicChanged, clinicChangeKeptOwnFooter, emailAttachmentList, isEmailEncrypted,
+  footerEmail, emailAttachmentList, isEmailEncrypted,
   isEmailAttachmentEncrypted, and emailLog.
   Request parameters: demographicId, transactionType, senderConfigId, subjectEmail, message,
   footerEmail, isEmailEncrypted, isEmailAttachmentEncrypted, and patientChartOption.
@@ -21,6 +21,7 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PortalEmailDeliveryService" %>
+<%@ page import="io.github.carlos_emr.carlos.email.core.EmailFooterHtml" %>
 <%@ page import="io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException" %>
 <%
     // A malformed setting must not break unencrypted email. Treat it as portal delivery so no
@@ -597,16 +598,7 @@
                     </div>
                 </div>
 
-                <%-- Footer (issue #3981): sent to the patient below the message after one blank line. It
-                     stays unencrypted when encryption is on (it follows the secure-message notice and is
-                     never inside the encrypted PDF), and it is never written to the chart note. The value
-                     is seeded server-side as footerEmail, formatted HTML: the eForm's footer, else the user's
-                     own footer or the clinic default (see EmailFooterService), else empty; a resend or
-                     failed-send retry seeds the footer it had. Staff change it for this email in the shared
-                     Edit footer window (footerEditorModal.jspf); the card shows it cleaned. Ticking "Also make
-                     this my usual footer" saves it as their own footer when the email is sent. When a clinic
-                     footer change affected the user, a notice links to their footer page until they deal
-                     with it there. --%>
+                <%-- Personal text is optional; the trusted clinic snapshot below is read-only. --%>
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0" id="footerEmailLabel">${emailComposeFooterLabel}</h5>
@@ -617,40 +609,36 @@
                             <fmt:message key="email.footerEditor.open"/></button>
                     </div>
                     <div class="card-body">
-                        <c:if test="${footerClinicChanged}">
-                            <div class="alert alert-warning" role="alert" id="footerClinicChanged">
-                                <c:choose>
-                                    <c:when test="${clinicChangeKeptOwnFooter}"><fmt:message key="email.compose.footer.clinicChangedKept"/></c:when>
-                                    <c:otherwise><fmt:message key="email.compose.footer.clinicChanged"/></c:otherwise>
-                                </c:choose>
-                                <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                                   class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>
-                            </div>
-                        </c:if>
                         <input type="hidden" name="footerEmail" id="footerEmail" value="<carlos:encode value='${footerEmail}' context='htmlAttribute'/>"/>
-                        <div id="footerEmailPreview" class="footer-editor-mail" aria-labelledby="footerEmailLabel"
-                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"></div>
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
-                            <div class="form-check mb-0">
-                                <%-- Ticked again on a retry form, so the retry still saves it. --%>
-                                <input class="form-check-input" type="checkbox" name="saveFooterAsMine" id="saveFooterAsMine" value="true"
-                                       ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
-                                <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
-                                <%-- The clinic footer this window showed (its fingerprint): the save is refused if the
-                                     clinic changed its footer after the window opened. A retry form sends it on. --%>
-                                <input type="hidden" name="footerClinicShown"
-                                       value="${carlos:forHtmlAttribute(empty footerClinicFingerprint ? param.footerClinicShown : footerClinicFingerprint)}"/>
-                            </div>
-                            <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                               class="small" id="myEmailFooterLink"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        <div id="footerEmailPreview" class="footer-editor-mail" style="white-space: pre-wrap;" aria-labelledby="footerEmailLabel"
+                             data-empty-text="<fmt:message key='email.footerEditor.none'/>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText(EmailFooterHtml.clean((String) request.getAttribute("footerEmail")))) %></div>
+                    </div>
+                    <div class="card-body border-top">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="saveFooterAsMine" name="saveFooterAsMine"
+                                   value="true" ${param.saveFooterAsMine eq 'true' ? 'checked' : ''}>
+                            <label class="form-check-label" for="saveFooterAsMine"><fmt:message key="email.compose.footer.saveAsMine"/></label>
                         </div>
-                        <c:if test="${footerSaveAsMineNotDone}">
-                            <div class="form-text text-warning" id="footerSaveAsMineNotDone">
-                                <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
-                        </c:if>
+                        <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer" class="small">
+                            <fmt:message key="email.compose.footer.myFooterLink"/></a>
+                        <c:if test="${footerSaveAsMineNotDone}"><p class="form-text text-warning"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
                     </div>
                     <div class="card-footer text-danger" id="footerEmailHelp">
                         <span class="fa-solid fa-triangle-exclamation me-2"></span> ${emailComposeFooterHelp}
+                    </div>
+                </div>
+                <div class="card shadow-sm rounded mt-3 mb-3" id="clinicFooterCard">
+                    <div class="card-body">
+                        <h5><fmt:message key="email.compose.footer.clinicHeading"/></h5>
+                        <p class="small"><fmt:message key="email.compose.footer.clinicReadonly"/></p>
+                        <c:if test="${not empty clinicFooterLogoPreview}">
+                            <img src="${carlos:forHtmlAttribute(clinicFooterLogoPreview)}" alt="" style="max-width: 600px; height: auto;"/>
+                        </c:if>
+                        <div id="clinicFooterPreview" class="footer-editor-mail" style="white-space: pre-wrap;"
+                             data-footer-html="${carlos:forHtmlAttribute(clinicFooter)}"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(EmailFooterHtml.toPlainText((String) request.getAttribute("clinicFooter"))) %></div>
+                        <c:if test="${clinicFooterMissing}">
+                            <p class="alert alert-warning mt-2"><fmt:message key="email.compose.footer.clinicRequired"/></p>
+                        </c:if>
                     </div>
                 </div>
 
@@ -789,7 +777,7 @@
                 <div class="container mt-4" id="form-control-buttons">
                     <div class="row">
                         <div class="col-sm-12">
-                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
+                            <button type="submit" ${isEmailSuccessful or isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery or clinicFooterMissing ? 'disabled' : ''} id="btnSend" class="btn btn-primary btn-md float-end" value="${emailComposeSend}">
                                 <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 ${emailComposeSend}
                             </button>
@@ -832,7 +820,7 @@
                             <fmt:message key="email.compose.msg.followUpRequired"/>
                         </div>
                     </c:if>
-                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed and not footerSaveAsMineStale}">
+                    <c:if test="${isEmailStatusRecorded and not isEmailFollowUpRequired and not footerSaveAsMineFailed}">
                         <p class="mt-1" id="windowCloseMessage">${emailComposeWindowClosing}</p>
                     </c:if>
                 </c:when>
@@ -860,35 +848,13 @@
                     </div>
                 </c:otherwise>
             </c:choose>
-            <%-- The form is hidden on these outcomes, so its own note would not show: say here that a
-                 ticked "Also make this my usual footer" did nothing. --%>
-            <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}">
-                <div class="alert alert-info" role="status" id="footerSaveAsMineNotDoneUnconfirmed">
-                    <fmt:message key="email.compose.footer.saveAsMineNotDone"/></div>
-            </c:if>
-            <%-- "Also make this my usual footer": done only once the email was accepted. Outside the
-                 outcome branches, so it shows on every outcome that accepted the email (a portal
-                 delivery still to resolve included). --%>
-            <c:if test="${footerSavedAsMine}">
-                <div class="alert alert-info" role="status" id="footerSavedAsMine">
-                    <fmt:message key="email.compose.footer.savedAsMine"/></div>
-            </c:if>
-            <c:if test="${footerSavedAsClinic}">
-                <div class="alert alert-info" role="status" id="footerSavedAsClinic">
-                    <fmt:message key="email.compose.footer.savedAsClinic"/></div>
-            </c:if>
-            <c:if test="${footerSaveAsMineStale}">
-                <div class="alert alert-warning" role="alert" id="footerSaveAsMineStale">
-                    <fmt:message key="email.compose.footer.saveAsMineStale"/>
-                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                       class="alert-link ms-1"><fmt:message key="email.compose.footer.reviewMine"/></a>
-                </div>
-            </c:if>
+            <c:if test="${footerSavedAsMine}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedAsMine"/></p></c:if>
+            <c:if test="${footerSavedEmpty}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.savedEmpty"/></p></c:if>
+            <c:if test="${footerSaveAsMineNotDone and (isEmailDeliveryUnconfirmed or portalDeliveryNeedsRecovery)}"><p class="alert alert-info" role="status"><fmt:message key="email.compose.footer.saveAsMineNotDone"/></p></c:if>
             <c:if test="${footerSaveAsMineFailed}">
                 <div class="alert alert-warning" role="alert" id="footerSaveAsMineFailed">
                     <fmt:message key="email.compose.footer.saveAsMineFailed"/>
-                    <a href="${pageContext.request.contextPath}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"
-                       class="alert-link ms-1"><fmt:message key="email.compose.footer.myFooterLink"/></a>
+                    <a href="${ctx}/email/myEmailFooter" target="_blank" rel="noopener noreferrer"><fmt:message key="email.compose.footer.myFooterLink"/></a>
                 </div>
             </c:if>
             <input type="button" class="btn btn-danger btn-md float-end" value="${emailComposeClose}" onclick="window.close();"/>
@@ -945,7 +911,6 @@
             if (document.getElementById('isEmailStatusRecorded').value === 'true'
                     && !document.getElementById('emailFollowUpWarning')
                     && !document.getElementById('footerSaveAsMineFailed')
-                    && !document.getElementById('footerSaveAsMineStale')
                     && !portalDeliveryNeedsRecovery) {
                 // Long enough to read the acceptedNotDeliveredNotice caveat. At 3 seconds the
                 // window closed before anyone could, which made the notice decorative.
@@ -1307,6 +1272,7 @@ function toggleInternalTextArea() {
 }
 
 </script>
+<c:set var="footerEditorPersonalOnly" value="${true}"/>
 <c:set var="footerEditorScopeKey" value="email.footerEditor.scopeThisEmail"/>
 <c:set var="footerEditorApplyKey" value="email.footerEditor.applyThisEmail"/>
 <%@ include file="/WEB-INF/jsp/email/footerEditorModal.jspf" %>

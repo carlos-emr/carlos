@@ -21,58 +21,44 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
-import jakarta.servlet.http.HttpServletRequest;
-
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
 import io.github.carlos_emr.carlos.email.core.EmailFooterService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-/**
- * Shows the logged-in user's email footer page ({@code email/myEmailFooter.jsp}): their own footer
- * or the clinic default they follow, and a notice after a clinic footer change they have not answered.
- * Read only; {@link SaveMyEmailFooter2Action} saves. It needs {@code _email} write, as saving does:
- * a user who cannot send email has no footer to manage, and would only meet Save buttons that fail.
- *
- * @since 2026-10-07
- */
+/** Only the logged-in sender's personal default is editable; clinic content is read-only. */
 public final class ViewMyEmailFooter2Action extends ActionSupport {
-
-    private final SecurityInfoManager securityInfoManager;
-    private final EmailFooterService emailFooterService;
+    private final SecurityInfoManager security;
+    private final EmailFooterService personal;
+    private final ClinicEmailFooterService clinic;
 
     public ViewMyEmailFooter2Action() {
-        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class));
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EmailFooterService.class),
+                SpringUtils.getBean(ClinicEmailFooterService.class));
     }
 
-    // Package-private so tests can supply the collaborators.
-    ViewMyEmailFooter2Action(SecurityInfoManager securityInfoManager, EmailFooterService emailFooterService) {
-        this.securityInfoManager = securityInfoManager;
-        this.emailFooterService = emailFooterService;
+    ViewMyEmailFooter2Action(SecurityInfoManager security, EmailFooterService personal,
+            ClinicEmailFooterService clinic) {
+        this.security = security; this.personal = personal; this.clinic = clinic;
     }
 
     @Override
     public String execute() {
-        HttpServletRequest request = ServletActionContext.getRequest();
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", "w", null)) {
+        var request = ServletActionContext.getRequest();
+        var user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!security.hasPrivilege(user, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
-        exposeSettings(request, emailFooterService.settingsFor(loggedInInfo.getLoggedInProviderNo()));
+        expose(request, personal.ownFooter(user.getLoggedInProviderNo()), clinic);
         return SUCCESS;
     }
 
-    /** The page's request attributes; also used when a save is refused and the page is shown again. */
-    static void exposeSettings(HttpServletRequest request, EmailFooterService.UserFooterSettings settings) {
-        boolean followsClinicDefault = settings.ownFooter() == null;
-        request.setAttribute("followsClinicDefault", followsClinicDefault);
-        request.setAttribute("myFooter", followsClinicDefault ? settings.clinicDefault() : settings.ownFooter());
-        request.setAttribute("clinicFooter", settings.clinicDefault());
-        request.setAttribute("clinicChangeNotice", settings.clinicChangeNotice());
-        // Sent back with a save, so a clinic change made after the page opened is not overwritten.
-        request.setAttribute("clinicFooterShownFingerprint", EmailFooterService.fingerprint(settings.clinicDefault()));
-        request.setAttribute("clinicChangeKeptOwnFooter", settings.keptOwnFooter());
+    static void expose(HttpServletRequest request, String footer, ClinicEmailFooterService clinic) {
+        request.setAttribute("myFooter", footer);
+        ClinicEmailFooterService.expose(request, clinic.snapshot());
     }
 }

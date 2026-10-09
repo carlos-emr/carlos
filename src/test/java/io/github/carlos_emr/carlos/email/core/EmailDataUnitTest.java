@@ -162,11 +162,34 @@ class EmailDataUnitTest {
         emailData.setFooter("<script>alert(1)</script><a href=\"javascript:alert(1)\" onclick=\"x()\">Clinic</a>"
                 + "<img src=\"https://tracker.example/p.gif\"><a href=\"https://clinic.example\">Website</a>");
 
+        assertThat(emailData.getFooter()).contains("<script>");
+        assertThat(emailData.getSentFooter()).isSameAs(emailData.getSentFooter());
         assertThat(emailData.getSentFooter())
                 .isEqualTo("<a>Clinic</a><a href=\"https://clinic.example\">Website</a>")
                 .doesNotContain("script", "javascript", "onclick", "img");
         assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n\nClinicWebsite <https://clinic.example>");
         assertThat(emailData.getTransmittedHtml()).doesNotContain("<script", "javascript:", "tracker.example");
+    }
+
+    @Test
+    @DisplayName("should return an empty footer when direct hydration leaves its field null")
+    void shouldReturnEmptyFooter_whenHydratedFieldNull() {
+        EmailData emailData = new EmailData();
+        org.springframework.test.util.ReflectionTestUtils.setField(emailData, "footer", null);
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getSentFooter()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should clean the footer when derived state is absent in an older object")
+    void shouldRebuildCleanFooter_whenCachedStateAbsent() {
+        EmailData emailData = new EmailData();
+        org.springframework.test.util.ReflectionTestUtils.setField(emailData, "footer", "<script>x()</script><b>Clinic</b>");
+
+        assertThat(emailData.getSentFooter()).isEqualTo("<b>Clinic</b>");
+        assertThat(emailData.getTransmittedHtml()).doesNotContain("<script>");
+        emailData.setFooter("<i>Changed</i>");
+        assertThat(emailData.getSentFooter()).isEqualTo("<i>Changed</i>");
     }
 
     @Test
@@ -238,5 +261,66 @@ class EmailDataUnitTest {
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITH_FULL_NOTE);
         data.setChartDisplayOption((String) null);
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
+    }
+
+    @Test
+    void shouldTransmitPersonalAboveMandatoryClinic_inBothVersions() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.setFooter("<b>Dr Example</b>");
+        data.freezeFooter(new ClinicEmailFooterSnapshot("<i>FAKE Clinic</i>", null));
+        assertThat(data.getTransmittedBody()).isEqualTo("Body\n\nDr Example\n\nFAKE Clinic");
+        assertThat(data.getTransmittedHtml()).containsSubsequence("Body", "<b>Dr Example</b>", "<i>FAKE Clinic</i>");
+        assertThat(data.getSentFooter()).containsSubsequence("Dr Example", "FAKE Clinic");
+    }
+
+    @Test
+    void shouldKeepClinic_whenPersonalFooterIsCleared() {
+        EmailData data = new EmailData();
+        data.setFooter("<b> </b>");
+        data.freezeFooter(new ClinicEmailFooterSnapshot("FAKE Clinic", null));
+        assertThat(data.getSentFooter()).isEqualTo("FAKE Clinic");
+        assertThat(data.getTransmittedBody()).endsWith("FAKE Clinic");
+    }
+
+    @Test
+    void shouldRefuseBlankClinic_evenWhenPersonalExists() {
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        assertThatThrownBy(() -> data.freezeFooter(new ClinicEmailFooterSnapshot("<b> </b>", null)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(data.isFooterFrozen()).isFalse();
+    }
+
+    @Test
+    void shouldFreezeFooterAndDefensivelyCopyLogo() {
+        byte[] bytes = {1, 2, 3};
+        var clinic = new ClinicEmailFooterSnapshot("FAKE Clinic", new EmailInlineImage("logo@test", "image/png", bytes));
+        bytes[0] = 9;
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        data.freezeFooter(clinic);
+        String plain = data.getTransmittedBody();
+        String html = data.getTransmittedHtml();
+        String logged = data.getSentFooter();
+        clinic.logo().bytes()[0] = 8;
+        data.getFooterLogo().bytes()[0] = 7;
+        assertThatThrownBy(() -> data.setFooter("Changed")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> data.setClinicFooterSnapshot(new ClinicEmailFooterSnapshot("Changed", null)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> data.setFooterLogo(null)).isInstanceOf(IllegalStateException.class);
+        assertThat(data.getFooterLogo().bytes()).containsExactly((byte) 1, (byte) 2, (byte) 3);
+        assertThat(data.getTransmittedBody()).isEqualTo(plain);
+        assertThat(data.getTransmittedHtml()).isEqualTo(html);
+        assertThat(data.getSentFooter()).isEqualTo(logged);
+    }
+
+    @Test
+    void shouldRefuseCombinedUtf8Base64Overflow_beforeItIsFrozen() {
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        assertThatThrownBy(() -> data.freezeFooter(new ClinicEmailFooterSnapshot("界".repeat(17_000), null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("storage capacity");
+        assertThat(data.isFooterFrozen()).isFalse();
     }
 }
