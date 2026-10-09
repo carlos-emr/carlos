@@ -39,6 +39,21 @@
     return node;
   }
 
+  // Settled state -> i18n key of the short message written to #cs-announcer.
+  var ANNOUNCE = {
+    OK: 'announceLoaded',
+    EMPTY: 'announceEmpty',
+    NO_ACCESS: 'announceNoAccess',
+    ERROR: 'announceError'
+  };
+
+  /** Replaces {0}, {1}, ... in pattern with args as plain text (no MessageFormat). */
+  function fmt(pattern, args) {
+    return String(pattern || '').replace(/\{(\d)\}/g, function (match, index) {
+      return args[index] !== undefined ? String(args[index]) : match;
+    });
+  }
+
   function init(options) {
     var doc = root.document;
     var cs = root.ChartSpace;
@@ -58,6 +73,10 @@
     var toggle = doc.getElementById('cs-hidden-toggle');
     var panel = doc.getElementById('cs-hidden-panel');
     var closeBtn = doc.getElementById('cs-hidden-close');
+    var panelTitle = doc.getElementById('cs-hidden-title');
+    // One page-level polite status region (WCAG 4.1.3). Cards are not live
+    // regions, so each settle is announced once, with the block title.
+    var announcer = doc.getElementById('cs-announcer');
     var statuses = {};
     var cards = {};
     var bodies = {};
@@ -66,11 +85,9 @@
       var card = el('article', 'cs-block');
       card.setAttribute('data-block', id);
       card.setAttribute('data-state', 'LOADING');
+      card.setAttribute('aria-busy', 'true');
       card.appendChild(el('h3', 'cs-block-title', titles[id] || ''));
       var body = el('div', 'cs-block-body');
-      // Announce loading/empty/error transitions to assistive technology.
-      body.setAttribute('role', 'status');
-      body.setAttribute('aria-live', 'polite');
       body.appendChild(el('p', 'cs-state cs-state-loading', i18n.msgLoading || ''));
       card.appendChild(body);
       cards[id] = card;
@@ -122,6 +139,18 @@
       }
     }
 
+    // Records the settled state, re-places the cards and announces the change.
+    // With several blocks, the last one to settle overwrites the message.
+    function settle(id, state, count) {
+      statuses[id] = state;
+      cards[id].setAttribute('data-state', state);
+      cards[id].removeAttribute('aria-busy');
+      place();
+      if (announcer) {
+        announcer.textContent = fmt(i18n[ANNOUNCE[state]], [titles[id] || '', count]);
+      }
+    }
+
     place();
 
     ids.forEach(function (id) {
@@ -129,24 +158,27 @@
       block.load(options.contextPath, options.demographicNo).then(function (json) {
         var vm = block.toViewModel(json);
         block.render(bodies[id], vm, i18n);
-        statuses[id] = vm.state;
-        cards[id].setAttribute('data-state', vm.state);
-        place();
+        settle(id, vm.state, vm.items.length);
       }).catch(function () {
         // A failed load, view-model or render must never leave the card in LOADING.
         while (bodies[id].firstChild) {
           bodies[id].removeChild(bodies[id].firstChild);
         }
         bodies[id].appendChild(el('p', 'cs-state cs-state-error', i18n.msgError || ''));
-        statuses[id] = 'ERROR';
-        cards[id].setAttribute('data-state', 'ERROR');
-        place();
+        settle(id, 'ERROR', 0);
       });
     });
 
     toggle.addEventListener('click', function () {
-      if (!toggle.disabled) {
-        setOpen(!isOpen());
+      if (toggle.disabled) {
+        return;
+      }
+      var opening = !isOpen();
+      setOpen(opening);
+      // Opening moves focus into the panel (keeps it in view on narrow screens);
+      // closing with the toggle leaves focus on the toggle itself.
+      if (opening && panelTitle) {
+        panelTitle.focus();
       }
     });
     closeBtn.addEventListener('click', function () {

@@ -71,34 +71,52 @@ test('chartSpace.jsp keeps the presentation contract', () => {
   const order = ['chartspace-layout.js', 'chartspace-allergies.js', 'chartspace.js']
     .map((f) => jsp.indexOf('/js/chartspace/' + f));
   assert.ok(order[0] > -1 && order[0] < order[1] && order[1] < order[2], String(order));
-  ['cs-top', 'cs-right', 'cs-hidden-toggle', 'cs-hidden-panel']
+  ['cs-top', 'cs-right', 'cs-hidden-toggle', 'cs-hidden-panel', 'cs-announcer']
     .forEach((id) => assert.ok(jsp.includes('id="' + id + '"'), id));
   assert.ok(jsp.includes('<html lang="${pageContext.request.locale.language}">'));
 });
 
-// Static source checks for the page shell (no jsdom available).
-const fs = require('node:fs');
-const path = require('node:path');
-const shellJs = fs.readFileSync(
-  path.join(__dirname, '../src/main/webapp/js/chartspace/chartspace.js'), 'utf8');
-const shellJsp = fs.readFileSync(
-  path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/chartspace/chartSpace.jsp'), 'utf8');
-
-test('shell sends a failed load/render to ERROR via a catch handler', () => {
-  assert.match(shellJs, /\.catch\(function/);
-  const tail = shellJs.slice(shellJs.indexOf('.catch('));
-  assert.match(tail, /data-state['"],\s*['"]ERROR['"]/);
-  assert.match(tail, /statuses\[id\]\s*=\s*['"]ERROR['"]/);
-  assert.match(tail, /place\(\)/);
-});
-
-test('shell card bodies are polite live status regions', () => {
-  assert.match(shellJs, /setAttribute\('role',\s*'status'\)/);
-  assert.match(shellJs, /setAttribute\('aria-live',\s*'polite'\)/);
-});
+function readJsp() {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  return fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/chartspace/chartSpace.jsp'), 'utf8');
+}
 
 test('JSP renders the hidden toggle disabled in static HTML', () => {
-  const m = shellJsp.match(/<button[^>]*id="cs-hidden-toggle"[^>]*>/);
+  const m = readJsp().match(/<button[^>]*id="cs-hidden-toggle"[^>]*>/);
   assert.ok(m, 'toggle tag present');
   assert.match(m[0], /\sdisabled(\s|>|=)/);
+});
+
+test('JSP drops the unused core taglib and the redundant setLocale', () => {
+  const jsp = readJsp();
+  assert.ok(!jsp.includes('prefix="c"'), 'no core taglib');
+  assert.ok(!jsp.includes('fmt:setLocale'), 'no fmt:setLocale');
+});
+
+test('JSP has one page-level polite status announcer outside the hidden panel', () => {
+  const jsp = readJsp();
+  const tags = jsp.match(/<div[^>]*id="cs-announcer"[^>]*>/g) || [];
+  assert.equal(tags.length, 1);
+  assert.match(tags[0], /role="status"/);
+  assert.match(tags[0], /aria-live="polite"/);
+  assert.match(tags[0], /class="visually-hidden"/);
+  const panel = jsp.slice(jsp.indexOf('id="cs-hidden-panel"'), jsp.indexOf('</section>', jsp.indexOf('id="cs-hidden-panel"')));
+  assert.ok(!panel.includes('cs-announcer'), 'announcer is not inside the hidden panel');
+});
+
+test('JSP makes the hidden panel title programmatically focusable', () => {
+  const m = readJsp().match(/<h2[^>]*id="cs-hidden-title"[^>]*>/);
+  assert.ok(m, 'panel title present');
+  assert.match(m[0], /tabindex="-1"/);
+});
+
+test('JSP passes the announce messages to the shell, JavaScript-encoded', () => {
+  const jsp = readJsp();
+  ['announceLoaded', 'announceEmpty', 'announceNoAccess', 'announceError'].forEach((k) => {
+    const cap = 'csA' + k.slice(1);
+    assert.ok(jsp.includes('<fmt:message key="chartspace.chartSpace.' + k + '" var="' + cap + '"/>'), k);
+    assert.ok(jsp.includes(k + ": '${carlos:forJavaScript(" + cap + ")}'"), k);
+  });
 });

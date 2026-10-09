@@ -99,7 +99,73 @@ test('load encodes the demographic id in the query string', async () => {
   assert.equal(url, '/carlos/encounter/chartspace/allergies?demographicNo=2%26x%3D1');
 });
 
-test('render never writes markup: no innerHTML-style sinks in the source', () => {
+// Behavioural render tests: load the block against the fake DOM. The module
+// captures `window` as its root at require time, so it is re-required fresh.
+const { FakeDocument, byTag, byClass } = require('./chartspace-fake-dom.js');
+
+function withDom(fn) {
+  const doc = new FakeDocument();
+  global.window = { document: doc };
+  delete require.cache[require.resolve(SOURCE_PATH)];
+  try {
+    return fn(require(SOURCE_PATH), doc);
+  } finally {
+    delete global.window;
+    delete require.cache[require.resolve(SOURCE_PATH)];
+  }
+}
+
+const I18N = {
+  msgEmpty: 'No records',
+  msgNoAccess: 'You do not have access to this section',
+  msgError: 'This section could not be loaded',
+  severity: { severe: 'Severe', moderate: 'Moderate', mild: 'Mild', none: 'No reaction', unknown: 'Unknown severity' }
+};
+
+test('render shows a markup-looking description as text and never creates elements from it', () => {
+  withDom((block, doc) => {
+    const body = doc.createElement('div');
+    const payload = '<img src=x onerror=alert(1)>';
+    block.render(body, block.toViewModel({
+      status: 'OK', items: [{ description: payload, severityCode: '3', reaction: '<b>x</b>', startDate: '' }]
+    }), I18N);
+    const name = byClass(body, 'cs-allergy-name');
+    assert.equal(name.length, 1);
+    assert.equal(name[0].textContent, payload);
+    assert.equal(byClass(body, 'cs-allergy-reaction')[0].textContent, '<b>x</b>');
+    assert.equal(byTag(body, 'img').length, 0);
+    assert.equal(byTag(body, 'b').length, 0);
+  });
+});
+
+test('render gives every row its severity as a text label', () => {
+  withDom((block, doc) => {
+    const body = doc.createElement('div');
+    block.render(body, block.toViewModel({
+      status: 'OK',
+      items: ['3', '2', '1', '5', '9'].map((code) => ({ description: 'd' + code, severityCode: code }))
+    }), I18N);
+    const rows = byTag(body, 'li');
+    assert.equal(rows.length, 5);
+    assert.deepEqual(rows.map((r) => byClass(r, 'cs-sev')[0].textContent),
+      ['Severe', 'Moderate', 'Mild', 'No reaction', 'Unknown severity']);
+  });
+});
+
+test('render replaces previous content and shows NO_ACCESS as text with a decorative icon', () => {
+  withDom((block, doc) => {
+    const body = doc.createElement('div');
+    body.textContent = 'Loading…';
+    block.render(body, { state: 'NO_ACCESS', items: [] }, I18N);
+    assert.equal(body.textContent, I18N.msgNoAccess);
+    const icons = byClass(body, 'cs-icon');
+    assert.equal(icons.length, 1);
+    assert.equal(icons[0].getAttribute('aria-hidden'), 'true');
+    assert.equal(byClass(body, 'cs-state-no-access').length, 1);
+  });
+});
+
+test('render source uses no innerHTML-style sinks (secondary static check)', () => {
   const source = fs.readFileSync(SOURCE_PATH, 'utf8');
   ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach((sink) => {
     assert.ok(!source.includes(sink), `source must not use ${sink}`);

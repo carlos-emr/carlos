@@ -32,11 +32,9 @@
   @since 2026-10-09
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
-<fmt:setLocale value="${pageContext.request.locale}"/>
 <fmt:message key="chartspace.chartSpace.title" var="csTitle"/>
 <fmt:message key="chartspace.chartSpace.sectionTop" var="csSectionTop"/>
 <fmt:message key="chartspace.chartSpace.sectionRight" var="csSectionRight"/>
@@ -54,6 +52,12 @@
 <fmt:message key="chartspace.chartSpace.labelSeverityMild" var="csSevMild"/>
 <fmt:message key="chartspace.chartSpace.labelSeverityNone" var="csSevNone"/>
 <fmt:message key="chartspace.chartSpace.labelSeverityUnknown" var="csSevUnknown"/>
+<%-- No <fmt:param>: JSTL returns these patterns verbatim (no MessageFormat), and
+     chartspace.js substitutes {0} (block title) and {1} (record count) as text. --%>
+<fmt:message key="chartspace.chartSpace.announceLoaded" var="csAnnounceLoaded"/>
+<fmt:message key="chartspace.chartSpace.announceEmpty" var="csAnnounceEmpty"/>
+<fmt:message key="chartspace.chartSpace.announceNoAccess" var="csAnnounceNoAccess"/>
+<fmt:message key="chartspace.chartSpace.announceError" var="csAnnounceError"/>
 <!DOCTYPE html>
 <html lang="${pageContext.request.locale.language}">
 <head>
@@ -88,13 +92,18 @@
 <section id="cs-hidden-panel" class="cs-hidden-panel" role="region"
          aria-labelledby="cs-hidden-title" hidden>
     <div class="cs-hidden-head">
-        <h2 id="cs-hidden-title" class="h6 mb-0"><carlos:encode value="${csSectionHidden}"/></h2>
+        <h2 id="cs-hidden-title" class="h6 mb-0" tabindex="-1"><carlos:encode value="${csSectionHidden}"/></h2>
         <button type="button" id="cs-hidden-close" class="btn btn-sm btn-outline-secondary">
             <carlos:encode value="${csBtnClose}"/>
         </button>
     </div>
     <div id="cs-hidden-body" class="cs-hidden-body"></div>
 </section>
+
+<%-- The single page-level status region: chartspace.js writes one short message
+     per settled block. Kept outside the cards and the hidden panel so it is
+     never hidden or moved. --%>
+<div id="cs-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
 
 <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
 <script src="${pageContext.request.contextPath}/js/chartspace/chartspace-layout.js"></script>
@@ -112,6 +121,10 @@
                 msgEmpty: '${carlos:forJavaScript(csMsgEmpty)}',
                 msgNoAccess: '${carlos:forJavaScript(csMsgNoAccess)}',
                 msgError: '${carlos:forJavaScript(csMsgError)}',
+                announceLoaded: '${carlos:forJavaScript(csAnnounceLoaded)}',
+                announceEmpty: '${carlos:forJavaScript(csAnnounceEmpty)}',
+                announceNoAccess: '${carlos:forJavaScript(csAnnounceNoAccess)}',
+                announceError: '${carlos:forJavaScript(csAnnounceError)}',
                 titles: {allergies: '${carlos:forJavaScript(csTitleAllergies)}'},
                 severity: {
                     severe: '${carlos:forJavaScript(csSevSevere)}',

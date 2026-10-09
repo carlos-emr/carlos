@@ -1,4 +1,4 @@
-/*
+/**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
@@ -69,7 +69,7 @@
 #cs-hidden-panel .btn:focus-visible,
 #cs-hidden-panel button:focus-visible,
 .cs-block .btn:focus-visible,
-.cs-block a:focus-visible { outline: 2px solid #0b5ed7; outline-offset: 2px; }
+.cs-block a:focus-visible { outline: 3px solid #0b5ed7; outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
