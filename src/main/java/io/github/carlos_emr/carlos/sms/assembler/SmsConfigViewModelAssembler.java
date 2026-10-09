@@ -88,6 +88,14 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assemble(String resultCode, List<String> errorKeys) {
+        return assemble(resultCode, errorKeys, true);
+    }
+
+    /**
+     * @param readinessWarning whether to warn that the stored provider can't send; off for a rejected save, whose
+     *                         own errors already say what is missing and whose form may name another provider
+     */
+    private SmsConfigViewModel assemble(String resultCode, List<String> errorKeys, boolean readinessWarning) {
         Optional<SmsConfig> stored = configService.current();
         List<String> messageKeys = new ArrayList<>(errorKeys == null ? List.of() : errorKeys);
         SmsProviderType providerType;
@@ -105,8 +113,14 @@ public class SmsConfigViewModelAssembler {
         if (stored.isPresent() && !credentialsReadable(stored.get())) {
             // The page still opens, so the administrator can enter the credentials again and save.
             messageKeys.add("sms.config.error.credentialsUnreadable");
+        } else if (readinessWarning && !messageKeys.contains("sms.config.error.invalidPropertyProvider")
+                && !messageKeys.contains(PROVIDER_NOT_READY)
+                && stored.map(SmsConfig::isEnabled).orElse(true) && !configService.providerReady(providerType)) {
+            // Sends and queueing are refused while the provider isn't ready, for example after an upgrade adds a
+            // required credential, or while sms.provider.default names a provider and nothing is saved. Say so
+            // here, not only in the log.
+            messageKeys.add(PROVIDER_NOT_READY);
         }
-        addReadinessWarning(providerType, messageKeys);
         boolean schedulerRunning = scheduler.isRunning();
         List<SmsConfigViewModel.CredentialField> credentialFields = credentialFields(providerType, stored.orElse(null));
         return new SmsConfigViewModel(
@@ -139,7 +153,7 @@ public class SmsConfigViewModelAssembler {
      * @return the page model
      */
     public SmsConfigViewModel assembleRejected(SmsConfigUpdateDto submitted, List<String> errorKeys) {
-        SmsConfigViewModel page = assemble(null, errorKeys);
+        SmsConfigViewModel page = assemble(null, errorKeys, false);
         if (submitted == null) {
             return page;
         }
@@ -150,9 +164,6 @@ public class SmsConfigViewModelAssembler {
                 : page.providerType();
         List<SmsConfigViewModel.CredentialField> credentialFields =
                 credentialFields(SmsProviderType.valueOf(providerType), configService.current().orElse(null));
-        List<String> messageKeys = new ArrayList<>(page.errorKeys());
-        messageKeys.remove(PROVIDER_NOT_READY);
-        addReadinessWarning(SmsProviderType.valueOf(providerType), messageKeys);
         return new SmsConfigViewModel(
                 providerType,
                 page.providerOptions(),
@@ -166,15 +177,9 @@ public class SmsConfigViewModelAssembler {
                 page.stored(),
                 page.systemTestEnabled(),
                 "",
-                messageKeys,
+                page.errorKeys(),
                 submitted.expectedVersion() == null ? "" : String.valueOf(submitted.expectedVersion())
         );
-    }
-
-    private void addReadinessWarning(SmsProviderType providerType, List<String> messageKeys) {
-        if (!configService.providerReady(providerType) && !messageKeys.contains(PROVIDER_NOT_READY)) {
-            messageKeys.add(PROVIDER_NOT_READY);
-        }
     }
 
     private Map<String, List<SmsConfigViewModel.CredentialField>> credentialGroups(SmsConfig stored) {
